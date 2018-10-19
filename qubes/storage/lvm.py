@@ -18,7 +18,7 @@
 #
 
 ''' Driver for storing vm images in a LVM thin pool '''
-
+import functools
 import logging
 import os
 import subprocess
@@ -195,26 +195,14 @@ class ThinPool(qubes.storage.Pool):
             return 0
 
 
-def init_cache(log=logging.getLogger('qubes.storage.lvm')):
-    cmd = ['lvs', '--noheadings', '-o',
-           'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
-           '--units', 'b', '--separator', ';']
-    if os.getuid() != 0:
-        cmd.insert(0, 'sudo')
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True, env=environ)
-    out, err = p.communicate()
-    return_code = p.returncode
-    if return_code == 0 and err:
-        log.warning(err)
-    elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
+_init_cache_cmd = ['lvs', '--noheadings', '-o',
+   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
+   '--units', 'b', '--separator', ';']
 
+def _parse_lvm_cache(lvm_output):
     result = {}
 
-    for line in out.splitlines():
+    for line in lvm_output.splitlines():
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
             origin = line.split(';', 6)
@@ -228,6 +216,42 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
 
     return result
 
+def init_cache(log=logging.getLogger('qubes.storage.lvm')):
+    cmd = _init_cache_cmd
+    if os.getuid() != 0:
+        cmd.insert(0, 'sudo')
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True, env=environ)
+    out, err = p.communicate()
+    return_code = p.returncode
+    if return_code == 0 and err:
+        log.warning(err)
+    elif return_code != 0:
+        raise qubes.storage.StoragePoolException(err)
+
+    return _parse_lvm_cache(out)
+
+@asyncio.coroutine
+def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
+    cmd = _init_cache_cmd
+    if os.getuid() != 0:
+        cmd = ['sudo'] + cmd
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = yield from asyncio.create_subprocess_exec(*cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=True, env=environ)
+    out, err = yield from p.communicate()
+    return_code = p.returncode
+    if return_code == 0 and err:
+        log.warning(err)
+    elif return_code != 0:
+        raise qubes.storage.StoragePoolException(err)
+
+    return _parse_lvm_cache(out)
 
 size_cache = init_cache()
 
@@ -243,6 +267,21 @@ def _revision_sort_key(revision):
         revision = revision.split('-')[0]
     return int(revision)
 
+def locked(method):
+    '''Decorator running given Volume's coroutine under a lock.
+    Needs to be added after wrapping with @asyncio.coroutine, for example:
+
+    >>>@locked
+    >>>@asyncio.coroutine
+    >>>def start(self):
+    >>>    pass
+    '''
+    @asyncio.coroutine
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with (yield from self._lock):  # pylint: disable=protected-access
+            return (yield from method(self, *args, **kwargs))
+    return wrapper
 
 class ThinVolume(qubes.storage.Volume):
     ''' Default LVM thin volume implementation
@@ -260,6 +299,7 @@ class ThinVolume(qubes.storage.Volume):
             self._vid_import = self.vid + '-import'
 
         self._size = size
+        self._lock = asyncio.Lock()
 
     @property
     def path(self):
@@ -307,6 +347,7 @@ class ThinVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             "You shouldn't use lvm size setter")
 
+    @asyncio.coroutine
     def _reset(self):
         ''' Resets a volatile volume '''
         assert not self.snap_on_start and not self.save_on_stop, \
@@ -314,14 +355,15 @@ class ThinVolume(qubes.storage.Volume):
         self.log.debug('Resetting volatile %s', self.vid)
         try:
             cmd = ['remove', self.vid]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
         except qubes.storage.StoragePoolException:
             pass
         # pylint: disable=protected-access
         cmd = ['create', self.pool._pool_id, self.vid.split('/')[1],
                str(self.size)]
-        qubes_lvm(cmd, self.log)
+        yield from qubes_lvm_coro(cmd, self.log)
 
+    @asyncio.coroutine
     def _remove_revisions(self, revisions=None):
         '''Remove old volume revisions.
 
@@ -342,10 +384,11 @@ class ThinVolume(qubes.storage.Volume):
             assert rev_id != self._vid_current
             try:
                 cmd = ['remove', self.vid + '-' + rev_id]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
             except qubes.storage.StoragePoolException:
                 pass
 
+    @asyncio.coroutine
     def _commit(self, vid_to_commit=None, keep=False):
         '''
         Commit temporary volume into current one. By default
@@ -368,8 +411,7 @@ class ThinVolume(qubes.storage.Volume):
             assert hasattr(self, '_vid_snap')
             vid_to_commit = self._vid_snap
 
-        # TODO: when converting this function to coroutine, this _must_ be
-        # under a lock
+        assert self._lock.locked()
         if not os.path.exists('/dev/' + vid_to_commit):
             # nothing to commit
             return
@@ -377,21 +419,23 @@ class ThinVolume(qubes.storage.Volume):
         if self._vid_current == self.vid:
             cmd = ['rename', self.vid,
                    '{}-{}-back'.format(self.vid, int(time.time()))]
-            qubes_lvm(cmd, self.log)
-            reset_cache()
+            yield from qubes_lvm_coro(cmd, self.log)
+            yield from reset_cache_coro()
 
         cmd = ['clone' if keep else 'rename',
                vid_to_commit,
                self.vid]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
+        yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
         # make sure the one we've committed right now is properly
         # detected as the current one - before removing anything
         assert self._vid_current == self.vid
 
         # and remove old snapshots, if needed
-        self._remove_revisions()
+        yield from self._remove_revisions()
 
+    @locked
+    @asyncio.coroutine
     def create(self):
         assert self.vid
         assert self.size
@@ -405,32 +449,34 @@ class ThinVolume(qubes.storage.Volume):
                     self.vid.split('/', 1)[1],
                     str(self.size)
                 ]
-            qubes_lvm(cmd, self.log)
-            reset_cache()
+            yield from qubes_lvm_coro(cmd, self.log)
+            yield from reset_cache_coro()
         return self
 
+    @locked
+    @asyncio.coroutine
     def remove(self):
         assert self.vid
         try:
             if os.path.exists('/dev/' + self._vid_snap):
                 cmd = ['remove', self._vid_snap]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
         try:
             if os.path.exists('/dev/' + self._vid_import):
                 cmd = ['remove', self._vid_import]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
-        self._remove_revisions(self.revisions.keys())
+        yield from self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
         cmd = ['remove', self.path]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
+        yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
         # pylint: disable=protected-access
         self.pool._volume_objects_cache.pop(self.vid, None)
 
@@ -441,6 +487,7 @@ class ThinVolume(qubes.storage.Volume):
         devpath = self.path
         return devpath
 
+    @locked
     @asyncio.coroutine
     def import_volume(self, src_volume):
         if not src_volume.save_on_stop:
@@ -456,13 +503,13 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=line-too-long
         if isinstance(src_volume.pool, ThinPool) and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
-            self._commit(src_volume.path[len('/dev/'):], keep=True)
+            yield from self._commit(src_volume.path[len('/dev/'):], keep=True)
         else:
             cmd = ['create',
                    self.pool._pool_id,  # pylint: disable=protected-access
                    self._vid_import.split('/')[1],
                    str(src_volume.size)]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
             src_path = src_volume.export()
             cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
                 'conv=sparse', 'status=none']
@@ -474,14 +521,16 @@ class ThinVolume(qubes.storage.Volume):
             yield from p.wait()
             if p.returncode != 0:
                 cmd = ['remove', self._vid_import]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
                 raise qubes.storage.StoragePoolException(
                     'Failed to import volume {!r}, dd exit code: {}'.format(
                         src_volume, p.returncode))
-            self._commit(self._vid_import)
+            yield from self._commit(self._vid_import)
 
         return self
 
+    @locked
+    @asyncio.coroutine
     def import_data(self):
         ''' Returns an object that can be `open()`. '''
         if self.is_dirty():
@@ -492,21 +541,23 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=protected-access
         cmd = ['create', self.pool._pool_id, self._vid_import.split('/')[1],
                str(self.size)]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
+        yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
         devpath = '/dev/' + self._vid_import
         return devpath
 
+    @locked
+    @asyncio.coroutine
     def import_data_end(self, success):
         '''Either commit imported data, or discard temporary volume'''
         if not os.path.exists('/dev/' + self._vid_import):
             raise qubes.storage.StoragePoolException(
                 'No import operation in progress on {}'.format(self.vid))
         if success:
-            self._commit(self._vid_import)
+            yield from self._commit(self._vid_import)
         else:
             cmd = ['remove', self._vid_import]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
 
     def abort_if_import_in_progress(self):
         try:
@@ -531,6 +582,8 @@ class ThinVolume(qubes.storage.Volume):
         return (size_cache[self._vid_snap]['origin'] !=
                self.source.path.split('/')[-1])
 
+    @locked
+    @asyncio.coroutine
     def revert(self, revision=None):
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
@@ -547,12 +600,14 @@ class ThinVolume(qubes.storage.Volume):
 
         if self.vid in size_cache:
             cmd = ['remove', self.vid]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
         cmd = ['clone', self.vid + '-' + revision, self.vid]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
+        yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
         return self
 
+    @locked
+    @asyncio.coroutine
     def resize(self, size):
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
@@ -574,20 +629,21 @@ class ThinVolume(qubes.storage.Volume):
 
         if self.is_dirty():
             cmd = ['extend', self._vid_snap, str(size)]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, '_vid_import') and \
                 os.path.exists('/dev/' + self._vid_import):
             cmd = ['extend', self._vid_import, str(size)]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
         elif self.save_on_stop or not self.snap_on_start:
             cmd = ['extend', self._vid_current, str(size)]
-            qubes_lvm(cmd, self.log)
-        reset_cache()
+            yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
 
+    @asyncio.coroutine
     def _snapshot(self):
         try:
             cmd = ['remove', self._vid_snap]
-            qubes_lvm(cmd, self.log)
+            yield from qubes_lvm_coro(cmd, self.log)
         except:  # pylint: disable=bare-except
             pass
 
@@ -595,32 +651,36 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self._vid_current, self._vid_snap]
         else:
             cmd = ['clone', self.source.path, self._vid_snap]
-        qubes_lvm(cmd, self.log)
+        yield from qubes_lvm_coro(cmd, self.log)
 
+    @locked
+    @asyncio.coroutine
     def start(self):
         self.abort_if_import_in_progress()
         try:
             if self.snap_on_start or self.save_on_stop:
                 if not self.save_on_stop or not self.is_dirty():
-                    self._snapshot()
+                    yield from self._snapshot()
             else:
-                self._reset()
+                yield from self._reset()
         finally:
-            reset_cache()
+            yield from reset_cache_coro()
         return self
 
+    @locked
+    @asyncio.coroutine
     def stop(self):
         try:
             if self.save_on_stop:
-                self._commit()
+                yield from self._commit()
             if self.snap_on_start and not self.save_on_stop:
                 cmd = ['remove', self._vid_snap]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
             elif not self.snap_on_start and not self.save_on_stop:
                 cmd = ['remove', self.vid]
-                qubes_lvm(cmd, self.log)
+                yield from qubes_lvm_coro(cmd, self.log)
         finally:
-            reset_cache()
+            yield from reset_cache_coro()
         return self
 
     def verify(self):
@@ -671,9 +731,14 @@ def pool_exists(pool_id):
     except KeyError:
         return False
 
+def _get_lvm_cmdline(cmd):
+    ''' Build command line for :program:`lvm` call.
+    The purpose of this function is to keep all the detailed lvm options in
+    one place.
 
-def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
-    ''' Call :program:`lvm` to execute an LVM operation '''
+    :param cmd: array of str, where cmd[0] is action and the rest are arguments
+    :return array of str appropriate for subprocess.Popen
+    '''
     action = cmd[0]
     if action == 'remove':
         lvm_cmd = ['lvremove', '-f', cmd[1]]
@@ -698,28 +763,57 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         cmd = ['sudo', 'lvm'] + lvm_cmd
     else:
         cmd = ['lvm'] + lvm_cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True, env=environ)
-    out, err = p.communicate()
-    err = err.decode()
+
+    return cmd
+
+def _process_lvm_output(returncode, stdout, stderr, log):
+    '''Process output of LVM, determine if the call was successful and
+    possibly log warnings.'''
     # Filter out warning about intended over-provisioning.
     # Upstream discussion about missing option to silence it:
     # https://bugzilla.redhat.com/1347008
-    err = '\n'.join(line for line in err.splitlines()
+    err = '\n'.join(line for line in stderr.decode().splitlines()
         if 'exceeds the size of thin pool' not in line)
-    return_code = p.returncode
-    if out:
-        log.debug(out)
-    if return_code == 0 and err:
+    if stdout:
+        log.debug(stdout)
+    if returncode == 0 and err:
         log.warning(err)
-    elif return_code != 0:
+    elif returncode != 0:
         assert err, "Command exited unsuccessful, but printed nothing to stderr"
         err = err.replace('%', '%%')
         raise qubes.storage.StoragePoolException(err)
     return True
 
+def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
+    ''' Call :program:`lvm` to execute an LVM operation '''
+    # the only caller for this non-coroutine version is ThinVolume.export()
+    cmd = _get_lvm_cmdline(cmd)
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True, env=environ)
+    out, err = p.communicate()
+    return _process_lvm_output(p.returncode, out, err, log)
+
+@asyncio.coroutine
+def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
+    ''' Call :program:`lvm` to execute an LVM operation
+
+    Coroutine version of :py:func:`qubes_lvm`'''
+    cmd = _get_lvm_cmdline(cmd)
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = yield from asyncio.create_subprocess_exec(*cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=True, env=environ)
+    out, err = yield from p.communicate()
+    return _process_lvm_output(p.returncode, out, err, log)
+
 
 def reset_cache():
     qubes.storage.lvm.size_cache = init_cache()
+
+@asyncio.coroutine
+def reset_cache_coro():
+    qubes.storage.lvm.size_cache = yield from init_cache_coro()
