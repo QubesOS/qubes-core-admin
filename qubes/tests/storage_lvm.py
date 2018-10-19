@@ -946,26 +946,27 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
         vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM, name=name,
                             label='red')
         vm.clone_properties(template_vm)
-        vm.clone_disk_files(template_vm, pool='test-lvm')
+        self.loop.run_until_complete(
+            vm.clone_disk_files(template_vm, pool=self.pool.name))
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
                 expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
-            vm.start()
+            self.loop.run_until_complete(vm.start())
 
     def test_005_create_appvm(self):
         vm = self.app.add_new_vm(cls=qubes.vm.appvm.AppVM,
                                  name=self.make_vm_name('appvm'), label='red')
-        vm.create_on_disk(pool='test-lvm')
+        self.loop.run_until_complete(vm.create_on_disk(pool=self.pool.name))
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
                 expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
-            vm.start()
+            self.loop.run_until_complete(vm.start())
 
 @skipUnlessLvmPoolExists
 class TC_02_StorageHelpers(ThinPoolBase):
