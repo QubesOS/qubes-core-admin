@@ -725,6 +725,12 @@ class Qubes(qubes.PropertyHolder):
         doc='''Default time in seconds after which qrexec connection attempt is
             deemed failed''')
 
+    default_shutdown_timeout = qubes.property('default_shutdown_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc='''Default time in seconds for VM shutdown to complete''')
+
     stats_interval = qubes.property('stats_interval',
         default=3,
         type=int,

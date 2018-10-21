@@ -517,6 +517,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             failed. Operating system inside VM should be able to boot in this
             time.''')
 
+    shutdown_timeout = qubes.property('shutdown_timeout', type=int,
+        default=_default_with_template('shutdown_timeout',
+            lambda self: self.app.default_shutdown_timeout),
+        setter=_setter_positive_int,
+        doc='''Time in seconds for shutdown of the VM, after which VM may be
+            forcefully powered off. Operating system inside VM should be
+            able to fully shutdown in this time.''')
+
     autostart = qubes.property('autostart', default=False,
         type=bool, setter=qubes.property.bool,
         doc='''Setting this to `True` means that VM should be autostarted on
@@ -1055,9 +1063,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.name)
 
     @asyncio.coroutine
-    def shutdown(self, force=False, wait=False):
+    def shutdown(self, force=False, wait=False, timeout=None):
         '''Shutdown domain.
 
+        :param force: ignored
+        :param wait: wait for shutdown to complete
+        :param timeout: shutdown wait timeout (for *wait*=True), defaults to
+        :py:attr:`shutdown_timeout`
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         '''
@@ -1070,8 +1082,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.libvirt_domain.shutdown()
 
-        while wait and not self.is_halted():
-            yield from asyncio.sleep(0.25)
+        if wait:
+            if timeout is None:
+                timeout = self.shutdown_timeout
+            while timeout > 0 and not self.is_halted():
+                yield from asyncio.sleep(0.25)
+                timeout -= 0.25
+            if not self.is_halted():
+                raise qubes.exc.QubesVMShutdownTimeoutError(self)
 
         return self
 

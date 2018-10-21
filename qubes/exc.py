@@ -101,6 +101,14 @@ class QubesVMNotHaltedError(QubesVMError):
         super(QubesVMNotHaltedError, self).__init__(vm,
             msg or 'Domain is not powered off: {!r}'.format(vm.name))
 
+class QubesVMShutdownTimeoutError(QubesVMError):
+    '''Domain shutdown timed out.
+
+    '''
+    def __init__(self, vm, msg=None):
+        super(QubesVMShutdownTimeoutError, self).__init__(vm,
+            msg or 'Domain shutdown timed out: {!r}'.format(vm.name))
+
 
 class QubesNoTemplateError(QubesVMError):
     '''Cannot start domain, because there is no template'''
