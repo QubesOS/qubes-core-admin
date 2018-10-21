@@ -1070,15 +1070,12 @@ class SystemTestCase(QubesTestCase):
         subprocess.check_call(command)
 
     def shutdown_and_wait(self, vm, timeout=60):
-        self.loop.run_until_complete(vm.shutdown())
-        while timeout > 0:
-            if not vm.is_running():
-                return
-            self.loop.run_until_complete(asyncio.sleep(1))
-            timeout -= 1
-        name = vm.name
-        del vm
-        self.fail("Timeout while waiting for VM {} shutdown".format(name))
+        try:
+            self.loop.run_until_complete(vm.shutdown(wait=True, timeout=timeout))
+        except qubes.exc.QubesException:
+            name = vm.name
+            del vm
+            self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
         if not os.path.exists('/usr/lib/grub/i386-pc'):
