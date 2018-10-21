@@ -115,6 +115,26 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
+    def test_130_autostart_disable_on_remove(self):
+        vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm'),
+            template=self.app.default_template,
+            label='red')
+
+        self.assertIsNotNone(vm)
+        self.loop.run_until_complete(vm.create_on_disk())
+        vm.autostart = True
+        self.assertTrue(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)),
+            "systemd service not enabled by autostart=True")
+        del self.app.domains[vm]
+        self.loop.run_until_complete(vm.remove_from_disk())
+        self.assertFalse(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)),
+            "systemd service not disabled on domain remove")
+
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
         '''Simulate domain crash just after startup'''
         vm.libvirt_domain.destroy()
