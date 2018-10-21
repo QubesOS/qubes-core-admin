@@ -790,13 +790,6 @@ class SystemTestCase(QubesTestCase):
         app = vm.app
 
         try:
-            # XXX .is_running() may throw libvirtError if undefined
-            if vm.is_running():
-                self.loop.run_until_complete(vm.kill())
-        except:  # pylint: disable=bare-except
-            pass
-
-        try:
             self.loop.run_until_complete(vm.remove_from_disk())
         except:  # pylint: disable=bare-except
             pass
@@ -876,18 +869,36 @@ class SystemTestCase(QubesTestCase):
         vms = list(vms)
         if not vms:
             return
+        # first kill all the domains, to avoid side effects of changing netvm
+        for vm in vms:
+            try:
+                # XXX .is_running() may throw libvirtError if undefined
+                if vm.is_running():
+                    self.loop.run_until_complete(vm.kill())
+            except:  # pylint: disable=bare-except
+                pass
         # break dependencies
         for vm in vms:
             vm.default_dispvm = None
-        # then remove in reverse topological order (wrt netvm), using naive
+            vm.netvm = None
+        # take app instance from any VM to be removed
+        app = vms[0].app
+        if app.default_dispvm in vms:
+            app.default_dispvm = None
+        if app.default_netvm in vms:
+            app.default_netvm = None
+        del app
+        # then remove in reverse topological order (wrt template), using naive
         # algorithm
-        # this heavily depends on lack of netvm loops
+        # this heavily depends on lack of template loops, but those are
+        # impossible
         while vms:
             vm = vms.pop(0)
             # make sure that all connected VMs are going to be removed,
             # otherwise this will loop forever
-            assert all(x in vms for x in vm.connected_vms)
-            if list(vm.connected_vms):
+            child_vms = list(getattr(vm, 'appvms', []))
+            assert all(x in vms for x in child_vms)
+            if child_vms:
                 # if still something use this VM, put it at the end of queue
                 # and try next one
                 vms.append(vm)
