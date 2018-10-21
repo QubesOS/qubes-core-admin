@@ -879,6 +879,36 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
 
     @asyncio.coroutine
+    def _ensure_shutdown_handled(self):
+        '''Make sure previous shutdown is fully handled.
+        MUST NOT be called when domain is running.
+        '''
+        with (yield from self._domain_stopped_lock):
+            # Don't accept any new stopped event's till a new VM has been
+            # created. If we didn't received any stopped event or it wasn't
+            # handled yet we will handle this in the next lines.
+            self._domain_stopped_event_received = True
+
+            if self._domain_stopped_future is not None:
+                # Libvirt stopped event was already received, so cancel the
+                # future. If it didn't generate the Qubes events yet we
+                # will do it below.
+                self._domain_stopped_future.cancel()
+                self._domain_stopped_future = None
+
+            if not self._domain_stopped_event_handled:
+                # No Qubes domain-stopped events have been generated yet.
+                # So do this now.
+
+                # Set this immediately such that we don't generate events
+                # twice if an exception gets thrown.
+                self._domain_stopped_event_handled = True
+
+                yield from self.fire_event_async('domain-stopped')
+                yield from self.fire_event_async('domain-shutdown')
+
+
+    @asyncio.coroutine
     def start(self, start_guid=True, notify_function=None,
             mem_required=None):
         '''Start domain
@@ -894,29 +924,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.get_power_state() != 'Halted':
                 return self
 
-            with (yield from self._domain_stopped_lock):
-                # Don't accept any new stopped event's till a new VM has been
-                # created. If we didn't received any stopped event or it wasn't
-                # handled yet we will handle this in the next lines.
-                self._domain_stopped_event_received = True
-
-                if self._domain_stopped_future is not None:
-                    # Libvirt stopped event was already received, so cancel the
-                    # future. If it didn't generate the Qubes events yet we
-                    # will do it below.
-                    self._domain_stopped_future.cancel()
-                    self._domain_stopped_future = None
-
-                if not self._domain_stopped_event_handled:
-                    # No Qubes domain-stopped events have been generated yet.
-                    # So do this now.
-
-                    # Set this immediately such that we don't generate events
-                    # twice if an exception gets thrown.
-                    self._domain_stopped_event_handled = True
-
-                    yield from self.fire_event_async('domain-stopped')
-                    yield from self.fire_event_async('domain-shutdown')
+            yield from self._ensure_shutdown_handled()
 
             self.log.info('Starting {}'.format(self.name))
 
@@ -1030,8 +1038,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return
 
         if self._domain_stopped_event_received:
-            self.log.warning('Duplicated stopped event from libvirt received!')
-            # ignore this unexpected event
+            # ignore this event - already triggered by shutdown(), kill(),
+            # or subsequent start()
             return
 
         self._domain_stopped_event_received = True
@@ -1088,8 +1096,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             while timeout > 0 and not self.is_halted():
                 yield from asyncio.sleep(0.25)
                 timeout -= 0.25
-            if not self.is_halted():
-                raise qubes.exc.QubesVMShutdownTimeoutError(self)
+            with (yield from self.startup_lock):
+                if self.is_halted():
+                    # make sure all shutdown tasks are completed
+                    yield from self._ensure_shutdown_handled()
+                else:
+                    raise qubes.exc.QubesVMShutdownTimeoutError(self)
 
         return self
 
@@ -1104,13 +1116,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        try:
-            self.libvirt_domain.destroy()
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
-                raise qubes.exc.QubesVMNotStartedError(self)
-            else:
-                raise
+        with (yield from self.startup_lock):
+            try:
+                self.libvirt_domain.destroy()
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                    raise qubes.exc.QubesVMNotStartedError(self)
+                else:
+                    raise
+
+            # make sure all shutdown tasks are completed
+            yield from self._ensure_shutdown_handled()
 
         return self
 
@@ -1476,6 +1492,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotHaltedError(
                 "Can't remove VM {!s}, beacuse it's in state {!r}.".format(
                     self, self.get_power_state()))
+
+        # make sure shutdown is handled before removing anything, but only if
+        # handling is pending; if not, we may be called from within
+        # domain-shutdown event (DispVM._auto_cleanup), which would deadlock
+        if not self._domain_stopped_event_handled:
+            yield from self._ensure_shutdown_handled()
 
         yield from self.fire_event_async('domain-remove-from-disk')
         try:
