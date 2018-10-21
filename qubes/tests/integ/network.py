@@ -220,7 +220,7 @@ class VmNetworkingMixin(object):
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
-            'socat TCP-LISTEN:1234,fork EXEC:/bin/hostname'))
+            'socat TCP-LISTEN:1234,fork EXEC:/bin/uname'))
 
         try:
             self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
@@ -467,7 +467,7 @@ class VmNetworkingMixin(object):
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
-            'socat TCP-LISTEN:1234,fork EXEC:/bin/hostname'))
+            'socat TCP-LISTEN:1234,fork EXEC:/bin/uname'))
 
         try:
             self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
@@ -663,7 +663,7 @@ class VmNetworkingMixin(object):
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
-            'socat TCP-LISTEN:1234,fork EXEC:/bin/hostname'))
+            'socat TCP-LISTEN:1234,fork EXEC:/bin/uname'))
 
         try:
             self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
@@ -823,7 +823,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
-            'socat TCP6-LISTEN:1234,fork EXEC:/bin/hostname'))
+            'socat TCP6-LISTEN:1234,fork EXEC:/bin/uname'))
 
         try:
             self.assertEqual(self.run_cmd(self.proxy, self.ping6_ip), 0,
@@ -1052,7 +1052,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
-            'socat TCP6-LISTEN:1234,fork EXEC:/bin/hostname'))
+            'socat TCP6-LISTEN:1234,fork EXEC:/bin/uname'))
 
         try:
             self.assertEqual(self.run_cmd(self.proxy, self.ping6_ip), 0,
