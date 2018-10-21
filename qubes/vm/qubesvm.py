@@ -874,6 +874,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesException(
                     'Failed to reset autostart for VM in systemd')
 
+    @qubes.events.handler('domain-remove-from-disk')
+    def on_remove_from_disk(self, event, **kwargs):
+        # pylint: disable=unused-argument
+        if self.autostart:
+            subprocess.call(
+                ['sudo', 'systemctl', 'disable',
+                    'qubes-vm@{}.service'.format(self.name)])
+
+    @qubes.events.handler('domain-create-on-disk')
+    def on_create_on_disk(self, event, **kwargs):
+        # pylint: disable=unused-argument
+        if self.autostart:
+            subprocess.call(
+                ['sudo', 'systemctl', 'enable',
+                    'qubes-vm@{}.service'.format(self.name)])
+
     #
     # methods for changing domain state
     #
