@@ -395,6 +395,8 @@ class QubesTestCase(unittest.TestCase):
                 continue
             ex = exc_info[1]
             while ex is not None:
+                if isinstance(ex, qubes.exc.QubesVMError):
+                    ex.vm = None
                 traceback.clear_frames(ex.__traceback__)
                 ex = ex.__context__
 
