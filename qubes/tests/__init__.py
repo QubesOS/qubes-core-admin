@@ -789,13 +789,6 @@ class SystemTestCase(QubesTestCase):
         vmname = vm.name
         app = vm.app
 
-        # avoid race with DispVM.auto_cleanup=True
-        try:
-            self.loop.run_until_complete(
-                asyncio.wait_for(vm.startup_lock.acquire(), 10))
-        except asyncio.TimeoutError:
-            pass
-
         try:
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
