@@ -326,6 +326,8 @@ class Backup(object):
         #: callback for progress reporting. Will be called with one argument
         #: - progress in percents
         self.progress_callback = None
+        self.last_progress = 0
+        self.last_progress_time = time.time()
         #: backup ID, needs to be unique (for a given user),
         #: not necessary unpredictable; automatically generated
         self.backup_id = datetime.datetime.now().strftime(
@@ -512,11 +514,15 @@ class Backup(object):
         if not self.total_backup_bytes:
             return
         if callable(self.progress_callback):
-            progress = (
-                100 * (self._done_vms_bytes + self._current_vm_bytes) /
-                self.total_backup_bytes)
-            # pylint: disable=not-callable
-            self.progress_callback(progress)
+            if time.time() - self.last_progress_time >= 1: # avoid flooding
+                progress = (
+                    100 * (self._done_vms_bytes + self._current_vm_bytes) /
+                    self.total_backup_bytes)
+                if progress - self.last_progress >= 0.5:
+                    self.last_progress = progress
+                    self.last_progress_time = time.time()
+                    # pylint: disable=not-callable
+                    self.progress_callback(progress)
 
     def _add_vm_progress(self, bytes_done):
         self._current_vm_bytes += bytes_done
