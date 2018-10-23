@@ -213,7 +213,7 @@ class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
                 'version': '1',
                 'default-user': 'user',
                 'qrexec': '1',
-                'os': 'Linux'})
+                'os': 'other'})
         self.assertEqual(self.vm.mock_calls, [])
 
 class TC_20_Services(qubes.tests.QubesTestCase):

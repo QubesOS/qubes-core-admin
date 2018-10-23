@@ -34,7 +34,7 @@ class WindowsFeatures(qubes.ext.Extension):
 
         guest_os = None
         if 'os' in untrusted_features:
-            if untrusted_features['os'] in ['Windows']:
+            if untrusted_features['os'] in ['Windows', 'Linux']:
                 guest_os = untrusted_features['os']
 
         qrexec = None
