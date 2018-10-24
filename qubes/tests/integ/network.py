@@ -104,7 +104,8 @@ class VmNetworkingMixin(object):
         run_netvm_cmd("ip link add test0 type dummy")
         run_netvm_cmd("ip link set test0 up")
         run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
-        run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT".format(self.test_ip))
+        run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT --wait".format(
+            self.test_ip))
         # ignore failure
         self.run_cmd(self.testnetvm, "killall --wait dnsmasq")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
