@@ -254,6 +254,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         try:
             # first boot, mkfs private volume
             self.loop.run_until_complete(vm.start())
+            self.loop.run_until_complete(self.wait_for_session(vm))
             # get private volume UUID
             private_uuid, _ = self.loop.run_until_complete(
                 vm.run_for_stdio('blkid -o value /dev/xvdb', user='root'))
@@ -482,6 +483,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()
         self.loop.run_until_complete(self.test_template.start())
+        self.loop.run_until_complete(self.wait_for_session(self.test_template))
         self.shutdown_and_wait(self.test_template)
         checksum_changed = self.get_rootimg_checksum()
         if checksum_before == checksum_changed:

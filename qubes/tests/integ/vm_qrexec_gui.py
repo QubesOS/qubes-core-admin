@@ -64,6 +64,7 @@ class TC_00_AppVMMixin(object):
         # TODO: wait_for, timeout
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
         self.assertEqual(self.testvm1.get_power_state(), "Halted")
 

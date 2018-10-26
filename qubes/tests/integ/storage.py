@@ -77,6 +77,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from (self.vm1.start())
+        yield from self.wait_for_session(self.vm1)
 
         # volatile image not clean
         yield from (self.vm1.run_for_stdio(
@@ -112,6 +113,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from self.vm1.start()
+        yield from self.wait_for_session(self.vm1)
         # non-volatile image not clean
         yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
@@ -197,6 +199,9 @@ class StorageTestMixin(object):
         self.app.save()
         yield from self.vm1.start()
         yield from self.vm2.start()
+        yield from asyncio.wait(
+            [self.wait_for_session(self.vm1), self.wait_for_session(self.vm2)])
+
 
         try:
             yield from self.vm1.run_for_stdio(
@@ -285,6 +290,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from self.vm2.start()
+        yield from self.wait_for_session(self.vm2)
 
         # snapshot image not clean
         yield from self.vm2.run_for_stdio(
