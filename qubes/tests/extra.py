@@ -195,7 +195,8 @@ def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
         try:
             for test_case in entry.load()():
-                tests.addTests(loader.loadTestsFromTestCase(test_case))
+                tests.addTests(loader.loadTestsFromNames([
+                    '{}.{}'.format(test_case.__module__, test_case.__name__)]))
         except Exception as err:  # pylint: disable=broad-except
             def runTest(self):
                 raise err
