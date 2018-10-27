@@ -1204,10 +1204,15 @@ class SystemTestCase(QubesTestCase):
 
     @asyncio.coroutine
     def wait_for_session(self, vm):
+        timeout = 30
+        if getattr(vm, 'template', None) and 'whonix-ws' in vm.template.name:
+            # first boot of whonix-ws takes more time because of /home
+            # initialization, including Tor Browser copying
+            timeout = 120
         yield from asyncio.wait_for(
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
-            timeout=30)
+            timeout=timeout)
 
 
 _templates = None
