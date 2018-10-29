@@ -264,13 +264,14 @@ class ReflinkVolume(qubes.storage.Volume):
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
-            self.size = size
+            update = True
         except FileNotFoundError:  # ... but it actually is.
             _resize_file(self._path_clean, size)
-            self.size = size
-            return self
+            update = False
 
-        _update_loopdev_sizes(self._path_dirty)
+        self.size = size
+        if update:
+            _update_loopdev_sizes(self._path_dirty)
         return self
 
     def export(self):
@@ -301,11 +302,11 @@ class ReflinkVolume(qubes.storage.Volume):
         if not self.save_on_stop:
             return self
         try:
+            success = False
             _copy_file(src_volume.export(), self._path_import)
-        except:
-            self._import_data_end(False)
-            raise
-        self._import_data_end(True)
+            success = True
+        finally:
+            self._import_data_end(success)
         return self
 
     def _path_revision(self, number, timestamp=None):
