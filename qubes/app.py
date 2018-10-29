@@ -21,7 +21,7 @@
 #
 
 import collections
-import errno
+import copy
 import functools
 import grp
 import itertools
@@ -60,13 +60,14 @@ import qubes
 import qubes.ext
 import qubes.utils
 import qubes.storage
+import qubes.storage.reflink
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
 # pylint: enable=wrong-import-position
 
-class VirDomainWrapper(object):
+class VirDomainWrapper:
     # pylint: disable=too-few-public-methods
 
     def __init__(self, connection, vm):
@@ -97,7 +98,7 @@ class VirDomainWrapper(object):
         return wrapper
 
 
-class VirConnectWrapper(object):
+class VirConnectWrapper:
     # pylint: disable=too-few-public-methods
 
     def __init__(self, uri):
@@ -134,7 +135,7 @@ class VirConnectWrapper(object):
         return wrapper
 
 
-class VMMConnection(object):
+class VMMConnection:
     '''Connection to Virtual Machine Manager (libvirt)'''
 
     def __init__(self, offline_mode=None):
@@ -229,7 +230,7 @@ class VMMConnection(object):
         self._xc = None  # and pray it will get garbage-collected
 
 
-class QubesHost(object):
+class QubesHost:
     '''Basic information about host machine
 
     :param qubes.Qubes app: Qubes application context (must have \
@@ -363,7 +364,7 @@ class QubesHost(object):
         return (current_time, current)
 
 
-class VMCollection(object):
+class VMCollection:
     '''A collection of Qubes VMs
 
     VMCollection supports ``in`` operator. You may test for ``qid``, ``name``
@@ -493,7 +494,7 @@ class VMCollection(object):
         self.app.fire_event('domain-delete', vm=vm)
 
     def __contains__(self, key):
-        return any((key == vm or key == vm.qid or key == vm.name)
+        return any((key in (vm, vm.qid, vm.name))
                    for vm in self)
 
 
@@ -552,37 +553,37 @@ def _default_pool(app):
 
     1. If there is one named 'default', use it.
     2. Check if root fs is on LVM thin - use that
-    3. Look for file-based pool pointing /var/lib/qubes
+    3. Look for file(-reflink)-based pool pointing to /var/lib/qubes
     4. Fail
     '''
     if 'default' in app.pools:
         return app.pools['default']
-    else:
-        if 'DEFAULT_LVM_POOL' in os.environ:
-            thin_pool = os.environ['DEFAULT_LVM_POOL']
-            for pool in app.pools.values():
-                if pool.config.get('driver', None) != 'lvm_thin':
-                    continue
-                if pool.config['thin_pool'] == thin_pool:
-                    return pool
-        # no DEFAULT_LVM_POOL, or pool not defined
-        root_volume_group, root_thin_pool = \
-            qubes.storage.DirectoryThinPool.thin_pool('/')
-        if root_thin_pool:
-            for pool in app.pools.values():
-                if pool.config.get('driver', None) != 'lvm_thin':
-                    continue
-                if (pool.config['volume_group'] == root_volume_group and
-                    pool.config['thin_pool'] == root_thin_pool):
-                    return pool
 
-        # not a thin volume? look for file pools
+    if 'DEFAULT_LVM_POOL' in os.environ:
+        thin_pool = os.environ['DEFAULT_LVM_POOL']
         for pool in app.pools.values():
-            if pool.config.get('driver', None) not in ('file', 'file-reflink'):
+            if pool.config.get('driver', None) != 'lvm_thin':
                 continue
-            if pool.config['dir_path'] == qubes.config.qubes_base_dir:
+            if pool.config['thin_pool'] == thin_pool:
                 return pool
-        raise AttributeError('Cannot determine default storage pool')
+    # no DEFAULT_LVM_POOL, or pool not defined
+    root_volume_group, root_thin_pool = \
+        qubes.storage.DirectoryThinPool.thin_pool('/')
+    if root_thin_pool:
+        for pool in app.pools.values():
+            if pool.config.get('driver', None) != 'lvm_thin':
+                continue
+            if (pool.config['volume_group'] == root_volume_group and
+                pool.config['thin_pool'] == root_thin_pool):
+                return pool
+
+    # not a thin volume? look for file pools
+    for pool in app.pools.values():
+        if pool.config.get('driver', None) not in ('file', 'file-reflink'):
+            continue
+        if pool.config['dir_path'] == qubes.config.qubes_base_dir:
+            return pool
+    raise AttributeError('Cannot determine default storage pool')
 
 def _setter_pool(app, prop, value):
     if isinstance(value, qubes.storage.Pool):
@@ -716,6 +717,19 @@ class Qubes(qubes.PropertyHolder):
         default=lambda app: app.default_pool,
         setter=_setter_pool,
         doc='Default storage pool for kernel volumes')
+
+    default_qrexec_timeout = qubes.property('default_qrexec_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc='''Default time in seconds after which qrexec connection attempt is
+            deemed failed''')
+
+    default_shutdown_timeout = qubes.property('default_shutdown_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc='''Default time in seconds for VM shutdown to complete''')
 
     stats_interval = qubes.property('stats_interval',
         default=3,
@@ -1006,8 +1020,8 @@ class Qubes(qubes.PropertyHolder):
             try:
                 fd = os.open(self._store,
                     os.O_RDWR | (os.O_CREAT * int(for_save)))
-            except OSError as e:
-                if not for_save and e.errno == errno.ENOENT:
+            except FileNotFoundError:
+                if not for_save:
                     raise qubes.exc.QubesException(
                         'Qubes XML store {!r} is missing; '
                         'use qubes-create tool'.format(self._store))
@@ -1064,15 +1078,29 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
+        pool_configs = copy.deepcopy(qubes.config.defaults['pool_configs'])
+
         root_volume_group, root_thin_pool = \
             qubes.storage.DirectoryThinPool.thin_pool('/')
-
         if root_thin_pool:
-            self.add_pool(
-                volume_group=root_volume_group, thin_pool=root_thin_pool,
-                name='lvm', driver='lvm_thin')
-        # pool based on /var/lib/qubes will be created here:
-        for name, config in qubes.config.defaults['pool_configs'].items():
+            lvm_config = {
+                'name': 'lvm',
+                'driver': 'lvm_thin',
+                'volume_group': root_volume_group,
+                'thin_pool': root_thin_pool
+            }
+            pool_configs[lvm_config['name']] = lvm_config
+
+        for name, config in pool_configs.items():
+            if 'driver' not in config and 'dir_path' in config:
+                config['driver'] = 'file'
+                try:
+                    os.makedirs(config['dir_path'], exist_ok=True)
+                    if qubes.storage.reflink.is_supported(config['dir_path']):
+                        config['driver'] = 'file-reflink'
+                        config['setup_check'] = 'no'  # don't check twice
+                except PermissionError:  # looks like a testing environment
+                    pass  # stay with 'file'
             self.pools[name] = self._get_pool(**config)
 
         self.default_pool_kernel = 'linux-kernel'
@@ -1170,6 +1198,11 @@ class Qubes(qubes.PropertyHolder):
 
         raise KeyError(label)
 
+    def setup_pools(self):
+        """ Run implementation specific setup for each storage pool. """
+        for pool in self.pools.values():
+            pool.setup()
+
     def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""
 
@@ -1251,6 +1284,20 @@ class Qubes(qubes.PropertyHolder):
 
         if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             vm.on_libvirt_domain_stopped()
+        elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
+            try:
+                vm.fire_event('domain-paused')
+            except Exception:  # pylint: disable=broad-except
+                self.log.exception(
+                    'Uncaught exception from domain-paused handler '
+                    'for domain %s', vm.name)
+        elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
+            try:
+                vm.fire_event('domain-unpaused')
+            except Exception:  # pylint: disable=broad-except
+                self.log.exception(
+                    'Uncaught exception from domain-unpaused handler '
+                    'for domain %s', vm.name)
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):
@@ -1263,9 +1310,9 @@ class Qubes(qubes.PropertyHolder):
                         self.log.error(
                             'Cannot remove %s, used by %s.%s',
                             vm, obj, prop.__name__)
-                        raise qubes.exc.QubesVMInUseError(vm,
-                            'Domain is in use: {!r}; details in system log'
-                                .format(vm.name))
+                        raise qubes.exc.QubesVMInUseError(vm, 'Domain is in '
+                        'use: {!r}; see /var/log/qubes/qubes.log in dom0 for '
+                        'details'.format(vm.name))
                 except AttributeError:
                     pass
 

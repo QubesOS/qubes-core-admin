@@ -569,10 +569,9 @@ class VMProperty(qubes.property):
             if self.allow_none:
                 super(VMProperty, self).__set__(instance, value)
                 return
-            else:
-                raise ValueError(
-                    'Property {!r} does not allow setting to {!r}'.format(
-                        self.__name__, value))
+            raise ValueError(
+                'Property {!r} does not allow setting to {!r}'.format(
+                    self.__name__, value))
 
         app = instance if isinstance(instance, qubes.Qubes) else instance.app
 

@@ -131,11 +131,14 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [
             mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
             mock.call.untrusted_qdb.read('/qubes-tools/gui'),
+            mock.call.untrusted_qdb.read('/qubes-tools/gui-emulated'),
             mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
+            mock.call.untrusted_qdb.read('/qubes-tools/os'),
             mock.call.fire_event_async('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
-                'qrexec': '1'}),
+                'qrexec': '1',
+                'os': 'Linux'}),
             ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
@@ -153,11 +156,14 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [
             mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
             mock.call.untrusted_qdb.read('/qubes-tools/gui'),
+            mock.call.untrusted_qdb.read('/qubes-tools/gui-emulated'),
             mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
+            mock.call.untrusted_qdb.read('/qubes-tools/os'),
             mock.call.fire_event_async('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
-                'qrexec': '1'}),
+                'qrexec': '1',
+                'os': 'Linux'}),
             ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])

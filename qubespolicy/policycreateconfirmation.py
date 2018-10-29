@@ -28,7 +28,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 # pylint: enable=import-error
 
-class PolicyCreateConfirmationWindow(object):
+class PolicyCreateConfirmationWindow:
     # pylint: disable=too-few-public-methods
     _source_file = pkg_resources.resource_filename('qubespolicy',
         os.path.join('glade', "PolicyCreateConfirmationWindow.glade"))

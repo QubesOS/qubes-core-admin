@@ -24,11 +24,15 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 from distutils import spawn
 
+import grp
+
 import qubes.config
+import qubes.devices
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.templatevm
@@ -60,6 +64,7 @@ class TC_00_AppVMMixin(object):
         # TODO: wait_for, timeout
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
         self.assertEqual(self.testvm1.get_power_state(), "Halted")
 
@@ -72,32 +77,17 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         p = self.loop.run_until_complete(self.testvm1.run('xterm'))
         try:
-            wait_count = 0
             title = 'user@{}'.format(self.testvm1.name)
             if self.template.count("whonix"):
                 title = 'user@host'
-            while subprocess.call(
-                    ['xdotool', 'search', '--name', title],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) > 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for xterm window")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
                 ['xdotool', 'search', '--name', title,
                 'windowactivate', 'type', 'exit\n'])
 
-            wait_count = 0
-            while subprocess.call(['xdotool', 'search', '--name', title],
-                                stdout=open(os.path.devnull, 'w'),
-                                stderr=subprocess.STDOUT) == 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for xterm "
-                            "termination")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title, show=False)
         finally:
             try:
                 p.terminate()
@@ -110,6 +100,8 @@ class TC_00_AppVMMixin(object):
     def test_011_run_gnome_terminal(self):
         if "minimal" in self.template:
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
+        if 'whonix' in self.template:
+            self.skipTest("Whonix template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
@@ -118,15 +110,7 @@ class TC_00_AppVMMixin(object):
             title = 'user@{}'.format(self.testvm1.name)
             if self.template.count("whonix"):
                 title = 'user@host'
-            wait_count = 0
-            while subprocess.call(
-                    ['xdotool', 'search', '--name', title],
-                    stdout=open(os.path.devnull, 'w'),
-                    stderr=subprocess.STDOUT) > 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for gnome-terminal window")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
@@ -172,30 +156,14 @@ class TC_00_AppVMMixin(object):
         title = 'user@{}'.format(self.testvm1.name)
         if self.template.count("whonix"):
             title = 'user@host'
-        wait_count = 0
-        while subprocess.call(
-                ['xdotool', 'search', '--name', title],
-                stdout=open(os.path.devnull, 'w'),
-                stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm window")
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.wait_for_window(title)
 
         self.loop.run_until_complete(asyncio.sleep(0.5))
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
              'windowactivate', '--sync', 'type', 'exit\n'])
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm "
-                          "termination")
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.wait_for_window(title, show=False)
 
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
@@ -217,7 +185,6 @@ class TC_00_AppVMMixin(object):
         self.assertFalse(stderr,
             'Some data was printed to stderr')
 
-    @unittest.skip('#2851, because there is no GUI in vm')
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
 
@@ -235,7 +202,7 @@ class TC_00_AppVMMixin(object):
             p.stdin.write(TEST_DATA)
             yield from p.stdin.drain()
             p.stdin.close()
-            self.assertEqual(stdout.strip(), 'test',
+            self.assertEqual(stdout.strip(), b'test',
                 'Received data differs from what was expected')
             # this may hang in some buggy cases
             self.assertFalse((yield from p.stderr.read()),
@@ -248,15 +215,18 @@ class TC_00_AppVMMixin(object):
                     "probably EOF wasn't transferred from the VM process")
 
         self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         self.loop.run_until_complete(run(self))
 
-    @unittest.skip('#2851, because there is no GUI in vm')
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
 
         self.loop.run_until_complete(asyncio.wait([
             self.testvm1.start(),
             self.testvm2.start()]))
+        self.loop.run_until_complete(asyncio.wait([
+            self.wait_for_session(self.testvm1),
+            self.wait_for_session(self.testvm2)]))
         self.loop.run_until_complete(self.testvm2.run_for_stdio(
             'cat > /etc/qubes-rpc/test.EOF',
             user='root',
@@ -273,7 +243,7 @@ class TC_00_AppVMMixin(object):
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
-        self.assertEqual(stdout, b'test',
+        self.assertEqual(stdout, b'test\n',
             'Received data differs from what was expected')
 
     @unittest.expectedFailure
@@ -394,23 +364,14 @@ class TC_00_AppVMMixin(object):
             except asyncio.TimeoutError:
                 self.fail('Timeout, probably deadlock')
 
-    @unittest.skip('localcmd= argument went away')
     def test_071_qrexec_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)->VM(dst) connection
 
             Similar to test_070_qrexec_vm_simultaneous_write, but with dom0
             as a source.
         """
-        def run(self):
-            result.value = self.testvm2.run_service(
-                "test.write", localcmd="/bin/sh -c '"
-                # first write a lot of data to fill all the buffers
-                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
-                # then after some time start reading
-                "sleep 1; "
-                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
-                "wait"
-                "'")
+
+        self.loop.run_until_complete(self.testvm2.start())
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.write', '''\
             # first write a lot of data
@@ -418,58 +379,93 @@ class TC_00_AppVMMixin(object):
             # and only then read something
             dd of=/dev/null bs=993 count=10000 iflag=fullblock
             ''')
-        self.create_local_file('/etc/qubes-rpc/policy/test.write',
-            '{} {} allow'.format(self.testvm1.name, self.testvm2.name))
 
-        t = multiprocessing.Process(target=run, args=(self,))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
+        # can't use subprocess.PIPE, because asyncio will claim those FDs
+        pipe1_r, pipe1_w = os.pipe()
+        pipe2_r, pipe2_w = os.pipe()
+        try:
+            local_proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_shell(
+                    # first write a lot of data to fill all the buffers
+                    "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
+                    # then after some time start reading
+                    "sleep 1; "
+                    "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
+                    "wait", stdin=pipe1_r, stdout=pipe2_w))
+
+            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
+                "test.write", stdin=pipe2_r, stdout=pipe1_w))
+        finally:
+            os.close(pipe1_r)
+            os.close(pipe1_w)
+            os.close(pipe2_r)
+            os.close(pipe2_w)
+
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(service_proc.wait(), timeout=10))
+        except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
-        self.assertEqual(result.value, 0, "Service call failed")
+        else:
+            self.assertEqual(service_proc.returncode, 0,
+                "Service call failed")
+        finally:
+            try:
+                service_proc.terminate()
+            except ProcessLookupError:
+                pass
 
-    @unittest.skip('localcmd= argument went away')
     def test_072_qrexec_to_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)<-VM(dst) connection
 
             Similar to test_071_qrexec_dom0_simultaneous_write, but with dom0
             as a "hanging" side.
         """
-        result = multiprocessing.Value('i', -1)
-
-        def run(self):
-            result.value = self.testvm2.run_service(
-                "test.write", localcmd="/bin/sh -c '"
-                # first write a lot of data to fill all the buffers
-                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock "
-                # then, only when all written, read something
-                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
-                "'")
 
         self.loop.run_until_complete(self.testvm2.start())
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
-                             passio_popen=True)
-        # first write a lot of data
-        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock &\n")
-        # and only then read something
-        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
-        p.stdin.write(b"sleep 1; \n")
-        p.stdin.write(b"wait\n")
-        p.stdin.close()
-        p.wait()
-        policy = open("/etc/qubes-rpc/policy/test.write", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
 
-        t = multiprocessing.Process(target=run, args=(self,))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.write', '''\
+            # first write a lot of data
+            dd if=/dev/zero bs=993 count=10000 iflag=fullblock &
+            # and only then read something
+            dd of=/dev/null bs=993 count=10000 iflag=fullblock
+            sleep 1;
+            wait
+            ''')
+
+        # can't use subprocess.PIPE, because asyncio will claim those FDs
+        pipe1_r, pipe1_w = os.pipe()
+        pipe2_r, pipe2_w = os.pipe()
+        try:
+            local_proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_shell(
+                    # first write a lot of data to fill all the buffers
+                    "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
+                    # then, only when all written, read something
+                    "dd of=/dev/null bs=993 count=10000 iflag=fullblock; ",
+                    stdin=pipe1_r, stdout=pipe2_w))
+
+            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
+                "test.write", stdin=pipe2_r, stdout=pipe1_w))
+        finally:
+            os.close(pipe1_r)
+            os.close(pipe1_w)
+            os.close(pipe2_r)
+            os.close(pipe2_w)
+
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(service_proc.wait(), timeout=10))
+        except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
-        self.assertEqual(result.value, 0, "Service call failed")
+        else:
+            self.assertEqual(service_proc.returncode, 0,
+                "Service call failed")
+        finally:
+            try:
+                service_proc.terminate()
+            except ProcessLookupError:
+                pass
 
     def test_080_qrexec_service_argument_allow_default(self):
         """Qrexec service call with argument"""
@@ -742,7 +738,8 @@ class TC_00_AppVMMixin(object):
         if self.template.startswith('whonix-'):
             self.skipTest('qvm-sync-clock disabled for Whonix VMs')
         self.loop.run_until_complete(asyncio.wait([
-            self.testvm1.start()]))
+            self.testvm1.start(),
+            self.testvm2.start(),]))
         start_time = subprocess.check_output(['date', '-u', '+%s'])
 
         try:
@@ -752,11 +749,11 @@ class TC_00_AppVMMixin(object):
             subprocess.check_call(['sudo', 'date', '-s', '2001-01-01T12:34:56'],
                 stdout=subprocess.DEVNULL)
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('date -s 2001-01-01T12:34:56',
+                self.testvm2.run_for_stdio('date -s 2001-01-01T12:34:56',
                     user='root'))
 
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('qvm-sync-clock',
+                self.testvm2.run_for_stdio('qvm-sync-clock',
                     user='root'))
 
             p = self.loop.run_until_complete(
@@ -765,7 +762,7 @@ class TC_00_AppVMMixin(object):
             self.loop.run_until_complete(p.wait())
             self.assertEqual(p.returncode, 0)
             vm_time, _ = self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('date -u +%s'))
+                self.testvm2.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
 
             dom0_time = subprocess.check_output(['date', '-u', '+%s'])
@@ -778,6 +775,154 @@ class TC_00_AppVMMixin(object):
             raise
         finally:
             self.app.clockvm = None
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_220_audio_playback(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
+        self.loop.run_until_complete(self.testvm1.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('which parecord'))
+        except subprocess.CalledProcessError:
+            self.skipTest('pulseaudio-utils not installed in VM')
+
+        self.loop.run_until_complete(
+            self.wait_for_session(self.testvm1))
+        # and some more...
+        self.loop.run_until_complete(asyncio.sleep(1))
+        # generate some "audio" data
+        audio_in = b'\x20' * 44100
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat > audio_in.raw', input=audio_in))
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        with tempfile.NamedTemporaryFile() as recorded_audio:
+            os.chmod(recorded_audio.name, 0o666)
+            # FIXME: -d 0 assumes only one audio device
+            p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+                'parecord', '-d', '0', '--raw', recorded_audio.name],
+                stdout=subprocess.PIPE)
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('paplay --raw audio_in.raw'))
+            # wait for possible parecord buffering
+            self.loop.run_until_complete(asyncio.sleep(1))
+            p.terminate()
+            # for some reason sudo do not relay SIGTERM sent above
+            subprocess.check_call(['pkill', 'parecord'])
+            p.wait()
+            # allow few bytes missing, don't use assertIn, to avoid printing
+            # the whole data in error message
+            if audio_in[:-8] not in recorded_audio.file.read():
+                self.fail('played sound not found in dom0')
+
+    def _configure_audio_recording(self, vm):
+        '''Connect VM's output-source to sink monitor instead of mic'''
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        sudo = ['sudo', '-E', '-u', local_user]
+        source_outputs = subprocess.check_output(
+            sudo + ['pacmd', 'list-source-outputs']).decode()
+
+        last_index = None
+        found = False
+        for line in source_outputs.splitlines():
+            if line.startswith('    index: '):
+                last_index = line.split(':')[1].strip()
+            elif line.startswith('\t\tapplication.name = '):
+                app_name = line.split('=')[1].strip('" ')
+                if vm.name == app_name:
+                    found = True
+                    break
+        if not found:
+            self.fail('source-output for VM {} not found'.format(vm.name))
+
+        subprocess.check_call(sudo +
+            ['pacmd', 'move-source-output', last_index, '0'])
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_221_audio_record_muted(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
+        self.loop.run_until_complete(self.testvm1.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('which parecord'))
+        except subprocess.CalledProcessError:
+            self.skipTest('pulseaudio-utils not installed in VM')
+
+        self.loop.run_until_complete(
+            self.wait_for_session(self.testvm1))
+        # and some more...
+        self.loop.run_until_complete(asyncio.sleep(1))
+        # connect VM's recording source output monitor (instead of mic)
+        self._configure_audio_recording(self.testvm1)
+
+        # generate some "audio" data
+        audio_in = b'\x20' * 44100
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        record = self.loop.run_until_complete(
+            self.testvm1.run('parecord --raw audio_rec.raw'))
+        # give it time to start recording
+        self.loop.run_until_complete(asyncio.sleep(0.5))
+        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+            'paplay', '--raw'],
+            stdin=subprocess.PIPE)
+        p.communicate(audio_in)
+        # wait for possible parecord buffering
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pkill parecord'))
+        record.wait()
+        recorded_audio, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat audio_rec.raw'))
+        # should be empty or silence, so check just a little fragment
+        if audio_in[:32] in recorded_audio:
+            self.fail('VM recorded something, even though mic disabled')
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_222_audio_record_unmuted(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
+        self.loop.run_until_complete(self.testvm1.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('which parecord'))
+        except subprocess.CalledProcessError:
+            self.skipTest('pulseaudio-utils not installed in VM')
+
+        self.loop.run_until_complete(
+            self.wait_for_session(self.testvm1))
+        # and some more...
+        self.loop.run_until_complete(asyncio.sleep(1))
+        da = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
+        self.loop.run_until_complete(
+            self.testvm1.devices['mic'].attach(da))
+        # connect VM's recording source output monitor (instead of mic)
+        self._configure_audio_recording(self.testvm1)
+
+        # generate some "audio" data
+        audio_in = b'\x20' * 44100
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        record = self.loop.run_until_complete(
+            self.testvm1.run('parecord --raw audio_rec.raw'))
+        # give it time to start recording
+        self.loop.run_until_complete(asyncio.sleep(0.5))
+        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+            'paplay', '--raw'],
+            stdin=subprocess.PIPE)
+        p.communicate(audio_in)
+        # wait for possible parecord buffering
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pkill parecord'))
+        record.wait()
+        recorded_audio, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat audio_rec.raw'))
+        # allow few bytes to be missing
+        if audio_in[:-8] not in recorded_audio:
+            self.fail('VM not recorded expected data')
 
     def test_250_resize_private_img(self):
         """
@@ -882,10 +1027,10 @@ int main(int argc, char **argv) {
             input=allocator_c.encode())
 
         try:
-            stdout, stderr = yield from self.testvm1.run_for_stdio(
+            yield from self.testvm1.run_for_stdio(
                 'gcc allocator.c -o allocator')
-        except subprocess.CalledProcessError:
-            self.skipTest('allocator compile failed: {}'.format(stderr))
+        except subprocess.CalledProcessError as e:
+            self.skipTest('allocator compile failed: {}'.format(e.stderr))
 
         # drop caches to have even more memory pressure
         yield from self.testvm1.run_for_stdio(
@@ -928,15 +1073,12 @@ int main(int argc, char **argv) {
         proc = yield from self.testvm1.run(
             'xterm -maximized -e top')
 
-        # help xdotool a little...
-        yield from asyncio.sleep(2)
         if proc.returncode is not None:
             self.fail('xterm failed to start')
         # get window ID
-        winid = (yield from asyncio.get_event_loop().run_in_executor(None,
-            subprocess.check_output,
-            ['xdotool', 'search', '--sync', '--onlyvisible', '--class',
-                self.testvm1.name + ':xterm'])).decode()
+        winid = yield from self.wait_for_window_coro(
+            self.testvm1.name + ':xterm',
+            search_class=True)
         xprop = yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])
@@ -958,6 +1100,9 @@ int main(int argc, char **argv) {
 
         # wait for damage notify - top updates every 3 sec by default
         yield from asyncio.sleep(6)
+
+        # stop changing the window content
+        subprocess.check_call(['xdotool', 'key', '--window', winid, 'd'])
 
         # now take screenshot of the window, from dom0 and VM
         # choose pnm format, as it doesn't have any useless metadata - easy
@@ -1011,10 +1156,14 @@ class TC_10_Generic(qubes.tests.SystemTestCase):
             'Flag file created (service was run) even though should be denied,'
             ' qrexec-client-vm output: {} {}'.format(stdout, stderr))
 
+def create_testcases_for_templates():
+    return qubes.tests.create_testcases_for_templates('TC_00_AppVM',
+        TC_00_AppVMMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-            TC_00_AppVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

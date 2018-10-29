@@ -23,10 +23,13 @@ import subprocess
 import tempfile
 import time
 import unittest
+from contextlib import suppress
 
 from distutils import spawn
 
 import asyncio
+
+import sys
 
 import qubes.tests
 
@@ -67,7 +70,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(asyncio.sleep(5))
         self.assertNotIn(dispvm_name, self.app.domains)
 
     def test_003_cleanup_destroyed(self):
@@ -86,7 +89,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         p.stdin.write(b"sudo poweroff\n")
         # do not close p.stdin on purpose - wait to automatic disconnect when
         #  domain is destroyed
-        timeout = 30
+        timeout = 70
         lines_task = asyncio.ensure_future(p.stdout.read())
         self.loop.run_until_complete(asyncio.wait_for(p.wait(), timeout))
         self.loop.run_until_complete(lines_task)
@@ -160,8 +163,15 @@ class TC_20_DispVMMixin(object):
                 self.enter_keys_in_window(window_title, ['Return'])
                 # Wait for window to close
                 self.wait_for_window(window_title, show=False)
-            finally:
                 p.stdin.close()
+                self.loop.run_until_complete(
+                    asyncio.wait_for(p.wait(), 30))
+            except:
+                with suppress(ProcessLookupError):
+                    p.terminate()
+                self.loop.run_until_complete(p.wait())
+                raise
+            finally:
                 del p
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
@@ -169,7 +179,7 @@ class TC_20_DispVMMixin(object):
             del dispvm
 
         # give it a time for shutdown + cleanup
-        self.loop.run_until_complete(asyncio.sleep(2))
+        self.loop.run_until_complete(asyncio.sleep(5))
 
         self.assertNotIn(dispvm_name, self.app.domains,
                           "DispVM not removed from qubes.xml")
@@ -181,7 +191,7 @@ class TC_20_DispVMMixin(object):
         window_title = window_title.decode().strip().\
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
-        if "gedit" in window_title:
+        if "gedit" in window_title or 'KWrite' in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
                                    'type', 'Test test 2'])
             subprocess.check_call(['xdotool', 'key', '--window', winid,
@@ -243,37 +253,44 @@ class TC_20_DispVMMixin(object):
             self.testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
 
         p = self.loop.run_until_complete(
-            self.testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
+            self.testvm1.run("qvm-open-in-dvm /home/user/test.txt",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
 
-        wait_count = 0
+        # if first 5 windows isn't expected editor, there is no hope
         winid = None
-        while True:
-            search = self.loop.run_until_complete(
-                asyncio.create_subprocess_exec(
-                    'xdotool', 'search', '--onlyvisible', '--class', 'disp*',
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL))
-            stdout, _ = self.loop.run_until_complete(search.communicate())
-            if search.returncode == 0:
-                winid = stdout.strip()
-                # get window title
-                (window_title, _) = subprocess.Popen(
-                    ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
-                    communicate()
-                window_title = window_title.decode().strip()
-                # ignore LibreOffice splash screen and window with no title
-                # set yet
-                if window_title and not window_title.startswith("LibreOffice")\
-                        and not window_title == 'VMapp command':
-                    break
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for editor window")
-            self.loop.run_until_complete(asyncio.sleep(0.3))
+        for _ in range(5):
+            try:
+                winid = self.wait_for_window('disp[0-9]*', search_class=True)
+            except Exception as e:
+                try:
+                    self.loop.run_until_complete(asyncio.wait_for(p.wait(), 1))
+                except asyncio.TimeoutError:
+                    raise e
+                else:
+                    stdout = self.loop.run_until_complete(p.stdout.read())
+                    self.fail(
+                        'qvm-open-in-dvm exited prematurely with {}: {}'.format(
+                            p.returncode, stdout))
+            # get window title
+            (window_title, _) = subprocess.Popen(
+                ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
+                communicate()
+            window_title = window_title.decode().strip()
+            # ignore LibreOffice splash screen and window with no title
+            # set yet
+            if window_title and not window_title.startswith("LibreOffice")\
+                    and not window_title == 'VMapp command' \
+                    and 'whonixcheck' not in window_title \
+                    and not window_title == 'NetworkManager Applet':
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+            winid = None
+        if winid is None:
+            self.fail('Timeout waiting for editor window')
 
         time.sleep(0.5)
         self._handle_editor(winid)
-        self.loop.run_until_complete(p.wait())
+        self.loop.run_until_complete(p.communicate())
         (test_txt_content, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("cat /home/user/test.txt"))
         # Drop BOM if added by editor
@@ -281,9 +298,15 @@ class TC_20_DispVMMixin(object):
             test_txt_content = test_txt_content[3:]
         self.assertEqual(test_txt_content, b"Test test 2\ntest1\n")
 
+
+def create_testcases_for_templates():
+    return qubes.tests.create_testcases_for_templates('TC_20_DispVM',
+        TC_20_DispVMMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_20_DispVM',
-            TC_20_DispVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

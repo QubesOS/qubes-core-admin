@@ -32,7 +32,7 @@ class CoreFeatures(qubes.ext.Extension):
             return
 
         requested_features = {}
-        for feature in ('qrexec', 'gui', 'qubes-firewall'):
+        for feature in ('qrexec', 'gui', 'gui-emulated', 'qubes-firewall'):
             untrusted_value = untrusted_features.get(feature, None)
             if untrusted_value in ('1', '0'):
                 requested_features[feature] = bool(int(untrusted_value))
@@ -44,7 +44,7 @@ class CoreFeatures(qubes.ext.Extension):
         # gui agent presence (0 or 1)
 
         qrexec_before = vm.features.get('qrexec', False)
-        for feature in ('qrexec', 'gui'):
+        for feature in ('qrexec', 'gui', 'gui-emulated'):
             # do not allow (Template)VM to override setting if already set
             # some other way
             if feature in requested_features and feature not in vm.features:

@@ -480,16 +480,7 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
             os.mkdir(test_dir)
             with open(os.path.join(test_dir, 'some-file.txt'), 'w') as f:
                 f.write('test file\n')
-            self.restore_backup(expect_errors=[
-                'Error restoring VM test-inst-test-net, skipping: Got empty '
-                'response from qubesd. See journalctl in dom0 for details.',
-                'Error setting test-inst-test1.netvm to test-inst-test-net: '
-                '\'"No such domain: \\\'test-inst-test-net\\\'"\'',
-            ])
-            del vms_info['test-inst-test-net']
-            vms_info['test-inst-test1']['properties']['netvm'] = \
-                str(self.app.default_netvm)
-            vms_info['test-inst-test1']['default']['netvm'] = True
+            self.restore_backup()
             self.assertCorrectlyRestored(vms_info, orig_hashes)
         finally:
             del vms
@@ -650,9 +641,14 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
             del vms
 
 
+def create_testcases_for_templates():
+    return qubes.tests.create_testcases_for_templates('TC_10_BackupVM',
+        TC_10_BackupVMMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_10_BackupVM',
-            TC_10_BackupVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

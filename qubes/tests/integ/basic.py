@@ -35,6 +35,8 @@ import collections
 import pkg_resources
 import shutil
 
+import sys
+
 import qubes
 import qubes.firewall
 import qubes.tests
@@ -106,9 +108,32 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertTrue(self.vm.is_running())
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+                               'type', '--window', '%1', 'poweroff\r'])
+        for _ in range(10):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
+
+    def test_130_autostart_disable_on_remove(self):
+        vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm'),
+            template=self.app.default_template,
+            label='red')
+
+        self.assertIsNotNone(vm)
+        self.loop.run_until_complete(vm.create_on_disk())
+        vm.autostart = True
+        self.assertTrue(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)),
+            "systemd service not enabled by autostart=True")
+        del self.app.domains[vm]
+        self.loop.run_until_complete(vm.remove_from_disk())
+        self.assertFalse(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)),
+            "systemd service not disabled on domain remove")
 
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
         '''Simulate domain crash just after startup'''
@@ -203,8 +228,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
+        while self.vm.get_power_state() != 'Halted':
+            self.loop.run_until_complete(asyncio.sleep(1))
         # and give a chance for both domain-shutdown handlers to execute
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(asyncio.sleep(3))
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
@@ -227,6 +254,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         try:
             # first boot, mkfs private volume
             self.loop.run_until_complete(vm.start())
+            self.loop.run_until_complete(self.wait_for_session(vm))
             # get private volume UUID
             private_uuid, _ = self.loop.run_until_complete(
                 vm.run_for_stdio('blkid -o value /dev/xvdb', user='root'))
@@ -422,127 +450,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
 
-class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
-    # pylint: disable=attribute-defined-outside-init
-
-    def setUp(self):
-        super(TC_02_QvmPrefs, self).setUp()
-        self.init_default_template()
-        self.sharedopts = ['--qubesxml', qubes.tests.XMLPATH]
-
-    def setup_appvm(self):
-        self.testvm = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name("vm"),
-            label='red')
-        self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.app.save()
-
-    def setup_hvm(self):
-        self.testvm = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name("hvm"),
-            label='red')
-        self.testvm.virt_mode = 'hvm'
-        self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.app.save()
-
-    def pref_set(self, name, value, valid=True):
-        self.loop.run_until_complete(self._pref_set(name, value, valid))
-
-    @asyncio.coroutine
-    def _pref_set(self, name, value, valid=True):
-        cmd = ['qvm-prefs']
-        if value != '-D':
-            cmd.append('--')
-        cmd.extend((self.testvm.name, name, value))
-        p = yield from asyncio.create_subprocess_exec(*cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        (stdout, stderr) = yield from p.communicate()
-        if valid:
-            self.assertEqual(p.returncode, 0,
-                              "qvm-prefs .. '{}' '{}' failed: {}{}".format(
-                                  name, value, stdout, stderr
-                              ))
-        else:
-            self.assertNotEquals(p.returncode, 0,
-                                 "qvm-prefs should reject value '{}' for "
-                                 "property '{}'".format(value, name))
-
-    def pref_get(self, name):
-        self.loop.run_until_complete(self._pref_get(name))
-
-    @asyncio.coroutine
-    def _pref_get(self, name):
-        p = yield from asyncio.create_subprocess_exec(
-            'qvm-prefs', *self.sharedopts, '--', self.testvm.name, name,
-            stdout=subprocess.PIPE)
-        (stdout, _) = yield from p.communicate()
-        self.assertEqual(p.returncode, 0)
-        return stdout.strip()
-
-    bool_test_values = [
-        ('true', 'True', True),
-        ('False', 'False', True),
-        ('0', 'False', True),
-        ('1', 'True', True),
-        ('invalid', '', False)
-    ]
-
-    def execute_tests(self, name, values):
-        """
-        Helper function, which executes tests for given property.
-        :param values: list of tuples (value, expected, valid),
-        where 'value' is what should be set and 'expected' is what should
-        qvm-prefs returns as a property value and 'valid' marks valid and
-        invalid values - if it's False, qvm-prefs should reject the value
-        :return: None
-        """
-        for (value, expected, valid) in values:
-            self.pref_set(name, value, valid)
-            if valid:
-                self.assertEqual(self.pref_get(name), expected)
-
-    @unittest.skip('test not converted to core3 API')
-    def test_006_template(self):
-        templates = [tpl for tpl in self.app.domains.values() if
-            isinstance(tpl, qubes.vm.templatevm.TemplateVM)]
-        if not templates:
-            self.skipTest("No templates installed")
-        some_template = templates[0].name
-        self.setup_appvm()
-        self.execute_tests('template', [
-            (some_template, some_template, True),
-            ('invalid', '', False),
-        ])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_014_pcidevs(self):
-        self.setup_appvm()
-        self.execute_tests('pcidevs', [
-            ('[]', '[]', True),
-            ('[ "00:00.0" ]', "['00:00.0']", True),
-            ('invalid', '', False),
-            ('[invalid]', '', False),
-            # TODO:
-            # ('["12:12.0"]', '', False)
-        ])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_024_pv_reject_hvm_props(self):
-        self.setup_appvm()
-        self.execute_tests('guiagent_installed', [('False', '', False)])
-        self.execute_tests('qrexec_installed', [('False', '', False)])
-        self.execute_tests('drive', [('/tmp/drive.img', '', False)])
-        self.execute_tests('timezone', [('localtime', '', False)])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_025_hvm_reject_pv_props(self):
-        self.setup_hvm()
-        self.execute_tests('kernel', [('default', '', False)])
-        self.execute_tests('kernelopts', [('default', '', False)])
-
 class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
 
@@ -570,11 +477,13 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
 
     def get_rootimg_checksum(self):
         return subprocess.check_output(
-            ['sha1sum', self.test_template.volumes['root'].path])
+            ['sha1sum', self.test_template.volumes['root'].export()]).\
+            decode().split(' ')[0]
 
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()
         self.loop.run_until_complete(self.test_template.start())
+        self.loop.run_until_complete(self.wait_for_session(self.test_template))
         self.shutdown_and_wait(self.test_template)
         checksum_changed = self.get_rootimg_checksum()
         if checksum_before == checksum_changed:
@@ -787,21 +696,27 @@ class TC_06_AppVMMixin(object):
         self.assertTrue(self.vm.is_running())
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+                               'type', '--window', '%1', 'poweroff\r'])
+        for _ in range(10):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
+def create_testcases_for_templates():
+    yield from qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
+            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_06_AppVM',
+            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
-            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
-    tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_06_AppVM',
-            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+        create_testcases_for_templates()))
 
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
 
 # vim: ts=4 sw=4 et

@@ -21,6 +21,8 @@
 from unittest import mock
 
 import qubes.ext.core_features
+import qubes.ext.services
+import qubes.ext.windows
 import qubes.tests
 
 
@@ -163,3 +165,143 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('qrexec',), {}),
             ('features.__contains__', ('gui',), {}),
         ])
+
+class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.windows.WindowsFeatures()
+        self.vm = mock.MagicMock()
+        self.features = {}
+        self.vm.configure_mock(**{
+            'features.get.side_effect': self.features.get,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            })
+
+    def test_000_notify_tools_full(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '1',
+                'os': 'Windows'})
+        self.assertEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os', 'Windows'), {}),
+            ('features.__setitem__', ('rpc-clipboard', True), {}),
+        ])
+
+    def test_001_notify_tools_no_qrexec(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '0',
+                'os': 'Windows'})
+        self.assertEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os', 'Windows'), {}),
+        ])
+
+    def test_002_notify_tools_other_os(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '1',
+                'os': 'other'})
+        self.assertEqual(self.vm.mock_calls, [])
+
+class TC_20_Services(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.services.ServicesExtension()
+        self.vm = mock.MagicMock()
+        self.features = {}
+        self.vm.configure_mock(**{
+            'template': None,
+            'is_running.return_value': True,
+            'features.get.side_effect': self.features.get,
+            'features.items.side_effect': self.features.items,
+            'features.__iter__.side_effect': self.features.__iter__,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            'features.__delitem__.side_effect': self.features.__delitem__,
+            })
+
+    def test_000_write_to_qdb(self):
+        self.features['service.test1'] = '1'
+        self.features['service.test2'] = ''
+
+        self.ext.on_domain_qdb_create(self.vm, 'domain-qdb-create')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('write', ('/qubes-service/test1', '1'), {}),
+            ('write', ('/qubes-service/test2', '0'), {}),
+        ])
+
+    def test_001_feature_set(self):
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_no_oldvalue',
+            'service.test_no_oldvalue', '1')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_oldvalue',
+            'service.test_oldvalue', '1', '')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_disable',
+            'service.test_disable', '', '1')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_disable_no_oldvalue',
+            'service.test_disable_no_oldvalue', '')
+
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), sorted([
+            ('write', ('/qubes-service/test_no_oldvalue', '1'), {}),
+            ('write', ('/qubes-service/test_oldvalue', '1'), {}),
+            ('write', ('/qubes-service/test_disable', '0'), {}),
+            ('write', ('/qubes-service/test_disable_no_oldvalue', '0'), {}),
+        ]))
+
+    def test_002_feature_delete(self):
+        self.ext.on_domain_feature_delete(self.vm,
+            'feature-delete:service.test3', 'service.test3')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('rm', ('/qubes-service/test3',), {}),
+        ])
+
+    def test_010_supported_services(self):
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test1': '1',  # ok
+                'supported-service.test2': '0',  # ignored
+                'supported-service.test3': 'some text',  # ignored
+                'no-service': '1',  # ignored
+            })
+        self.assertEqual(self.features, {
+            'supported-service.test1': True,
+        })
+
+    def test_011_supported_services_add(self):
+        self.features['supported-service.test1'] = '1'
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test1': '1',  # ok
+                'supported-service.test2': '1',  # ok
+            })
+        # also check if existing one is untouched
+        self.assertEqual(self.features, {
+            'supported-service.test1': '1',
+            'supported-service.test2': True,
+        })
+
+    def test_012_supported_services_remove(self):
+        self.features['supported-service.test1'] = '1'
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test2': '1',  # ok
+            })
+        self.assertEqual(self.features, {
+            'supported-service.test2': True,
+        })

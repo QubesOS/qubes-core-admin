@@ -41,7 +41,7 @@ def get_timezone():
     if os.path.islink('/etc/localtime'):
         return '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
     # <=fc17
-    elif os.path.exists('/etc/sysconfig/clock'):
+    if os.path.exists('/etc/sysconfig/clock'):
         clock_config = open('/etc/sysconfig/clock', "r")
         clock_config_lines = clock_config.readlines()
         clock_config.close()
@@ -50,18 +50,17 @@ def get_timezone():
             line_match = zone_re.match(line)
             if line_match:
                 return line_match.group(1)
-    else:
-        # last resort way, some applications makes /etc/localtime
-        # hardlink instead of symlink...
-        tz_info = os.stat('/etc/localtime')
-        if not tz_info:
-            return None
-        if tz_info.st_nlink > 1:
-            p = subprocess.Popen(['find', '/usr/share/zoneinfo',
-                '-inum', str(tz_info.st_ino), '-print', '-quit'],
-                stdout=subprocess.PIPE)
-            tz_path = p.communicate()[0].strip()
-            return tz_path.replace('/usr/share/zoneinfo/', '')
+    # last resort way, some applications makes /etc/localtime
+    # hardlink instead of symlink...
+    tz_info = os.stat('/etc/localtime')
+    if not tz_info:
+        return None
+    if tz_info.st_nlink > 1:
+        p = subprocess.Popen(['find', '/usr/share/zoneinfo',
+            '-inum', str(tz_info.st_ino), '-print', '-quit'],
+            stdout=subprocess.PIPE)
+        tz_path = p.communicate()[0].strip()
+        return tz_path.replace(b'/usr/share/zoneinfo/', b'')
     return None
 
 
@@ -132,9 +131,9 @@ def size_to_human(size):
     """Humane readable size, with 1/10 precision"""
     if size < 1024:
         return str(size)
-    elif size < 1024 * 1024:
+    if size < 1024 * 1024:
         return str(round(size / 1024.0, 1)) + ' KiB'
-    elif size < 1024 * 1024 * 1024:
+    if size < 1024 * 1024 * 1024:
         return str(round(size / (1024.0 * 1024), 1)) + ' MiB'
 
     return str(round(size / (1024.0 * 1024 * 1024), 1)) + ' GiB'
@@ -181,6 +180,6 @@ def match_vm_name_with_special(vm, name):
     or @type:...'''
     if name.startswith('@tag:'):
         return name[len('@tag:'):] in vm.tags
-    elif name.startswith('@type:'):
+    if name.startswith('@type:'):
         return name[len('@type:'):] == vm.__class__.__name__
     return name == vm.name

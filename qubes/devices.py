@@ -67,7 +67,7 @@ class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
     '''Trying to attach already attached device'''
     pass
 
-class DeviceInfo(object):
+class DeviceInfo:
     ''' Holds all information about a device '''
     # pylint: disable=too-few-public-methods
     def __init__(self, backend_domain, ident, description=None,
@@ -117,7 +117,7 @@ class DeviceInfo(object):
         return '{!s}:{!s}'.format(self.backend_domain, self.ident)
 
 
-class DeviceAssignment(object): # pylint: disable=too-few-public-methods
+class DeviceAssignment: # pylint: disable=too-few-public-methods
     ''' Maps a device to a frontend_domain. '''
 
     def __init__(self, backend_domain, ident, options=None, persistent=False,
@@ -158,7 +158,7 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
         return self.backend_domain.devices[self.bus][self.ident]
 
 
-class DeviceCollection(object):
+class DeviceCollection:
     '''Bag for devices.
 
     Used as default value for :py:meth:`DeviceManager.__missing__` factory.
@@ -168,13 +168,14 @@ class DeviceCollection(object):
 
     This class emits following events on VM object:
 
-        .. event:: device-attach:<class> (device)
+        .. event:: device-attach:<class> (device, options)
 
             Fired when device is attached to a VM.
 
             Handler for this event can be asynchronous (a coroutine).
 
             :param device: :py:class:`DeviceInfo` object to be attached
+            :param options: :py:class:`dict` of attachment options
 
         .. event:: device-pre-attach:<class> (device)
 
@@ -357,8 +358,7 @@ class DeviceCollection(object):
             if persistent is True:
                 # don't break app.save()
                 return self._set
-            else:
-                raise
+            raise
         result = set()
         for dev, options in devices:
             if dev in self._set and not persistent:
@@ -433,7 +433,7 @@ class UnknownDevice(DeviceInfo):
             frontend_domain)
 
 
-class PersistentCollection(object):
+class PersistentCollection:
 
     ''' Helper object managing persistent `DeviceAssignment`s.
     '''

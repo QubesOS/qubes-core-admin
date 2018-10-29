@@ -88,6 +88,7 @@ class TestApp(qubes.tests.TestEmitter):
         self.default_pool_root = 'default'
         self.default_pool_private = 'default'
         self.default_pool_kernel = 'linux-kernel'
+        self.default_qrexec_timeout = 60
         self.default_netvm = None
         self.domains = TestVMsCollection()
         #: jinja2 environment for libvirt XML templates

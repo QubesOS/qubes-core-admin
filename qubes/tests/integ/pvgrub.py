@@ -70,7 +70,7 @@ class TC_40_PVGrub(object):
 
     def get_kernel_version(self, vm):
         if self.template.startswith('fedora-'):
-            cmd_get_kernel_version = 'rpm -q kernel-core|sort -n|tail -1|' \
+            cmd_get_kernel_version = 'rpm -q kernel-core|sort -V|tail -1|' \
                                      'cut -d - -f 3-'
         elif self.template.startswith('debian-'):
             cmd_get_kernel_version = \
@@ -137,10 +137,14 @@ class TC_40_PVGrub(object):
             self.test_template.run_for_stdio('uname -r'))
         self.assertEquals(actual_kver.strip(), kver)
 
+def create_testcases_for_templates():
+    return qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
+        TC_40_PVGrub, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
-            TC_40_PVGrub, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

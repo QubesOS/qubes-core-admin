@@ -47,7 +47,7 @@ class StoragePoolException(qubes.exc.QubesException):
     pass
 
 
-class BlockDevice(object):
+class BlockDevice:
     ''' Represents a storage block device. '''
     # pylint: disable=too-few-public-methods
     def __init__(self, path, name, script=None, rw=True, domain=None,
@@ -62,7 +62,7 @@ class BlockDevice(object):
         self.devtype = devtype
 
 
-class Volume(object):
+class Volume:
     ''' Encapsulates all data about a volume for serialization to qubes.xml and
         libvirt config.
 
@@ -198,6 +198,8 @@ class Volume(object):
             volume data require something more than just writing to a file (
             for example connecting to some other domain, or converting data
             on the fly), the returned path may be a pipe.
+
+            This can be implemented as a coroutine.
         '''
         raise self._not_implemented("import")
 
@@ -206,6 +208,8 @@ class Volume(object):
         implementation to commit changes, cleanup temporary files etc.
 
         This method is called regardless the operation was successful or not.
+
+        This can be implemented as a coroutine.
 
         :param success: True if data import was successful, otherwise False
         '''
@@ -252,6 +256,8 @@ class Volume(object):
     def revert(self, revision=None):
         ''' Revert volume to previous revision
 
+        This can be implemented as a coroutine.
+
         :param revision: revision to revert volume to, see :py:attr:`revisions`
         '''
         # pylint: disable=unused-argument
@@ -272,6 +278,7 @@ class Volume(object):
         This include committing data if :py:attr:`save_on_stop` is set.
 
         This can be implemented as a coroutine.'''
+        raise self._not_implemented("stop")
 
     def verify(self):
         ''' Verifies the volume.
@@ -334,14 +341,14 @@ class Volume(object):
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
-class Storage(object):
+class Storage:
     ''' Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
     '''
 
-    AVAILABLE_FRONTENDS = set(['xvd' + c for c in string.ascii_lowercase])
+    AVAILABLE_FRONTENDS = {'xvd' + c for c in string.ascii_lowercase}
 
     def __init__(self, vm):
         #: Domain for which we manage storage
@@ -506,8 +513,7 @@ class Storage(object):
             ret = volume.create()
             if asyncio.iscoroutine(ret):
                 coros.append(ret)
-        if coros:
-            yield from asyncio.wait(coros)
+        yield from _wait_and_reraise(coros)
 
         os.umask(old_umask)
 
@@ -549,7 +555,7 @@ class Storage(object):
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            yield from asyncio.wait([self.clone_volume(src_vm, vol_name)
+            yield from _wait_and_reraise([self.clone_volume(src_vm, vol_name)
                 for vol_name in self.vm.volume_config.keys()])
 
     @property
@@ -581,11 +587,7 @@ class Storage(object):
             ret = volume.verify()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
         self.vm.fire_event('domain-verify-files')
         return True
 
@@ -605,44 +607,32 @@ class Storage(object):
             except (IOError, OSError) as e:
                 self.vm.log.exception("Failed to remove volume %s", name, e)
 
-        if futures:
-            try:
-                done, _ = yield from asyncio.wait(futures)
-                for task in done:
-                    # re-raise any exception from async task
-                    task.result()
-            except (IOError, OSError) as e:
-                self.vm.log.exception("Failed to remove some volume", e)
+        try:
+            yield from _wait_and_reraise(futures)
+        except (IOError, OSError) as e:
+            self.vm.log.exception("Failed to remove some volume", e)
 
     @asyncio.coroutine
     def start(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the start method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.start()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
 
     @asyncio.coroutine
     def stop(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the stop method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.stop()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
 
     def unused_frontend(self):
         ''' Find an unused device name '''
@@ -655,9 +645,9 @@ class Storage(object):
         ''' Used device names '''
         xml = self.vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
-        return set([target.get('dev', None)
+        return {target.get('dev', None)
                     for target in parsed_xml.xpath(
-                        "//domain/devices/disk/target")])
+                        "//domain/devices/disk/target")}
 
     def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
@@ -668,27 +658,37 @@ class Storage(object):
 
         return self.vm.volumes[volume].export()
 
+    @asyncio.coroutine
     def import_data(self, volume):
         ''' Helper function to import volume data (pool.import_data(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return volume.import_data()
+            ret = volume.import_data()
+        else:
+            ret = self.vm.volumes[volume].import_data()
 
-        return self.vm.volumes[volume].import_data()
+        if asyncio.iscoroutine(ret):
+            ret = yield from ret
+        return ret
 
+    @asyncio.coroutine
     def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import
         (pool.import_data_end( volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return volume.import_data_end(success=success)
+            ret = volume.import_data_end(success=success)
+        else:
+            ret = self.vm.volumes[volume].import_data_end(success=success)
 
-        return self.vm.volumes[volume].import_data_end(success=success)
+        if asyncio.iscoroutine(ret):
+            ret = yield from ret
+        return ret
 
 
-class VolumesCollection(object):
+class VolumesCollection:
     '''Convenient collection wrapper for pool.get_volume and
     pool.list_volumes
     '''
@@ -706,8 +706,7 @@ class VolumesCollection(object):
         if isinstance(item, Volume):
             if item.pool == self._pool:
                 return self[item.vid]
-            else:
-                raise KeyError(item)
+            raise KeyError(item)
         try:
             return self._pool.get_volume(item)
         except NotImplementedError:
@@ -740,7 +739,7 @@ class VolumesCollection(object):
         return [vol for vol in self]
 
 
-class Pool(object):
+class Pool:
     ''' A Pool is used to manage different kind of volumes (File
         based/LVM/Btrfs/...).
 
@@ -760,7 +759,7 @@ class Pool(object):
     def __eq__(self, other):
         if isinstance(other, Pool):
             return self.name == other.name
-        elif isinstance(other, str):
+        if isinstance(other, str):
             return self.name == other
         return NotImplemented
 
@@ -829,18 +828,26 @@ class Pool(object):
     @property
     def size(self):
         ''' Storage pool size in bytes, or None if unknown '''
-        return None
+        pass
 
     @property
     def usage(self):
         ''' Space used in the pool in bytes, or None if unknown '''
-        return None
+        pass
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
         msg = "Pool driver {!s} has {!s}() not implemented"
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
+
+
+@asyncio.coroutine
+def _wait_and_reraise(futures):
+    if futures:
+        done, _ = yield from asyncio.wait(futures)
+        for task in done:  # (re-)raise first exception in line
+            task.result()
 
 
 def _sanitize_config(config):
@@ -872,7 +879,7 @@ def driver_parameters(name):
     return [p for p in params if p not in ignored_params]
 
 
-def isodate(seconds=time.time()):
+def isodate(seconds):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
 
@@ -882,23 +889,27 @@ def search_pool_containing_dir(pools, dir_path):
     This is useful for implementing Pool.included_in method
     '''
 
+    real_dir_path = os.path.realpath(dir_path)
+
     # prefer filesystem pools
     for pool in pools:
         if hasattr(pool, 'dir_path'):
-            if dir_path.startswith(pool.dir_path):
+            pool_real_dir_path = os.path.realpath(pool.dir_path)
+            if os.path.commonpath([pool_real_dir_path, real_dir_path]) == \
+               pool_real_dir_path:
                 return pool
 
     # then look for lvm
     for pool in pools:
         if hasattr(pool, 'thin_pool') and hasattr(pool, 'volume_group'):
             if (pool.volume_group, pool.thin_pool) == \
-                    DirectoryThinPool.thin_pool(dir_path):
+                    DirectoryThinPool.thin_pool(real_dir_path):
                 return pool
 
     return None
 
 
-class VmCreationManager(object):
+class VmCreationManager:
     ''' A `ContextManager` which cleans up if volume creation fails.
     '''  # pylint: disable=too-few-public-methods
     def __init__(self, vm):

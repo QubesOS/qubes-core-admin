@@ -94,7 +94,7 @@ class EmitterMeta(type):
                 cls.__handlers__[event].add(attr)
 
 
-class Emitter(object, metaclass=EmitterMeta):
+class Emitter(metaclass=EmitterMeta):
     '''Subject that can emit events.
 
     By default all events are disabled not to interfere with loading from XML.

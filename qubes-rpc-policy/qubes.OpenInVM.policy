@@ -3,8 +3,5 @@
 
 ## Please use a single # to start your custom comments
 
-sys-whonix anon-whonix allow
-whonix-gw anon-whonix allow
-whonix-ws anon-whonix allow
 $anyvm	$dispvm	allow
 $anyvm	$anyvm	ask

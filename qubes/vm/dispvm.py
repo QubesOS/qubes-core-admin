@@ -142,8 +142,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def _auto_cleanup(self):
         '''Do auto cleanup if enabled'''
         if self.auto_cleanup and self in self.app.domains:
-            yield from self.remove_from_disk()
             del self.app.domains[self]
+            yield from self.remove_from_disk()
             self.app.save()
 
     @classmethod
@@ -193,8 +193,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             pass
         # if auto_cleanup is set, this will be done automatically
         if not self.auto_cleanup:
-            yield from self.remove_from_disk()
             del self.app.domains[self]
+            yield from self.remove_from_disk()
             self.app.save()
 
     @asyncio.coroutine

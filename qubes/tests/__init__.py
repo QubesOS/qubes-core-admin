@@ -379,7 +379,26 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
+        self.addCleanup(self.cleanup_traceback)
         self.addCleanup(qubes.ext.pci._cache_get.cache_clear)
+
+    def cleanup_traceback(self):
+        '''Remove local variables reference from tracebacks to allow garbage
+        collector to clean all Qubes*() objects, otherwise file descriptors
+        held by them will leak'''
+        exc_infos = [e for test_case, e in self._outcome.errors
+            if test_case is self]
+        if self._outcome.expectedFailure:
+            exc_infos.append(self._outcome.expectedFailure)
+        for exc_info in exc_infos:
+            if exc_info is None:
+                continue
+            ex = exc_info[1]
+            while ex is not None:
+                if isinstance(ex, qubes.exc.QubesVMError):
+                    ex.vm = None
+                traceback.clear_frames(ex.__traceback__)
+                ex = ex.__context__
 
     def cleanup_gc(self):
         gc.collect()
@@ -397,6 +416,8 @@ class QubesTestCase(unittest.TestCase):
             except ImportError:
                 pass
 
+        # do not keep leaked object references in locals()
+        leaked = bool(leaked)
         assert not leaked
 
     def cleanup_loop(self):
@@ -420,6 +441,13 @@ class QubesTestCase(unittest.TestCase):
                     libvirt_event_impl.drain(), timeout=4))
             except asyncio.TimeoutError:
                 raise AssertionError('libvirt event impl drain timeout')
+
+        # this is stupid, but apparently it requires two passes
+        # to cleanup SIGCHLD handlers
+        self.loop.stop()
+        self.loop.run_forever()
+        self.loop.stop()
+        self.loop.run_forever()
 
         # Check there are no Tasks left.
         assert not self.loop._ready
@@ -763,20 +791,6 @@ class SystemTestCase(QubesTestCase):
         vmname = vm.name
         app = vm.app
 
-        # avoid race with DispVM.auto_cleanup=True
-        try:
-            self.loop.run_until_complete(
-                asyncio.wait_for(vm.startup_lock.acquire(), 10))
-        except asyncio.TimeoutError:
-            pass
-
-        try:
-            # XXX .is_running() may throw libvirtError if undefined
-            if vm.is_running():
-                self.loop.run_until_complete(vm.kill())
-        except:  # pylint: disable=bare-except
-            pass
-
         try:
             self.loop.run_until_complete(vm.remove_from_disk())
         except:  # pylint: disable=bare-except
@@ -842,7 +856,7 @@ class SystemTestCase(QubesTestCase):
         '''
         try:
             volumes = subprocess.check_output(
-                ['sudo', 'lvs', '--noheadings', '-o', 'vg_name,name',
+                ['lvs', '--noheadings', '-o', 'vg_name,name',
                     '--separator', '/']).decode()
             if ('/vm-' + prefix) not in volumes:
                 return
@@ -857,18 +871,36 @@ class SystemTestCase(QubesTestCase):
         vms = list(vms)
         if not vms:
             return
+        # first kill all the domains, to avoid side effects of changing netvm
+        for vm in vms:
+            try:
+                # XXX .is_running() may throw libvirtError if undefined
+                if vm.is_running():
+                    self.loop.run_until_complete(vm.kill())
+            except:  # pylint: disable=bare-except
+                pass
         # break dependencies
         for vm in vms:
             vm.default_dispvm = None
-        # then remove in reverse topological order (wrt netvm), using naive
+            vm.netvm = None
+        # take app instance from any VM to be removed
+        app = vms[0].app
+        if app.default_dispvm in vms:
+            app.default_dispvm = None
+        if app.default_netvm in vms:
+            app.default_netvm = None
+        del app
+        # then remove in reverse topological order (wrt template), using naive
         # algorithm
-        # this heavily depends on lack of netvm loops
+        # this heavily depends on lack of template loops, but those are
+        # impossible
         while vms:
             vm = vms.pop(0)
             # make sure that all connected VMs are going to be removed,
             # otherwise this will loop forever
-            assert all(x in vms for x in vm.connected_vms)
-            if list(vm.connected_vms):
+            child_vms = list(getattr(vm, 'appvms', []))
+            assert all(x in vms for x in child_vms)
+            if child_vms:
                 # if still something use this VM, put it at the end of queue
                 # and try next one
                 vms.append(vm)
@@ -876,9 +908,16 @@ class SystemTestCase(QubesTestCase):
             self._remove_vm_qubes(vm)
 
     def remove_test_vms(self, xmlpath=XMLPATH, prefix=VMPREFIX):
-        '''Aggresively remove any domain that has name in testing namespace.
+        '''Aggressively remove any domain that has name in testing namespace.
+
+        :param prefix: name prefix of VMs to remove, can be a list of prefixes
         '''
 
+        if isinstance(prefix, str):
+            prefixes = [prefix]
+        else:
+            prefixes = prefix
+        del prefix
         # first, remove them Qubes-way
         if os.path.exists(xmlpath):
             try:
@@ -891,7 +930,7 @@ class SystemTestCase(QubesTestCase):
                 except AttributeError:
                     host_app = qubes.Qubes()
                 self.remove_vms([vm for vm in app.domains
-                    if vm.name.startswith(prefix) or
+                    if any(vm.name.startswith(prefix) for prefix in prefixes) or
                        (isinstance(vm, qubes.vm.dispvm.DispVM) and vm.name
                         not in host_app.domains)])
                 if not hasattr(self, 'host_app'):
@@ -907,7 +946,7 @@ class SystemTestCase(QubesTestCase):
         # now remove what was only in libvirt
         conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         for dom in conn.listAllDomains():
-            if dom.name().startswith(prefix):
+            if any(dom.name().startswith(prefix) for prefix in prefixes):
                 self._remove_vm_libvirt(dom)
         conn.close()
 
@@ -922,11 +961,12 @@ class SystemTestCase(QubesTestCase):
             if not os.path.exists(dirpath):
                 continue
             for name in os.listdir(dirpath):
-                if name.startswith(prefix):
+                if any(name.startswith(prefix) for prefix in prefixes):
                     vmnames.add(name)
         for vmname in vmnames:
             self._remove_vm_disk(vmname)
-        self._remove_vm_disk_lvm(prefix)
+        for prefix in prefixes:
+            self._remove_vm_disk_lvm(prefix)
 
     def qrexec_policy(self, service, source, destination, allow=True,
             action=None):
@@ -943,7 +983,25 @@ class SystemTestCase(QubesTestCase):
         return _QrexecPolicyContext(service, source, destination,
             allow=allow, action=action)
 
-    def wait_for_window(self, title, timeout=30, show=True):
+    @asyncio.coroutine
+    def wait_for_window_hide_coro(self, title, winid, timeout=30):
+        """
+        Wait for window do disappear
+        :param winid: window id
+        :return:
+        """
+        wait_count = 0
+        while subprocess.call(['xdotool', 'getwindowname', str(winid)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) == 0:
+            wait_count += 1
+            if wait_count > timeout * 10:
+                self.fail("Timeout while waiting for {}({}) window to "
+                          "disappear".format(title, winid))
+            yield from asyncio.sleep(0.1)
+
+    @asyncio.coroutine
+    def wait_for_window_coro(self, title, search_class=False, timeout=30,
+            show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
         it will wait for either window to show or to disappear.
@@ -952,19 +1010,59 @@ class SystemTestCase(QubesTestCase):
         :param timeout: timeout of the operation, in seconds
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
-        :return: None
+        :param search_class: search based on window class instead of title
+        :return: window id of found window, if show=True
         """
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) \
-                != int(not show):
-            wait_count += 1
-            if wait_count > timeout*10:
-                self.fail("Timeout while waiting for {} window to {}".format(
-                    title, "show" if show else "hide")
-                )
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        xdotool_search = ['xdotool', 'search', '--onlyvisible']
+        if search_class:
+            xdotool_search.append('--class')
+        else:
+            xdotool_search.append('--name')
+        if show:
+            xdotool_search.append('--sync')
+        if not show:
+            try:
+                winid = subprocess.check_output(xdotool_search + [title],
+                    stderr=subprocess.DEVNULL).decode()
+            except subprocess.CalledProcessError:
+                # already gone
+                return
+            yield from self.wait_for_window_hide_coro(winid, title,
+                timeout=timeout)
+            return
+
+        winid = None
+        while not winid:
+            p = yield from asyncio.create_subprocess_exec(
+                *xdotool_search, title,
+                stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
+            try:
+                (winid, _) = yield from asyncio.wait_for(
+                    p.communicate(), timeout)
+                # don't check exit code, getting winid on stdout is enough
+                # indicator of success; specifically ignore xdotool failing
+                # with BadWindow or such - when some window appears only for a
+                # moment by xdotool didn't manage to get its properties
+            except asyncio.TimeoutError:
+                self.fail(
+                    "Timeout while waiting for {} window to show".format(title))
+        return winid.decode().strip()
+
+    def wait_for_window(self, *args, **kwargs):
+        """
+        Wait for a window with a given title. Depending on show parameter,
+        it will wait for either window to show or to disappear.
+
+        :param title: title of the window to wait for
+        :param timeout: timeout of the operation, in seconds
+        :param show: if True - wait for the window to be visible,
+            otherwise - to not be visible
+        :param search_class: search based on window class instead of title
+        :return: window id of found window, if show=True
+        """
+        return self.loop.run_until_complete(
+            self.wait_for_window_coro(*args, **kwargs))
 
     def enter_keys_in_window(self, title, keys):
         """
@@ -985,15 +1083,12 @@ class SystemTestCase(QubesTestCase):
         subprocess.check_call(command)
 
     def shutdown_and_wait(self, vm, timeout=60):
-        self.loop.run_until_complete(vm.shutdown())
-        while timeout > 0:
-            if not vm.is_running():
-                return
-            self.loop.run_until_complete(asyncio.sleep(1))
-            timeout -= 1
-        name = vm.name
-        del vm
-        self.fail("Timeout while waiting for VM {} shutdown".format(name))
+        try:
+            self.loop.run_until_complete(vm.shutdown(wait=True, timeout=timeout))
+        except qubes.exc.QubesException:
+            name = vm.name
+            del vm
+            self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
         if not os.path.exists('/usr/lib/grub/i386-pc'):
@@ -1109,10 +1204,15 @@ class SystemTestCase(QubesTestCase):
 
     @asyncio.coroutine
     def wait_for_session(self, vm):
+        timeout = 30
+        if getattr(vm, 'template', None) and 'whonix-ws' in vm.template.name:
+            # first boot of whonix-ws takes more time because of /home
+            # initialization, including Tor Browser copying
+            timeout = 120
         yield from asyncio.wait_for(
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
-            timeout=30)
+            timeout=timeout)
 
 
 _templates = None
@@ -1120,10 +1220,14 @@ def list_templates():
     '''Returns tuple of template names available in the system.'''
     global _templates
     if _templates is None:
+        if 'QUBES_TEST_TEMPLATES' in os.environ:
+            _templates = os.environ['QUBES_TEST_TEMPLATES'].split()
+    if _templates is None:
         try:
             app = qubes.Qubes()
             _templates = tuple(vm.name for vm in app.domains
-                if isinstance(vm, qubes.vm.templatevm.TemplateVM))
+                if isinstance(vm, qubes.vm.templatevm.TemplateVM) and
+                    vm.features.get('os', None) != 'Windows')
             app.close()
             del app
         except OSError:
@@ -1165,11 +1269,28 @@ def create_testcases_for_templates(name, *bases, module, **kwds):
 
     for template in list_templates():
         clsname = name + '_' + template
+        if hasattr(module, clsname):
+            continue
         cls = type(clsname, bases, {'template': template, **kwds})
         cls.__module__ = module.__name__
         # XXX I wonder what other __dunder__ attrs did I miss
         setattr(module, clsname, cls)
         yield '.'.join((module.__name__, clsname))
+
+def maybe_create_testcases_on_import(create_testcases_gen):
+    '''If certain conditions are met, call *create_testcases_gen* to create
+    testcases for templates tests. The purpose is to use it on integration
+    tests module(s) import, so the test runner could discover tests without
+    using load tests protocol.
+
+    The conditions - any of:
+     - QUBES_TEST_TEMPLATES present in the environment (it's possible to
+     create test cases without opening qubes.xml)
+     - QUBES_TEST_LOAD_ALL present in the environment
+    '''
+    if 'QUBES_TEST_TEMPLATES' in os.environ or \
+            'QUBES_TEST_LOAD_ALL' in os.environ:
+        list(create_testcases_gen())
 
 def extra_info(obj):
     '''Return short info identifying object.
@@ -1203,6 +1324,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.vm.init',
             'qubes.tests.storage',
             'qubes.tests.storage_file',
+            'qubes.tests.storage_reflink',
             'qubes.tests.storage_lvm',
             'qubes.tests.storage_kernels',
             'qubes.tests.ext',
@@ -1240,11 +1362,13 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.integ.basic',
             'qubes.tests.integ.storage',
             'qubes.tests.integ.pvgrub',
+            'qubes.tests.integ.devices_block',
             'qubes.tests.integ.devices_pci',
             'qubes.tests.integ.dom0_update',
             'qubes.tests.integ.network',
             'qubes.tests.integ.dispvm',
             'qubes.tests.integ.vm_qrexec_gui',
+            'qubes.tests.integ.mime',
             'qubes.tests.integ.salt',
             'qubes.tests.integ.backup',
             'qubes.tests.integ.backupcompatibility',

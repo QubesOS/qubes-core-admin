@@ -32,6 +32,11 @@ def main():
     app = Qubes()
     clockvm = app.clockvm
 
+    if not clockvm.is_running():
+        sys.stderr.write('ClockVM {} is not running, aborting.\n'.format(
+            clockvm.name))
+        sys.exit(0)
+
     p = clockvm.run_service('qubes.GetDate')
     untrusted_date_out = p.stdout.read(25).decode('ascii', errors='strict')
     untrusted_date_out = untrusted_date_out.strip()
@@ -42,7 +47,7 @@ def main():
     date_out = untrusted_date_out
     subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
         stdout=subprocess.DEVNULL)
-    subprocess.check_call(['hwclock', '--systohc'],
+    subprocess.check_call(['/sbin/hwclock', '--systohc'],
         stdout=subprocess.DEVNULL)
 
 if __name__ == '__main__':

@@ -19,6 +19,7 @@
 
 from multiprocessing import Queue
 
+import asyncio
 import os
 import shutil
 import subprocess
@@ -122,7 +123,10 @@ class TC_00_BackupCompatibility(
         qubes.tests.integ.backup.BackupTestsMixin, qubes.tests.SystemTestCase):
 
     def tearDown(self):
-        self.remove_test_vms(prefix="test-")
+        prefixes = ["test-", "disp-test-"]
+        if 'disp-no-netvm' not in self.host_app.domains:
+            prefixes.append('disp-no-netvm')
+        self.remove_test_vms(prefix=prefixes)
         super(TC_00_BackupCompatibility, self).tearDown()
 
     def create_whitelisted_appmenus(self, filename):
@@ -233,7 +237,7 @@ class TC_00_BackupCompatibility(
         self.create_sparse(self.fullpath(
             "vm-templates/test-template-clone/root.img"), 10*2**30)
         self.fill_image(self.fullpath(
-            "vm-templates/test-template-clone/root.img"), 1*2**30, True)
+            "vm-templates/test-template-clone/root.img"), 100*2**20, True)
         self.create_volatile_img(self.fullpath(
             "vm-templates/test-template-clone/volatile.img"))
         subprocess.check_call([
@@ -382,7 +386,7 @@ class TC_00_BackupCompatibility(
     def assertRestored(self, name, **kwargs):
         with self.assertNotRaises((KeyError, qubes.exc.QubesException)):
             vm = self.app.domains[name]
-            vm.storage.verify()
+            asyncio.get_event_loop().run_until_complete(vm.storage.verify())
             for prop, value in kwargs.items():
                 if prop == 'klass':
                     self.assertIsInstance(vm, value)

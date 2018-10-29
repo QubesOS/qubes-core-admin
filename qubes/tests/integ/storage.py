@@ -26,6 +26,7 @@ import subprocess
 import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
+import qubes.tests.storage_reflink
 import qubes.vm.appvm
 
 
@@ -76,6 +77,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from (self.vm1.start())
+        yield from self.wait_for_session(self.vm1)
 
         # volatile image not clean
         yield from (self.vm1.run_for_stdio(
@@ -111,6 +113,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from self.vm1.start()
+        yield from self.wait_for_session(self.vm1)
         # non-volatile image not clean
         yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
@@ -196,6 +199,9 @@ class StorageTestMixin(object):
         self.app.save()
         yield from self.vm1.start()
         yield from self.vm2.start()
+        yield from asyncio.wait(
+            [self.wait_for_session(self.vm1), self.wait_for_session(self.vm2)])
+
 
         try:
             yield from self.vm1.run_for_stdio(
@@ -284,6 +290,7 @@ class StorageTestMixin(object):
         del coro_maybe
         self.app.save()
         yield from self.vm2.start()
+        yield from self.wait_for_session(self.vm2)
 
         # snapshot image not clean
         yield from self.vm2.run_for_stdio(
@@ -316,6 +323,28 @@ class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
         self.app.remove_pool('test-pool')
         shutil.rmtree(self.dir_path)
         super(StorageFile, self).tearDown()
+
+
+class StorageReflinkMixin(StorageTestMixin):
+    def tearDown(self):
+        self.app.remove_pool(self.pool.name)
+        super().tearDown()
+
+    def init_pool(self, fs_type, **kwargs):
+        name = 'test-reflink-integration-on-' + fs_type
+        dir_path = os.path.join('/var/tmp', name)
+        qubes.tests.storage_reflink.mkdir_fs(dir_path, fs_type,
+                                             cleanup_via=self.addCleanup)
+        self.pool = self.app.add_pool(name=name, dir_path=dir_path,
+                                      driver='file-reflink', **kwargs)
+
+class StorageReflinkOnBtrfs(StorageReflinkMixin, qubes.tests.SystemTestCase):
+    def init_pool(self):
+        super().init_pool('btrfs')
+
+class StorageReflinkOnExt4(StorageReflinkMixin, qubes.tests.SystemTestCase):
+    def init_pool(self):
+        super().init_pool('ext4', setup_check='no')
 
 
 @qubes.tests.storage_lvm.skipUnlessLvmPoolExists

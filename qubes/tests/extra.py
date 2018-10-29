@@ -66,8 +66,9 @@ class VMWrapper(object):
     def __hash__(self):
         return hash(self._vm)
 
-    def start(self):
-        return self._loop.run_until_complete(self._vm.start())
+    def start(self, start_guid=True):
+        return self._loop.run_until_complete(
+            self._vm.start(start_guid=start_guid))
 
     def shutdown(self):
         return self._loop.run_until_complete(self._vm.shutdown())
@@ -194,7 +195,8 @@ def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
         try:
             for test_case in entry.load()():
-                tests.addTests(loader.loadTestsFromTestCase(test_case))
+                tests.addTests(loader.loadTestsFromNames([
+                    '{}.{}'.format(test_case.__module__, test_case.__name__)]))
         except Exception as err:  # pylint: disable=broad-except
             def runTest(self):
                 raise err
@@ -207,10 +209,10 @@ def load_tests(loader, tests, pattern):
             'qubes.tests.extra.for_template'):
         try:
             for test_case in entry.load()():
-                test.addTests(loader.loadTestsFromNames(
+                tests.addTests(loader.loadTestsFromNames(
                     qubes.tests.create_testcases_for_templates(
                         test_case.__name__, test_case,
-                        globals=sys.modules[test_case.__module__].__dict__)))
+                        module=sys.modules[test_case.__module__])))
         except Exception as err:  # pylint: disable=broad-except
             def runTest(self):
                 raise err

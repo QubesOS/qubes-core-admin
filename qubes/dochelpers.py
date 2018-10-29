@@ -48,7 +48,7 @@ SUBCOMMANDS_TITLE = 'COMMANDS'
 OPTIONS_TITLE = 'OPTIONS'
 
 
-class GithubTicket(object):
+class GithubTicket:
     # pylint: disable=too-few-public-methods
     def __init__(self, data):
         self.number = data['number']
@@ -418,7 +418,7 @@ def parse_event(env, sig, signode):
 #
 
 
-def break_to_pdb(app, *dummy):
+def break_to_pdb(app, *_dummy):
     if not app.config.break_to_pdb:
         return
     import pdb

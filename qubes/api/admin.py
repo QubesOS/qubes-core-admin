@@ -44,7 +44,7 @@ import qubes.vm.adminvm
 import qubes.vm.qubesvm
 
 
-class QubesMgmtEventsDispatcher(object):
+class QubesMgmtEventsDispatcher:
     def __init__(self, filters, send_event):
         self.filters = filters
         self.send_event = send_event
@@ -335,7 +335,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         volume = self.dest.volumes[self.arg]
         # properties defined in API
         volume_properties = [
-            'pool', 'vid', 'size', 'usage', 'rw', 'source',
+            'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
             'save_on_stop', 'snap_on_start', 'revisions_to_keep']
 
         def _serialize(value):
@@ -479,7 +479,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        path = self.dest.storage.import_data(self.arg)
+        path = yield from self.dest.storage.import_data(self.arg)
         self.enforce(' ' not in path)
         size = self.dest.volumes[self.arg].size
 
@@ -1101,7 +1101,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             yield from self.dest.remove_from_disk()
         except:  # pylint: disable=bare-except
-            self.app.log.exception('Error wile removing VM \'%s\' files',
+            self.app.log.exception('Error while removing VM \'%s\' files',
                 self.dest.name)
 
         self.app.save()

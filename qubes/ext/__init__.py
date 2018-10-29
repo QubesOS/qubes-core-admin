@@ -29,7 +29,7 @@ import pkg_resources
 import qubes.events
 
 
-class Extension(object):
+class Extension:
     '''Base class for all extensions
     '''  # pylint: disable=too-few-public-methods
 

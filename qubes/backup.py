@@ -76,7 +76,7 @@ class BackupCanceledError(qubes.exc.QubesException):
         self.tmpdir = tmpdir
 
 
-class BackupHeader(object):
+class BackupHeader:
     '''Structure describing backup-header file included as the first file in
     backup archive
     '''
@@ -124,7 +124,7 @@ class BackupHeader(object):
                 f_header.write("{!s}={!s}\n".format(key, getattr(self, attr)))
 
 
-class SendWorker(object):
+class SendWorker:
     # pylint: disable=too-few-public-methods
     def __init__(self, queue, base_dir, backup_stdout):
         super(SendWorker, self).__init__()
@@ -148,6 +148,7 @@ class SendWorker(object):
             # verified before untaring.
             tar_final_cmd = ["tar", "-cO", "--posix",
                              "-C", self.base_dir, filename]
+            # pylint: disable=not-an-iterable
             final_proc = yield from asyncio.create_subprocess_exec(
                 *tar_final_cmd,
                 stdout=self.backup_stdout)
@@ -183,6 +184,7 @@ def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
             termios_p[3] &= ~termios.ECHO
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
     (pty_master, pty_slave) = os.openpty()
+    # pylint: disable=not-an-iterable
     p = yield from asyncio.create_subprocess_exec(*args,
         stdin=stdin,
         stdout=stdout,
@@ -228,7 +230,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
     return p
 
 
-class Backup(object):
+class Backup:
     '''Backup operation manager. Usage:
 
     >>> app = qubes.Qubes()
@@ -251,7 +253,7 @@ class Backup(object):
 
     '''
     # pylint: disable=too-many-instance-attributes
-    class FileToBackup(object):
+    class FileToBackup:
         # pylint: disable=too-few-public-methods
         def __init__(self, file_path, subdir=None, name=None, size=None):
             if size is None:
@@ -278,7 +280,7 @@ class Backup(object):
             if name is not None:
                 self.name = name
 
-    class VMToBackup(object):
+    class VMToBackup:
         # pylint: disable=too-few-public-methods
         def __init__(self, vm, files, subdir):
             self.vm = vm
@@ -635,6 +637,7 @@ class Backup(object):
 
                 # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
+                # pylint: disable=not-an-iterable
                 tar_sparse = yield from asyncio.create_subprocess_exec(
                     *tar_cmdline, stdout=subprocess.PIPE)
 

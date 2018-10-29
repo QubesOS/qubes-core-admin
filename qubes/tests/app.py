@@ -30,6 +30,7 @@ import qubes.events
 
 import qubes.tests
 import qubes.tests.init
+import qubes.tests.storage_reflink
 
 class TestApp(qubes.tests.TestEmitter):
     pass
@@ -262,6 +263,44 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 #   def test_201_get_vms_connected_to(self):
 #       pass
+
+
+class TC_80_QubesInitialPools(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.app = qubes.Qubes('/tmp/qubestest.xml', load=False,
+            offline_mode=True)
+        self.test_dir = '/var/tmp/test-varlibqubes'
+        self.test_patch = mock.patch.dict(
+            qubes.config.defaults['pool_configs']['varlibqubes'],
+            {'dir_path': self.test_dir})
+        self.test_patch.start()
+
+    def tearDown(self):
+        self.test_patch.stop()
+        self.app.close()
+        del self.app
+
+    def get_driver(self, fs_type, accessible):
+        qubes.tests.storage_reflink.mkdir_fs(self.test_dir, fs_type,
+            accessible=accessible, cleanup_via=self.addCleanup)
+        self.app.load_initial_values()
+
+        varlibqubes = self.app.pools['varlibqubes']
+        self.assertEqual(varlibqubes.dir_path, self.test_dir)
+        return varlibqubes.driver
+
+    def test_100_varlibqubes_btrfs_accessible(self):
+        self.assertEqual(self.get_driver('btrfs', True), 'file-reflink')
+
+    def test_101_varlibqubes_btrfs_inaccessible(self):
+        self.assertEqual(self.get_driver('btrfs', False), 'file')
+
+    def test_102_varlibqubes_ext4_accessible(self):
+        self.assertEqual(self.get_driver('ext4', True), 'file')
+
+    def test_103_varlibqubes_ext4_inaccessible(self):
+        self.assertEqual(self.get_driver('ext4', False), 'file')
 
 
 class TC_89_QubesEmpty(qubes.tests.QubesTestCase):

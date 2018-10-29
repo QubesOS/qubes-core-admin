@@ -34,7 +34,7 @@ import qubes
 import qubes.vm.qubesvm
 
 
-class RuleOption(object):
+class RuleOption:
     def __init__(self, untrusted_value):
         # subset of string.punctuation
         safe_set = string.ascii_letters + string.digits + \
@@ -209,7 +209,7 @@ class Expire(RuleOption):
 
     @property
     def rule(self):
-        return None
+        pass
 
     @property
     def api_rule(self):
@@ -234,7 +234,7 @@ class Comment(RuleOption):
 
     @property
     def rule(self):
-        return None
+        pass
 
     @property
     def api_rule(self):
@@ -451,7 +451,7 @@ class Rule(qubes.PropertyHolder):
         return hash(self.api_rule)
 
 
-class Firewall(object):
+class Firewall:
     def __init__(self, vm, load=True):
         assert hasattr(vm, 'firewall_conf')
         self.vm = vm

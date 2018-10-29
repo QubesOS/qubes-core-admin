@@ -39,7 +39,7 @@ import qubes.storage
 
 # properties defined in API
 volume_properties = [
-    'pool', 'vid', 'size', 'usage', 'rw', 'source',
+    'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
     'save_on_stop', 'snap_on_start', 'revisions_to_keep']
 
 
@@ -60,6 +60,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         app = qubes.Qubes('/tmp/qubes-test.xml', load=False)
         app.vmm = unittest.mock.Mock(spec=qubes.app.VMMConnection)
         app.load_initial_values()
+        app.setup_pools()
         app.default_kernel = '1.0'
         app.default_netvm = None
         self.template = app.add_new_vm('TemplateVM', label='black',
