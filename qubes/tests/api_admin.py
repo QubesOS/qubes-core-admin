@@ -396,7 +396,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -424,7 +424,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.ListSnapshots', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -443,7 +443,7 @@ class TC_00_VMs(AdminAPITestCase):
             {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -456,7 +456,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -495,7 +495,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Revert',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -527,7 +527,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'no-int-size')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -542,7 +542,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'-1')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -665,7 +665,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'no-such-driver', b'name=test-pool\nparam1=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -691,7 +691,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam3=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -717,7 +717,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'param1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -742,7 +742,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=file\nparam1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -768,7 +768,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam 1=value\n_param2\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -796,7 +796,7 @@ class TC_00_VMs(AdminAPITestCase):
             'test-pool': unittest.mock.Mock(),
         }
         self.app.remove_pool = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Remove', b'dom0',
                 b'no-such-pool')
         self.assertEqual(self.app.remove_pool.mock_calls, [])
@@ -853,7 +853,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'cyan',
                 b'abcd')
         self.assertEqual(self.app.get_label.mock_calls,
@@ -869,13 +869,13 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'01',
                 b'0xff0000')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'../xxx',
                 b'0xff0000')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0',
                 b'strange-name!@#$',
                 b'0xff0000')
@@ -917,7 +917,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
             **{'return_value.index': 6})
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'blue')
         self.assertEqual(self.app.labels.mock_calls, [])
@@ -927,7 +927,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
             **{'return_value.index': 1})
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'red')
         self.assertEqual(self.app.labels.mock_calls, [])
@@ -1167,7 +1167,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_331_vm_create_standalone_spurious_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.Create.StandaloneVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red')
 
@@ -1223,7 +1223,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_335_vm_create_missing_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template', b'label=red')
 
@@ -1232,7 +1232,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_336_vm_create_spurious_pool(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 label=red pool=default')
@@ -1253,7 +1253,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_338_vm_create_name_twice(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 name=test-vm3 label=red')
@@ -1335,7 +1335,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool:invalid=test')
@@ -1361,7 +1361,7 @@ class TC_00_VMs(AdminAPITestCase):
         # setting custom pool for 'root' volume of AppVM should not be
         # allowed - this volume belongs to the template
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                 b'pool=test pool:root=test')
@@ -1735,9 +1735,9 @@ class TC_00_VMs(AdminAPITestCase):
     def test_521_vm_volume_clone_invalid_volume(self):
         self.setup_for_clone()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
-                    b'test-vm1', b'private123', None)
+                    b'test-vm1', b'private123', b'')
         self.assertNotIn('init_volume().import_volume',
             map(operator.itemgetter(0), self.pool.mock_calls))
         self.assertFalse(self.app.save.called)
@@ -1747,7 +1747,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         token = self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
                 b'test-vm1', b'private', b'')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private123', token.encode())
         self.assertNotIn('init_volume().import_volume',
@@ -1765,7 +1765,7 @@ class TC_00_VMs(AdminAPITestCase):
             else:
                 return unittest.mock.DEFAULT
         self.pool.get_volume.side_effect = get_volume
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private', token.encode())
         self.assertNotIn('init_volume().import_volume',
@@ -1775,7 +1775,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_524_vm_volume_clone_invlid_token(self):
         self.setup_for_clone()
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private', b'no-such-token')
         self.assertNotIn('init_volume().import_volume',
@@ -1823,7 +1823,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertTrue(self.app.save.called)
 
     def test_561_tag_set_invalid(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(ValueError):
             self.call_mgmt_func(b'admin.vm.tag.Set',
                 b'test-vm1', b'+.some-tag')
         self.assertNotIn('+.some-tag', self.vm.tags)
@@ -1910,7 +1910,7 @@ class TC_00_VMs(AdminAPITestCase):
         rules_txt = (
             'proto=tcp dstports=1-1024\n'
             'action=drop\n')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(ValueError):
             self.call_mgmt_func(b'admin.vm.firewall.Set',
                 b'test-vm1', b'', rules_txt.encode())
         self.assertEqual(self.vm.firewall.rules,
@@ -2331,7 +2331,7 @@ class TC_00_VMs(AdminAPITestCase):
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(qubes.api.PermissionDenied):
                 self.call_mgmt_func(
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'True')
@@ -2344,7 +2344,7 @@ class TC_00_VMs(AdminAPITestCase):
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(qubes.api.PermissionDenied):
                 self.call_mgmt_func(
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'maybe')
@@ -2363,7 +2363,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_661_pool_set_revisions_to_keep_negative(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
                 b'dom0', b'test-pool', b'-2')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2371,7 +2371,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_662_pool_set_revisions_to_keep_not_a_number(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
                 b'dom0', b'test-pool', b'abc')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2400,7 +2400,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'-2')
 
@@ -2411,7 +2411,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'abc')
 
@@ -2438,7 +2438,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'abc')
         self.assertFalse(self.app.save.called)
@@ -2488,14 +2488,14 @@ class TC_00_VMs(AdminAPITestCase):
         for method in methods_with_no_payload:
             # should reject payload regardless of having argument or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.ProtocolError):
                     self.call_mgmt_func(method, b'test-vm1', b'',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.ProtocolError):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
@@ -2526,17 +2526,18 @@ class TC_00_VMs(AdminAPITestCase):
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
+        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.PermissionDenied):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'test-vm1', b'unexpected-arg',
                         b'some-payload')
                 self.assertFalse(vm_mock.called)
@@ -2570,14 +2571,14 @@ class TC_00_VMs(AdminAPITestCase):
         for method in methods_with_no_payload:
             # should reject payload regardless of having argument or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.ProtocolError):
                     self.call_mgmt_func(method, b'dom0', b'',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.ProtocolError):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
@@ -2599,17 +2600,18 @@ class TC_00_VMs(AdminAPITestCase):
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
+        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(qubes.api.PermissionDenied):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'dom0', b'unexpected-arg',
                         b'some-payload')
                 self.assertFalse(vm_mock.called)
@@ -2652,31 +2654,32 @@ class TC_00_VMs(AdminAPITestCase):
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
+        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
         for method in methods_for_dom0_only:
             # should reject call regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'test-vm1', b'',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'test-vm1', b'',
                         b'payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'some-payload')
                 self.assertFalse(vm_mock.called)
@@ -2737,32 +2740,33 @@ class TC_00_VMs(AdminAPITestCase):
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
+        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
         for method in methods_for_vm_only:
             # should reject payload regardless of having argument or not
             # should reject call regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'dom0', b'',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'dom0', b'',
                         b'payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg+payload'):
-                with self.assertRaises(AssertionError):
+                with self.assertRaises(exceptions):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'some-payload')
                 self.assertFalse(vm_mock.called)

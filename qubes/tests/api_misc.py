@@ -93,7 +93,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             '/features-request/feature1': b'test spaces',
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.FeaturesRequest')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
@@ -171,7 +171,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
@@ -187,7 +187,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
@@ -219,14 +219,14 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_022_notify_updates_invalid(self):
         del self.src.template
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'')
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.app.mock_calls, [])
 
     def test_023_notify_updates_invalid2(self):
         del self.src.template
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'no updates')
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.app.mock_calls, [])
