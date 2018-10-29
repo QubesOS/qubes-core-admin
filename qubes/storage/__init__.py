@@ -201,7 +201,7 @@ class Volume:
 
             This can be implemented as a coroutine.
         '''
-        raise self._not_implemented("import")
+        raise self._not_implemented("import_data")
 
     def import_data_end(self, success):
         ''' End the data import operation. This may be used by pool
