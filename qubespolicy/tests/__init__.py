@@ -434,14 +434,14 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
     def test_002_init_invalid(self):
         rule_ask = qubespolicy.PolicyRule('@anyvm @anyvm ask')
         rule_allow = qubespolicy.PolicyRule('@anyvm @anyvm allow')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubespolicy.AccessDenied):
             qubespolicy.PolicyAction('test.service', 'test-vm1',
             None, rule_allow, 'test-vm2', None)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubespolicy.AccessDenied):
             qubespolicy.PolicyAction('test.service', 'test-vm1',
             'test-vm2', rule_allow, 'test-vm2', ['test-vm2', 'test-vm3'])
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubespolicy.AccessDenied):
             qubespolicy.PolicyAction('test.service', 'test-vm1',
             None, rule_ask, 'test-vm2', None)
 
