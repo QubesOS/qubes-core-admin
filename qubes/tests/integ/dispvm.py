@@ -253,12 +253,24 @@ class TC_20_DispVMMixin(object):
             self.testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
 
         p = self.loop.run_until_complete(
-            self.testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
+            self.testvm1.run("qvm-open-in-dvm /home/user/test.txt",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
 
         # if first 5 windows isn't expected editor, there is no hope
         winid = None
         for _ in range(5):
-            winid = self.wait_for_window('disp[0-9]*', search_class=True)
+            try:
+                winid = self.wait_for_window('disp[0-9]*', search_class=True)
+            except Exception as e:
+                try:
+                    self.loop.run_until_complete(asyncio.wait_for(p.wait(), 1))
+                except asyncio.TimeoutError:
+                    raise e
+                else:
+                    stdout = self.loop.run_until_complete(p.stdout.read())
+                    self.fail(
+                        'qvm-open-in-dvm exited prematurely with {}: {}'.format(
+                            p.returncode, stdout))
             # get window title
             (window_title, _) = subprocess.Popen(
                 ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
@@ -278,7 +290,7 @@ class TC_20_DispVMMixin(object):
 
         time.sleep(0.5)
         self._handle_editor(winid)
-        self.loop.run_until_complete(p.wait())
+        self.loop.run_until_complete(p.communicate())
         (test_txt_content, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("cat /home/user/test.txt"))
         # Drop BOM if added by editor
