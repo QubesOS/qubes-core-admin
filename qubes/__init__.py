@@ -728,12 +728,12 @@ class PropertyHolder(qubes.events.Emitter):
         try:
             value = getattr(self, prop)
             if value is None and not allow_none:
-                raise AttributeError()
+                raise ValueError('Property {!r} cannot be None'.format(prop))
         except AttributeError:
             # pylint: disable=no-member
             msg = 'Required property {!r} not set on {!r}'.format(prop, self)
             if hard:
-                raise AssertionError(msg)
+                raise ValueError(msg)
             else:
                 # pylint: disable=no-member
                 self.log.fatal(msg)
