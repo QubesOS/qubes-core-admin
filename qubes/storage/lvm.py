@@ -219,7 +219,7 @@ def _parse_lvm_cache(lvm_output):
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
     if os.getuid() != 0:
-        cmd.insert(0, 'sudo')
+        cmd = ['sudo'] + cmd
     environ = os.environ.copy()
     environ['LC_ALL'] = 'C.utf8'
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
