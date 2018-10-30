@@ -42,7 +42,7 @@ else:
 
 def lvm_pool_exists(volume_group, thin_pool):
     ''' Returns ``True`` if thin pool exists in the volume group. '''
-    path = "/dev/mapper/{!s}-{!s}".format(volume_group, thin_pool)
+    path = "/dev/{!s}/{!s}".format(volume_group, thin_pool)
     return os.path.exists(path)
 
 
