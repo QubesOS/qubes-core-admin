@@ -162,9 +162,8 @@ class BackupCancelledError(QubesException):
 class QubesMemoryError(QubesVMError, MemoryError):
     '''Cannot start domain, because not enough memory is available'''
     def __init__(self, vm, msg=None):
-        super(QubesMemoryError, self).__init__(
+        super(QubesMemoryError, self).__init__(vm,
             msg or 'Not enough memory to start domain {!r}'.format(vm.name))
-        self.vm = vm
 
 
 class QubesFeatureNotFoundError(QubesException, KeyError):
