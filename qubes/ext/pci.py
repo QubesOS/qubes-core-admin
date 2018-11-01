@@ -234,7 +234,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
 
         try:
-            device = _cache_get(vm, device.ident)
+            device = _cache_get(device.backend_domain, device.ident)
             self.bind_pci_to_pciback(vm.app, device)
             vm.libvirt_domain.attachDevice(
                 vm.app.env.get_template('libvirt/devices/pci.xml').render(
@@ -254,7 +254,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # provision in libvirt for extracting device-side BDF; we need it for
         # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
 
-        device = _cache_get(vm, device.ident)
+        device = _cache_get(device.backend_domain, device.ident)
         p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
                 stdout=subprocess.PIPE)
         result = p.communicate()[0].decode()
@@ -282,7 +282,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
         for assignment in vm.devices['pci'].persistent():
-            device = _cache_get(vm, assignment.ident)
+            device = _cache_get(assignment.backend_domain, assignment.ident)
             self.bind_pci_to_pciback(vm.app, device)
 
     @staticmethod
