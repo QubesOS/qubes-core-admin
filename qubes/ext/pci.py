@@ -300,7 +300,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
                 raise qubes.exc.QubesException(
-                    'PCI device {!r} does not exist'.format(
+                    'PCI device {!s} does not exist'.format(
                         device))
             raise
 
