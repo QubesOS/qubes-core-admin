@@ -1168,7 +1168,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_331_vm_create_standalone_spurious_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(b'admin.vm.Create.StandaloneVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red')
 
