@@ -994,10 +994,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # when given VM class do need a template
         if hasattr(vm_class, 'template'):
             if self.arg:
-                self.enforce(self.arg in self.app.domains)
+                if self.arg not in self.app.domains:
+                    raise qubes.api.PermissionDenied(
+                        'Template {} does not exist'.format(self.arg))
                 kwargs['template'] = self.app.domains[self.arg]
         else:
-            self.enforce(not self.arg)
+            raise qubes.exc.QubesValueError(
+                '{} cannot be based on template'.format(vm_type))
 
         for untrusted_param in untrusted_payload.decode('ascii',
                 errors='strict').split(' '):
