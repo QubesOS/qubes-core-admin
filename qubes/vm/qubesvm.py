@@ -1026,11 +1026,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             except Exception as exc:  # pylint: disable=bare-except
                 self.log.error('Start failed: %s', str(exc))
+                # This avoids losing the exception if an exception is
+                # raised in self.force_shutdown(), because the vm is not
+                # running or paused
                 if self.is_running() or self.is_paused():
-                    # This avoids losing the exception if an exception is
-                    # raised in self.force_shutdown(), because the vm is not
-                    # running or paused
-                    yield from self.kill()  # pylint: disable=not-an-iterable
+                    yield from self._kill_locked()
 
                 # let anyone receiving domain-pre-start know that startup failed
                 yield from self.fire_event_async('domain-start-failed',
@@ -1133,18 +1133,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         with (yield from self.startup_lock):
-            try:
-                self.libvirt_domain.destroy()
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
-                    raise qubes.exc.QubesVMNotStartedError(self)
-                else:
-                    raise
-
-            # make sure all shutdown tasks are completed
-            yield from self._ensure_shutdown_handled()
+            yield from self._kill_locked()
 
         return self
+
+    @asyncio.coroutine
+    def _kill_locked(self):
+        '''Forcefully shutdown (destroy) domain.
+
+        This function needs to be called with self.startup_lock held.'''
+        try:
+            self.libvirt_domain.destroy()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                raise qubes.exc.QubesVMNotStartedError(self)
+            else:
+                raise
+
+        # make sure all shutdown tasks are completed
+        yield from self._ensure_shutdown_handled()
 
     def force_shutdown(self, *args, **kwargs):
         '''Deprecated alias for :py:meth:`kill`'''
