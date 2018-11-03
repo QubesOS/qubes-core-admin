@@ -224,6 +224,7 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.features = {}
         self.vm.configure_mock(**{
             'template': None,
+            'maxmem': 1024,
             'is_running.return_value': True,
             'features.get.side_effect': self.features.get,
             'features.items.side_effect': self.features.items,
@@ -239,6 +240,7 @@ class TC_20_Services(qubes.tests.QubesTestCase):
 
         self.ext.on_domain_qdb_create(self.vm, 'domain-qdb-create')
         self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('write', ('/qubes-service/meminfo-writer', '1'), {}),
             ('write', ('/qubes-service/test1', '1'), {}),
             ('write', ('/qubes-service/test2', '0'), {}),
         ])

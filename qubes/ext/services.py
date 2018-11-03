@@ -39,6 +39,10 @@ class ServicesExtension(qubes.ext.Extension):
             vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
 
+        # always set meminfo-writer according to maxmem
+        vm.untrusted_qdb.write('/qubes-service/meminfo-writer',
+            '1' if vm.maxmem > 0 else '0')
+
     @qubes.ext.handler('domain-feature-set:*')
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         '''Update /qubes-service/ QubesDB tree in runtime'''

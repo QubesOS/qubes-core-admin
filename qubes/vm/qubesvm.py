@@ -69,11 +69,19 @@ def _setter_kernel(self, prop, value):
 
 
 def _setter_positive_int(self, prop, value):
-    ''' Helper for setting a positive int. Checks that the int is >= 0 '''
+    ''' Helper for setting a positive int. Checks that the int is > 0 '''
     # pylint: disable=unused-argument
     value = int(value)
     if value <= 0:
         raise ValueError('Value must be positive')
+    return value
+
+def _setter_non_negative_int(self, prop, value):
+    ''' Helper for setting a positive int. Checks that the int is >= 0 '''
+    # pylint: disable=unused-argument
+    value = int(value)
+    if value < 0:
+        raise ValueError('Value must be positive or zero')
     return value
 
 
@@ -120,6 +128,25 @@ def _default_with_template(prop, default):
             return default
 
     return _func
+
+
+def _default_maxmem(self):
+    # first check for any reason to _not_ enable qmemman
+    if not self.is_memory_balancing_possible():
+        return 0
+
+    # Linux specific cap: max memory can't scale beyond 10.79*init_mem
+    # see https://groups.google.com/forum/#!topic/qubes-devel/VRqkFj1IOtA
+    if self.features.get('os', None) == 'Linux':
+        default_maxmem = self.memory * 10
+    else:
+        default_maxmem = 4000
+
+    # don't use default larger than half of physical ram
+    default_maxmem = min(default_maxmem,
+        int(self.app.host.memory_total / 1024 / 2))
+
+    return _default_with_template('maxmem', default_maxmem)(self)
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
@@ -448,12 +475,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             'template\'s value by default.')
 
     maxmem = qubes.property('maxmem', type=int,
-        setter=_setter_positive_int,
-        default=_default_with_template('maxmem', (lambda self:
-            int(min(self.app.host.memory_total / 1024 / 2, 4000)))),
+        setter=_setter_non_negative_int,
+        default=_default_maxmem,
         doc='''Maximum amount of memory available for this VM (for the purpose
-            of the memory balancer). TemplateBasedVMs use its '
-            'template\'s value by default.''')
+            of the memory balancer). Set to 0 to disable memory balancing for
+            this qube. TemplateBasedVMs use its template\'s value by default
+            (unless memory balancing not supported for this qube).''')
 
     stubdom_mem = qubes.property('stubdom_mem', type=int,
         setter=_setter_positive_int,
@@ -742,11 +769,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
             assert hasattr(self, 'name')
-
-        # Linux specific cap: max memory can't scale beyond 10.79*init_mem
-        # see https://groups.google.com/forum/#!topic/qubes-devel/VRqkFj1IOtA
-        if self.maxmem > self.memory * 10:
-            self.maxmem = self.memory * 10
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
@@ -1349,6 +1371,34 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 args[0], *stdouterr)
 
         return stdouterr
+
+    def is_memory_balancing_possible(self):
+        '''Check if memory balancing can be enabled.
+        Reasons to not enable it:
+         - have PCI devices
+         - balloon driver not present
+
+        We don't have reliable way to detect the second point, but good
+        heuristic is HVM virt_mode (PV and PVH require OS support and it does
+        include balloon driver) and lack of qrexec/meminfo-writer service
+        support (no qubes tools installed).
+        '''
+        if list(self.devices['pci'].persistent()):
+            return False
+        if self.virt_mode == 'hvm':
+            # if VM announce any supported service
+            features_set = set(self.features)
+            template = getattr(self, 'template', None)
+            while template is not None:
+                features_set.update(template.features)
+                template = getattr(template, 'template', None)
+            supported_services = any(f.startswith('supported-service.')
+                for f in features_set)
+            if (not self.features.check_with_template('qrexec', False) or
+                (supported_services and not self.features.check_with_template(
+                    'supported-service.meminfo-writer', False))):
+                return False
+        return True
 
     def request_memory(self, mem_required=None):
         # overhead of per-qube/per-vcpu Xen structures,

@@ -665,7 +665,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         expected = '''<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
-        <memory unit="MiB">500</memory>
+        <memory unit="MiB">400</memory>
         <currentMemory unit="MiB">400</currentMemory>
         <vcpu placement="static">2</vcpu>
         <cpu mode='host-passthrough'>
@@ -766,6 +766,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
         with unittest.mock.patch('qubes.config.qubes_base_dir',
                 '/tmp/qubes-test'):
             kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
@@ -906,6 +907,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = netvm
         vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
         with self.subTest('ipv4_only'):
             libvirt_xml = vm.create_config_file()
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -969,6 +971,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-error': '',
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
         })
 
     @unittest.mock.patch('qubes.utils.get_timezone')
@@ -1029,6 +1032,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-error': '',
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
             '/qubes-ip': '10.137.0.3',
             '/qubes-netmask': '255.255.255.255',
             '/qubes-gateway': '10.137.0.2',
