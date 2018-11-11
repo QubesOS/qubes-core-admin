@@ -29,7 +29,6 @@ import grp
 import itertools
 import logging
 import os
-import pathlib
 import pwd
 import re
 import shutil
@@ -260,14 +259,17 @@ class Backup:
                 size = qubes.storage.file.get_disk_usage(file_path)
 
             if subdir is None:
-                abs_file_dir = pathlib.Path(file_path).resolve().parent
-                abs_base_dir = pathlib.Path(
-                    qubes.config.system_path["qubes_base_dir"]).resolve()
-                # this raises ValueError if abs_file_dir is not in abs_base_dir
-                subdir = str(abs_file_dir.relative_to(abs_base_dir))
-
-            if not subdir.endswith(os.path.sep):
-                subdir += os.path.sep
+                abs_file_path = os.path.abspath(file_path)
+                abs_base_dir = os.path.abspath(
+                    qubes.config.system_path["qubes_base_dir"]) + '/'
+                abs_file_dir = os.path.dirname(abs_file_path) + '/'
+                (nothing, directory, subdir) = \
+                    abs_file_dir.partition(abs_base_dir)
+                assert nothing == ""
+                assert directory == abs_base_dir
+            else:
+                if subdir and not subdir.endswith('/'):
+                    subdir += '/'
 
             #: real path to the file
             self.path = file_path
