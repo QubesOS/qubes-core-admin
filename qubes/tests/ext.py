@@ -40,12 +40,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
 
     def test_010_notify_tools(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'gui': '1',
-                'version': '1',
-                'default-user': 'user',
-                'qrexec': '1'}),
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'gui': '1',
+                    'version': '1',
+                    'default-user': 'user',
+                    'qrexec': '1'}))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
@@ -53,17 +54,19 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('gui',), {}),
             ('features.__setitem__', ('gui', True), {}),
             ('features.get', ('qrexec', False), {}),
-            ('fire_event', ('template-postinstall',), {})
+            ('fire_event_async', ('template-postinstall',), {}),
+            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_011_notify_tools_uninstall(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'gui': '0',
-                'version': '1',
-                'default-user': 'user',
-                'qrexec': '0'}),
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'gui': '0',
+                    'version': '1',
+                    'default-user': 'user',
+                    'qrexec': '0'}))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
@@ -75,11 +78,12 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
 
     def test_012_notify_tools_uninstall2(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'version': '1',
-                'default-user': 'user',
-            })
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'version': '1',
+                    'default-user': 'user',
+                }))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.get', ('qrexec', False), {}),
@@ -87,12 +91,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
 
     def test_013_notify_tools_no_version(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'qrexec': '1',
-                'gui': '1',
-                'default-user': 'user',
-            })
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qrexec': '1',
+                    'gui': '1',
+                    'default-user': 'user',
+                }))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
@@ -100,18 +105,20 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('gui',), {}),
             ('features.__setitem__', ('gui', True), {}),
             ('features.get', ('qrexec', False), {}),
-            ('fire_event', ('template-postinstall',), {})
+            ('fire_event_async', ('template-postinstall',), {}),
+            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_015_notify_tools_invalid_value_qrexec(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'version': '1',
-                'qrexec': 'invalid',
-                'gui': '1',
-                'default-user': 'user',
-            })
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'version': '1',
+                    'qrexec': 'invalid',
+                    'gui': '1',
+                    'default-user': 'user',
+                }))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('gui',), {}),
@@ -121,29 +128,32 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
 
     def test_016_notify_tools_invalid_value_gui(self):
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'version': '1',
-                'qrexec': '1',
-                'gui': 'invalid',
-                'default-user': 'user',
-            })
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'version': '1',
+                    'qrexec': '1',
+                    'gui': 'invalid',
+                    'default-user': 'user',
+                }))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__setitem__', ('qrexec', True), {}),
             ('features.get', ('qrexec', False), {}),
-            ('fire_event', ('template-postinstall',), {})
+            ('fire_event_async', ('template-postinstall',), {}),
+            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_017_notify_tools_template_based(self):
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'version': '1',
-                'qrexec': '1',
-                'gui': '1',
-                'default-user': 'user',
-            })
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'version': '1',
+                    'qrexec': '1',
+                    'gui': '1',
+                    'default-user': 'user',
+                }))
         self.assertEqual(self.vm.mock_calls, [
             ('template.__bool__', (), {}),
             ('log.warning', ('Ignoring qubes.NotifyTools for template-based '
@@ -154,12 +164,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
         self.features['qrexec'] = True
         self.features['gui'] = True
         del self.vm.template
-        self.ext.qubes_features_request(self.vm, 'features-request',
-            untrusted_features={
-                'gui': '1',
-                'version': '1',
-                'default-user': 'user',
-                'qrexec': '1'}),
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'gui': '1',
+                    'version': '1',
+                    'default-user': 'user',
+                    'qrexec': '1'}))
         self.assertEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),

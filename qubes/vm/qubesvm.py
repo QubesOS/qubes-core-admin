@@ -413,6 +413,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             On the `vm` object there was probably ``property-set:netvm`` fired
             earlier.
+
+        .. event:: template-postinstall (subject, event)
+
+            Fired on non-template-based domain (TemplateVM, StandaloneVM) when
+            it first reports qrexec presence. This happens at the first
+            domain startup just after its installation and is suitable for
+            performing various post-installation setup.
+
+            Handler for this event can be asynchronous (a coroutine).
     '''
 
     #
