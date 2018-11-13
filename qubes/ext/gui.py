@@ -4,7 +4,7 @@
 # Copyright (C) 2010-2016  Joanna Rutkowska <joanna@invisiblethingslab.com>
 # Copyright (C) 2013-2016  Marek Marczykowski-Górecki
 #                              <marmarek@invisiblethingslab.com>
-# Copyright (C) 2014-2016  Wojtek Porczyk <woju@invisiblethingslab.com>
+# Copyright (C) 2014-2018  Wojtek Porczyk <woju@invisiblethingslab.com>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -33,3 +33,13 @@ class GUI(qubes.ext.Extension):
             input=('SEAMLESS'
             if vm.features.get('gui-seamless', False)
             else 'FULLSCREEN'))
+
+    @qubes.ext.handler('domain-qdb-create')
+    def on_domain_qdb_create(self, vm, event):
+        # pylint: disable=unused-argument,no-self-use
+        for feature in ('gui-videoram-overhead', 'gui-videoram-min'):
+            try:
+                vm.untrusted_qdb.write('/qubes-{}'.format(feature),
+                    vm.features.check_with_template_and_adminvm(feature))
+            except KeyError:
+                pass
