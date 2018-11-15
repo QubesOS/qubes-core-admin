@@ -44,6 +44,22 @@ class TestApp(object):
 
     def __init__(self):
         self.domains = {}
+        self.host = unittest.mock.Mock()
+        self.host.memory_total = 4096 * 1024
+
+class TestFeatures(dict):
+    def __init__(self, vm, **kwargs) -> None:
+        self.vm = vm
+        super().__init__(**kwargs)
+
+    def check_with_template(self, feature, default):
+        vm = self.vm
+        while vm is not None:
+            try:
+                return vm.features[feature]
+            except KeyError:
+                vm = getattr(vm, 'template', None)
+        return default
 
 class TestProp(object):
     # pylint: disable=too-few-public-methods
@@ -80,6 +96,7 @@ class TestVM(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.devices = {'pci': TestDeviceCollection()}
+        self.features = TestFeatures(self)
 
     def is_running(self):
         return self.running
@@ -170,8 +187,6 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(default_getter(self.vm), 'template-kernel')
 
     def test_010_default_virt_mode(self):
-        default_getter = qubes.vm.qubesvm._default_with_template('kernel',
-            lambda x: x.app.default_kernel)
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'pvh')
         self.vm.template = unittest.mock.Mock()
@@ -184,6 +199,48 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.vm.devices['pci'].persistent().append('some-dev')
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'hvm')
+
+    def test_020_default_maxmem(self):
+        default_maxmem = 2048
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.virt_mode = 'pvh'
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+        self.vm.virt_mode = 'hvm'
+        # HVM without qubes tools
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+        # just 'qrexec' feature
+        self.vm.features['qrexec'] = True
+        print(self.vm.features.check_with_template('qrexec', False))
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+        # some supported-service.*, but not meminfo-writer
+        self.vm.features['supported-service.qubes-firewall'] = True
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+        # then add meminfo-writer
+        self.vm.features['supported-service.meminfo-writer'] = True
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+
+    def test_021_default_maxmem_with_pcidevs(self):
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.devices['pci'].persistent().append('00_00.0')
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+
+    def test_022_default_maxmem_linux(self):
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.virt_mode = 'pvh'
+        self.vm.memory = 400
+        self.vm.features['os'] = 'Linux'
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 2048)
+        self.vm.memory = 100
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 1000)
 
 
 class QubesVMTestsMixin(object):
