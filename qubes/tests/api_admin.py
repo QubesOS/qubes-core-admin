@@ -1123,6 +1123,28 @@ class TC_00_VMs(AdminAPITestCase):
                 b'test-vm1', b'test-feature')
         self.assertFalse(self.app.save.called)
 
+    def test_318_feature_checkwithadminvm(self):
+        self.app.domains['dom0'].features['test-feature'] = 'some-value'
+        value = self.call_mgmt_func(b'admin.vm.feature.CheckWithAdminVM',
+            b'test-vm1', b'test-feature')
+        self.assertEqual(value, 'some-value')
+        self.assertFalse(self.app.save.called)
+
+    def test_319_feature_checkwithtpladminvm(self):
+        self.app.domains['dom0'].features['test-feature'] = 'some-value'
+        value = self.call_mgmt_func(
+            b'admin.vm.feature.CheckWithTemplateAndAdminVM',
+            b'test-vm1', b'test-feature')
+        self.assertEqual(value, 'some-value')
+
+        self.template.features['test-feature'] = 'some-value2'
+        value = self.call_mgmt_func(
+            b'admin.vm.feature.CheckWithTemplateAndAdminVM',
+            b'test-vm1', b'test-feature')
+        self.assertEqual(value, 'some-value2')
+
+        self.assertFalse(self.app.save.called)
+
     def test_320_feature_set(self):
         value = self.call_mgmt_func(b'admin.vm.feature.Set',
             b'test-vm1', b'test-feature', b'some-value')

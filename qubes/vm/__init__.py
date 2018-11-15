@@ -33,6 +33,7 @@ import lxml.etree
 import qubes
 import qubes.devices
 import qubes.events
+import qubes.features
 import qubes.log
 
 VM_ENTRY_POINT = 'qubes.vm'
@@ -84,122 +85,6 @@ def _setter_qid(self, prop, value):
             '{} value must be between 0 and qubes.config.max_qid'.format(
                 prop.__name__))
     return value
-
-class Features(dict):
-    '''Manager of the features.
-
-    Features can have three distinct values: no value (not present in mapping,
-    which is closest thing to :py:obj:`None`), empty string (which is
-    interpreted as :py:obj:`False`) and non-empty string, which is
-    :py:obj:`True`. Anything assigned to the mapping is coerced to strings,
-    however if you assign instances of :py:class:`bool`, they are converted as
-    described above. Be aware that assigning the number `0` (which is considered
-    false in Python) will result in string `'0'`, which is considered true.
-
-    This class inherits from dict, but has most of the methods that manipulate
-    the item disarmed (they raise NotImplementedError). The ones that are left
-    fire appropriate events on the qube that owns an instance of this class.
-    '''
-
-    #
-    # Those are the methods that affect contents. Either disarm them or make
-    # them report appropriate events. Good approach is to rewrite them carefully
-    # using official documentation, but use only our (overloaded) methods.
-    #
-    def __init__(self, vm, other=None, **kwargs):
-        super(Features, self).__init__()
-        self.vm = vm
-        self.update(other, **kwargs)
-
-    def __delitem__(self, key):
-        super(Features, self).__delitem__(key)
-        self.vm.fire_event('domain-feature-delete:' + key, feature=key)
-
-    def __setitem__(self, key, value):
-        if value is None or isinstance(value, bool):
-            value = '1' if value else ''
-        else:
-            value = str(value)
-        try:
-            oldvalue = self[key]
-            has_oldvalue = True
-        except KeyError:
-            has_oldvalue = False
-        super(Features, self).__setitem__(key, value)
-        if has_oldvalue:
-            self.vm.fire_event('domain-feature-set:' + key, feature=key,
-                value=value, oldvalue=oldvalue)
-        else:
-            self.vm.fire_event('domain-feature-set:' + key, feature=key,
-                value=value)
-
-    def clear(self):
-        for key in tuple(self):
-            del self[key]
-
-    def pop(self, _key, _default=None):
-        '''Not implemented
-        :raises: NotImplementedError
-        '''
-        raise NotImplementedError()
-
-    def popitem(self):
-        '''Not implemented
-        :raises: NotImplementedError
-        '''
-        raise NotImplementedError()
-
-    def setdefault(self, _key, _default=None):
-        '''Not implemented
-        :raises: NotImplementedError
-        '''
-        raise NotImplementedError()
-
-    def update(self, other=None, **kwargs):
-        if other is not None:
-            if hasattr(other, 'keys'):
-                for key in other:
-                    self[key] = other[key]
-            else:
-                for key, value in other:
-                    self[key] = value
-
-        for key in kwargs:
-            self[key] = kwargs[key]
-
-    #
-    # end of overriding
-    #
-
-    _NO_DEFAULT = object()
-
-    def check_with_template(self, feature, default=_NO_DEFAULT):
-        ''' Check if the vm's template has the specified feature. '''
-        if feature in self:
-            return self[feature]
-
-        if hasattr(self.vm, 'template') and self.vm.template is not None:
-            return self.vm.template.features.check_with_template(feature,
-                default)
-
-        if default is self._NO_DEFAULT:
-            raise KeyError(feature)
-
-        return default
-
-    def check_with_netvm(self, feature, default=_NO_DEFAULT):
-        ''' Check if the vm's netvm has the specified feature. '''
-        if feature in self:
-            return self[feature]
-
-        if hasattr(self.vm, 'netvm') and self.vm.netvm is not None:
-            return self.vm.netvm.features.check_with_netvm(feature,
-                default)
-
-        if default is self._NO_DEFAULT:
-            raise KeyError(feature)
-
-        return default
 
 
 class Tags(set):
@@ -332,7 +217,7 @@ class BaseVM(qubes.PropertyHolder):
         super(BaseVM, self).__init__(xml, **kwargs)
 
         #: dictionary of features of this qube
-        self.features = Features(self, features)
+        self.features = qubes.features.Features(self, features)
 
         #: :py:class:`DeviceManager` object keeping devices that are attached to
         #: this domain

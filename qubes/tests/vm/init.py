@@ -213,7 +213,7 @@ class TC_21_Features(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_21_Features, self).setUp()
         self.vm = qubes.tests.TestEmitter()
-        self.features = qubes.vm.Features(self.vm)
+        self.features = qubes.features.Features(self.vm)
 
     def test_000_set(self):
         self.features['testfeature'] = 'value'

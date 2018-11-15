@@ -1,5 +1,5 @@
-:py:class:`qubes.vm.Features` - Qubes VM features, services
-============================================================
+:py:mod:`qubes.features` - Qubes VM features, services
+======================================================
 
 Features are generic mechanism for storing key-value pairs attached to a
 VM. The primary use case for them is data storage for extensions (you can think
@@ -18,12 +18,12 @@ however if you assign instances of :py:class:`bool`, they are converted as
 described above. Be aware that assigning the number `0` (which is considered
 false in Python) will result in string `'0'`, which is considered true.
 
-:py:class:`qubes.vm.Features` inherits from :py:class:`dict`, so provide all the
-standard functions to get, list and set values.  Additionally provide helper
-functions to check if given feature is set on the VM and default to the value
-on the VM's template or netvm. This is useful for features which nature is
-inherited from other VMs, like "is package X is installed" or "is VM behind a
-VPN".
+:py:class:`qubes.features.Features` inherits from :py:class:`dict`, so provide
+all the standard functions to get, list and set values.  Additionally provide
+helper functions to check if given feature is set on the VM and default to the
+value on the VM's template or netvm. This is useful for features which nature is
+inherited from other VMs, like "is package X is installed" or "is VM behind
+a VPN".
 
 Example usage of features in extension:
 
@@ -31,12 +31,12 @@ Example usage of features in extension:
 
    import qubes.exc
    import qubes.ext
-   
+
    class ExampleExtension(qubes.ext.Extension):
       @qubes.ext.handler('domain-pre-start')
       def on_domain_start(self, vm, event, **kwargs):
          if vm.features.get('do-not-start', False):
-            raise qubes.exc.QubesVMError(vm, 
+            raise qubes.exc.QubesVMError(vm,
                'Start prohibited because of do-not-start feature')
 
          if vm.features.check_with_template('something-installed', False):
@@ -45,7 +45,8 @@ Example usage of features in extension:
 The above extension does two things:
 
  - prevent starting a qube with ``do-not-start`` feature set
- - do something when ``something-installed`` feature is set on the qube, or its template
+ - do something when ``something-installed`` feature is set on the qube, or its
+   template
 
 
 qvm-features-request, qubes.PostInstall service
@@ -53,9 +54,9 @@ qvm-features-request, qubes.PostInstall service
 
 When some package in the VM want to request feature to be set (aka advertise
 support for it), it should place a shell script in ``/etc/qubes/post-install.d``.
-This script should call :program:`qvm-features-request` with ``FEATURE=VALUE`` pair(s) as
-arguments to request those features. It is recommended to use very simple
-values here (for example ``1``). The script should be named in form
+This script should call :program:`qvm-features-request` with ``FEATURE=VALUE``
+pair(s) as arguments to request those features. It is recommended to use very
+simple values here (for example ``1``). The script should be named in form
 ``XX-package-name.sh`` where ``XX`` is two-digits number below 90 and
 ``package-name`` is unique name specific to this package (preferably actual
 package name). The script needs executable bit set.
@@ -65,17 +66,17 @@ installation and also after initial template installation.
 This way package have a chance to report to dom0 if any feature is
 added/removed.
 
-The features flow to dom0 according to the diagram below. Important part is
-that qubes core :py:class:`qubes.ext.Extension` is responsible for handling such request in
-``features-request`` event handler. If no extension handles given feature request,
-it will be ignored. The extension should carefuly validate requested
-features (ignoring those not recognized - may be for another extension) and
-only then set appropriate value on VM object
+The features flow to dom0 according to the diagram below. Important part is that
+qubes core :py:class:`qubes.ext.Extension` is responsible for handling such
+request in ``features-request`` event handler. If no extension handles given
+feature request, it will be ignored. The extension should carefuly validate
+requested features (ignoring those not recognized - may be for another
+extension) and only then set appropriate value on VM object
 (:py:attr:`qubes.vm.BaseVM.features`). It is recommended to make the
 verification code as bulletproof  as possible (for example allow only specific
-simple values, instead of complex structures), because feature requests
-come from untrusted sources. The features actually set on the VM in some cases
-may not be necessary those requested. Similar for values.
+simple values, instead of complex structures), because feature requests come
+from untrusted sources. The features actually set on the VM in some cases may
+not be necessary those requested. Similar for values.
 
 .. graphviz::
 
@@ -185,7 +186,7 @@ Services and features can be then inspected from dom0 using
 Module contents
 ---------------
 
-.. autoclass:: qubes.vm.Features
+.. automodule:: qubes.features
    :members:
    :show-inheritance:
 
