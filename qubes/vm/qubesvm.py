@@ -962,14 +962,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     reason=str(exc))
                 raise
 
-            for devclass in self.devices:
-                for dev in self.devices[devclass].persistent():
-                    if isinstance(dev, qubes.devices.UnknownDevice):
-                        raise qubes.exc.QubesException(
-                            '{} device {} not available'.format(devclass, dev))
-
             qmemman_client = None
             try:
+                for devclass in self.devices:
+                    for dev in self.devices[devclass].persistent():
+                        if isinstance(dev, qubes.devices.UnknownDevice):
+                            raise qubes.exc.QubesException(
+                                '{} device {} not available'.format(
+                                    devclass, dev))
+
                 if self.virt_mode == 'pvh' and not self.kernel:
                     raise qubes.exc.QubesException(
                         'virt_mode PVH require kernel to be set')
