@@ -12,6 +12,7 @@ script:
   - ~/qubes-builder/scripts/travis-build
 env:
  - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
+ - DIST_DOM0=fc29 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
 
 after_success:
   - codecov -F unittests

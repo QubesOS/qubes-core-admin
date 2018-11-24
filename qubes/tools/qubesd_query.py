@@ -7,12 +7,6 @@ import sys
 
 QUBESD_SOCK = '/var/run/qubesd.sock'
 
-try:
-    asyncio.ensure_future
-except AttributeError:
-    # pylint: disable=no-member
-    asyncio.ensure_future = asyncio.async
-
 parser = argparse.ArgumentParser(
     description='low-level qubesd interrogation tool')
 
