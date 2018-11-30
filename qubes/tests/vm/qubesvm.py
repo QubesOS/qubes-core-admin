@@ -212,6 +212,7 @@ class QubesVMTestsMixin(object):
             **kwargs)
         self.app.domains[vm.qid] = vm
         self.app.domains[vm.uuid] = vm
+        self.app.domains[vm.name] = vm
         self.app.domains[vm] = vm
         self.addCleanup(vm.close)
         return vm
