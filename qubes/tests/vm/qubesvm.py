@@ -498,6 +498,36 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'qubes-vm@{}.service'.format(vm.name)),
             "systemd service not disabled by resetting autostart")
 
+    def test_290_management_dispvm(self):
+        vm = self.get_vm()
+        vm2 = self.get_vm('test2', qid=2)
+        self.app.management_dispvm = None
+        self.assertPropertyDefaultValue(vm, 'management_dispvm', None)
+        self.app.management_dispvm = vm
+        try:
+            self.assertPropertyDefaultValue(vm, 'management_dispvm', vm)
+            self.assertPropertyValue(vm, 'management_dispvm',
+                'test-inst-test2', vm2)
+        finally:
+            self.app.management_dispvm = None
+
+    def test_291_management_dispvm_template_based(self):
+        tpl = self.get_vm(name='tpl', cls=qubes.vm.templatevm.TemplateVM)
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=tpl, qid=2)
+        vm2 = self.get_vm('test2', qid=3)
+        del vm.volumes
+        self.app.management_dispvm = None
+        try:
+            self.assertPropertyDefaultValue(vm, 'management_dispvm', None)
+            self.app.management_dispvm = vm
+            self.assertPropertyDefaultValue(vm, 'management_dispvm', vm)
+            tpl.management_dispvm = vm2
+            self.assertPropertyDefaultValue(vm, 'management_dispvm', vm2)
+            self.assertPropertyValue(vm, 'management_dispvm',
+                'test-inst-test2', vm2)
+        finally:
+            self.app.management_dispvm = None
+
     @unittest.skip('TODO')
     def test_320_seamless_gui_mode(self):
         vm = self.get_vm()

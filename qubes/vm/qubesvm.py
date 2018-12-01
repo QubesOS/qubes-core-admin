@@ -554,6 +554,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=(lambda self: self.app.default_dispvm),
         doc='Default VM to be used as Disposable VM for service calls.')
 
+    management_dispvm = qubes.VMProperty('management_dispvm',
+        load_stage=4,
+        allow_none=True,
+        default=_default_with_template('management_dispvm',
+            (lambda self: self.app.management_dispvm)),
+        doc='Default DVM template for Disposable VM for managing this VM.')
+
     updateable = qubes.property('updateable',
         default=(lambda self: not hasattr(self, 'template')),
         type=bool,
