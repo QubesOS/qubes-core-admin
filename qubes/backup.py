@@ -41,7 +41,6 @@ import time
 
 from .utils import size_to_human
 import qubes
-import qubes.core2migration
 import qubes.storage
 import qubes.storage.file
 import qubes.vm.templatevm

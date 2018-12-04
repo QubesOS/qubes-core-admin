@@ -219,7 +219,6 @@ fi
 %{python3_sitelib}/qubes/app.py
 %{python3_sitelib}/qubes/backup.py
 %{python3_sitelib}/qubes/config.py
-%{python3_sitelib}/qubes/core2migration.py
 %{python3_sitelib}/qubes/devices.py
 %{python3_sitelib}/qubes/dochelpers.py
 %{python3_sitelib}/qubes/events.py
