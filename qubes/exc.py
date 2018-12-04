@@ -24,7 +24,6 @@ Qubes OS exception hierarchy
 
 class QubesException(Exception):
     '''Exception that can be shown to the user'''
-    pass
 
 
 class QubesVMNotFoundError(QubesException, KeyError):
@@ -119,7 +118,6 @@ class QubesNoTemplateError(QubesVMError):
 
 class QubesValueError(QubesException, ValueError):
     '''Cannot set some value, because it is invalid, out of bounds, etc.'''
-    pass
 
 
 class QubesPropertyValueError(QubesValueError):

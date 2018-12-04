@@ -44,7 +44,6 @@ STORAGE_ENTRY_POINT = 'qubes.storage'
 
 class StoragePoolException(qubes.exc.QubesException):
     ''' A general storage exception '''
-    pass
 
 
 class BlockDevice:
@@ -214,7 +213,6 @@ class Volume:
         :param success: True if data import was successful, otherwise False
         '''
         # by default do nothing
-        pass
 
     def import_volume(self, src_volume):
         ''' Imports data from a different volume (possibly in a different
@@ -823,17 +821,14 @@ class Pool:
         :param app: Qubes() object to lookup other pools in
         :returns pool or None
         '''
-        pass
 
     @property
     def size(self):
         ''' Storage pool size in bytes, or None if unknown '''
-        pass
 
     @property
     def usage(self):
         ''' Space used in the pool in bytes, or None if unknown '''
-        pass
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''

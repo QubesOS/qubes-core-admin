@@ -376,7 +376,6 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         '''This exception may be raised from saver to sign that property should
         not be saved.
         '''
-        pass
 
     @staticmethod
     def dontsave(self, prop, value):

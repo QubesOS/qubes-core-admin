@@ -38,7 +38,6 @@ QUBESD_SOCK = '/var/run/qubesd.sock'
 
 class AccessDenied(Exception):
     ''' Raised when qrexec policy denied access '''
-    pass
 
 
 class PolicySyntaxError(AccessDenied):

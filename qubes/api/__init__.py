@@ -33,12 +33,10 @@ import qubes.exc
 
 class ProtocolError(AssertionError):
     '''Raised when something is wrong with data received'''
-    pass
 
 
 class PermissionDenied(Exception):
     '''Raised deliberately by handlers when we decide not to cooperate'''
-    pass
 
 
 def method(name, *, no_payload=False, endpoints=None, **classifiers):

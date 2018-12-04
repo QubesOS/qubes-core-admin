@@ -61,11 +61,9 @@ import qubes.utils
 
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
     '''Trying to detach not attached device'''
-    pass
 
 class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
     '''Trying to attach already attached device'''
-    pass
 
 class DeviceInfo:
     ''' Holds all information about a device '''
