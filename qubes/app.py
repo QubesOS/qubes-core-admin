@@ -692,6 +692,10 @@ class Qubes(qubes.PropertyHolder):
         default=None,
         doc='Default DispVM base for service calls', allow_none=True)
 
+    management_dispvm = qubes.VMProperty('management_dispvm', load_stage=3,
+        default=None,
+        doc='Default DispVM base for managing VMs', allow_none=True)
+
     default_pool = qubes.property('default_pool', load_stage=3,
         default=_default_pool,
         setter=_setter_pool,
