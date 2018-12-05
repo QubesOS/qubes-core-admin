@@ -1162,6 +1162,15 @@ class VmUpdatesMixin(object):
             return e.returncode
         return 0
 
+    def assertRunCommandReturnCode(self, vm, cmd, expected_returncode):
+        p = self.loop.run_until_complete(
+            vm.run(cmd, user='root',
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        self.assertIn(
+            self.loop.run_until_complete(p.wait()), expected_returncode,
+            '{}: {}\n{}'.format(cmd, stdout, stderr))
+
     def setUp(self):
         '''
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
@@ -1210,12 +1219,8 @@ class VmUpdatesMixin(object):
         # default netvm)
         self.testvm1 = self.app.domains[self.testvm1.qid]
         self.loop.run_until_complete(self.testvm1.start())
-        p = self.loop.run_until_complete(
-            self.testvm1.run(self.update_cmd, user='root',
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
-        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-        self.assertIn(p.returncode, self.exit_code_ok,
-            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+        self.assertRunCommandReturnCode(self.testvm1,
+            self.update_cmd, self.exit_code_ok)
 
     def create_repo_apt(self):
         '''
@@ -1373,28 +1378,16 @@ SHA256:
         with self.qrexec_policy('qubes.UpdatesProxy', self.testvm1,
                 '$default', action='allow,target=' + self.netvm_repo.name):
             # update repository metadata
-            p = self.loop.run_until_complete(self.testvm1.run(
-                self.update_cmd, user='root', stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE))
-            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+            self.assertRunCommandReturnCode(self.testvm1,
+                self.update_cmd, self.exit_code_ok)
 
             # install test package
-            p = self.loop.run_until_complete(self.testvm1.run(
-                self.install_cmd.format('test-pkg'), user='root',
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE))
-            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+            self.assertRunCommandReturnCode(self.testvm1,
+                self.install_cmd.format('test-pkg'), self.exit_code_ok)
 
             # verify if it was really installed
-            p = self.loop.run_until_complete(self.testvm1.run(
-                self.install_test_cmd.format('test-pkg'), user='root',
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE))
-            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+            self.assertRunCommandReturnCode(self.testvm1,
+                self.install_test_cmd.format('test-pkg'), self.exit_code_ok)
 
 def create_testcases_for_templates():
     yield from qubes.tests.create_testcases_for_templates('VmNetworking',
