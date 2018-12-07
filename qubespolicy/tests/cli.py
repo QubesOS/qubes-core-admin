@@ -309,7 +309,7 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
         with open(policy_path) as policy_file:
             self.assertEqual(policy_file.read(),
                 "## Policy file automatically created on first service call.\n"
-                "## Fill free to edit.\n"
+                "## Feel free to edit.\n"
                 "## Note that policy parsing stops at the first match\n"
                 "\n"
                 "## Please use a single # to start your custom comments\n"
