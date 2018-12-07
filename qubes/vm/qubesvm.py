@@ -467,7 +467,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     stubdom_mem = qubes.property('stubdom_mem', type=int,
         setter=_setter_positive_int,
         default=None,
-        doc='Memory ammount allocated for the stubdom')
+        doc='Memory amount allocated for the stubdom')
 
     vcpus = qubes.property('vcpus',
         type=int,
