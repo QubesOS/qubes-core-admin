@@ -53,7 +53,7 @@ def create_default_policy(service_name):
         policy.write(
             "## Policy file automatically created on first service call.\n")
         policy.write(
-            "## Fill free to edit.\n")
+            "## Feel free to edit.\n")
         policy.write("## Note that policy parsing stops at the first match\n")
         policy.write("\n")
         policy.write("## Please use a single # to start your custom comments\n")
