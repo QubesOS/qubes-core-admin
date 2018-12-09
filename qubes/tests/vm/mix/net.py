@@ -141,3 +141,16 @@ class TC_00_NetVMMixin(
         self.assertPropertyInvalidValue(vm, 'ip', 'zzzz')
         self.assertPropertyInvalidValue(vm, 'ip',
             '1:2:3:4:5:6:7:8:0:a:b:c:d:e:f:0')
+
+    def test_170_provides_network_netvm(self):
+        vm = self.get_vm()
+        vm2 = self.get_vm('test2', qid=3)
+        self.assertPropertyDefaultValue(vm, 'provides_network', False)
+        self.assertPropertyInvalidValue(vm2, 'netvm', vm)
+        self.assertPropertyValue(vm, 'provides_network', True, True, 'True')
+        self.assertPropertyValue(vm2, 'netvm', vm, vm, 'test-inst-test')
+        # used by other vm
+        self.assertPropertyInvalidValue(vm, 'provides_network', False)
+        self.assertPropertyValue(vm2, 'netvm', None, None, '')
+        self.assertPropertyValue(vm2, 'netvm', '', None, '')
+        self.assertPropertyValue(vm, 'provides_network', False, False, 'False')

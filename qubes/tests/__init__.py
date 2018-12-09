@@ -55,6 +55,7 @@ import qubes
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
+import qubes.api.misc
 import qubes.backup
 import qubes.config
 import qubes.devices
@@ -685,6 +686,7 @@ class SystemTestCase(QubesTestCase):
             qubes.api.create_servers(
                 qubes.api.admin.QubesAdminAPI,
                 qubes.api.internal.QubesInternalAPI,
+                qubes.api.misc.QubesMiscAPI,
                 app=self.app, debug=True))
 
         self.addCleanup(self.cleanup_app)

@@ -213,3 +213,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # Cleanup also on failed startup
             yield from self._auto_cleanup()
             raise
+
+    def create_qdb_entries(self):
+        super().create_qdb_entries()
+        self.untrusted_qdb.write('/qubes-vm-persistence', 'none')

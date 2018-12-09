@@ -80,6 +80,16 @@ def _setter_netvm(self, prop, value):
                 'Loops in network are unsupported')
     return value
 
+def _setter_provides_network(self, prop, value):
+    value = qubes.property.bool(self, prop, value)
+    if not value:
+        if list(self.connected_vms):
+            raise qubes.exc.QubesValueError(
+                'The qube is still used by other qubes, change theirs '
+                '\'netvm\' first')
+
+    return value
+
 
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
@@ -105,7 +115,7 @@ class NetVMMixin(qubes.events.Emitter):
             NetVM.''')
 
     provides_network = qubes.property('provides_network', default=False,
-        type=bool, setter=qubes.property.bool,
+        type=bool, setter=_setter_provides_network,
         doc='''If this domain can act as network provider (formerly known as
             NetVM or ProxyVM)''')
 
