@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+
+# Empty output indicates success; any input indicates error (probably an exception)
+
+import dnf
+import iniparse
+import sys
+
+base = dnf.Base()
+
+base.read_all_repos()
+
+reponame = sys.stdin.readline()
+repo = base.repos[reponame]
+
+# Loosely based on write_raw_configfile() from DNF source code,
+# because that method was introduced in DNF 2.0 but Qubes dom0 has DNF 1.x.
+with open(repo.repofile) as fp:
+	ini = iniparse.INIConfig(fp)
+
+ini[reponame]['enabled'] = 0
+
+with open(repo.repofile, 'w') as fp:
+	fp.write(str(ini))

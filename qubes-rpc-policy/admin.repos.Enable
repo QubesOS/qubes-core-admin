@@ -1,0 +1,7 @@
+## Note that policy parsing stops at the first match,
+## so adding anything below "$anyvm $anyvm action" line will have no effect
+
+## Please use a single # to start your custom comments
+
+dom0	dom0	allow
+$anyvm	$anyvm	deny
