@@ -39,10 +39,28 @@ class ServicesExtension(qubes.ext.Extension):
             vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
 
+        # always set meminfo-writer according to maxmem
+        vm.untrusted_qdb.write('/qubes-service/meminfo-writer',
+            '1' if vm.maxmem > 0 else '0')
+
     @qubes.ext.handler('domain-feature-set:*')
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         '''Update /qubes-service/ QubesDB tree in runtime'''
         # pylint: disable=unused-argument
+
+        # TODO: remove this compatibility hack in Qubes 4.1
+        if feature == 'service.meminfo-writer':
+            # if someone try to enable meminfo-writer ...
+            if value:
+                # ... reset maxmem to default
+                vm.maxmem = qubes.property.DEFAULT
+            else:
+                # otherwise, set to 0
+                vm.maxmem = 0
+            # in any case, remove the entry, as it does not indicate memory
+            # balancing state anymore
+            del vm.features['service.meminfo-writer']
+
         if not vm.is_running():
             return
         if not feature.startswith('service.'):
@@ -61,7 +79,21 @@ class ServicesExtension(qubes.ext.Extension):
         if not feature.startswith('service.'):
             return
         service = feature[len('service.'):]
+        # this one is excluded from user control
+        if service == 'meminfo-writer':
+            return
         vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
+
+    @qubes.ext.handler('domain-load')
+    def on_domain_load(self, vm, event):
+        '''Migrate meminfo-writer service into maxmem'''
+        # pylint: disable=no-self-use,unused-argument
+        if 'service.meminfo-writer' in vm.features:
+            # if was set to false, force maxmem=0
+            # otherwise, simply ignore as the default is fine
+            if not vm.features['service.meminfo-writer']:
+                vm.maxmem = 0
+            del vm.features['service.meminfo-writer']
 
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):

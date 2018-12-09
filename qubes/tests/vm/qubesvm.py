@@ -44,6 +44,22 @@ class TestApp(object):
 
     def __init__(self):
         self.domains = {}
+        self.host = unittest.mock.Mock()
+        self.host.memory_total = 4096 * 1024
+
+class TestFeatures(dict):
+    def __init__(self, vm, **kwargs) -> None:
+        self.vm = vm
+        super().__init__(**kwargs)
+
+    def check_with_template(self, feature, default):
+        vm = self.vm
+        while vm is not None:
+            try:
+                return vm.features[feature]
+            except KeyError:
+                vm = getattr(vm, 'template', None)
+        return default
 
 class TestProp(object):
     # pylint: disable=too-few-public-methods
@@ -80,6 +96,7 @@ class TestVM(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.devices = {'pci': TestDeviceCollection()}
+        self.features = TestFeatures(self)
 
     def is_running(self):
         return self.running
@@ -170,8 +187,6 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(default_getter(self.vm), 'template-kernel')
 
     def test_010_default_virt_mode(self):
-        default_getter = qubes.vm.qubesvm._default_with_template('kernel',
-            lambda x: x.app.default_kernel)
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'pvh')
         self.vm.template = unittest.mock.Mock()
@@ -184,6 +199,48 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.vm.devices['pci'].persistent().append('some-dev')
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'hvm')
+
+    def test_020_default_maxmem(self):
+        default_maxmem = 2048
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.virt_mode = 'pvh'
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+        self.vm.virt_mode = 'hvm'
+        # HVM without qubes tools
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+        # just 'qrexec' feature
+        self.vm.features['qrexec'] = True
+        print(self.vm.features.check_with_template('qrexec', False))
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+        # some supported-service.*, but not meminfo-writer
+        self.vm.features['supported-service.qubes-firewall'] = True
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+        # then add meminfo-writer
+        self.vm.features['supported-service.meminfo-writer'] = True
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm),
+            default_maxmem)
+
+    def test_021_default_maxmem_with_pcidevs(self):
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.devices['pci'].persistent().append('00_00.0')
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
+
+    def test_022_default_maxmem_linux(self):
+        self.vm.is_memory_balancing_possible = \
+            lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
+                self.vm)
+        self.vm.virt_mode = 'pvh'
+        self.vm.memory = 400
+        self.vm.features['os'] = 'Linux'
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 2048)
+        self.vm.memory = 100
+        self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 1000)
 
 
 class QubesVMTestsMixin(object):
@@ -696,7 +753,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         expected = '''<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
-        <memory unit="MiB">500</memory>
+        <memory unit="MiB">400</memory>
         <currentMemory unit="MiB">400</currentMemory>
         <vcpu placement="static">2</vcpu>
         <cpu mode='host-passthrough'>
@@ -797,6 +854,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
         with unittest.mock.patch('qubes.config.qubes_base_dir',
                 '/tmp/qubes-test'):
             kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
@@ -879,6 +937,155 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
+    def test_600_libvirt_xml_pvh_no_membalance(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">400</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">pvh</type>
+            <kernel>/tmp/kernel/vmlinuz</kernel>
+            <initrd>/tmp/kernel/initramfs</initrd>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset='utc' adjustment='reset'>
+            <timer name="tsc" mode="native"/>
+        </clock>
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <disk type="block" device="disk">
+                <driver name="phy" />
+                <source dev="/tmp/kernel/modules.img" />
+                <target dev="xvdd" />
+                <backenddomain name="dom0" />
+            </disk>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'pvh'
+        vm.maxmem = 0
+        with unittest.mock.patch('qubes.config.qubes_base_dir',
+                '/tmp/qubes-test'):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+            self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+            vm.kernel = 'dummy'
+        # tests for storage are later
+        vm.volumes['kernel'] = unittest.mock.Mock(**{
+            'kernels_dir': '/tmp/kernel',
+            'block_device.return_value.domain': 'dom0',
+            'block_device.return_value.script': None,
+            'block_device.return_value.path': '/tmp/kernel/modules.img',
+            'block_device.return_value.devtype': 'disk',
+            'block_device.return_value.name': 'kernel',
+        })
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
+    def test_600_libvirt_xml_hvm_pcidev(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">400</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+            <xen>
+                <e820_host state="on"/>
+            </xen>
+        </features>
+        <clock offset="variable" adjustment="0" basis="localtime" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <hostdev type="pci" managed="yes">
+                <source>
+                    <address
+                        bus="0x00"
+                        slot="0x00"
+                        function="0x0" />
+                </source>
+            </hostdev>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        # required for PCI devices listing
+        self.app.vmm.offline_mode = False
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'hvm'
+        vm.kernel = None
+        # even with meminfo-writer enabled, should have memory==maxmem
+        vm.features['service.meminfo-writer'] = True
+        assignment = qubes.devices.DeviceAssignment(
+            vm,  # this is violation of API, but for PCI the argument
+            #  is unused
+            '00_00.0',
+            bus='pci',
+            persistent=True)
+        vm.devices['pci']._set.add(
+            assignment)
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
     def test_610_libvirt_xml_network(self):
         expected = '''<domain type="xen">
         <name>test-inst-test</name>
@@ -937,6 +1144,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = netvm
         vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
         with self.subTest('ipv4_only'):
             libvirt_xml = vm.create_config_file()
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1000,6 +1208,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-error': '',
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
         })
 
     @unittest.mock.patch('qubes.utils.get_timezone')
@@ -1060,6 +1269,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-error': '',
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
             '/qubes-ip': '10.137.0.3',
             '/qubes-netmask': '255.255.255.255',
             '/qubes-gateway': '10.137.0.2',
