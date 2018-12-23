@@ -424,17 +424,14 @@ class TC_00_BackupCompatibility(
             'default_user': qubes.property.DEFAULT,
             'include_in_backups': True,
             'debug': False,
-            'maxmem': 1535,
+            'maxmem': min(int(self.app.host.memory_total / 1024 / 2), 4000),
             'memory': 400,
-            'features': {
-                'service.meminfo-writer': '1',
-            },
+            'features': {},
         }
         template_standalone_props = common_props.copy()
         template_standalone_props['features'] = {
             'qrexec': '1',
             'gui': '1',
-            'service.meminfo-writer': '1',
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,
@@ -482,17 +479,14 @@ class TC_00_BackupCompatibility(
             'default_user': qubes.property.DEFAULT,
             'include_in_backups': True,
             'debug': False,
-            'maxmem': 1535,  # 4063 caped by 10*400
+            'maxmem': min(int(self.app.host.memory_total / 1024 / 2), 4000),
             'memory': 400,
-            'features': {
-                'service.meminfo-writer': '1',
-            },
+            'features': {},
         }
         template_standalone_props = common_props.copy()
         template_standalone_props['features'] = {
             'qrexec': '1',
             'gui': '1',
-            'service.meminfo-writer': '1',
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,
