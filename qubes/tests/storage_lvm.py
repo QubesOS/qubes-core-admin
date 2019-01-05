@@ -30,7 +30,10 @@ import tempfile
 import unittest
 import unittest.mock
 
+import asyncio
+
 import qubes.tests
+import qubes.tests.storage
 import qubes.storage
 from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm
 
@@ -969,6 +972,20 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             self.loop.run_until_complete(vm.start())
+
+    def test_006_name_suffix_parse(self):
+        '''Regression test for #4680'''
+        vm1 = self.app.add_new_vm(cls=qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('appvm'), label='red')
+        vm2 = self.app.add_new_vm(cls=qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('appvm-root'), label='red')
+        self.loop.run_until_complete(asyncio.wait([
+            vm1.create_on_disk(pool=self.pool.name),
+            vm2.create_on_disk(pool=self.pool.name)]))
+        self.loop.run_until_complete(vm2.start())
+        self.loop.run_until_complete(vm2.shutdown(wait=True))
+        with self.assertNotRaises(ValueError):
+            vm1.volumes['root'].size
 
 @skipUnlessLvmPoolExists
 class TC_02_StorageHelpers(ThinPoolBase):
