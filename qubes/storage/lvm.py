@@ -327,6 +327,9 @@ class ThinVolume(qubes.storage.Volume):
             if not revision_vid.endswith('-back'):
                 continue
             revision_vid = revision_vid[len(name_prefix):]
+            if revision_vid.count('-') > 1:
+                # VM+volume name is a prefix of another VM, see #4680
+                continue
             # get revision without suffix
             seconds = int(revision_vid.split('-')[0])
             iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
