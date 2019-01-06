@@ -12,3 +12,6 @@ install:
 	install -d $(DESTDIR)/etc/dbus-1/system.d
 	install -m 0644 dbus-org.qubesos.PolicyAgent.conf  \
 		$(DESTDIR)/etc/dbus-1/system.d/org.qubesos.PolicyAgent.conf
+	install -d $(DESTDIR)/etc/logrotate.d
+	install -m 0644 logrotate-qubes \
+		$(DESTDIR)/etc/logrotate.d/qubes
