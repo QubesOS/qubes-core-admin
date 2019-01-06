@@ -1068,8 +1068,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # This avoids losing the exception if an exception is
                 # raised in self.force_shutdown(), because the vm is not
                 # running or paused
-                if self.is_running() or self.is_paused():
+                try:
                     yield from self._kill_locked()
+                except qubes.exc.QubesVMNotStartedError:
+                    pass
 
                 # let anyone receiving domain-pre-start know that startup failed
                 yield from self.fire_event_async('domain-start-failed',
