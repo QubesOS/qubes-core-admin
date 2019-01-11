@@ -26,7 +26,10 @@ import qubes.api.misc
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_API_Misc, self).setUp()
-        self.src = mock.NonCallableMagicMock()
+        self.tpl = mock.NonCallableMagicMock(name='template')
+        del self.tpl.template
+        self.src = mock.NonCallableMagicMock(name='appvm',
+            template=self.tpl)
         self.app = mock.NonCallableMock()
         self.dest = mock.NonCallableMock()
         self.dest.name = 'dom0'
@@ -228,6 +231,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'')
         self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [])
         self.assertEqual(self.app.mock_calls, [])
 
     def test_023_notify_updates_invalid2(self):
@@ -235,6 +239,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'no updates')
         self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [])
         self.assertEqual(self.app.mock_calls, [])
 
     def test_024_notify_updates_template_based_no_updates(self):
@@ -243,21 +248,22 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.src.template.is_running.return_value = False
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'0\n')
         self.assertIsNone(response)
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.template.is_running(),
+        self.assertEqual(self.tpl.mock_calls, [
+            mock.call.is_running(),
         ])
         self.assertEqual(self.app.mock_calls, [])
 
     def test_025_notify_updates_template_based(self):
         '''Some updates on template-based VM, should save flag'''
         self.src.updateable = False
-        self.src.template.is_running.return_value = False
+        self.tpl.is_running.return_value = False
         self.src.storage.outdated_volumes = []
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'1\n')
         self.assertIsNone(response)
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.template.is_running(),
-            mock.call.template.features.__setitem__('updates-available', True),
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [
+            mock.call.is_running(),
+            mock.call.features.__setitem__('updates-available', True),
         ])
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
@@ -269,10 +275,11 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.src.storage.outdated_volumes = ['root']
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'1\n')
         self.assertIsNone(response)
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.template.is_running(),
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [
+            mock.call.is_running(),
         ])
-        self.assertIsInstance(self.src.template.updates_available, mock.Mock)
+        self.assertIsInstance(self.tpl.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
     def test_027_notify_updates_template_based_template_running(self):
@@ -281,8 +288,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.src.storage.outdated_volumes = []
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'1\n')
         self.assertIsNone(response)
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.template.is_running(),
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [
+            mock.call.is_running(),
         ])
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
