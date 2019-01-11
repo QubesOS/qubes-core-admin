@@ -249,6 +249,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'0\n')
         self.assertIsNone(response)
         self.assertEqual(self.tpl.mock_calls, [
+            mock.call.updateable.__bool__(),
             mock.call.is_running(),
         ])
         self.assertEqual(self.app.mock_calls, [])
@@ -262,6 +263,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, [
+            mock.call.updateable.__bool__(),
             mock.call.is_running(),
             mock.call.features.__setitem__('updates-available', True),
         ])
@@ -277,6 +279,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, [
+            mock.call.updateable.__bool__(),
             mock.call.is_running(),
         ])
         self.assertIsInstance(self.tpl.updates_available, mock.Mock)
@@ -290,8 +293,29 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, [
+            mock.call.updateable.__bool__(),
             mock.call.is_running(),
         ])
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
+    def test_028_notify_updates_template_based_dispvm(self):
+        self.dvm = self.src
+        self.dvm.updateable = False
+        self.srv = mock.NonCallableMagicMock(template=self.dvm)
+        self.src.updateable = False
+        self.src.template.is_running.return_value = False
+        self.src.storage.outdated_volumes = []
+        response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'1\n')
+        self.assertIsNone(response)
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(self.dvm.mock_calls, [])
+        self.assertEqual(self.tpl.mock_calls, [
+            mock.call.updateable.__bool__(),
+            mock.call.is_running(),
+            mock.call.features.__setitem__('updates-available', True),
+        ])
+        self.assertIsInstance(self.src.updates_available, mock.Mock)
+        self.assertEqual(self.app.mock_calls, [
+            mock.call.save()
+        ])

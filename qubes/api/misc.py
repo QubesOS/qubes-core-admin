@@ -108,14 +108,20 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         update_count = int(untrusted_update_count)
         del untrusted_update_count
 
+        # look for the nearest updateable VM up in the template chain
+        updateable_template = getattr(self.src, 'template', None)
+        while updateable_template is not None and \
+                not updateable_template.updateable:
+            updateable_template = getattr(updateable_template, 'template', None)
+
         if self.src.updateable:
             # Just trust information from VM itself
             self.src.features['updates-available'] = bool(update_count)
             self.app.save()
-        elif getattr(self.src, 'template', None) is not None:
+        elif updateable_template is not None:
             # Hint about updates availability in template
             # If template is running - it will notify about updates itself
-            if self.src.template.is_running():
+            if updateable_template.is_running():
                 return
             # Ignore no-updates info
             if update_count > 0:
@@ -123,6 +129,6 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 # in the template - ignore info
                 if self.src.storage.outdated_volumes:
                     return
-                self.src.template.features['updates-available'] = bool(
+                updateable_template.features['updates-available'] = bool(
                     update_count)
                 self.app.save()
