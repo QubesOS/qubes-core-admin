@@ -95,9 +95,6 @@ Requires:       PyQt4
 
 %{?systemd_requires}
 
-# for lvm support
-Requires: lvm2-python-libs
-
 Obsoletes:	qubes-core-dom0-doc <= 4.0
 Provides:	qubes-core-dom0-doc
 
