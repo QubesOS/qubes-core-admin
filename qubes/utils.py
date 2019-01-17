@@ -100,7 +100,7 @@ def parse_size(size):
         return int(size)
 
     for unit, multiplier in units:
-        if size.endswith(unit):
+        if size.endswith(unit.upper()):
             size = size[:-len(unit)].strip()
             return int(size) * multiplier
 
