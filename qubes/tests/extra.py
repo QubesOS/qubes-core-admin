@@ -43,6 +43,9 @@ class ProcessWrapper(object):
     def communicate(self, input=None):
         return self._loop.run_until_complete(self._proc.communicate(input))
 
+    def wait(self):
+        return self._loop.run_until_complete(self._proc.wait())
+
 class VMWrapper(object):
     '''Wrap VM object to provide stable API for basic operations'''
     def __init__(self, vm, loop=None):

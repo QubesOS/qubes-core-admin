@@ -28,11 +28,12 @@ import unittest
 
 import qubes.tests
 
-@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
-                     'grub-xen package not installed')
-class TC_40_PVGrub(object):
+class GrubBase(object):
+    virt_mode = None
+    kernel = None
+
     def setUp(self):
-        super(TC_40_PVGrub, self).setUp()
+        super(GrubBase, self).setUp()
         supported = False
         if self.template.startswith('fedora-'):
             supported = True
@@ -87,7 +88,7 @@ class TC_40_PVGrub(object):
         self.testvm1 = self.app.add_new_vm('StandaloneVM',
             name=self.make_vm_name('vm1'),
             label='red')
-        self.testvm1.virt_mode = 'pv'
+        self.testvm1.virt_mode = self.virt_mode
         self.testvm1.features.update(self.app.domains[self.template].features)
         self.loop.run_until_complete(
             self.testvm1.clone_disk_files(self.app.domains[self.template]))
@@ -96,7 +97,7 @@ class TC_40_PVGrub(object):
         kver = self.get_kernel_version(self.testvm1)
         self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
 
-        self.testvm1.kernel = 'pvgrub2'
+        self.testvm1.kernel = self.kernel
         self.loop.run_until_complete(self.testvm1.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('uname -r'))
@@ -105,7 +106,7 @@ class TC_40_PVGrub(object):
     def test_010_template_based_vm(self):
         self.test_template = self.app.add_new_vm('TemplateVM',
             name=self.make_vm_name('template'), label='red')
-        self.test_template.virt_mode = 'pv'
+        self.test_template.virt_mode = self.virt_mode
         self.test_template.features.update(self.app.domains[self.template].features)
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.domains[self.template]))
@@ -114,15 +115,15 @@ class TC_40_PVGrub(object):
                                      template=self.test_template,
                                      name=self.make_vm_name('vm1'),
                                      label='red')
-        self.testvm1.virt_mode = 'pv'
+        self.testvm1.virt_mode = self.virt_mode
         self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.loop.run_until_complete(self.test_template.start())
         self.install_packages(self.test_template)
         kver = self.get_kernel_version(self.test_template)
         self.loop.run_until_complete(self.test_template.shutdown(wait=True))
 
-        self.test_template.kernel = 'pvgrub2'
-        self.testvm1.kernel = 'pvgrub2'
+        self.test_template.kernel = self.kernel
+        self.testvm1.kernel = self.kernel
 
         # Check if TemplateBasedVM boots and has the right kernel
         self.loop.run_until_complete(
@@ -137,9 +138,22 @@ class TC_40_PVGrub(object):
             self.test_template.run_for_stdio('uname -r'))
         self.assertEquals(actual_kver.strip(), kver)
 
+@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
+                     'grub-xen package not installed')
+class TC_40_PVGrub(GrubBase):
+    virt_mode = 'pv'
+    kernel = 'pvgrub2'
+
+class TC_41_HVMGrub(GrubBase):
+    virt_mode = 'hvm'
+    kernel = None
+
 def create_testcases_for_templates():
-    return qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
+    yield from qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
         TC_40_PVGrub, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_41_HVMGrub',
+        TC_41_HVMGrub, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):

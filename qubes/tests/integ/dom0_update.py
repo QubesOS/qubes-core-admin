@@ -40,7 +40,6 @@ class TC_00_Dom0UpgradeMixin(object):
     """
     pkg_name = 'qubes-test-pkg'
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test']
-    update_flag_path = '/var/lib/qubes/updates/dom0-updates-available'
 
     @classmethod
     def generate_key(cls, keydir):
@@ -211,7 +210,7 @@ Test package
         subprocess.check_call(['rpm', '-i', filename])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '2.0')
         self.send_pkg(filename)
-        open(self.update_flag_path, 'a').close()
+        self.app.domains[0].features['updates-available'] = True
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         with open(logpath, 'w') as f_log:
@@ -234,16 +233,17 @@ Test package
             self.pkg_name)], stdout=subprocess.DEVNULL)
         self.assertEqual(retcode, 0, 'Package {}-2.0 not installed after '
                                      'update'.format(self.pkg_name))
-        self.assertFalse(os.path.exists(self.update_flag_path),
-                         "'updates pending' flag not cleared")
+        self.assertFalse(
+            self.app.domains[0].features.get('updates-available', False),
+            "'updates pending' flag not cleared")
 
     def test_005_update_flag_clear(self):
-        """Check if 'updates pending' flag is creared"""
+        """Check if 'updates pending' flag is cleared"""
 
         # create any pkg (but not install it) to initialize repo in the VM
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         self.send_pkg(filename)
-        open(self.update_flag_path, 'a').close()
+        self.app.domains[0].features['updates-available'] = True
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         with open(logpath, 'w') as f_log:
@@ -265,16 +265,17 @@ Test package
                              "qubes-dom0-update reported an error: {}".
                              format(dom0_update_output))
 
-        self.assertFalse(os.path.exists(self.update_flag_path),
-                         "'updates pending' flag not cleared")
+        self.assertFalse(
+            self.app.domains[0].features.get('updates-available', False),
+            "'updates pending' flag not cleared")
 
     def test_006_update_flag_clear(self):
-        """Check if 'updates pending' flag is creared, using --clean"""
+        """Check if 'updates pending' flag is cleared, using --clean"""
 
         # create any pkg (but not install it) to initialize repo in the VM
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         self.send_pkg(filename)
-        open(self.update_flag_path, 'a').close()
+        self.app.domains[0].features['updates-available'] = True
 
         # remove also repodata to test #1685
         if os.path.exists('/var/lib/qubes/updates/repodata'):
@@ -300,8 +301,9 @@ Test package
                              "qubes-dom0-update reported an error: {}".
                              format(dom0_update_output))
 
-        self.assertFalse(os.path.exists(self.update_flag_path),
-                         "'updates pending' flag not cleared")
+        self.assertFalse(
+            self.app.domains[0].features.get('updates-available', False),
+            "'updates pending' flag not cleared")
 
     def test_010_instal(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
