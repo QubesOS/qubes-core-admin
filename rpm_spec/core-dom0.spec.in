@@ -85,9 +85,7 @@ Requires:       xen-hvm-stubdom-linux
 Requires:       libvirt-daemon-xen >= 3.3.0-7
 %endif
 Requires:       createrepo
-Requires:       gnome-packagekit
 Requires:       cronie
-Requires:       bsdtar
 Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
