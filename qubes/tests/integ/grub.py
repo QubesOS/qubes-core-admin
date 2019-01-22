@@ -84,6 +84,14 @@ class GrubBase(object):
             cmd_get_kernel_version, user="root"))
         return kver.strip()
 
+    def assertXenScrubPagesEnabled(self, vm):
+        enabled, _ = self.loop.run_until_complete(vm.run_for_stdio(
+            'cat /sys/devices/system/xen_memory/xen_memory0/scrub_pages || '
+            'echo 1'))
+        enabled = enabled.decode().strip()
+        self.assertEqual(enabled, '1',
+            'Xen scrub pages not enabled in {}'.format(vm.name))
+
     def test_000_standalone_vm(self):
         self.testvm1 = self.app.add_new_vm('StandaloneVM',
             name=self.make_vm_name('vm1'),
@@ -102,6 +110,8 @@ class GrubBase(object):
         (actual_kver, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('uname -r'))
         self.assertEquals(actual_kver.strip(), kver)
+
+        self.assertXenScrubPagesEnabled(self.testvm1)
 
     def test_010_template_based_vm(self):
         self.test_template = self.app.add_new_vm('TemplateVM',
@@ -132,11 +142,15 @@ class GrubBase(object):
             self.testvm1.run_for_stdio('uname -r'))
         self.assertEquals(actual_kver.strip(), kver)
 
+        self.assertXenScrubPagesEnabled(self.testvm1)
+
         # And the same for the TemplateVM itself
         self.loop.run_until_complete(self.test_template.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.test_template.run_for_stdio('uname -r'))
         self.assertEquals(actual_kver.strip(), kver)
+
+        self.assertXenScrubPagesEnabled(self.test_template)
 
 @unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
                      'grub-xen package not installed')
