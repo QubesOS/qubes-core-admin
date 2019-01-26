@@ -488,8 +488,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # If APPVM, STDOUT is a PIPE
         vmproc = appvm.run(command=backup_target, passio_popen=True,
                            passio_stderr=True)
-        vmproc.stdin.write(base_backup_dir.
-                           replace("\r", "").replace("\n", "") + "\n")
+        vmproc.stdin.write((base_backup_dir.
+                            replace("\r", "").replace("\n", "") + "\n").
+                                encode('utf-8'))
         backup_stdout = vmproc.stdin
         running_backup_operation.processes_to_kill_on_cancel.append(vmproc)
     else:
