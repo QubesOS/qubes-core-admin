@@ -31,8 +31,8 @@ import os.path
 qubes_base_dir = "/var/lib/qubes"
 system_path = {
     'qubes_guid_path': '/usr/bin/qubes-guid',
-    'qrexec_daemon_path': '/usr/lib/qubes/qrexec-daemon',
-    'qrexec_client_path': '/usr/lib/qubes/qrexec-client',
+    'qrexec_daemon_path': '/usr/sbin/qrexec-daemon',
+    'qrexec_client_path': '/usr/bin/qrexec-client',
     'qubesdb_daemon_path': '/usr/sbin/qubesdb-daemon',
 
     # Relative to qubes_base_dir
