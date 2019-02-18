@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
+import shutil
 import unittest.mock
 import qubes.log
 import qubes.storage
@@ -23,7 +24,7 @@ from qubes.exc import QubesException
 from qubes.storage import pool_drivers
 from qubes.storage.file import FilePool
 from qubes.storage.reflink import ReflinkPool
-from qubes.tests import SystemTestCase
+from qubes.tests import SystemTestCase, QubesTestCase
 
 # :pylint: disable=invalid-name
 
@@ -86,14 +87,24 @@ class TestApp(qubes.Qubes):
         super(TestApp, self).__init__('/tmp/qubes-test.xml',
             load=False, offline_mode=True, **kwargs)
         self.load_initial_values()
+        self.default_pool = self.pools['varlibqubes']
 
-class TC_00_Pool(SystemTestCase):
+class TC_00_Pool(QubesTestCase):
     """ This class tests the utility methods from :mod:``qubes.storage`` """
 
     def setUp(self):
         super(TC_00_Pool, self).setUp()
-        self.app.close()
+        self.basedir_patch = unittest.mock.patch('qubes.config.qubes_base_dir',
+            '/tmp/qubes-test-basedir')
+        self.basedir_patch.start()
         self.app = TestApp()
+
+    def tearDown(self):
+        self.basedir_patch.stop()
+        self.app.close()
+        del self.app
+        shutil.rmtree('/tmp/qubes-test-basedir', ignore_errors=True)
+        super().tearDown()
 
     def test_000_unknown_pool_driver(self):
         # :pylint: disable=protected-access
