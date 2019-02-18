@@ -45,6 +45,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         default=(lambda self: not self.auto_cleanup),
         doc='If this domain is to be included in default backup.')
 
+    default_dispvm = qubes.VMProperty('default_dispvm',
+        load_stage=4,
+        allow_none=True,
+        default=(lambda self: self.template),
+        doc='Default VM to be used as Disposable VM for service calls.')
+
     def __init__(self, app, xml, *args, **kwargs):
         self.volume_config = {
             'root': {
