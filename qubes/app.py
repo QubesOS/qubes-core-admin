@@ -1366,6 +1366,9 @@ class Qubes(qubes.PropertyHolder):
     def on_domain_pre_deleted(self, event, vm):
         # pylint: disable=unused-argument
         for obj in itertools.chain(self.domains, (self,)):
+            if obj is vm:
+                # allow removed VM to reference itself
+                continue
             for prop in obj.property_list():
                 try:
                     if isinstance(prop, qubes.vm.VMProperty) and \
