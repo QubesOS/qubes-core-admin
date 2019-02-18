@@ -120,6 +120,12 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
+        for vm in list(self.app.domains):
+            if vm.name.startswith(qubes.tests.VMPREFIX):
+                del self.app.domains[vm]
+        self.app.default_template = None
+        del self.app.domains['test-template']
+        self.app.default_pool = 'varlibqubes'
         self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()
@@ -393,6 +399,11 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
+        for vm in list(self.app.domains):
+            if vm.name.startswith(qubes.tests.VMPREFIX):
+                del self.app.domains[vm]
+        self.app.default_template = None
+        del self.app.domains['test-template']
         self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()

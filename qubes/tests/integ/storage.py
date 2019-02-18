@@ -22,6 +22,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+from contextlib import suppress
 
 import qubes.storage.lvm
 import qubes.tests
@@ -34,6 +35,7 @@ class StorageTestMixin(object):
     def setUp(self):
         super(StorageTestMixin, self).setUp()
         self.init_default_template()
+        self.old_default_pool = self.app.default_pool
         self.vm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
             label='red')
@@ -47,13 +49,25 @@ class StorageTestMixin(object):
         self.app.save()
 
     def tearDown(self):
+        with suppress(qubes.exc.QubesException):
+            self.loop.run_until_complete(self.vm1.kill())
+        with suppress(qubes.exc.QubesException):
+            self.loop.run_until_complete(self.vm2.kill())
+        del self.app.domains[self.vm1]
+        del self.app.domains[self.vm2]
         del self.vm1
         del self.vm2
+        self.app.default_pool = self.old_default_pool
+        self.cleanup_pool()
         del self.pool
         super(StorageTestMixin, self).tearDown()
 
     def init_pool(self):
         ''' Initialize storage pool to be tested, store it in self.pool'''
+        raise NotImplementedError
+
+    def cleanup_pool(self):
+        ''' Remove tested storage pool'''
         raise NotImplementedError
 
     def test_000_volatile(self):
@@ -320,16 +334,14 @@ class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
         os.makedirs(os.path.join(self.dir_path, 'appvms', self.vm2.name),
             exist_ok=True)
 
-    def tearDown(self):
+    def cleanup_pool(self):
         self.loop.run_until_complete(self.app.remove_pool('test-pool'))
         shutil.rmtree(self.dir_path)
-        super(StorageFile, self).tearDown()
 
 
 class StorageReflinkMixin(StorageTestMixin):
-    def tearDown(self):
+    def cleanup_pool(self):
         self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
-        super().tearDown()
 
     def init_pool(self, fs_type, **kwargs):
         name = 'test-reflink-integration-on-' + fs_type
@@ -352,6 +364,7 @@ class StorageReflinkOnExt4(StorageReflinkMixin, qubes.tests.SystemTestCase):
 @qubes.tests.storage_lvm.skipUnlessLvmPoolExists
 class StorageLVM(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
+        self.created_pool = False
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         volume_group, thin_pool = \
             qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
@@ -361,11 +374,10 @@ class StorageLVM(StorageTestMixin, qubes.tests.SystemTestCase):
                 self.app.add_pool(**qubes.tests.storage_lvm.POOL_CONF))
             self.created_pool = True
 
-    def tearDown(self):
+    def cleanup_pool(self):
         ''' Remove the default lvm pool if it was created only for this test '''
         if self.created_pool:
             self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
-        super(StorageLVM, self).tearDown()
 
     def _find_pool(self, volume_group, thin_pool):
         ''' Returns the pool matching the specified ``volume_group`` &
