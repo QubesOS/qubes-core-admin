@@ -75,13 +75,14 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
         volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
-            self.pool = self.app.add_pool(**POOL_CONF)
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(**POOL_CONF))
             self.created_pool = True
 
     def tearDown(self):
         ''' Remove the default lvm pool if it was created only for this test '''
         if self.created_pool:
-            self.app.remove_pool(self.pool.name)
+            self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
         super(ThinPoolBase, self).tearDown()
 
 
@@ -1052,7 +1053,8 @@ class TC_02_StorageHelpers(ThinPoolBase):
             'driver': 'file',
             'dir_path': subdir
         }
-        pool2 = self.app.add_pool(**file_pool_config)
+        pool2 = self.loop.run_until_complete(
+            self.app.add_pool(**file_pool_config))
         pool = qubes.storage.search_pool_containing_dir(
             self.app.pools.values(), subdir)
         self.assertEqual(pool, pool2)

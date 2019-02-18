@@ -302,8 +302,8 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         pool_path = tempfile.mkdtemp(
             prefix='qubes-pool-', dir='/var/tmp')
         self.addCleanup(shutil.rmtree, pool_path)
-        pool = self.app.add_pool('test-filep', dir_path=pool_path,
-            driver='file')
+        pool = self.loop.run_until_complete(
+            self.app.add_pool('test-filep', dir_path=pool_path, driver='file'))
 
         self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=self.app.default_template,

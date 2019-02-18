@@ -68,7 +68,8 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         app.default_template = 'test-template'
         with qubes.tests.substitute_entry_points('qubes.storage',
                 'qubes.tests.storage'):
-            app.add_pool('test', driver='test')
+            self.loop.run_until_complete(
+                app.add_pool('test', driver='test'))
         app.default_pool = 'varlibqubes'
         app.save = unittest.mock.Mock()
         self.vm = app.add_new_vm('AppVM', label='red', name='test-vm1',
@@ -636,7 +637,7 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         value = self.call_mgmt_func(b'admin.pool.Add', b'dom0', b'driver1',
             b'name=test-pool\nparam1=some-value\n')
@@ -644,7 +645,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls,
             [unittest.mock.call('driver1')])
-        self.assertEqual(self.app.add_pool.mock_calls,
+        self.assertEqual(add_pool_mock.mock_calls,
             [unittest.mock.call(name='test-pool', driver='driver1',
                 param1='some-value')])
         self.assertTrue(self.app.save.called)
@@ -664,14 +665,14 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'no-such-driver', b'name=test-pool\nparam1=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
-        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
 
@@ -690,7 +691,7 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
@@ -698,7 +699,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls,
             [unittest.mock.call('driver1')])
-        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')
@@ -716,14 +717,14 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'param1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
-        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')
@@ -741,14 +742,14 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=file\nparam1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
-        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')
@@ -767,14 +768,14 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        self.app.add_pool = unittest.mock.Mock()
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam 1=value\n_param2\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
-        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     def test_170_pool_remove(self):
@@ -783,10 +784,10 @@ class TC_00_VMs(AdminAPITestCase):
             'lvm': unittest.mock.Mock(),
             'test-pool': unittest.mock.Mock(),
         }
-        self.app.remove_pool = unittest.mock.Mock()
+        remove_pool_mock, self.app.remove_pool = self.coroutine_mock()
         value = self.call_mgmt_func(b'admin.pool.Remove', b'dom0', b'test-pool')
         self.assertIsNone(value)
-        self.assertEqual(self.app.remove_pool.mock_calls,
+        self.assertEqual(remove_pool_mock.mock_calls,
             [unittest.mock.call('test-pool')])
         self.assertTrue(self.app.save.called)
 
@@ -796,11 +797,11 @@ class TC_00_VMs(AdminAPITestCase):
             'lvm': unittest.mock.Mock(),
             'test-pool': unittest.mock.Mock(),
         }
-        self.app.remove_pool = unittest.mock.Mock()
+        remove_pool_mock, self.app.remove_pool = self.coroutine_mock()
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Remove', b'dom0',
                 b'no-such-pool')
-        self.assertEqual(self.app.remove_pool.mock_calls, [])
+        self.assertEqual(remove_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     def test_180_label_list(self):
@@ -1169,6 +1170,14 @@ class TC_00_VMs(AdminAPITestCase):
     @asyncio.coroutine
     def dummy_coro(self, *args, **kwargs):
         pass
+
+    def coroutine_mock(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        return func_mock, coroutine_mock
 
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_330_vm_create_standalone(self, storage_mock):

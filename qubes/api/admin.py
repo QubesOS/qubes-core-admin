@@ -666,7 +666,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(name=pool_name,
             pool_config=pool_config)
 
-        self.app.add_pool(name=pool_name, driver=self.arg, **pool_config)
+        yield from self.app.add_pool(name=pool_name, driver=self.arg,
+            **pool_config)
         self.app.save()
 
     @qubes.api.method('admin.pool.Remove', no_payload=True,
@@ -678,7 +679,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
 
-        self.app.remove_pool(self.arg)
+        yield from self.app.remove_pool(self.arg)
         self.app.save()
 
     @qubes.api.method('admin.pool.Set.revisions_to_keep',

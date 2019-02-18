@@ -786,7 +786,8 @@ class SystemTestCase(QubesTestCase):
                 format(DEFAULT_LVM_POOL))
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
-            self.pool = self.app.add_pool(**POOL_CONF)
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(**POOL_CONF))
             self.created_pool = True
 
     def _remove_vm_qubes(self, vm):

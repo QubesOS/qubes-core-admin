@@ -34,6 +34,7 @@ import time
 import traceback
 import uuid
 
+import asyncio
 import jinja2
 import libvirt
 import lxml.etree
@@ -1207,6 +1208,7 @@ class Qubes(qubes.PropertyHolder):
         for pool in self.pools.values():
             pool.setup()
 
+    @asyncio.coroutine
     def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""
 
@@ -1216,16 +1218,21 @@ class Qubes(qubes.PropertyHolder):
 
         kwargs['name'] = name
         pool = self._get_pool(**kwargs)
-        pool.setup()
+        ret = pool.setup()
+        if asyncio.iscoroutine(ret):
+            yield from ret
         self.pools[name] = pool
         return pool
 
+    @asyncio.coroutine
     def remove_pool(self, name):
         """ Remove a storage pool from config file.  """
         try:
             pool = self.pools[name]
             del self.pools[name]
-            pool.destroy()
+            ret = pool.destroy()
+            if asyncio.iscoroutine(ret):
+                yield from ret
         except KeyError:
             return
 

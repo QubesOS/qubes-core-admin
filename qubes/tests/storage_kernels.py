@@ -74,13 +74,13 @@ class TC_01_KernelVolumes(qubes.tests.QubesTestCase):
         super(TC_01_KernelVolumes, self).setUp()
         self.app = TestApp()
         self.app.create_dummy_template()
-        self.app.add_pool(**self.POOL_CONF)
+        self.loop.run_until_complete(self.app.add_pool(**self.POOL_CONF))
         os.makedirs(self.POOL_DIR + '/dummy', exist_ok=True)
         open('/tmp/test-pool/dummy/modules.img', 'w').close()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
-        self.app.remove_pool("test-pool")
+        self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()
         del self.app
@@ -231,11 +231,11 @@ class TC_03_KernelPool(qubes.tests.QubesTestCase):
         open(os.path.join(dummy_kernel, 'vmlinuz'), 'w').close()
         open(os.path.join(dummy_kernel, 'modules.img'), 'w').close()
         open(os.path.join(dummy_kernel, 'initramfs'), 'w').close()
-        self.app.add_pool(**self.POOL_CONFIG)
+        self.loop.run_until_complete(self.app.add_pool(**self.POOL_CONFIG))
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
-        self.app.remove_pool("test-pool")
+        self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()
         del self.app

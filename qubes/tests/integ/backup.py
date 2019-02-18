@@ -526,8 +526,9 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
             qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
-            self.pool = self.app.add_pool(
-                **qubes.tests.storage_lvm.POOL_CONF)
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(
+                    **qubes.tests.storage_lvm.POOL_CONF))
             self.created_pool = True
         vms = self.create_backup_vms(pool=self.pool)
         try:
@@ -546,8 +547,9 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
             qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
-            self.pool = self.app.add_pool(
-                **qubes.tests.storage_lvm.POOL_CONF)
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(
+                    **qubes.tests.storage_lvm.POOL_CONF))
             self.created_pool = True
         vms = self.create_backup_vms()
         try:

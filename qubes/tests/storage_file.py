@@ -114,13 +114,13 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         """ Add a test file based storage pool """
         super(TC_01_FileVolumes, self).setUp()
         self.app = TestApp()
-        self.app.add_pool(**self.POOL_CONF)
+        self.loop.run_until_complete(self.app.add_pool(**self.POOL_CONF))
         self.app.default_pool = self.app.get_pool(self.POOL_NAME)
         self.app.create_dummy_template()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
-        self.app.remove_pool("test-pool")
+        self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()
         del self.app
@@ -388,12 +388,12 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         self.base_dir_patch2.start()
         self.base_dir_patch3.start()
         self.app = TestApp()
-        self.app.add_pool(**self.POOL_CONFIG)
+        self.loop.run_until_complete(self.app.add_pool(**self.POOL_CONFIG))
         self.app.create_dummy_template()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
-        self.app.remove_pool("test-pool")
+        self.loop.run_until_complete(self.app.remove_pool("test-pool"))
         self.app.cleanup()
         self.app.close()
         del self.app
@@ -419,7 +419,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
 
         self.assertFalse(os.path.exists(pool_dir))
 
-        self.app.add_pool(name=pool_name, dir_path=pool_dir, driver='file')
+        self.loop.run_until_complete(
+            self.app.add_pool(name=pool_name, dir_path=pool_dir, driver='file'))
 
         self.assertTrue(os.path.exists(pool_dir))
         self.assertTrue(os.path.exists(appvms_dir))

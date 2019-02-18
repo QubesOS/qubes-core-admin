@@ -312,22 +312,23 @@ class StorageTestMixin(object):
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
         self.dir_path = '/var/tmp/test-pool'
-        self.pool = self.app.add_pool(dir_path=self.dir_path,
-            name='test-pool', driver='file')
+        self.pool = self.loop.run_until_complete(
+            self.app.add_pool(dir_path=self.dir_path,
+                name='test-pool', driver='file'))
         os.makedirs(os.path.join(self.dir_path, 'appvms', self.vm1.name),
             exist_ok=True)
         os.makedirs(os.path.join(self.dir_path, 'appvms', self.vm2.name),
             exist_ok=True)
 
     def tearDown(self):
-        self.app.remove_pool('test-pool')
+        self.loop.run_until_complete(self.app.remove_pool('test-pool'))
         shutil.rmtree(self.dir_path)
         super(StorageFile, self).tearDown()
 
 
 class StorageReflinkMixin(StorageTestMixin):
     def tearDown(self):
-        self.app.remove_pool(self.pool.name)
+        self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
         super().tearDown()
 
     def init_pool(self, fs_type, **kwargs):
@@ -335,8 +336,9 @@ class StorageReflinkMixin(StorageTestMixin):
         dir_path = os.path.join('/var/tmp', name)
         qubes.tests.storage_reflink.mkdir_fs(dir_path, fs_type,
                                              cleanup_via=self.addCleanup)
-        self.pool = self.app.add_pool(name=name, dir_path=dir_path,
-                                      driver='file-reflink', **kwargs)
+        self.pool = self.loop.run_until_complete(
+            self.app.add_pool(name=name, dir_path=dir_path,
+                              driver='file-reflink', **kwargs))
 
 class StorageReflinkOnBtrfs(StorageReflinkMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
@@ -355,13 +357,14 @@ class StorageLVM(StorageTestMixin, qubes.tests.SystemTestCase):
             qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
-            self.pool = self.app.add_pool(**qubes.tests.storage_lvm.POOL_CONF)
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(**qubes.tests.storage_lvm.POOL_CONF))
             self.created_pool = True
 
     def tearDown(self):
         ''' Remove the default lvm pool if it was created only for this test '''
         if self.created_pool:
-            self.app.remove_pool(self.pool.name)
+            self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
         super(StorageLVM, self).tearDown()
 
     def _find_pool(self, volume_group, thin_pool):

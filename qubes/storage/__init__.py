@@ -782,6 +782,8 @@ class Pool:
     def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
             clean up.
+
+            This can be implemented as a coroutine.
         '''
         raise self._not_implemented("destroy")
 
@@ -793,6 +795,8 @@ class Pool:
     def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
+
+            This can be implemented as a coroutine.
         '''
         raise self._not_implemented("setup")
 

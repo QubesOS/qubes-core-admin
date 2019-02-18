@@ -123,15 +123,16 @@ class TC_00_Pool(SystemTestCase):
         pool_name = 'asdjhrp89132'
 
         # make sure it's really does not exist
-        self.app.remove_pool(pool_name)
+        self.loop.run_until_complete(self.app.remove_pool(pool_name))
         self.assertFalse(self.assertPoolExists(pool_name))
 
-        self.app.add_pool(name=pool_name,
+        self.loop.run_until_complete(
+            self.app.add_pool(name=pool_name,
                           driver='file',
-                          dir_path='/tmp/asdjhrp89132')
+                          dir_path='/tmp/asdjhrp89132'))
         self.assertTrue(self.assertPoolExists(pool_name))
 
-        self.app.remove_pool(pool_name)
+        self.loop.run_until_complete(self.app.remove_pool(pool_name))
         self.assertFalse(self.assertPoolExists(pool_name))
 
     def assertPoolExists(self, pool):
