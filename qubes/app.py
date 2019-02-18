@@ -669,6 +669,38 @@ class Qubes(qubes.PropertyHolder):
             :param event: Event name (``'domain-delete'``)
             :param vm: Domain object
 
+        .. event:: pool-add (subject, event, pool)
+
+            When storage pool is added.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param subject: Event emitter
+            :param event: Event name (``'pool-add'``)
+            :param pool: Pool object
+
+        .. event:: pool-pre-delete (subject, event, pool)
+
+            When pool is deleted. Pool is still contained within app.pools
+            dictionary. You may prevent removal by raising an exception.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param subject: Event emitter
+            :param event: Event name (``'pool-pre-delete'``)
+            :param pool: Pool object
+
+        .. event:: pool-delete (subject, event, pool)
+
+            When storage pool is deleted. The pool is already removed at this
+            point.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param subject: Event emitter
+            :param event: Event name (``'pool-delete'``)
+            :param pool: Pool object
+
     Methods and attributes:
     '''
 
@@ -1222,6 +1254,7 @@ class Qubes(qubes.PropertyHolder):
         if asyncio.iscoroutine(ret):
             yield from ret
         self.pools[name] = pool
+        yield from self.fire_event_async('pool-add', pool=pool)
         return pool
 
     @asyncio.coroutine
@@ -1229,10 +1262,13 @@ class Qubes(qubes.PropertyHolder):
         """ Remove a storage pool from config file.  """
         try:
             pool = self.pools[name]
+            yield from self.fire_event_async('pool-pre-delete',
+                pre_event=True, pool=pool)
             del self.pools[name]
             ret = pool.destroy()
             if asyncio.iscoroutine(ret):
                 yield from ret
+            yield from self.fire_event_async('pool-delete', pool=pool)
         except KeyError:
             return
 
