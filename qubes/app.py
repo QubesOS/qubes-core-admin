@@ -711,7 +711,8 @@ class Qubes(qubes.PropertyHolder):
             that AppVMs are not connected to the Internet.''')
     default_template = qubes.VMProperty('default_template', load_stage=3,
         vmclass=qubes.vm.templatevm.TemplateVM,
-        doc='Default template for new AppVMs')
+        doc='Default template for new AppVMs',
+        allow_none=True)
     updatevm = qubes.VMProperty('updatevm', load_stage=3,
         default=None, allow_none=True,
         doc='''Which VM to use as `yum` proxy for updating AdminVM and
@@ -1205,6 +1206,10 @@ class Qubes(qubes.PropertyHolder):
                 kwargs['template'] = self.default_dispvm
             else:
                 kwargs['template'] = self.default_template
+            if kwargs['template'] is None:
+                raise qubes.exc.QubesValueError(
+                    'Template for the qube not specified, nor default '
+                    'template set.')
         elif 'template' in kwargs and isinstance(kwargs['template'], str):
             kwargs['template'] = self.domains[kwargs['template']]
 
