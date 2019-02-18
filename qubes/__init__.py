@@ -195,6 +195,8 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
             doc=None):
         # pylint: disable=redefined-builtin
         self.__name__ = name
+        if setter is None and type is bool:
+            setter = qubes.property.bool
         self._setter = setter
         self._saver = saver if saver is not None else (
             lambda self, prop, value: str(value))
