@@ -1262,6 +1262,17 @@ class Qubes(qubes.PropertyHolder):
         """ Remove a storage pool from config file.  """
         try:
             pool = self.pools[name]
+            volumes = [(vm, volume) for vm in self.domains
+                for volume in vm.volumes.values()
+                    if volume.pool is pool]
+            if volumes:
+                raise qubes.exc.QubesPoolInUseError(pool)
+            prop_suffixes = ['', '_kernel', '_private', '_root', '_volatile']
+            for suffix in prop_suffixes:
+                if getattr(self, 'default_pool' + suffix, None) is pool:
+                    raise qubes.exc.QubesPoolInUseError(pool,
+                        'Storage pool is in use: set as {}'.format(
+                            'default_pool' + suffix))
             yield from self.fire_event_async('pool-pre-delete',
                 pre_event=True, pool=pool)
             del self.pools[name]

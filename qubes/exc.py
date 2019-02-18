@@ -116,6 +116,13 @@ class QubesNoTemplateError(QubesVMError):
             msg or 'Template for the domain {!r} not found'.format(vm.name))
 
 
+class QubesPoolInUseError(QubesException):
+    '''VM is in use, cannot remove.'''
+    def __init__(self, pool, msg=None):
+        super(QubesPoolInUseError, self).__init__(
+            msg or 'Storage pool is in use: {!r}'.format(pool.name))
+
+
 class QubesValueError(QubesException, ValueError):
     '''Cannot set some value, because it is invalid, out of bounds, etc.'''
 
