@@ -149,3 +149,18 @@ class TC_00_Pool(QubesTestCase):
     def assertPoolExists(self, pool):
         """ Check if specified pool exists """
         return pool in self.app.pools.keys()
+
+    def test_005_remove_used(self):
+        pool_name = 'test-pool-asdf'
+
+        dir_path = '/tmp/{}'.format(pool_name)
+        pool = self.loop.run_until_complete(
+            self.app.add_pool(name=pool_name,
+                driver='file',
+                dir_path=dir_path))
+        self.addCleanup(shutil.rmtree, dir_path)
+        vm = self.app.add_new_vm('StandaloneVM', label='red',
+            name=self.make_vm_name('vm'))
+        self.loop.run_until_complete(vm.create_on_disk(pool=pool))
+        with self.assertRaises(qubes.exc.QubesPoolInUseError):
+            self.loop.run_until_complete(self.app.remove_pool(pool_name))
