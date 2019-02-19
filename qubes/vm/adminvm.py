@@ -178,6 +178,22 @@ class AdminVM(qubes.vm.BaseVM):
         '''
         raise qubes.exc.QubesVMError(self, 'Cannot suspend Dom0 fake domain!')
 
+    def shutdown(self):
+        '''Does nothing.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.shutdown`
+        '''
+        raise qubes.exc.QubesVMError(self, 'Cannot shutdown Dom0 fake domain!')
+
+    def kill(self):
+        '''Does nothing.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.kill`
+        '''
+        raise qubes.exc.QubesVMError(self, 'Cannot kill Dom0 fake domain!')
+
     @property
     def icon_path(self):
         pass
