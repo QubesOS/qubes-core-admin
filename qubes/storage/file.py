@@ -155,13 +155,19 @@ class FilePool(qubes.storage.Pool):
 
     @property
     def size(self):
-        statvfs = os.statvfs(self.dir_path)
-        return statvfs.f_frsize * statvfs.f_blocks
+        try:
+            statvfs = os.statvfs(self.dir_path)
+            return statvfs.f_frsize * statvfs.f_blocks
+        except FileNotFoundError:
+            return 0
 
     @property
     def usage(self):
-        statvfs = os.statvfs(self.dir_path)
-        return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
+        try:
+            statvfs = os.statvfs(self.dir_path)
+            return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
+        except FileNotFoundError:
+            return 0
 
     def included_in(self, app):
         ''' Check if there is pool containing this one - either as a
