@@ -17,9 +17,9 @@ File paths
 ----------
 
 In order of increasing precedence: the main template, from which the config is
-generated is :file:`/usr/share/templates/libvirt/xen.xml`).
+generated is :file:`/usr/share/qubes/templates/libvirt/xen.xml`).
 The distributor may put a file at
-:file:`/usr/share/qubes/template/xen-dist.xml`) to override this file. 
+:file:`/usr/share/qubes/templates/libvirt/xen-dist.xml`) to override this file.
 User may put a file at either
 :file:`/etc/qubes/templates/libvirt/xen-user.xml` or
 :file:`/etc/qubes/templates/libvirt/xen/by-name/<name>.xml`, where ``<name>`` is
