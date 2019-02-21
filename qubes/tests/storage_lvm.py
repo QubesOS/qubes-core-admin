@@ -1009,6 +1009,7 @@ class TC_02_StorageHelpers(ThinPoolBase):
                 'test-file-pool'], stdout=subprocess.DEVNULL)
         self.thin_dev = '/dev/{}/test-file-pool'.format(
             DEFAULT_LVM_POOL.split('/')[0])
+        subprocess.check_call(['udevadm', 'settle'])
         subprocess.check_call(
             ['sudo', 'mkfs.ext4', '-q', self.thin_dev])
         subprocess.check_call(['sudo', 'mount', self.thin_dev,
