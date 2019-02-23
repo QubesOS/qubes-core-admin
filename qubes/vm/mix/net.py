@@ -255,6 +255,22 @@ class NetVMMixin(qubes.events.Emitter):
                 self.name)
             self.netvm = None
 
+    @qubes.events.handler('domain-shutdown')
+    def on_domain_shutdown(self, event, **kwargs):
+        '''Cleanup network interfaces of connected, running VMs.
+
+        This will allow re-reconnecting them cleanly later.
+        '''
+        # pylint: disable=unused-argument
+        for vm in self.connected_vms:
+            if not vm.is_running():
+                continue
+            try:
+                vm.detach_network()
+            except (qubes.exc.QubesException, libvirt.libvirtError):
+                # ignore errors
+                pass
+
     @qubes.events.handler('domain-start')
     def on_domain_started(self, event, **kwargs):
         '''Connect this domain to its downstream domains. Also reload firewall
@@ -270,19 +286,13 @@ class NetVMMixin(qubes.events.Emitter):
             if not vm.is_running():
                 continue
             vm.log.info('Attaching network')
-
-            try:
-                vm.detach_network()
-            except (qubes.exc.QubesException, libvirt.libvirtError):
-                vm.log.warning('Cannot detach old network', exc_info=1)
-
             try:
                 vm.attach_network()
             except (qubes.exc.QubesException, libvirt.libvirtError):
                 vm.log.warning('Cannot attach network', exc_info=1)
 
     @qubes.events.handler('domain-pre-shutdown')
-    def shutdown_net(self, event, force=False):
+    def on_domain_pre_shutdown(self, event, force=False):
         ''' Checks before NetVM shutdown if any connected domains are running.
             If `force` is `True` tries to detach network interfaces of connected
             vms
@@ -294,18 +304,6 @@ class NetVMMixin(qubes.events.Emitter):
                 'There are other VMs connected to this VM: {}'.format(
                     ', '.join(vm.name for vm in connected_vms)))
 
-        # SEE: 1426
-        # detach network interfaces of connected VMs before shutting down,
-        # otherwise libvirt will not notice it and will try to detach them
-        # again (which would fail, obviously).
-        # This code can be removed when #1426 got implemented
-        for vm in connected_vms:
-            if vm.is_running():
-                try:
-                    vm.detach_network()
-                except (qubes.exc.QubesException, libvirt.libvirtError):
-                    # ignore errors
-                    pass
 
     def attach_network(self):
         '''Attach network in this machine to it's netvm.'''
