@@ -383,6 +383,83 @@ class VmNetworkingMixin(object):
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
+    def test_110_dynamic_attach(self):
+        self.testvm1.netvm = None
+        self.loop.run_until_complete(self.testvm1.start())
+        self.testvm1.netvm = self.testnetvm
+        # wait for it to settle down
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'udevadm settle'))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
+    def test_111_dynamic_detach_attach(self):
+        self.loop.run_until_complete(self.testvm1.start())
+        self.testvm1.netvm = None
+        # wait for it to settle down
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'udevadm settle'))
+        self.testvm1.netvm = self.testnetvm
+        # wait for it to settle down
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'udevadm settle'))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
+    def test_112_reattach_after_provider_shutdown(self):
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.loop.run_until_complete(self.proxy.create_on_disk())
+        self.testvm1.netvm = self.proxy
+
+        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.proxy.shutdown(force=True, wait=True))
+        self.loop.run_until_complete(self.proxy.start())
+        # wait for it to settle down
+        self.loop.run_until_complete(asyncio.sleep(5))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
+    def test_113_reattach_after_provider_kill(self):
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.loop.run_until_complete(self.proxy.create_on_disk())
+        self.testvm1.netvm = self.proxy
+
+        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.proxy.kill())
+        self.loop.run_until_complete(self.proxy.start())
+        # wait for it to settle down
+        self.loop.run_until_complete(asyncio.sleep(5))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
+    def test_114_reattach_after_provider_crash(self):
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.loop.run_until_complete(self.proxy.create_on_disk())
+        self.testvm1.netvm = self.proxy
+
+        self.loop.run_until_complete(self.testvm1.start())
+        p = self.loop.run_until_complete(self.proxy.run(
+            'echo c > /proc/sysrq-trigger', user='root'))
+        self.loop.run_until_complete(p.wait())
+        timeout = 10
+        while self.proxy.is_running():
+            self.loop.run_until_complete(asyncio.sleep(1))
+            timeout -= 1
+            self.assertGreater(timeout, 0,
+                'timeout waiting for crash cleanup')
+        self.loop.run_until_complete(self.proxy.start())
+        # wait for it to settle down
+        self.loop.run_until_complete(asyncio.sleep(5))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
     def test_200_fake_ip_simple(self):
         '''Test hiding VM real IP
 
@@ -681,6 +758,7 @@ class VmNetworkingMixin(object):
         finally:
             server.terminate()
             self.loop.run_until_complete(server.wait())
+
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
 class VmIPv6NetworkingMixin(VmNetworkingMixin):
