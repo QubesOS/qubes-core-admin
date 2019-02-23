@@ -21,6 +21,7 @@
 #
 import base64
 import os
+import tempfile
 
 import unittest
 import uuid
@@ -480,8 +481,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyValue(vm, 'kernel', '', '', '')
         self.assertPropertyValue(vm, 'kernel', None, '', '')
 
+    @unittest.mock.patch.dict(qubes.config.system_path,
+        {'qubes_kernels_base_dir': '/tmp'})
     def test_260_kernelopts(self):
+        d = tempfile.mkdtemp(prefix='/tmp/')
+        self.addCleanup(shutil.rmtree, d)
+        open(d + '/vmlinuz', 'w').close()
+        open(d + '/initramfs', 'w').close()
         vm = self.get_vm()
+        vm.kernel = os.path.basename(d)
         self.assertPropertyDefaultValue(vm, 'kernelopts',
             qubes.config.defaults['kernelopts'])
         self.assertPropertyValue(vm, 'kernelopts', 'some options',
@@ -502,6 +510,27 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.devices['pci'].attach('something')
         self.assertPropertyDefaultValue(vm, 'kernelopts',
             qubes.config.defaults['kernelopts_pcidevs'])
+
+    @unittest.mock.patch.dict(qubes.config.system_path,
+        {'qubes_kernels_base_dir': '/tmp'})
+    def test_262_kernelopts(self):
+        d = tempfile.mkdtemp(prefix='/tmp/')
+        self.addCleanup(shutil.rmtree, d)
+        open(d + '/vmlinuz', 'w').close()
+        open(d + '/initramfs', 'w').close()
+        with open(d + '/default-kernelopts-nopci.txt', 'w') as f:
+            f.write('some default options')
+        vm = self.get_vm()
+        vm.kernel = os.path.basename(d)
+        self.assertPropertyDefaultValue(vm, 'kernelopts',
+            'some default options')
+        self.assertPropertyValue(vm, 'kernelopts', 'some options',
+            'some options', 'some options')
+        del vm.kernelopts
+        self.assertPropertyDefaultValue(vm, 'kernelopts',
+            'some default options')
+        self.assertPropertyValue(vm, 'kernelopts', '',
+            '', '')
 
     def test_270_qrexec_timeout(self):
         vm = self.get_vm()
