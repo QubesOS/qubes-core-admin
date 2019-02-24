@@ -482,6 +482,9 @@ class PolicyAction(object):
         qrexec_opts = ['-d', target, '-c', caller_ident]
         if dispvm:
             qrexec_opts.append('-W')
+        # XXX remove when #951 gets fixed
+        if self.source == target:
+            raise AccessDenied('loopback qrexec connection not supported')
         try:
             subprocess.call([QREXEC_CLIENT] + qrexec_opts + [cmd])
         finally:
@@ -635,6 +638,10 @@ class Policy(object):
         if '@adminvm' in targets:
             targets.remove('@adminvm')
             targets.add('dom0')
+
+        # XXX remove when #951 gets fixed
+        if source in targets:
+            targets.remove(source)
 
         return targets
 

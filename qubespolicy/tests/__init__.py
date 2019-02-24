@@ -711,14 +711,14 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('test-standalone @adminvm allow\n')
         policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
-            'test-vm1'), ['test-vm1', 'test-vm2', 'test-vm3',
+            'test-vm1'), ['test-vm2', 'test-vm3',
                 '@dispvm:test-vm3',
                 'default-dvm', '@dispvm:default-dvm', 'test-invalid-dvm',
                 'test-no-dvm', 'test-template', 'test-standalone'])
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
-            'test-vm2'), ['test-vm2', 'test-vm3'])
+            'test-vm2'), ['test-vm3'])
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
-            'test-vm3'), ['test-vm3'])
+            'test-vm3'), [])
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
             'test-standalone'), ['test-vm1', 'test-vm2', 'test-vm3',
             'default-dvm', 'test-no-dvm', 'test-invalid-dvm',
@@ -781,7 +781,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         self.assertCountEqual(action.targets_for_ask,
             ['test-vm1', 'test-vm2', 'test-vm3', '@dispvm:test-vm3',
                 'default-dvm', '@dispvm:default-dvm', 'test-invalid-dvm',
-                'test-no-dvm', 'test-template', 'test-standalone'])
+                'test-no-dvm', 'test-template'])
 
     def test_033_eval_ask(self):
         with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
@@ -802,7 +802,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         self.assertCountEqual(action.targets_for_ask,
             ['test-vm1', 'test-vm2', 'test-vm3', '@dispvm:test-vm3',
                 'default-dvm', '@dispvm:default-dvm', 'test-invalid-dvm',
-                'test-no-dvm', 'test-template', 'test-standalone'])
+                'test-no-dvm', 'test-template'])
 
     def test_034_eval_resolve_dispvm(self):
         with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
