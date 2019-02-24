@@ -95,13 +95,19 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
-            if vm.is_running():
+            if not vm.is_running():
+                continue
+            if not vm.features.check_with_template('qrexec', False):
+                continue
+            try:
                 proc = yield from vm.run_service(
                     'qubes.SuspendPreAll', user='root',
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL)
                 processes.append(proc)
+            except qubes.exc.QubesException as e:
+                vm.log.warning('Failed to run qubes.SuspendPreAll: %s', str(e))
 
         # FIXME: some timeout?
         if processes:
@@ -141,13 +147,19 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
-            if vm.is_running():
+            if not vm.is_running():
+                continue
+            if not vm.features.check_with_template('qrexec', False):
+                continue
+            try:
                 proc = yield from vm.run_service(
                     'qubes.SuspendPostAll', user='root',
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL)
                 processes.append(proc)
+            except qubes.exc.QubesException as e:
+                vm.log.warning('Failed to run qubes.SuspendPostAll: %s', str(e))
 
         # FIXME: some timeout?
         if processes:
