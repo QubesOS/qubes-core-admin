@@ -52,6 +52,10 @@ try:
 except ImportError:
     pass
 
+# overhead of per-qube/per-vcpu Xen structures,
+# taken from OpenStack nova/virt/xenapi/driver.py
+# see https://wiki.openstack.org/wiki/XenServer/Overhead
+# add an extra MB because Nova rounds up to MBs
 MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
 MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
@@ -1422,11 +1426,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return True
 
     def request_memory(self, mem_required=None):
-        # overhead of per-qube/per-vcpu Xen structures,
-        # taken from OpenStack nova/virt/xenapi/driver.py
-        # see https://wiki.openstack.org/wiki/XenServer/Overhead
-        # add an extra MB because Nova rounds up to MBs
-
         if not qmemman_present:
             return None
 
