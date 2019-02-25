@@ -468,8 +468,14 @@ class Storage:
         If :py:attr:`self.vm.kernel` is :py:obj:`None`, the this points inside
         :py:attr:`self.vm.dir_path`
         '''
-        assert 'kernel' in self.vm.volumes, "VM has no kernel volume"
-        return self.vm.volumes['kernel'].kernels_dir
+        if not self.vm.kernel:
+            return None
+        if 'kernel' in self.vm.volumes:
+            return self.vm.volumes['kernel'].kernels_dir
+        return os.path.join(
+            qubes.config.qubes_base_dir,
+            qubes.config.system_path['qubes_kernels_base_dir'],
+            self.vm.kernel)
 
     def get_disk_utilization(self):
         ''' Returns summed up disk utilization for all domain volumes '''
