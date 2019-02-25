@@ -47,7 +47,7 @@
                 {% if vm.features.check_with_template('no-default-kernelopts', False) -%}
                 <cmdline>{{ vm.kernelopts }}</cmdline>
                 {% else -%}
-                <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
+                <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }}</cmdline>
                 {% endif -%}
             {% endif %}
         {% endblock %}

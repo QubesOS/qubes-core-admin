@@ -69,6 +69,8 @@ defaults = {
     'hvm_memory': 400,
     'kernelopts': "nopat",
     'kernelopts_pcidevs': "nopat iommu=soft swiotlb=8192",
+    'kernelopts_common': ('root=/dev/mapper/dmroot ro nomodeset console=hvc0 '
+             'rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 '),
 
     'dom0_update_check_interval': 6*3600,
 

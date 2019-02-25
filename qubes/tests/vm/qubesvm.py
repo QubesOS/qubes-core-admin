@@ -867,6 +867,73 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
+    def test_600_libvirt_xml_hvm_dom0_kernel_kernelopts(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">500</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+            <cmdline>kernel specific options nopat</cmdline>
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset="variable" adjustment="0" basis="localtime" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
+        with unittest.mock.patch('qubes.config.qubes_base_dir',
+                '/tmp/qubes-test'):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+            with open(os.path.join(kernel_dir,
+                    'default-kernelopts-common.txt'), 'w') as f:
+                f.write('kernel specific options \n')
+            self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+            vm.kernel = 'dummy'
+            libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
     def test_600_libvirt_xml_pvh(self):
         expected = '''<domain type="xen">
         <name>test-inst-test</name>

@@ -1983,6 +1983,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return None
 
+    @property
+    def kernelopts_common(self):
+        '''Kernel options which should be used in addition to *kernelopts*
+        property.
+
+        This is specific to kernel (and initrd if any)
+        '''
+        if not self.kernel:
+            return ''
+        kernels_dir = self.storage.kernels_dir
+
+        kernelopts_path = os.path.join(kernels_dir,
+            'default-kernelopts-common.txt')
+        if os.path.exists(kernelopts_path):
+            with open(kernelopts_path) as f_kernelopts:
+                return f_kernelopts.read().rstrip('\n\r')
+        else:
+            return qubes.config.defaults['kernelopts_common']
+
     #
     # helper methods
     #
