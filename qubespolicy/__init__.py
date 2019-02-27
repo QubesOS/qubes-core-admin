@@ -416,7 +416,7 @@ class PolicyAction(object):
             # this should be really rejected by Policy.eval()
             raise AccessDenied(
                 'denied by policy {}:{}'.format(rule.filename, rule.lineno))
-        elif rule.action == Action.ask:
+        if rule.action == Action.ask:
             if targets_for_ask is None:
                 raise AccessDenied(
                     'invalid policy {}:{}'.format(rule.filename, rule.lineno))

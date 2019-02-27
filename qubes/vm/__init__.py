@@ -48,9 +48,8 @@ def validate_name(holder, prop, value):
             raise qubes.exc.QubesPropertyValueError(holder, prop, value,
                 '{} value must be shorter than 32 characters'.format(
                     prop.__name__))
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM name must be shorter than 32 characters')
+        raise qubes.exc.QubesValueError(
+            'VM name must be shorter than 32 characters')
 
     # this regexp does not contain '+'; if it had it, we should specifically
     # disallow 'lost+found' #1440
@@ -58,9 +57,8 @@ def validate_name(holder, prop, value):
         if holder is not None and prop is not None:
             raise qubes.exc.QubesPropertyValueError(holder, prop, value,
                 '{} value contains illegal characters'.format(prop.__name__))
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM name contains illegal characters')
+        raise qubes.exc.QubesValueError(
+            'VM name contains illegal characters')
     if value in ('none', 'default'):
         raise qubes.exc.QubesValueError(
             'VM name cannot be \'none\' nor \'default\'')

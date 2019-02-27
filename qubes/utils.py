@@ -150,7 +150,7 @@ def get_entry_point_one(group, name):
     epoints = tuple(pkg_resources.iter_entry_points(group, name))
     if not epoints:
         raise KeyError(name)
-    elif len(epoints) > 1:
+    if len(epoints) > 1:
         raise TypeError(
             'more than 1 implementation of {!r} found: {}'.format(name,
                 ', '.join('{}.{}'.format(ep.module_name, '.'.join(ep.attrs))

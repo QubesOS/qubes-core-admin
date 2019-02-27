@@ -96,7 +96,7 @@ class DstHost(RuleOption):
     def __init__(self, untrusted_value, prefixlen=None):
         if untrusted_value.count('/') > 1:
             raise ValueError('Too many /: ' + untrusted_value)
-        elif not untrusted_value.count('/'):
+        if not untrusted_value.count('/'):
             # add prefix length to bare IP addresses
             try:
                 socket.inet_pton(socket.AF_INET6, untrusted_value)

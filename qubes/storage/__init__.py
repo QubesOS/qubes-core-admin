@@ -110,7 +110,7 @@ class Volume:
             msg = "snap_on_start specified on {!r} but no volume source set"
             msg = msg.format(name)
             raise StoragePoolException(msg)
-        elif not snap_on_start and source is not None:
+        if not snap_on_start and source is not None:
             msg = "source specified on {!r} but no snap_on_start set"
             msg = msg.format(name)
             raise StoragePoolException(msg)

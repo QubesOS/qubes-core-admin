@@ -233,10 +233,9 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         if self._default is self._NO_DEFAULT:
             raise AttributeError(
                 'property {!r} have no default'.format(self.__name__))
-        elif self._default_function:
+        if self._default_function:
             return self._default_function(instance)
-        else:
-            return self._default
+        return self._default
 
     def __set__(self, instance, value):
         self._enforce_write_once(instance)
@@ -734,9 +733,8 @@ class PropertyHolder(qubes.events.Emitter):
             msg = 'Required property {!r} not set on {!r}'.format(prop, self)
             if hard:
                 raise ValueError(msg)
-            else:
-                # pylint: disable=no-member
-                self.log.fatal(msg)
+            # pylint: disable=no-member
+            self.log.fatal(msg)
 
 
     def close(self):

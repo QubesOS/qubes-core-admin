@@ -822,7 +822,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return self.name < other.name
 
     def __xml__(self):
+        # pylint: disable=no-member
         element = super(QubesVM, self).__xml__()
+        # pylint: enable=no-member
 
         if hasattr(self, 'volumes'):
             volume_config_node = lxml.etree.Element('volume-config')
@@ -840,6 +842,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def on_domain_init_loaded(self, event):
         # pylint: disable=unused-argument
         if not hasattr(self, 'uuid'):
+            # pylint: disable=attribute-defined-outside-init
             self.uuid = uuid.uuid4()
 
         # Initialize VM image storage class;
@@ -1192,8 +1195,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
                 raise qubes.exc.QubesVMNotStartedError(self)
-            else:
-                raise
+            raise
 
         # make sure all shutdown tasks are completed
         yield from self._ensure_shutdown_handled()
@@ -1305,7 +1307,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # XXX what about autostart?
             raise qubes.exc.QubesVMNotRunningError(
                 self, 'Domain {!r} is paused'.format(self.name))
-        elif not self.is_running():
+        if not self.is_running():
             if not autostart:
                 raise qubes.exc.QubesVMNotRunningError(self)
             yield from self.start(start_guid=gui)
@@ -1518,9 +1520,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     'see /var/log/xen/console/guest-{}.log for details'.format(
                         self.qrexec_timeout, self.name
                     ))
-            else:
-                raise qubes.exc.QubesVMError(self,
-                    'qrexec-daemon startup failed: ' + err.stderr.decode())
+            raise qubes.exc.QubesVMError(self,
+                'qrexec-daemon startup failed: ' + err.stderr.decode())
 
     @asyncio.coroutine
     def start_qubesdb(self):
@@ -2094,8 +2095,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesVMError(self,
                     'HVM qubes are not supported on this machine. '
                     'Check BIOS settings for VT-x/AMD-V extensions.')
-            else:
-                raise
+            raise
 
     #
     # workshop -- those are to be reworked later
