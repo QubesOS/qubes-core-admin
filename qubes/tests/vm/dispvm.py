@@ -60,6 +60,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.addCleanup(self.cleanup_dispvm)
 
     def cleanup_dispvm(self):
+        if hasattr(self, 'dispvm'):
+            self.dispvm.close()
+            del self.dispvm
         self.template.close()
         self.appvm.close()
         del self.template
@@ -120,6 +123,41 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             with self.assertRaises(qubes.exc.QubesValueError):
                 dispvm.template = qubes.property.DEFAULT
 
+    def test_003_dvmtemplate_template_change(self):
+        self.appvm.template_for_dispvms = True
+        orig_domains = self.app.domains
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_domains.__getitem__,
+                '__iter__.side_effect': orig_domains.__iter__,
+                '__setitem__.side_effect': orig_domains.__setitem__,
+            })
+            self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.appvm.template = self.template
+            with self.assertRaises(qubes.exc.QubesValueError):
+                self.appvm.template = qubes.property.DEFAULT
+
+    def test_004_dvmtemplate_allowed_change(self):
+        self.appvm.template_for_dispvms = True
+        orig_domains = self.app.domains
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_domains.__getitem__,
+                '__iter__.side_effect': orig_domains.__iter__,
+                '__setitem__.side_effect': orig_domains.__setitem__,
+            })
+            self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.appvm.template_for_dispvms = False
 
     def test_010_create_direct(self):
         self.appvm.template_for_dispvms = True

@@ -48,6 +48,9 @@ class TestVMsCollection(dict):
     def close(self):
         self.clear()
 
+    def __iter__(self):
+        return iter(self.values())
+
 class TestVolume(object):
     def __init__(self, pool):
         self.pool = pool
