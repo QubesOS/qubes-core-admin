@@ -292,6 +292,7 @@ fi
 
 %{python3_sitelib}/qubes/tests/api.py
 %{python3_sitelib}/qubes/tests/api_admin.py
+%{python3_sitelib}/qubes/tests/api_internal.py
 %{python3_sitelib}/qubes/tests/api_misc.py
 %{python3_sitelib}/qubes/tests/app.py
 %{python3_sitelib}/qubes/tests/devices.py
