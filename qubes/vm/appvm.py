@@ -118,6 +118,23 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument,no-self-use
         raise qubes.exc.QubesValueError('Cannot unset template')
 
+    @qubes.events.handler('property-pre-set:template_for_dispvms')
+    def __on_pre_set_dvmtemplate(self, event, name,
+            newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue:
+            return
+        if any(self.dispvms):
+            raise qubes.exc.QubesVMInUseError(self,
+                'Cannot change template_for_dispvms to False while there are '
+                'some DispVMs based on this DVM template')
+
+    @qubes.events.handler('property-pre-del:template_for_dispvms')
+    def __on_pre_del_dvmtemplate(self, event, name,
+            oldvalue=None):
+        self.__on_pre_set_dvmtemplate(
+            event, name, False, oldvalue)
+
     @qubes.events.handler('property-pre-set:template')
     def on_property_pre_set_template(self, event, name, newvalue,
             oldvalue=None):
