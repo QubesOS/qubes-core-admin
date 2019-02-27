@@ -161,6 +161,10 @@ endif
 	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes
+
+	mkdir -p $(DESTDIR)/etc/qubes/policy.d
+	install -t $(DESTDIR)/etc/qubes/policy.d -m 644 etc/policy.d/*
+
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/

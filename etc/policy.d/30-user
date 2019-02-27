@@ -1,0 +1,27 @@
+#
+# Write your qrexec policy here. This file will override the default policy
+# and the policy set using Policy API and/or SaltStack.
+#
+# For syntax, see https://www.qubes-os.org/doc/.
+# Syntax reminder: SERVICE ARGUMENT SRCVM DSTVM {allow|deny|ask} PARAMS
+#
+
+#
+# Examples:
+#
+
+# Forbid moving/copying files from, say, untrusted:
+#qubes.Filecopy      *   untrusted   @anyvm      deny
+
+# Allow PGP key access from mail to vault without asking:
+#qubes.Gpg           *   mail        vault       allow
+#qubes.GpgImportKey  *   mail        vault       allow
+
+# Allow input devices from sys-usb:
+#qubes.InputKeyboard *   sys-usb     @adminvm    allow   user=root
+#qubes.InputMouse    *   sys-usb     @adminvm    allow   user=root
+#qubes.InputTablet   *   sys-usb     @adminvm    allow   user=root
+
+# Allow U2F from any domain:
+#u2f.Register        *   @anyvm      sys-usb     allow
+#u2f.Authenticate    *   @anyvm      sys-usb     allow
