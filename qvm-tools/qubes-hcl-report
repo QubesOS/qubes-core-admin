@@ -269,12 +269,12 @@ if [[ "$COPY2VM" != "dom0" ]]
 
     if [[ -f "$HOME/$FILENAME.cpio.gz" ]]
       then
-        cat "$HOME/$FILENAME.cpio.gz" | qvm-run -a -q --pass-io $COPY2VM "cat > \"/home/user/$FILENAME.cpio.gz\""
+        cat "$HOME/$FILENAME.cpio.gz" | qvm-run -a -q --pass-io -- "$COPY2VM" "cat > \"/home/user/$FILENAME.cpio.gz\""
     fi
 
     if [[ -f "$HOME/$FILENAME.yml" ]]
       then
-        cat "$HOME/$FILENAME.yml" | qvm-run -a -q --pass-io $COPY2VM "cat > \"/home/user/$FILENAME.yml\""
+        cat "$HOME/$FILENAME.yml" | qvm-run -a -q --pass-io -- "$COPY2VM" "cat > \"/home/user/$FILENAME.yml\""
     fi
 
 fi
