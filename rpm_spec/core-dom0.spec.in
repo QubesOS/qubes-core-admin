@@ -47,6 +47,7 @@ AutoReq:	no
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 BuildRequires:  systemd
+BuildRequires:  gcc
 
 BuildRequires:  python3-devel
 
