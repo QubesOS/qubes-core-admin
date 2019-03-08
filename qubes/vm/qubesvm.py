@@ -152,6 +152,38 @@ def _default_maxmem(self):
 
     return _default_with_template('maxmem', default_maxmem)(self)
 
+def _default_kernelopts(self):
+    '''
+    Return default kernel options for the given kernel. If kernel directory
+    contains 'default-kernelopts-{pci,nopci}.txt' file, use that. Otherwise
+    use built-in defaults.
+    For qubes without PCI devices, kernelopts of qube's template are
+    considered (for template-based qubes).
+    '''
+    if not self.kernel:
+        return ''
+    if 'kernel' in self.volumes:
+        kernels_dir = self.storage.kernels_dir
+    else:
+        kernels_dir = os.path.join(
+            qubes.config.system_path['qubes_kernels_base_dir'],
+            self.kernel)
+    pci = bool(list(self.devices['pci'].persistent()))
+    if pci:
+        path = os.path.join(kernels_dir, 'default-kernelopts-pci.txt')
+    else:
+        try:
+            return self.template.kernelopts
+        except AttributeError:
+            pass
+        path = os.path.join(kernels_dir, 'default-kernelopts-nopci.txt')
+    if os.path.exists(path):
+        with open(path) as f_kernelopts:
+            return f_kernelopts.read().strip()
+    else:
+        return (qubes.config.defaults['kernelopts_pcidevs'] if pci else
+            qubes.config.defaults['kernelopts'])
+
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.
@@ -518,11 +550,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # CORE2: swallowed uses_default_kernelopts
     # pylint: disable=no-member
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
-        default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
-            # pylint: disable=no-member
-            if list(self.devices['pci'].persistent())
-            else self.template.kernelopts if hasattr(self, 'template')
-            else qubes.config.defaults['kernelopts']),
+        default=_default_kernelopts,
         doc='Kernel command line passed to domain. TemplateBasedVMs use its '
             'template\'s value by default.')
 
