@@ -36,7 +36,7 @@
                 <boot dev="hd" />
             {% else %}
                 {% if vm.virt_mode == 'pvh' %}
-                    <type arch="x86_64" machine="xenfv">pvh</type>
+                    <type arch="x86_64" machine="xenpvh">xenpvh</type>
                 {% else %}
                     <type arch="x86_64" machine="xenpv">linux</type>
                 {% endif %}
