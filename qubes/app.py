@@ -770,6 +770,7 @@ class Qubes(qubes.PropertyHolder):
         doc='''Default time in seconds for VM shutdown to complete''')
 
     stats_interval = qubes.property('stats_interval',
+        load_stage=3,
         default=3,
         type=int,
         doc='Interval in seconds for VM stats reporting (memory, CPU usage)')
@@ -777,6 +778,7 @@ class Qubes(qubes.PropertyHolder):
     # TODO #1637 #892
     check_updates_vm = qubes.property('check_updates_vm',
         type=bool, setter=qubes.property.bool,
+        load_stage=3,
         default=True,
         doc='check for updates inside qubes')
 
