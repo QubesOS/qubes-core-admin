@@ -253,6 +253,7 @@ class RPCConfirmationWindowTestWithTarget(RPCConfirmationWindowTestBase):
         if after_focus_timer:
             self.assertTrue(self._rpc_ok_button.get_sensitive())
             self.assertTrue(self._focus_helper.can_perform_action())
+            self.assertEqual(self._target_name, 'test-target')
         else:
             self.assertFalse(self._rpc_ok_button.get_sensitive())
             self.assertFalse(self._focus_helper.can_perform_action())
@@ -260,6 +261,30 @@ class RPCConfirmationWindowTestWithTarget(RPCConfirmationWindowTestBase):
     def _lifecycle_click(self, click_type):
         RPCConfirmationWindowTestBase._lifecycle_click(self, click_type)
         self.assertIsNotNone(self._target_name)
+
+
+class RPCConfirmationWindowTestWithDispVMTarget(RPCConfirmationWindowTestBase):
+    def __init__(self, test_method):
+        RPCConfirmationWindowTestBase.__init__(self, test_method,
+                 source_name="test-source", rpc_operation="test.Operation",
+                 target_name="@dispvm:test-disp6")
+
+    def test_lifecycle_open_ok(self):
+        self._lifecycle_start(select_target=False)
+        self._lifecycle_click(click_type="ok")
+
+    def assert_initial_state(self, after_focus_timer):
+        self.assertIsNotNone(self._target_name)
+        self.assertFalse(self.test_clicked_ok)
+        self.assertFalse(self.test_clicked_cancel)
+        self.assertFalse(self._confirmed)
+        if after_focus_timer:
+            self.assertTrue(self._rpc_ok_button.get_sensitive())
+            self.assertTrue(self._focus_helper.can_perform_action())
+            self.assertEqual(self._target_name, '@dispvm:test-disp6')
+        else:
+            self.assertFalse(self._rpc_ok_button.get_sensitive())
+            self.assertFalse(self._focus_helper.can_perform_action())
 
 
 class RPCConfirmationWindowTestWithTargetInvalid(unittest.TestCase):

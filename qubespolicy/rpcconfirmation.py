@@ -97,7 +97,7 @@ class RPCConfirmationWindow:
 
                 found = False
                 for item in model:
-                    if item[1] == target:
+                    if item[3] == target:
                         found = True
 
                         self._rpc_combo_box.set_active_iter(
