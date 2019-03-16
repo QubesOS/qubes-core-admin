@@ -131,7 +131,11 @@ def mkdir_fs(directory, fs_type,
 
 def rmtree_fs(directory):
     if os.path.ismount(directory):
-        cmd('sudo', 'umount', '-l', directory)
+        try:
+            cmd('sudo', 'umount', directory)
+        except:
+            cmd('sudo', 'fuser', '-vm', directory)
+            raise
         # loop device and backing file are garbage collected automatically
     cmd('sudo', 'chattr', '-i', directory)
     cmd('sudo', 'chmod', '777', directory)
