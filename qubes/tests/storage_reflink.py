@@ -130,6 +130,8 @@ def mkdir_fs(directory, fs_type,
         cleanup_via(rmtree_fs, directory)
 
 def rmtree_fs(directory):
+    cmd('sudo', 'chattr', '-i', directory)
+    cmd('sudo', 'chmod', '777', directory)
     if os.path.ismount(directory):
         try:
             cmd('sudo', 'umount', directory)
@@ -137,8 +139,6 @@ def rmtree_fs(directory):
             cmd('sudo', 'fuser', '-vm', directory)
             raise
         # loop device and backing file are garbage collected automatically
-    cmd('sudo', 'chattr', '-i', directory)
-    cmd('sudo', 'chmod', '777', directory)
     shutil.rmtree(directory)
 
 def get_blockdev_size(dev):
