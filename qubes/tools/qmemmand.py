@@ -276,6 +276,10 @@ def main():
 
     log.debug('instantiating server')
     os.umask(0)
+
+    # Initialize the connection to Xen and to XenStore
+    system_state.init()
+
     server = socketserver.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
     os.umask(0o077)
 

@@ -57,6 +57,10 @@ class SystemState(object):
         self.log.debug('SystemState()')
 
         self.domdict = {}
+        self.xc = None
+        self.xs = None
+
+    def init(self):
         self.xc = xen.lowlevel.xc.xc()
         self.xs = xen.lowlevel.xs.xs()
         self.BALOON_DELAY = 0.1
