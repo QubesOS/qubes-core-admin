@@ -188,6 +188,7 @@ class ThinPool(qubes.storage.Pool):
 
     @property
     def usage(self):
+        refresh_cache()
         try:
             return qubes.storage.lvm.size_cache[
                 self.volume_group + '/' + self.thin_pool]['usage']
@@ -253,6 +254,7 @@ def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
 
     return _parse_lvm_cache(out)
 
+size_cache_time = 0
 size_cache = init_cache()
 
 
@@ -720,6 +722,7 @@ class ThinVolume(qubes.storage.Volume):
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
                       # the parent
+        refresh_cache()
         try:
             return qubes.storage.lvm.size_cache[self._vid_current]['usage']
         except KeyError:
@@ -816,7 +819,14 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
 
 def reset_cache():
     qubes.storage.lvm.size_cache = init_cache()
+    qubes.storage.lvm.size_cache_time = time.monotonic()
 
 @asyncio.coroutine
 def reset_cache_coro():
     qubes.storage.lvm.size_cache = yield from init_cache_coro()
+    qubes.storage.lvm.size_cache_time = time.monotonic()
+
+def refresh_cache():
+    '''Reset size cache, if it's older than 30sec '''
+    if size_cache_time+30 < time.monotonic():
+        reset_cache()
