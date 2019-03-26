@@ -54,6 +54,12 @@ class AdminVM(qubes.vm.BaseVM):
         default=True, type=bool,
         doc='If this domain is to be included in default backup.')
 
+    updateable = qubes.property('updateable',
+        default=True,
+        type=bool,
+        setter=qubes.property.forbidden,
+        doc='True if this machine may be updated on its own.')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
