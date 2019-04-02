@@ -160,7 +160,10 @@ class TC_50_MimeHandlers:
         window_class = self.get_window_class(winid, dispvm)
         # close the window - we've got the window class, it is no longer needed
         subprocess.check_call(['wmctrl', '-i', '-c', winid])
-        p.wait()
+        try:
+            self.loop.run_until_complete(asyncio.wait_for(p.wait(), 30))
+        except asyncio.TimeoutError:
+            self.fail('qvm-open-in-vm did not exited')
         self.wait_for_window(window_title, show=False)
 
         def check_matches(obj, patterns):
