@@ -18,12 +18,10 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 import asyncio
-import subprocess
 import qubes.api.internal
 import qubes.tests
 import qubes.vm.adminvm
 from unittest import mock
-from mock import call
 
 def mock_coro(f):
     @asyncio.coroutine
