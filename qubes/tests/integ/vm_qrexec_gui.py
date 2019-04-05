@@ -872,7 +872,7 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(asyncio.sleep(1))
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pkill parecord'))
-        record.wait()
+        self.loop.run_until_complete(record.wait())
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
         # should be empty or silence, so check just a little fragment
@@ -916,7 +916,7 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(asyncio.sleep(1))
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pkill parecord'))
-        record.wait()
+        self.loop.run_until_complete(record.wait())
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
         # allow few bytes to be missing
