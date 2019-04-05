@@ -3,7 +3,7 @@
 # Misc dom0 startup setup
 
 /usr/lib/qubes/fix-dir-perms.sh
-DOM0_MAXMEM=`/usr/sbin/xl info | grep total_memory | awk '{ print $3 }'`
+DOM0_MAXMEM=$(/usr/sbin/xl list 0 | tail -1 | awk '{ print $3 }')
 xenstore-write /local/domain/0/memory/static-max $[ $DOM0_MAXMEM * 1024 ]
 
 xl sched-credit -d 0 -w 2000
