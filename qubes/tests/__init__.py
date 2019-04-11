@@ -1352,6 +1352,10 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
         return tests
 
     for modname in (
+            'qrexec.tests',
+            'qrexec.tests.cli',
+            'qrexec.tests.gtkhelpers',
+            'qrexec.tests.rpcconfirmation',
             # integration tests
             'qubes.tests.integ.basic',
             'qubes.tests.integ.storage',
