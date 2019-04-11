@@ -67,7 +67,6 @@ Requires:       python3
 Requires:       python3-docutils
 Requires:       python3-jinja2
 Requires:       python3-lxml
-Requires:       python3-pydbus
 Requires:       python3-qubesdb
 Requires:       python3-setuptools
 Requires:       python3-PyYAML
@@ -76,6 +75,7 @@ Requires:       libvirt-python3
 
 Requires:       pciutils
 Requires:       qubes-core-dom0-linux >= 4.0.11
+Requires:       qubes-core-qrexec-dom0
 Requires:       qubes-db-dom0
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
@@ -191,18 +191,13 @@ fi
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
-%config(noreplace) /etc/dbus-1/system.d/org.qubesos.PolicyAgent.conf
 %config(noreplace) /etc/logrotate.d/qubes
 %attr(770,root,qubes) %dir /etc/qubes/backup
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand
 /usr/bin/qubesd*
-/usr/bin/qrexec-policy
-/usr/bin/qrexec-policy-agent
-/usr/bin/qrexec-policy-graph
 
-%{_mandir}/man1/qrexec-policy-graph.1*
 %{_mandir}/man1/qubes*.1*
 %{_mandir}/man1/qvm-*.1*
 
@@ -361,30 +356,6 @@ fi
 %{python3_sitelib}/qubes/qmemman/algo.py
 %{python3_sitelib}/qubes/qmemman/client.py
 
-%dir %{python3_sitelib}/qubespolicy
-%dir %{python3_sitelib}/qubespolicy/__pycache__
-%{python3_sitelib}/qubespolicy/__pycache__/*
-%{python3_sitelib}/qubespolicy/__init__.py
-%{python3_sitelib}/qubespolicy/cli.py
-%{python3_sitelib}/qubespolicy/agent.py
-%{python3_sitelib}/qubespolicy/gtkhelpers.py
-%{python3_sitelib}/qubespolicy/policycreateconfirmation.py
-%{python3_sitelib}/qubespolicy/rpcconfirmation.py
-%{python3_sitelib}/qubespolicy/utils.py
-%{python3_sitelib}/qubespolicy/graph.py
-
-%dir %{python3_sitelib}/qubespolicy/tests
-%dir %{python3_sitelib}/qubespolicy/tests/__pycache__
-%{python3_sitelib}/qubespolicy/tests/__pycache__/*
-%{python3_sitelib}/qubespolicy/tests/__init__.py
-%{python3_sitelib}/qubespolicy/tests/cli.py
-%{python3_sitelib}/qubespolicy/tests/gtkhelpers.py
-%{python3_sitelib}/qubespolicy/tests/rpcconfirmation.py
-
-%dir %{python3_sitelib}/qubespolicy/glade
-%{python3_sitelib}/qubespolicy/glade/PolicyCreateConfirmationWindow.glade
-%{python3_sitelib}/qubespolicy/glade/RPCConfirmationWindow.glade
-
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
@@ -435,10 +406,8 @@ fi
 /etc/qubes-rpc/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
-/etc/qubes-rpc/policy.RegisterArgument
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
-/etc/xdg/autostart/qrexec-policy-agent.desktop
 
 /usr/share/doc/qubes/relaxng/*.rng
 

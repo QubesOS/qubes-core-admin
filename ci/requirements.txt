@@ -7,5 +7,4 @@ jinja2
 lxml
 pylint
 sphinx
-pydbus
 PyYAML

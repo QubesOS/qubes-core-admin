@@ -1342,14 +1342,6 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.api_admin',
             'qubes.tests.api_misc',
             'qubes.tests.api_internal',
-            'qubespolicy.tests',
-            'qubespolicy.tests.cli',
-            ):
-        tests.addTests(loader.loadTestsFromName(modname))
-
-    for modname in (
-            'qubespolicy.tests.gtkhelpers',
-            'qubespolicy.tests.rpcconfirmation',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
