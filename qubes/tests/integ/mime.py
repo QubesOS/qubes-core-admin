@@ -160,6 +160,10 @@ class TC_50_MimeHandlers:
         window_class = self.get_window_class(winid, dispvm)
         # close the window - we've got the window class, it is no longer needed
         subprocess.check_call(['wmctrl', '-i', '-c', winid])
+        # confirm quit for example for Firefox
+        self.loop.run_until_complete(asyncio.sleep(1))
+        subprocess.call(['xdotool', 'search', '--onlyvisible', '--name',
+            'Quit', 'windowfocus', 'key', 'Return'])
         try:
             self.loop.run_until_complete(asyncio.wait_for(p.wait(), 30))
         except asyncio.TimeoutError:
