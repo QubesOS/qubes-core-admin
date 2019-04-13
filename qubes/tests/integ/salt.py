@@ -57,7 +57,9 @@ class SaltTestMixin(object):
             *full_cmd, stdout=subprocess.PIPE))
         output, _ = self.loop.run_until_complete(p.communicate())
         if p.returncode != 0:
-            raise subprocess.CalledProcessError(p.returncode, full_cmd, output)
+            raise AssertionError(
+                'Salt command \'{}\' failed with code {}. '
+                'Full output: {}'.format(full_cmd, p.returncode, output))
         return output.decode()
 
     def dom0_salt_call_json(self, cmd):
