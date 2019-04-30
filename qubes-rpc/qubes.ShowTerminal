@@ -1,0 +1,7 @@
+#!/bin/bash
+
+lock="/var/run/qubes/$QREXEC_REQUESTED_TARGET.terminal.lock"
+
+# Create an exclusive lock to ensure that multiple qubes cannot access to the same socket
+# In the case of multiple qrexec calls it returns a specific exit code
+sudo flock -n -E 200 -x "$lock" socat - OPEN:"$(virsh -c xen ttyconsole "$QREXEC_REQUESTED_TARGET")"
