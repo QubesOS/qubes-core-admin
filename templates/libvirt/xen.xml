@@ -178,11 +178,10 @@
                     {# TODO only add qubes gui if gui-agent is not installed in HVM #}
                     <graphics type="qubes"/>
                 {% endif %}
-            {% else %}
+            {% endif %}
                 <console type="pty">
                     <target type="xen" port="0"/>
                 </console>
-            {% endif %}
         {% endblock %}
     </devices>
 </domain>
