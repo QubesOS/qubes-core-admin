@@ -184,6 +184,7 @@ endif
 	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
 	cp qubes-rpc-policy/qubes.UpdatesProxy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.UpdatesProxy
 	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
+	cp qubes-rpc-policy/admin.vm.Terminal.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.Terminal
 	cp qubes-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/qubes-rpc/policy/policy.RegisterArgument
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
@@ -200,6 +201,7 @@ endif
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
+	install qubes-rpc/admin.vm.Terminal $(DESTDIR)/etc/qubes-rpc/
 	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
 		--destdir=$(DESTDIR)/etc/qubes-rpc/policy \
 		--exclude admin.vm.Create.AdminVM \
