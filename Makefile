@@ -196,6 +196,7 @@ endif
 	install -m 0755 qvm-tools/qubes-bug-report $(DESTDIR)/usr/bin/qubes-bug-report
 	install -m 0755 qvm-tools/qubes-hcl-report $(DESTDIR)/usr/bin/qubes-hcl-report
 	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
+	install -m 0755 qvm-tools/qvm-terminal-dispvm $(DESTDIR)/usr/bin/qvm-terminal-dispvm
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
 		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
