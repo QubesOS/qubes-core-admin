@@ -3,8 +3,6 @@
 
 ## Please use a single # to start your custom comments
 
-$anyvm	$anyvm	deny,target=dom0
-
 # WARNING: The qubes.ShowTerminal service is dangerous and allows any
 # qube to access any other qube console. It should be restricted
 # only to management/admin qubes. This is why the default policy is 'deny'
