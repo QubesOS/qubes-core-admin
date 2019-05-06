@@ -821,6 +821,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <model type="vga"/>
             </video>
             <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
         </devices>
         </domain>
         '''
@@ -876,6 +879,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <model type="vga"/>
             </video>
             <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
         </devices>
         </domain>
         '''
@@ -940,6 +946,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <model type="vga"/>
             </video>
             <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
         </devices>
         </domain>
         '''
@@ -1158,6 +1167,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <model type="vga"/>
             </video>
             <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
         </devices>
         </domain>
         '''
@@ -1232,6 +1244,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <model type="vga"/>
             </video>
             <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
         </devices>
         </domain>
         '''
