@@ -3,7 +3,7 @@
 
 ## Please use a single # to start your custom comments
 
-# WARNING: The qubes.ShowTerminal service is dangerous and allows any
+# WARNING: The admin.vm.Console service is dangerous and allows any
 # qube to access any other qube console. It should be restricted
 # only to management/admin qubes. This is why the default policy is 'deny'
 
