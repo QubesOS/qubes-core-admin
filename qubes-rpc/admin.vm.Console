@@ -2,6 +2,8 @@
 
 lock="/var/run/qubes/$QREXEC_REQUESTED_TARGET.terminal.lock"
 
+qvm-check --quiet --running "$QREXEC_REQUESTED_TARGET" > /dev/null 2>&1 || { echo "Error: domain '$QREXEC_REQUESTED_TARGET' does not exist or is not running"; exit 1; }
+
 # Create an exclusive lock to ensure that multiple qubes cannot access to the same socket
 # In the case of multiple qrexec calls it returns a specific exit code
 sudo flock -n -E 200 -x "$lock" socat - OPEN:"$(virsh -c xen ttyconsole "$QREXEC_REQUESTED_TARGET")"
