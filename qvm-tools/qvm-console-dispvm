@@ -17,6 +17,6 @@ qvm-check --quiet --running "$QREXEC_REQUESTED_TARGET" > /dev/null 2>&1 || { ech
 
 DISPVM="$(qvm-prefs "$QREXEC_REQUESTED_TARGET" management_dispvm)"
 
-[[ "x$DISPVM" == "x" ]] && { echo "Error: cannot determine default DispVM to use"; exit 1; }
+[[ "x$DISPVM" == "x" ]] && { echo "Error: cannot determine management DispVM to use"; exit 1; }
 
 sudo qvm-run -p --localcmd="QREXEC_REQUESTED_TARGET=$QREXEC_REQUESTED_TARGET /etc/qubes-rpc/admin.vm.Console" --service --dispvm="$DISPVM" -- qubes.ShowInTerminal
