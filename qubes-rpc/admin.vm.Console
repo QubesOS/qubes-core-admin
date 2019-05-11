@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: handle 'admin-permission' event for qubesd
+
 lock="/var/run/qubes/$QREXEC_REQUESTED_TARGET.terminal.lock"
 
 qvm-check --quiet --running "$QREXEC_REQUESTED_TARGET" > /dev/null 2>&1 || { echo "Error: domain '$QREXEC_REQUESTED_TARGET' does not exist or is not running"; exit 1; }
