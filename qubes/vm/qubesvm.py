@@ -2049,6 +2049,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
+            self.untrusted_qdb.write('/qubes-mac', str(self.mac))
             self.untrusted_qdb.write('/qubes-ip', str(self.visible_ip))
             self.untrusted_qdb.write('/qubes-netmask',
                 str(self.visible_netmask))
