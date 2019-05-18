@@ -1202,7 +1202,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <interface type="ethernet">
-                <mac address="00:16:3E:5E:6C:00" />
+                <mac address="00:16:3e:5e:6c:00" />
                 <ip address="10.137.0.1" />
                 {extra_ip}
                 <backenddomain name="test-inst-netvm" />
@@ -1355,6 +1355,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
             '/qubes-service/meminfo-writer': '1',
+            '/qubes-mac': '00:16:3e:5e:6c:00',
             '/qubes-ip': '10.137.0.3',
             '/qubes-netmask': '255.255.255.255',
             '/qubes-gateway': '10.137.0.2',
@@ -1398,6 +1399,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             del expected['/qubes-ip6']
             del expected['/qubes-primary-dns']
             del expected['/qubes-secondary-dns']
+            del expected['/qubes-mac']
             expected['/qubes-netvm-primary-dns'] = '10.139.1.1'
             expected['/qubes-netvm-secondary-dns'] = '10.139.1.2'
             expected['/qubes-netvm-network'] = '10.137.0.2'
