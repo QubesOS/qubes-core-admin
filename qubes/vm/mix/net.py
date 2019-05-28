@@ -94,7 +94,7 @@ def _setter_provides_network(self, prop, value):
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
-        default='00:16:3E:5E:6C:00',
+        default='00:16:3e:5e:6c:00',
         setter=_setter_mac,
         doc='MAC address of the NIC emulated inside VM')
 
