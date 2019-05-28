@@ -33,9 +33,9 @@ default NetVM for all AppVMs. All of those *configurable* parameters are called
 
    >>> import qubes
    >>> app = qubes.Qubes()
-   >>> app.domain[0] # docutils: +ELLIPSIS
+   >>> app.domains[0] # docutils: +ELLIPSIS
    <AdminVM ...>
-   >>> app.domain[0].name
+   >>> app.domains[0].name
    'dom0'
 
 Definition
