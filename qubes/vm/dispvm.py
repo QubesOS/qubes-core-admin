@@ -116,7 +116,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # by default inherit properties from the DispVM template
             proplist = [prop.__name__ for prop in template.property_list()
                 if prop.clone and prop.__name__ not in ['template']]
-            self_props = [prop.__name__ for prop in self.property_list()]
+            # Do not overwrite properties that have already been set to a
+            # non-default value.
+            self_props = [prop.__name__ for prop in self.property_list()
+                if self.property_is_default(prop)]
             self.clone_properties(template, set(proplist).intersection(
                 self_props))
 
