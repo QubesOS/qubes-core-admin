@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Qubes Qrexec Policy agent
-Comment=Agent for handling policy confirmation prompts
-Icon=qubes
-Exec=qrexec-policy-agent
-Terminal=false
-Type=Application
