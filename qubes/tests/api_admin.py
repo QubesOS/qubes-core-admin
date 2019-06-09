@@ -2475,6 +2475,47 @@ class TC_00_VMs(AdminAPITestCase):
                 b'test-vm1', b'private', b'abc')
         self.assertFalse(self.app.save.called)
 
+    def test_690_vm_console(self):
+        self.vm._libvirt_domain = unittest.mock.Mock()
+        xml_desc = (
+            '<domain type=\'xen\' id=\'42\'>\n'
+            '<name>test-vm1</name>\n'
+            '<devices>\n'
+            '<console type=\'pty\' tty=\'/dev/pts/42\'>\n'
+            '<source path=\'/dev/pts/42\'/>\n'
+            '<target type=\'xen\' port=\'0\'/>\n'
+            '</console>\n'
+            '</devices>\n'
+            '</domain>\n'
+        )
+        self.vm._libvirt_domain.configure_mock(
+            **{'XMLDesc.return_value': xml_desc,
+               'isActive.return_value': True}
+        )
+        self.app.vmm.configure_mock(offline_mode=False)
+        value = self.call_mgmt_func(b'admin.vm.Console', b'test-vm1')
+        self.assertEqual(value, '/dev/pts/42')
+
+    def test_691_vm_console_not_running(self):
+        self.vm._libvirt_domain = unittest.mock.Mock()
+        xml_desc = (
+            '<domain type=\'xen\' id=\'42\'>\n'
+            '<name>test-vm1</name>\n'
+            '<devices>\n'
+            '<console type=\'pty\' tty=\'/dev/pts/42\'>\n'
+            '<source path=\'/dev/pts/42\'/>\n'
+            '<target type=\'xen\' port=\'0\'/>\n'
+            '</console>\n'
+            '</devices>\n'
+            '</domain>\n'
+        )
+        self.vm._libvirt_domain.configure_mock(
+            **{'XMLDesc.return_value': xml_desc,
+               'isActive.return_value': False}
+        )
+        with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+            self.call_mgmt_func(b'admin.vm.Console', b'test-vm1')
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
@@ -2505,6 +2546,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.Pause',
             b'admin.vm.Unpause',
             b'admin.vm.Kill',
+            b'admin.vm.Console',
             b'admin.Events',
             b'admin.vm.feature.List',
             b'admin.vm.feature.Get',
@@ -2549,6 +2591,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.Pause',
             b'admin.vm.Unpause',
             b'admin.vm.Kill',
+            b'admin.vm.Console',
             b'admin.Events',
             b'admin.vm.feature.List',
         ]

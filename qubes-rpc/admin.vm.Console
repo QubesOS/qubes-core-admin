@@ -1,11 +1,23 @@
 #!/bin/bash
 
-# TODO: handle 'admin-permission' event for qubesd
-
 lock="/var/run/qubes/$QREXEC_REQUESTED_TARGET.terminal.lock"
 
-qvm-check --quiet --running "$QREXEC_REQUESTED_TARGET" > /dev/null 2>&1 || { echo "Error: domain '$QREXEC_REQUESTED_TARGET' does not exist or is not running"; exit 1; }
+# use temporary file, because env variables deal poorly with \0 inside
+tmpfile=$(mktemp)
+trap "rm -f $tmpfile" EXIT
+qubesd-query -e \
+        "$QREXEC_REMOTE_DOMAIN" \
+        "admin.vm.Console" \
+        "$QREXEC_REQUESTED_TARGET" \
+        "$1" >$tmpfile
+
+# exit if qubesd returned an error (not '0\0')
+if [ "$(head -c 2 $tmpfile | xxd -p)" != "3000" ]; then
+    cat "$tmpfile"
+    exit 1
+fi
+path=$(tail -c +3 "$tmpfile")
 
 # Create an exclusive lock to ensure that multiple qubes cannot access to the same socket
 # In the case of multiple qrexec calls it returns a specific exit code
-sudo flock -n -E 200 -x "$lock" socat - OPEN:"$(virsh -c xen ttyconsole "$QREXEC_REQUESTED_TARGET")"
+sudo flock -n -E 200 -x "$lock" socat - OPEN:"$path"

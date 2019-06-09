@@ -29,6 +29,7 @@ import string
 import subprocess
 
 import libvirt
+import lxml.etree
 import pkg_resources
 import yaml
 
@@ -574,6 +575,23 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         except KeyError:
             raise qubes.exc.QubesTagNotFoundError(self.dest, self.arg)
         self.app.save()
+
+    @qubes.api.method('admin.vm.Console', no_payload=True,
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_console(self):
+        self.enforce(not self.arg)
+
+        self.fire_event_for_permission()
+
+        if not self.dest.is_running():
+            raise qubes.exc.QubesVMNotRunningError(self.dest)
+
+        xml_desc = lxml.etree.fromstring(self.dest.libvirt_domain.XMLDesc())
+        ttypath = xml_desc.xpath('string(/domain/devices/console/@tty)')
+        # this value is returned to /etc/qubes-rpc/admin.vm.Console script,
+        # which will call socat on it
+        return ttypath
 
     @qubes.api.method('admin.pool.List', no_payload=True,
         scope='global', read=True)
