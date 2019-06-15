@@ -198,6 +198,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.snap_on_start:
             # pylint: disable=protected-access
             _copy_file(self.source._path_clean, self._path_clean)
+            self.size = os.path.getsize(self._path_clean)
         if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
