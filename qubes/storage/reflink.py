@@ -263,15 +263,13 @@ class ReflinkVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
 
-        try:  # assume volume is not (cleanly) stopped ...
-            _resize_file(self._path_dirty, size)
-            update = True
-        except FileNotFoundError:  # ... but it actually is.
-            _resize_file(self._path_clean, size)
-            update = False
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                _resize_file(path, size)
+                break
 
         self.size = size
-        if update:
+        if path == self._path_dirty:
             _update_loopdev_sizes(self._path_dirty)
         return self
 
