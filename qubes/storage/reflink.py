@@ -256,18 +256,12 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @_unblock
     def resize(self, size):
-        ''' Expand a read-write volume image; notify any corresponding
+        ''' Resize a read-write volume image; notify any corresponding
             loop devices of the size change.
         '''
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
-
-        if size < self.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {} is disabled'
-                ' ({} < {}). If you really know what you are doing,'
-                ' use "truncate" manually.'.format(self.vid, size, self.size))
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
