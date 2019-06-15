@@ -62,15 +62,17 @@ class ReflinkMixin:
 
         os.symlink(img_real, img_sym)
         reflink._create_sparse_file(img_real, size_initial)
-        self.assertEqual(reflink._get_file_disk_usage(img_real), 0)
-        self.assertEqual(os.stat(img_real).st_size, size_initial)
+        stat = os.stat(img_real)
+        self.assertEqual(stat.st_blocks, 0)
+        self.assertEqual(stat.st_size, size_initial)
 
         dev_from_real = setup_loopdev(img_real, cleanup_via=self.addCleanup)
         dev_from_sym = setup_loopdev(img_sym, cleanup_via=self.addCleanup)
 
         reflink._resize_file(img_real, size_resized)
-        self.assertEqual(reflink._get_file_disk_usage(img_real), 0)
-        self.assertEqual(os.stat(img_real).st_size, size_resized)
+        stat = os.stat(img_real)
+        self.assertEqual(stat.st_blocks, 0)
+        self.assertEqual(stat.st_size, size_resized)
 
         reflink_update_loopdev_sizes(os.path.join(self.test_dir, 'unrelated'))
 

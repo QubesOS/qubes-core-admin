@@ -36,7 +36,6 @@ from contextlib import contextmanager, suppress
 
 import qubes.storage
 
-BLKSIZE = 512
 FICLONE = 1074041865        # defined in <linux/fs.h>
 LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
@@ -342,10 +341,9 @@ class ReflinkVolume(qubes.storage.Volume):
         ''' Return volume disk usage from the VM's perspective. It is
             usually much lower from the host's perspective due to CoW.
         '''
-        with suppress(FileNotFoundError):
-            return _get_file_disk_usage(self._path_dirty)
-        with suppress(FileNotFoundError):
-            return _get_file_disk_usage(self._path_clean)
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                return os.stat(path).st_blocks * 512
         return 0
 
 
@@ -368,10 +366,6 @@ def _replace_file(dst):
         tmp.close()
         _remove_file(tmp.name)
         raise
-
-def _get_file_disk_usage(path):
-    ''' Return real disk usage (not logical file size) of a file. '''
-    return os.stat(path).st_blocks * BLKSIZE
 
 def _fsync_dir(path):
     dir_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
