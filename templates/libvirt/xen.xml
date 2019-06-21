@@ -77,9 +77,9 @@
             {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
             {% elif timezone.isdigit() %}
-                <clock offset="variable" adjustment="{{ timezone }}" basis="UTC" />
+                <clock offset="variable" adjustment="{{ timezone }}" basis="utc" />
             {% else %}
-                <clock offset="variable" adjustment="0" basis="UTC" />
+                <clock offset="variable" adjustment="0" basis="utc" />
             {% endif %}
         {% else %}
             <clock offset='utc' adjustment='reset'>
