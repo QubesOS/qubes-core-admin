@@ -806,9 +806,16 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation
 
     Coroutine version of :py:func:`qubes_lvm`'''
-    cmd = _get_lvm_cmdline(cmd)
     environ = os.environ.copy()
     environ['LC_ALL'] = 'C.utf8'
+    if cmd[0] == "remove":
+        pre_cmd = ['blkdiscard', '/dev/'+cmd[1]]
+        p = yield from asyncio.create_subprocess_exec(*pre_cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True, env=environ)
+        _, _ = yield from p.communicate()
+    cmd = _get_lvm_cmdline(cmd)
     p = yield from asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
