@@ -162,7 +162,7 @@
                         vm.features.check_with_template('linux-stubdom', True) %}
                         cmdline="-net lwip,client_ip={{ vm.ip -}}
                             ,server_ip={{ vm.dns[1] -}}
-                            ,dns={{ vm.netvm.gateway -}}
+                            ,dns={{ vm.dns[0] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                     {% endif %}
