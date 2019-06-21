@@ -36,7 +36,6 @@ from contextlib import contextmanager, suppress
 
 import qubes.storage
 
-BLKSIZE = 512
 FICLONE = 1074041865        # defined in <linux/fs.h>
 LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
@@ -141,6 +140,13 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
 
+        # In case the volume was previously resized, but then a crash
+        # prevented qubesd from serializing the new size to qubes.xml:
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                self.size = os.path.getsize(path)
+                break
+
     @_unblock
     def create(self):
         if self.save_on_stop and not self.snap_on_start:
@@ -198,6 +204,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.snap_on_start:
             # pylint: disable=protected-access
             _copy_file(self.source._path_clean, self._path_clean)
+            self.size = os.path.getsize(self._path_clean)
         if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
@@ -249,28 +256,20 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @_unblock
     def resize(self, size):
-        ''' Expand a read-write volume image; notify any corresponding
+        ''' Resize a read-write volume image; notify any corresponding
             loop devices of the size change.
         '''
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
 
-        if size < self.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {} is disabled'
-                ' ({} < {}). If you really know what you are doing,'
-                ' use "truncate" manually.'.format(self.vid, size, self.size))
-
-        try:  # assume volume is not (cleanly) stopped ...
-            _resize_file(self._path_dirty, size)
-            update = True
-        except FileNotFoundError:  # ... but it actually is.
-            _resize_file(self._path_clean, size)
-            update = False
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                _resize_file(path, size)
+                break
 
         self.size = size
-        if update:
+        if path == self._path_dirty:
             _update_loopdev_sizes(self._path_dirty)
         return self
 
@@ -334,10 +333,9 @@ class ReflinkVolume(qubes.storage.Volume):
         ''' Return volume disk usage from the VM's perspective. It is
             usually much lower from the host's perspective due to CoW.
         '''
-        with suppress(FileNotFoundError):
-            return _get_file_disk_usage(self._path_dirty)
-        with suppress(FileNotFoundError):
-            return _get_file_disk_usage(self._path_clean)
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                return os.stat(path).st_blocks * 512
         return 0
 
 
@@ -360,10 +358,6 @@ def _replace_file(dst):
         tmp.close()
         _remove_file(tmp.name)
         raise
-
-def _get_file_disk_usage(path):
-    ''' Return real disk usage (not logical file size) of a file. '''
-    return os.stat(path).st_blocks * BLKSIZE
 
 def _fsync_dir(path):
     dir_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
