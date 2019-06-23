@@ -457,8 +457,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(size=size)
 
-        yield from self.dest.storage.resize(self.arg, size)
-        self.app.save()
+        try:
+            yield from self.dest.storage.resize(self.arg, size)
+        finally:  # even if calling qubes.ResizeDisk inside the VM failed
+            self.app.save()
 
     @qubes.api.method('admin.vm.volume.Import', no_payload=True,
         scope='local', write=True)
