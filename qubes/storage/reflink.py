@@ -158,7 +158,6 @@ class ReflinkVolume(qubes.storage.Volume):
         return self
 
     @_coroutinized
-    @_locked
     def verify(self):
         if self.snap_on_start:
             img = self.source._path_clean  # pylint: disable=protected-access
