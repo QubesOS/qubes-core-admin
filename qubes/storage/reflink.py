@@ -154,7 +154,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @_locked
     def create(self):
         if self.save_on_stop and not self.snap_on_start:
-            _create_sparse_file(self._path_clean, self.size)
+            _create_sparse_file(self._path_clean, self._get_size())
         return self
 
     @_coroutinized
@@ -213,7 +213,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
-            _create_sparse_file(self._path_dirty, self.size)
+            _create_sparse_file(self._path_dirty, self._get_size())
         return self
 
     @_coroutinized
@@ -276,7 +276,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 _resize_file(path, size)
                 break
 
-        self.size = size
+        self._size = size
         if path == self._path_dirty:
             _update_loopdev_sizes(self._path_dirty)
         return self
@@ -293,7 +293,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if not self.save_on_stop:
             raise NotImplementedError(
                 'Cannot import_data: {} is not save_on_stop'.format(self.vid))
-        _create_sparse_file(self._path_import, self.size)
+        _create_sparse_file(self._path_import, self._get_size())
         return self._path_import
 
     def _import_data_end(self, success):
@@ -337,6 +337,15 @@ class ReflinkVolume(qubes.storage.Volume):
         items = (path[len(prefix):-1].split('@') for path in paths)
         return collections.OrderedDict(sorted(items,
                                               key=lambda item: int(item[0])))
+
+    def _get_size(self):
+        for path in (self._path_dirty, self._path_clean):
+            with suppress(FileNotFoundError):
+                self._size = os.path.getsize(path)
+                break
+        return self._size
+
+    size = property(_locked(_get_size))
 
     @property
     def usage(self):
