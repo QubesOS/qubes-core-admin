@@ -140,13 +140,6 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
 
-        # In case the volume was previously resized, but then a crash
-        # prevented qubesd from serializing the new size to qubes.xml:
-        for path in (self._path_dirty, self._path_clean):
-            with suppress(FileNotFoundError):
-                self.size = os.path.getsize(path)
-                break
-
     @_unblock
     def create(self):
         if self.save_on_stop and not self.snap_on_start:
