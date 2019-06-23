@@ -21,7 +21,8 @@
 #
 
 ''' This module contains the AdminVM implementation '''
-
+import asyncio
+import subprocess
 import libvirt
 
 import qubes
@@ -212,6 +213,81 @@ class AdminVM(qubes.vm.BaseVM):
             self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
+    @asyncio.coroutine
+    def run_service(self, service, source=None, user=None,
+            filter_esc=False, autostart=False, gui=False, **kwargs):
+        '''Run service on this VM
+
+        :param str service: service name
+        :param qubes.vm.qubesvm.QubesVM source: source domain as presented to
+            this VM
+        :param str user: username to run service as
+        :param bool filter_esc: filter escape sequences to protect terminal \
+            emulator
+        :param bool autostart: if :py:obj:`True`, machine will be started if \
+            it is not running
+        :param bool gui: when autostarting, also start gui daemon
+        :rtype: asyncio.subprocess.Process
+
+        .. note::
+            User ``root`` is redefined to ``SYSTEM`` in the Windows agent code
+        '''
+        # pylint: disable=unused-argument
+
+        source = 'dom0' if source is None else self.app.domains[source].name
+
+        if filter_esc:
+            raise NotImplementedError(
+                'filter_esc=True not supported on calls to dom0')
+
+        if user is None:
+            user = 'root'
+
+        yield from self.fire_event_async('domain-cmd-pre-run', pre_event=True,
+            start_guid=gui)
+
+        if user != 'root':
+            cmd = ['runuser', '-u', user, '--']
+        else:
+            cmd = []
+        cmd.extend([
+            qubes.config.system_path['qrexec_rpc_multiplexer'],
+            service,
+            source,
+            'name',
+            self.name,
+            ])
+        return (yield from asyncio.create_subprocess_exec(
+            *cmd,
+            **kwargs))
+
+    @asyncio.coroutine
+    def run_service_for_stdio(self, *args, input=None, **kwargs):
+        '''Run a service, pass an optional input and return (stdout, stderr).
+
+        Raises an exception if return code != 0.
+
+        *args* and *kwargs* are passed verbatim to :py:meth:`run_service`.
+
+        .. warning::
+            There are some combinations if stdio-related *kwargs*, which are
+            not filtered for problems originating between the keyboard and the
+            chair.
+        '''  # pylint: disable=redefined-builtin
+
+        kwargs.setdefault('stdin', subprocess.PIPE)
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.PIPE)
+        p = yield from self.run_service(*args, **kwargs)
+
+        # this one is actually a tuple, but there is no need to unpack it
+        stdouterr = yield from p.communicate(input=input)
+
+        if p.returncode:
+            raise subprocess.CalledProcessError(p.returncode,
+                args[0], *stdouterr)
+
+        return stdouterr
 
 #   def __init__(self, **kwargs):
 #       super(QubesAdminVm, self).__init__(qid=0, name="dom0",
