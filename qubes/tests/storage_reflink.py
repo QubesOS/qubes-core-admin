@@ -135,11 +135,7 @@ def rmtree_fs(directory):
     cmd('sudo', 'chattr', '-i', directory)
     cmd('sudo', 'chmod', '777', directory)
     if os.path.ismount(directory):
-        try:
-            cmd('sudo', 'umount', directory)
-        except:
-            cmd('sudo', 'fuser', '-vm', directory)
-            raise
+        cmd('sudo', 'umount', '-l', directory)
         # loop device and backing file are garbage collected automatically
     shutil.rmtree(directory)
 
