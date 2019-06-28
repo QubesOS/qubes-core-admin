@@ -266,18 +266,16 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def resize(self, size):
-        ''' Resize a read-write volume image; notify any corresponding
-            loop devices of the size change.
+        ''' Resize a read-write volume; notify any corresponding loop
+            devices of the size change.
         '''
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
-
         for path in (self._path_dirty, self._path_clean):
             with suppress(FileNotFoundError):
                 _resize_file(path, size)
                 break
-
         self._size = size
         if path == self._path_dirty:
             _update_loopdev_sizes(self._path_dirty)
