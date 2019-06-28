@@ -230,6 +230,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def _commit(self, path_from):
         self._add_revision()
         self._prune_revisions()
+        _fsync_path(path_from)
         _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
