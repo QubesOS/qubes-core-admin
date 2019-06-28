@@ -20,6 +20,7 @@
 
 '''qubes-create - Create new Qubes OS store'''
 
+import asyncio
 import sys
 import qubes
 import qubes.tools
@@ -37,8 +38,9 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    qubes.Qubes.create_empty_store(args.app,
-        offline_mode=args.offline_mode).setup_pools()
+    asyncio.get_event_loop().run_until_complete(
+        qubes.Qubes.create_empty_store(
+            args.app, offline_mode=args.offline_mode).setup_pools())
     return 0
 
 

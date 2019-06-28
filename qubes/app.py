@@ -1242,10 +1242,11 @@ class Qubes(qubes.PropertyHolder):
 
         raise KeyError(label)
 
+    @asyncio.coroutine
     def setup_pools(self):
         """ Run implementation specific setup for each storage pool. """
-        for pool in self.pools.values():
-            pool.setup()
+        yield from qubes.utils.void_coros_maybe(
+            pool.setup() for pool in self.pools.values())
 
     @asyncio.coroutine
     def add_pool(self, name, **kwargs):
