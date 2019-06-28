@@ -42,6 +42,18 @@ LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
+def _coroutinized(function):
+    ''' Decorator transforming a synchronous function into a coroutine
+        that runs the function in the event loop's thread-based
+        default executor.
+    '''
+    @asyncio.coroutine
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        return (yield from asyncio.get_event_loop().run_in_executor(
+            None, functools.partial(function, *args, **kwargs)))
+    return wrapper
+
 class ReflinkPool(qubes.storage.Pool):
     driver = 'file-reflink'
     _known_dir_path_prefixes = ['appvms', 'vm-templates']
@@ -53,6 +65,7 @@ class ReflinkPool(qubes.storage.Pool):
         self.dir_path = os.path.abspath(dir_path)
         self.setup_check = qubes.property.bool(None, None, setup_check)
 
+    @_coroutinized
     def setup(self):
         created = _make_dir(self.dir_path)
         if self.setup_check and not is_supported(self.dir_path):
@@ -117,18 +130,6 @@ class ReflinkPool(qubes.storage.Pool):
             [pool for pool in app.pools.values() if pool is not self],
             self.dir_path)
 
-
-def _coroutinized(function):
-    ''' Decorator transforming a synchronous function into a coroutine
-        that runs the function in the event loop's thread-based
-        default executor.
-    '''
-    @asyncio.coroutine
-    @functools.wraps(function)
-    def wrapper(*args, **kwargs):
-        return (yield from asyncio.get_event_loop().run_in_executor(
-            None, functools.partial(function, *args, **kwargs)))
-    return wrapper
 
 def _locked(method):
     ''' Decorator transforming a synchronous volume method to run
