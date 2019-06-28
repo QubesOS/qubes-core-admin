@@ -1623,11 +1623,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         yield from self.fire_event_async('domain-remove-from-disk')
         try:
-            # TODO: make it async?
-            shutil.rmtree(self.dir_path)
-        except FileNotFoundError:
-            pass
-        yield from self.storage.remove()
+            yield from self.storage.remove()
+        finally:
+            try:
+                # TODO: make it async?
+                shutil.rmtree(self.dir_path)
+            except FileNotFoundError:
+                pass
 
     @asyncio.coroutine
     def clone_disk_files(self, src, pool=None, pools=None, ):
