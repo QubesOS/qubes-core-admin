@@ -28,6 +28,7 @@ import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
 import qubes.tests.storage_reflink
+import qubes.utils
 import qubes.vm.appvm
 
 
@@ -84,11 +85,8 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol.create()
+        yield from qubes.utils.coro_maybe(testvol.create())
         del testvol
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
         self.app.save()
         yield from (self.vm1.start())
         yield from self.wait_for_session(self.vm1)
@@ -120,11 +118,8 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol.create()
+        yield from qubes.utils.coro_maybe(testvol.create())
         del testvol
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         yield from self.wait_for_session(self.vm1)
@@ -158,11 +153,8 @@ class StorageTestMixin(object):
             'rw': False,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol.create()
+        yield from qubes.utils.coro_maybe(testvol.create())
         del testvol
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         # non-volatile image not clean
@@ -192,10 +184,7 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol.create()
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
+        yield from qubes.utils.coro_maybe(testvol.create())
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -205,11 +194,8 @@ class StorageTestMixin(object):
         }
         del testvol
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol_snap.create()
+        yield from qubes.utils.coro_maybe(testvol_snap.create())
         del testvol_snap
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         yield from self.vm2.start()
@@ -284,10 +270,7 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol.create()
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
+        yield from qubes.utils.coro_maybe(testvol.create())
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -297,11 +280,8 @@ class StorageTestMixin(object):
         }
         del testvol
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        coro_maybe = testvol_snap.create()
+        yield from qubes.utils.coro_maybe(testvol_snap.create())
         del testvol_snap
-        if asyncio.iscoroutine(coro_maybe):
-            yield from coro_maybe
-        del coro_maybe
         self.app.save()
         yield from self.vm2.start()
         yield from self.wait_for_session(self.vm2)
