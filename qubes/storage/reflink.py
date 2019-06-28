@@ -379,12 +379,12 @@ def _replace_file(dst):
         _remove_file(tmp.name)
         raise
 
-def _fsync_dir(path):
-    dir_fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+def _fsync_path(path):
+    fd = os.open(path, os.O_RDONLY)  # works for a file or a directory
     try:
-        os.fsync(dir_fd)
+        os.fsync(fd)
     finally:
-        os.close(dir_fd)
+        os.close(fd)
 
 def _make_dir(path):
     ''' mkdir path, ignoring FileExistsError; return whether we
@@ -392,7 +392,7 @@ def _make_dir(path):
     '''
     with suppress(FileExistsError):
         os.mkdir(path)
-        _fsync_dir(os.path.dirname(path))
+        _fsync_path(os.path.dirname(path))
         LOGGER.info('Created directory: %s', path)
         return True
     return False
@@ -400,13 +400,13 @@ def _make_dir(path):
 def _remove_file(path):
     with suppress(FileNotFoundError):
         os.remove(path)
-        _fsync_dir(os.path.dirname(path))
+        _fsync_path(os.path.dirname(path))
         LOGGER.info('Removed file: %s', path)
 
 def _remove_empty_dir(path):
     try:
         os.rmdir(path)
-        _fsync_dir(os.path.dirname(path))
+        _fsync_path(os.path.dirname(path))
         LOGGER.info('Removed empty directory: %s', path)
     except OSError as ex:
         if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
@@ -416,9 +416,9 @@ def _rename_file(src, dst):
     os.rename(src, dst)
     dst_dir = os.path.dirname(dst)
     src_dir = os.path.dirname(src)
-    _fsync_dir(dst_dir)
+    _fsync_path(dst_dir)
     if src_dir != dst_dir:
-        _fsync_dir(src_dir)
+        _fsync_path(src_dir)
     LOGGER.info('Renamed file: %s -> %s', src, dst)
 
 def _resize_file(path, size):
