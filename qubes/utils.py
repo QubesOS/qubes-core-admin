@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
 import hashlib
 import random
 import string
@@ -183,3 +184,9 @@ def match_vm_name_with_special(vm, name):
     if name.startswith('@type:'):
         return name[len('@type:'):] == vm.__class__.__name__
     return name == vm.name
+
+@asyncio.coroutine
+def coro_maybe(value):
+    if asyncio.iscoroutine(value):
+        return (yield from value)
+    return value

@@ -20,6 +20,7 @@
 import asyncio
 
 import qubes.ext
+import qubes.utils
 
 class WindowsFeatures(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
@@ -67,7 +68,6 @@ class WindowsFeatures(qubes.ext.Extension):
             # until windows tools get ability to prepare private.img on its own,
             # copy one from the template
             vm.log.info('Windows template - cloning private volume')
-            import_op = vm.volumes['private'].import_volume(
-                template.volumes['private'])
-            if asyncio.iscoroutine(import_op):
-                yield from import_op
+            yield from qubes.utils.coro_maybe(
+                vm.volumes['private'].import_volume(
+                    template.volumes['private']))

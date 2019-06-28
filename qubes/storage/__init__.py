@@ -489,9 +489,7 @@ class Storage:
         ''' Resizes volume a read-writable volume '''
         if isinstance(volume, str):
             volume = self.vm.volumes[volume]
-        ret = volume.resize(size)
-        if asyncio.iscoroutine(ret):
-            yield from ret
+        yield from qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
                 yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
@@ -535,21 +533,8 @@ class Storage:
         src_volume = src_vm.volumes[name]
         msg = "Importing volume {!s} from vm {!s}"
         self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-
-        # First create the destination volume
-        create_op_ret = dst.create()
-        # clone/import functions may be either synchronous or asynchronous
-        # in the later case, we need to wait for them to finish
-        if asyncio.iscoroutine(create_op_ret):
-            yield from create_op_ret
-
-        # Then import data from source volume
-        clone_op_ret = dst.import_volume(src_volume)
-
-        # clone/import functions may be either synchronous or asynchronous
-        # in the later case, we need to wait for them to finish
-        if asyncio.iscoroutine(clone_op_ret):
-            yield from clone_op_ret
+        yield from qubes.utils.coro_maybe(dst.create())
+        yield from qubes.utils.coro_maybe(dst.import_volume(src_volume))
         self.vm.volumes[name] = dst
         return self.vm.volumes[name]
 
@@ -671,10 +656,7 @@ class Storage:
             ret = volume.import_data()
         else:
             ret = self.vm.volumes[volume].import_data()
-
-        if asyncio.iscoroutine(ret):
-            ret = yield from ret
-        return ret
+        return (yield from qubes.utils.coro_maybe(ret))
 
     @asyncio.coroutine
     def import_data_end(self, volume, success):
@@ -686,10 +668,7 @@ class Storage:
             ret = volume.import_data_end(success=success)
         else:
             ret = self.vm.volumes[volume].import_data_end(success=success)
-
-        if asyncio.iscoroutine(ret):
-            ret = yield from ret
-        return ret
+        return (yield from qubes.utils.coro_maybe(ret))
 
 
 class VolumesCollection:

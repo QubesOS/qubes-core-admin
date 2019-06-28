@@ -380,10 +380,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         revision = untrusted_revision
 
         self.fire_event_for_permission(volume=volume, revision=revision)
-
-        ret = volume.revert(revision)
-        if asyncio.iscoroutine(ret):
-            yield from ret
+        yield from qubes.utils.coro_maybe(volume.revert(revision))
         self.app.save()
 
     # write=True because this allow to clone VM - and most likely modify that
@@ -432,15 +429,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(src_volume=src_volume,
             dst_volume=dst_volume)
-
-        op_retval = dst_volume.import_volume(src_volume)
-
-        # clone/import functions may be either synchronous or asynchronous
-        # in the later case, we need to wait for them to finish
-        if asyncio.iscoroutine(op_retval):
-            op_retval = yield from op_retval
-
-        self.dest.volumes[self.arg] = op_retval
+        self.dest.volumes[self.arg] = yield from qubes.utils.coro_maybe(
+            dst_volume.import_volume(src_volume))
         self.app.save()
 
     @qubes.api.method('admin.vm.volume.Resize',

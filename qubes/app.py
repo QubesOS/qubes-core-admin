@@ -1257,9 +1257,7 @@ class Qubes(qubes.PropertyHolder):
 
         kwargs['name'] = name
         pool = self._get_pool(**kwargs)
-        ret = pool.setup()
-        if asyncio.iscoroutine(ret):
-            yield from ret
+        yield from qubes.utils.coro_maybe(pool.setup())
         self.pools[name] = pool
         yield from self.fire_event_async('pool-add', pool=pool)
         return pool
@@ -1283,9 +1281,7 @@ class Qubes(qubes.PropertyHolder):
             yield from self.fire_event_async('pool-pre-delete',
                 pre_event=True, pool=pool)
             del self.pools[name]
-            ret = pool.destroy()
-            if asyncio.iscoroutine(ret):
-                yield from ret
+            yield from qubes.utils.coro_maybe(pool.destroy())
             yield from self.fire_event_async('pool-delete', pool=pool)
         except KeyError:
             return
