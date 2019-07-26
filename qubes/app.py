@@ -350,8 +350,7 @@ class QubesHost:
             domid = vm['domid']
             current[domid] = {}
             current[domid]['memory_kb'] = vm['mem_kb']
-            current[domid]['cpu_time'] = int(
-                vm['cpu_time'] / max(vm['online_vcpus'], 1))
+            current[domid]['cpu_time'] = vm['cpu_time']
             if domid in previous:
                 current[domid]['cpu_usage'] = int(
                     (current[domid]['cpu_time'] - previous[domid]['cpu_time'])
