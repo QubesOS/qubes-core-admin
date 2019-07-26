@@ -80,7 +80,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104//8,
+                'cpu_time': 243951379111104,
                 'cpu_usage': 0,
                 'memory_kb': 3733212,
             },
@@ -90,7 +90,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
                 'memory_kb': 303916,
             },
             11: {
-                'cpu_time': 249658663079978//8,
+                'cpu_time': 249658663079978,
                 'cpu_usage': 0,
                 'memory_kb': 3782668,
             },
@@ -111,7 +111,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104//8,
+                'cpu_time': 243951379111104,
                 'cpu_usage': 9,
                 'memory_kb': 3733212,
             },
@@ -121,7 +121,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
                 'memory_kb': 303916,
             },
             11: {
-                'cpu_time': 249658663079978//8,
+                'cpu_time': 249658663079978,
                 'cpu_usage': 12,
                 'memory_kb': 3782668,
             },
