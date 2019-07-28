@@ -360,6 +360,29 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
             volume_data = volume_file.read().strip('\0')
         self.assertNotEqual(volume_data, 'test')
 
+    def test_022_import_data_empty(self):
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        volume.create()
+        with open(volume.path, 'w') as vol_file:
+            vol_file.write('test data')
+        import_path = volume.import_data()
+        self.assertNotEqual(volume.path, import_path)
+        with open(import_path, 'w+'):
+            pass
+        volume.import_data_end(True)
+        self.assertFalse(os.path.exists(import_path), import_path)
+        with open(volume.path) as volume_file:
+            volume_data = volume_file.read().strip('\0')
+        self.assertNotEqual(volume_data, 'test data')
+
     def assertVolumePath(self, vm, dev_name, expected, rw=True):
         # :pylint: disable=invalid-name
         volumes = vm.volumes
