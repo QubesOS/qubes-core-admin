@@ -52,6 +52,7 @@ class TestVM(object):
     def __init__(self, test, template=None):
         self.app = test.app
         self.name = test.make_vm_name('appvm')
+        self.dir_path_prefix = 'appvms'
         self.dir_path = '/var/lib/qubes/appvms/' + self.name
         self.log = qubes.log.get_vm_logger(self.name)
 
