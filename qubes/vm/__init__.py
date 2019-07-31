@@ -277,8 +277,9 @@ class BaseVM(qubes.PropertyHolder):
                     )
                     self.devices[devclass].load_persistent(device_assignment)
                 except KeyError:
-                    msg = "{}: Cannot find backend domain '{}' for device type {} '{}'".format(self.name, node.get(
-                        'backend-domain'), devclass, node.get('id'))
+                    msg = "{}: Cannot find backend domain '{}' " \
+                          "for device type {} '{}'".format(self.name, node.get(
+                              'backend-domain'), devclass, node.get('id'))
                     self.log.info(msg)
                     continue
 
