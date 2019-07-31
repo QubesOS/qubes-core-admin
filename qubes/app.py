@@ -306,7 +306,8 @@ class QubesHost:
         Return a tuple of (measurements_time, measurements),
         where measurements is a dictionary with key: domid, value: dict:
          - cpu_time - absolute CPU usage (seconds since its startup)
-         - cpu_usage - CPU usage in %
+         - cpu_usage_raw - CPU usage in %
+         - cpu_usage - CPU usage in % (normalized to number of vcpus)
          - memory_kb - current memory assigned, in kb
 
         This function requires Xen hypervisor.
@@ -350,17 +351,19 @@ class QubesHost:
             domid = vm['domid']
             current[domid] = {}
             current[domid]['memory_kb'] = vm['mem_kb']
-            current[domid]['cpu_time'] = int(
-                vm['cpu_time'] / max(vm['online_vcpus'], 1))
+            current[domid]['cpu_time'] = int(vm['cpu_time'])
+            vcpus = max(vm['online_vcpus'], 1)
             if domid in previous:
-                current[domid]['cpu_usage'] = int(
+                current[domid]['cpu_usage_raw'] = int(
                     (current[domid]['cpu_time'] - previous[domid]['cpu_time'])
                     / 1000 ** 3 * 100 / (current_time - previous_time))
-                if current[domid]['cpu_usage'] < 0:
+                if current[domid]['cpu_usage_raw'] < 0:
                     # VM has been rebooted
-                    current[domid]['cpu_usage'] = 0
+                    current[domid]['cpu_usage_raw'] = 0
             else:
-                current[domid]['cpu_usage'] = 0
+                current[domid]['cpu_usage_raw'] = 0
+            current[domid]['cpu_usage'] = \
+                int(current[domid]['cpu_usage_raw'] / vcpus)
 
         return (current_time, current)
 
