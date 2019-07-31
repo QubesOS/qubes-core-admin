@@ -43,7 +43,7 @@ size=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 1)
 path=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 2)
 
 # now process stdin into this path
-if sudo dd bs=4k of="$path" count="$size" iflag=count_bytes,fullblock \
+if sudo dd bs=128K of="$path" count="$size" iflag=count_bytes,fullblock \
         conv=sparse,notrunc,nocreat,fdatasync status=none; then
     status="ok"
 else
