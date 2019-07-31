@@ -28,7 +28,15 @@ import subprocess
 import sys
 
 import qubes.tests
+import qubes.tests.storage
 from qubes.storage import reflink
+
+class TestApp(qubes.Qubes):
+    ''' A Mock App object '''
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+        super(TestApp, self).__init__('/tmp/qubes-test.xml', load=False,
+                                      offline_mode=True, **kwargs)
+        self.load_initial_values()
 
 
 class ReflinkMixin:
@@ -83,6 +91,53 @@ class ReflinkMixin:
 
         for dev in (dev_from_real, dev_from_sym):
             self.assertEqual(get_blockdev_size(dev), size_resized)
+
+
+class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.test_dir = '/var/tmp/test-reflink-units-on-btrfs'
+        pool_conf = {
+            'driver': 'file-reflink',
+            'dir_path': self.test_dir,
+            'name': 'test-btrfs'
+        }
+        mkdir_fs(self.test_dir, 'btrfs', cleanup_via=self.addCleanup)
+        self.app = TestApp()
+        self.pool = self.loop.run_until_complete(self.app.add_pool(**pool_conf))
+        self.app.default_pool = self.app.get_pool(pool_conf['name'])
+
+    def tearDown(self) -> None:
+        self.app.default_pool = 'varlibqubes'
+        self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
+        del self.pool
+        self.app.close()
+        del self.app
+        super(TC_10_ReflinkPool, self).tearDown()
+
+    def test_012_import_data_empty(self):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.pool.init_volume(vm, config)
+        self.loop.run_until_complete(volume.create())
+        with open(volume.export(), 'w') as vol_file:
+            vol_file.write('test data')
+        import_path = self.loop.run_until_complete(volume.import_data())
+        self.assertNotEqual(volume.path, import_path)
+        with open(import_path, 'w+'):
+            pass
+        self.loop.run_until_complete(volume.import_data_end(True))
+        self.assertFalse(os.path.exists(import_path), import_path)
+        with open(volume.export()) as volume_file:
+            volume_data = volume_file.read().strip('\0')
+        self.assertNotEqual(volume_data, 'test data')
+
 
 class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
     def setUp(self):  # pylint: disable=arguments-differ

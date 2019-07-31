@@ -79,8 +79,24 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
                 self.app.add_pool(**POOL_CONF))
             self.created_pool = True
 
+    def cleanup_test_volumes(self):
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'sudo', 'lvs', '--noheadings', '-o', 'lv_name', self.pool.volume_group,
+            stdout=subprocess.PIPE
+        ))
+        volumes, _ = self.loop.run_until_complete(p.communicate())
+        for volume in volumes.decode().splitlines():
+            volume = volume.strip()
+            if not volume.startswith('vm-' + qubes.tests.VMPREFIX):
+                continue
+            p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'sudo', 'lvremove', '-f', '/'.join([self.pool.volume_group, volume])
+            ))
+            self.loop.run_until_complete(p.wait())
+
     def tearDown(self):
         ''' Remove the default lvm pool if it was created only for this test '''
+        self.cleanup_test_volumes()
         if self.created_pool:
             self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
         super(ThinPoolBase, self).tearDown()
@@ -597,11 +613,17 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
         self.loop.run_until_complete(volume.create())
         self.loop.run_until_complete(volume.start())
-        self.loop.run_until_complete(volume.stop())
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065906]
+            self.loop.run_until_complete(volume.stop())
         self.loop.run_until_complete(volume.start())
-        self.loop.run_until_complete(volume.stop())
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065907]
+            self.loop.run_until_complete(volume.stop())
         self.assertEqual(len(volume.revisions), 2)
         revisions = volume.revisions
         revision_id = max(revisions.keys())
@@ -632,11 +654,17 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
         self.loop.run_until_complete(volume.create())
         self.loop.run_until_complete(volume.start())
-        self.loop.run_until_complete(volume.stop())
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065906]
+            self.loop.run_until_complete(volume.stop())
         self.loop.run_until_complete(volume.start())
-        self.loop.run_until_complete(volume.stop())
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065907]
+            self.loop.run_until_complete(volume.stop())
         self.assertEqual(len(volume.revisions), 2)
         revisions = volume.revisions
         revision_id = min(revisions.keys())
@@ -814,6 +842,37 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.revisions, expected_revisions)
 
         self.loop.run_until_complete(volume.remove())
+
+    def test_034_import_data_empty(self):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [1521065905]
+            self.loop.run_until_complete(volume.create())
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'sudo', 'dd', 'if=/dev/urandom', 'of=' + volume.path, 'count=1', 'bs=1M'
+        ))
+        self.loop.run_until_complete(p.wait())
+        import_path = self.loop.run_until_complete(volume.import_data())
+        self.assertNotEqual(volume.path, import_path)
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'sudo', 'touch', import_path))
+        self.loop.run_until_complete(p.wait())
+        self.loop.run_until_complete(volume.import_data_end(True))
+        self.assertFalse(os.path.exists(import_path), import_path)
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'sudo', 'cat', volume.path,
+            stdout=subprocess.PIPE
+        ))
+        volume_data, _ = self.loop.run_until_complete(p.communicate())
+        self.assertEqual(volume_data.strip(b'\0'), b'')
 
     def test_040_volatile(self):
         '''Volatile volume test'''
