@@ -1561,7 +1561,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self.send_event(name, 'vm-stats',
                 memory_kb=int(vm_info['memory_kb']),
                 cpu_time=int(vm_info['cpu_time'] / 1000000),
-                cpu_usage=int(vm_info['cpu_usage']))
+                cpu_usage=int(vm_info['cpu_usage']),
+                cpu_usage_raw=int(vm_info['cpu_usage_raw']))
 
         return info_time, info
 
