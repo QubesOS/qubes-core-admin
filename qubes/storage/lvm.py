@@ -517,7 +517,7 @@ class ThinVolume(qubes.storage.Volume):
             yield from qubes_lvm_coro(cmd, self.log)
             src_path = src_volume.export()
             cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
-                'conv=sparse', 'status=none']
+                'conv=sparse', 'status=none', 'bs=128K']
             if not os.access('/dev/' + self._vid_import, os.W_OK) or \
                     not os.access(src_path, os.R_OK):
                 cmd.insert(0, 'sudo')
