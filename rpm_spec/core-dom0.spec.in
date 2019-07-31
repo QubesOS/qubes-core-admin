@@ -91,6 +91,9 @@ Requires:       scrypt
 Requires:       dmidecode
 Requires:       PyQt4
 
+# Required for qvm-console* tools
+Requires:       socat
+
 %{?systemd_requires}
 
 Obsoletes:	qubes-core-dom0-doc <= 4.0
