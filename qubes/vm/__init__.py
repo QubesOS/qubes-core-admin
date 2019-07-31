@@ -268,13 +268,20 @@ class BaseVM(qubes.PropertyHolder):
                 for option in node.xpath('./option'):
                     options[option.get('name')] = option.text
 
-                device_assignment = qubes.devices.DeviceAssignment(
-                    self.app.domains[node.get('backend-domain')],
-                    node.get('id'),
-                    options,
-                    persistent=True
-                )
-                self.devices[devclass].load_persistent(device_assignment)
+                try:
+                    device_assignment = qubes.devices.DeviceAssignment(
+                        self.app.domains[node.get('backend-domain')],
+                        node.get('id'),
+                        options,
+                        persistent=True
+                    )
+                    self.devices[devclass].load_persistent(device_assignment)
+                except KeyError:
+                    msg = "{}: Cannot find backend domain '{}' " \
+                          "for device type {} '{}'".format(self.name, node.get(
+                              'backend-domain'), devclass, node.get('id'))
+                    self.log.info(msg)
+                    continue
 
         # tags
         for node in self.xml.xpath('./tags/tag'):
