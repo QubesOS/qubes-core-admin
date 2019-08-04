@@ -40,7 +40,8 @@ import qubes.exc
 def get_timezone():
     # fc18
     if os.path.islink('/etc/localtime'):
-        return '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
+        tz_path = '/'.join(os.readlink('/etc/localtime').split('/'))
+        return tz_path.split('zoneinfo/')[1]
     # <=fc17
     if os.path.exists('/etc/sysconfig/clock'):
         clock_config = open('/etc/sysconfig/clock', "r")
