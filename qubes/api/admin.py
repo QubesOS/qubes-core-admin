@@ -1146,6 +1146,19 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.app.save()
 
+    @qubes.api.method('admin.deviceclass.List', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def deviceclass_list(self):
+        """List all DEVICES classes"""
+        self.enforce(not self.arg)
+        self.enforce(self.dest.name == 'dom0')
+
+        entrypoints = self.fire_event_for_filter(
+            pkg_resources.iter_entry_points('qubes.devices'))
+
+        return ''.join('{}\n'.format(ep.name) for ep in entrypoints)
+
     @qubes.api.method('admin.vm.device.{endpoint}.Available', endpoints=(ep.name
             for ep in pkg_resources.iter_entry_points('qubes.devices')),
             no_payload=True,

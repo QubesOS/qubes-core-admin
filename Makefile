@@ -8,6 +8,7 @@ OS ?= Linux
 PYTHON ?= python3
 
 ADMIN_API_METHODS_SIMPLE = \
+	admin.deviceclass.List \
 	admin.vmclass.List \
 	admin.Events \
 	admin.backup.Execute \
