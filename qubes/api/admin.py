@@ -84,13 +84,13 @@ class QubesMgmtEventsDispatcher:
 
 
 class QubesAdminAPI(qubes.api.AbstractQubesAPI):
-    '''Implementation of Qubes Management API calls
+    """Implementation of Qubes Management API calls
 
     This class contains all the methods available in the main API.
 
     .. seealso::
         https://www.qubes-os.org/doc/mgmt1/
-    '''
+    """
 
     SOCKNAME = '/var/run/qubesd.sock'
 
@@ -98,7 +98,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='global', read=True)
     @asyncio.coroutine
     def vmclass_list(self):
-        '''List all VM classes'''
+        """List all VM classes"""
         self.enforce(not self.arg)
         self.enforce(self.dest.name == 'dom0')
 
@@ -112,7 +112,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='global', read=True)
     @asyncio.coroutine
     def vm_list(self):
-        '''List all the domains'''
+        """List all the domains"""
         self.enforce(not self.arg)
 
         if self.dest.name == 'dom0':
@@ -130,14 +130,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     @asyncio.coroutine
     def vm_property_list(self):
-        '''List all properties on a qube'''
+        """List all properties on a qube"""
         return self._property_list(self.dest)
 
     @qubes.api.method('admin.property.List', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
     def property_list(self):
-        '''List all global properties'''
+        """List all global properties"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_list(self.app)
 
@@ -152,14 +152,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     @asyncio.coroutine
     def vm_property_get(self):
-        '''Get a value of one property'''
+        """Get a value of one property"""
         return self._property_get(self.dest)
 
     @qubes.api.method('admin.property.Get', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
     def property_get(self):
-        '''Get a value of one global property'''
+        """Get a value of one global property"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_get(self.app)
 
@@ -196,14 +196,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     @asyncio.coroutine
     def vm_property_get_default(self):
-        '''Get a value of one property'''
+        """Get a value of one property"""
         return self._property_get_default(self.dest)
 
     @qubes.api.method('admin.property.GetDefault', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
     def property_get_default(self):
-        '''Get a value of one global property'''
+        """Get a value of one global property"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_get_default(self.app)
 
@@ -239,7 +239,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     @asyncio.coroutine
     def vm_property_set(self, untrusted_payload):
-        '''Set property value'''
+        """Set property value"""
         return self._property_set(self.dest,
             untrusted_payload=untrusted_payload)
 
@@ -247,7 +247,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='global', write=True)
     @asyncio.coroutine
     def property_set(self, untrusted_payload):
-        '''Set property value'''
+        """Set property value"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_set(self.app,
             untrusted_payload=untrusted_payload)
@@ -268,14 +268,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     @asyncio.coroutine
     def vm_property_help(self):
-        '''Get help for one property'''
+        """Get help for one property"""
         return self._property_help(self.dest)
 
     @qubes.api.method('admin.property.Help', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
     def property_help(self):
-        '''Get help for one property'''
+        """Get help for one property"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_help(self.app)
 
@@ -296,14 +296,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     @asyncio.coroutine
     def vm_property_reset(self):
-        '''Reset a property to a default value'''
+        """Reset a property to a default value"""
         return self._property_reset(self.dest)
 
     @qubes.api.method('admin.property.Reset', no_payload=True,
         scope='global', write=True)
     @asyncio.coroutine
     def property_reset(self):
-        '''Reset a property to a default value'''
+        """Reset a property to a default value"""
         self.enforce(self.dest.name == 'dom0')
         return self._property_reset(self.app)
 
@@ -456,7 +456,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     @asyncio.coroutine
     def vm_volume_import(self):
-        '''Import volume data.
+        """Import volume data.
 
         Note that this function only returns a path to where data should be
         written, actual importing is done by a script in /etc/qubes-rpc
@@ -464,7 +464,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         internal.vm.volume.ImportEnd (with either b'ok' or b'fail' as a
         payload) and response from that call will be actually send to the
         caller.
-        '''
+        """
         self.enforce(self.arg in self.dest.volumes.keys())
 
         self.fire_event_for_permission()
@@ -1356,13 +1356,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @asyncio.coroutine
     def _load_backup_profile(self, profile_name, skip_passphrase=False):
-        '''Load backup profile and return :py:class:`qubes.backup.Backup`
+        """Load backup profile and return :py:class:`qubes.backup.Backup`
         instance
 
         :param profile_name: name of the profile
         :param skip_passphrase: do not load passphrase - only backup summary
             can be retrieved when this option is in use
-        '''
+        """
         profile_path = os.path.join(
             qubes.config.backup_profile_dir, profile_name + '.conf')
 
@@ -1523,7 +1523,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     def _send_stats_single(self, info_time, info, only_vm, filters,
             id_to_name_map):
-        '''A single iteration of sending VM stats
+        """A single iteration of sending VM stats
 
         :param info_time: time of previous iteration
         :param info: information retrieved in previous iteration
@@ -1532,7 +1532,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         :param id_to_name_map: ID->VM name map, may be modified
         :return: tuple(info_time, info) - new information (to be passed to
         the next iteration)
-        '''
+        """
 
         (info_time, info) = self.app.host.get_vm_stats(info_time, info,
             only_vm=only_vm)
