@@ -582,20 +582,21 @@ class TC_00_VMs(AdminAPITestCase):
             'pool1': unittest.mock.Mock(config={
                 'param1': 'value1', 'param2': 'value2'},
                 usage=102400,
-                size=204800)
+                size=204800,
+                usage_details={'metadata_size': 500})
         }
         self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
         self.assertEqual(value,
-            'param1=value1\nparam2=value2\nsize=204800\nusage=102400\n')
+            'param1=value1\nparam2=value2\nsize=204800\nusage=102400\nmetadata_size=500\n')
         self.assertFalse(self.app.save.called)
 
     def test_151_pool_info_unsupported_size(self):
         self.app.pools = {
             'pool1': unittest.mock.Mock(config={
                 'param1': 'value1', 'param2': 'value2'},
-                size=None, usage=None),
+                size=None, usage=None, usage_details={}),
         }
         self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')

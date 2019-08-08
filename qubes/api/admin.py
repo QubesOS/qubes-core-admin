@@ -630,6 +630,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if pool_usage is not None:
             other_info += 'usage={}\n'.format(pool_usage)
 
+        pool_details = pool.usage_details
+        for name in pool_details:
+            if name not in ['data_size', 'data_usage']:
+                other_info += '{}={}\n'.format(name, pool_details[name])
+
         try:
             included_in = pool.included_in(self.app)
             if included_in:

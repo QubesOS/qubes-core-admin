@@ -795,6 +795,17 @@ class Pool:
     def usage(self):
         ''' Space used in the pool in bytes, or None if unknown '''
 
+    @property
+    def usage_details(self):
+        """Detailed information about pool usage as a dictionary
+        Contains data_usage for usage in bytes and data_size for pool
+        size; other implementations may add more implementation-specific
+        detail"""
+        return {
+            'data_usage': self.usage,
+            'data_size': self.size
+        }
+
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
         msg = "Pool driver {!s} has {!s}() not implemented"
