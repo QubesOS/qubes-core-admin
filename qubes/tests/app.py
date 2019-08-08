@@ -80,18 +80,21 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104//8,
+                'cpu_time': 243951379111104,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 3733212,
             },
             1: {
                 'cpu_time': 2849496569205,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 303916,
             },
             11: {
-                'cpu_time': 249658663079978//8,
+                'cpu_time': 249658663079978,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 3782668,
             },
         }
@@ -104,25 +107,28 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
 
         prev_time, prev_info = self.qubes_host.get_vm_stats()
         prev_time -= 1
-        prev_info[0]['cpu_time'] -= 10**8
-        prev_info[1]['cpu_time'] -= 10**9
-        prev_info[11]['cpu_time'] -= 125 * 10**6
+        prev_info[0]['cpu_time'] -= 8*10**8  # 0.8s
+        prev_info[1]['cpu_time'] -= 10**9  # 1s
+        prev_info[11]['cpu_time'] -= 10**9  # 1s
         info_time, info = self.qubes_host.get_vm_stats(prev_time, prev_info)
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104//8,
+                'cpu_time': 243951379111104,
                 'cpu_usage': 9,
+                'cpu_usage_raw': 79,
                 'memory_kb': 3733212,
             },
             1: {
                 'cpu_time': 2849496569205,
                 'cpu_usage': 99,
+                'cpu_usage_raw': 99,
                 'memory_kb': 303916,
             },
             11: {
-                'cpu_time': 249658663079978//8,
+                'cpu_time': 249658663079978,
                 'cpu_usage': 12,
+                'cpu_usage_raw': 99,
                 'memory_kb': 3782668,
             },
         }

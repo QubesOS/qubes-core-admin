@@ -2129,18 +2129,22 @@ class TC_00_VMs(AdminAPITestCase):
             0: {
                 'cpu_time': 243951379111104 // 8,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 3733212,
             },
             1: {
                 'cpu_time': 2849496569205,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 303916,
             },
         }
         stats2 = copy.deepcopy(stats1)
         stats2[0]['cpu_time'] += 100000000
         stats2[0]['cpu_usage'] = 10
+        stats2[0]['cpu_usage_raw'] = 10
         stats2[1]['cpu_usage'] = 5
+        stats2[1]['cpu_usage_raw'] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1), (1, stats2),
@@ -2181,18 +2185,22 @@ class TC_00_VMs(AdminAPITestCase):
                 unittest.mock.call('dom0', 'vm-stats',
                     cpu_time=stats1[0]['cpu_time'] // 1000000,
                     cpu_usage=stats1[0]['cpu_usage'],
+                    cpu_usage_raw=stats1[0]['cpu_usage_raw'],
                     memory_kb=stats1[0]['memory_kb']),
                 unittest.mock.call('test-template', 'vm-stats',
                     cpu_time=stats1[1]['cpu_time'] // 1000000,
                     cpu_usage=stats1[1]['cpu_usage'],
+                    cpu_usage_raw=stats1[1]['cpu_usage_raw'],
                     memory_kb=stats1[1]['memory_kb']),
                 unittest.mock.call('dom0', 'vm-stats',
                     cpu_time=stats2[0]['cpu_time'] // 1000000,
                     cpu_usage=stats2[0]['cpu_usage'],
+                    cpu_usage_raw=stats2[0]['cpu_usage_raw'],
                     memory_kb=stats2[0]['memory_kb']),
                 unittest.mock.call('test-template', 'vm-stats',
                     cpu_time=stats2[1]['cpu_time'] // 1000000,
                     cpu_usage=stats2[1]['cpu_usage'],
+                    cpu_usage_raw=stats2[1]['cpu_usage_raw'],
                     memory_kb=stats2[1]['memory_kb']),
             ])
 
@@ -2203,11 +2211,13 @@ class TC_00_VMs(AdminAPITestCase):
             2: {
                 'cpu_time': 2849496569205,
                 'cpu_usage': 0,
+                'cpu_usage_raw': 0,
                 'memory_kb': 303916,
             },
         }
         stats2 = copy.deepcopy(stats1)
         stats2[2]['cpu_usage'] = 5
+        stats2[2]['cpu_usage_raw'] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1), (1, stats2),
@@ -2248,10 +2258,12 @@ class TC_00_VMs(AdminAPITestCase):
                 unittest.mock.call('test-vm1', 'vm-stats',
                     cpu_time=stats1[2]['cpu_time'] // 1000000,
                     cpu_usage=stats1[2]['cpu_usage'],
+                    cpu_usage_raw=stats1[2]['cpu_usage_raw'],
                     memory_kb=stats1[2]['memory_kb']),
                 unittest.mock.call('test-vm1', 'vm-stats',
                     cpu_time=stats2[2]['cpu_time'] // 1000000,
                     cpu_usage=stats2[2]['cpu_usage'],
+                    cpu_usage_raw=stats2[2]['cpu_usage_raw'],
                     memory_kb=stats2[2]['memory_kb']),
             ])
 
