@@ -2632,6 +2632,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_992_dom0_unexpected_payload(self):
         methods_with_no_payload = [
+            b'admin.deviceclass.List',
             b'admin.vmclass.List',
             b'admin.vm.List',
             b'admin.label.List',
@@ -2673,6 +2674,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_993_dom0_unexpected_argument(self):
         methods_with_no_argument = [
+            b'admin.deviceclass.List',
             b'admin.vmclass.List',
             b'admin.vm.List',
             b'admin.label.List',
@@ -2708,6 +2710,7 @@ class TC_00_VMs(AdminAPITestCase):
         # TODO set some better arguments, to make sure the call was rejected
         # because of invalid destination, not invalid arguments
         methods_for_dom0_only = [
+            b'admin.deviceclass.List',
             b'admin.vmclass.List',
             b'admin.vm.Create.AppVM',
             b'admin.vm.CreateInPool.AppVM',
