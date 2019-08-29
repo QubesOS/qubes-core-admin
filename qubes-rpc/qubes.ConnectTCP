@@ -1,0 +1,10 @@
+#!/bin/bash
+PORT="$1"
+[[ -z "$PORT" ]] && { echo "Please provide PORT"; exit 1; };
+
+if [[ "$PORT" -ge 1 ]] && [[ "$PORT" -le 65535 ]]; then
+    socat STDIO TCP:localhost:"$PORT"
+else
+    echo "Invalid port provided"
+    exit 1
+fi
