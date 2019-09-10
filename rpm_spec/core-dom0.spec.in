@@ -388,6 +388,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-rwx
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-ro
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-rwx
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.ConnectTCP
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.FeaturesRequest
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
@@ -408,6 +409,7 @@ fi
 /etc/qubes-rpc/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
+/etc/qubes-rpc/qubes.ConnectTCP
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 
