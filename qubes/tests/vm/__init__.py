@@ -32,8 +32,14 @@ class TestVMM(object):
 
     @property
     def libvirt_conn(self):
-        import libvirt
-        raise libvirt.libvirtError('phony error')
+        if self.offline_mode:
+            import libvirt
+            raise libvirt.libvirtError('phony error')
+        else:
+            libvirt_mock = unittest.mock.Mock()
+            vm_mock = libvirt_mock.lookupByUUID.return_value
+            vm_mock.isActive.return_value = False
+            return libvirt_mock
 
 class TestHost(object):
     # pylint: disable=too-few-public-methods
