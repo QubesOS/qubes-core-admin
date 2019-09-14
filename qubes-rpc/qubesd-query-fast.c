@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,7 +23,10 @@ void write_wrapper(int fd, char *data, size_t len) {
 
 int main(int argc, char **argv) {
     char *source_domain = getenv("QREXEC_REMOTE_DOMAIN");
-    char *target_domain = getenv("QREXEC_REQUESTED_TARGET");
+    char *target_domain = NULL;
+    char *target_domain_type = getenv("QREXEC_REQUESTED_TARGET_TYPE");
+    char *target_domain_name = getenv("QREXEC_REQUESTED_TARGET");
+    char *target_domain_keyword = getenv("QREXEC_REQUESTED_TARGET_KEYWORD");
     char *service_name = strrchr(argv[0], '/');
     int fd;
     char buf[4096];
@@ -35,12 +39,12 @@ int main(int argc, char **argv) {
     if (service_name)
         service_name++;
 
-    if (!source_domain || !target_domain || !service_name || argc > 2) {
+    if (!source_domain || !target_domain_type || !service_name || argc > 2) {
         fprintf(stderr, "Usage: %s [service-argument]\n", argv[0]);
         fprintf(stderr, "\n");
         fprintf(stderr, "Expected environment variables:\n");
         fprintf(stderr, " - QREXEC_REMOTE_DOMAIN - source domain for the call\n");
-        fprintf(stderr, " - QREXEC_REQUESTED_TARGET - target domain for the call\n");
+        fprintf(stderr, " - QREXEC_REQUESTED_TARGET_TYPE - target domain for the call\n");
         fprintf(stderr, "\n");
         fprintf(stderr, "Additionally, this program assumes being called with desired service name as argv[0] (use symlink)\n");
         return 1;
@@ -56,6 +60,21 @@ int main(int argc, char **argv) {
         perror("connect to qubesd");
         return 1;
     }
+
+    if (strcmp(target_domain_type, "keyword") == 0) {
+        // translate @adminvm back to dom0
+        if (strcmp(target_domain_keyword, "adminvm") == 0)
+            target_domain = "dom0";
+        else if (strcmp(target_domain_keyword, "default") == 0)
+            target_domain = "";
+        else {
+            fprintf(stderr, "Unsupported keyword: %s", target_domain_keyword);
+            return 1;
+        }
+    } else
+        target_domain = target_domain_name;
+
+    assert(target_domain);
 
     // write parameters, including trailing zero as separator
     write_wrapper(fd, source_domain, strlen(source_domain) + 1);
