@@ -1,0 +1,26 @@
+## File format:
+## service-name|*       +argument|* source                   destination                     action  [options]
+
+## Allow selected DisposableVM perform "paranoid backup restore"
+admin.vm.Create.AppVM                      *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.Create.StandaloneVM               *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.Create.TemplateVM                 *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.List                              *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+## Allow checking some basic info about all the VMs, to propose conflicts resolution
+admin.vm.List                              *   @tag:backup-restore-mgmt @anyvm               allow target=dom0
+admin.vm.property.Get  +provides_network       @tag:backup-restore-mgmt @anyvm               allow target=dom0
+admin.vm.property.Get  +template_for_dispvms   @tag:backup-restore-mgmt @anyvm               allow target=dom0
+
+## Allow it to configure just created qubes
+admin.vm.feature.Set            *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.firewall.Set           *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.property.Set           *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.tag.Set                *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.volume.Import          *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.volume.Info            *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.volume.List            *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.volume.Set.revisions_to_keep   *	@tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+
+## And finally, allow it to retrieve the actual backup
+qubes.RestoreById               *   @tag:backup-restore-mgmt @tag:backup-restore-storage     allow
+

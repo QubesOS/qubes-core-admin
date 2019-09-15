@@ -174,6 +174,8 @@ endif
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	install -m 0644 qubes-rpc-policy/90-default.policy \
 		$(DESTDIR)/etc/qubes/policy.d/90-default.policy
+	install -m 0644 qubes-rpc-policy/85-admin-backup-restore.policy \
+		$(DESTDIR)/etc/qubes/policy.d/85-admin-backup-restore.policy
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
