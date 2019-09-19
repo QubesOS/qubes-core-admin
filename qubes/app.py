@@ -937,7 +937,7 @@ class Qubes(qubes.PropertyHolder):
         # stage 5: misc fixups
 
         self.property_require('default_netvm', allow_none=True)
-        self.property_require('default_template')
+        self.property_require('default_template', allow_none=True)
         self.property_require('clockvm', allow_none=True)
         self.property_require('updatevm', allow_none=True)
 
