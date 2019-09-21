@@ -285,10 +285,14 @@ class TC_00_AppVMMixin(object):
 
         with self.qrexec_policy('test.Abort', self.testvm1, 'dom0'):
             try:
+                # two possible exit codes, depending on when exactly dom0
+                # service terminates:
+                # exit code 141: EPIPE (no buffered data)
+                # exit code 1: ECONNRESET (some buffered data remains)
                 stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
                     self.testvm1.run_for_stdio('''\
                         /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
-                            /bin/cat /dev/zero; test $? -eq 141'''),
+                            /bin/cat /dev/zero; test $? -eq 141 -o $? -eq 1'''),
                     timeout=10))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably stdout wasn't closed")
