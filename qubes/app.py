@@ -76,7 +76,14 @@ class VirDomainWrapper:
         self._vm = vm
 
     def _reconnect_if_dead(self):
-        is_dead = not self._vm.connect().isAlive()
+        try:
+            is_dead = not self._vm.connect().isAlive()
+        except libvirt.libvirtError as ex:
+            if ex.get_error_code() == libvirt.VIR_ERR_INVALID_CONN:
+                # connection to libvirt was re-established in the meantime
+                is_dead = True
+            else:
+                raise
         if is_dead:
             # pylint: disable=protected-access
             self._connection._reconnect_if_dead()
@@ -102,14 +109,19 @@ class VirDomainWrapper:
 class VirConnectWrapper:
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, uri):
+    def __init__(self, uri, reconnect_cb=None):
         self._conn = libvirt.open(uri)
+        self._reconnect_cb = reconnect_cb
 
     def _reconnect_if_dead(self):
         is_dead = not self._conn.isAlive()
         if is_dead:
-            self._conn = libvirt.open(self._conn.getURI())
-            # TODO: re-register event handlers
+            uri = self._conn.getURI()
+            old_conn = self._conn
+            self._conn = libvirt.open(uri)
+            if callable(self._reconnect_cb):
+                self._reconnect_cb(old_conn)
+            old_conn.close()
         return is_dead
 
     def _wrap_domain(self, ret):
@@ -139,16 +151,20 @@ class VirConnectWrapper:
 class VMMConnection:
     '''Connection to Virtual Machine Manager (libvirt)'''
 
-    def __init__(self, offline_mode=None):
+    def __init__(self, offline_mode=None, libvirt_reconnect_cb=None):
         '''
 
         :param offline_mode: enable/disable offline mode; default is to
         enable when running in chroot as root, otherwise disable
+        :param libvirt_reconnect_cb: callable to be called when connection to
+        libvirt is re-established; the callback is called with old connection
+        as argument
         '''
         if offline_mode is None:
             offline_mode = bool(os.getuid() == 0 and
                 os.stat('/') != os.stat('/proc/1/root/.'))
         self._offline_mode = offline_mode
+        self._libvirt_reconnect_cb = libvirt_reconnect_cb
 
         self._libvirt_conn = None
         self._xs = None
@@ -179,7 +195,8 @@ class VMMConnection:
         if 'xen.lowlevel.xc' in sys.modules:
             self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = VirConnectWrapper(
-            qubes.config.defaults['libvirt_uri'])
+            qubes.config.defaults['libvirt_uri'],
+            reconnect_cb=self._libvirt_reconnect_cb)
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
 
     @property
@@ -806,7 +823,8 @@ class Qubes(qubes.PropertyHolder):
         self.pools = {}
 
         #: Connection to VMM
-        self.vmm = VMMConnection(offline_mode=offline_mode)
+        self.vmm = VMMConnection(offline_mode=offline_mode,
+            libvirt_reconnect_cb=self.register_event_handlers)
 
         #: Information about host system
         self.host = QubesHost(self)
@@ -1322,11 +1340,19 @@ class Qubes(qubes.PropertyHolder):
             raise qubes.exc.QubesException('No driver %s for pool %s' %
                                            (driver, name))
 
-    def register_event_handlers(self):
+    def register_event_handlers(self, old_connection=None):
         '''Register libvirt event handlers, which will translate libvirt
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
         '''
+        if old_connection:
+            try:
+                old_connection.domainEventDeregisterAny(
+                    self._domain_event_callback_id)
+            except libvirt.libvirtError:
+                # the connection is probably in a bad state; but call the above
+                # anyway to cleanup the client structures
+                pass
         self._domain_event_callback_id = (
             self.vmm.libvirt_conn.domainEventRegisterAny(
                 None,  # any domain
