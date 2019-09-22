@@ -271,6 +271,45 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         finally:
             del vm
 
+    def _test_140_on_domain_paused(self, vm, event, **kwargs):
+        self.domain_paused_received = True
+
+    def test_140_libvirt_events_reconnect(self):
+        vmname = self.make_vm_name('vm')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'systemctl', 'restart', 'libvirtd'))
+        self.loop.run_until_complete(p.communicate())
+        # check if events still works
+        self.domain_paused_received = False
+        self.vm.add_handler('domain-paused', self._test_140_on_domain_paused)
+        self.loop.run_until_complete(self.vm.pause())
+        self.loop.run_until_complete(self.vm.kill())
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.assertTrue(self.domain_paused_received,
+            'event not received after libvirt restart')
+
+    def test_141_libvirt_objects_reconnect(self):
+        vmname = self.make_vm_name('vm')
+
+        # make sure libvirt object is cached
+        self.app.domains[0].libvirt_domain.isActive()
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'systemctl', 'restart', 'libvirtd'))
+        self.loop.run_until_complete(p.communicate())
+        # trigger reconnect
+        with self.assertNotRaises(libvirt.libvirtError):
+            self.app.vmm.libvirt_conn.getHostname()
+
+        # check if vm object still works
+        with self.assertNotRaises(libvirt.libvirtError):
+            self.app.domains[0].libvirt_domain.isActive()
+
     def test_202_udev_block_exclude_default(self):
         '''Check if VM images are excluded from udev parsing -
         default volume pool'''
