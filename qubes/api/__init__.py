@@ -121,8 +121,17 @@ class AbstractQubesAPI:
         #: source qube
         self.src = self.app.domains[src.decode('ascii')]
 
-        #: destination qube
-        self.dest = self.app.domains[dest.decode('ascii')]
+        try:
+            #: destination qube
+            self.dest = self.app.domains[dest.decode('ascii')]
+        except KeyError:
+            # normally this should filtered out by qrexec policy, but there are
+            # two cases it might not be:
+            # 1. The call comes from dom0, which bypasses qrexec policy
+            # 2. Domain was removed between checking the policy and here
+            # For uniform handling on the client side, treat this as permission
+            # denied error too
+            raise PermissionDenied
 
         #: argument
         self.arg = arg.decode('ascii')
