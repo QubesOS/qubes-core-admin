@@ -220,6 +220,34 @@ def expectedFailureIfTemplate(templates):
         return wrapper
     return decorator
 
+
+def wait_on_fail(func):
+    """Test decorator for debugging. It pause test execution on failure and wait
+    for user input. It's useful to manually inspect system state just after test
+    fails, before executing any cleanup.
+
+    Usage: decorate a test you are debugging.
+    DO IT ONLY TEMPORARILY, DO NOT COMMIT!
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except:
+            print('FAIL\n')
+            traceback.print_exc()
+            print('Press return to continue:', end='')
+            sys.stdout.flush()
+            reader = asyncio.StreamReader(loop=self.loop)
+            transport, protocol = self.loop.run_until_complete(
+                self.loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader),
+                                            sys.stdin))
+            self.loop.run_until_complete(reader.readline())
+            raise
+    return wrapper
+
+
 class _AssertNotRaisesContext(object):
     """A context manager used to implement TestCase.assertNotRaises methods.
 
