@@ -695,7 +695,7 @@ class VolumesCollection:
 
     def values(self):
         ''' Return list of Volumes'''
-        return [vol for vol in self]
+        return list(self)
 
 
 class Pool:
