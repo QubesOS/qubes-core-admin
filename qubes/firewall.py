@@ -565,10 +565,9 @@ class Firewall:
             if rule.expire:
                 if rule.expire and rule.expire.expired:
                     continue
-                else:
-                    if nearest_expire is None or rule.expire.datetime < \
-                            nearest_expire:
-                        nearest_expire = rule.expire.datetime
+                if nearest_expire is None or rule.expire.datetime < \
+                        nearest_expire:
+                    nearest_expire = rule.expire.datetime
             xml_rule = lxml.etree.Element('rule')
             xml_rule.append(rule.xml_properties())
             xml_rules.append(xml_rule)

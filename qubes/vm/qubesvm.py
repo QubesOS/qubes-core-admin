@@ -2070,7 +2070,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # '/qubes-netvm-network' value is only checked for being non empty
             self.untrusted_qdb.write('/qubes-netvm-network', str(self.gateway))
             self.untrusted_qdb.write('/qubes-netvm-gateway', str(self.gateway))
-            if self.gateway6:
+            if self.gateway6:  # pylint: disable=using-constant-test
                 self.untrusted_qdb.write('/qubes-netvm-gateway6',
                     str(self.gateway6))
             self.untrusted_qdb.write('/qubes-netvm-netmask', str(self.netmask))
@@ -2089,9 +2089,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for i, addr in zip(('primary', 'secondary'), self.dns):
                 self.untrusted_qdb.write('/qubes-{}-dns'.format(i), str(addr))
 
-            if self.visible_ip6:
+            if self.visible_ip6:  # pylint: disable=using-constant-test
                 self.untrusted_qdb.write('/qubes-ip6', str(self.visible_ip6))
-            if self.visible_gateway6:
+            if self.visible_gateway6:  # pylint: disable=using-constant-test
                 self.untrusted_qdb.write('/qubes-gateway6',
                     str(self.visible_gateway6))
 

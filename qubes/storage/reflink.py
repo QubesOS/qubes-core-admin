@@ -461,7 +461,8 @@ def _copy_file(src, dst):
                 return True
         LOGGER.info('Copying file: %s -> %s', src, tmp_io.name)
         cmd = 'cp', '--sparse=always', src, tmp_io.name
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           check=False)
         if p.returncode != 0:
             raise qubes.storage.StoragePoolException(str(p))
         return False

@@ -361,7 +361,7 @@ class DeviceCollection:
         for dev, options in devices:
             if dev in self._set and not persistent:
                 continue
-            elif dev in self._set:
+            if dev in self._set:
                 result.add(self._set.get(dev))
             elif dev not in self._set and persistent:
                 continue
