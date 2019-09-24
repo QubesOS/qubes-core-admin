@@ -16,6 +16,7 @@ disable=
   duplicate-code,
   file-ignored,
   fixme,
+  import-outside-toplevel,
   locally-disabled,
   locally-enabled,
   logging-format-interpolation,
