@@ -1,115 +1,54 @@
 [MASTER]
-
-# Specify a configuration file.
-#rcfile=
-
-# Python code to execute, usually for sys.path manipulation such as
-# pygtk.require().
-#init-hook=
-
-# Profiled execution.
-profile=no
-
-# Add files or directories to the blacklist. They should be base names, not
-# paths.
-ignore=CVS
-
-# Pickle collected data for later comparisons.
 persistent=no
-
-# List of plugins (as comma separated values of python modules names) to load,
-# usually to register additional checkers.
-#load-plugins=
-
+ignore=tests
 
 [MESSAGES CONTROL]
-
-# Enable the message, report, category or checker with the given id(s). You can
-# either give multiple identifier separated by comma (,) or put this option
-# multiple time.
-#enable=
-
-# Disable the message, report, category or checker with the given id(s). You
-# can either give multiple identifier separated by comma (,) or put this option
-# multiple time (only on the command line, not in the configuration file where
-# it should appear only once).
-
 # abstract-class-little-used: see http://www.logilab.org/ticket/111138
+# deprecated-method:
+#   enable again after disabling py-3.4.3 asyncio.ensure_future compat hack
+# not-an-iterable:
+#   a lot of false possitives for asyncio (yield from (some coroutine))
 disable=
+  abstract-class-little-used,
+  bad-continuation,
+  cyclic-import,
+  deprecated-method,
+  duplicate-code,
+  file-ignored,
+  fixme,
   locally-disabled,
   locally-enabled,
-  file-ignored,
-  duplicate-code,
+  logging-format-interpolation,
+  missing-docstring,
+  not-an-iterable,
   star-args,
-  cyclic-import,
-  abstract-class-little-used,
-  bad-continuation
-
-#
-# OTHER NICE SETS
-#
-
-# IMPORTS
-#disable=all
-#enable=
-#  cyclic-import,
-#  import-error,
-#  no-member,
-#  super-on-old-class,
-#  undefined-variable,
-#  unused-import
-
+  wrong-import-order
 
 [REPORTS]
 
 # Set the output format. Available formats are text, parseable, colorized, msvs
 # (visual studio) and html
-output-format=text
+output-format=colorized
 
-# Put messages in a separate file for each module / package specified on the
-# command line instead of printing them on stdout. Reports (if any) will be
-# written in a file name "pylint_global.[txt|html]".
-files-output=no
-
-# Tells whether to display a full report or only the messages
+#files-output=no
 reports=yes
 
-# Python expression which should return a note less than 10 (10 is the highest
-# note). You have access to the variables errors warning, statement which
-# respectively contain the number of errors / warnings messages and the total
-# number of statements analyzed. This is used by the global evaluation report
-# (RP0004).
-evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
-
-# Add a comment according to your evaluation note. This is used by the global
-# evaluation report (RP0004).
-comment=yes
-
-
 [TYPECHECK]
+ignored-classes=
+  VMProperty,
+  libvirt,libvirtError,
+  dbus,SystemBus,
+  PCIDevice
 
-# Tells whether missing members accessed in mixin class should be ignored. A
-# mixin class is detected if its name ends with "mixin" (case insensitive).
 ignore-mixin-members=yes
-
-# List of classes names for which member attributes should not be checked
-# (useful for classes with attributes dynamically set).
-#ignored-classes=
-
-# When zope mode is activated, add a predefined set of Zope acquired attributes
-# to generated-members.
-zope=no
-
-# List of members which are set dynamically and missed by pylint inference
-# system, and so shouldn't trigger E0201 when accessed. Python regular
-# expressions are accepted.
-#generated-members=
-
+generated-members=
+  iter_entry_points,
+  Element,ElementTree,QName,SubElement,fromstring,parse,tostring,
 
 [BASIC]
 
 # List of builtins function names that should not be used, separated by a comma
-bad-functions=map,filter,apply,input
+bad-functions=apply,input
 
 # Regular expression which should only match correct module names
 module-rgx=(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$
@@ -140,7 +79,7 @@ variable-rgx=[a-z_][a-z0-9_]{2,30}$
 inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=e,i,j,k,m,p,ex,Run,_,log,vm,xc,xs,ip,fd,fh,rw,st,tb
+good-names=e,i,j,k,m,p,v,ex,Run,_,log,vm,xc,xs,ip,fd,fh,rw,st,tb,cb,ff
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata
@@ -178,10 +117,6 @@ init-import=no
 # (i.e. not used).
 dummy-variables-rgx=_|dummy
 
-# List of additional names supposed to be defined in builtins. Remember that
-# you should avoid to define new builtins when possible.
-#additional-builtins=
-
 
 [SIMILARITIES]
 
@@ -207,7 +142,7 @@ valid-classmethod-first-arg=cls
 [IMPORTS]
 
 # Deprecated modules which should not be used, separated by a comma
-deprecated-modules=regsub,string,TERMIOS,Bastion,rexec
+deprecated-modules=regsub,TERMIOS,Bastion,rexec
 
 # Create a graph of every (i.e. internal and external) dependencies in the
 # given file (report RP0402 must not be disabled)
@@ -265,3 +200,4 @@ max-public-methods=100
 # "Exception"
 overgeneral-exceptions=Exception,EnvironmentError
 
+# vim: ft=conf

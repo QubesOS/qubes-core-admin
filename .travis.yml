@@ -12,7 +12,7 @@ install:
   - pip install --quiet -r ci/requirements.txt
   - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
 script:
-  - PYTHONPATH=test-packages pylint --rcfile=ci/pylintrc qubes
+  - PYTHONPATH=test-packages pylint qubes
   - ./run-tests --no-syslog
   - ~/qubes-builder/scripts/travis-build
 env:
