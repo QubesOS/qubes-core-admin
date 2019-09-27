@@ -76,7 +76,7 @@ class GrubBase(object):
         elif self.template.startswith('debian-'):
             cmd_get_kernel_version = \
                 'dpkg-query --showformat=\'${Package}\\n\' --show ' \
-                '\'linux-image-*-amd64\'|sort -n|tail -1|cut -d - -f 3-'
+                '\'linux-image-*-amd64\'|sort -V|tail -1|cut -d - -f 3-'
         else:
             raise RuntimeError("Unsupported template?!")
 
