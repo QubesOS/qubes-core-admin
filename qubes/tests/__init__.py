@@ -902,6 +902,18 @@ class SystemTestCase(QubesTestCase):
         vms = list(vms)
         if not vms:
             return
+        # workaround for https://phabricator.whonix.org/T930
+        # unregister all the VMs from sys-whonix, otherwise it will start them
+        # again (possibly in further test)
+        if 'whonix' in self.app.default_netvm.name:
+            for vm in vms:
+                try:
+                    self.loop.run_until_complete(
+                        self.app.default_netvm.run_service_for_stdio(
+                            'whonix.NewStatus+{}_shutdown'.format(vm.name)))
+                except:
+                    pass
+
         # first kill all the domains, to avoid side effects of changing netvm
         for vm in vms:
             try:
