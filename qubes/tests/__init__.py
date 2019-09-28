@@ -115,6 +115,7 @@ except OSError:
     # command not found; let's assume we're outside
     pass
 
+ha_syslog = None
 
 def skipUnlessDom0(test_item):
     '''Decorator that skips test outside dom0.
@@ -696,6 +697,15 @@ class SystemTestCase(QubesTestCase):
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
         self.remove_test_vms()
+
+        global ha_syslog
+        if ha_syslog is None:
+            ha_syslog = logging.handlers.SysLogHandler('/dev/log')
+            ha_syslog.setFormatter(
+                logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+            logging.root.addHandler(ha_syslog)
+
+        self.log.critical('starting')
 
         # need some information from the real qubes.xml - at least installed
         # templates; should not be used for testing, only to initialize self.app
