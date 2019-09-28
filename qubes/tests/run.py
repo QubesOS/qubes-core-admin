@@ -307,13 +307,6 @@ parser.add_argument('--logfile', '-o', metavar='FILE',
     action='store',
     help='if set, test run will be also logged to file')
 
-parser.add_argument('--syslog',
-    action='store_true', dest='syslog',
-    help='reenable logging to syslog')
-parser.add_argument('--no-syslog',
-    action='store_false', dest='syslog',
-    help='disable logging to syslog')
-
 parser.add_argument('--kmsg', '--very-brave-or-very-stupid',
     action='store_true', dest='kmsg',
     help='log most important things to kernel ring-buffer')
@@ -339,7 +332,6 @@ parser.set_defaults(
     failfast=False,
     loglevel='DEBUG',
     logfile=None,
-    syslog=True,
     kmsg=False,
     verbose=2,
     quiet=0)
@@ -383,12 +375,6 @@ def main(args=None):
         ha_file.setFormatter(
             logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
         logging.root.addHandler(ha_file)
-
-    if args.syslog:
-        ha_syslog = logging.handlers.SysLogHandler('/dev/log')
-        ha_syslog.setFormatter(
-            logging.Formatter('%(name)s[%(process)d]: %(message)s'))
-        logging.root.addHandler(ha_syslog)
 
     if args.kmsg:
         try:

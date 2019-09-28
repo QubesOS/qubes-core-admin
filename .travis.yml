@@ -13,7 +13,7 @@ install:
   - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
 script:
   - PYTHONPATH=test-packages pylint qubes qubespolicy
-  - ./run-tests --no-syslog
+  - ./run-tests
   - ~/qubes-builder/scripts/travis-build
 env:
  - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
