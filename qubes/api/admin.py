@@ -1130,19 +1130,20 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
 
-        if not self.dest.is_halted():
-            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+        with (yield from self.dest.startup_lock):
+            if not self.dest.is_halted():
+                raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        if self.dest.installed_by_rpm:
-            raise qubes.exc.QubesVMInUseError(self.dest, \
-                "VM installed by package manager: " + self.dest.name)
+            if self.dest.installed_by_rpm:
+                raise qubes.exc.QubesVMInUseError(self.dest,
+                    "VM installed by package manager: " + self.dest.name)
 
-        del self.app.domains[self.dest]
-        try:
-            yield from self.dest.remove_from_disk()
-        except:  # pylint: disable=bare-except
-            self.app.log.exception('Error while removing VM \'%s\' files',
-                self.dest.name)
+            del self.app.domains[self.dest]
+            try:
+                yield from self.dest.remove_from_disk()
+            except:  # pylint: disable=bare-except
+                self.app.log.exception('Error while removing VM \'%s\' files',
+                    self.dest.name)
 
         self.app.save()
 

@@ -980,6 +980,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
 
         with (yield from self.startup_lock):
+            # check if domain wasn't removed in the meantime
+            if self not in self.app.domains:
+                raise qubes.exc.QubesVMNotFoundError(self.name)
             # Intentionally not used is_running(): eliminate also "Paused",
             # "Crashed", "Halting"
             if self.get_power_state() != 'Halted':
