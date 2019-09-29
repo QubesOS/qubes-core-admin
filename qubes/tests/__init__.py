@@ -823,14 +823,15 @@ class SystemTestCase(QubesTestCase):
         app = vm.app
 
         try:
+            del app.domains[vm.qid]
+        except KeyError:
+            pass
+
+        try:
             self.loop.run_until_complete(vm.remove_from_disk())
         except:  # pylint: disable=bare-except
             pass
 
-        try:
-            del app.domains[vm.qid]
-        except KeyError:
-            pass
         vm.close()
         del vm
 
@@ -914,12 +915,18 @@ class SystemTestCase(QubesTestCase):
                 except:
                     pass
 
+        locked_vms = set()
+        # first take startup lock
+        for vm in vms:
+            self.loop.run_until_complete(vm.startup_lock.acquire())
+            locked_vms.add(vm)
+
         # first kill all the domains, to avoid side effects of changing netvm
         for vm in vms:
             try:
                 # XXX .is_running() may throw libvirtError if undefined
                 if vm.is_running():
-                    self.loop.run_until_complete(vm.kill())
+                    self.loop.run_until_complete(vm._kill_locked())
             except:  # pylint: disable=bare-except
                 pass
         # break dependencies
@@ -949,6 +956,11 @@ class SystemTestCase(QubesTestCase):
                 vms.append(vm)
                 continue
             self._remove_vm_qubes(vm)
+
+        # release startup_lock, if anything was waiting at vm.start(),
+        # it will detect the VM is gone
+        for vm in locked_vms:
+            vm.startup_lock.release()
 
     def remove_test_vms(self, xmlpath=XMLPATH, prefix=VMPREFIX):
         '''Aggressively remove any domain that has name in testing namespace.
