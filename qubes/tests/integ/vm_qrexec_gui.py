@@ -806,8 +806,11 @@ class TC_00_AppVMMixin(object):
             p = subprocess.Popen(['sudo', '-E', '-u', local_user,
                 'parecord', '-d', '0', '--raw', recorded_audio.name],
                 stdout=subprocess.PIPE)
-            self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('paplay --raw audio_in.raw'))
+            try:
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio('paplay --raw audio_in.raw'))
+            except subprocess.CalledProcessError as err:
+                self.fail('{} stderr: {}'.format(str(err), err.stderr))
             # wait for possible parecord buffering
             self.loop.run_until_complete(asyncio.sleep(1))
             p.terminate()
