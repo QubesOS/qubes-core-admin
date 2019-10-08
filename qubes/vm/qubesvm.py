@@ -246,9 +246,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             Handler for this event can be asynchronous (a coroutine).
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-start'``)
-
-            *other arguments are as in :py:meth:`start`*
+            :param event: Event name (``'domain-start-failed'``)
 
         .. event:: domain-paused (subject, event)
 
