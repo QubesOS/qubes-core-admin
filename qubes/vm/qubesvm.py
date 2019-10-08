@@ -271,6 +271,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param event: Event name (``'domain-pre-shutdown'``)
             :param force: If the shutdown is to be forceful
 
+        .. event:: domain-shutdown-failed (subject, event, reason)
+
+            Fired when ``domain-pre-shutdown`` event was sent, but the actual
+            shutdown operation failed. It can be caused by other
+            ``domain-pre-shutdown`` handler blocking the operation with an
+            exception, or a shutdown timeout.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-shutdown-failed'``)
+            :param reason: Error message
+
         .. event:: domain-cmd-pre-run (subject, event, start_guid)
 
             Fired at the beginning of :py:meth:`run_service` method.
@@ -1150,23 +1163,28 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.is_halted():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        yield from self.fire_event_async('domain-pre-shutdown', pre_event=True,
-            force=force)
+        try:
+            yield from self.fire_event_async('domain-pre-shutdown',
+                pre_event=True, force=force)
 
-        self.libvirt_domain.shutdown()
+            self.libvirt_domain.shutdown()
 
-        if wait:
-            if timeout is None:
-                timeout = self.shutdown_timeout
-            while timeout > 0 and not self.is_halted():
-                yield from asyncio.sleep(0.25)
-                timeout -= 0.25
-            with (yield from self.startup_lock):
-                if self.is_halted():
-                    # make sure all shutdown tasks are completed
-                    yield from self._ensure_shutdown_handled()
-                else:
-                    raise qubes.exc.QubesVMShutdownTimeoutError(self)
+            if wait:
+                if timeout is None:
+                    timeout = self.shutdown_timeout
+                while timeout > 0 and not self.is_halted():
+                    yield from asyncio.sleep(0.25)
+                    timeout -= 0.25
+                with (yield from self.startup_lock):
+                    if self.is_halted():
+                        # make sure all shutdown tasks are completed
+                        yield from self._ensure_shutdown_handled()
+                    else:
+                        raise qubes.exc.QubesVMShutdownTimeoutError(self)
+        except Exception as ex:
+            yield from self.fire_event_async('domain-shutdown-failed',
+                reason=str(ex))
+            raise
 
         return self
 
