@@ -1008,6 +1008,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     pre_event=True,
                     start_guid=start_guid, mem_required=mem_required)
             except Exception as exc:
+                self.log.error('Start failed: %s', str(exc))
                 yield from self.fire_event_async('domain-start-failed',
                     reason=str(exc))
                 raise
@@ -1039,6 +1040,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 yield from self.storage.start()
 
             except Exception as exc:
+                self.log.error('Start failed: %s', str(exc))
                 # let anyone receiving domain-pre-start know that startup failed
                 yield from self.fire_event_async('domain-start-failed',
                     reason=str(exc))
