@@ -417,7 +417,7 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.shutdown(force=True, wait=True))
         self.loop.run_until_complete(self.proxy.start())
         # wait for it to settle down
-        self.loop.run_until_complete(asyncio.sleep(5))
+        self.loop.run_until_complete(self.wait_for_session(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_113_reattach_after_provider_kill(self):
@@ -433,7 +433,7 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.kill())
         self.loop.run_until_complete(self.proxy.start())
         # wait for it to settle down
-        self.loop.run_until_complete(asyncio.sleep(5))
+        self.loop.run_until_complete(self.wait_for_session(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_114_reattach_after_provider_crash(self):
@@ -457,7 +457,7 @@ class VmNetworkingMixin(object):
                 'timeout waiting for crash cleanup')
         self.loop.run_until_complete(self.proxy.start())
         # wait for it to settle down
-        self.loop.run_until_complete(asyncio.sleep(5))
+        self.loop.run_until_complete(self.wait_for_session(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_200_fake_ip_simple(self):
