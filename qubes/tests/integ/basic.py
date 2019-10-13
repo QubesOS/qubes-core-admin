@@ -233,8 +233,8 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(3))
         # wait for running shutdown handler to complete
-        self.loop.run_until_complete(self.vm.startup_lock.acquire())
-        self.vm.startup_lock.release()
+        self.loop.run_until_complete(self.vm._domain_stopped_lock.acquire())
+        self.vm._domain_stopped_lock.release()
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
