@@ -1451,6 +1451,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
             'qubes.tests.integ.salt',
             'qubes.tests.integ.backup',
             'qubes.tests.integ.backupcompatibility',
+            'qubes.tests.integ.backupdispvm',
 
             # external modules
             'qubes.tests.extra',
