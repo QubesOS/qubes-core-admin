@@ -66,3 +66,10 @@ class GUI(qubes.ext.Extension):
                                            str(vm.guivm.xid))
         except AttributeError:
             vm.untrusted_qdb.write('/qubes-gui-domain-xid', '')
+
+        # Add keyboard layout from that of GuiVM
+        try:
+            kbd_layout = vm.guivm.features['keyboard-layout']
+            vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
+        except AttributeError:
+            vm.untrusted_qdb.write('/keyboard-layout', '')
