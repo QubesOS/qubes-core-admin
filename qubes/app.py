@@ -723,8 +723,8 @@ class Qubes(qubes.PropertyHolder):
     default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
                                      default=None, allow_none=True,
                                      setter=_setter_default_netvm,
-                                     doc="""Default NetVM for AppVMs. Initial 
-                                     state is `None`, which means that AppVMs 
+                                     doc="""Default NetVM for AppVMs. Initial
+                                     state is `None`, which means that AppVMs
                                      are not connected to the Internet.""")
     default_template = qubes.VMProperty('default_template', load_stage=3,
                                         vmclass=qubes.vm.templatevm.TemplateVM,
@@ -732,7 +732,7 @@ class Qubes(qubes.PropertyHolder):
                                         allow_none=True)
     updatevm = qubes.VMProperty('updatevm', load_stage=3,
                                 default=None, allow_none=True,
-                                doc="""Which VM to use as `yum` proxy for 
+                                doc="""Which VM to use as `yum` proxy for
                                 updating AdminVM and TemplateVMs""")
     clockvm = qubes.VMProperty('clockvm', load_stage=3,
                                default=None, allow_none=True,
@@ -787,15 +787,15 @@ class Qubes(qubes.PropertyHolder):
                                             load_stage=3,
                                             default=60,
                                             type=int,
-                                            doc="""Default time in seconds 
-                                            after which qrexec connection 
+                                            doc="""Default time in seconds
+                                            after which qrexec connection
                                             attempt is deemed failed""")
 
     default_shutdown_timeout = qubes.property('default_shutdown_timeout',
                                               load_stage=3,
                                               default=60,
                                               type=int,
-                                              doc="""Default time in seconds 
+                                              doc="""Default time in seconds
                                               for VM shutdown to complete""")
 
     stats_interval = qubes.property('stats_interval',

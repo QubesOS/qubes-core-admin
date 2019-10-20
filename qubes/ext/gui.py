@@ -36,6 +36,8 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler('property-set:guivm')
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+
         # Clean other 'guivm-XXX' tags.
         # gui-daemon can connect to only one domain
         tags_list = list(subject.tags)

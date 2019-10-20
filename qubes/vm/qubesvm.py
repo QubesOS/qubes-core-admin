@@ -2041,8 +2041,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 return 0
 
             # this does not work, because libvirt
-            #           return self.libvirt_domain.getCPUStats(
-            #               libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
+            # return self.libvirt_domain.getCPUStats(
+            #      libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
 
             return self.libvirt_domain.info()[4]
 
