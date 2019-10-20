@@ -716,6 +716,9 @@ class Qubes(qubes.PropertyHolder):
 
     Methods and attributes:
     """
+    default_guivm = qubes.VMProperty('default_guivm', load_stage=3,
+                                     default=None, allow_none=True,
+                                     doc='Default GuiVM for VMs.')
 
     default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
                                      default=None, allow_none=True,
@@ -963,6 +966,7 @@ class Qubes(qubes.PropertyHolder):
 
         # stage 5: misc fixups
 
+        self.property_require('default_guivm', allow_none=True)
         self.property_require('default_netvm', allow_none=True)
         self.property_require('default_template', allow_none=True)
         self.property_require('clockvm', allow_none=True)
@@ -1420,6 +1424,7 @@ class Qubes(qubes.PropertyHolder):
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument
         for propname in (
+                'default_guivm'
                 'default_netvm',
                 'default_fw_netvm',
                 'clockvm',

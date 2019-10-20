@@ -518,6 +518,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
     # properties loaded from XML
     #
+    guivm = qubes.VMProperty('guivm', load_stage=4, allow_none=True,
+                             default=(lambda self: self.app.default_guivm),
+                             doc='VM used for Gui')
 
     virt_mode = qubes.property(
         'virt_mode',

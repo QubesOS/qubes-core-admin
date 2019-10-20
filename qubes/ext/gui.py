@@ -34,6 +34,18 @@ class GUI(qubes.ext.Extension):
                               if vm.features.get('gui-seamless', False)
                               else 'FULLSCREEN'))
 
+    @qubes.ext.handler('property-set:guivm')
+    def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
+        # Clean other 'guivm-XXX' tags.
+        # gui-daemon can connect to only one domain
+        tags_list = list(subject.tags)
+        for tag in tags_list:
+            if 'guivm-' in tag:
+                subject.tags.remove(tag)
+
+        guivm = 'guivm-' + newvalue.name
+        subject.tags.add(guivm)
+
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
@@ -45,3 +57,12 @@ class GUI(qubes.ext.Extension):
                         feature))
             except KeyError:
                 pass
+
+        # Add GuiVM Xen ID for gui-daemon
+        try:
+            if vm.guivm is not None:
+                if str(vm.name) != str(vm.guivm.name):
+                    vm.untrusted_qdb.write('/qubes-gui-domain-xid',
+                                           str(vm.guivm.xid))
+        except AttributeError:
+            vm.untrusted_qdb.write('/qubes-gui-domain-xid', '')
