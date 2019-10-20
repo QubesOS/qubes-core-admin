@@ -61,17 +61,12 @@ class GUI(qubes.ext.Extension):
                 pass
 
         # Add GuiVM Xen ID for gui-daemon
-        try:
-            if vm.guivm is not None:
-                if str(vm.name) != str(vm.guivm.name):
-                    vm.untrusted_qdb.write('/qubes-gui-domain-xid',
-                                           str(vm.guivm.xid))
-        except AttributeError:
-            vm.untrusted_qdb.write('/qubes-gui-domain-xid', '')
+        if getattr(vm, 'guivm', None):
+            if vm != vm.guivm:
+                vm.untrusted_qdb.write('/qubes-gui-domain-xid',
+                                       str(vm.guivm.xid))
 
-        # Add keyboard layout from that of GuiVM
-        try:
-            kbd_layout = vm.guivm.features['keyboard-layout']
-            vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
-        except AttributeError:
-            vm.untrusted_qdb.write('/keyboard-layout', '')
+            # Add keyboard layout from that of GuiVM
+            kbd_layout = vm.guivm.features.get('keyboard-layout', None)
+            if kbd_layout:
+                vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
