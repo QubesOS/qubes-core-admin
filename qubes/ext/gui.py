@@ -30,16 +30,18 @@ class GUI(qubes.ext.Extension):
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service('qubes.SetGuiMode',
-            input=('SEAMLESS'
-            if vm.features.get('gui-seamless', False)
-            else 'FULLSCREEN'))
+                       input=('SEAMLESS'
+                              if vm.features.get('gui-seamless', False)
+                              else 'FULLSCREEN'))
 
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
         for feature in ('gui-videoram-overhead', 'gui-videoram-min'):
             try:
-                vm.untrusted_qdb.write('/qubes-{}'.format(feature),
-                    vm.features.check_with_template_and_adminvm(feature))
+                vm.untrusted_qdb.write(
+                    '/qubes-{}'.format(feature),
+                    vm.features.check_with_template_and_adminvm(
+                        feature))
             except KeyError:
                 pass
