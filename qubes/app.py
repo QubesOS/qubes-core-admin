@@ -716,101 +716,116 @@ class Qubes(qubes.PropertyHolder):
 
     Methods and attributes:
     """
-    default_guivm = qubes.VMProperty('default_guivm', load_stage=3,
-                                     default=None, allow_none=True,
-                                     doc='Default GuiVM for VMs.')
+    default_guivm = qubes.VMProperty(
+        'default_guivm',
+        load_stage=3,
+        default=None, allow_none=True,
+        doc='Default GuiVM for VMs.')
 
-    default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
-                                     default=None, allow_none=True,
-                                     setter=_setter_default_netvm,
-                                     doc="""Default NetVM for AppVMs. Initial
-                                     state is `None`, which means that AppVMs
-                                     are not connected to the Internet.""")
-    default_template = qubes.VMProperty('default_template', load_stage=3,
-                                        vmclass=qubes.vm.templatevm.TemplateVM,
-                                        doc='Default template for new AppVMs',
-                                        allow_none=True)
-    updatevm = qubes.VMProperty('updatevm', load_stage=3,
-                                default=None, allow_none=True,
-                                doc="""Which VM to use as `yum` proxy for
-                                updating AdminVM and TemplateVMs""")
-    clockvm = qubes.VMProperty('clockvm', load_stage=3,
-                               default=None, allow_none=True,
-                               doc='Which VM to use as NTP proxy for updating '
-                                   'AdminVM')
-    default_kernel = qubes.property('default_kernel', load_stage=3,
-                                    doc='Which kernel to use when not '
-                                        'overriden in VM')
-    default_dispvm = qubes.VMProperty('default_dispvm', load_stage=3,
-                                      default=None,
-                                      doc='Default DispVM base for service '
-                                          'calls',
-                                      allow_none=True)
+    default_netvm = qubes.VMProperty(
+        'default_netvm',
+        load_stage=3,
+        default=None, allow_none=True,
+        setter=_setter_default_netvm,
+        doc="""Default NetVM for AppVMs. Initial state is `None`, which means
+        that AppVMs are not connected to the Internet.""")
+    default_template = qubes.VMProperty(
+        'default_template', load_stage=3,
+        vmclass=qubes.vm.templatevm.TemplateVM,
+        doc='Default template for new AppVMs',
+        allow_none=True)
+    updatevm = qubes.VMProperty(
+        'updatevm', load_stage=3,
+        default=None, allow_none=True,
+        doc="""Which VM to use as `yum` proxy for updating AdminVM and
+        TemplateVMs""")
+    clockvm = qubes.VMProperty(
+        'clockvm', load_stage=3,
+        default=None, allow_none=True,
+        doc='Which VM to use as NTP proxy for updating '
+            'AdminVM')
+    default_kernel = qubes.property(
+        'default_kernel', load_stage=3,
+        doc='Which kernel to use when not overriden in VM')
+    default_dispvm = qubes.VMProperty(
+        'default_dispvm',
+        load_stage=3,
+        default=None,
+        doc='Default DispVM base for service calls',
+        allow_none=True)
 
-    management_dispvm = qubes.VMProperty('management_dispvm', load_stage=3,
-                                         default=None,
-                                         doc='Default DispVM base for '
-                                             'managing VMs',
-                                         allow_none=True)
+    management_dispvm = qubes.VMProperty(
+        'management_dispvm',
+        load_stage=3,
+        default=None,
+        doc='Default DispVM base for managing VMs',
+        allow_none=True)
 
-    default_pool = qubes.property('default_pool', load_stage=3,
-                                  default=_default_pool,
-                                  setter=_setter_pool,
-                                  doc='Default storage pool')
+    default_pool = qubes.property(
+        'default_pool',
+        load_stage=3,
+        default=_default_pool,
+        setter=_setter_pool,
+        doc='Default storage pool')
 
-    default_pool_private = qubes.property('default_pool_private', load_stage=3,
-                                          default=lambda app: app.default_pool,
-                                          setter=_setter_pool,
-                                          doc='Default storage pool for '
-                                              'private volumes')
+    default_pool_private = qubes.property(
+        'default_pool_private',
+        load_stage=3,
+        default=lambda app: app.default_pool,
+        setter=_setter_pool,
+        doc='Default storage pool for private volumes')
 
-    default_pool_root = qubes.property('default_pool_root', load_stage=3,
-                                       default=lambda app: app.default_pool,
-                                       setter=_setter_pool,
-                                       doc='Default storage pool for root '
-                                           'volumes')
+    default_pool_root = qubes.property(
+        'default_pool_root',
+        load_stage=3,
+        default=lambda app: app.default_pool,
+        setter=_setter_pool,
+        doc='Default storage pool for root volumes')
 
-    default_pool_volatile = qubes.property('default_pool_volatile',
-                                           load_stage=3,
-                                           default=lambda app: app.default_pool,
-                                           setter=_setter_pool,
-                                           doc='Default storage pool for '
-                                               'volatile volumes')
+    default_pool_volatile = qubes.property(
+        'default_pool_volatile',
+        load_stage=3,
+        default=lambda app: app.default_pool,
+        setter=_setter_pool,
+        doc='Default storage pool for volatile volumes')
 
-    default_pool_kernel = qubes.property('default_pool_kernel', load_stage=3,
-                                         default=lambda app: app.default_pool,
-                                         setter=_setter_pool,
-                                         doc='Default storage pool for kernel '
-                                             'volumes')
+    default_pool_kernel = qubes.property(
+        'default_pool_kernel',
+        load_stage=3,
+        default=lambda app: app.default_pool,
+        setter=_setter_pool,
+        doc='Default storage pool for kernel volumes')
 
-    default_qrexec_timeout = qubes.property('default_qrexec_timeout',
-                                            load_stage=3,
-                                            default=60,
-                                            type=int,
-                                            doc="""Default time in seconds
-                                            after which qrexec connection
-                                            attempt is deemed failed""")
+    default_qrexec_timeout = qubes.property(
+        'default_qrexec_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc="""Default time in seconds after which qrexec connection attempt
+        is deemed failed""")
 
-    default_shutdown_timeout = qubes.property('default_shutdown_timeout',
-                                              load_stage=3,
-                                              default=60,
-                                              type=int,
-                                              doc="""Default time in seconds
-                                              for VM shutdown to complete""")
+    default_shutdown_timeout = qubes.property(
+        'default_shutdown_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc="""Default time in seconds for VM shutdown to complete""")
 
-    stats_interval = qubes.property('stats_interval',
-                                    load_stage=3,
-                                    default=3,
-                                    type=int,
-                                    doc='Interval in seconds for VM stats '
-                                        'reporting (memory, CPU usage)')
+    stats_interval = qubes.property(
+        'stats_interval',
+        load_stage=3,
+        default=3,
+        type=int,
+        doc='Interval in seconds for VM stats reporting (memory, CPU usage)')
 
     # TODO #1637 #892
-    check_updates_vm = qubes.property('check_updates_vm',
-                                      type=bool, setter=qubes.property.bool,
-                                      load_stage=3,
-                                      default=True,
-                                      doc='check for updates inside qubes')
+    check_updates_vm = qubes.property(
+        'check_updates_vm',
+        type=bool,
+        setter=qubes.property.bool,
+        load_stage=3,
+        default=True,
+        doc='Check for updates inside qubes')
 
     def __init__(self, store=None, load=True, offline_mode=None, lock=False,
                  **kwargs):
