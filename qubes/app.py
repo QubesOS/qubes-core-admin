@@ -66,7 +66,10 @@ import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
+
+
 # pylint: enable=wrong-import-position
+
 
 class VirDomainWrapper:
     # pylint: disable=too-few-public-methods
@@ -103,6 +106,7 @@ class VirDomainWrapper:
                 if self._reconnect_if_dead():
                     return getattr(self._vm, attrname)(*args, **kwargs)
                 raise
+
         return wrapper
 
 
@@ -145,24 +149,25 @@ class VirConnectWrapper:
                     return self._wrap_domain(
                         getattr(self._conn, attrname)(*args, **kwargs))
                 raise
+
         return wrapper
 
 
 class VMMConnection:
-    '''Connection to Virtual Machine Manager (libvirt)'''
+    """Connection to Virtual Machine Manager (libvirt)"""
 
     def __init__(self, offline_mode=None, libvirt_reconnect_cb=None):
-        '''
+        """
 
         :param offline_mode: enable/disable offline mode; default is to
         enable when running in chroot as root, otherwise disable
         :param libvirt_reconnect_cb: callable to be called when connection to
         libvirt is re-established; the callback is called with old connection
         as argument
-        '''
+        """
         if offline_mode is None:
             offline_mode = bool(os.getuid() == 0 and
-                os.stat('/') != os.stat('/proc/1/root/.'))
+                                os.stat('/') != os.stat('/proc/1/root/.'))
         self._offline_mode = offline_mode
         self._libvirt_reconnect_cb = libvirt_reconnect_cb
 
@@ -172,16 +177,16 @@ class VMMConnection:
 
     @property
     def offline_mode(self):
-        '''Check or enable offline mode (do not actually connect to vmm)'''
+        """Check or enable offline mode (do not actually connect to vmm)"""
         return self._offline_mode
 
     def _libvirt_error_handler(self, ctx, error):
         pass
 
     def init_vmm_connection(self):
-        '''Initialise connection
+        """Initialise connection
 
-        This method is automatically called when getting'''
+        This method is automatically called when getting"""
         if self._libvirt_conn is not None:
             # Already initialized
             return
@@ -201,16 +206,16 @@ class VMMConnection:
 
     @property
     def libvirt_conn(self):
-        '''Connection to libvirt'''
+        """Connection to libvirt"""
         self.init_vmm_connection()
         return self._libvirt_conn
 
     @property
     def xs(self):
-        '''Connection to Xen Store
+        """Connection to Xen Store
 
         This property in available only when running on Xen.
-        '''
+        """
 
         # XXX what about the case when we run under KVM,
         # but xen modules are importable?
@@ -223,10 +228,10 @@ class VMMConnection:
 
     @property
     def xc(self):
-        '''Connection to Xen
+        """Connection to Xen
 
         This property in available only when running on Xen.
-        '''
+        """
 
         # XXX what about the case when we run under KVM,
         # but xen modules are importable?
@@ -249,18 +254,17 @@ class VMMConnection:
 
 
 class QubesHost:
-    '''Basic information about host machine
+    """Basic information about host machine
 
     :param qubes.Qubes app: Qubes application context (must have \
         :py:attr:`Qubes.vmm` attribute defined)
-    '''
+    """
 
     def __init__(self, app):
         self.app = app
         self._no_cpus = None
         self._total_mem = None
         self._physinfo = None
-
 
     def _fetch(self):
         if self._no_cpus is not None:
@@ -280,20 +284,18 @@ class QubesHost:
         except NotImplementedError:
             pass
 
-
     @property
     def memory_total(self):
-        '''Total memory, in kbytes'''
+        """Total memory, in kbytes"""
 
         if self.app.vmm.offline_mode:
-            return 2**64-1
+            return 2 ** 64 - 1
         self._fetch()
         return self._total_mem
 
-
     @property
     def no_cpus(self):
-        '''Number of CPUs'''
+        """Number of CPUs"""
 
         if self.app.vmm.offline_mode:
             return 42
@@ -301,21 +303,19 @@ class QubesHost:
         self._fetch()
         return self._no_cpus
 
-
     def get_free_xen_memory(self):
-        '''Get free memory from Xen's physinfo.
+        """Get free memory from Xen's physinfo.
 
         :raises NotImplementedError: when not under Xen
-        '''
+        """
         try:
             self._physinfo = self.app.xc.physinfo()
         except AttributeError:
             raise NotImplementedError('This function requires Xen hypervisor')
         return int(self._physinfo['free_memory'])
 
-
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
-        '''Measure cpu usage for all domains at once.
+        """Measure cpu usage for all domains at once.
 
         If previous measurements are given, CPU usage will be given in
         percents of time. Otherwise only absolute value (seconds).
@@ -339,7 +339,7 @@ class QubesHost:
         :param only_vm: get measurements only for this VM
 
         :raises NotImplementedError: when not under Xen
-        '''
+        """
 
         if (previous_time is None) != (previous is None):
             raise ValueError(
@@ -382,65 +382,59 @@ class QubesHost:
             current[domid]['cpu_usage'] = \
                 int(current[domid]['cpu_usage_raw'] / vcpus)
 
-        return (current_time, current)
+        return current_time, current
 
 
 class VMCollection:
-    '''A collection of Qubes VMs
+    """A collection of Qubes VMs
 
     VMCollection supports ``in`` operator. You may test for ``qid``, ``name``
     and whole VM object's presence.
 
     Iterating over VMCollection will yield machine objects.
-    '''
+    """
 
     def __init__(self, app):
         self.app = app
         self._dict = dict()
-
 
     def close(self):
         del self.app
         self._dict.clear()
         del self._dict
 
-
     def __repr__(self):
         return '<{} {!r}>'.format(
             self.__class__.__name__, list(sorted(self.keys())))
 
-
     def items(self):
-        '''Iterate over ``(qid, vm)`` pairs'''
+        """Iterate over ``(qid, vm)`` pairs"""
         for qid in self.qids():
             yield (qid, self[qid])
 
-
     def qids(self):
-        '''Iterate over all qids
+        """Iterate over all qids
 
         qids are sorted by numerical order.
-        '''
+        """
 
         return iter(sorted(self._dict.keys()))
 
     keys = qids
 
-
     def names(self):
-        '''Iterate over all names
+        """Iterate over all names
 
         names are sorted by lexical order.
-        '''
+        """
 
         return iter(sorted(vm.name for vm in self._dict.values()))
 
-
     def vms(self):
-        '''Iterate over all machines
+        """Iterate over all machines
 
         vms are sorted by qid.
-        '''
+        """
 
         return iter(sorted(self._dict.values()))
 
@@ -448,12 +442,13 @@ class VMCollection:
     values = vms
 
     def add(self, value, _enable_events=True):
-        '''Add VM to collection
+        """Add VM to collection
 
         :param qubes.vm.BaseVM value: VM to add
+        :param _enable_events:
         :raises TypeError: when value is of wrong type
         :raises ValueError: when there is already VM which has equal ``qid``
-        '''
+        """
 
         # this violates duck typing, but is needed
         # for VMProperty to function correctly
@@ -463,11 +458,11 @@ class VMCollection:
 
         if value.qid in self:
             raise ValueError('This collection already holds VM that has '
-                'qid={!r} ({!r})'.format(value.qid, self[value.qid]))
+                             'qid={!r} ({!r})'.format(value.qid,
+                                                      self[value.qid]))
         if value.name in self:
-
             raise ValueError('A VM named {!s} already exists'
-                .format(value.name))
+                             .format(value.name))
 
         self._dict[value.qid] = value
         if _enable_events:
@@ -518,24 +513,21 @@ class VMCollection:
         return any((key in (vm, vm.qid, vm.name))
                    for vm in self)
 
-
     def __len__(self):
         return len(self._dict)
-
 
     def get_vms_based_on(self, template):
         template = self[template]
         return set(vm for vm in self
-            if hasattr(vm, 'template') and vm.template == template)
-
+                   if hasattr(vm, 'template') and vm.template == template)
 
     def get_vms_connected_to(self, netvm):
-        new_vms = set([self[netvm]])
+        new_vms = {self[netvm]}
         dependent_vms = set()
 
         # Dependency resolving only makes sense on NetVM (or derivative)
-#       if not self[netvm_qid].is_netvm():
-#           return set([])
+        #       if not self[netvm_qid].is_netvm():
+        #           return set([])
 
         while new_vms:
             cur_vm = new_vms.pop()
@@ -543,11 +535,10 @@ class VMCollection:
                 if vm in dependent_vms:
                     continue
                 dependent_vms.add(vm)
-#               if vm.is_netvm():
+                #               if vm.is_netvm():
                 new_vms.add(vm)
 
         return dependent_vms
-
 
     # XXX with Qubes Admin Api this will probably lead to race condition
     # whole process of creating and adding should be synchronised
@@ -558,25 +549,25 @@ class VMCollection:
                 return i
         raise LookupError("Cannot find unused qid!")
 
-
     def get_new_unused_dispid(self):
         for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
             if not any(getattr(vm, 'dispid', None) == dispid for vm in self):
                 return dispid
         raise LookupError((
-            'https://xkcd.com/221/',
-            'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
+                              'https://xkcd.com/221/',
+                              'http://dilbert.com/strip/2001-10-25')[
+                              random.randint(0, 1)])
 
 
 def _default_pool(app):
-    ''' Default storage pool.
+    """ Default storage pool.
 
     1. If there is one named 'default', use it.
     2. Check if root fs is on LVM thin - use that
     3. Look for file(-reflink)-based pool pointing to /var/lib/qubes
     4. Fail
-    '''
+    """
     if 'default' in app.pools:
         return app.pools['default']
 
@@ -595,7 +586,7 @@ def _default_pool(app):
             if pool.config.get('driver', None) != 'lvm_thin':
                 continue
             if (pool.config['volume_group'] == root_volume_group and
-                pool.config['thin_pool'] == root_thin_pool):
+                    pool.config['thin_pool'] == root_thin_pool):
                 return pool
 
     # not a thin volume? look for file pools
@@ -606,6 +597,7 @@ def _default_pool(app):
             return pool
     raise AttributeError('Cannot determine default storage pool')
 
+
 def _setter_pool(app, prop, value):
     if isinstance(value, qubes.storage.Pool):
         return value
@@ -613,7 +605,8 @@ def _setter_pool(app, prop, value):
         return app.pools[value]
     except KeyError:
         raise qubes.exc.QubesPropertyValueError(app, prop, value,
-            'No such storage pool')
+                                                'No such storage pool')
+
 
 def _setter_default_netvm(app, prop, value):
     # skip netvm loop check while loading qubes.xml, to avoid tricky loading
@@ -631,13 +624,13 @@ def _setter_default_netvm(app, prop, value):
             continue
         if value == vm \
                 or value in app.domains.get_vms_connected_to(vm):
-            raise qubes.exc.QubesPropertyValueError(app, prop, value,
-                'Network loop on \'{!s}\''.format(vm))
+            raise qubes.exc.QubesPropertyValueError(
+                app, prop, value, 'Network loop on \'{!s}\''.format(vm))
     return value
 
 
 class Qubes(qubes.PropertyHolder):
-    '''Main Qubes application
+    """Main Qubes application
 
     :param str store: path to ``qubes.xml``
 
@@ -722,88 +715,120 @@ class Qubes(qubes.PropertyHolder):
             :param pool: Pool object
 
     Methods and attributes:
-    '''
+    """
+    default_guivm = qubes.VMProperty(
+        'default_guivm',
+        load_stage=3,
+        default=None, allow_none=True,
+        doc='Default GuiVM for VMs.')
 
-    default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
+    default_netvm = qubes.VMProperty(
+        'default_netvm',
+        load_stage=3,
         default=None, allow_none=True,
         setter=_setter_default_netvm,
-        doc='''Default NetVM for AppVMs. Initial state is `None`, which means
-            that AppVMs are not connected to the Internet.''')
-    default_template = qubes.VMProperty('default_template', load_stage=3,
+        doc="""Default NetVM for AppVMs. Initial state is `None`, which means
+        that AppVMs are not connected to the Internet.""")
+    default_template = qubes.VMProperty(
+        'default_template', load_stage=3,
         vmclass=qubes.vm.templatevm.TemplateVM,
         doc='Default template for new AppVMs',
         allow_none=True)
-    updatevm = qubes.VMProperty('updatevm', load_stage=3,
+    updatevm = qubes.VMProperty(
+        'updatevm', load_stage=3,
         default=None, allow_none=True,
-        doc='''Which VM to use as `yum` proxy for updating AdminVM and
-            TemplateVMs''')
-    clockvm = qubes.VMProperty('clockvm', load_stage=3,
+        doc="""Which VM to use as `yum` proxy for updating AdminVM and
+        TemplateVMs""")
+    clockvm = qubes.VMProperty(
+        'clockvm', load_stage=3,
         default=None, allow_none=True,
-        doc='Which VM to use as NTP proxy for updating AdminVM')
-    default_kernel = qubes.property('default_kernel', load_stage=3,
+        doc='Which VM to use as NTP proxy for updating '
+            'AdminVM')
+    default_kernel = qubes.property(
+        'default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
-    default_dispvm = qubes.VMProperty('default_dispvm', load_stage=3,
+    default_dispvm = qubes.VMProperty(
+        'default_dispvm',
+        load_stage=3,
         default=None,
-        doc='Default DispVM base for service calls', allow_none=True)
+        doc='Default DispVM base for service calls',
+        allow_none=True)
 
-    management_dispvm = qubes.VMProperty('management_dispvm', load_stage=3,
+    management_dispvm = qubes.VMProperty(
+        'management_dispvm',
+        load_stage=3,
         default=None,
-        doc='Default DispVM base for managing VMs', allow_none=True)
+        doc='Default DispVM base for managing VMs',
+        allow_none=True)
 
-    default_pool = qubes.property('default_pool', load_stage=3,
+    default_pool = qubes.property(
+        'default_pool',
+        load_stage=3,
         default=_default_pool,
         setter=_setter_pool,
         doc='Default storage pool')
 
-    default_pool_private = qubes.property('default_pool_private', load_stage=3,
+    default_pool_private = qubes.property(
+        'default_pool_private',
+        load_stage=3,
         default=lambda app: app.default_pool,
         setter=_setter_pool,
         doc='Default storage pool for private volumes')
 
-    default_pool_root = qubes.property('default_pool_root', load_stage=3,
+    default_pool_root = qubes.property(
+        'default_pool_root',
+        load_stage=3,
         default=lambda app: app.default_pool,
         setter=_setter_pool,
         doc='Default storage pool for root volumes')
 
-    default_pool_volatile = qubes.property('default_pool_volatile',
+    default_pool_volatile = qubes.property(
+        'default_pool_volatile',
         load_stage=3,
         default=lambda app: app.default_pool,
         setter=_setter_pool,
         doc='Default storage pool for volatile volumes')
 
-    default_pool_kernel = qubes.property('default_pool_kernel', load_stage=3,
+    default_pool_kernel = qubes.property(
+        'default_pool_kernel',
+        load_stage=3,
         default=lambda app: app.default_pool,
         setter=_setter_pool,
         doc='Default storage pool for kernel volumes')
 
-    default_qrexec_timeout = qubes.property('default_qrexec_timeout',
+    default_qrexec_timeout = qubes.property(
+        'default_qrexec_timeout',
         load_stage=3,
         default=60,
         type=int,
-        doc='''Default time in seconds after which qrexec connection attempt is
-            deemed failed''')
+        doc="""Default time in seconds after which qrexec connection attempt
+        is deemed failed""")
 
-    default_shutdown_timeout = qubes.property('default_shutdown_timeout',
+    default_shutdown_timeout = qubes.property(
+        'default_shutdown_timeout',
         load_stage=3,
         default=60,
         type=int,
-        doc='''Default time in seconds for VM shutdown to complete''')
+        doc="""Default time in seconds for VM shutdown to complete""")
 
-    stats_interval = qubes.property('stats_interval',
+    stats_interval = qubes.property(
+        'stats_interval',
         load_stage=3,
         default=3,
         type=int,
         doc='Interval in seconds for VM stats reporting (memory, CPU usage)')
 
     # TODO #1637 #892
-    check_updates_vm = qubes.property('check_updates_vm',
-        type=bool, setter=qubes.property.bool,
+    check_updates_vm = qubes.property(
+        'check_updates_vm',
+        type=bool,
+        setter=qubes.property.bool,
         load_stage=3,
         default=True,
-        doc='check for updates inside qubes')
+        doc='Check for updates inside qubes')
 
     def __init__(self, store=None, load=True, offline_mode=None, lock=False,
-            **kwargs):
+                 **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
         self.log.debug('init() -> %#x', id(self))
@@ -823,7 +848,8 @@ class Qubes(qubes.PropertyHolder):
         self.pools = {}
 
         #: Connection to VMM
-        self.vmm = VMMConnection(offline_mode=offline_mode,
+        self.vmm = VMMConnection(
+            offline_mode=offline_mode,
             libvirt_reconnect_cb=self.register_event_handlers)
 
         #: Information about host system
@@ -833,9 +859,10 @@ class Qubes(qubes.PropertyHolder):
             self._store = store
         else:
             self._store = os.environ.get('QUBES_XML_PATH',
-                os.path.join(
-                    qubes.config.qubes_base_dir,
-                    qubes.config.system_path['qubes_store_filename']))
+                                         os.path.join(
+                                             qubes.config.qubes_base_dir,
+                                             qubes.config.system_path[
+                                                 'qubes_store_filename']))
 
         super(Qubes, self).__init__(xml=None, **kwargs)
 
@@ -861,7 +888,7 @@ class Qubes(qubes.PropertyHolder):
         return self._store
 
     def _migrate_global_properties(self):
-        '''Migrate renamed/dropped properties'''
+        """Migrate renamed/dropped properties"""
         if self.xml is None:
             return
 
@@ -893,7 +920,7 @@ class Qubes(qubes.PropertyHolder):
                         # value behind user's back) is worse
                         properties = vm.xml.find('./properties')
                         element = lxml.etree.Element('property',
-                            name='netvm')
+                                                     name='netvm')
                         element.text = default_fw_netvm.name
                         # manipulate xml directly, before loading netvm
                         # property, to avoid hitting netvm loop detection
@@ -905,12 +932,12 @@ class Qubes(qubes.PropertyHolder):
             node_default_fw_netvm.getparent().remove(node_default_fw_netvm)
 
     def load(self, lock=False):
-        '''Open qubes.xml
+        """Open qubes.xml
 
         :throws EnvironmentError: failure on parsing store
         :throws xml.parsers.expat.ExpatError: failure on parsing store
         :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
-        '''
+        """
 
         fh = self._acquire_lock()
         self.xml = lxml.etree.parse(fh)
@@ -954,6 +981,7 @@ class Qubes(qubes.PropertyHolder):
 
         # stage 5: misc fixups
 
+        self.property_require('default_guivm', allow_none=True)
         self.property_require('default_netvm', allow_none=True)
         self.property_require('default_template', allow_none=True)
         self.property_require('clockvm', allow_none=True)
@@ -969,7 +997,6 @@ class Qubes(qubes.PropertyHolder):
 
         if not lock:
             self._release_lock()
-
 
     def __xml__(self):
         element = lxml.etree.Element('qubes')
@@ -997,7 +1024,7 @@ class Qubes(qubes.PropertyHolder):
         return type(self).__name__
 
     def save(self, lock=True):
-        '''Save all data to qubes.xml
+        """Save all data to qubes.xml
 
         There are several problems with saving :file:`qubes.xml` which must be
         mitigated:
@@ -1009,7 +1036,7 @@ class Qubes(qubes.PropertyHolder):
 
         :param bool lock: keep file locked after saving
         :throws EnvironmentError: failure on saving
-        '''
+        """
 
         if not self.__locked_fh:
             self._acquire_lock(for_save=True)
@@ -1039,11 +1066,10 @@ class Qubes(qubes.PropertyHolder):
         if not lock:
             self._release_lock()
 
-
     def close(self):
-        '''Deconstruct the object and break circular references
+        """Deconstruct the object and break circular references
 
-        After calling this the object is unusable, not even for saving.'''
+        After calling this the object is unusable, not even for saving."""
 
         self.log.debug('close() <- %#x', id(self))
         for frame in traceback.extract_stack():
@@ -1073,14 +1099,13 @@ class Qubes(qubes.PropertyHolder):
         if self.__locked_fh:
             self._release_lock()
 
-
     def _acquire_lock(self, for_save=False):
         assert self.__locked_fh is None, 'double lock'
 
         while True:
             try:
                 fd = os.open(self._store,
-                    os.O_RDWR | (os.O_CREAT * int(for_save)))
+                             os.O_RDWR | (os.O_CREAT * int(for_save)))
             except FileNotFoundError:
                 if not for_save:
                     raise qubes.exc.QubesException(
@@ -1116,7 +1141,6 @@ class Qubes(qubes.PropertyHolder):
         self.__locked_fh = os.fdopen(fd, 'r+b')
         return self.__locked_fh
 
-
     def _release_lock(self):
         assert self.__locked_fh is not None, 'double release'
 
@@ -1124,7 +1148,6 @@ class Qubes(qubes.PropertyHolder):
         # before all buffers are flushed
         self.__locked_fh.close()
         self.__locked_fh = None
-
 
     def load_initial_values(self):
         self.labels = {
@@ -1181,12 +1204,11 @@ class Qubes(qubes.PropertyHolder):
 
         return self
 
-
     def xml_labels(self):
-        '''Serialise labels
+        """Serialise labels
 
         :rtype: lxml.etree._Element
-        '''
+        """
 
         labels = lxml.etree.Element('labels')
         for label in sorted(self.labels.values(), key=lambda labl: labl.index):
@@ -1195,14 +1217,14 @@ class Qubes(qubes.PropertyHolder):
 
     @staticmethod
     def get_vm_class(clsname):
-        '''Find the class for a domain.
+        """Find the class for a domain.
 
         Classes are registered as setuptools' entry points in ``qubes.vm``
         group. Any package may supply their own classes.
 
         :param str clsname: name of the class
         :return type: class
-        '''
+        """
 
         try:
             return qubes.utils.get_entry_point_one(
@@ -1213,9 +1235,9 @@ class Qubes(qubes.PropertyHolder):
         # don't catch TypeError
 
     def add_new_vm(self, cls, qid=None, **kwargs):
-        '''Add new Virtual Machine to collection
+        """Add new Virtual Machine to collection
 
-        '''
+        """
 
         if qid is None:
             qid = self.domains.get_new_unused_qid()
@@ -1239,10 +1261,10 @@ class Qubes(qubes.PropertyHolder):
         return self.domains.add(cls(self, None, qid=qid, **kwargs))
 
     def get_label(self, label):
-        '''Get label as identified by index or name
+        """Get label as identified by index or name
 
         :throws KeyError: when label is not found
-        '''
+        """
 
         # first search for index, verbatim
         try:
@@ -1290,27 +1312,27 @@ class Qubes(qubes.PropertyHolder):
         try:
             pool = self.pools[name]
             volumes = [(vm, volume) for vm in self.domains
-                for volume in vm.volumes.values()
-                    if volume.pool is pool]
+                       for volume in vm.volumes.values()
+                       if volume.pool is pool]
             if volumes:
                 raise qubes.exc.QubesPoolInUseError(pool)
             prop_suffixes = ['', '_kernel', '_private', '_root', '_volatile']
             for suffix in prop_suffixes:
                 if getattr(self, 'default_pool' + suffix, None) is pool:
-                    raise qubes.exc.QubesPoolInUseError(pool,
-                        'Storage pool is in use: set as {}'.format(
-                            'default_pool' + suffix))
+                    raise qubes.exc.QubesPoolInUseError(
+                        pool,
+                        'Storage pool is in use: '
+                        'set as {}'.format('default_pool' + suffix))
             yield from self.fire_event_async('pool-pre-delete',
-                pre_event=True, pool=pool)
+                                             pre_event=True, pool=pool)
             del self.pools[name]
             yield from qubes.utils.coro_maybe(pool.destroy())
             yield from self.fire_event_async('pool-delete', pool=pool)
         except KeyError:
             return
 
-
     def get_pool(self, pool):
-        '''  Returns a :py:class:`qubes.storage.Pool` instance '''
+        """  Returns a :py:class:`qubes.storage.Pool` instance """
         if isinstance(pool, qubes.storage.Pool):
             return pool
         try:
@@ -1341,10 +1363,10 @@ class Qubes(qubes.PropertyHolder):
                                            (driver, name))
 
     def register_event_handlers(self, old_connection=None):
-        '''Register libvirt event handlers, which will translate libvirt
+        """Register libvirt event handlers, which will translate libvirt
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
-        '''
+        """
         if old_connection:
             try:
                 old_connection.domainEventDeregisterAny(
@@ -1361,9 +1383,9 @@ class Qubes(qubes.PropertyHolder):
                 None))
 
     def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
-        '''Generic libvirt event handler (virConnectDomainEventCallback),
+        """Generic libvirt event handler (virConnectDomainEventCallback),
         translate libvirt event into qubes.events.
-        '''
+        """
         if not self.events_enabled:
             return
 
@@ -1404,9 +1426,12 @@ class Qubes(qubes.PropertyHolder):
                         self.log.error(
                             'Cannot remove %s, used by %s.%s',
                             vm, obj, prop.__name__)
-                        raise qubes.exc.QubesVMInUseError(vm, 'Domain is in '
-                        'use: {!r}; see /var/log/qubes/qubes.log in dom0 for '
-                        'details'.format(vm.name))
+                        raise qubes.exc.QubesVMInUseError(
+                            vm,
+                            'Domain is in use: {!r};'
+                            'see /var/log/qubes/qubes.log in dom0 for '
+                            'details'.format(
+                                vm.name))
                 except AttributeError:
                     pass
 
@@ -1414,18 +1439,18 @@ class Qubes(qubes.PropertyHolder):
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument
         for propname in (
+                'default_guivm'
                 'default_netvm',
                 'default_fw_netvm',
                 'clockvm',
                 'updatevm',
                 'default_template',
-                ):
+        ):
             try:
                 if getattr(self, propname) == vm:
                     delattr(self, propname)
             except AttributeError:
                 pass
-
 
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
@@ -1443,19 +1468,20 @@ class Qubes(qubes.PropertyHolder):
 
     @qubes.events.handler('property-pre-set:default_netvm')
     def on_property_pre_set_default_netvm(self, event, name, newvalue,
-            oldvalue=None):
+                                          oldvalue=None):
         # pylint: disable=unused-argument,invalid-name
         if newvalue is not None and oldvalue is not None \
                 and oldvalue.is_running() and not newvalue.is_running() \
                 and self.domains.get_vms_connected_to(oldvalue):
-            raise qubes.exc.QubesVMNotRunningError(newvalue,
+            raise qubes.exc.QubesVMNotRunningError(
+                newvalue,
                 'Cannot change {!r} to domain that '
-                'is not running ({!r}).'.format(name, newvalue.name))
-
+                'is not running ({!r}).'.format(
+                    name, newvalue.name))
 
     @qubes.events.handler('property-set:default_fw_netvm')
     def on_property_set_default_fw_netvm(self, event, name, newvalue,
-            oldvalue=None):
+                                         oldvalue=None):
         # pylint: disable=unused-argument,invalid-name
         for vm in self.domains:
             if hasattr(vm, 'provides_network') and vm.provides_network and \
@@ -1463,14 +1489,13 @@ class Qubes(qubes.PropertyHolder):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-pre-del:netvm', pre_event=True,
-                    name='netvm', oldvalue=oldvalue)
+                              name='netvm', oldvalue=oldvalue)
                 vm.fire_event('property-del:netvm',
-                    name='netvm', oldvalue=oldvalue)
-
+                              name='netvm', oldvalue=oldvalue)
 
     @qubes.events.handler('property-set:default_netvm')
     def on_property_set_default_netvm(self, event, name, newvalue,
-            oldvalue=None):
+                                      oldvalue=None):
         # pylint: disable=unused-argument
         for vm in self.domains:
             if hasattr(vm, 'provides_network') and not vm.provides_network and \
@@ -1478,6 +1503,6 @@ class Qubes(qubes.PropertyHolder):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-pre-del:netvm', pre_event=True,
-                    name='netvm', oldvalue=oldvalue)
+                              name='netvm', oldvalue=oldvalue)
                 vm.fire_event('property-del:netvm',
-                    name='netvm', oldvalue=oldvalue)
+                              name='netvm', oldvalue=oldvalue)

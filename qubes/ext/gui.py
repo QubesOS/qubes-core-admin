@@ -30,16 +30,43 @@ class GUI(qubes.ext.Extension):
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service('qubes.SetGuiMode',
-            input=('SEAMLESS'
-            if vm.features.get('gui-seamless', False)
-            else 'FULLSCREEN'))
+                       input=('SEAMLESS'
+                              if vm.features.get('gui-seamless', False)
+                              else 'FULLSCREEN'))
+
+    @qubes.ext.handler('property-set:guivm')
+    def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+
+        # Clean other 'guivm-XXX' tags.
+        # gui-daemon can connect to only one domain
+        tags_list = list(subject.tags)
+        for tag in tags_list:
+            if 'guivm-' in tag:
+                subject.tags.remove(tag)
+
+        guivm = 'guivm-' + newvalue.name
+        subject.tags.add(guivm)
 
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
         for feature in ('gui-videoram-overhead', 'gui-videoram-min'):
             try:
-                vm.untrusted_qdb.write('/qubes-{}'.format(feature),
-                    vm.features.check_with_template_and_adminvm(feature))
+                vm.untrusted_qdb.write(
+                    '/qubes-{}'.format(feature),
+                    vm.features.check_with_template_and_adminvm(
+                        feature))
             except KeyError:
                 pass
+
+        # Add GuiVM Xen ID for gui-daemon
+        if getattr(vm, 'guivm', None):
+            if vm != vm.guivm:
+                vm.untrusted_qdb.write('/qubes-gui-domain-xid',
+                                       str(vm.guivm.xid))
+
+            # Add keyboard layout from that of GuiVM
+            kbd_layout = vm.guivm.features.get('keyboard-layout', None)
+            if kbd_layout:
+                vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
