@@ -207,8 +207,8 @@ class ThinPool(qubes.storage.Pool):
             metadata_usage = qubes.storage.lvm.size_cache[
                 self.volume_group + '/' + self.thin_pool]['metadata_usage']
         except KeyError:
-            metadata_size = None
-            metadata_usage = None
+            metadata_size = 0
+            metadata_usage = 0
         result['metadata_size'] = metadata_size
         result['metadata_usage'] = metadata_usage
 
