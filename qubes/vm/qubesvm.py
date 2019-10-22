@@ -605,15 +605,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='Default user to start applications as. TemplateBasedVMs use its '
             'template\'s value by default.')
 
-    # pylint: enable=no-member
-
-    #   @property
-    #   def default_user(self):
-    #       if self.template is not None:
-    #           return self.template.default_user
-    #       else:
-    #           return self._default_user
-
     qrexec_timeout = qubes.property(
         'qrexec_timeout', type=int,
         default=_default_with_template(
