@@ -3,7 +3,7 @@ import:
     mode: deep_merge_prepend
   - source: QubesOS/qubes-continuous-integration:R4.0/travis-dom0-r4.0.yml
 python:
-  - '3.5'
+  - '3.6'
 language: python
 virtualenv:
   system_site_packages: true
