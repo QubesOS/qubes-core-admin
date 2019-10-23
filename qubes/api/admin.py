@@ -622,6 +622,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(pool=pool)
 
         other_info = ''
+        # Deprecated: remove this when all tools using this call are updated
         pool_size = pool.size
         if pool_size is not None:
             other_info += 'size={}\n'.format(pool_size)
@@ -640,6 +641,26 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return ''.join('{}={}\n'.format(prop, val)
             for prop, val in sorted(pool.config.items())) + \
             other_info
+
+    @qubes.api.method('admin.pool.UsageDetails', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def pool_usage(self):
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.arg in self.app.pools.keys())
+
+        pool = self.app.pools[self.arg]
+
+        self.fire_event_for_permission(pool=pool)
+
+        usage = ''
+
+        pool_details = pool.usage_details
+
+        for name in sorted(pool_details):
+            usage += '{}={}\n'.format(name, pool_details[name])
+
+        return usage
 
     @qubes.api.method('admin.pool.Add',
         scope='global', write=True)

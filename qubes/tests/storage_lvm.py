@@ -997,6 +997,38 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertNotIn(volume1, list(self.pool.volumes))
         self.assertNotIn(volume1, list(self.pool.volumes))
 
+    def test_110_metadata_size(self):
+        with self.assertNotRaises(NotImplementedError):
+            usage = self.pool.usage_details
+
+        metadata_size = usage['metadata_size']
+        environ = os.environ.copy()
+        environ['LC_ALL'] = 'C.utf8'
+        pool_size = subprocess.check_output(['sudo', 'lvs', '--noheadings',
+                                             '-o', 'lv_metadata_size',
+                                             '--units', 'b',
+                                             self.pool.volume_group + '/' + self.pool.thin_pool],
+                                            env=environ)
+        self.assertEqual(metadata_size, int(pool_size.strip()[:-1]))
+
+    def test_111_metadata_usage(self):
+        with self.assertNotRaises(NotImplementedError):
+            usage = self.pool.usage_details
+
+        metadata_usage = usage['metadata_usage']
+        environ = os.environ.copy()
+        environ['LC_ALL'] = 'C.utf8'
+
+        pool_info = subprocess.check_output(['sudo', 'lvs', '--noheadings',
+            '-o', 'lv_metadata_size,metadata_percent',
+            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool],
+            env=environ)
+        pool_size, pool_usage = pool_info.strip().split()
+        pool_size = int(pool_size[:-1])
+        pool_usage = float(pool_usage)
+        self.assertEqual(metadata_usage, int(pool_size * pool_usage / 100))
+
+
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''

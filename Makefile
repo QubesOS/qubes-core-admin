@@ -21,6 +21,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.label.Remove \
 	admin.pool.Add \
 	admin.pool.Info \
+	admin.pool.UsageDetails \
 	admin.pool.List \
 	admin.pool.ListDrivers \
 	admin.pool.Remove \

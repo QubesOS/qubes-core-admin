@@ -595,7 +595,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.pools = {
             'pool1': unittest.mock.Mock(config={
                 'param1': 'value1', 'param2': 'value2'},
-                size=None, usage=None),
+                size=None, usage=None, usage_details={}),
         }
         self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
@@ -620,6 +620,23 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(value,
             'param1=value1\nparam2=value2\nsize=204800\nusage=102400'
             '\nincluded_in=pool1\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_153_pool_usage(self):
+        self.app.pools = {
+            'pool1': unittest.mock.Mock(config={
+                'param1': 'value1', 'param2': 'value2'},
+                usage_details={
+                    'data_usage': 102400,
+                    'data_size': 204800,
+                    'metadata_size': 1024,
+                    'metadata_usage': 50})
+        }
+        self.app.pools['pool1'].included_in.return_value = None
+        value = self.call_mgmt_func(b'admin.pool.UsageDetails', b'dom0', b'pool1')
+
+        self.assertEqual(value,
+                         'data_size=204800\ndata_usage=102400\nmetadata_size=1024\nmetadata_usage=50\n')
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')

@@ -195,10 +195,28 @@ class ThinPool(qubes.storage.Pool):
         except KeyError:
             return 0
 
+    @property
+    def usage_details(self):
+        result = {}
+        result['data_size'] = self.size
+        result['data_usage'] = self.usage
+
+        try:
+            metadata_size = qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['metadata_size']
+            metadata_usage = qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['metadata_usage']
+        except KeyError:
+            metadata_size = 0
+            metadata_usage = 0
+        result['metadata_size'] = metadata_size
+        result['metadata_usage'] = metadata_usage
+
+        return result
 
 _init_cache_cmd = ['lvs', '--noheadings', '-o',
-   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
-   '--units', 'b', '--separator', ';']
+   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
+   'metadata_percent', '--units', 'b', '--separator', ';']
 
 def _parse_lvm_cache(lvm_output):
     result = {}
@@ -206,14 +224,20 @@ def _parse_lvm_cache(lvm_output):
     for line in lvm_output.splitlines():
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
-            origin = line.split(';', 6)
+            origin, metadata_size, metadata_percent = line.split(';', 8)
         if '' in [pool_name, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
         usage = int(size / 100 * float(usage_percent))
+        if metadata_size:
+            metadata_size = int(metadata_size[:-1])
+            metadata_usage = int(metadata_size / 100 * float(metadata_percent))
+        else:
+            metadata_usage = None
         result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
-            'attr': attr, 'origin': origin}
+            'attr': attr, 'origin': origin, 'metadata_size': metadata_size,
+                        'metadata_usage': metadata_usage}
 
     return result
 
