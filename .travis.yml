@@ -2,7 +2,7 @@ sudo: required
 dist: bionic
 language: python
 python:
-  - '3.5'
+  - '3.6'
 virtualenv:
   system_site_packages: true
 services:
@@ -16,7 +16,6 @@ script:
   - ./run-tests
   - ~/qubes-builder/scripts/travis-build
 env:
- - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
  - DIST_DOM0=fc29 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
 
 after_success:
