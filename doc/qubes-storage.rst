@@ -45,6 +45,7 @@ properties:
    with its own state of the volume, or rather a snapshot of its template volume
    (pointed by a :py:attr:`~qubes.storage.Volume.source` property). This can be
    set to `True` only if a domain do have `template` property (AppVM and DispVM).
+   TODO should `source` be folded into this arg?
    If the domain's template is running already, the snapshot should be made out of
    the template's before its startup.
  - :py:attr:`~qubes.storage.Volume.save_on_stop` - should the volume state be
@@ -81,13 +82,16 @@ name of storage pool driver. Volume class instances should be returned by
 :py:meth:`qubes.storage.Pool.init_volume` method of pool class instance.
 
 Methods required to be implemented by the pool class:
+ - :py:meth:`~qubes.storage.Pool.__init__` - the named arguments to this function are listed in `qvm-pool --help-drivers`. It is called each time the Qubes management starts up, and thus must NOT make persistent changes. When a new pool is created for the first time, a subsequent call to py:meth:`~qubes.storage.Pool.setup` is issued, `__init__` must however save any arguments required to instantiate the new pool.
  - :py:meth:`~qubes.storage.Pool.init_volume` - return instance of appropriate
    volume class; this method should not alter any persistent disk state, it is
-   used to instantiate both existing volumes and create new ones
- - :py:meth:`~qubes.storage.Pool.setup` - setup new storage pool
+   used to instantiate both existing volumes and create new ones. receives a new volume name and a `volume_config` dict which contains keys like `size` and `name` (the VM's name)
+-  :py:meth:`~qubes.storage.Pool.setup` - setup new storage pool. This is called when the user instantiates a new pool with `qvm-pool -a`
  - :py:meth:`~qubes.storage.Pool.destroy` - destroy storage pool
+   :py:attr:`~qubes.storage.Pool.config` - volume configuration `dict` containing at least keys: `name`, `revisions_to_keep`, and `driver` (reference to this py:class:`~qubes.storage.Pool`), along with any pool-specific data required to re-instantiate the pool. This dict is serialized to `qubes.xml` and the key-value pairs are passed as named arguments (e.g. `**kwargs`) of the pool `__init__` method next time this pool is instantiated.
 
 Methods and properties required to be implemented by the volume class:
+ - :py:meth:`~qubes.storage.Volume.__init__` - call from :py:meth:`~qubes.storage.Pool.init_volume` each time the management stack is started. must not make any persistent changes to disk.
  - :py:meth:`~qubes.storage.Volume.create` - create volume on disk
  - :py:meth:`~qubes.storage.Volume.remove` - remove volume from disk
  - :py:meth:`~qubes.storage.Volume.start` - prepare the volume for domain start;
@@ -96,9 +100,9 @@ Methods and properties required to be implemented by the volume class:
  - :py:meth:`~qubes.storage.Volume.stop` - cleanup after domain shutdown; this
    include committing changes to the volume if
    :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`
- - :py:meth:`~qubes.storage.Volume.export` - return a path to be read to extract
-   volume data; for complex formats, this can be a pipe (connected to some
-   data-extracting process)
+ - :py:meth:`~qubes.storage.Volume.export` - return a file system path to be
+   `open()`'ed and read to extract volume data;
+   for complex formats this could be a named pipe for instance
  - :py:meth:`~qubes.storage.Volume.import_data` - return a path the data should
    be written to, to import volume data; for complex formats, this can be pipe
    (connected to some data-importing process)
@@ -106,7 +110,7 @@ Methods and properties required to be implemented by the volume class:
    operation (cleanup temporary files etc); this methods is called always after
    :py:meth:`~qubes.storage.Volume.import_data` regardless if operation was
    successful or not
- - :py:meth:`~qubes.storage.Volume.import_volume` - import data from another volume
+ - :py:meth:`~qubes.storage.Volume.import_volume` - import data from another volume. TODO this is used when self.snap_on_data=True and self.source exists
  - :py:meth:`~qubes.storage.Volume.resize` - resize volume
  - :py:meth:`~qubes.storage.Volume.revert` - revert volume state to a given revision
  - :py:attr:`~qubes.storage.Volume.revisions` - collection of volume revisions (to use
