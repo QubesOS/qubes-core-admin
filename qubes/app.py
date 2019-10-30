@@ -308,7 +308,7 @@ class QubesHost:
         :raises NotImplementedError: when not under Xen
         '''
         try:
-            self._physinfo = self.app.xc.physinfo()
+            self._physinfo = self.app.vmm.xc.physinfo()
         except AttributeError:
             raise NotImplementedError('This function requires Xen hypervisor')
         return int(self._physinfo['free_memory'])
