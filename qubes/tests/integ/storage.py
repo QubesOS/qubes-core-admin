@@ -302,6 +302,35 @@ class StorageTestMixin(object):
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
             user='root')
 
+    def test_005_size_after_clone(self):
+        '''Test snapshot volume non-persistence'''
+        return self.loop.run_until_complete(
+            self._test_005_size_after_clone())
+
+    @asyncio.coroutine
+    def _test_005_size_after_clone(self):
+        size = 128 * 1024 * 1024
+        volume_config = {
+            'pool': self.pool.name,
+            'size': size,
+            'save_on_stop': True,
+            'rw': True,
+        }
+        testvol = self.vm1.storage.init_volume('testvol', volume_config)
+        yield from qubes.utils.coro_maybe(testvol.create())
+        self.assertEquals(testvol.size, size)
+        volume_config = {
+            'pool': self.pool.name,
+            'size': size // 2,
+            'save_on_stop': True,
+            'rw': True,
+        }
+        testvol2 = self.vm2.storage.init_volume('testvol2', volume_config)
+        yield from qubes.utils.coro_maybe(testvol2.create())
+        self.assertEquals(testvol2.size, size // 2)
+        yield from qubes.utils.coro_maybe(testvol2.import_volume(testvol))
+        self.assertEquals(testvol2.size, size)
+
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
