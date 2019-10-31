@@ -28,6 +28,7 @@ import os
 import os.path
 import re
 import subprocess
+from contextlib import suppress
 
 import qubes.storage
 
@@ -393,6 +394,17 @@ class FileVolume(qubes.storage.Volume):
         seconds = os.path.getctime(old_revision)
         iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
         return {'old': iso_date}
+
+    @property
+    def size(self):
+        with suppress(FileNotFoundError):
+            self._size = os.path.getsize(self.path)
+        return self._size
+
+    @size.setter
+    def size(self, _):
+        raise qubes.storage.StoragePoolException(
+            "You shouldn't use volume size setter, use resize method instead")
 
     @property
     def usage(self):
