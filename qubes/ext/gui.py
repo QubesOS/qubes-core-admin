@@ -70,3 +70,9 @@ class GUI(qubes.ext.Extension):
             kbd_layout = vm.guivm.features.get('keyboard-layout', None)
             if kbd_layout:
                 vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
+
+        # Set GuiVM prefix
+        guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')
+        if vm.features.get('service.guivm-gui-agent', None):
+            vm.untrusted_qdb.write('/guivm-windows-prefix',
+                                   guivm_windows_prefix)
