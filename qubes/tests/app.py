@@ -512,6 +512,45 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         finally:
             del netvm
 
+    def test_112_default_guivm(self):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            default_guivm = qubes.property('default_guivm',
+                default=(lambda self: 'dom0'))
+        holder = MyTestHolder(None)
+        guivm = self.app.add_new_vm('AppVM', name='sys-gui', guivm='dom0',
+                                    template=self.template,  label='red')
+        appvm = self.app.add_new_vm('AppVM', name='test-vm',
+                                    template=self.template, label='red')
+        holder.default_guivm = 'sys-gui'
+        self.assertEqual(holder.default_guivm, 'sys-gui')
+        self.assertIsNone(self.app.default_guivm)
+        self.assertTrue(appvm.property_is_default('guivm'))
+        self.app.default_guivm = guivm
+        self.assertEventFired(holder, 'property-set:default_guivm',
+                              kwargs={'name': 'default_guivm',
+                                      'newvalue': 'sys-gui'})
+
+        self.assertIn('guivm-sys-gui', appvm.tags)
+
+    def test_113_guivm(self):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            guivm = qubes.property('guivm',
+                default=(lambda self: 'dom0'))
+        holder = MyTestHolder(None)
+        guivm = self.app.add_new_vm('AppVM', name='sys-gui', guivm='dom0',
+                                    template=self.template,  label='red')
+        appvm = self.app.add_new_vm('AppVM', name='test-vm', guivm='dom0',
+                                    template=self.template, label='red')
+        holder.guivm = 'sys-gui'
+        self.assertEqual(holder.guivm, 'sys-gui')
+        self.assertFalse(appvm.property_is_default('guivm'))
+        appvm.guivm = guivm
+        self.assertEventFired(holder, 'property-set:guivm',
+                              kwargs={'name': 'guivm',
+                                      'newvalue': 'sys-gui'})
+
+        self.assertIn('guivm-sys-gui', appvm.tags)
+
     def test_200_remove_template(self):
         appvm = self.app.add_new_vm('AppVM', name='test-vm',
             template=self.template,
