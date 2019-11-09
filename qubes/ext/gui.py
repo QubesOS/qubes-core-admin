@@ -5,6 +5,7 @@
 # Copyright (C) 2013-2016  Marek Marczykowski-Górecki
 #                              <marmarek@invisiblethingslab.com>
 # Copyright (C) 2014-2018  Wojtek Porczyk <woju@invisiblethingslab.com>
+# Copyright (C) 2019 Frédéric Pierret <frederic.pierret@qubes-os.org>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -34,6 +35,12 @@ class GUI(qubes.ext.Extension):
                               if vm.features.get('gui-seamless', False)
                               else 'FULLSCREEN'))
 
+    # property-del <=> property-reset-to-default
+    @qubes.ext.handler('property-del:guivm')
+    def on_property_del(self, subject, event, name, oldvalue=None):
+        newvalue = getattr(subject, 'guivm', None)
+        self.on_property_set(subject, event, name, newvalue, oldvalue)
+
     @qubes.ext.handler('property-set:guivm')
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument,no-self-use
@@ -45,8 +52,9 @@ class GUI(qubes.ext.Extension):
             if 'guivm-' in tag:
                 subject.tags.remove(tag)
 
-        guivm = 'guivm-' + newvalue.name
-        subject.tags.add(guivm)
+        if newvalue:
+            guivm = 'guivm-' + newvalue.name
+            subject.tags.add(guivm)
 
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
@@ -76,3 +84,12 @@ class GUI(qubes.ext.Extension):
         if vm.features.get('service.guivm-gui-agent', None):
             vm.untrusted_qdb.write('/guivm-windows-prefix',
                                    guivm_windows_prefix)
+
+    @qubes.ext.handler('property-set:default_guivm', system=True)
+    def on_property_set_default_guivm(self, app, event, name, newvalue,
+                                      oldvalue=None):
+        for vm in app.domains:
+            if hasattr(vm, 'guivm') and vm.property_is_default('guivm'):
+                vm.fire_event('property-set:guivm',
+                              name='guivm', newvalue=newvalue,
+                              oldvalue=oldvalue)
