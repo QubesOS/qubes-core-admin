@@ -2545,6 +2545,18 @@ class TC_00_VMs(AdminAPITestCase):
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.call_mgmt_func(b'admin.vm.Console', b'test-vm1')
 
+    def test_700_pool_volume_list(self):
+        self.app.pools = {
+            'pool1': unittest.mock.Mock(config={
+                'param1': 'value1', 'param2': 'value2'},
+                usage=102400,
+                size=204800,
+                volumes={'vol1': unittest.mock.Mock(),
+                         'vol2': unittest.mock.Mock()})
+        }
+        value = self.call_mgmt_func(b'admin.pool.volume.List', b'dom0', b'pool1')
+        self.assertEqual(value, 'vol1\nvol2\n')
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
@@ -2652,6 +2664,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.deviceclass.List',
             b'admin.vmclass.List',
             b'admin.vm.List',
+            b'admin.pool.volume.List',
             b'admin.label.List',
             b'admin.label.Get',
             b'admin.label.Remove',
@@ -2735,6 +2748,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.label.Create',
             b'admin.label.Get',
             b'admin.label.Remove',
+            b'admin.pool.volume.List',
             b'admin.property.List',
             b'admin.property.Get',
             b'admin.property.Set',
