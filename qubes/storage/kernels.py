@@ -209,8 +209,7 @@ class LinuxKernel(Pool):
             [pool for pool in app.pools.values() if pool is not self],
             self.dir_path)
 
-    @property
-    def volumes(self):
+    def list_volumes(self):
         ''' Return all known kernel volumes '''
         return [LinuxModules(self.dir_path,
                              kernel_version,

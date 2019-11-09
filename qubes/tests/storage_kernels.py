@@ -250,7 +250,7 @@ class TC_03_KernelPool(qubes.tests.QubesTestCase):
 
     def test_002_pool_volumes(self):
         """ List volumes """
-        volumes = self.app.pools[self.POOL_NAME].volumes
+        volumes = list(self.app.pools[self.POOL_NAME].volumes)
         self.assertEqual(len(volumes), 1)
         vol = volumes[0]
         self.assertEqual(vol.vid, 'dummy')
