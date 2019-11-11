@@ -88,6 +88,7 @@ class GUI(qubes.ext.Extension):
     @qubes.ext.handler('property-set:default_guivm', system=True)
     def on_property_set_default_guivm(self, app, event, name, newvalue,
                                       oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
         for vm in app.domains:
             if hasattr(vm, 'guivm') and vm.property_is_default('guivm'):
                 vm.fire_event('property-set:guivm',
