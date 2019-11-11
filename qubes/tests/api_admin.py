@@ -2055,6 +2055,31 @@ class TC_00_VMs(AdminAPITestCase):
             self.call_mgmt_func(b'admin.backup.Cancel', b'dom0',
                 b'testprofile')
 
+    def test_611_backup_already_running(self):
+        if not hasattr(self.app, 'api_admin_running_backups'):
+            self.app.api_admin_running_backups = {}
+
+        self.app.api_admin_running_backups['testprofile'] = 'test'
+        self.addCleanup(self.app.api_admin_running_backups.pop, 'testprofile')
+
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /home/user\n'
+            'passphrase_text: test\n'
+        )
+
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                                     profile_dir):
+                with self.assertRaises(qubes.exc.BackupAlreadyRunningError):
+                    self.call_mgmt_func(b'admin.backup.Execute', b'dom0',
+                                        b'testprofile')
+
     @unittest.mock.patch('qubes.backup.Backup')
     def test_620_backup_execute(self, mock_backup):
         backup_profile = (
