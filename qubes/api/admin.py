@@ -1507,7 +1507,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self._backup_progress_callback, self.arg)
 
         # forbid running the same backup operation twice at the time
-        self.enforce(self.arg not in self.app.api_admin_running_backups)
+        if self.arg in self.app.api_admin_running_backups:
+            raise qubes.exc.BackupAlreadyRunningError()
 
         backup_task = asyncio.ensure_future(backup.backup_do())
         self.app.api_admin_running_backups[self.arg] = backup_task
