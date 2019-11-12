@@ -309,10 +309,20 @@ class QubesHost:
         :raises NotImplementedError: when not under Xen
         """
         try:
-            self._physinfo = self.app.xc.physinfo()
+            self._physinfo = self.app.vmm.xc.physinfo()
         except AttributeError:
             raise NotImplementedError('This function requires Xen hypervisor')
         return int(self._physinfo['free_memory'])
+
+    def is_iommu_supported(self):
+        """Check if IOMMU is supported on this platform"""
+        if self._physinfo is None:
+            try:
+                self._physinfo = self.app.vmm.xc.physinfo()
+            except AttributeError:
+                raise NotImplementedError(
+                    'This function requires Xen hypervisor')
+        return 'hvm_directio' in self._physinfo['virt_caps']
 
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
         """Measure cpu usage for all domains at once.

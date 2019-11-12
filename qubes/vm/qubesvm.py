@@ -1115,6 +1115,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
 
+            except libvirt.libvirtError as exc:
+                # missing IOMMU?
+                if self.virt_mode == 'hvm' and \
+                        list(self.devices['pci'].persistent()) and \
+                        not self.app.host.is_iommu_supported():
+                    exc = qubes.exc.QubesException(
+                        'Failed to start an HVM qube with PCI devices assigned '
+                        '- hardware does not support IOMMU/VT-d/AMD-Vi')
+                self.log.error('Start failed: %s', str(exc))
+                yield from self.fire_event_async('domain-start-failed',
+                                                 reason=str(exc))
+                yield from self.storage.stop()
+                raise exc
             except Exception as exc:
                 self.log.error('Start failed: %s', str(exc))
                 # let anyone receiving domain-pre-start know that startup failed

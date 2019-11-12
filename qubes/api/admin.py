@@ -713,6 +713,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         yield from self.app.remove_pool(self.arg)
         self.app.save()
 
+    @qubes.api.method('admin.pool.volume.List', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def pool_volume_list(self):
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.arg in self.app.pools.keys())
+
+        pool = self.app.pools[self.arg]
+
+        volume_names = self.fire_event_for_filter(pool.volumes.keys())
+        return ''.join('{}\n'.format(name) for name in volume_names)
+
     @qubes.api.method('admin.pool.Set.revisions_to_keep',
         scope='global', write=True)
     @asyncio.coroutine
