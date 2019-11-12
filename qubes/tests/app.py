@@ -153,6 +153,56 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
             ('xc.domain_getinfo', (1, 1), {}),
         ])
 
+    def test_010_iommu_supported(self):
+        self.app.vmm.configure_mock(**{
+            'xc.physinfo.return_value': {
+                'hw_caps': '...',
+                'scrub_memory': 0,
+                'virt_caps': 'hvm hvm_directio',
+                'nr_cpus': 4,
+                'threads_per_core': 1,
+                'cpu_khz': 3400001,
+                'nr_nodes': 1,
+                'free_memory': 234752,
+                'cores_per_socket': 4,
+                'total_memory': 16609720
+            }
+        })
+        self.assertEqual(self.qubes_host.is_iommu_supported(), True)
+
+    def test_011_iommu_supported(self):
+        self.app.vmm.configure_mock(**{
+            'xc.physinfo.return_value': {
+                'hw_caps': '...',
+                'scrub_memory': 0,
+                'virt_caps': 'hvm hvm_directio pv pv_directio',
+                'nr_cpus': 4,
+                'threads_per_core': 1,
+                'cpu_khz': 3400001,
+                'nr_nodes': 1,
+                'free_memory': 234752,
+                'cores_per_socket': 4,
+                'total_memory': 16609720
+            }
+        })
+        self.assertEqual(self.qubes_host.is_iommu_supported(), True)
+
+    def test_010_iommu_supported(self):
+        self.app.vmm.configure_mock(**{
+            'xc.physinfo.return_value': {
+                'hw_caps': '...',
+                'scrub_memory': 0,
+                'virt_caps': 'hvm pv',
+                'nr_cpus': 4,
+                'threads_per_core': 1,
+                'cpu_khz': 3400001,
+                'nr_nodes': 1,
+                'free_memory': 234752,
+                'cores_per_socket': 4,
+                'total_memory': 16609720
+            }
+        })
+        self.assertEqual(self.qubes_host.is_iommu_supported(), False)
 
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
