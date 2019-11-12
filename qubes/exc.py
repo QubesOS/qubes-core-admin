@@ -164,6 +164,14 @@ class BackupCancelledError(QubesException):
             msg or 'Backup cancelled')
 
 
+class BackupAlreadyRunningError(QubesException):
+    '''Thrown at user when they try to run the same backup twice at
+    the same time'''
+    def __init__(self, msg=None):
+        super(BackupAlreadyRunningError, self).__init__(
+            msg or 'Backup already running')
+
+
 class QubesMemoryError(QubesVMError, MemoryError):
     '''Cannot start domain, because not enough memory is available'''
     def __init__(self, vm, msg=None):
