@@ -801,10 +801,13 @@ class Pool:
         Contains data_usage for usage in bytes and data_size for pool
         size; other implementations may add more implementation-specific
         detail"""
-        return {
-            'data_usage': self.usage,
-            'data_size': self.size
-        }
+        result = {}
+        if self.usage is not None:
+            result['data_usage'] = self.usage
+        if self.size is not None:
+            result['data_size'] = self.size
+
+        return result
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''

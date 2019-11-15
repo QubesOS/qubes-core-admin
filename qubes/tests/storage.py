@@ -165,3 +165,32 @@ class TC_00_Pool(QubesTestCase):
         self.loop.run_until_complete(vm.create_on_disk(pool=pool))
         with self.assertRaises(qubes.exc.QubesPoolInUseError):
             self.loop.run_until_complete(self.app.remove_pool(pool_name))
+
+    def test_006_pool_usage_qubespool(self):
+        qubes_pool = self.app.get_pool('varlibqubes')
+
+        usage_details = qubes_pool.usage_details
+
+        self.assertIsNotNone(usage_details['data_size'],
+                             "Data size incorrectly reported as None")
+        self.assertIsNotNone(usage_details['data_usage'],
+                             "Data usage incorrectly reported as None")
+
+    def test_007_pool_kernels_usage(self):
+        pool_name = 'kernels_test_pools'
+        dir_path = '/tmp/{}'.format(pool_name)
+        pool = self.loop.run_until_complete(
+            self.app.add_pool(name=pool_name,
+                              driver='linux-kernel',
+                              dir_path=dir_path))
+        self.assertTrue(self.assertPoolExists(pool_name))
+
+        qubes_pool = self.app.get_pool(pool_name)
+
+        usage_details = qubes_pool.usage_details
+
+        self.assertEqual(usage_details,
+                         {},
+                         "Kernels pool should not report usage details.")
+
+        self.loop.run_until_complete(self.app.remove_pool(pool_name))
