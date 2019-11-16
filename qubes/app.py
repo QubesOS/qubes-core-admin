@@ -729,7 +729,7 @@ class Qubes(qubes.PropertyHolder):
     default_guivm = qubes.VMProperty(
         'default_guivm',
         load_stage=3,
-        default=None, allow_none=True,
+        default=lambda app: app.domains['dom0'], allow_none=True,
         doc='Default GuiVM for VMs.')
 
     default_netvm = qubes.VMProperty(
