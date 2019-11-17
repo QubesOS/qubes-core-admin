@@ -573,7 +573,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                                     template=self.template, label='red')
         holder.default_guivm = 'sys-gui'
         self.assertEqual(holder.default_guivm, 'sys-gui')
-        self.assertIsNone(self.app.default_guivm)
+        self.assertIsNotNone(self.app.default_guivm)
         self.assertTrue(appvm.property_is_default('guivm'))
         self.app.default_guivm = guivm
         self.assertEventFired(holder, 'property-set:default_guivm',
