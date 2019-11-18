@@ -37,7 +37,9 @@ mode_re = re.compile(r"^[rw]$")
 AVAILABLE_FRONTENDS = ['xvd'+c for c in
                        string.ascii_lowercase[8:]+string.ascii_lowercase[:8]]
 
-SYSTEM_DISKS = ('xvda', 'xvdb', 'xvdc', 'xvdd')
+SYSTEM_DISKS = ('xvda', 'xvdb', 'xvdc')
+# xvdd is considered system disk only if vm.kernel is set
+SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 
 class BlockDevice(qubes.devices.DeviceInfo):
@@ -172,6 +174,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if not vm.is_running():
             return
 
+        system_disks = SYSTEM_DISKS
+        if getattr(vm, 'kernel', None):
+            system_disks = SYSTEM_DISKS_DOM0_KERNEL
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
         for disk in xml_desc.findall('devices/disk'):
@@ -187,7 +192,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 frontend_dev = target_node.get('dev')
                 if not frontend_dev:
                     continue
-                if frontend_dev in SYSTEM_DISKS:
+                if frontend_dev in system_disks:
                     continue
             else:
                 continue
@@ -217,7 +222,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             yield (BlockDevice(backend_domain, ident), options)
 
-    def find_unused_frontend(self, vm):
+    def find_unused_frontend(self, vm, devtype='disk'):
         # pylint: disable=no-self-use
         '''Find unused block frontend device node for <target dev=.../>
         parameter'''
@@ -227,6 +232,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
         parsed_xml = lxml.etree.fromstring(xml)
         used = [target.get('dev', None) for target in
             parsed_xml.xpath("//domain/devices/disk/target")]
+        if devtype == 'cdrom' and 'xvdd' not in used:
+            # prefer 'xvdd' for CDROM if available; only first 4 disks are
+            # emulated in HVM, which means only those are bootable
+            return 'xvdd'
         for dev in AVAILABLE_FRONTENDS:
             if dev not in used:
                 return dev
@@ -269,7 +278,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 'it'.format(device.backend_domain.name))
 
         if 'frontend-dev' not in options:
-            options['frontend-dev'] = self.find_unused_frontend(vm)
+            options['frontend-dev'] = self.find_unused_frontend(
+                vm, options.get('devtype', 'disk'))
 
         vm.libvirt_domain.attachDevice(
             vm.app.env.get_template('libvirt/devices/block.xml').render(

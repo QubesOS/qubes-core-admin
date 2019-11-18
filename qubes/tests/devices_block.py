@@ -25,6 +25,15 @@ import jinja2
 import qubes.tests
 import qubes.ext.block
 
+modules_disk = '''
+    <disk type='block' device='disk'>
+      <driver name='phy'/>
+      <source dev='/var/lib/qubes/vm-kernels/4.4.55-11/modules.img'/>
+      <backingStore/>
+      <target dev='xvdd' bus='xen'/>
+      <readonly/>
+    </disk>
+'''
 
 domain_xml_template = '''
 <domain type='xen' id='9'>
@@ -65,13 +74,6 @@ domain_xml_template = '''
       <source dev='/var/lib/qubes/appvms/test-vm/volatile.img'/>
       <backingStore/>
       <target dev='xvdc' bus='xen'/>
-    </disk>
-    <disk type='block' device='disk'>
-      <driver name='phy'/>
-      <source dev='/var/lib/qubes/vm-kernels/4.4.55-11/modules.img'/>
-      <backingStore/>
-      <target dev='xvdd' bus='xen'/>
-      <readonly/>
     </disk>
     {}
     <interface type='ethernet'>
@@ -481,6 +483,46 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdi" />\n'
+            '        <readonly />\n'
+            '    <backenddomain name="sys-usb" />\n'
+            '</disk>')
+        vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
+
+    def test_048_attach_cdrom_xvdi(self):
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        })
+        vm = TestVM({}, domain_xml=domain_xml_template.format(modules_disk))
+        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        self.ext.on_device_pre_attached_block(vm, '', dev, {'devtype': 'cdrom'})
+        device_xml = (
+            '<disk type="block" device="cdrom">\n'
+            '    <driver name="phy" />\n'
+            '    <source dev="/dev/sda" />\n'
+            '        <target dev="xvdi" />\n'
+            '        <readonly />\n'
+            '    <backenddomain name="sys-usb" />\n'
+            '</disk>')
+        vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
+
+    def test_048_attach_cdrom_xvdd(self):
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        })
+        vm = TestVM({}, domain_xml=domain_xml_template.format(''))
+        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        self.ext.on_device_pre_attached_block(vm, '', dev, {'devtype': 'cdrom'})
+        device_xml = (
+            '<disk type="block" device="cdrom">\n'
+            '    <driver name="phy" />\n'
+            '    <source dev="/dev/sda" />\n'
+            '        <target dev="xvdd" />\n'
             '        <readonly />\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')

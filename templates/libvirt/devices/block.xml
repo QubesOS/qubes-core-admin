@@ -3,6 +3,9 @@
     <source dev="{{ device.device_node }}" />
     {%- if 'frontend-dev' in options %}
         <target dev="{{ options.get('frontend-dev') }}" />
+    {%- elif options.get('devtype', 'disk') == 'cdrom' and not vm.kernel %}
+        <!-- prefer xvdd for CDROM -->
+        <target dev="xvdd" />
     {%- else %}
         <target dev="xvd{{dd[i]}}" />
         {% set i = i + 1 %}
