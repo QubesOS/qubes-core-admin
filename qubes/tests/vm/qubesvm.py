@@ -38,6 +38,7 @@ import shutil
 import qubes
 import qubes.exc
 import qubes.config
+import qubes.devices
 import qubes.vm
 import qubes.vm.qubesvm
 
@@ -78,8 +79,10 @@ class TestDeviceCollection(object):
         return self._list
 
 class TestQubesDB(object):
-    def __init__(self):
+    def __init__(self, data=None):
         self.data = {}
+        if data:
+            self.data = data
 
     def write(self, path, value):
         self.data[path] = value
@@ -90,6 +93,12 @@ class TestQubesDB(object):
                 del self.data[key]
         else:
             self.data.pop(path, None)
+
+    def list(self, prefix):
+        return [key for key in self.data if key.startswith(prefix)]
+
+    def close(self):
+        pass
 
 class TestVM(object):
     # pylint: disable=too-few-public-methods
@@ -268,10 +277,11 @@ class QubesVMTestsMixin(object):
             pass
         super(QubesVMTestsMixin, self).tearDown()
 
-    def get_vm(self, name='test', cls=qubes.vm.qubesvm.QubesVM, **kwargs):
-        vm = cls(self.app, None,
-            qid=kwargs.pop('qid', 1), name=qubes.tests.VMPREFIX + name,
-            **kwargs)
+    def get_vm(self, name='test', cls=qubes.vm.qubesvm.QubesVM, vm=None, **kwargs):
+        if not vm:
+            vm = cls(self.app, None,
+                qid=kwargs.pop('qid', 1), name=qubes.tests.VMPREFIX + name,
+                **kwargs)
         self.app.domains[vm.qid] = vm
         self.app.domains[vm.uuid] = vm
         self.app.domains[vm.name] = vm
