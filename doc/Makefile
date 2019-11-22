@@ -166,4 +166,5 @@ autoxml.rst: ../relaxng/qubes.rng example.xml
 .PHONY: install
 install: man
 	mkdir -p $(DESTDIR)/usr/share/man/man1
+	rm -rf $(BUILDDIR)/man/_static
 	cp $(BUILDDIR)/man/* $(DESTDIR)/usr/share/man/man1/
