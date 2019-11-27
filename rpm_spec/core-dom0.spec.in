@@ -57,6 +57,7 @@ BuildRequires:	python3-lxml
 BuildRequires:	libvirt-python3
 BuildRequires:	python3-dbus
 BuildRequires:	python3-PyYAML
+BuildRequires:  python3-xen
 
 Requires(post): systemd-units
 Requires(preun): systemd-units
