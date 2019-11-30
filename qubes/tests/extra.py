@@ -19,6 +19,7 @@
 #
 
 import asyncio
+import os
 import subprocess
 import sys
 
@@ -195,7 +196,18 @@ class ExtraTestCase(qubes.tests.SystemTestCase):
 
 
 def load_tests(loader, tests, pattern):
+    include_list = None
+    if 'QUBES_TEST_EXTRA_INCLUDE' in os.environ:
+        include_list = os.environ['QUBES_TEST_EXTRA_INCLUDE'].split()
+    exclude_list = []
+    if 'QUBES_TEST_EXTRA_EXCLUDE' in os.environ:
+        exclude_list = os.environ['QUBES_TEST_EXTRA_EXCLUDE'].split()
+
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
+        if include_list is not None and entry.name not in include_list:
+            continue
+        if entry.name in exclude_list:
+            continue
         try:
             for test_case in entry.load()():
                 tests.addTests(loader.loadTestsFromNames([
@@ -210,6 +222,10 @@ def load_tests(loader, tests, pattern):
 
     for entry in pkg_resources.iter_entry_points(
             'qubes.tests.extra.for_template'):
+        if include_list is not None and entry.name not in include_list:
+            continue
+        if entry.name in exclude_list:
+            continue
         try:
             for test_case in entry.load()():
                 tests.addTests(loader.loadTestsFromNames(
