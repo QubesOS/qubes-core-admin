@@ -389,6 +389,9 @@ class VmNetworkingMixin(object):
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command '%s' failed" % cmd)
 
+        # let it initialize the interface(s)
+        time.sleep(1)
+
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_110_dynamic_attach(self):
