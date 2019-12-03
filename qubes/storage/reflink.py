@@ -359,7 +359,7 @@ class ReflinkVolume(qubes.storage.Volume):
 def _replace_file(dst):
     ''' Yield a tempfile whose name starts with dst, creating the last
         directory component if necessary. If the block does not raise
-        an exception, flush+fsync the tempfile and rename it to dst.
+        an exception, safely rename the tempfile to dst.
     '''
     tmp_dir, prefix = os.path.split(dst + '~')
     _make_dir(tmp_dir)
