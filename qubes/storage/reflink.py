@@ -439,7 +439,7 @@ def _update_loopdev_sizes(img):
                     continue
         except FileNotFoundError:
             continue
-        with open('/dev/' + sys_path.split('/')[3]) as dev_io:
+        with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
             fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
 def _attempt_ficlone(src, dst):
