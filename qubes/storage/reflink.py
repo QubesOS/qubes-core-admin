@@ -37,7 +37,7 @@ from contextlib import contextmanager, suppress
 
 import qubes.storage
 
-FICLONE = 1074041865        # defined in <linux/fs.h>
+FICLONE = 1074041865        # defined in <linux/fs.h>, assuming sizeof(int)==4
 LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
 
