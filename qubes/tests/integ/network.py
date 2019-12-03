@@ -93,8 +93,12 @@ class VmNetworkingMixin(object):
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
         '''
         def run_netvm_cmd(cmd):
-            if self.run_cmd(self.testnetvm, cmd) != 0:
-                self.fail("Command '%s' failed" % cmd)
+            try:
+                self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio(cmd, user='root'))
+            except subprocess.CalledProcessError as e:
+                self.fail("Command '%s' failed: %s%s" %
+                          (cmd, e.stdout.decode(), e.stderr.decode()))
 
         if not self.testnetvm.is_running():
             self.loop.run_until_complete(self.testnetvm.start())
@@ -783,8 +787,12 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         super(VmIPv6NetworkingMixin, self).configure_netvm()
 
         def run_netvm_cmd(cmd):
-            if self.run_cmd(self.testnetvm, cmd) != 0:
-                self.fail("Command '%s' failed" % cmd)
+            try:
+                self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio(cmd, user='root'))
+            except subprocess.CalledProcessError as e:
+                self.fail("Command '%s' failed: %s%s" %
+                          (cmd, e.stdout.decode(), e.stderr.decode()))
 
         run_netvm_cmd("ip addr add {}/128 dev test0".format(self.test_ip6))
         run_netvm_cmd(
