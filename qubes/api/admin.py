@@ -169,7 +169,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
 
-        property_def = dest.property_get_def(self.arg)
+        return self._serialize_property(dest, self.arg)
+
+    @staticmethod
+    def _serialize_property(dest, prop):
+        property_def = dest.property_get_def(prop)
         # explicit list to be sure that it matches protocol spec
         if isinstance(property_def, qubes.vm.VMProperty):
             property_type = 'vm'
@@ -177,20 +181,50 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             property_type = 'int'
         elif property_def.type is bool:
             property_type = 'bool'
-        elif self.arg == 'label':
+        elif prop == 'label':
             property_type = 'label'
         else:
             property_type = 'str'
 
         try:
-            value = getattr(dest, self.arg)
+            value = getattr(dest, str(prop))
         except AttributeError:
             return 'default=True type={} '.format(property_type)
         else:
             return 'default={} type={} {}'.format(
-                str(dest.property_is_default(self.arg)),
+                str(dest.property_is_default(prop)),
                 property_type,
                 str(value) if value is not None else '')
+
+    @qubes.api.method('admin.vm.property.GetAll', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def vm_property_get_all(self):
+        """Get values of all VM properties"""
+        return self._property_get_all(self.dest)
+
+    @qubes.api.method('admin.property.GetAll', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def property_get_all(self):
+        """Get value all global properties"""
+        self.enforce(self.dest.name == 'dom0')
+        return self._property_get_all(self.app)
+
+    def _property_get_all(self, dest):
+        self.enforce(not self.arg)
+
+        properties = dest.property_list()
+
+        properties = self.fire_event_for_filter(properties)
+
+        return ''.join(
+            '{} {}\n'.format(str(prop),
+                             self._serialize_property(dest, prop).
+                             replace('\\', '\\\\').replace('\n', '\\n'))
+            for prop in sorted(properties))
+
+
 
     @qubes.api.method('admin.vm.property.GetDefault', no_payload=True,
         scope='local', read=True)

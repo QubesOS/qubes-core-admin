@@ -180,6 +180,38 @@ class TC_00_VMs(AdminAPITestCase):
             b'provides_network')
         self.assertEqual(value, 'type=bool False')
 
+    def test_027_vm_property_get_all(self):
+        # any string property, test \n encoding
+        self.vm.kernelopts = 'opt1\nopt2\nopt3\\opt4'
+        with unittest.mock.patch.object(self.vm, 'property_list') as list_mock:
+            list_mock.return_value = [
+                self.vm.property_get_def('name'),
+                self.vm.property_get_def('default_user'),
+                self.vm.property_get_def('netvm'),
+                self.vm.property_get_def('klass'),
+                self.vm.property_get_def('debug'),
+                self.vm.property_get_def('label'),
+                self.vm.property_get_def('kernelopts'),
+                self.vm.property_get_def('qrexec_timeout'),
+                self.vm.property_get_def('qid'),
+                self.vm.property_get_def('updateable'),
+            ]
+            value = self.call_mgmt_func(b'admin.vm.property.GetAll', b'test-vm1')
+        self.maxDiff = None
+        expected = '''debug default=True type=bool False
+default_user default=True type=str user
+klass default=True type=str AppVM
+label default=False type=label red
+name default=False type=str test-vm1
+qid default=False type=int 2
+qrexec_timeout default=True type=int 60
+updateable default=True type=bool False
+kernelopts default=False type=str opt1\\nopt2\\nopt3\\\\opt4
+netvm default=True type=vm 
+'''
+        self.assertEqual(value, expected)
+
+
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
             template='test-template', provides_network=True)
