@@ -297,10 +297,7 @@ class ReflinkVolume(qubes.storage.Volume):
         return self._path_import
 
     def _import_data_end(self, success):
-        if success:
-            self._commit(self._path_import)
-        else:
-            _remove_file(self._path_import)
+        (self._commit if success else _remove_file)(self._path_import)
         return self
 
     import_data_end = _coroutinized(_locked(_import_data_end))
