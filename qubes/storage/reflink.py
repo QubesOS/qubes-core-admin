@@ -179,14 +179,14 @@ class ReflinkVolume(qubes.storage.Volume):
             oldest to newest; remove empty VM directory.
         '''
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
-        self._cleanup()
+        self._remove_incomplete_files()
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
         _remove_empty_dir(os.path.dirname(self._path_dirty))
         return self
 
-    def _cleanup(self):
+    def _remove_incomplete_files(self):
         for tmp in glob.iglob(glob.escape(self._path_vid) + '*.img*~*'):
             _remove_file(tmp)
         _remove_file(self._path_import)
@@ -205,7 +205,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def start(self):
-        self._cleanup()
+        self._remove_incomplete_files()
         if self.is_dirty():  # implies self.save_on_stop
             return self
         if self.snap_on_start:
