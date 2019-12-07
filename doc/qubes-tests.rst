@@ -33,7 +33,11 @@ variables. :py:class:`qubes.tests.QubesTestCase` classes should be named
 named ``test_xxx_test_name``, where ``xxx`` is three-digit number. You may
 introduce some structure of your choice in this number.
 
-FIXME: where are placed integration tests?
+Integration tests for Qubes core features are stored in :file:`tests/integ/`
+directory. Additional tests may be loaded from other packages (see extra test
+loader below). Those tests are run only on real Qubes system and are not suitable
+for running in VM or in Travis. Test classes of this category inherit from
+:py:class:`qubes.tests.SystemTestCase`.
 
 Writing tests
 -------------
@@ -132,6 +136,105 @@ even entire class) to be skipped outside dom0. Use it freely::
    class TC_31_SomeOtherClass(qubes.tests.QubesTestCase):
        # all tests in this class are skipped
        pass
+
+VM tests
+^^^^^^^^
+
+Some integration tests verifies not only dom0 part of the system, but also VM
+part. In those cases, it makes sense to iterate them for different templates.
+Additionally, list of the templates can be dynamic (different templates
+installed, only some considered for testing etc).
+This can be achieved by creating a mixin class with the actual tests (a class
+inheriting just from :py:class:`object`, instead of
+:py:class:`qubes.tests.SystemTestCase` or :py:class:`unittest.TestCase`) and
+then create actual test classes dynamically using
+:py:func:`qubes.tests.create_testcases_for_templates`.
+Test classes created this way will have :py:attr:`template` set to the template
+name under test and also this template will be set as the default template
+during the test execution.
+The function takes a test class name prefix (template name will be appended to
+it after '_' separator), a classes to inherit from (in most cases the just
+created mixin and :py:class:`qubes.tests.SystemTestCase`) and a current module
+object (use `sys.modules[__name__]`). The function will return created test
+classes but also add them to the appropriate module (pointed by the *module*
+parameter). This should be done in two cases:
+
+* :py:func:`load_tests` function - when test loader request list of tests
+* on module import time, using a wrapper
+  :py:func:`qubes.tests.maybe_create_testcases_on_import` (will call the
+  function only if explicit list of templates is given, to avoid loading
+  :file:`qubes.xml` when just importing the module)
+
+An example boilerplate looks like this::
+
+   def create_testcases_for_templates():
+       return qubes.tests.create_testcases_for_templates('TC_00_AppVM',
+           TC_00_AppVMMixin, qubes.tests.SystemTestCase,
+           module=sys.modules[__name__])
+
+   def load_tests(loader, tests, pattern):
+       tests.addTests(loader.loadTestsFromNames(
+           create_testcases_for_templates()))
+       return tests
+
+   qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
+
+This will by default create tests for all the templates installed in the system.
+Additionally, it is possible to control this process using environment
+variables:
+
+* `QUBES_TEST_TEMPLATES` - space separated list of templates to test
+* `QUBES_TEST_LOAD_ALL` - create tests for all the templates (by inspecting
+  the :file:`qubes.xml` file), even at module import time
+
+This is dynamic test creation is intentionally made compatible with Nose2 test
+runner and its load_tests protocol implementation.
+
+Extra tests
+^^^^^^^^^^^
+
+Most tests live in this package, but it is also possible to store tests in other
+packages while still using infrastructure provided here and include them in the
+common test run. Loading extra tests is implemented in
+:py:mod:`qubes.tests.extra`. To write test to be loaded this way, you need to
+create test class(es) as usual. You can also use helper class
+:py:class:`qubes.tests.extra.ExtraTestCase` (instead of
+:py:class:`qubes.tests.SystemTestCase`) which provide few convenient functions
+and hide usage of asyncio for simple cases (like `vm.start()`, `vm.run()`).
+
+The next step is to register the test class(es). You need to do this by defining
+entry point for your package. There are two groups:
+
+* `qubes.tests.extra` - for general tests (called once)
+* `qubes.tests.extra.for_template` - for per-VM tests (called for each template
+  under test)
+
+As a name in the group, choose something unique, preferably package name. An
+object reference should point at the function that returns a list of test
+classes.
+
+Example :file:`setup.py`::
+
+   from setuptools import setup
+
+   setup(
+       name='splitgpg',
+       version='1.0',
+       packages=['splitgpg'],
+       entry_points={
+           'qubes.tests.extra.for_template':
+               'splitgpg = splitgpg.tests:list_tests',
+       }
+   )
+
+The test loading process can be additionally controlled with environment
+variables:
+
+* `QUBES_TEST_EXTRA_INCLUDE` - space separated list of tests to include (named
+  by a name in an entry point, `splitgpg` in the above example); if defined, only
+  those extra tests will be loaded
+
+* `QUBES_TEST_EXTRA_EXCLUDE` - space separated list of tests to exclude
 
 
 Module contents

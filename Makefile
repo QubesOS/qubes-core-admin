@@ -35,6 +35,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.volume.Set.rw \
 	admin.pool.volume.Snapshot \
 	admin.property.Get \
+	admin.property.GetAll \
 	admin.property.GetDefault \
 	admin.property.Help \
 	admin.property.HelpRst \
@@ -87,6 +88,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.firewall.SetPolicy \
 	admin.vm.firewall.Reload \
 	admin.vm.property.Get \
+	admin.vm.property.GetAll \
 	admin.vm.property.GetDefault \
 	admin.vm.property.Help \
 	admin.vm.property.HelpRst \
