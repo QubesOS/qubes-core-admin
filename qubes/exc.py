@@ -33,6 +33,10 @@ class QubesVMNotFoundError(QubesException, KeyError):
             'No such domain: {!r}'.format(vmname))
         self.vmname = vmname
 
+    def __str__(self):
+        # KeyError overrides __str__ method
+        return QubesException.__str__(self)
+
 
 class QubesVMError(QubesException):
     '''Some problem with domain state.'''
@@ -187,6 +191,11 @@ class QubesFeatureNotFoundError(QubesException, KeyError):
         self.feature = feature
         self.vm = domain
 
+    def __str__(self):
+        # KeyError overrides __str__ method
+        return QubesException.__str__(self)
+
+
 class QubesTagNotFoundError(QubesException, KeyError):
     '''Tag not set for a given domain'''
 
@@ -195,3 +204,7 @@ class QubesTagNotFoundError(QubesException, KeyError):
             domain, tag))
         self.vm = domain
         self.tag = tag
+
+    def __str__(self):
+        # KeyError overrides __str__ method
+        return QubesException.__str__(self)
