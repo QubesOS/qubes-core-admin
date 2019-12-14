@@ -252,7 +252,7 @@ class FileVolume(qubes.storage.Volume):
             # resize loop device
             subprocess.check_call(['losetup', '--set-capacity',
                                    loop_dev])
-        self.size = size
+        self._size = size
 
     def commit(self):
         msg = 'Tried to commit a non commitable volume {!r}'.format(self)
