@@ -66,6 +66,7 @@ class ZFSQEncryptedPool(qubes.storage.Pool):
         if not self.app_reference:
             # TODO this sucks, is there an easier way to get a reference to the
             # global 'app' qubes.Qubes() instance?
+            self.log.warning("had no REFERENCE ETC to APP VARIABLE!!")
             self.app_reference = qubes.Qubes()
         pw_vm = self.app_reference.domains[self.ask_password_domain]
         if not pw_vm:
@@ -78,12 +79,30 @@ class ZFSQEncryptedPool(qubes.storage.Pool):
         try:
             # TODO how do we pass $1 to this stuff? we can pass **kwargs to
             # asyncio.create_subprocess_exec, but we can't influence command
-            await pw_vm.run_service_for_stdio(
-                'qubes.AskPassword',
-                autostart=True, gui=True,
-                user='user',
-                input=self.name.encode()+b'\n', # context for the prompt
-                stdout=pw_pipe_out)
+            # await pw_vm.run_service_for_stdio(
+            # TODO THIS used to work, now it fucking broke.
+            #    'qubes.AskPassword',
+            #    autostart=True, gui=True,
+            #    user='user',
+            #    input=self.name.encode()+b'\n', # context for the prompt
+            #    stdout=pw_pipe_out)
+            # TODO instead for now:
+            environ = os.environ.copy()
+            environ["QREXEC_REMOTE_DOMAIN"] = "dom0"
+            environ["DISPLAY"] = ":0"
+            proc = await asyncio.create_subprocess_exec(
+                    *['sudo','-Eiu','user', '/etc/qubes-rpc/qubes.AskPassword'],
+                    stdout=pw_pipe_out,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.PIPE,
+                    close_fds=True,
+                    env=environ,
+            )
+            proc.stdin.write(self.name.encode()+b'\n')
+            await proc.stdin.drain()
+            # TODO flush aka drain+write_eof() apparently, wtf python
+            proc.stdin.write_eof()
+            await proc.wait()
         except subprocess.CalledProcessError as e:
             # TODO os.close(pw_pipe_in pw_pipe_out)
             os.close(pw_pipe_in)
