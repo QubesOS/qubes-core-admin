@@ -85,7 +85,7 @@ Methods required to be implemented by the pool class:
  - :py:meth:`~qubes.storage.Pool.__init__` - the named arguments to this function are listed in `qvm-pool --help-drivers`. It is called each time the Qubes management starts up, and thus must NOT make persistent changes. When a new pool is created for the first time, a subsequent call to py:meth:`~qubes.storage.Pool.setup` is issued, `__init__` must however save any arguments required to instantiate the new pool.
  - :py:meth:`~qubes.storage.Pool.init_volume` - return instance of appropriate
    volume class; this method should not alter any persistent disk state, it is
-   used to instantiate both existing volumes and create new ones. receives a new volume name and a `volume_config` dict which contains keys like `size` and `name` (the VM's name)
+   used to instantiate both existing volumes and create new ones. receives a new volume name and a `volume_config` dict which contains keys like `size` and `name` (the volume's name; "private", "root", etc.)
 -  :py:meth:`~qubes.storage.Pool.setup` - setup new storage pool. This is called when the user instantiates a new pool with `qvm-pool -a`
  - :py:meth:`~qubes.storage.Pool.destroy` - destroy storage pool
    :py:attr:`~qubes.storage.Pool.config` - volume configuration `dict` containing at least keys: `name`, `revisions_to_keep`, and `driver` (reference to this py:class:`~qubes.storage.Pool`), along with any pool-specific data required to re-instantiate the pool. This dict is serialized to `qubes.xml` and the key-value pairs are passed as named arguments (e.g. `**kwargs`) of the pool `__init__` method next time this pool is instantiated.
