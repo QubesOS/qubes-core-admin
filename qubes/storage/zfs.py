@@ -226,7 +226,7 @@ class ZFSQpool(qubes.storage.Pool):
                 "spare",
                 "log",
             ]  #'zpool name clashes with reserved value'
-            assert not sum([
+            assert not any([
                 name.startswith(notok) for notok in ["mirror", "raidz", "spare"]
             ])
             # for zpools, the namespace is simply the name of the zpool:
