@@ -334,7 +334,7 @@ class ZFSQEncryptedPool(qubes.storage.Pool):
 
     def included_in(self, app):
         """
-        Returns the parent pool if found, otherwise raises an AssertionError.
+        Returns the parent pool if found, otherwise raises KeyError.
         This function also moonlights as our method to retrieve a handle for
         'app' which we record and re-use when asking for passwords.
         """
