@@ -429,7 +429,7 @@ def stateless_property(func):
     exposed through management API (including qvm-prefs etc)'''
     return property(func.__name__,
         setter=property.forbidden,
-        saver=property.DontSave,
+        saver=property.dontsave,
         default=func,
         doc=func.__doc__)
 
