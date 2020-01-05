@@ -1953,9 +1953,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         Currently this checks for running qrexec.
         """  # pylint: disable=unused-argument
 
-        # Running gui-daemon implies also VM running
-        if not self.is_qrexec_running():
-            yield False
+        if self.features.check_with_template('qrexec', False):
+            # Running gui-daemon implies also VM running
+            yield self.is_qrexec_running()
+        else:
+            yield True
 
     # memory and disk
 
