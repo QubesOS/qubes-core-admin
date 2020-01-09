@@ -389,6 +389,16 @@ class NetVMMixin(qubes.events.Emitter):
         else:
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
 
+    def reload_connected_ips(self):
+        '''
+        Update list of IPs possibly connected to this machine.
+        This is used by qubes-firewall to implement anti-spoofing.
+        '''
+        connected_ips = [str(vm.visible_ip) for vm in self.connected_vms]
+        self.untrusted_qdb.write(
+            '/connected-ips',
+            ' '.join(connected_ips))
+
     @qubes.events.handler('property-pre-del:netvm')
     def on_property_pre_del_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
@@ -436,8 +446,13 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         # pylint: disable=unused-argument
 
+        if oldvalue is not None:
+            oldvalue.reload_connected_ips()
+
         if newvalue is None:
             return
+
+        newvalue.reload_connected_ips()
 
         if self.is_running():
             # refresh IP, DNS etc
@@ -456,6 +471,7 @@ class NetVMMixin(qubes.events.Emitter):
     def on_domain_qdb_create(self, event):
         ''' Fills the QubesDB with firewall entries. '''
         # pylint: disable=unused-argument
+        self.reload_connected_ips()
         for vm in self.connected_vms:
             if vm.is_running():
                 # keep in sync with on_firewall_changed
