@@ -479,10 +479,11 @@ class NetVMMixin(qubes.events.Emitter):
     def on_domain_qdb_create(self, event):
         ''' Fills the QubesDB with firewall entries. '''
         # pylint: disable=unused-argument
+
+        # Keep the following in sync with on_firewall_changed.
         self.reload_connected_ips()
         for vm in self.connected_vms:
             if vm.is_running():
-                # keep in sync with on_firewall_changed
                 self.set_mapped_ip_info_for_vm(vm)
                 self.reload_firewall_for_vm(vm)
 
@@ -491,6 +492,7 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
+            self.netvm.reload_connected_ips()
             self.netvm.set_mapped_ip_info_for_vm(self)
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
