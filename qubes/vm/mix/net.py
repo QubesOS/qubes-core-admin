@@ -446,13 +446,14 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         # pylint: disable=unused-argument
 
-        if oldvalue is not None:
+        if oldvalue is not None and oldvalue.is_running():
             oldvalue.reload_connected_ips()
 
         if newvalue is None:
             return
 
-        newvalue.reload_connected_ips()
+        if newvalue.is_running():
+            newvalue.reload_connected_ips()
 
         if self.is_running():
             # refresh IP, DNS etc
