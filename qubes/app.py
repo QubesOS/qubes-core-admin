@@ -730,6 +730,17 @@ class Qubes(qubes.PropertyHolder):
             :param event: Event name (``'pool-delete'``)
             :param pool: Pool object
 
+        .. event:: qubes-close (subject, event)
+
+            Fired when this Qubes() object instance is going to be closed
+            and destroyed. In practice it is called only during tests, to
+            cleanup objects from one test, before another.
+            It is _not_ called when qubesd daemon is stopped.
+
+            :param subject: Event emitter
+            :param event: Event name (``'qubes-close'``)
+
+
     Methods and attributes:
     '''
 
@@ -1058,6 +1069,9 @@ class Qubes(qubes.PropertyHolder):
         for frame in traceback.extract_stack():
             self.log.debug('%s', frame)
 
+        # let all the extension cleanup things
+        self.fire_event('qubes-close')
+
         super().close()
 
         if self._domain_event_callback_id is not None:
@@ -1067,6 +1081,9 @@ class Qubes(qubes.PropertyHolder):
 
         # Only our Lord, The God Almighty, knows what references
         # are kept in extensions.
+        # NOTE: this doesn't really delete extension objects - Extension class
+        # saves reference to instance, and also various registered (class level)
+        # event handlers do that too
         del self._extensions
 
         for vm in self.domains:
