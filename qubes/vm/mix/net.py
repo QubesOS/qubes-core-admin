@@ -394,10 +394,17 @@ class NetVMMixin(qubes.events.Emitter):
         Update list of IPs possibly connected to this machine.
         This is used by qubes-firewall to implement anti-spoofing.
         '''
-        connected_ips = [str(vm.visible_ip) for vm in self.connected_vms]
+        connected_ips = [str(vm.visible_ip) for vm in self.connected_vms
+                         if vm.visible_ip is not None]
+        connected_ips6 = [str(vm.visible_ip6) for vm in self.connected_vms
+                          if vm.visible_ip6 is not None]
+
         self.untrusted_qdb.write(
             '/connected-ips',
             ' '.join(connected_ips))
+        self.untrusted_qdb.write(
+            '/connected-ips6',
+            ' '.join(connected_ips6))
 
     @qubes.events.handler('property-pre-del:netvm')
     def on_property_pre_del_netvm(self, event, name, oldvalue=None):
