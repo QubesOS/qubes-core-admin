@@ -1518,6 +1518,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-header': iptables_header,
             '/qubes-service/qubes-update-check': '0',
             '/qubes-service/meminfo-writer': '1',
+            '/connected-ips': '',
+            '/connected-ips6': '',
         })
 
     @unittest.mock.patch('datetime.datetime')
@@ -1588,6 +1590,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-gateway': '10.137.0.2',
             '/qubes-primary-dns': '10.139.1.1',
             '/qubes-secondary-dns': '10.139.1.2',
+            '/connected-ips': '',
+            '/connected-ips6': '',
         }
 
         with self.subTest('ipv4'):
@@ -1642,6 +1646,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected['/qubes-firewall/10.137.0.3'] = ''
             expected['/qubes-firewall/10.137.0.3/0000'] = 'action=accept'
             expected['/qubes-firewall/10.137.0.3/policy'] = 'drop'
+            expected['/connected-ips'] = '10.137.0.3'
 
             with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
                     lambda _: True):
@@ -1657,6 +1662,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected['/qubes-firewall/' + ip6] = ''
             expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
             expected['/qubes-firewall/' + ip6 + '/policy'] = 'drop'
+            expected['/connected-ips6'] = ip6
+
             with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
                     lambda _: True):
                 netvm.create_qdb_entries()
@@ -1705,6 +1712,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-header': unittest.mock.ANY,
             '/qubes-service/qubes-update-check': '0',
             '/qubes-service/meminfo-writer': '1',
+            '/connected-ips': '',
+            '/connected-ips6': '',
         })
 
 
