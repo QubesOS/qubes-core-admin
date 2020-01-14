@@ -664,6 +664,32 @@ class TC_00_AppVMMixin(object):
                 'test -d /home/user/QubesIncoming/{}'.format(
                     self.testvm1.name)))
 
+    def test_115_qrexec_filecopy_no_agent(self):
+        # The operation should not hang when qrexec-agent is down on target
+        # machine, see QubesOS/qubes-issues#5347.
+
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            try:
+                self.loop.run_until_complete(
+                    self.testvm2.run_for_stdio(
+                        'systemctl stop qubes-qrexec-agent.service', user='root'))
+            except subprocess.CalledProcessError:
+                # A failure is normal here, because we're killing the qrexec
+                # process that is handling the command.
+                pass
+
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.loop.run_until_complete(
+                    asyncio.wait_for(
+                        self.testvm1.run_for_stdio(
+                            'qvm-copy-to-vm {} /etc/passwd'.format(
+                                self.testvm2.name)),
+                        timeout=30))
+
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
     def test_120_qrexec_filecopy_self(self):
