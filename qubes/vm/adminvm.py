@@ -160,6 +160,18 @@ class AdminVM(qubes.vm.BaseVM):
             self.log.warning('Failed to get memory limit for dom0: %s', e)
             return 4096
 
+    def get_cputime(self):
+        '''Get total CPU time burned by Dom0 since start.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.get_cputime`
+        '''
+        try:
+            return self.libvirt_domain.info()[4]
+        except libvirt.libvirtError as e:
+            self.log.warning('Failed to get CPU time for dom0: %s', e)
+            return 0
+
     def verify_files(self):
         '''Always :py:obj:`True`
 
