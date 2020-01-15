@@ -15,7 +15,7 @@ def is_program_installed_in_qube( program, qube_name ):
 
     try:
         command = 'command -v ' + program
-        subprocess.check_call([ 'qvm-run', qube_name, '--pass-io', '--no-color-output', command ], stdout = open( os.devnull, 'w' ) )
+        subprocess.check_call([ 'qvm-run', '--no-color-output', qube_name, command ], stdout = open( os.devnull, 'w' ) )
 
     except subprocess.CalledProcessError:
         is_installed = False
