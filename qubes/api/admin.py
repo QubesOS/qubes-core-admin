@@ -1677,3 +1677,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         except asyncio.CancelledError:
             # valid method to terminate this loop
             pass
+
+    @qubes.api.method('admin.vm.CurrentState', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def vm_current_state(self):
+        self.enforce(not self.arg)
+        self.fire_event_for_permission()
+
+        state = {
+            'mem': self.dest.get_mem(),
+            'mem_static_max': self.dest.get_mem_static_max(),
+            'cputime': self.dest.get_cputime(),
+            'power_state': self.dest.get_power_state(),
+        }
+        return ' '.join('{}={}'.format(k, v) for k, v in state.items())
