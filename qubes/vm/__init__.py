@@ -289,6 +289,19 @@ class BaseVM(qubes.PropertyHolder):
 
         # SEE:1815 firewall, policy.
 
+    def get_provided_assignments(self):
+        '''List of persistent device assignments from this VM.'''
+
+        assignments = []
+        for domain in self.app.domains:
+            if domain == self:
+                continue
+            for device_collection in domain.devices.values():
+                for assignment in device_collection.persistent():
+                    if assignment.backend_domain == self:
+                        assignments.append(assignment)
+        return assignments
+
     def init_log(self):
         '''Initialise logger for this domain.'''
         self.log = qubes.log.get_vm_logger(self.name)
