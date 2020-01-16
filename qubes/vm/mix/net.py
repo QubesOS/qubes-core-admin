@@ -389,6 +389,23 @@ class NetVMMixin(qubes.events.Emitter):
         else:
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
 
+    def reload_connected_ips(self):
+        '''
+        Update list of IPs possibly connected to this machine.
+        This is used by qubes-firewall to implement anti-spoofing.
+        '''
+        connected_ips = [str(vm.visible_ip) for vm in self.connected_vms
+                         if vm.visible_ip is not None]
+        connected_ips6 = [str(vm.visible_ip6) for vm in self.connected_vms
+                          if vm.visible_ip6 is not None]
+
+        self.untrusted_qdb.write(
+            '/connected-ips',
+            ' '.join(connected_ips))
+        self.untrusted_qdb.write(
+            '/connected-ips6',
+            ' '.join(connected_ips6))
+
     @qubes.events.handler('property-pre-del:netvm')
     def on_property_pre_del_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
@@ -436,8 +453,14 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         # pylint: disable=unused-argument
 
+        if oldvalue is not None and oldvalue.is_running():
+            oldvalue.reload_connected_ips()
+
         if newvalue is None:
             return
+
+        if newvalue.is_running():
+            newvalue.reload_connected_ips()
 
         if self.is_running():
             # refresh IP, DNS etc
@@ -456,9 +479,11 @@ class NetVMMixin(qubes.events.Emitter):
     def on_domain_qdb_create(self, event):
         ''' Fills the QubesDB with firewall entries. '''
         # pylint: disable=unused-argument
+
+        # Keep the following in sync with on_firewall_changed.
+        self.reload_connected_ips()
         for vm in self.connected_vms:
             if vm.is_running():
-                # keep in sync with on_firewall_changed
                 self.set_mapped_ip_info_for_vm(vm)
                 self.reload_firewall_for_vm(vm)
 
@@ -467,6 +492,7 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
+            self.netvm.reload_connected_ips()
             self.netvm.set_mapped_ip_info_for_vm(self)
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
