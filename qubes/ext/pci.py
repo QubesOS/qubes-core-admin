@@ -313,6 +313,12 @@ class PCIDeviceExtension(qubes.ext.Extension):
             else:
                 raise
 
+    @qubes.ext.handler('qubes-close', system=True)
+    def on_app_close(self, app, event):
+        # pylint: disable=unused-argument,no-self-use
+        _cache_get.cache_clear()
+
+
 @functools.lru_cache(maxsize=None)
 def _cache_get(vm, ident):
     ''' Caching wrapper around `PCIDevice(vm, ident)`. '''

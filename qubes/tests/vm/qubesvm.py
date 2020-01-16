@@ -273,6 +273,9 @@ class QubesVMTestsMixin(object):
 
     def tearDown(self):
         try:
+            # self.app is not a real events emiter, so make the call manually
+            for handler in qubes.Qubes.__handlers__.get('qubes-close'):
+                handler(self.app, 'qubes-close')
             self.app.domains.close()
         except AttributeError:
             pass
