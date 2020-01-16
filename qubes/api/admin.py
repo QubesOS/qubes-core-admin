@@ -1134,6 +1134,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
+            assignments = self.dest.get_provided_assignments()
+            if assignments:
+                desc = ', '.join(
+                    assignment.ident for assignment in assignments)
+                raise qubes.exc.QubesVMInUseError(self.dest,
+                    'VM has devices attached persistently to other VMs: ' +
+                    desc)
+
             if self.dest.installed_by_rpm:
                 raise qubes.exc.QubesVMInUseError(self.dest,
                     "VM installed by package manager: " + self.dest.name)
