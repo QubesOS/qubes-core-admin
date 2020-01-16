@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -55,6 +55,61 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         }}
 
         return json.dumps(system_info)
+
+    @qubes.api.method('internal.vm.volume.ImportBegin',
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_volume_import(self, untrusted_payload):
+        """Begin importing volume data. Payload is either size of new data
+        in bytes, or empty. If empty, the current volume's size will be used.
+        Returns size and path to where data should be written.
+
+        Triggered by scripts in /etc/qubes-rpc:
+        admin.vm.volume.Import, admin.vm.volume.ImportWithSize.
+
+        When the script finish importing, it will trigger
+        internal.vm.volume.ImportEnd (with either b'ok' or b'fail' as a
+        payload) and response from that call will be actually send to the
+        caller.
+        """
+        self.enforce(self.arg in self.dest.volumes.keys())
+
+        if untrusted_payload:
+            original_method = 'admin.vm.volume.ImportWithSize'
+        else:
+            original_method = 'admin.vm.volume.Import'
+        self.src.fire_event(
+            'admin-permission:' + original_method,
+            pre_event=True, dest=self.dest, arg=self.arg)
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        requested_size = None
+        if untrusted_payload:
+            try:
+                untrusted_value = int(untrusted_payload.decode('ascii'))
+            except (UnicodeDecodeError, ValueError):
+                raise qubes.api.ProtocolError('Invalid value')
+            self.enforce(untrusted_value > 0)
+            requested_size = untrusted_value
+            del untrusted_value
+        del untrusted_payload
+
+        path = yield from self.dest.storage.import_data(
+            self.arg, requested_size)
+        self.enforce(' ' not in path)
+        if requested_size is None:
+            size = self.dest.volumes[self.arg].size
+        else:
+            size = requested_size
+
+        # when we know the action is allowed, inform extensions that it will
+        # be performed
+        self.dest.fire_event(
+            'domain-volume-import-begin', volume=self.arg, size=size)
+
+        return '{} {}'.format(size, path)
 
     @qubes.api.method('internal.vm.volume.ImportEnd')
     @asyncio.coroutine

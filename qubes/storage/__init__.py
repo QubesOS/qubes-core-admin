@@ -188,7 +188,7 @@ class Volume:
         '''
         raise self._not_implemented("export")
 
-    def import_data(self):
+    def import_data(self, size):
         ''' Returns a path to overwrite volume data.
 
             This method is called after volume was already :py:meth:`create`-ed.
@@ -199,6 +199,8 @@ class Volume:
             on the fly), the returned path may be a pipe.
 
             This can be implemented as a coroutine.
+
+            :param int size: size of new data in bytes
         '''
         raise self._not_implemented("import_data")
 
@@ -624,14 +626,22 @@ class Storage:
         return self.vm.volumes[volume].export()
 
     @asyncio.coroutine
-    def import_data(self, volume):
-        ''' Helper function to import volume data (pool.import_data(volume))'''
+    def import_data(self, volume, size):
+        '''
+        Helper function to import volume data (pool.import_data(volume)).
+
+        :size: new size in bytes, or None if using old size
+        '''
+
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            ret = volume.import_data()
-        else:
-            ret = self.vm.volumes[volume].import_data()
+        if isinstance(volume, str):
+            volume = self.vm.volumes[volume]
+
+        if size is None:
+            size = volume.size
+
+        ret = volume.import_data(size)
         return (yield from qubes.utils.coro_maybe(ret))
 
     @asyncio.coroutine

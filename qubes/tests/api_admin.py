@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -34,6 +34,7 @@ import qubes
 import qubes.devices
 import qubes.firewall
 import qubes.api.admin
+import qubes.api.internal
 import qubes.tests
 import qubes.storage
 
@@ -111,6 +112,13 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
             mgmt_obj.execute(untrusted_payload=payload))
         self.assertEventFired(self.emitter,
             'admin-permission:' + method.decode('ascii'))
+        return response
+
+    def call_internal_mgmt_func(self, method, dest, arg=b'', payload=b''):
+        mgmt_obj = qubes.api.internal.QubesInternalAPI(self.app, b'dom0', method, dest, arg)
+        loop = asyncio.get_event_loop()
+        response = loop.run_until_complete(
+            mgmt_obj.execute(untrusted_payload=payload))
         return response
 
 
@@ -207,10 +215,8 @@ qid default=False type=int 2
 qrexec_timeout default=True type=int 60
 updateable default=True type=bool False
 kernelopts default=False type=str opt1\\nopt2\\nopt3\\\\opt4
-netvm default=True type=vm 
-'''
+netvm default=True type=vm \n'''
         self.assertEqual(value, expected)
-
 
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
@@ -1747,9 +1753,12 @@ netvm default=True type=vm
         self.assertFalse(mock_remove.called)
         self.assertFalse(self.app.save.called)
 
+    # Import tests
+    # (internal methods, normally called from qubes-rpc script)
+
     def test_510_vm_volume_import(self):
-        value = self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
-            b'private')
+        value = self.call_internal_mgmt_func(
+            b'internal.vm.volume.ImportBegin', b'test-vm1', b'private')
         self.assertEqual(value, '{} {}'.format(
             2*2**30, '/tmp/qubes-test-dir/appvms/test-vm1/private-import.img'))
         self.assertFalse(self.app.save.called)
@@ -1758,8 +1767,34 @@ netvm default=True type=vm
         with unittest.mock.patch.object(
                 self.vm, 'get_power_state', lambda: 'Running'):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
-                    b'private')
+                self.call_internal_mgmt_func(
+                    b'internal.vm.volume.ImportBegin', b'test-vm1', b'private')
+
+    def test_512_vm_volume_import_with_size(self):
+        new_size = 4 * 2**30
+        file_name = '/tmp/qubes-test-dir/appvms/test-vm1/private-import.img'
+
+        value = self.call_internal_mgmt_func(
+            b'internal.vm.volume.ImportBegin', b'test-vm1',
+            b'private', payload=str(new_size).encode())
+        self.assertEqual(value, '{} {}'.format(
+            new_size, file_name))
+        self.assertFalse(self.app.save.called)
+
+        self.assertEqual(os.stat(file_name).st_size, new_size)
+
+    def test_515_vm_volume_import_fire_event(self):
+        self.call_internal_mgmt_func(
+            b'internal.vm.volume.ImportBegin', b'test-vm1', b'private')
+        self.assertEventFired(
+            self.emitter, 'admin-permission:admin.vm.volume.Import')
+
+    def test_516_vm_volume_import_fire_event_with_size(self):
+        self.call_internal_mgmt_func(
+            b'internal.vm.volume.ImportBegin', b'test-vm1', b'private',
+            b'123')
+        self.assertEventFired(
+            self.emitter, 'admin-permission:admin.vm.volume.ImportWithSize')
 
     def setup_for_clone(self):
         self.pool = unittest.mock.MagicMock()

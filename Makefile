@@ -191,6 +191,8 @@ endif
 	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
 	cp qubes-rpc-policy/qubes.ConnectTCP.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.ConnectTCP
 	cp qubes-rpc-policy/admin.vm.Console.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.Console
+	cp qubes-rpc-policy/admin.vm.volume.Import.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.volume.Import
+	cp qubes-rpc-policy/admin.vm.volume.ImportWithSize.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.volume.ImportWithSize
 	cp qubes-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/qubes-rpc/policy/policy.RegisterArgument
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
@@ -208,6 +210,7 @@ endif
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
+	ln -s admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/admin.vm.volume.ImportWithSize
 	install qubes-rpc/admin.vm.Console $(DESTDIR)/etc/qubes-rpc/
 	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
 		--destdir=$(DESTDIR)/etc/qubes-rpc/policy \
@@ -260,4 +263,3 @@ msi:
 	candle -arch x64 -dversion=$(VERSION) installer.wxs
 	light -b destinstdir -o core-admin.msm installer.wixobj
 	rm -rf destinstdir
-

@@ -332,7 +332,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
         volume.create()
-        import_path = volume.import_data()
+        import_path = volume.import_data(volume.size)
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+') as import_file:
             import_file.write('test')
@@ -353,7 +353,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
         volume.create()
-        import_path = volume.import_data()
+        import_path = volume.import_data(volume.size)
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+') as import_file:
             import_file.write('test')
@@ -376,7 +376,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         volume.create()
         with open(volume.path, 'w') as vol_file:
             vol_file.write('test data')
-        import_path = volume.import_data()
+        import_path = volume.import_data(volume.size)
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+'):
             pass
@@ -401,6 +401,30 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         qubes.utils.void_coros_maybe([volume.resize(new_size)])
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
+
+    def test_024_import_data_with_new_size(self):
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        new_size = 2 * 1024 * 1024
+
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        volume.create()
+        import_path = volume.import_data(new_size)
+        self.assertNotEqual(volume.path, import_path)
+        with open(import_path, 'r+b') as import_file:
+            import_file.write(b'test')
+        volume.import_data_end(True)
+        self.assertFalse(os.path.exists(import_path), import_path)
+        with open(volume.path, 'rb') as volume_file:
+            volume_data = volume_file.read()
+        self.assertEqual(volume_data.strip(b'\0'), b'test')
+        self.assertEqual(len(volume_data), new_size)
 
     def _get_loop_size(self, path):
         sudo = [] if os.getuid() == 0 else ['sudo']

@@ -16,23 +16,36 @@
 #    2. Actual data import (done by this script, using dd)
 #    3. Report final result, produce final response to the caller (done by
 #       qubesd)
-#    
+#
 #    This way we do not pass all the data through qubesd, but still can
 #    control the process from there in a meaningful way. Note that the last
 #    part (second call to qubesd) may perform all kind of verification (like
 #    a signature check on the data, or so) and can also prevent VM from
 #    starting (hooking also domain-pre-start event) from not verified image.
+#
+# Note that this script implements two calls:
+#   - admin.vm.volume.Import
+#   - admin.vm.volume.ImportWithSize
+# In the case of admin.vm.ImportWithSize, the first line of payload is then
+# data size in bytes. This is so that we can already notify qubesd to create a
+# volume with the new size.
 
 set -e
 
 # use temporary file, because env variables deal poorly with \0 inside
 tmpfile=$(mktemp)
 trap "rm -f $tmpfile" EXIT
-qubesd-query -e \
-        "$QREXEC_REMOTE_DOMAIN" \
-        "admin.vm.volume.Import" \
-        "$QREXEC_REQUESTED_TARGET" \
-        "$1" >$tmpfile
+
+requested_size=""
+if [[ ${0##*/} == admin.vm.volume.ImportWithSize ]]; then
+    read requested_size
+fi
+
+echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
+    "$QREXEC_REMOTE_DOMAIN" \
+    "internal.vm.volume.ImportBegin" \
+    "$QREXEC_REQUESTED_TARGET" \
+    "$1" >$tmpfile
 
 # exit if qubesd returned an error (not '0\0')
 if [ "$(head -c 2 $tmpfile | xxd -p)" != "3000" ]; then

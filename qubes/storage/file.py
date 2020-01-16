@@ -283,12 +283,12 @@ class FileVolume(qubes.storage.Volume):
             copy_file(src_volume.export(), self.path)
         return self
 
-    def import_data(self):
+    def import_data(self, size):
         if not self.save_on_stop:
             raise qubes.storage.StoragePoolException(
                 "Can not import into save_on_stop=False volume {!s}".format(
                     self))
-        create_sparse_file(self.path_import, self.size)
+        create_sparse_file(self.path_import, size)
         return self.path_import
 
     def import_data_end(self, success):
