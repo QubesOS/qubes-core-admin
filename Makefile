@@ -109,6 +109,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.Set.revisions_to_keep \
 	admin.vm.volume.Set.rw \
 	admin.vm.Stats \
+	admin.vm.CurrentState \
 	$(null)
 
 ifeq ($(OS),Linux)

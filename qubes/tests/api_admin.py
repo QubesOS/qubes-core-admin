@@ -2614,6 +2614,20 @@ netvm default=True type=vm
         value = self.call_mgmt_func(b'admin.pool.volume.List', b'dom0', b'pool1')
         self.assertEqual(value, 'vol1\nvol2\n')
 
+    def test_800_current_state_default(self):
+        value = self.call_mgmt_func(b'admin.vm.CurrentState', b'test-vm1')
+        self.assertEqual(
+            value, 'mem=0 mem_static_max=0 cputime=0 power_state=Halted')
+
+    def test_801_current_state_changed(self):
+        self.vm.get_mem = lambda: 512
+        self.vm.get_mem_static_max = lambda: 1024
+        self.vm.get_cputime = lambda: 100
+        self.vm.get_power_state = lambda: 'Running'
+        value = self.call_mgmt_func(b'admin.vm.CurrentState', b'test-vm1')
+        self.assertEqual(
+            value, 'mem=512 mem_static_max=1024 cputime=100 power_state=Running')
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
