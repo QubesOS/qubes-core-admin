@@ -54,6 +54,7 @@ Key-Length: 1024
 Key-Usage: sign
 Name-Real: Qubes test
 Expire-Date: 0
+%no-protection
 %commit
         '''.format(keydir=keydir).encode())
         p.stdin.close()
