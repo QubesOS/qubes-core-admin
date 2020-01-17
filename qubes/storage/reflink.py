@@ -61,14 +61,14 @@ class ReflinkPool(qubes.storage.Pool):
     def __init__(self, dir_path, setup_check='yes', revisions_to_keep=1,
                  **kwargs):
         super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
+        self._setup_check = qubes.property.bool(None, None, setup_check)
         self._volumes = {}
         self.dir_path = os.path.abspath(dir_path)
-        self.setup_check = qubes.property.bool(None, None, setup_check)
 
     @_coroutinized
     def setup(self):
         created = _make_dir(self.dir_path)
-        if self.setup_check and not is_supported(self.dir_path):
+        if self._setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
             raise qubes.storage.StoragePoolException(
