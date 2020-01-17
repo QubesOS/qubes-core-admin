@@ -446,7 +446,10 @@ def _attempt_ficlone(src, dst):
     try:
         fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
         return True
-    except OSError:
+    except OSError as ex:
+        if ex.errno not in (errno.EBADF, errno.EINVAL,
+                            errno.EOPNOTSUPP, errno.EXDEV):
+            raise
         return False
 
 def _copy_file(src, dst):
