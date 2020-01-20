@@ -1796,6 +1796,28 @@ netvm default=True type=vm \n'''
         self.assertEventFired(
             self.emitter, 'admin-permission:admin.vm.volume.ImportWithSize')
 
+    def test_510_vm_volume_import_end_success(self):
+        import_data_end_mock, self.vm.storage.import_data_end = \
+            self.coroutine_mock()
+        self.call_internal_mgmt_func(
+            b'internal.vm.volume.ImportEnd', b'test-vm1', b'private',
+            payload=b'ok')
+        self.assertEqual(import_data_end_mock.mock_calls, [
+            unittest.mock.call('private', success=True)
+        ])
+
+    def test_510_vm_volume_import_end_failure(self):
+        import_data_end_mock, self.vm.storage.import_data_end = \
+            self.coroutine_mock()
+        with self.assertRaisesRegexp(
+                qubes.exc.QubesException, 'error message'):
+            self.call_internal_mgmt_func(
+                b'internal.vm.volume.ImportEnd', b'test-vm1', b'private',
+                payload=b'fail\nerror message')
+        self.assertEqual(import_data_end_mock.mock_calls, [
+            unittest.mock.call('private', success=False)
+        ])
+
     def setup_for_clone(self):
         self.pool = unittest.mock.MagicMock()
         self.app.pools['test'] = self.pool

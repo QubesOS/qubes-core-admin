@@ -118,6 +118,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         This is second half of admin.vm.volume.Import handling. It is called
         when actual import is finished. Response from this method is sent do
         the client (as a response for admin.vm.volume.Import call).
+
+        The payload is either 'ok', or 'fail\n<error message>'.
         '''
         self.enforce(self.arg in self.dest.volumes.keys())
         success = untrusted_payload == b'ok'
@@ -134,7 +136,12 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             success=success)
 
         if not success:
-            raise qubes.exc.QubesException('Data import failed')
+            error = ''
+            parts = untrusted_payload.decode('ascii').split('\n', 1)
+            if len(parts) > 1:
+                error = parts[1]
+            raise qubes.exc.QubesException(
+                'Data import failed: {}'.format(error))
 
     @qubes.api.method('internal.SuspendPre', no_payload=True)
     @asyncio.coroutine

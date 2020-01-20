@@ -1403,6 +1403,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.api_admin',
             'qubes.tests.api_misc',
             'qubes.tests.api_internal',
+            'qubes.tests.rpc_import',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
