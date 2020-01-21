@@ -1004,7 +1004,18 @@ netvm default=True type=vm
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1')
         self.assertIsNone(value)
-        func_mock.assert_called_once_with()
+        func_mock.assert_called_once_with(force=False)
+
+    def test_231_shutdown_force(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'force')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True)
 
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()
@@ -2699,7 +2710,6 @@ netvm default=True type=vm
             b'admin.vm.firewall.Reload',
             b'admin.vm.volume.List',
             b'admin.vm.Start',
-            b'admin.vm.Shutdown',
             b'admin.vm.Pause',
             b'admin.vm.Unpause',
             b'admin.vm.Kill',
