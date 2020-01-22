@@ -4,8 +4,8 @@
     {%- if 'frontend-dev' in options %}
         <target dev="{{ options.get('frontend-dev') }}" />
     {%- else %}
-        <target dev="xvd{{dd[i]}}" />
-        {% set i = i + 1 %}
+        <target dev="xvd{{dd[counter.i]}}" />
+        {% if counter.update({'i': counter.i + 1}) %}{% endif %}
     {%- endif %}
 
     {%- if options.get('read-only', 'no') == 'yes' %}

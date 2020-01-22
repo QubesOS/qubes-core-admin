@@ -96,7 +96,15 @@
 
     <devices>
         {% block devices %}
-            {% set i = 0 %}
+            {#
+                HACK: The letter counter is implemented in this way because
+                Jinja does not allow you to increment variables in a loop
+                anymore. As of Jinja 2.10, we will be able to replace this
+                with:
+                {% set counter = namespace(i=0) %}
+                {% set counter.i = counter.i + 1 %}
+            #}
+            {% set counter = {'i': 0} %}
             {# TODO Allow more volumes out of the box #}
             {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
                 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
@@ -114,8 +122,8 @@
                     {% elif device.name == 'kernel' %}
                         <target dev="xvdd" />
                     {% else %}
-                        <target dev="xvd{{dd[i]}}" />
-                        {% set i = i + 1 %}
+                        <target dev="xvd{{dd[counter.i]}}" />
+                        {% if counter.update({'i': counter.i + 1}) %}{% endif %}
                     {% endif %}
 
                     {% if not device.rw %}
@@ -133,7 +141,7 @@
             {% endfor %}
 
             {# start external devices from xvdi #}
-            {% set i = 4 %}
+            {% set counter = {'i': 4} %}
             {% for assignment in vm.devices.block.assignments(True) %}
                 {% set device = assignment.device %}
                 {% set options = assignment.options %}
@@ -185,5 +193,5 @@
         {% endblock %}
     </devices>
 </domain>
- 
+
 <!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80 : -->
