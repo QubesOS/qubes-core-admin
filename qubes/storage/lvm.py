@@ -290,9 +290,9 @@ class ThinVolume(qubes.storage.Volume):
     '''  # pylint: disable=too-few-public-methods
 
 
-    def __init__(self, volume_group, size=0, **kwargs):
+    def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
-        super(ThinVolume, self).__init__(size=size, **kwargs)
+        super(ThinVolume, self).__init__(**kwargs)
         self.log = logging.getLogger('qubes.storage.lvm.%s' % str(self.pool))
 
         if self.snap_on_start or self.save_on_stop:
@@ -300,7 +300,6 @@ class ThinVolume(qubes.storage.Volume):
         if self.save_on_stop:
             self._vid_import = self.vid + '-import'
 
-        self._size = size
         self._lock = asyncio.Lock()
 
     @property
