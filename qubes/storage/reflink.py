@@ -61,14 +61,14 @@ class ReflinkPool(qubes.storage.Pool):
     def __init__(self, dir_path, setup_check='yes', revisions_to_keep=1,
                  **kwargs):
         super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
+        self._setup_check = qubes.property.bool(None, None, setup_check)
         self._volumes = {}
         self.dir_path = os.path.abspath(dir_path)
-        self.setup_check = qubes.property.bool(None, None, setup_check)
 
     @_coroutinized
     def setup(self):
         created = _make_dir(self.dir_path)
-        if self.setup_check and not is_supported(self.dir_path):
+        if self._setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
             raise qubes.storage.StoragePoolException(
@@ -81,7 +81,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     def init_volume(self, vm, volume_config):
         # Fail closed on any strange VM dir_path_prefix, just in case
-        # /etc/udev/rules/00-qubes-ignore-devices.rules needs updating
+        # /etc/udev/rules.d/00-qubes-ignore-devices.rules needs update
         assert vm.dir_path_prefix in self._known_dir_path_prefixes, \
                'Unknown dir_path_prefix {!r}'.format(vm.dir_path_prefix)
 
@@ -446,7 +446,10 @@ def _attempt_ficlone(src, dst):
     try:
         fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
         return True
-    except OSError:
+    except OSError as ex:
+        if ex.errno not in (errno.EBADF, errno.EINVAL,
+                            errno.EOPNOTSUPP, errno.EXDEV):
+            raise
         return False
 
 def _copy_file(src, dst):
