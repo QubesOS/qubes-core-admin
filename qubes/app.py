@@ -1462,6 +1462,15 @@ class Qubes(qubes.PropertyHolder):
                 except AttributeError:
                     pass
 
+        assignments = vm.get_provided_assignments()
+        if assignments:
+            desc = ', '.join(
+                assignment.ident for assignment in assignments)
+            raise qubes.exc.QubesVMInUseError(
+                vm,
+                'VM has devices attached persistently to other VMs: ' +
+                desc)
+
     @qubes.events.handler('domain-delete')
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument

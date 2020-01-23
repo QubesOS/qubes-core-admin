@@ -673,6 +673,15 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[appvm]
 
+    def test_206_remove_attached(self):
+        # See also qubes.tests.api_admin.
+        vm = self.app.add_new_vm(
+            'AppVM', name='test-vm', template=self.template, label='red')
+        assignment = mock.Mock(ident='1234')
+        vm.get_provided_assignments = lambda: [assignment]
+        with self.assertRaises(qubes.exc.QubesVMInUseError):
+            del self.app.domains[vm]
+
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(

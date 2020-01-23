@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -1743,6 +1743,22 @@ netvm default=True type=vm
                 self.vm, 'get_power_state', lambda: 'Running'):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
+        self.assertFalse(mock_rmtree.called)
+        self.assertFalse(mock_remove.called)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.remove')
+    @unittest.mock.patch('shutil.rmtree')
+    def test_502_vm_remove_attached(self, mock_rmtree, mock_remove):
+        self.setup_for_clone()
+        assignment = qubes.devices.DeviceAssignment(
+            self.vm, '1234', persistent=True)
+        self.loop.run_until_complete(
+            self.vm2.devices['testclass'].attach(assignment))
+
+        mock_remove.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesVMInUseError):
+            self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
         self.assertFalse(mock_rmtree.called)
         self.assertFalse(mock_remove.called)
         self.assertFalse(self.app.save.called)
