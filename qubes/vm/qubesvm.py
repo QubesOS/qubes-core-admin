@@ -1449,14 +1449,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return stdouterr
 
-    @staticmethod
-    def _prepare_input_for_vmshell(command, input):
-        """Prepare shell input for the given command and optional (real) input
-        """  # pylint: disable=redefined-builtin
-        if input is None:
-            input = b''
-        return b''.join((command.rstrip('\n').encode('utf-8'), b'\n', input))
-
     def run(self, command, user=None, **kwargs):
         """Run a shell command inside the domain using qrexec.
 
@@ -1474,12 +1466,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @asyncio.coroutine
     def run_for_stdio(self, *args, input=None, **kwargs):
-        """Run a shell command inside the domain using qubes.VMShell qrexec.
+        """Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
-
-        *kwargs* are passed verbatim to :py:meth:`run_service_for_stdio`.
-        See disclaimer there.
         """  # pylint: disable=redefined-builtin
 
         kwargs.setdefault('stdin', subprocess.PIPE)
