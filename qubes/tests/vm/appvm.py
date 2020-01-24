@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -157,3 +157,25 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         self.assertEqual(vm.template_for_dispvms, False)
         with self.assertRaises(AttributeError):
             vm.dispvm_allowed
+
+    def test_600_load_volume_config(self):
+        xml_template = '''
+        <domain class="AppVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+            </properties>
+            <volume-config>
+                <volume name="root" pool="lvm" revisions_to_keep="3" rw="True"
+                        size="1234" vid="qubes_dom0/vm-testvm-root" />
+            </volume-config>
+        </domain>
+        '''
+        xml = lxml.etree.XML(xml_template)
+        vm = qubes.vm.appvm.AppVM(self.app, xml)
+        self.assertEqual(vm.volume_config['root']['revisions_to_keep'], '3')
+        self.assertEqual(vm.volume_config['root']['rw'], True)
+        self.assertEqual(vm.volume_config['root']['size'], '1234')
+        self.assertEqual(vm.volume_config['root']['vid'],
+                         'qubes_dom0/vm-testvm-root')
