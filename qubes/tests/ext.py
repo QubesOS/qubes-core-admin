@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -46,13 +46,15 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'gui': '1',
                     'version': '1',
                     'default-user': 'user',
-                    'qrexec': '1'}))
-        self.assertEqual(self.vm.mock_calls, [
+                    'qrexec': '1',
+                    'vmexec': '1'}))
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__setitem__', ('qrexec', True), {}),
             ('features.__contains__', ('gui',), {}),
             ('features.__setitem__', ('gui', True), {}),
+            ('features.__setitem__', ('vmexec', True), {}),
             ('features.get', ('qrexec', False), {}),
             ('fire_event_async', ('template-postinstall',), {}),
             ('fire_event_async().__iter__', (), {}),
@@ -66,13 +68,15 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'gui': '0',
                     'version': '1',
                     'default-user': 'user',
-                    'qrexec': '0'}))
-        self.assertEqual(self.vm.mock_calls, [
+                    'qrexec': '0',
+                    'vmexec': '0'}))
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__setitem__', ('qrexec', False), {}),
             ('features.__contains__', ('gui',), {}),
             ('features.__setitem__', ('gui', False), {}),
+            ('features.__setitem__', ('vmexec', False), {}),
             ('features.get', ('qrexec', False), {}),
         ])
 
@@ -84,7 +88,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'version': '1',
                     'default-user': 'user',
                 }))
-        self.assertEqual(self.vm.mock_calls, [
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.get', ('qrexec', False), {}),
         ])
@@ -98,7 +102,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'gui': '1',
                     'default-user': 'user',
                 }))
-        self.assertEqual(self.vm.mock_calls, [
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__setitem__', ('qrexec', True), {}),
@@ -136,7 +140,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'gui': 'invalid',
                     'default-user': 'user',
                 }))
-        self.assertEqual(self.vm.mock_calls, [
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__setitem__', ('qrexec', True), {}),
@@ -171,7 +175,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'version': '1',
                     'default-user': 'user',
                     'qrexec': '1'}))
-        self.assertEqual(self.vm.mock_calls, [
+        self.assertListEqual(self.vm.mock_calls, [
             ('features.get', ('qrexec', False), {}),
             ('features.__contains__', ('qrexec',), {}),
             ('features.__contains__', ('gui',), {}),

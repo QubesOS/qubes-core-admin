@@ -1,4 +1,4 @@
-# -*- encoding: utf8 -*-
+# -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -34,7 +34,8 @@ class CoreFeatures(qubes.ext.Extension):
             return
 
         requested_features = {}
-        for feature in ('qrexec', 'gui', 'gui-emulated', 'qubes-firewall'):
+        for feature in (
+                'qrexec', 'gui', 'gui-emulated', 'qubes-firewall', 'vmexec'):
             untrusted_value = untrusted_features.get(feature, None)
             if untrusted_value in ('1', '0'):
                 requested_features[feature] = bool(int(untrusted_value))
@@ -53,7 +54,7 @@ class CoreFeatures(qubes.ext.Extension):
                 vm.features[feature] = requested_features[feature]
 
         # those features can be freely enabled or disabled by template
-        for feature in ('qubes-firewall',):
+        for feature in ('qubes-firewall', 'vmexec'):
             if feature in requested_features:
                 vm.features[feature] = requested_features[feature]
 

@@ -178,6 +178,7 @@ endif
 	cp qubes-rpc-policy/qubes.OpenURL.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenURL
 	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
 	cp qubes-rpc-policy/qubes.VMRootShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMRootShell
+	cp qubes-rpc-policy/qubes.VMExec.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMExec
 	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
 	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
 	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
@@ -186,7 +187,6 @@ endif
 	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
 	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
 	cp qubes-rpc-policy/qubes.StartApp.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.StartApp
-	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
 	cp qubes-rpc-policy/qubes.UpdatesProxy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.UpdatesProxy
 	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
 	cp qubes-rpc-policy/qubes.ConnectTCP.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.ConnectTCP

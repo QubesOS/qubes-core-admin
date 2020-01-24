@@ -1,0 +1,31 @@
+## Note that policy parsing stops at the first match,
+## so adding anything below "$anyvm $anyvm action" line will have no effect
+
+## Please use a single # to start your custom comments
+
+$anyvm	$dispvm	allow
+$anyvm	$anyvm	deny
+
+# WARNING: The qubes.VMExec service is dangerous and there are really few
+# cases when it could be safely used. Especially when policy set to "ask" you
+# have no way to know for sure what command(s) will be called. Compromissed
+# source VM can substitute the command. Allowing one VM to execute
+# qubes.VMExec over the other VM allows the former to TAKE FULL CONTROL over
+# the later. In most cases this is not what we want!
+#
+# Instead we should be using task-specific qrexec services which provide
+# assurance as to what program will be responding to the (untrusted) VM
+# requests.
+#
+# It is, however, safe, in most cases, to allow ultimate control of the
+# creating AppVM over the DisposableVM it creates as part of the qrexec service
+# invocation. That's why by default we have "$anyvm  $dispvm allow" rule. Note
+# that it does _not_ allow any AppVM to execute qubes.VMExec service over any
+# DispVM created in the system -- that would obviously be wrong. It only allows
+# qubes.VMExec service access to the AppVM which creates the DispVM as part of
+# this very service invocation.
+#
+# See e.g. this thread for some discussion:
+# https://groups.google.com/d/msg/qubes-users/xnAByaL_bjI/3PjYdiTDW-0J
+#
+#
