@@ -179,6 +179,7 @@ endif
 	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
 	cp qubes-rpc-policy/qubes.VMRootShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMRootShell
 	cp qubes-rpc-policy/qubes.VMExec.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMExec
+	cp qubes-rpc-policy/qubes.VMExecGUI.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMExecGUI
 	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
 	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
 	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
