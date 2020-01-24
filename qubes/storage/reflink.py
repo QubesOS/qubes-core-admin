@@ -289,11 +289,11 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @_coroutinized
     @_locked
-    def import_data(self):
+    def import_data(self, size):
         if not self.save_on_stop:
             raise NotImplementedError(
                 'Cannot import_data: {} is not save_on_stop'.format(self.vid))
-        _create_sparse_file(self._path_import, self._get_size())
+        _create_sparse_file(self._path_import, size)
         return self._path_import
 
     def _import_data_end(self, success):

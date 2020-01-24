@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This Admin API call is implemented as a custom script, instead of dumb
 # passthrough to qubesd because it may get huge amount of data (whole root.img
@@ -16,42 +16,80 @@
 #    2. Actual data import (done by this script, using dd)
 #    3. Report final result, produce final response to the caller (done by
 #       qubesd)
-#    
+#
 #    This way we do not pass all the data through qubesd, but still can
 #    control the process from there in a meaningful way. Note that the last
 #    part (second call to qubesd) may perform all kind of verification (like
 #    a signature check on the data, or so) and can also prevent VM from
 #    starting (hooking also domain-pre-start event) from not verified image.
+#
+# Note that this script implements two calls:
+#   - admin.vm.volume.Import
+#   - admin.vm.volume.ImportWithSize
+# In the case of admin.vm.ImportWithSize, the first line of payload is then
+# data size in bytes. This is so that we can already notify qubesd to create a
+# volume with the new size.
 
 set -e
 
+# make dd output consistent
+export LC_ALL=C
+
 # use temporary file, because env variables deal poorly with \0 inside
 tmpfile=$(mktemp)
-trap "rm -f $tmpfile" EXIT
-qubesd-query -e \
-        "$QREXEC_REMOTE_DOMAIN" \
-        "admin.vm.volume.Import" \
-        "$QREXEC_REQUESTED_TARGET" \
-        "$1" >$tmpfile
+trap 'rm -f $tmpfile' EXIT
+
+requested_size=""
+if [[ "${0##*/}" == admin.vm.volume.ImportWithSize ]]; then
+    read -r requested_size
+fi
+
+echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
+    "$QREXEC_REMOTE_DOMAIN" \
+    "internal.vm.volume.ImportBegin" \
+    "$QREXEC_REQUESTED_TARGET" \
+    "$1" >"$tmpfile"
 
 # exit if qubesd returned an error (not '0\0')
-if [ "$(head -c 2 $tmpfile | xxd -p)" != "3000" ]; then
+if [ "$(head -c 2 "$tmpfile" | xxd -p)" != "3000" ]; then
     cat "$tmpfile"
     exit 1
 fi
 size=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 1)
 path=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 2)
 
+error=""
+
 # now process stdin into this path
-if sudo dd bs=128K of="$path" count="$size" iflag=count_bytes,fullblock \
-        conv=sparse,notrunc,nocreat,fdatasync status=none; then
+if ! sudo dd bs=128K of="$path" count="$size" iflag=count_bytes,fullblock \
+        conv=sparse,notrunc,nocreat,fdatasync 2>"$tmpfile"; then
+    error="error copying data"
+fi
+
+# Examine dd's output and check if number of bytes copied matches
+if [ -z "$error" ]; then
+    bytes_copied=$(tail -n1 "$tmpfile" | cut -d ' ' -f 1)
+    if [ "$bytes_copied" -ne "$size" ]; then
+        error="not enough data (copied $bytes_copied bytes, expected $size bytes)"
+    fi
+fi
+
+# Check if there is nothing more to be read from stdin
+if [ -z "$error" ]; then
+    if ! dd of="$tmpfile" bs=1 count=1 status=none || \
+            [ "$(stat -c %s "$tmpfile")" -ne 0 ]; then
+        error="too much data (expected $size bytes)"
+    fi
+fi
+
+if [ -z "$error" ]; then
     status="ok"
 else
-    status="fail"
+    status="fail\n$error"
 fi
 
 # send status notification to qubesd, and pass its response to the caller
-echo -n "$status" | qubesd-query -c /var/run/qubesd.internal.sock \
+echo -ne "$status" | qubesd-query -c /var/run/qubesd.internal.sock \
     "$QREXEC_REMOTE_DOMAIN" \
     "internal.vm.volume.ImportEnd" \
     "$QREXEC_REQUESTED_TARGET" \

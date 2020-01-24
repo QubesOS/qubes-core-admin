@@ -560,7 +560,7 @@ class ThinVolume(qubes.storage.Volume):
 
     @locked
     @asyncio.coroutine
-    def import_data(self):
+    def import_data(self, size):
         ''' Returns an object that can be `open()`. '''
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
@@ -569,7 +569,7 @@ class ThinVolume(qubes.storage.Volume):
         self.abort_if_import_in_progress()
         # pylint: disable=protected-access
         cmd = ['create', self.pool._pool_id, self._vid_import.split('/')[1],
-               str(self.size)]
+               str(size)]
         yield from qubes_lvm_coro(cmd, self.log)
         yield from reset_cache_coro()
         devpath = '/dev/' + self._vid_import

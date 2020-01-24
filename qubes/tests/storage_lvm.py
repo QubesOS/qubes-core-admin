@@ -698,7 +698,8 @@ class TC_00_ThinPool(ThinPoolBase):
         self.loop.run_until_complete(volume.create())
         current_uuid = self._get_lv_uuid(volume.path)
         self.assertFalse(volume.is_dirty())
-        import_path = self.loop.run_until_complete(volume.import_data())
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
         import_uuid = self._get_lv_uuid(import_path)
         self.assertNotEqual(current_uuid, import_uuid)
         # success - commit data
@@ -729,7 +730,8 @@ class TC_00_ThinPool(ThinPoolBase):
         self.loop.run_until_complete(volume.create())
         current_uuid = self._get_lv_uuid(volume.path)
         self.assertFalse(volume.is_dirty())
-        import_path = self.loop.run_until_complete(volume.import_data())
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
         import_uuid = self._get_lv_uuid(import_path)
         self.assertNotEqual(current_uuid, import_uuid)
         # fail - discard data
@@ -860,7 +862,8 @@ class TC_00_ThinPool(ThinPoolBase):
             'sudo', 'dd', 'if=/dev/urandom', 'of=' + volume.path, 'count=1', 'bs=1M'
         ))
         self.loop.run_until_complete(p.wait())
-        import_path = self.loop.run_until_complete(volume.import_data())
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
         self.assertNotEqual(volume.path, import_path)
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
             'sudo', 'touch', import_path))
@@ -873,6 +876,28 @@ class TC_00_ThinPool(ThinPoolBase):
         ))
         volume_data, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(volume_data.strip(b'\0'), b'')
+
+    def test_035_import_data_new_size(self):
+        ''' Test volume import'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        new_size = 2 * qubes.config.defaults['root_img_size']
+
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        self.loop.run_until_complete(volume.create())
+        self.loop.run_until_complete(
+            volume.import_data(new_size))
+        self.loop.run_until_complete(volume.import_data_end(True))
+        self.assertEqual(volume.size, new_size)
+
+        self.loop.run_until_complete(volume.remove())
 
     def test_040_volatile(self):
         '''Volatile volume test'''
