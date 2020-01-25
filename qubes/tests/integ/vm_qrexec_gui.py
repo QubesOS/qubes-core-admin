@@ -60,6 +60,19 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.app.save()
 
+    def tearDown(self):
+        # socket-based qrexec tests:
+        if os.path.exists('/etc/qubes-rpc/test.Socket'):
+            os.unlink('/etc/qubes-rpc/test.Socket')
+        if hasattr(self, 'service_proc'):
+            try:
+                self.service_proc.terminate()
+                self.loop.run_until_complete(self.service_proc.communicate())
+            except ProcessLookupError:
+                pass
+
+        super(TC_00_AppVMMixin, self).tearDown()
+
     def test_000_start_shutdown(self):
         # TODO: wait_for, timeout
         self.loop.run_until_complete(self.testvm1.start())
@@ -559,6 +572,343 @@ class TC_00_AppVMMixin(object):
                     '{} test.Argument+argument'.format(self.testvm2.name)))
 
         self.assertEqual(stdout, b'test.Argument+argument argument')
+
+    def test_090_qrexec_service_socket_dom0(self):
+        """Basic test socket services (dom0) - data receive"""
+        self.loop.run_until_complete(self.testvm1.start())
+
+        service_proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_shell(
+                'socat -u UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666 -',
+                stdout=subprocess.PIPE, stdin=subprocess.PIPE))
+
+        try:
+            with self.qrexec_policy('test.Socket', self.testvm1, '@adminvm'):
+                (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
+                    self.testvm1.run_for_stdio(
+                        'qrexec-client-vm @adminvm test.Socket', input=TEST_DATA),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred to the VM process")
+
+        try:
+            (service_stdout, service_stderr) = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    service_proc.communicate(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "socat timeout, probably EOF wasn't transferred to the VM process")
+
+        service_descriptor = b'test.Socket+ test-inst-vm1 keyword adminvm\0'
+        self.assertEqual(service_stdout, service_descriptor + TEST_DATA,
+            'Received data differs from what was sent')
+        self.assertFalse(stderr,
+            'Some data was printed to stderr')
+        self.assertFalse(service_stderr,
+            'Some data was printed to stderr')
+
+    def test_091_qrexec_service_socket_dom0_send(self):
+        """Basic test socket services (dom0) - data send"""
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_local_file('/tmp/service-input', TEST_DATA.decode())
+
+        service_proc = self.loop.run_until_complete(asyncio.create_subprocess_shell(
+            'socat -u OPEN:/tmp/service-input UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666'))
+
+        try:
+            with self.qrexec_policy('test.Socket', self.testvm1, '@adminvm'):
+                stdout, stderr = self.loop.run_until_complete(asyncio.wait_for(
+                    self.testvm1.run_for_stdio(
+                        'qrexec-client-vm @adminvm test.Socket'),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred to the VM process")
+
+        try:
+            (service_stdout, service_stderr) = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    service_proc.communicate(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "socat timeout, probably EOF wasn't transferred to the VM process")
+
+        self.assertEqual(stdout, TEST_DATA,
+            'Received data differs from what was sent')
+        self.assertFalse(stderr,
+            'Some data was printed to stderr')
+        self.assertFalse(service_stderr,
+            'Some data was printed to stderr')
+
+    def test_092_qrexec_service_socket_dom0_eof_reverse(self):
+        """Test for EOF transmission dom0(socket)->VM"""
+
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_local_file(
+            '/tmp/service_script',
+            '#!/usr/bin/python3\n'
+            'import socket, os, sys, time\n'
+            's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n'
+            'os.umask(0)\n'
+            's.bind("/etc/qubes-rpc/test.Socket")\n'
+            's.listen(1)\n'
+            'conn, addr = s.accept()\n'
+            'conn.send(b"test\\n")\n'
+            'conn.shutdown(socket.SHUT_WR)\n'
+            # wait longer than the timeout below
+            'time.sleep(15)\n'
+        )
+
+        self.service_proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_shell('python3 /tmp/service_script',
+                stdout=subprocess.PIPE, stdin=subprocess.PIPE))
+
+        try:
+            with self.qrexec_policy('test.Socket', self.testvm1, '@adminvm'):
+                p = self.loop.run_until_complete(self.testvm1.run(
+                        'qrexec-client-vm @adminvm test.Socket',
+                        stdout=subprocess.PIPE, stdin=subprocess.PIPE))
+
+                stdout = self.loop.run_until_complete(asyncio.wait_for(
+                    p.stdout.read(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred from the VM process")
+
+        self.assertEqual(stdout, b'test\n',
+            'Received data differs from what was expected')
+
+    def test_093_qrexec_service_socket_dom0_eof(self):
+        """Test for EOF transmission VM->dom0(socket)"""
+
+        self.loop.run_until_complete(self.testvm1.start())
+
+
+        self.create_local_file(
+            '/tmp/service_script',
+            '#!/usr/bin/python3\n'
+            'import socket, os, sys, time\n'
+            's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n'
+            'os.umask(0)\n'
+            's.bind("/etc/qubes-rpc/test.Socket")\n'
+            's.listen(1)\n'
+            'conn, addr = s.accept()\n'
+            'buf = conn.recv(100)\n'
+            'sys.stdout.buffer.write(buf)\n'
+            'buf = conn.recv(10)\n'
+            'sys.stdout.buffer.write(buf)\n'
+            'sys.stdout.buffer.flush()\n'
+            'os.close(1)\n'
+            # wait longer than the timeout below
+            'time.sleep(15)\n'
+        )
+
+        self.service_proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_shell('python3 /tmp/service_script',
+                stdout=subprocess.PIPE, stdin=subprocess.PIPE))
+
+        try:
+            with self.qrexec_policy('test.Socket', self.testvm1, '@adminvm'):
+                p = self.loop.run_until_complete(self.testvm1.run(
+                        'qrexec-client-vm @adminvm test.Socket',
+                        stdin=subprocess.PIPE))
+
+                p.stdin.write(b'test1test2')
+                p.stdin.write_eof()
+
+                service_stdout = self.loop.run_until_complete(asyncio.wait_for(
+                    self.service_proc.stdout.read(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred from the VM process")
+
+        service_descriptor = b'test.Socket+ test-inst-vm1 keyword adminvm\0'
+        self.assertEqual(service_stdout, service_descriptor + b'test1test2',
+            'Received data differs from what was expected')
+
+    def _wait_for_socket_setup(self):
+        try:
+            self.loop.run_until_complete(asyncio.wait_for(
+                self.testvm1.run_for_stdio(
+                    'while ! test -e /etc/qubes-rpc/test.Socket; do sleep 0.1; done'),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "waiting for /etc/qubes-rpc/test.Socket in VM timed out")
+
+    def test_095_qrexec_service_socket_vm(self):
+        """Basic test socket services (VM) - receive"""
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.service_proc = self.loop.run_until_complete(self.testvm1.run(
+            'socat -u UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666 -',
+            stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+            user='root'))
+
+        self._wait_for_socket_setup()
+
+        try:
+            (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
+                self.testvm1.run_service_for_stdio('test.Socket+', input=TEST_DATA),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred to the VM process")
+
+        try:
+            (service_stdout, service_stderr) = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    self.service_proc.communicate(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "socat timeout, probably EOF wasn't transferred to the VM process")
+
+        service_descriptor = b'test.Socket+ dom0\0'
+        self.assertEqual(service_stdout, service_descriptor + TEST_DATA,
+            'Received data differs from what was sent')
+        self.assertFalse(stderr,
+            'Some data was printed to stderr')
+        self.assertFalse(service_stderr,
+            'Some data was printed to stderr')
+
+    def test_096_qrexec_service_socket_vm_send(self):
+        """Basic test socket services (VM) - send"""
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_remote_file(self.testvm1,
+            '/tmp/service-input',
+            TEST_DATA.decode())
+
+        service_proc = self.loop.run_until_complete(self.testvm1.run(
+            'socat -u OPEN:/tmp/service-input UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666',
+            user='root'))
+
+        self._wait_for_socket_setup()
+
+        try:
+            (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
+                self.testvm1.run_service_for_stdio('test.Socket+'),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred to the VM process")
+
+        try:
+            (service_stdout, service_stderr) = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    service_proc.communicate(),
+                    timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "socat timeout, probably EOF wasn't transferred to the VM process")
+
+        self.assertEqual(stdout, TEST_DATA,
+            'Received data differs from what was sent')
+        self.assertFalse(stderr,
+            'Some data was printed to stderr')
+        self.assertFalse(service_stderr,
+            'Some data was printed to stderr')
+
+    def test_097_qrexec_service_socket_vm_eof_reverse(self):
+        """Test for EOF transmission VM(socket)->dom0"""
+
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_remote_file(self.testvm1,
+            '/tmp/service_script',
+            '#!/usr/bin/python3\n'
+            'import socket, os, sys, time\n'
+            's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n'
+            'os.umask(0)\n'
+            's.bind("/etc/qubes-rpc/test.Socket")\n'
+            's.listen(1)\n'
+            'conn, addr = s.accept()\n'
+            'conn.send(b"test\\n")\n'
+            'conn.shutdown(socket.SHUT_WR)\n'
+            # wait longer than the timeout below
+            'time.sleep(15)\n'
+        )
+
+        service_proc = self.loop.run_until_complete(self.testvm1.run(
+            'python3 /tmp/service_script',
+            stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+            user='root'))
+
+        self._wait_for_socket_setup()
+
+        try:
+            p = self.loop.run_until_complete(
+                self.testvm1.run_service('test.Socket+',
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE))
+            stdout = self.loop.run_until_complete(asyncio.wait_for(p.stdout.read(),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred from the VM process")
+
+        self.assertEqual(stdout,
+                b'test\n',
+            'Received data differs from what was expected')
+
+    def test_098_qrexec_service_socket_vm_eof(self):
+        """Test for EOF transmission dom0->VM(socket)"""
+
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_remote_file(
+            self.testvm1,
+            '/tmp/service_script',
+            '#!/usr/bin/python3\n'
+            'import socket, os, sys, time\n'
+            's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n'
+            'os.umask(0)\n'
+            's.bind("/etc/qubes-rpc/test.Socket")\n'
+            's.listen(1)\n'
+            'conn, addr = s.accept()\n'
+            'buf = conn.recv(100)\n'
+            'sys.stdout.buffer.write(buf)\n'
+            'buf = conn.recv(10)\n'
+            'sys.stdout.buffer.write(buf)\n'
+            'sys.stdout.buffer.flush()\n'
+            'os.close(1)\n'
+            # wait longer than the timeout below
+            'time.sleep(15)\n'
+        )
+
+        self.service_proc = self.loop.run_until_complete(self.testvm1.run(
+            'python3 /tmp/service_script',
+            stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+            user='root'))
+
+        self._wait_for_socket_setup()
+
+        try:
+            p = self.loop.run_until_complete(
+                self.testvm1.run_service('test.Socket+',
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE))
+            p.stdin.write(b'test1test2')
+            self.loop.run_until_complete(
+                asyncio.wait_for(p.stdin.drain(), timeout=10))
+            p.stdin.close()
+
+            service_stdout = self.loop.run_until_complete(asyncio.wait_for(
+                self.service_proc.stdout.read(),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "service timeout, probably EOF wasn't transferred to the VM process")
+
+        service_descriptor = b'test.Socket+ dom0\0'
+        self.assertEqual(service_stdout, service_descriptor + b'test1test2',
+            'Received data differs from what was expected')
 
     def test_100_qrexec_filecopy(self):
         self.loop.run_until_complete(asyncio.wait([
