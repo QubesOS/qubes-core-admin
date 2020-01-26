@@ -914,7 +914,7 @@ class SystemTestCase(QubesTestCase):
         # workaround for https://phabricator.whonix.org/T930
         # unregister all the VMs from sys-whonix, otherwise it will start them
         # again (possibly in further test)
-        if 'whonix' in self.app.default_netvm.name:
+        if hasattr(self, 'app') and 'whonix' in self.app.default_netvm.name:
             for vm in vms:
                 try:
                     self.loop.run_until_complete(
