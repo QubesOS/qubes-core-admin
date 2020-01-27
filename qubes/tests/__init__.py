@@ -105,7 +105,8 @@ else:
 
 try:
     in_git = subprocess.check_output(
-        ['git', 'rev-parse', '--show-toplevel']).decode().strip()
+        ['git', 'rev-parse', '--show-toplevel'], stderr=subprocess.DEVNULL
+    ).decode().strip()
     qubes.log.LOGPATH = '/tmp'
     qubes.log.LOGFILE = '/tmp/qubes.log'
 except subprocess.CalledProcessError:
