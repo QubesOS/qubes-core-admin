@@ -574,11 +574,13 @@ class TC_00_AppVMMixin(object):
             self.testvm1.start(),
             self.testvm2.start()]))
 
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'cp /etc/passwd /tmp/passwd'))
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
                 self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
-                        'qvm-copy-to-vm {} /etc/passwd'.format(
+                        'qvm-copy-to-vm {} /tmp/passwd'.format(
                             self.testvm2.name)))
             except subprocess.CalledProcessError as e:
                 self.fail('qvm-copy-to-vm failed: {}'.format(e.stderr))
@@ -592,7 +594,7 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                'test -f /etc/passwd'))
+                'test -f /tmp/passwd'))
         except subprocess.CalledProcessError:
             self.fail('source file got removed')
 
