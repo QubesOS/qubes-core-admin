@@ -294,7 +294,7 @@ class Backup:
 
     def __init__(self, app, vms_list=None, exclude_list=None, **kwargs):
         """
-        If vms = None, include all (sensible) VMs;
+        If vms = None, use default list based on vm.include_in_backups property;
         exclude_list is always applied
         """
         super(Backup, self).__init__()
