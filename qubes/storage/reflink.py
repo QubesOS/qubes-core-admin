@@ -206,7 +206,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @_locked
     def start(self):
         self._remove_incomplete_files()
-        if self.is_dirty():  # implies self.save_on_stop
+        if self.is_dirty():
             return self
         if self.snap_on_start:
             # pylint: disable=protected-access
