@@ -177,7 +177,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def remove(self):
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
         self._remove_all_images()
-        _remove_empty_dir(os.path.dirname(self._path_dirty))
+        _remove_empty_dir(os.path.dirname(self._path_vid))
         return self
 
     def _remove_all_images(self):
