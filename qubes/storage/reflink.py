@@ -154,6 +154,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def create(self):
+        self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
             _create_sparse_file(self._path_clean, self._get_size())
         return self
