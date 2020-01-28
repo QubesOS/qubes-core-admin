@@ -166,13 +166,20 @@
                     {% else %}
                         type="stubdom"
                     {% endif %}
-                    {% if vm.netvm and not
-                        vm.features.check_with_template('linux-stubdom', True) %}
+                    {% if vm.netvm %}
+                      {% if vm.features.check_with_template('linux-stubdom', True) %}
+                        cmdline="-qubes-net:client_ip={{ vm.ip -}}
+                            ,dns_0={{ vm.dns[0] -}}
+                            ,dns_1={{ vm.dns[1] -}}
+                            ,gw={{ vm.netvm.gateway -}}
+                            ,netmask={{ vm.netmask }}"
+                      {% else %}
                         cmdline="-net lwip,client_ip={{ vm.ip -}}
                             ,server_ip={{ vm.dns[1] -}}
                             ,dns={{ vm.dns[0] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
+                      {% endif %}
                     {% endif %}
                     {% if vm.stubdom_mem %}
                         memory="{{ vm.stubdom_mem * 1024 -}}"

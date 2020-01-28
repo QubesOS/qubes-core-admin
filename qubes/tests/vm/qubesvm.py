@@ -1439,7 +1439,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <script path="vif-route-qubes" />
             </interface>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-net:client_ip=10.137.0.1,dns_0=10.139.1.1,dns_1=10.139.1.2,gw=10.137.0.2,netmask=255.255.255.255" />
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
