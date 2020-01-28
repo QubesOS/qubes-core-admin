@@ -1321,19 +1321,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <disk type="block" device="cdrom">
                 <driver name="phy" />
                 <source dev="/dev/sda" />
-                <!-- prefer xvdd for CDROM -->
-                <target dev="xvdd" />
-            </disk>
-            <disk type="block" device="disk">
-                <driver name="phy" />
-                <source dev="/dev/loop0" />
                 <target dev="xvdi" />
-                <backenddomain name="backend0" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop0" />
                 <target dev="xvdj" />
+                <backenddomain name="backend0" />
+            </disk>
+            <disk type="block" device="disk">
+                <driver name="phy" />
+                <source dev="/dev/loop0" />
+                <target dev="xvdk" />
                 <backenddomain name="backend1" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
