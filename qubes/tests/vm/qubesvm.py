@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import base64
+import collections
 import os
 import subprocess
 
@@ -1352,6 +1353,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'
+        vm.volumes = collections.OrderedDict()
         vm.volumes['root'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'root',
             'block_device.return_value.path': '/dev/loop0',
