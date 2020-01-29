@@ -486,7 +486,9 @@ class PolicyAction(object):
         if self.source == target:
             raise AccessDenied('loopback qrexec connection not supported')
         try:
-            subprocess.call([QREXEC_CLIENT] + qrexec_opts + [cmd])
+            subprocess.check_call([QREXEC_CLIENT] + qrexec_opts + [cmd])
+        except subprocess.CalledProcessError:
+            raise AccessDenied('qrexec-client failed')
         finally:
             if dispvm:
                 self.cleanup_dispvm(target)

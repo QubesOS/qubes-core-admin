@@ -19,6 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 import os
 import socket
+import subprocess
 import unittest.mock
 
 import shutil
@@ -489,7 +490,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         self.assertEqual(action.target, 'test-vm2')
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_020_execute(self, mock_subprocess, mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm @anyvm allow')
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
@@ -502,7 +503,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_021_execute_dom0(self, mock_subprocess, mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm dom0 allow')
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
@@ -515,7 +516,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
              'QUBESRPC test.service test-vm1 name dom0'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_021_execute_dom0_keyword(self, mock_subprocess, mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm dom0 allow')
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
@@ -528,7 +529,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
              'QUBESRPC test.service test-vm1 keyword adminvm'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_022_execute_dispvm(self, mock_subprocess, mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm @dispvm:default-dvm allow')
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
@@ -547,7 +548,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
              'DEFAULT:QUBESRPC test.service test-vm1'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_023_execute_already_running(self, mock_subprocess,
             mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm @anyvm allow')
@@ -563,7 +564,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
-    @unittest.mock.patch('subprocess.call')
+    @unittest.mock.patch('subprocess.check_call')
     def test_024_execute_startup_error(self, mock_subprocess,
             mock_qubesd_call):
         rule = qubespolicy.PolicyRule('@anyvm @anyvm allow')
@@ -576,6 +577,21 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         self.assertEqual(mock_qubesd_call.mock_calls,
             [unittest.mock.call('test-vm2', 'admin.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls, [])
+
+    @unittest.mock.patch('qubespolicy.qubesd_call')
+    @unittest.mock.patch('subprocess.check_call')
+    def test_125_execute_call_error(self, mock_subprocess,
+            mock_qubesd_call):
+        rule = qubespolicy.PolicyRule('@anyvm @anyvm allow')
+        action = qubespolicy.PolicyAction('test.service', 'test-vm1',
+            'test-vm2', rule, 'test-vm2')
+        mock_subprocess.side_effect = \
+            subprocess.CalledProcessError(cmd=['qrexec-policy'], returncode=1)
+        with self.assertRaises(qubespolicy.AccessDenied):
+            action.execute('some-ident')
+        self.assertEqual(mock_qubesd_call.mock_calls,
+            [unittest.mock.call('test-vm2', 'admin.vm.Start')])
+
 
 class TC_20_Policy(qubes.tests.QubesTestCase):
 
