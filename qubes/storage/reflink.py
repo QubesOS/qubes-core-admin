@@ -215,6 +215,9 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
+            # Preferably use the size of a leftover image, in case
+            # the volume was previously resized - but then a crash
+            # prevented qubes.xml serialization of the new size.
             _create_sparse_file(self._path_dirty, self._get_size())
         return self
 
