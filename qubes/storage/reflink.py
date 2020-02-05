@@ -207,18 +207,17 @@ class ReflinkVolume(qubes.storage.Volume):
     @_locked
     def start(self):
         self._remove_incomplete_images()
-        if self.is_dirty():
-            return self
-        if self.snap_on_start:
-            # pylint: disable=protected-access
-            _copy_file(self.source._path_clean, self._path_clean)
-        if self.snap_on_start or self.save_on_stop:
-            _copy_file(self._path_clean, self._path_dirty)
-        else:
-            # Preferably use the size of a leftover image, in case
-            # the volume was previously resized - but then a crash
-            # prevented qubes.xml serialization of the new size.
-            _create_sparse_file(self._path_dirty, self._get_size())
+        if not self.is_dirty():
+            if self.snap_on_start:
+                # pylint: disable=protected-access
+                _copy_file(self.source._path_clean, self._path_clean)
+            if self.snap_on_start or self.save_on_stop:
+                _copy_file(self._path_clean, self._path_dirty)
+            else:
+                # Preferably use the size of a leftover image, in case
+                # the volume was previously resized - but then a crash
+                # prevented qubes.xml serialization of the new size.
+                _create_sparse_file(self._path_dirty, self._get_size())
         return self
 
     @_coroutinized
@@ -309,14 +308,13 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def import_volume(self, src_volume):
-        if not self.save_on_stop:
-            return self
-        try:
-            success = False
-            _copy_file(src_volume.export(), self._path_import)
-            success = True
-        finally:
-            self._import_data_end(success)
+        if self.save_on_stop:
+            try:
+                success = False
+                _copy_file(src_volume.export(), self._path_import)
+                success = True
+            finally:
+                self._import_data_end(success)
         return self
 
     def _path_revision(self, number, timestamp=None):
