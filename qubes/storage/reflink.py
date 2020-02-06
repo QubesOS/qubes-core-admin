@@ -154,8 +154,9 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def create(self):
+        self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
-            _create_sparse_file(self._path_clean, self._get_size())
+            _create_sparse_file(self._path_clean, self._size)
         return self
 
     @_coroutinized
@@ -175,18 +176,18 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def remove(self):
-        ''' Drop volume object from pool; remove volume images from
-            oldest to newest; remove empty VM directory.
-        '''
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
-        self._remove_incomplete_files()
+        self._remove_all_images()
+        _remove_empty_dir(os.path.dirname(self._path_vid))
+        return self
+
+    def _remove_all_images(self):
+        self._remove_incomplete_images()
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
-        _remove_empty_dir(os.path.dirname(self._path_dirty))
-        return self
 
-    def _remove_incomplete_files(self):
+    def _remove_incomplete_images(self):
         for tmp in glob.iglob(glob.escape(self._path_vid) + '*.img*~*'):
             _remove_file(tmp)
         _remove_file(self._path_import)
@@ -205,16 +206,18 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def start(self):
-        self._remove_incomplete_files()
-        if self.is_dirty():  # implies self.save_on_stop
-            return self
-        if self.snap_on_start:
-            # pylint: disable=protected-access
-            _copy_file(self.source._path_clean, self._path_clean)
-        if self.snap_on_start or self.save_on_stop:
-            _copy_file(self._path_clean, self._path_dirty)
-        else:
-            _create_sparse_file(self._path_dirty, self._get_size())
+        self._remove_incomplete_images()
+        if not self.is_dirty():
+            if self.snap_on_start:
+                # pylint: disable=protected-access
+                _copy_file(self.source._path_clean, self._path_clean)
+            if self.snap_on_start or self.save_on_stop:
+                _copy_file(self._path_clean, self._path_dirty)
+            else:
+                # Preferably use the size of a leftover image, in case
+                # the volume was previously resized - but then a crash
+                # prevented qubes.xml serialization of the new size.
+                _create_sparse_file(self._path_dirty, self._get_size())
         return self
 
     @_coroutinized
@@ -305,14 +308,13 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     @_locked
     def import_volume(self, src_volume):
-        if not self.save_on_stop:
-            return self
-        try:
-            success = False
-            _copy_file(src_volume.export(), self._path_import)
-            success = True
-        finally:
-            self._import_data_end(success)
+        if self.save_on_stop:
+            try:
+                success = False
+                _copy_file(src_volume.export(), self._path_import)
+                success = True
+            finally:
+                self._import_data_end(success)
         return self
 
     def _path_revision(self, number, timestamp=None):
