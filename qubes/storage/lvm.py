@@ -665,6 +665,8 @@ class ThinVolume(qubes.storage.Volume):
         elif self.save_on_stop or not self.snap_on_start:
             cmd = ['extend', self._vid_current, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
+
+        self._size = size
         yield from reset_cache_coro()
 
     @asyncio.coroutine
