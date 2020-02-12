@@ -638,7 +638,7 @@ class ThinVolume(qubes.storage.Volume):
                 os.path.exists('/dev/' + self._vid_import):
             cmd = ['extend', self._vid_import, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
-        elif self.save_on_stop or not self.snap_on_start:
+        elif self.save_on_stop and not self.snap_on_start:
             cmd = ['extend', self._vid_current, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
 
