@@ -84,7 +84,8 @@ class GUI(qubes.ext.Extension):
             # Legacy value for setting keyboard layout
             try:
                 xkb_keymap = subprocess.run(['/usr/bin/setxkbmap', '-print'],
-                                            stdout=subprocess.PIPE)
+                                            stdout=subprocess.PIPE,
+                                            check=False)
                 if xkb_keymap.stdout:
                     vm.untrusted_qdb.write('/qubes-keyboard', xkb_keymap.stdout)
             except FileNotFoundError:
