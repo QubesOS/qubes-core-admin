@@ -1843,6 +1843,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/name': 'test-inst-appvm',
             '/type': 'AppVM',
             '/default-user': 'user',
+            '/qubes-keyboard': unittest.mock.ANY,
             '/keyboard-layout': 'fr',
             '/qubes-vm-type': 'AppVM',
             '/qubes-gui-domain-xid': '{}'.format(guivm.xid),
