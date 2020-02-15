@@ -300,13 +300,3 @@ class AdminVM(qubes.vm.BaseVM):
                 args[0], *stdouterr)
 
         return stdouterr
-
-#   def __init__(self, **kwargs):
-#       super(QubesAdminVm, self).__init__(qid=0, name="dom0",
-#                                            dir_path=None,
-#                                            private_img = None,
-#                                            template = None,
-#                                            maxmem = 0,
-#                                            vcpus = 0,
-#                                            label = defaults["template_label"],
-#                                            **kwargs)

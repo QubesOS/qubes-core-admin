@@ -30,7 +30,6 @@ import os.path
 
 qubes_base_dir = "/var/lib/qubes"
 system_path = {
-    'qubes_guid_path': '/usr/bin/qubes-guid',
     'qrexec_daemon_path': '/usr/sbin/qrexec-daemon',
     'qrexec_client_path': '/usr/bin/qrexec-client',
     'qrexec_rpc_multiplexer': '/usr/lib/qubes/qubes-rpc-multiplexer',
@@ -39,29 +38,12 @@ system_path = {
     # Relative to qubes_base_dir
     'qubes_appvms_dir': 'appvms',
     'qubes_templates_dir': 'vm-templates',
-    'qubes_servicevms_dir': 'servicevms',
     'qubes_store_filename': 'qubes.xml',
     'qubes_kernels_base_dir': 'vm-kernels',
 
     # qubes_icon_dir is obsolete
     # use QIcon.fromTheme() where applicable
     'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
-
-    'qrexec_policy_dir': '/etc/qubes-rpc/policy',
-
-    'config_template_pv': '/usr/share/qubes/vm-template.xml',
-}
-
-vm_files = {
-    'root_img': 'root.img',
-    'rootcow_img': 'root-cow.img',
-    'volatile_img': 'volatile.img',
-    'clean_volatile_img': 'clean-volatile.img.tar',
-    'private_img': 'private.img',
-    'kernels_subdir': 'kernels',
-    'firewall_conf': 'firewall.xml',
-    'whitelisted_appmenus': 'whitelisted-appmenus.list',
-    'updates_stat_file': 'updates.stat',
 }
 
 defaults = {
@@ -72,8 +54,6 @@ defaults = {
     'kernelopts_pcidevs': "nopat iommu=soft swiotlb=8192",
     'kernelopts_common': ('root=/dev/mapper/dmroot ro nomodeset console=hvc0 '
              'rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 '),
-
-    'dom0_update_check_interval': 6*3600,
 
     'private_img_size': 2*1024*1024*1024,
     'root_img_size': 10*1024*1024*1024,
@@ -89,16 +69,6 @@ defaults = {
             'name': 'linux-kernel'
         }
     },
-
-    # how long (in sec) to wait for VMs to shutdown,
-    # before killing them (when used qvm-run with --wait option),
-    'shutdown_counter_max': 60,
-
-    'vm_default_netmask': "255.255.255.0",
-
-    'appvm_label': 'red',
-    'template_label': 'black',
-    'servicevm_label': 'red',
 }
 
 max_qid = 254

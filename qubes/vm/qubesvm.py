@@ -29,7 +29,6 @@ import shutil
 import string
 import subprocess
 import uuid
-import warnings
 
 import libvirt  # pylint: disable=import-error
 import lxml
@@ -1161,7 +1160,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except Exception as exc:  # pylint: disable=bare-except
                 self.log.error('Start failed: %s', str(exc))
                 # This avoids losing the exception if an exception is
-                # raised in self.force_shutdown(), because the vm is not
+                # raised in self._kill_locked(), because the vm is not
                 # running or paused
                 try:
                     yield from self._kill_locked()
@@ -1292,13 +1291,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # make sure all shutdown tasks are completed
         yield from self._ensure_shutdown_handled()
-
-    def force_shutdown(self, *args, **kwargs):
-        """Deprecated alias for :py:meth:`kill`"""
-        warnings.warn(
-            'Call to deprecated function force_shutdown(), use kill() instead',
-            DeprecationWarning, stacklevel=2)
-        return self.kill(*args, **kwargs)
 
     @asyncio.coroutine
     def suspend(self):
@@ -1802,8 +1794,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 Halting -> Transient [style="invis"];
 
                 Running -> Halted
-                    [label="force_shutdown()"
-                        URL="#qubes.vm.qubesvm.QubesVM.force_shutdown"
+                    [label="kill()"
+                        URL="#qubes.vm.qubesvm.QubesVM.kill"
                         constraint=false];
 
                 Running -> Crashed [constraint=false];
