@@ -19,8 +19,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import print_function
-
 import sys
 import textwrap
 

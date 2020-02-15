@@ -20,8 +20,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-from __future__ import absolute_import
-
 import asyncio
 import base64
 import grp
