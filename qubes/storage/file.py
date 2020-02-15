@@ -22,8 +22,6 @@
 
 ''' This module contains pool implementations backed by file images'''
 
-from __future__ import absolute_import
-
 import os
 import os.path
 import re
