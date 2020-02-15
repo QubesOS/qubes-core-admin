@@ -21,8 +21,6 @@
 
 ''' This module contains the TemplateVM implementation '''
 
-import warnings
-
 import qubes
 import qubes.config
 import qubes.vm.qubesvm
@@ -35,13 +33,6 @@ class TemplateVM(QubesVM):
     '''Template for AppVM'''
 
     dir_path_prefix = qubes.config.system_path['qubes_templates_dir']
-
-    @property
-    def rootcow_img(self):
-        '''COW image'''
-        warnings.warn("rootcow_img is deprecated, use "
-                      "volumes['root'].path_origin", DeprecationWarning)
-        return self.volumes['root'].path_cow
 
     @property
     def appvms(self):
