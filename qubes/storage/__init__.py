@@ -25,7 +25,7 @@
 import inspect
 import os
 import os.path
-import string  # pylint: disable=deprecated-module
+import string
 import subprocess
 import time
 from datetime import datetime
