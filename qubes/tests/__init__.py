@@ -878,7 +878,6 @@ class SystemTestCase(QubesTestCase):
     def _remove_vm_disk(vmname):
         for dirspec in (
                 'qubes_appvms_dir',
-                'qubes_servicevms_dir',
                 'qubes_templates_dir'):
             dirpath = os.path.join(qubes.config.qubes_base_dir,
                 qubes.config.system_path[dirspec], vmname)
@@ -1018,7 +1017,6 @@ class SystemTestCase(QubesTestCase):
         vmnames = set()
         for dirspec in (
                 'qubes_appvms_dir',
-                'qubes_servicevms_dir',
                 'qubes_templates_dir'):
             dirpath = os.path.join(qubes.config.qubes_base_dir,
                 qubes.config.system_path[dirspec])
@@ -1435,7 +1433,6 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.integ.salt',
             'qubes.tests.integ.backup',
             'qubes.tests.integ.backupcompatibility',
-#           'qubes.tests.regressions',
 
             # external modules
             'qubes.tests.extra',

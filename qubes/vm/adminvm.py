@@ -224,13 +224,3 @@ class AdminVM(qubes.vm.BaseVM):
             self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
-
-#   def __init__(self, **kwargs):
-#       super(QubesAdminVm, self).__init__(qid=0, name="dom0",
-#                                            dir_path=None,
-#                                            private_img = None,
-#                                            template = None,
-#                                            maxmem = 0,
-#                                            vcpus = 0,
-#                                            label = defaults["template_label"],
-#                                            **kwargs)
