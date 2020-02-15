@@ -59,8 +59,10 @@ defaults = {
 
     'pool_configs': {
         # create file(-reflink) pool even when the default one is LVM
-        'varlibqubes': {'dir_path': qubes_base_dir,
-                    'name': 'varlibqubes'},
+        'varlibqubes': {
+            'dir_path': qubes_base_dir,
+            'name': 'varlibqubes'
+        },
         'linux-kernel': {
             'dir_path': os.path.join(qubes_base_dir,
                                      system_path['qubes_kernels_base_dir']),
@@ -72,6 +74,7 @@ defaults = {
 
 max_qid = 254
 max_dispid = 10000
+
 #: built-in standard labels, if creating new one, allocate them above this
 # number, at least until label index is removed from API
 max_default_label = 8
