@@ -18,18 +18,20 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-'''Extension responsible for qvm-service framework'''
+"""Extension responsible for qvm-service framework"""
 
 import qubes.ext
 
+
 class ServicesExtension(qubes.ext.Extension):
-    '''This extension export features with 'service.' prefix to QubesDB in
+    """This extension export features with 'service.' prefix to QubesDB in
     /qubes-service/ tree.
-    '''
+    """
+
     # pylint: disable=no-self-use
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
-        '''Actually export features'''
+        """Actually export features"""
         # pylint: disable=unused-argument
         for feature, value in vm.features.items():
             if not feature.startswith('service.'):
@@ -37,15 +39,15 @@ class ServicesExtension(qubes.ext.Extension):
             service = feature[len('service.'):]
             # forcefully convert to '0' or '1'
             vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
-                str(int(bool(value))))
+                                   str(int(bool(value))))
 
         # always set meminfo-writer according to maxmem
         vm.untrusted_qdb.write('/qubes-service/meminfo-writer',
-            '1' if vm.maxmem > 0 else '0')
+                               '1' if vm.maxmem > 0 else '0')
 
     @qubes.ext.handler('domain-feature-set:*')
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
-        '''Update /qubes-service/ QubesDB tree in runtime'''
+        """Update /qubes-service/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
 
         # TODO: remove this compatibility hack in Qubes 4.1
@@ -68,11 +70,11 @@ class ServicesExtension(qubes.ext.Extension):
         service = feature[len('service.'):]
         # forcefully convert to '0' or '1'
         vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
-            str(int(bool(value))))
+                               str(int(bool(value))))
 
     @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
-        '''Update /qubes-service/ QubesDB tree in runtime'''
+        """Update /qubes-service/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
@@ -86,7 +88,7 @@ class ServicesExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-load')
     def on_domain_load(self, vm, event):
-        '''Migrate meminfo-writer service into maxmem'''
+        """Migrate meminfo-writer service into maxmem"""
         # pylint: disable=no-self-use,unused-argument
         if 'service.meminfo-writer' in vm.features:
             # if was set to false, force maxmem=0
@@ -97,7 +99,7 @@ class ServicesExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):
-        '''Handle advertisement of supported services'''
+        """Handle advertisement of supported services"""
         # pylint: disable=no-self-use,unused-argument
 
         if getattr(vm, 'template', None):
