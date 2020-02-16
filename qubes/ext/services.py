@@ -20,6 +20,7 @@
 
 """Extension responsible for qvm-service framework"""
 
+import os
 import qubes.ext
 
 
@@ -72,6 +73,10 @@ class ServicesExtension(qubes.ext.Extension):
         vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                                str(int(bool(value))))
 
+        if vm.name == "dom0" and str(int(bool(value))) == "1" and not \
+                os.path.exists('/var/run/qubes-service/{}'.format(service)):
+            os.mknod('/var/run/qubes-service/{}'.format(service))
+
     @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /qubes-service/ QubesDB tree in runtime"""
@@ -86,6 +91,10 @@ class ServicesExtension(qubes.ext.Extension):
             return
         vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
 
+        if vm.name == "dom0" and os.path.exists(
+                '/var/run/qubes-service/{}'.format(service)):
+            os.remove('/var/run/qubes-service/{}'.format(service))
+
     @qubes.ext.handler('domain-load')
     def on_domain_load(self, vm, event):
         """Migrate meminfo-writer service into maxmem"""
@@ -96,6 +105,16 @@ class ServicesExtension(qubes.ext.Extension):
             if not vm.features['service.meminfo-writer']:
                 vm.maxmem = 0
             del vm.features['service.meminfo-writer']
+
+        if vm.name == "dom0":
+            os.makedirs('/var/run/qubes-service/', exist_ok=True)
+            for feature, value in vm.features.items():
+                if not feature.startswith('service.'):
+                    continue
+                service = feature[len('service.'):]
+                if str(int(bool(value))) == "1" and not os.path.exists(
+                        '/var/run/qubes-service/{}'.format(service)):
+                    os.mknod('/var/run/qubes-service/{}'.format(service))
 
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):
