@@ -22,6 +22,9 @@
 
 import os
 import qubes.ext
+import qubes.config
+
+dom0_services_dir = qubes.config.system_path['dom0_services_dir']
 
 
 class ServicesExtension(qubes.ext.Extension):
@@ -32,19 +35,21 @@ class ServicesExtension(qubes.ext.Extension):
     @staticmethod
     def add_dom0_services(vm, service):
         try:
-            os.makedirs('/var/run/qubes-service/', exist_ok=True)
-            if not os.path.exists('/var/run/qubes-service/{}'.format(service)):
-                os.mknod('/var/run/qubes-service/{}'.format(service))
+            os.makedirs(dom0_services_dir, exist_ok=True)
+            service = '{}/{}'.format(dom0_services_dir, service)
+            if not os.path.exists(service):
+                os.mknod(service)
         except PermissionError:
-            vm.log.warning("Cannot write to /var/run/qubes-service")
+            vm.log.warning("Cannot write to {}".format(dom0_services_dir))
 
     @staticmethod
     def remove_dom0_services(vm, service):
         try:
-            if os.path.exists('/var/run/qubes-service/{}'.format(service)):
-                os.remove('/var/run/qubes-service/{}'.format(service))
+            service = '{}/{}'.format(dom0_services_dir, service)
+            if os.path.exists(service):
+                os.remove(service)
         except PermissionError:
-            vm.log.warning("Cannot write to /var/run/qubes-service")
+            vm.log.warning("Cannot write to {}".format(dom0_services_dir))
 
     # pylint: disable=no-self-use
     @qubes.ext.handler('domain-qdb-create')
