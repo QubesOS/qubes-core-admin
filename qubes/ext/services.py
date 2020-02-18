@@ -29,6 +29,23 @@ class ServicesExtension(qubes.ext.Extension):
     /qubes-service/ tree.
     """
 
+    @staticmethod
+    def add_dom0_services(vm, service):
+        try:
+            os.makedirs('/var/run/qubes-service/', exist_ok=True)
+            if not os.path.exists('/var/run/qubes-service/{}'.format(service)):
+                os.mknod('/var/run/qubes-service/{}'.format(service))
+        except PermissionError:
+            vm.log.warning("Cannot write to /var/run/qubes-service")
+
+    @staticmethod
+    def remove_dom0_services(vm, service):
+        try:
+            if os.path.exists('/var/run/qubes-service/{}'.format(service)):
+                os.remove('/var/run/qubes-service/{}'.format(service))
+        except PermissionError:
+            vm.log.warning("Cannot write to /var/run/qubes-service")
+
     # pylint: disable=no-self-use
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
@@ -73,9 +90,8 @@ class ServicesExtension(qubes.ext.Extension):
         vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                                str(int(bool(value))))
 
-        if vm.name == "dom0" and str(int(bool(value))) == "1" and not \
-                os.path.exists('/var/run/qubes-service/{}'.format(service)):
-            os.mknod('/var/run/qubes-service/{}'.format(service))
+        if vm.name == "dom0" and str(int(bool(value))) == "1":
+            self.add_dom0_services(vm, service)
 
     @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
@@ -91,9 +107,8 @@ class ServicesExtension(qubes.ext.Extension):
             return
         vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
 
-        if vm.name == "dom0" and os.path.exists(
-                '/var/run/qubes-service/{}'.format(service)):
-            os.remove('/var/run/qubes-service/{}'.format(service))
+        if vm.name == "dom0":
+            self.remove_dom0_services(vm, service)
 
     @qubes.ext.handler('domain-load')
     def on_domain_load(self, vm, event):
@@ -107,7 +122,6 @@ class ServicesExtension(qubes.ext.Extension):
             del vm.features['service.meminfo-writer']
 
         if vm.name == "dom0":
-            os.makedirs('/var/run/qubes-service/', exist_ok=True)
             for feature, value in vm.features.items():
                 if not feature.startswith('service.'):
                     continue
