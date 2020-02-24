@@ -239,10 +239,9 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(asyncio.wait([
             self.wait_for_session(self.testvm1),
             self.wait_for_session(self.testvm2)]))
-        self.loop.run_until_complete(self.testvm2.run_for_stdio(
-            'cat > /etc/qubes-rpc/test.EOF',
-            user='root',
-            input=b'/bin/cat'))
+        self.create_remote_file(self.testvm2,
+                                '/etc/qubes-rpc/test.EOF',
+                                '#!/bin/sh\n/bin/cat\n')
 
         with self.qrexec_policy('test.EOF', self.testvm1, self.testvm2):
             try:
