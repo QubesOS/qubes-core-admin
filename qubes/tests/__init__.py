@@ -1260,9 +1260,9 @@ class SystemTestCase(QubesTestCase):
             file.write(content)
         self.addCleanup(os.unlink, filename)
 
-    def create_remote_file(self, vm, filename, content):
+    def create_remote_file(self, vm, filename, content, mode=0o755):
         self.loop.run_until_complete(vm.run_for_stdio(
-            'cat > {}'.format(shlex.quote(filename)),
+            'cat > {0}; chmod {1:o} {0}'.format(shlex.quote(filename), mode),
             user='root', input=content.encode('utf-8')))
 
     @asyncio.coroutine
