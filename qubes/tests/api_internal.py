@@ -22,6 +22,7 @@ import qubes.api.internal
 import qubes.tests
 import qubes.vm.adminvm
 from unittest import mock
+import json
 
 def mock_coro(f):
     @asyncio.coroutine
@@ -32,26 +33,22 @@ def mock_coro(f):
 
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def setUp(self):
-        super(TC_00_API_Misc, self).setUp()
-        self.tpl = mock.NonCallableMagicMock(name='template')
-        del self.tpl.template
-        self.src = mock.NonCallableMagicMock(name='appvm',
-            template=self.tpl)
+        super().setUp()
         self.app = mock.NonCallableMock()
-        self.dest = mock.NonCallableMock()
-        self.dest.name = 'dom0'
-        self.app.configure_mock(domains={
-            'dom0': self.dest,
-            'test-vm': self.src,
+        self.dom0 = mock.NonCallableMock(spec=qubes.vm.adminvm.AdminVM)
+        self.dom0.name = 'dom0'
+        self.domains = {
+            'dom0': self.dom0,
+        }
+        self.app.domains = mock.MagicMock(**{
+            '__iter__.side_effect': lambda: iter(self.domains.values()),
+            '__getitem__.side_effect': self.domains.get,
         })
 
-    def configure_qdb(self, entries):
-        self.src.configure_mock(**{
-            'untrusted_qdb.read.side_effect': (
-                lambda path: entries.get(path, None)),
-            'untrusted_qdb.list.side_effect': (
-                lambda path: sorted(entries.keys())),
-        })
+    def tearDown(self):
+        self.domains.clear()
+        self.dom0 = None
+        super().tearDown()
 
     def create_mockvm(self, features=None):
         if features is None:
@@ -75,8 +72,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         return response
 
     def test_000_suspend_pre(self):
-        dom0 = mock.NonCallableMock(spec=qubes.vm.adminvm.AdminVM)
-
         running_vm = self.create_mockvm(features={'qrexec': True})
         running_vm.is_running.return_value = True
 
@@ -86,21 +81,15 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         no_qrexec_vm = self.create_mockvm()
         no_qrexec_vm.is_running.return_value = True
 
-        domains_dict = {
-            'dom0': dom0,
+        self.domains.update({
             'running': running_vm,
             'not-running': not_running_vm,
             'no-qrexec': no_qrexec_vm,
-        }
-        self.addCleanup(domains_dict.clear)
-        self.app.domains = mock.MagicMock(**{
-            '__iter__': lambda _: iter(domains_dict.values()),
-            '__getitem__': domains_dict.get,
         })
 
         ret = self.call_mgmt_func(b'internal.SuspendPre')
         self.assertIsNone(ret)
-        self.assertFalse(dom0.called)
+        self.assertFalse(self.dom0.called)
 
         self.assertNotIn(('run_service', ('qubes.SuspendPreAll',), mock.ANY),
             not_running_vm.mock_calls)
@@ -118,8 +107,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             no_qrexec_vm.mock_calls)
 
     def test_001_suspend_post(self):
-        dom0 = mock.NonCallableMock(spec=qubes.vm.adminvm.AdminVM)
-
         running_vm = self.create_mockvm(features={'qrexec': True})
         running_vm.is_running.return_value = True
         running_vm.get_power_state.return_value = 'Suspended'
@@ -132,21 +119,15 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         no_qrexec_vm.is_running.return_value = True
         no_qrexec_vm.get_power_state.return_value = 'Suspended'
 
-        domains_dict = {
-            'dom0': dom0,
+        self.domains.update({
             'running': running_vm,
             'not-running': not_running_vm,
             'no-qrexec': no_qrexec_vm,
-        }
-        self.addCleanup(domains_dict.clear)
-        self.app.domains = mock.MagicMock(**{
-            '__iter__': lambda _: iter(domains_dict.values()),
-            '__getitem__': domains_dict.get,
         })
 
         ret = self.call_mgmt_func(b'internal.SuspendPost')
         self.assertIsNone(ret)
-        self.assertFalse(dom0.called)
+        self.assertFalse(self.dom0.called)
 
         self.assertNotIn(('run_service', ('qubes.SuspendPostAll',), mock.ANY),
             not_running_vm.mock_calls)
@@ -162,3 +143,42 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             no_qrexec_vm.mock_calls)
         self.assertIn(('resume', (), {}),
             no_qrexec_vm.mock_calls)
+
+    def test_010_get_system_info(self):
+        self.dom0.name = 'dom0'
+        self.dom0.tags = ['tag1', 'tag2']
+        self.dom0.default_dispvm = None
+        self.dom0.template_for_dispvms = False
+        self.dom0.label.icon = 'icon-dom0'
+        del self.dom0.guivm
+
+        vm = mock.NonCallableMock(spec=qubes.vm.qubesvm.QubesVM)
+        vm.name = 'vm'
+        vm.tags = ['tag3', 'tag4']
+        vm.default_dispvm = vm
+        vm.template_for_dispvms = True
+        vm.label.icon = 'icon-vm'
+        vm.guivm = vm
+        self.domains['vm'] = vm
+
+        ret = json.loads(self.call_mgmt_func(b'internal.GetSystemInfo'))
+        self.assertEqual(ret, {
+            'domains': {
+                'dom0': {
+                    'tags': ['tag1', 'tag2'],
+                    'type': 'AdminVM',
+                    'default_dispvm': None,
+                    'template_for_dispvms': False,
+                    'icon': 'icon-dom0',
+                    'guivm': None,
+                },
+                'vm': {
+                    'tags': ['tag3', 'tag4'],
+                    'type': 'QubesVM',
+                    'default_dispvm': 'vm',
+                    'template_for_dispvms': True,
+                    'icon': 'icon-vm',
+                    'guivm': 'vm',
+                }
+            }
+        })
