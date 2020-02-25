@@ -21,8 +21,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import subprocess
-
 import qubes.config
 import qubes.ext
 
@@ -81,16 +79,15 @@ class GUI(qubes.ext.Extension):
             if kbd_layout:
                 vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
 
-            # Legacy value for setting keyboard layout
-            try:
-                xkb_keymap = subprocess.run(['/usr/bin/setxkbmap', '-print'],
-                                            stdout=subprocess.PIPE,
-                                            check=False)
-                if xkb_keymap.stdout:
-                    vm.untrusted_qdb.write('/qubes-keyboard', xkb_keymap.stdout)
-            except FileNotFoundError:
-                # Prevent any reason for 'setxkbmap' being not present
-                pass
+                # Legacy value for setting keyboard layout
+                xkb_keymap = \
+                    'xkb_keymap {\x0a\x09xkb_keycodes  { include ' \
+                    '"evdev"\x09};\x0a\x09xkb_types     { include ' \
+                    '"complete"\x09};\x0a\x09xkb_compat    { include ' \
+                    '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
+                    '"pc+%s+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
+                    '{ include "pc(pc105)"\x09};\x0a};' % kbd_layout
+                vm.untrusted_qdb.write('/qubes-keyboard', xkb_keymap)
 
         # Set GuiVM prefix
         guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')

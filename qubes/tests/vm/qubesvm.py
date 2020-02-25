@@ -1833,6 +1833,13 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.netvm = None
         vm.guivm = guivm
         guivm.features['keyboard-layout'] = 'fr'
+        xkb_keymap = \
+            'xkb_keymap {\x0a\x09xkb_keycodes  { include ' \
+            '"evdev"\x09};\x0a\x09xkb_types     { include ' \
+            '"complete"\x09};\x0a\x09xkb_compat    { include ' \
+            '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
+            '"pc+fr+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
+            '{ include "pc(pc105)"\x09};\x0a};'
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1843,7 +1850,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/name': 'test-inst-appvm',
             '/type': 'AppVM',
             '/default-user': 'user',
-            '/qubes-keyboard': unittest.mock.ANY,
+            '/qubes-keyboard': xkb_keymap,
             '/keyboard-layout': 'fr',
             '/qubes-vm-type': 'AppVM',
             '/qubes-gui-domain-xid': '{}'.format(guivm.xid),
