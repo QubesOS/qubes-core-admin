@@ -42,6 +42,8 @@ class ProcessWrapper(object):
         return setattr(self._proc, key, value)
 
     def communicate(self, input=None):
+        if self._proc.stdin is not None and input is None:
+            input = b''
         return self._loop.run_until_complete(self._proc.communicate(input))
 
     def wait(self):
