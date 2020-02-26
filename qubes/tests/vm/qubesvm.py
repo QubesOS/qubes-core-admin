@@ -2017,7 +2017,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE)
-            communicate_mock.assert_called_once_with(input=None)
+            communicate_mock.assert_called_once_with(input=b'')
             self.assertEqual(value, (b'stdout', b'stderr'))
 
         func_mock.reset_mock()
@@ -2045,7 +2045,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE)
-            communicate_mock.assert_called_once_with(input=None)
+            communicate_mock.assert_called_once_with(input=b'')
             self.assertEqual(exc.exception.returncode, 1)
             self.assertEqual(exc.exception.output, b'stdout')
             self.assertEqual(exc.exception.stderr, b'stderr')

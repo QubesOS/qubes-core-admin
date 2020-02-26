@@ -1435,6 +1435,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         kwargs.setdefault('stdin', subprocess.PIPE)
         kwargs.setdefault('stdout', subprocess.PIPE)
         kwargs.setdefault('stderr', subprocess.PIPE)
+        if kwargs['stdin'] == subprocess.PIPE and input is None:
+            # workaround for https://bugs.python.org/issue39744
+            input = b''
         p = yield from self.run_service(*args, **kwargs)
 
         # this one is actually a tuple, but there is no need to unpack it
@@ -1471,6 +1474,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         kwargs.setdefault('stdin', subprocess.PIPE)
         kwargs.setdefault('stdout', subprocess.PIPE)
         kwargs.setdefault('stderr', subprocess.PIPE)
+        if kwargs['stdin'] == subprocess.PIPE and input is None:
+            # workaround for https://bugs.python.org/issue39744
+            input = b''
         p = yield from self.run(*args, **kwargs)
         stdouterr = yield from p.communicate(input=input)
 
