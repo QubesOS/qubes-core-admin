@@ -44,15 +44,6 @@ class GUI(qubes.ext.Extension):
                 self, 'There are running VMs using this VM as GuiVM: '
                       '{}'.format(', '.join(vm.name for vm in attached_vms)))
 
-    @qubes.ext.handler('domain-pre-start')
-    @asyncio.coroutine
-    def on_domain_pre_start(self, vm, event, start_guid, **kwargs):
-        if getattr(vm, 'guivm', None):
-            if vm.guivm.qid != 0:
-                if not vm.guivm.is_running():
-                    yield from vm.guivm.start(start_guid=start_guid,
-                                              notify_function=None)
-
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service('qubes.SetGuiMode',
@@ -99,7 +90,7 @@ class GUI(qubes.ext.Extension):
 
         # Add GuiVM Xen ID for gui-daemon
         if getattr(vm, 'guivm', None):
-            if vm != vm.guivm:
+            if vm != vm.guivm and vm.guivm.is_running():
                 vm.untrusted_qdb.write('/qubes-gui-domain-xid',
                                        str(vm.guivm.xid))
 
@@ -132,3 +123,11 @@ class GUI(qubes.ext.Extension):
                 vm.fire_event('property-set:guivm',
                               name='guivm', newvalue=newvalue,
                               oldvalue=oldvalue)
+
+    @qubes.ext.handler('domain-start')
+    def on_domain_start(self, vm, event, **kwargs):
+        attached_vms = [domain for domain in self.attached_vms(vm) if
+                        domain.is_running()]
+        for attached_vm in attached_vms:
+            attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
+                                            str(vm.xid))
