@@ -1840,6 +1840,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
             '"pc+fr+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
             '{ include "pc(pc105)"\x09};\x0a};'
+        guivm.is_running = lambda: True
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1887,6 +1888,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             name='appvm', qid=3)
         vm.netvm = None
         vm.audiovm = audiovm
+        audiovm.is_running = lambda: True
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1912,6 +1914,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-iptables-header': unittest.mock.ANY,
             '/qubes-service/qubes-update-check': '0',
             '/qubes-service/meminfo-writer': '1',
+            '/connected-ips': '',
+            '/connected-ips6': '',
         })
 
     @asyncio.coroutine
