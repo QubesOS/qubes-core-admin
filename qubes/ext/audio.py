@@ -41,14 +41,6 @@ class AUDIO(qubes.ext.Extension):
                 self, 'There are running VMs using this VM as AudioVM: '
                       '{}'.format(', '.join(vm.name for vm in attached_vms)))
 
-    @qubes.ext.handler('domain-pre-start')
-    def on_domain_pre_start(self, vm, event, start_guid, **kwargs):
-        if getattr(vm, 'audiovm', None):
-            if vm.audiovm.qid != 0:
-                if not vm.audiovm.is_running():
-                    yield from vm.audiovm.start(start_guid=start_guid,
-                                                notify_function=None)
-
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'audiovm', None):
@@ -79,7 +71,7 @@ class AUDIO(qubes.ext.Extension):
     def on_domain_qdb_create(self, vm, event):
         # Add AudioVM Xen ID for gui-agent
         if getattr(vm, 'audiovm', None):
-            if vm != vm.audiovm:
+            if vm != vm.audiovm and vm.audiovm.is_running():
                 vm.untrusted_qdb.write('/qubes-audio-domain-xid',
                                        str(vm.audiovm.xid))
 
@@ -91,3 +83,11 @@ class AUDIO(qubes.ext.Extension):
                 vm.fire_event('property-set:audiovm',
                               name='audiovm', newvalue=newvalue,
                               oldvalue=oldvalue)
+
+    @qubes.ext.handler('domain-start')
+    def on_domain_start(self, vm, event, **kwargs):
+        attached_vms = [domain for domain in self.attached_vms(vm) if
+                        domain.is_running()]
+        for attached_vm in attached_vms:
+            attached_vm.untrusted_qdb.write('/qubes-audio-domain-xid',
+                                            str(vm.xid))
