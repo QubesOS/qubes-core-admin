@@ -21,8 +21,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import asyncio
-
 import qubes.config
 import qubes.ext
 
