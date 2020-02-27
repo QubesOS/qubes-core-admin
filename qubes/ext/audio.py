@@ -17,16 +17,42 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
+
 import qubes.config
 import qubes.ext
 
 
 class AUDIO(qubes.ext.Extension):
     # pylint: disable=unused-argument,no-self-use
+    @staticmethod
+    def attached_vms(vm):
+        for domain in vm.app.domains:
+            if getattr(domain, 'audiovm', None) and domain.audiovm == vm:
+                yield domain
+
+    @qubes.ext.handler('domain-pre-shutdown')
+    @asyncio.coroutine
+    def on_domain_pre_shutdown(self, vm, event, **kwargs):
+        attached_vms = [domain for domain in self.attached_vms(vm) if
+                        domain.is_running()]
+        if attached_vms and not kwargs.get('force', False):
+            raise qubes.exc.QubesVMError(
+                self, 'There are running VMs using this VM as AudioVM: '
+                      '{}'.format(', '.join(vm.name for vm in attached_vms)))
+
+    @qubes.ext.handler('domain-pre-start')
+    def on_domain_pre_start(self, vm, event, start_guid, **kwargs):
+        if getattr(vm, 'audiovm', None):
+            if vm.audiovm.qid != 0:
+                if not vm.audiovm.is_running():
+                    yield from vm.audiovm.start(start_guid=start_guid,
+                                                notify_function=None)
+
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'audiovm', None):
-            if 'audiovm-' + vm.audiovm not in list(vm.tags):
+            if 'audiovm-' + vm.audiovm.name not in list(vm.tags):
                 vm.fire_event('property-set:audiovm',
                               name='audiovm', newvalue=vm.audiovm)
 
@@ -38,8 +64,6 @@ class AUDIO(qubes.ext.Extension):
 
     @qubes.ext.handler('property-set:audiovm')
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
-
         # Clean other 'audiovm-XXX' tags.
         # pulseaudio agent (module-vchan-sink) can connect to only one domain
         tags_list = list(subject.tags)
@@ -53,7 +77,6 @@ class AUDIO(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
-        # pylint: disable=unused-argument,no-self-use
         # Add AudioVM Xen ID for gui-agent
         if getattr(vm, 'audiovm', None):
             if vm != vm.audiovm:
@@ -62,8 +85,7 @@ class AUDIO(qubes.ext.Extension):
 
     @qubes.ext.handler('property-set:default_audiovm', system=True)
     def on_property_set_default_audiovm(self, app, event, name, newvalue,
-                                      oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+                                        oldvalue=None):
         for vm in app.domains:
             if hasattr(vm, 'audiovm') and vm.property_is_default('audiovm'):
                 vm.fire_event('property-set:audiovm',

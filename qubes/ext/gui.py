@@ -21,13 +21,38 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
+
 import qubes.config
 import qubes.ext
 
 
 class GUI(qubes.ext.Extension):
-    # pylint: disable=too-few-public-methods
-    # TODO put this somewhere...
+    # pylint: disable=too-few-public-methods,unused-argument,no-self-use
+    @staticmethod
+    def attached_vms(vm):
+        for domain in vm.app.domains:
+            if getattr(domain, 'guivm', None) and domain.guivm == vm:
+                yield domain
+
+    @qubes.ext.handler('domain-pre-shutdown')
+    def on_domain_pre_shutdown(self, vm, event, **kwargs):
+        attached_vms = [domain for domain in self.attached_vms(vm) if
+                        domain.is_running()]
+        if attached_vms and not kwargs.get('force', False):
+            raise qubes.exc.QubesVMError(
+                self, 'There are running VMs using this VM as GuiVM: '
+                      '{}'.format(', '.join(vm.name for vm in attached_vms)))
+
+    @qubes.ext.handler('domain-pre-start')
+    @asyncio.coroutine
+    def on_domain_pre_start(self, vm, event, start_guid, **kwargs):
+        if getattr(vm, 'guivm', None):
+            if vm.guivm.qid != 0:
+                if not vm.guivm.is_running():
+                    yield from vm.guivm.start(start_guid=start_guid,
+                                              notify_function=None)
+
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service('qubes.SetGuiMode',
@@ -35,11 +60,10 @@ class GUI(qubes.ext.Extension):
                               if vm.features.get('gui-seamless', False)
                               else 'FULLSCREEN'))
 
-    # pylint: disable=unused-argument,no-self-use
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'guivm', None):
-            if 'guivm-' + vm.guivm not in list(vm.tags):
+            if 'guivm-' + vm.guivm.name not in list(vm.tags):
                 vm.fire_event('property-set:guivm',
                               name='guivm', newvalue=vm.guivm)
 
@@ -51,8 +75,6 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler('property-set:guivm')
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
-
         # Clean other 'guivm-XXX' tags.
         # gui-daemon can connect to only one domain
         tags_list = list(subject.tags)
@@ -66,7 +88,6 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
-        # pylint: disable=unused-argument,no-self-use
         for feature in ('gui-videoram-overhead', 'gui-videoram-min'):
             try:
                 vm.untrusted_qdb.write(
@@ -106,7 +127,6 @@ class GUI(qubes.ext.Extension):
     @qubes.ext.handler('property-set:default_guivm', system=True)
     def on_property_set_default_guivm(self, app, event, name, newvalue,
                                       oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
         for vm in app.domains:
             if hasattr(vm, 'guivm') and vm.property_is_default('guivm'):
                 vm.fire_event('property-set:guivm',
