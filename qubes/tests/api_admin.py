@@ -1951,7 +1951,7 @@ netvm default=True type=vm \n'''
         self.vm.tags.add('tag1')
         self.vm.tags.add('tag2')
         value = self.call_mgmt_func(b'admin.vm.tag.List', b'test-vm1')
-        self.assertEqual(value, 'tag1\ntag2\n')
+        self.assertEqual(value, 'audiovm-dom0\nguivm-dom0\ntag1\ntag2\n')
         self.assertFalse(self.app.save.called)
 
     def test_540_tag_get(self):
