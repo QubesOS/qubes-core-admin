@@ -45,7 +45,7 @@ system_path = {
     # use QIcon.fromTheme() where applicable
     'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
 
-    'dom0_services_dir': '/var/lib/qubes-services',
+    'dom0_services_dir': '/var/run/qubes-service',
 }
 
 defaults = {
