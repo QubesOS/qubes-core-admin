@@ -45,8 +45,8 @@ class AUDIO(qubes.ext.Extension):
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'audiovm', None):
             if 'audiovm-' + vm.audiovm.name not in list(vm.tags):
-                vm.fire_event('property-set:audiovm',
-                              name='audiovm', newvalue=vm.audiovm)
+                self.on_property_set(vm, event, name='audiovm',
+                                     newvalue=vm.audiovm)
 
     # property-del <=> property-reset-to-default
     @qubes.ext.handler('property-del:audiovm')
@@ -60,7 +60,7 @@ class AUDIO(qubes.ext.Extension):
         # pulseaudio agent (module-vchan-sink) can connect to only one domain
         tags_list = list(subject.tags)
         for tag in tags_list:
-            if 'audiovm-' in tag:
+            if tag.startswith('audiovm-'):
                 subject.tags.remove(tag)
 
         if newvalue:

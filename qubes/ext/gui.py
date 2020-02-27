@@ -55,8 +55,7 @@ class GUI(qubes.ext.Extension):
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'guivm', None):
             if 'guivm-' + vm.guivm.name not in list(vm.tags):
-                vm.fire_event('property-set:guivm',
-                              name='guivm', newvalue=vm.guivm)
+                self.on_property_set(vm, event, name='guivm', newvalue=vm.guivm)
 
     # property-del <=> property-reset-to-default
     @qubes.ext.handler('property-del:guivm')
@@ -70,7 +69,7 @@ class GUI(qubes.ext.Extension):
         # gui-daemon can connect to only one domain
         tags_list = list(subject.tags)
         for tag in tags_list:
-            if 'guivm-' in tag:
+            if tag.startswith('guivm-'):
                 subject.tags.remove(tag)
 
         if newvalue:
