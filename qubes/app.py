@@ -743,6 +743,12 @@ class Qubes(qubes.PropertyHolder):
         default=lambda app: app.domains['dom0'], allow_none=True,
         doc='Default GuiVM for VMs.')
 
+    default_audiovm = qubes.VMProperty(
+        'default_audiovm',
+        load_stage=3,
+        default=lambda app: app.domains['dom0'], allow_none=True,
+        doc='Default AudioVM for VMs.')
+
     default_netvm = qubes.VMProperty(
         'default_netvm',
         load_stage=3,

@@ -519,6 +519,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                              default=(lambda self: self.app.default_guivm),
                              doc='VM used for Gui')
 
+    audiovm = qubes.VMProperty('audiovm', load_stage=4, allow_none=True,
+                             default=(lambda self: self.app.default_audiovm),
+                             doc='VM used for Audio')
+
     virt_mode = qubes.property(
         'virt_mode',
         type=str, setter=_setter_virt_mode,
