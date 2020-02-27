@@ -631,8 +631,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             if self.is_running():
                 return self.libvirt_domain.ID()
-            else:
-                return -1
+
+            return -1
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
