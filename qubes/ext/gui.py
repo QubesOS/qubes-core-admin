@@ -35,6 +35,14 @@ class GUI(qubes.ext.Extension):
                               if vm.features.get('gui-seamless', False)
                               else 'FULLSCREEN'))
 
+    # pylint: disable=unused-argument,no-self-use
+    @qubes.ext.handler('domain-init', 'domain-load')
+    def on_domain_init_load(self, vm, event):
+        if getattr(vm, 'guivm', None):
+            if 'guivm-' + vm.guivm not in list(vm.tags):
+                vm.fire_event('property-set:guivm',
+                              name='guivm', newvalue=vm.guivm)
+
     # property-del <=> property-reset-to-default
     @qubes.ext.handler('property-del:guivm')
     def on_property_del(self, subject, event, name, oldvalue=None):

@@ -22,7 +22,14 @@ import qubes.ext
 
 
 class AUDIO(qubes.ext.Extension):
-    # pylint: disable=too-few-public-methods
+    # pylint: disable=unused-argument,no-self-use
+    @qubes.ext.handler('domain-init', 'domain-load')
+    def on_domain_init_load(self, vm, event):
+        if getattr(vm, 'audiovm', None):
+            if 'audiovm-' + vm.audiovm not in list(vm.tags):
+                vm.fire_event('property-set:audiovm',
+                              name='audiovm', newvalue=vm.audiovm)
+
     # property-del <=> property-reset-to-default
     @qubes.ext.handler('property-del:audiovm')
     def on_property_del(self, subject, event, name, oldvalue=None):
