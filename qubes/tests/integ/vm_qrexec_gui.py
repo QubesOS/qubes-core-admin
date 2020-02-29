@@ -805,6 +805,20 @@ class TC_00_AppVMMixin(object):
         finally:
             self.app.clockvm = None
 
+    def wait_for_pulseaudio_startup(self, vm):
+        self.loop.run_until_complete(
+            self.wait_for_session(self.testvm1))
+        try:
+            self.loop.run_until_complete(vm.run_for_stdio(
+                "timeout 30s sh -c 'while ! pactl info; do sleep 1; done'"
+            ))
+        except subprocess.CalledProcessError as e:
+            self.fail('Timeout waiting for pulseaudio start in {}: {}{}'.format(
+                vm.name, e.stdout, e.stderr))
+        # and some more...
+        self.loop.run_until_complete(asyncio.sleep(1))
+
+
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_220_audio_playback(self):
@@ -817,10 +831,7 @@ class TC_00_AppVMMixin(object):
         except subprocess.CalledProcessError:
             self.skipTest('pulseaudio-utils not installed in VM')
 
-        self.loop.run_until_complete(
-            self.wait_for_session(self.testvm1))
-        # and some more...
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.wait_for_pulseaudio_startup(self.testvm1)
         # generate some "audio" data
         audio_in = b'\x20' * 44100
         self.loop.run_until_complete(
@@ -845,8 +856,13 @@ class TC_00_AppVMMixin(object):
             p.wait()
             # allow few bytes missing, don't use assertIn, to avoid printing
             # the whole data in error message
-            if audio_in[:-8] not in recorded_audio.file.read():
-                self.fail('played sound not found in dom0')
+            recorded_audio = recorded_audio.file.read()
+            if audio_in[:-8] not in recorded_audio:
+                found_bytes = recorded_audio.count(audio_in[0])
+                all_bytes = len(audio_in)
+                self.fail('played sound not found in dom0, '
+                          'missing {} bytes out of {}'.format(
+                              all_bytes-found_bytes, all_bytes))
 
     def _configure_audio_recording(self, vm):
         '''Connect VM's output-source to sink monitor instead of mic'''
@@ -883,10 +899,7 @@ class TC_00_AppVMMixin(object):
         except subprocess.CalledProcessError:
             self.skipTest('pulseaudio-utils not installed in VM')
 
-        self.loop.run_until_complete(
-            self.wait_for_session(self.testvm1))
-        # and some more...
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.wait_for_pulseaudio_startup(self.testvm1)
         # connect VM's recording source output monitor (instead of mic)
         self._configure_audio_recording(self.testvm1)
 
@@ -924,10 +937,7 @@ class TC_00_AppVMMixin(object):
         except subprocess.CalledProcessError:
             self.skipTest('pulseaudio-utils not installed in VM')
 
-        self.loop.run_until_complete(
-            self.wait_for_session(self.testvm1))
-        # and some more...
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.wait_for_pulseaudio_startup(self.testvm1)
         da = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].attach(da))
@@ -954,7 +964,11 @@ class TC_00_AppVMMixin(object):
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
         # allow few bytes to be missing
         if audio_in[:-8] not in recorded_audio:
-            self.fail('VM not recorded expected data')
+            found_bytes = recorded_audio.count(audio_in[0])
+            all_bytes = len(audio_in)
+            self.fail('VM not recorded expected data, '
+                      'missing {} bytes out of {}'.format(
+                          all_bytes-found_bytes, all_bytes))
 
     def test_250_resize_private_img(self):
         """
