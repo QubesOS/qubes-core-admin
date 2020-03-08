@@ -44,7 +44,7 @@ class AUDIO(qubes.ext.Extension):
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'audiovm', None):
-            if 'audiovm-' + vm.audiovm.name not in list(vm.tags):
+            if 'audiovm-' + vm.audiovm.name not in vm.tags:
                 self.on_property_set(vm, event, name='audiovm',
                                      newvalue=vm.audiovm)
 

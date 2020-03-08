@@ -52,7 +52,7 @@ class GUI(qubes.ext.Extension):
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         if getattr(vm, 'guivm', None):
-            if 'guivm-' + vm.guivm.name not in list(vm.tags):
+            if 'guivm-' + vm.guivm.name not in vm.tags:
                 self.on_property_set(vm, event, name='guivm', newvalue=vm.guivm)
 
     # property-del <=> property-reset-to-default
