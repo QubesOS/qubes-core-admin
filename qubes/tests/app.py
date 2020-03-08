@@ -611,11 +611,11 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
     def test_114_default_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             default_audiovm = qubes.property('default_audiovm',
-                                           default=(lambda self: 'dom0'))
+                                             default=(lambda self: 'dom0'))
 
         holder = MyTestHolder(None)
         audiovm = self.app.add_new_vm('AppVM', name='sys-audio', audiovm='dom0',
-                                    template=self.template, label='red')
+                                      template=self.template, label='red')
         appvm = self.app.add_new_vm('AppVM', name='test-vm',
                                     template=self.template, label='red')
         holder.default_audiovm = 'sys-audio'
@@ -632,22 +632,34 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
     def test_115_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             audiovm = qubes.property('audiovm',
-                                   default=(lambda self: 'dom0'))
+                                     default=(lambda self: 'dom0'))
 
         holder = MyTestHolder(None)
         audiovm = self.app.add_new_vm('AppVM', name='sys-audio', audiovm='dom0',
-                                    template=self.template, label='red')
+                                      template=self.template, label='red')
+        guivm = self.app.add_new_vm('AppVM', name='sys-gui', audiovm='dom0',
+                                      template=self.template, label='red')
         appvm = self.app.add_new_vm('AppVM', name='test-vm', audiovm='dom0',
                                     template=self.template, label='red')
         holder.audiovm = 'sys-audio'
         self.assertEqual(holder.audiovm, 'sys-audio')
-        self.assertFalse(appvm.property_is_default('audiovm'))
-        appvm.audiovm = audiovm
+
         self.assertEventFired(holder, 'property-set:audiovm',
                               kwargs={'name': 'audiovm',
                                       'newvalue': 'sys-audio'})
 
+        # Set AudioVM
+        self.assertFalse(appvm.property_is_default('audiovm'))
+        appvm.audiovm = audiovm
         self.assertIn('audiovm-sys-audio', appvm.tags)
+
+        # Change AudioVM
+        appvm.audiovm = guivm
+        self.assertIn('audiovm-sys-gui', appvm.tags)
+
+        # Empty AudioVM
+        del appvm.audiovm
+        self.assertNotIn('audiovm-', appvm.tags)
 
     def test_200_remove_template(self):
         appvm = self.app.add_new_vm('AppVM', name='test-vm',
