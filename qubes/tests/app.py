@@ -614,9 +614,12 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         # Change GuiVM
         appvm.guivm = vncvm
         self.assertIn('guivm-sys-vnc', appvm.tags)
+        self.assertNotIn('guivm-sys-vnc', appvm.tags)
 
         # Empty GuiVM
         del appvm.guivm
+        self.assertNotIn('guivm-sys-vnc', appvm.tags)
+        self.assertNotIn('guivm-sys-gui', appvm.tags)
         self.assertNotIn('guivm-', appvm.tags)
 
     def test_114_default_audiovm(self):
@@ -667,9 +670,12 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         # Change AudioVM
         appvm.audiovm = guivm
         self.assertIn('audiovm-sys-gui', appvm.tags)
+        self.assertNotIn('audiovm-sys-audio', appvm.tags)
 
         # Empty AudioVM
         del appvm.audiovm
+        self.assertNotIn('audiovm-sys-gui', appvm.tags)
+        self.assertNotIn('audiovm-sys-audio', appvm.tags)
         self.assertNotIn('audiovm-', appvm.tags)
 
     def test_200_remove_template(self):
