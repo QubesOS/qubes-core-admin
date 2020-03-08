@@ -98,8 +98,11 @@ class ServicesExtension(qubes.ext.Extension):
         vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                                str(int(bool(value))))
 
-        if vm.name == "dom0" and str(int(bool(value))) == "1":
-            self.add_dom0_service(vm, service)
+        if vm.name == "dom0":
+            if str(int(bool(value))) == "1":
+                self.add_dom0_service(vm, service)
+            else:
+                self.remove_dom0_service(vm, service)
 
     @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
@@ -136,6 +139,8 @@ class ServicesExtension(qubes.ext.Extension):
                 service = feature[len('service.'):]
                 if str(int(bool(value))) == "1":
                     self.add_dom0_service(vm, service)
+                else:
+                    self.remove_dom0_service(vm, service)
 
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):

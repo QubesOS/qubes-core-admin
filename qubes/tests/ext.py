@@ -336,6 +336,7 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.base_dir_patch = mock.patch.dict(
             qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
         self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
         service = 'guivm-gui-agent'
         service_path = self.test_base_dir + '/' + service
 
@@ -343,7 +344,6 @@ class TC_20_Services(qubes.tests.QubesTestCase):
             self.dom0,
             'feature-set:service.service.guivm-gui-agent',
             'service.guivm-gui-agent', '1')
-
         self.assertEqual(os.path.exists(service_path), True)
 
     def test_014_feature_delete_dom0(self):
@@ -351,6 +351,7 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.base_dir_patch = mock.patch.dict(
             qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
         self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
         service = 'guivm-gui-agent'
         service_path = self.test_base_dir + '/' + service
 
@@ -363,5 +364,21 @@ class TC_20_Services(qubes.tests.QubesTestCase):
             self.dom0,
             'feature-delete:service.service.guivm-gui-agent',
             'service.guivm-gui-agent')
+
+        self.assertEqual(os.path.exists(service_path), False)
+
+    def test_014_feature_set_empty_value_dom0(self):
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
+        self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
+        service = 'guivm-gui-agent'
+        service_path = self.test_base_dir + '/' + service
+
+        self.ext.on_domain_feature_set(
+            self.dom0,
+            'feature-set:service.service.guivm-gui-agent',
+            'service.guivm-gui-agent', '')
 
         self.assertEqual(os.path.exists(service_path), False)
