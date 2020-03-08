@@ -31,7 +31,7 @@ class ServicesExtension(qubes.ext.Extension):
     """
 
     @staticmethod
-    def add_dom0_services(vm, service):
+    def add_dom0_service(vm, service):
         try:
             os.makedirs(
                 qubes.config.system_path['dom0_services_dir'], exist_ok=True)
@@ -44,7 +44,7 @@ class ServicesExtension(qubes.ext.Extension):
                 qubes.config.system_path['dom0_services_dir']))
 
     @staticmethod
-    def remove_dom0_services(vm, service):
+    def remove_dom0_service(vm, service):
         try:
             service = '{}/{}'.format(
                 qubes.config.system_path['dom0_services_dir'], service)
@@ -99,7 +99,7 @@ class ServicesExtension(qubes.ext.Extension):
                                str(int(bool(value))))
 
         if vm.name == "dom0" and str(int(bool(value))) == "1":
-            self.add_dom0_services(vm, service)
+            self.add_dom0_service(vm, service)
 
     @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
@@ -116,7 +116,7 @@ class ServicesExtension(qubes.ext.Extension):
         vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
 
         if vm.name == "dom0":
-            self.remove_dom0_services(vm, service)
+            self.remove_dom0_service(vm, service)
 
     @qubes.ext.handler('domain-load')
     def on_domain_load(self, vm, event):
@@ -134,9 +134,8 @@ class ServicesExtension(qubes.ext.Extension):
                 if not feature.startswith('service.'):
                     continue
                 service = feature[len('service.'):]
-                if str(int(bool(value))) == "1" and not os.path.exists(
-                        '/var/run/qubes-service/{}'.format(service)):
-                    os.mknod('/var/run/qubes-service/{}'.format(service))
+                if str(int(bool(value))) == "1":
+                    self.add_dom0_service(vm, service)
 
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):
