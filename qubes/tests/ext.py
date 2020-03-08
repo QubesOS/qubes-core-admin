@@ -18,13 +18,13 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-from unittest import mock
-
+import os
 import qubes.ext.core_features
 import qubes.ext.services
 import qubes.ext.windows
 import qubes.tests
 
+from unittest import mock
 
 class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -235,19 +235,27 @@ class TC_20_Services(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.ext = qubes.ext.services.ServicesExtension()
-        self.vm = mock.MagicMock()
         self.features = {}
-        self.vm.configure_mock(**{
-            'template': None,
-            'maxmem': 1024,
-            'is_running.return_value': True,
+        specs = {
             'features.get.side_effect': self.features.get,
             'features.items.side_effect': self.features.items,
             'features.__iter__.side_effect': self.features.__iter__,
             'features.__contains__.side_effect': self.features.__contains__,
             'features.__setitem__.side_effect': self.features.__setitem__,
             'features.__delitem__.side_effect': self.features.__delitem__,
-            })
+        }
+        vmspecs = {**specs, **{
+            'template': None,
+            'maxmem': 1024,
+            'is_running.return_value': True,
+            }}
+        dom0specs = {**specs, **{
+            'name': "dom0",
+            }}
+        self.vm = mock.MagicMock()
+        self.vm.configure_mock(**vmspecs)
+        self.dom0 = mock.MagicMock()
+        self.dom0.configure_mock(**dom0specs)
 
     def test_000_write_to_qdb(self):
         self.features['service.test1'] = '1'
@@ -322,3 +330,55 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.assertEqual(self.features, {
             'supported-service.test2': True,
         })
+
+    def test_013_feature_set_dom0(self):
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
+        self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
+        service = 'guivm-gui-agent'
+        service_path = self.test_base_dir + '/' + service
+
+        self.ext.on_domain_feature_set(
+            self.dom0,
+            'feature-set:service.service.guivm-gui-agent',
+            'service.guivm-gui-agent', '1')
+        self.assertEqual(os.path.exists(service_path), True)
+
+    def test_014_feature_delete_dom0(self):
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
+        self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
+        service = 'guivm-gui-agent'
+        service_path = self.test_base_dir + '/' + service
+
+        self.ext.on_domain_feature_set(
+            self.dom0,
+            'feature-set:service.service.guivm-gui-agent',
+            'service.guivm-gui-agent', '1')
+
+        self.ext.on_domain_feature_delete(
+            self.dom0,
+            'feature-delete:service.service.guivm-gui-agent',
+            'service.guivm-gui-agent')
+
+        self.assertEqual(os.path.exists(service_path), False)
+
+    def test_014_feature_set_empty_value_dom0(self):
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {'dom0_services_dir': self.test_base_dir})
+        self.base_dir_patch.start()
+        self.addCleanup(self.base_dir_patch.stop)
+        service = 'guivm-gui-agent'
+        service_path = self.test_base_dir + '/' + service
+
+        self.ext.on_domain_feature_set(
+            self.dom0,
+            'feature-set:service.service.guivm-gui-agent',
+            'service.guivm-gui-agent', '')
+
+        self.assertEqual(os.path.exists(service_path), False)
