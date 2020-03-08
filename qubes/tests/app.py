@@ -596,17 +596,28 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         holder = MyTestHolder(None)
         guivm = self.app.add_new_vm('AppVM', name='sys-gui', guivm='dom0',
                                     template=self.template, label='red')
+        vncvm = self.app.add_new_vm('AppVM', name='sys-vnc', guivm='dom0',
+                                    template=self.template, label='red')
         appvm = self.app.add_new_vm('AppVM', name='test-vm', guivm='dom0',
                                     template=self.template, label='red')
         holder.guivm = 'sys-gui'
         self.assertEqual(holder.guivm, 'sys-gui')
-        self.assertFalse(appvm.property_is_default('guivm'))
-        appvm.guivm = guivm
         self.assertEventFired(holder, 'property-set:guivm',
                               kwargs={'name': 'guivm',
                                       'newvalue': 'sys-gui'})
 
+        # Set GuiVM
+        self.assertFalse(appvm.property_is_default('guivm'))
+        appvm.guivm = guivm
         self.assertIn('guivm-sys-gui', appvm.tags)
+
+        # Change GuiVM
+        appvm.guivm = vncvm
+        self.assertIn('guivm-sys-vnc', appvm.tags)
+
+        # Empty GuiVM
+        del appvm.guivm
+        self.assertNotIn('guivm-', appvm.tags)
 
     def test_114_default_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
