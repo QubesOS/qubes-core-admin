@@ -2049,3 +2049,39 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertEqual(exc.exception.returncode, 1)
             self.assertEqual(exc.exception.output, b'stdout')
             self.assertEqual(exc.exception.stderr, b'stderr')
+
+    @unittest.mock.patch('os.path.exists')
+    def test_720_is_fully_usable(self, mock_os_path_exists):
+        vm_name = 'workvm'
+        qrexec_file_name = '/var/run/qubes/qrexec.{}'.format(
+            'test-inst-{}'.format(vm_name))
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM, name=vm_name)
+
+        # Dummy xid; greater than 0 to indicate a running AppVM
+        vm._qubesprop_xid = 10
+        self.assertGreater(vm.xid, 0)
+
+        with self.subTest('with_qrexec_started'):
+            mock_os_path_exists.return_value = True
+            vm.features['qrexec'] = True
+
+            fully_usable = vm.is_fully_usable()
+            mock_os_path_exists.assert_called_once_with(qrexec_file_name)
+            self.assertEqual(fully_usable, True)
+
+        mock_os_path_exists.reset_mock()
+        with self.subTest('with_qrexec_error'):
+            mock_os_path_exists.return_value = False
+            vm.features['qrexec'] = True
+
+            fully_usable = vm.is_fully_usable()
+            mock_os_path_exists.assert_called_once_with(qrexec_file_name)
+            self.assertEqual(fully_usable, False)
+
+        mock_os_path_exists.reset_mock()
+        with self.subTest('without_qrexec'):
+            vm.features['qrexec'] = False
+
+            fully_usable = vm.is_fully_usable()
+            mock_os_path_exists.assert_not_called()
+            self.assertEqual(fully_usable, True)
