@@ -206,8 +206,10 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
         vm = self.app.add_new_vm('AppVM', label='red',
             name=vmname)
         self.loop.run_until_complete(vm.create_on_disk())
+        new_tags = list(sorted(list(vm.tags) + ['tag1', 'tag2']))
         vm.tags.add('tag1')
         vm.tags.add('tag3')
+        old_tags = list(sorted(vm.tags))
 
         with open(os.path.join(self.salt_testdir, 'test_state.sls'), 'w') as f:
             f.write(vmname + ':\n')
@@ -224,13 +226,14 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
         state_out = list(cmd_output['local'].values())[0]
         del state_out['start_time']
         del state_out['duration']
+        self.maxDiff = None
         self.assertEqual(state_out, {
             'comment': '====== [\'tags\'] ======\n',
             'name': vmname,
             'result': True,
             'changes': {
                 'qvm.tags': {'qvm.tags': {
-                        'new': ['tag1', 'tag2'], 'old': ['tag1', 'tag3'],
+                        'new': new_tags, 'old': old_tags,
                     }
                 },
             },
@@ -241,7 +244,7 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
 
         self.assertIn(vmname, self.app.domains)
         vm = self.app.domains[vmname]
-        self.assertEqual(set(vm.tags), {'tag1', 'tag2'})
+        self.assertEqual(set(vm.tags), set(new_tags))
 
     def test_020_qubes_pillar(self):
         vmname = self.make_vm_name('appvm')
