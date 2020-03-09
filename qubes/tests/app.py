@@ -614,7 +614,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         # Change GuiVM
         appvm.guivm = vncvm
         self.assertIn('guivm-sys-vnc', appvm.tags)
-        self.assertNotIn('guivm-sys-vnc', appvm.tags)
+        self.assertNotIn('guivm-sys-gui', appvm.tags)
 
         # Empty GuiVM
         del appvm.guivm
