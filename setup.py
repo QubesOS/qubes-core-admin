@@ -64,6 +64,7 @@ if __name__ == '__main__':
                 'qubes.ext.core_features = qubes.ext.core_features:CoreFeatures',
                 'qubes.ext.qubesmanager = qubes.ext.qubesmanager:QubesManager',
                 'qubes.ext.gui = qubes.ext.gui:GUI',
+                'qubes.ext.audio = qubes.ext.audio:AUDIO',
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',
                 'qubes.ext.pci = qubes.ext.pci:PCIDeviceExtension',
                 'qubes.ext.block = qubes.ext.block:BlockDeviceExtension',

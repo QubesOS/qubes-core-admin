@@ -276,6 +276,7 @@ fi
 %{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/core_features.py
 %{python3_sitelib}/qubes/ext/gui.py
+%{python3_sitelib}/qubes/ext/audio.py
 %{python3_sitelib}/qubes/ext/pci.py
 %{python3_sitelib}/qubes/ext/qubesmanager.py
 %{python3_sitelib}/qubes/ext/r3compatibility.py

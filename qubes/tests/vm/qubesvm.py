@@ -1819,7 +1819,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
-    def test_622_qdb_keyboard_layout(self, mock_qubesdb, mock_urandom,
+    def test_622_qdb_guivm_keyboard_layout(self, mock_qubesdb, mock_urandom,
             mock_timezone):
         mock_urandom.return_value = b'A' * 64
         mock_timezone.return_value = 'UTC'
@@ -1840,6 +1840,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
             '"pc+fr+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
             '{ include "pc(pc105)"\x09};\x0a};'
+        guivm.is_running = lambda: True
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1871,6 +1872,51 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/connected-ips6': '',
         })
 
+    @unittest.mock.patch('qubes.utils.get_timezone')
+    @unittest.mock.patch('qubes.utils.urandom')
+    @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
+    def test_623_qdb_audiovm(self, mock_qubesdb, mock_urandom,
+            mock_timezone):
+        mock_urandom.return_value = b'A' * 64
+        mock_timezone.return_value = 'UTC'
+        template = self.get_vm(
+            cls=qubes.vm.templatevm.TemplateVM, name='template')
+        template.netvm = None
+        audiovm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='sys-audio', qid=2, provides_network=False)
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='appvm', qid=3)
+        vm.netvm = None
+        vm.audiovm = audiovm
+        audiovm.is_running = lambda: True
+        vm.events_enabled = True
+        test_qubesdb = TestQubesDB()
+        mock_qubesdb.write.side_effect = test_qubesdb.write
+        mock_qubesdb.rm.side_effect = test_qubesdb.rm
+        vm.create_qdb_entries()
+        self.maxDiff = None
+        self.assertEqual(test_qubesdb.data, {
+            '/name': 'test-inst-appvm',
+            '/type': 'AppVM',
+            '/default-user': 'user',
+            '/qubes-vm-type': 'AppVM',
+            '/qubes-audio-domain-xid': '{}'.format(audiovm.xid),
+            '/qubes-debug-mode': '0',
+            '/qubes-base-template': 'test-inst-template',
+            '/qubes-timezone': 'UTC',
+            '/qubes-random-seed': base64.b64encode(b'A' * 64),
+            '/qubes-vm-persistence': 'rw-only',
+            '/qubes-vm-updateable': 'False',
+            '/qubes-block-devices': '',
+            '/qubes-usb-devices': '',
+            '/qubes-iptables': 'reload',
+            '/qubes-iptables-error': '',
+            '/qubes-iptables-header': unittest.mock.ANY,
+            '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
+            '/connected-ips': '',
+            '/connected-ips6': '',
+        })
 
     @asyncio.coroutine
     def coroutine_mock(self, mock, *args, **kwargs):
