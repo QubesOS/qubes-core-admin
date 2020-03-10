@@ -109,8 +109,12 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
             connect_coro)
 
     def tearDown(self):
-        self.sock_server.close()
-        self.sock_client.close()
+        self.writer.close()
+        try:
+            self.loop.run_until_complete(self.writer.wait_closed())
+        except AttributeError:  # old python in travis
+            pass
+        self.transport.close()
         super(TC_00_QubesDaemonProtocol, self).tearDown()
 
     def test_000_message_ok(self):

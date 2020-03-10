@@ -480,6 +480,9 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             with self.assertRaises(AttributeError):
                 self.app.default_fw_netvm
 
+            self.app.close()
+            del self.app
+
         with self.subTest('loop'):
             with open('/tmp/qubestest.xml', 'w') as xml_file:
                 xml_file.write(xml_template.format(
@@ -501,6 +504,9 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
                 self.app.domains['sys-firewall'])
             with self.assertRaises(AttributeError):
                 self.app.default_fw_netvm
+
+            self.app.close()
+            del self.app
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
