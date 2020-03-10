@@ -291,7 +291,9 @@ class TC_00_AppVMMixin(object):
                 stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
                     self.testvm1.run_for_stdio('''\
                         /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
-                            /bin/cat /dev/zero; test $? -eq 141 -o $? -eq 1'''),
+                            /bin/sh -c 'cat /dev/zero; echo $? >/tmp/exit-code';
+                            e=$(cat /tmp/exit-code);
+                            test $e -eq 141 -o $e -eq 1'''),
                     timeout=10))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably stdout wasn't closed")
