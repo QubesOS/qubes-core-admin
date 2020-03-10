@@ -251,6 +251,9 @@ class TC_00_AppVMMixin(object):
                             /bin/sh -c 'echo test; exec >&-; cat >&$SAVED_FD_1'
                     '''.format(self.testvm2.name)),
                     timeout=10))
+            except subprocess.CalledProcessError as e:
+                self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                    e.cmd, e.returncode, e.stderr))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
@@ -275,6 +278,9 @@ class TC_00_AppVMMixin(object):
                             /bin/sh -c 'cat >&$SAVED_FD_1'
                         '''.format(self.testvm2.name)),
                     timeout=10))
+            except subprocess.CalledProcessError as e:
+                self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                    e.cmd, e.returncode, e.stderr))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
@@ -308,6 +314,9 @@ class TC_00_AppVMMixin(object):
                             e=$(cat /tmp/exit-code);
                             test $e -eq 141 -o $e -eq 1'''),
                     timeout=10))
+            except subprocess.CalledProcessError as e:
+                self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                    e.cmd, e.returncode, e.stderr))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably stdout wasn't closed")
 
@@ -329,7 +338,8 @@ class TC_00_AppVMMixin(object):
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('''\
                     /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
-                        echo $?'''.format(self.testvm2.name)))
+                        echo $?'''.format(self.testvm2.name),
+                        stderr=None))
             self.assertEqual(stdout, b'0\n')
 
             self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Retcode',
@@ -337,7 +347,8 @@ class TC_00_AppVMMixin(object):
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('''\
                     /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
-                        echo $?'''.format(self.testvm2.name)))
+                        echo $?'''.format(self.testvm2.name),
+                        stderr=None))
             self.assertEqual(stdout, b'3\n')
 
     def test_070_qrexec_vm_simultaneous_write(self):
@@ -376,8 +387,9 @@ class TC_00_AppVMMixin(object):
                             dd of=/dev/null bs=993 count=10000 iflag=fullblock;
                             wait'
                         '''.format(self.testvm2.name)), timeout=10))
-            except subprocess.CalledProcessError:
-                self.fail('Service call failed')
+            except subprocess.CalledProcessError as e:
+                self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                    e.cmd, e.returncode, e.stderr))
             except asyncio.TimeoutError:
                 self.fail('Timeout, probably deadlock')
 
@@ -496,7 +508,8 @@ class TC_00_AppVMMixin(object):
         with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
             stdout, stderr = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
-                    '{} test.Argument+argument'.format(self.testvm2.name)))
+                    '{} test.Argument+argument'.format(self.testvm2.name),
+                    stderr=None))
             self.assertEqual(stdout, b'argument')
 
     def test_081_qrexec_service_argument_allow_specific(self):
@@ -515,7 +528,8 @@ class TC_00_AppVMMixin(object):
                 stdout, stderr = self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
                         '/usr/lib/qubes/qrexec-client-vm '
-                        '{} test.Argument+argument'.format(self.testvm2.name)))
+                        '{} test.Argument+argument'.format(self.testvm2.name),
+                        stderr=None))
         self.assertEqual(stdout, b'argument')
 
     def test_082_qrexec_service_argument_deny_specific(self):
@@ -534,7 +548,8 @@ class TC_00_AppVMMixin(object):
                     self.loop.run_until_complete(
                         self.testvm1.run_for_stdio(
                             '/usr/lib/qubes/qrexec-client-vm {} '
-                            'test.Argument+argument'.format(self.testvm2.name)))
+                            'test.Argument+argument'.format(self.testvm2.name),
+                            stderr=None))
 
     def test_083_qrexec_service_argument_specific_implementation(self):
         """Qrexec service call with argument - argument specific
@@ -553,7 +568,8 @@ class TC_00_AppVMMixin(object):
         with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
             stdout, stderr = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
-                    '{} test.Argument+argument'.format(self.testvm2.name)))
+                    '{} test.Argument+argument'.format(self.testvm2.name),
+                    stderr=None))
 
         self.assertEqual(stdout, b'specific: argument')
 
@@ -570,7 +586,8 @@ class TC_00_AppVMMixin(object):
         with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
             stdout, stderr = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
-                    '{} test.Argument+argument'.format(self.testvm2.name)))
+                    '{} test.Argument+argument'.format(self.testvm2.name),
+                    stderr=None))
 
         self.assertEqual(stdout, b'test.Argument+argument argument')
 
@@ -589,6 +606,9 @@ class TC_00_AppVMMixin(object):
                     self.testvm1.run_for_stdio(
                         'qrexec-client-vm @adminvm test.Socket', input=TEST_DATA),
                     timeout=10))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                e.cmd, e.returncode, e.stderr))
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred to the VM process")
@@ -625,6 +645,9 @@ class TC_00_AppVMMixin(object):
                     self.testvm1.run_for_stdio(
                         'qrexec-client-vm @adminvm test.Socket'),
                     timeout=10))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                e.cmd, e.returncode, e.stderr))
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred to the VM process")
@@ -759,6 +782,9 @@ class TC_00_AppVMMixin(object):
             (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
                 self.testvm1.run_service_for_stdio('test.Socket+', input=TEST_DATA),
                 timeout=10))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                e.cmd, e.returncode, e.stderr))
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred to the VM process")
@@ -798,6 +824,9 @@ class TC_00_AppVMMixin(object):
             (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
                 self.testvm1.run_service_for_stdio('test.Socket+'),
                 timeout=10))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} exited with non-zero code {}; stderr: {}'.format(
+                e.cmd, e.returncode, e.stderr))
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred to the VM process")
