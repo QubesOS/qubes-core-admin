@@ -247,7 +247,6 @@ class TC_00_AppVMMixin(object):
         self.assertEqual(stdout, b'test\n',
             'Received data differs from what was expected')
 
-    @unittest.expectedFailure
     def test_053_qrexec_vm_service_eof_reverse(self):
         """Test for EOF transmission VM(src)<-VM(dst)"""
 
@@ -255,6 +254,7 @@ class TC_00_AppVMMixin(object):
             self.testvm1.start(),
             self.testvm2.start()]))
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.EOF',
+                '#!/bin/sh\n'
                 'echo test; exec >&-; cat >/dev/null')
 
         with self.qrexec_policy('test.EOF', self.testvm1, self.testvm2):
@@ -271,7 +271,7 @@ class TC_00_AppVMMixin(object):
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
-        self.assertEqual(stdout, b'test',
+        self.assertEqual(stdout, b'test\n',
             'Received data differs from what was expected')
 
     def test_055_qrexec_dom0_service_abort(self):
