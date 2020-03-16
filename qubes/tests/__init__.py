@@ -99,9 +99,8 @@ except libvirt.libvirtError:
 
 if in_dom0:
     import libvirtaio
-    libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
-else:
-    libvirt_event_impl = None
+
+libvirt_event_impl = None
 
 try:
     in_git = subprocess.check_output(
@@ -396,6 +395,10 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = None
 
+        global libvirt_event_impl
+
+        if in_dom0 and not libvirt_event_impl:
+            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
 
     def __str__(self):
         return '{}/{}/{}'.format(
