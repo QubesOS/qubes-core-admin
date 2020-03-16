@@ -1840,6 +1840,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
             '"pc+fr+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
             '{ include "pc(pc105)"\x09};\x0a};'
+        guivm.features['qubes-keyboard'] = xkb_keymap
         guivm.is_running = lambda: True
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
