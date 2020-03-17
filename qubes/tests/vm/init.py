@@ -217,6 +217,8 @@ class TC_21_Features(qubes.tests.QubesTestCase):
 
     def test_000_set(self):
         self.features['testfeature'] = 'value'
+        self.assertEventFired(self.vm, 'domain-feature-pre-set:testfeature',
+            kwargs={'feature': 'testfeature', 'value': 'value'})
         self.assertEventFired(self.vm, 'domain-feature-set:testfeature',
             kwargs={'feature': 'testfeature', 'value': 'value'})
 
@@ -263,8 +265,12 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.features['test2'] = 'value2'
         self.vm.fired_events.clear()
         self.features.clear()
+        self.assertEventFired(self.vm, 'domain-feature-pre-delete:test',
+            kwargs={'feature': 'test'})
         self.assertEventFired(self.vm, 'domain-feature-delete:test',
             kwargs={'feature': 'test'})
+        self.assertEventFired(self.vm, 'domain-feature-pre-delete:test2',
+            kwargs={'feature': 'test2'})
         self.assertEventFired(self.vm, 'domain-feature-delete:test2',
             kwargs={'feature': 'test2'})
 

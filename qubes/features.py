@@ -51,6 +51,7 @@ class Features(dict):
         self.update(other, **kwargs)
 
     def __delitem__(self, key):
+        self.subject.fire_event('domain-feature-pre-delete:' + key, feature=key)
         super().__delitem__(key)
         self.subject.fire_event('domain-feature-delete:' + key, feature=key)
 
@@ -64,6 +65,14 @@ class Features(dict):
             has_oldvalue = True
         except KeyError:
             has_oldvalue = False
+        if has_oldvalue:
+            self.subject.fire_event('domain-feature-pre-set:' + key,
+                pre_event=True,
+                feature=key, value=value, oldvalue=oldvalue)
+        else:
+            self.subject.fire_event('domain-feature-pre-set:' + key,
+                pre_event=True,
+                feature=key, value=value)
         super().__setitem__(key, value)
         if has_oldvalue:
             self.subject.fire_event('domain-feature-set:' + key, feature=key,

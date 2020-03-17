@@ -420,6 +420,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-restore'``)
 
+        .. event:: domain-feature-pre-set:feature (subject, event, feature,
+            value [, oldvalue])
+
+            A feature will be changed. This event is fired before value is set.
+            If any handler raises an exception, value will not be set.
+            *oldvalue* is present only when there was any.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-feature-pre-set:' feature``)
+            :param feature: feature name
+            :param value: new value
+            :param oldvalue: old value, if any
+
         .. event:: domain-feature-set:feature (subject, event, feature, value
             [, oldvalue])
 
@@ -440,6 +453,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-feature-delete:' feature``)
+            :param feature: feature name
+
+        .. event:: domain-feature-pre-delete:feature (subject, event, feature)
+
+            A feature will be removed. This event is fired before feature is
+            removed. If any handler raises an exception,feature will not be
+            removed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-feature-pre-delete:' feature``)
             :param feature: feature name
 
         .. event:: domain-tag-add:tag (subject, event, tag)
