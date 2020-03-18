@@ -126,16 +126,18 @@ class GUI(qubes.ext.Extension):
     def on_feature_pre_set(self, subject, event, feature, value, oldvalue=None):
         untrusted_xkb_layout = value.split('+')
         if not len(untrusted_xkb_layout) == 3:
-            raise qubes.exc.QubesValueError
+            raise qubes.exc.QubesValueError("Invalid number of parameters")
 
         untrusted_layout = untrusted_xkb_layout[0]
         untrusted_variant = untrusted_xkb_layout[1]
         untrusted_options = untrusted_xkb_layout[2]
 
-        re_variant = '^[a-zA-Z0-9-_]+$'
-        re_options = '^[a-zA-Z0-9-_:,]+$'
+        re_variant = r'^[a-zA-Z0-9-_]*$'
+        re_options = r'^[a-zA-Z0-9-_:,]*$'
 
-        if not untrusted_layout.isalpha() or \
-                not bool(re.match(re_variant, untrusted_variant)) or \
-                not bool(re.match(re_options, untrusted_options)):
-            raise qubes.exc.QubesValueError
+        if not untrusted_layout.isalpha():
+            raise qubes.exc.QubesValueError("Invalid layout provided")
+        if not bool(re.match(re_variant, untrusted_variant)):
+            raise qubes.exc.QubesValueError("Invalid variant provided")
+        if not bool(re.match(re_options, untrusted_options)):
+            raise qubes.exc.QubesValueError("Invalid options provided")
