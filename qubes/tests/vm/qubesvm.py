@@ -1832,14 +1832,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             name='appvm', qid=3)
         vm.netvm = None
         vm.guivm = guivm
-        guivm.features['keyboard-layout'] = 'fr'
-        xkb_keymap = \
-            'xkb_keymap {\x0a\x09xkb_keycodes  { include ' \
-            '"evdev"\x09};\x0a\x09xkb_types     { include ' \
-            '"complete"\x09};\x0a\x09xkb_compat    { include ' \
-            '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
-            '"pc+fr+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
-            '{ include "pc(pc105)"\x09};\x0a};'
+        guivm.features['keyboard-layout'] = 'fr++'
         guivm.is_running = lambda: True
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
@@ -1851,8 +1844,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/name': 'test-inst-appvm',
             '/type': 'AppVM',
             '/default-user': 'user',
-            '/qubes-keyboard': xkb_keymap,
-            '/keyboard-layout': 'fr',
+            '/keyboard-layout': 'fr++',
             '/qubes-vm-type': 'AppVM',
             '/qubes-gui-domain-xid': '{}'.format(guivm.xid),
             '/qubes-debug-mode': '0',
@@ -1917,6 +1909,22 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/connected-ips': '',
             '/connected-ips6': '',
         })
+
+    @unittest.mock.patch('qubes.utils.get_timezone')
+    @unittest.mock.patch('qubes.utils.urandom')
+    @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
+    def test_624_qdb_guivm_invalid_keyboard_layout(self, mock_qubesdb,
+                                                   mock_urandom, mock_timezone):
+        mock_urandom.return_value = b'A' * 64
+        mock_timezone.return_value = 'UTC'
+        template = self.get_vm(
+            cls=qubes.vm.templatevm.TemplateVM, name='template')
+        guivm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='sys-gui', qid=2, provides_network=False)
+        guivm.is_running = lambda: True
+        guivm.events_enabled = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            guivm.features['keyboard-layout'] = 'fr123++'
 
     @asyncio.coroutine
     def coroutine_mock(self, mock, *args, **kwargs):

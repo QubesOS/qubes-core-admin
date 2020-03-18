@@ -21,8 +21,11 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import re
+
 import qubes.config
 import qubes.ext
+import qubes.exc
 
 
 class GUI(qubes.ext.Extension):
@@ -96,16 +99,6 @@ class GUI(qubes.ext.Extension):
             if kbd_layout:
                 vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
 
-                # Legacy value for setting keyboard layout
-                xkb_keymap = \
-                    'xkb_keymap {\x0a\x09xkb_keycodes  { include ' \
-                    '"evdev"\x09};\x0a\x09xkb_types     { include ' \
-                    '"complete"\x09};\x0a\x09xkb_compat    { include ' \
-                    '"complete"\x09};\x0a\x09xkb_symbols   { include ' \
-                    '"pc+%s+inet(evdev)"\x09};\x0a\x09xkb_geometry  ' \
-                    '{ include "pc(pc105)"\x09};\x0a};' % kbd_layout
-                vm.untrusted_qdb.write('/qubes-keyboard', xkb_keymap)
-
         # Set GuiVM prefix
         guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')
         if vm.features.get('service.guivm-gui-agent', None):
@@ -128,3 +121,23 @@ class GUI(qubes.ext.Extension):
         for attached_vm in attached_vms:
             attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
                                             str(vm.xid))
+
+    @qubes.ext.handler('domain-feature-pre-set:keyboard-layout')
+    def on_feature_pre_set(self, subject, event, feature, value, oldvalue=None):
+        untrusted_xkb_layout = value.split('+')
+        if len(untrusted_xkb_layout) != 3:
+            raise qubes.exc.QubesValueError("Invalid number of parameters")
+
+        untrusted_layout = untrusted_xkb_layout[0]
+        untrusted_variant = untrusted_xkb_layout[1]
+        untrusted_options = untrusted_xkb_layout[2]
+
+        re_variant = r'^[a-zA-Z0-9-_]*$'
+        re_options = r'^[a-zA-Z0-9-_:,]*$'
+
+        if not untrusted_layout.isalpha():
+            raise qubes.exc.QubesValueError("Invalid layout provided")
+        if not re.match(re_variant, untrusted_variant):
+            raise qubes.exc.QubesValueError("Invalid variant provided")
+        if not re.match(re_options, untrusted_options):
+            raise qubes.exc.QubesValueError("Invalid options provided")
