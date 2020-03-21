@@ -409,7 +409,7 @@ class TC_00_AppVMMixin(object):
                     "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
                     "wait", stdin=pipe1_r, stdout=pipe2_w))
 
-            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
+            self.service_proc = self.loop.run_until_complete(self.testvm2.run_service(
                 "test.write", stdin=pipe2_r, stdout=pipe1_w))
         finally:
             os.close(pipe1_r)
@@ -419,17 +419,12 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(
-                asyncio.wait_for(service_proc.wait(), timeout=10))
+                asyncio.wait_for(self.service_proc.wait(), timeout=10))
         except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
         else:
-            self.assertEqual(service_proc.returncode, 0,
+            self.assertEqual(self.service_proc.returncode, 0,
                 "Service call failed")
-        finally:
-            try:
-                service_proc.terminate()
-            except ProcessLookupError:
-                pass
 
     def test_072_qrexec_to_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)<-VM(dst) connection
@@ -461,8 +456,9 @@ class TC_00_AppVMMixin(object):
                     "dd of=/dev/null bs=993 count=10000 iflag=fullblock; ",
                     stdin=pipe1_r, stdout=pipe2_w))
 
-            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
-                "test.write", stdin=pipe2_r, stdout=pipe1_w))
+            self.service_proc = self.loop.run_until_complete(
+                self.testvm2.run_service(
+                    "test.write", stdin=pipe2_r, stdout=pipe1_w))
         finally:
             os.close(pipe1_r)
             os.close(pipe1_w)
@@ -471,17 +467,12 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(
-                asyncio.wait_for(service_proc.wait(), timeout=10))
+                asyncio.wait_for(self.service_proc.wait(), timeout=10))
         except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
         else:
-            self.assertEqual(service_proc.returncode, 0,
+            self.assertEqual(self.service_proc.returncode, 0,
                 "Service call failed")
-        finally:
-            try:
-                service_proc.terminate()
-            except ProcessLookupError:
-                pass
 
     def test_080_qrexec_service_argument_allow_default(self):
         """Qrexec service call with argument"""
