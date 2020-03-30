@@ -37,8 +37,11 @@ class JustEvaluateAllowResolution(parser.AllowResolution):
 class AdminExtension(qubes.ext.Extension):
     def __init__(self):
         super(AdminExtension, self).__init__()
-        self.policy_cache = utils.PolicyCache(lazy_load=True)
-        self.policy_cache.initialize_watcher()
+        # during tests, __init__() of the extension can be called multiple
+        # times, because there are multiple Qubes() object instances
+        if not hasattr(self, 'policy_cache'):
+            self.policy_cache = utils.PolicyCache(lazy_load=True)
+            self.policy_cache.initialize_watcher()
 
     # pylint: disable=too-few-public-methods
     @qubes.ext.handler(
@@ -136,4 +139,6 @@ class AdminExtension(qubes.ext.Extension):
     def on_qubes_close(self, app, event, **kwargs):
         """Unregister policy file watches on app.close()."""
         # pylint: disable=unused-argument
-        self.policy_cache.cleanup()
+        if hasattr(self, 'policy_cache'):
+            self.policy_cache.cleanup()
+            del self.policy_cache
