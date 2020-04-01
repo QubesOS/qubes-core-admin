@@ -41,11 +41,12 @@ STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
 class StoragePoolException(qubes.exc.QubesException):
-    ''' A general storage exception '''
+    """ A general storage exception """
 
 
 class BlockDevice:
-    ''' Represents a storage block device. '''
+    """ Represents a storage block device. """
+
     # pylint: disable=too-few-public-methods
     def __init__(self, path, name, script=None, rw=True, domain=None,
                  devtype='disk'):
@@ -60,7 +61,7 @@ class BlockDevice:
 
 
 class Volume:
-    ''' Encapsulates all data about a volume for serialization to qubes.xml and
+    """ Encapsulates all data about a volume for serialization to qubes.xml and
         libvirt config.
 
 
@@ -69,7 +70,7 @@ class Volume:
         snapshot        =     snap_on_start and not save_on_stop
         origin          = not snap_on_start and     save_on_stop
         origin_snapshot =     snap_on_start and     save_on_stop
-    '''
+    """
 
     devtype = 'disk'
     domain = None
@@ -80,9 +81,9 @@ class Volume:
     usage = 0
 
     def __init__(self, name, pool, vid,
-            revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
-            snap_on_start=False, source=None, **kwargs):
-        ''' Initialize a volume.
+                 revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
+                 snap_on_start=False, source=None, **kwargs):
+        """ Initialize a volume.
 
             :param str name: The name of the volume inside owning domain
             :param Pool pool: The pool object
@@ -97,7 +98,7 @@ class Volume:
                 from, required if *snap_on_start*=`True`
             :param str/int size: Size of the volume
 
-        '''
+        """
 
         super(Volume, self).__init__(**kwargs)
         assert isinstance(pool, Pool)
@@ -156,24 +157,24 @@ class Volume:
         return lxml.etree.Element('volume', **config)
 
     def create(self):
-        ''' Create the given volume on disk.
+        """ Create the given volume on disk.
 
             This method is called only once in the volume lifetime. Before
             calling this method, no data on disk should be touched (in
             context of this volume).
 
             This can be implemented as a coroutine.
-        '''
+        """
         raise self._not_implemented("create")
 
     def remove(self):
-        ''' Remove volume.
+        """ Remove volume.
 
-        This can be implemented as a coroutine.'''
+        This can be implemented as a coroutine."""
         raise self._not_implemented("remove")
 
     def export(self):
-        ''' Returns a path to read the volume data from.
+        """ Returns a path to read the volume data from.
 
             Reading from this path when domain owning this volume is
             running (i.e. when :py:meth:`is_dirty` is True) should return the
@@ -183,11 +184,11 @@ class Volume:
             volume data. If extracting volume data require something more
             than just reading from file (for example connecting to some other
             domain, or decompressing the data), the returned path may be a pipe.
-        '''
+        """
         raise self._not_implemented("export")
 
     def import_data(self, size):
-        ''' Returns a path to overwrite volume data.
+        """ Returns a path to overwrite volume data.
 
             This method is called after volume was already :py:meth:`create`-ed.
 
@@ -199,11 +200,11 @@ class Volume:
             This can be implemented as a coroutine.
 
             :param int size: size of new data in bytes
-        '''
+        """
         raise self._not_implemented("import_data")
 
     def import_data_end(self, success):
-        ''' End the data import operation. This may be used by pool
+        """ End the data import operation. This may be used by pool
         implementation to commit changes, cleanup temporary files etc.
 
         This method is called regardless the operation was successful or not.
@@ -211,99 +212,99 @@ class Volume:
         This can be implemented as a coroutine.
 
         :param success: True if data import was successful, otherwise False
-        '''
+        """
         # by default do nothing
 
     def import_volume(self, src_volume):
-        ''' Imports data from a different volume (possibly in a different
+        """ Imports data from a different volume (possibly in a different
         pool.
 
         The volume needs to be create()d first.
 
-        This can be implemented as a coroutine. '''
+        This can be implemented as a coroutine. """
         # pylint: disable=unused-argument
         raise self._not_implemented("import_volume")
 
     def is_dirty(self):
-        ''' Return `True` if volume was not properly shutdown and committed.
+        """ Return `True` if volume was not properly shutdown and committed.
 
             This include the situation when domain owning the volume is still
             running.
 
-        '''
+        """
         raise self._not_implemented("is_dirty")
 
     def is_outdated(self):
-        ''' Returns `True` if this snapshot of a source volume (for
+        """ Returns `True` if this snapshot of a source volume (for
         `snap_on_start`=True) is outdated.
-        '''
+        """
         raise self._not_implemented("is_outdated")
 
     def resize(self, size):
-        ''' Expands volume, throws
+        """ Expands volume, throws
             :py:class:`qubes.storage.StoragePoolException` if
             given size is less than current_size
 
             This can be implemented as a coroutine.
 
             :param int size: new size in bytes
-        '''
+        """
         # pylint: disable=unused-argument
         raise self._not_implemented("resize")
 
     def revert(self, revision=None):
-        ''' Revert volume to previous revision
+        """ Revert volume to previous revision
 
         This can be implemented as a coroutine.
 
         :param revision: revision to revert volume to, see :py:attr:`revisions`
-        '''
+        """
         # pylint: disable=unused-argument
         raise self._not_implemented("revert")
 
     def start(self):
-        ''' Do what ever is needed on start.
+        """ Do what ever is needed on start.
 
         This include making a snapshot of template's volume if
         :py:attr:`snap_on_start` is set.
 
-        This can be implemented as a coroutine.'''
+        This can be implemented as a coroutine."""
         raise self._not_implemented("start")
 
     def stop(self):
-        ''' Do what ever is needed on stop.
+        """ Do what ever is needed on stop.
 
         This include committing data if :py:attr:`save_on_stop` is set.
 
-        This can be implemented as a coroutine.'''
+        This can be implemented as a coroutine."""
         raise self._not_implemented("stop")
 
     def verify(self):
-        ''' Verifies the volume.
+        """ Verifies the volume.
 
         This function is supposed to either return :py:obj:`True`, or raise
         an exception.
 
-        This can be implemented as a coroutine.'''
+        This can be implemented as a coroutine."""
         raise self._not_implemented("verify")
 
     def block_device(self):
-        ''' Return :py:class:`BlockDevice` for serialization in
+        """ Return :py:class:`BlockDevice` for serialization in
             the libvirt XML template as <disk>.
-        '''
+        """
         return BlockDevice(self.path, self.name, self.script,
-                                         self.rw, self.domain, self.devtype)
+                           self.rw, self.domain, self.devtype)
 
     @property
     def revisions(self):
-        ''' Returns a dict containing revision identifiers and time of their
-        creation '''
+        """ Returns a dict containing revision identifiers and time of their
+        creation """
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
 
     @property
     def size(self):
-        ''' Volume size in bytes '''
+        """ Volume size in bytes """
         return self._size
 
     @size.setter
@@ -311,10 +312,9 @@ class Volume:
         # pylint: disable=attribute-defined-outside-init
         self._size = int(size)
 
-
     @property
     def config(self):
-        ''' return config data for serialization to qubes.xml '''
+        """ return config data for serialization to qubes.xml """
         result = {
             'name': self.name,
             'pool': str(self.pool),
@@ -334,17 +334,18 @@ class Volume:
         return result
 
     def _not_implemented(self, method_name):
-        ''' Helper for emitting helpful `NotImplementedError` exceptions '''
+        """ Helper for emitting helpful `NotImplementedError` exceptions """
         msg = "Volume {!s} has {!s}() not implemented"
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
+
 class Storage:
-    ''' Class for handling VM virtual disks.
+    """ Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
-    '''
+    """
 
     AVAILABLE_FRONTENDS = {'xvd' + c for c in string.ascii_lowercase}
 
@@ -360,7 +361,7 @@ class Storage:
                 self.init_volume(name, conf)
 
     def _update_volume_config_source(self, name, volume_config):
-        '''Retrieve 'source' volume from VM's template'''
+        """Retrieve 'source' volume from VM's template"""
         template = getattr(self.vm, 'template', None)
         # recursively lookup source volume - templates may be
         # chained (TemplateVM -> AppVM -> DispVM, where the
@@ -376,7 +377,7 @@ class Storage:
                 break
 
     def init_volume(self, name, volume_config):
-        ''' Initialize Volume instance attached to this domain '''
+        """ Initialize Volume instance attached to this domain """
 
         if 'name' not in volume_config:
             volume_config['name'] = name
@@ -408,7 +409,7 @@ class Storage:
         return volume
 
     def attach(self, volume, rw=False):
-        ''' Attach a volume to the domain '''
+        """ Attach a volume to the domain """
         assert self.vm.is_running()
 
         if self._is_already_attached(volume):
@@ -441,7 +442,7 @@ class Storage:
         # ← do we need this?
 
     def _is_already_attached(self, volume):
-        ''' Checks if the given volume is already attached '''
+        """ Checks if the given volume is already attached """
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
         disk_sources = parsed_xml.xpath("//domain/devices/disk/source")
         for source in disk_sources:
@@ -450,7 +451,7 @@ class Storage:
         return False
 
     def detach(self, volume):
-        ''' Detach a volume from domain '''
+        """ Detach a volume from domain """
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
         disks = parsed_xml.xpath("//domain/devices/disk")
         for disk in disks:
@@ -463,11 +464,11 @@ class Storage:
 
     @property
     def kernels_dir(self):
-        '''Directory where kernel resides.
+        """Directory where kernel resides.
 
         If :py:attr:`self.vm.kernel` is :py:obj:`None`, the this points inside
         :py:attr:`self.vm.dir_path`
-        '''
+        """
         if not self.vm.kernel:
             return None
         if 'kernel' in self.vm.volumes:
@@ -478,7 +479,7 @@ class Storage:
             self.vm.kernel)
 
     def get_disk_utilization(self):
-        ''' Returns summed up disk utilization for all domain volumes '''
+        """ Returns summed up disk utilization for all domain volumes """
         result = 0
         for volume in self.vm.volumes.values():
             result += volume.usage
@@ -486,15 +487,15 @@ class Storage:
 
     @asyncio.coroutine
     def resize(self, volume, size):
-        ''' Resizes volume a read-writable volume '''
+        """ Resizes volume a read-writable volume """
         if isinstance(volume, str):
             volume = self.vm.volumes[volume]
         yield from qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
                 yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
-                    input=volume.name.encode(),
-                    user='root')
+                                                         input=volume.name.encode(),
+                                                         user='root')
             except subprocess.CalledProcessError as e:
                 service_error = e.stderr.decode('ascii', errors='ignore')
                 service_error = service_error.replace('%', '')
@@ -502,10 +503,9 @@ class Storage:
                     'Online resize of volume {} failed (you need to resize '
                     'filesystem manually): {}'.format(volume, service_error))
 
-
     @asyncio.coroutine
     def create(self):
-        ''' Creates volumes on disk '''
+        """ Creates volumes on disk """
         old_umask = os.umask(0o002)
         yield from qubes.utils.void_coros_maybe(
             vol.create() for vol in self.vm.volumes.values())
@@ -513,12 +513,12 @@ class Storage:
 
     @asyncio.coroutine
     def clone_volume(self, src_vm, name):
-        ''' Clone single volume from the specified vm
+        """ Clone single volume from the specified vm
 
         :param QubesVM src_vm: source VM
         :param str name: name of volume to clone ('root', 'private' etc)
         :return cloned volume object
-        '''
+        """
         config = self.vm.volume_config[name]
         dst_pool = self.vm.app.get_pool(config['pool'])
         dst = dst_pool.init_volume(self.vm, config)
@@ -532,7 +532,7 @@ class Storage:
 
     @asyncio.coroutine
     def clone(self, src_vm):
-        ''' Clone volumes from the specified vm '''
+        """ Clone volumes from the specified vm """
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
@@ -542,7 +542,7 @@ class Storage:
 
     @property
     def outdated_volumes(self):
-        ''' Returns a list of outdated volumes '''
+        """ Returns a list of outdated volumes """
         result = []
         if self.vm.is_halted():
             return result
@@ -556,10 +556,10 @@ class Storage:
 
     @asyncio.coroutine
     def verify(self):
-        '''Verify that the storage is sane.
+        """Verify that the storage is sane.
 
         On success, returns normally. On failure, raises exception.
-        '''
+        """
         if not os.path.exists(self.vm.dir_path):
             raise qubes.exc.QubesVMError(
                 self.vm,
@@ -571,10 +571,10 @@ class Storage:
 
     @asyncio.coroutine
     def remove(self):
-        ''' Remove all the volumes.
+        """ Remove all the volumes.
 
             Errors on removal are catched and logged.
-        '''
+        """
         results = []
         for vol in self.vm.volumes.values():
             self.log.info('Removing volume %s: %s' % (vol.name, vol.vid))
@@ -589,33 +589,33 @@ class Storage:
 
     @asyncio.coroutine
     def start(self):
-        ''' Execute the start method on each volume '''
+        """ Execute the start method on each volume """
         yield from qubes.utils.void_coros_maybe(
             vol.start() for vol in self.vm.volumes.values())
 
     @asyncio.coroutine
     def stop(self):
-        ''' Execute the stop method on each volume '''
+        """ Execute the stop method on each volume """
         yield from qubes.utils.void_coros_maybe(
             vol.stop() for vol in self.vm.volumes.values())
 
     def unused_frontend(self):
-        ''' Find an unused device name '''
+        """ Find an unused device name """
         unused_frontends = self.AVAILABLE_FRONTENDS.difference(
             self.used_frontends)
         return sorted(unused_frontends)[0]
 
     @property
     def used_frontends(self):
-        ''' Used device names '''
+        """ Used device names """
         xml = self.vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
         return {target.get('dev', None)
-                    for target in parsed_xml.xpath(
-                        "//domain/devices/disk/target")}
+                for target in parsed_xml.xpath(
+                "//domain/devices/disk/target")}
 
     def export(self, volume):
-        ''' Helper function to export volume (pool.export(volume))'''
+        """ Helper function to export volume (pool.export(volume))"""
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
@@ -625,11 +625,11 @@ class Storage:
 
     @asyncio.coroutine
     def import_data(self, volume, size):
-        '''
+        """
         Helper function to import volume data (pool.import_data(volume)).
 
         :size: new size in bytes, or None if using old size
-        '''
+        """
 
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
@@ -644,8 +644,8 @@ class Storage:
 
     @asyncio.coroutine
     def import_data_end(self, volume, success):
-        ''' Helper function to finish/cleanup data import
-        (pool.import_data_end( volume))'''
+        """ Helper function to finish/cleanup data import
+        (pool.import_data_end( volume))"""
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
@@ -656,20 +656,21 @@ class Storage:
 
 
 class VolumesCollection:
-    '''Convenient collection wrapper for pool.get_volume and
+    """Convenient collection wrapper for pool.get_volume and
     pool.list_volumes
-    '''
+    """
+
     def __init__(self, pool):
         self._pool = pool
 
     def __getitem__(self, item):
-        ''' Get a single volume with given Volume ID.
+        """ Get a single volume with given Volume ID.
 
         You can also a Volume instance to get the same Volume or KeyError if
         Volume no longer exists.
 
         :param item: a Volume ID (str) or a Volume instance
-        '''
+        """
         if isinstance(item, Volume):
             if item.pool == self._pool:
                 return self[item.vid]
@@ -685,34 +686,34 @@ class VolumesCollection:
             raise KeyError(item)
 
     def __iter__(self):
-        ''' Get iterator over pool's volumes '''
+        """ Get iterator over pool's volumes """
         return iter(self._pool.list_volumes())
 
     def __contains__(self, item):
-        ''' Check if given volume (either Volume ID or Volume instance) is
+        """ Check if given volume (either Volume ID or Volume instance) is
         present in the pool
-        '''
+        """
         try:
             return self[item] is not None
         except KeyError:
             return False
 
     def keys(self):
-        ''' Return list of volume IDs '''
+        """ Return list of volume IDs """
         return [vol.vid for vol in self]
 
     def values(self):
-        ''' Return list of Volumes'''
+        """ Return list of Volumes"""
         return list(self)
 
 
 class Pool:
-    ''' A Pool is used to manage different kind of volumes (File
+    """ A Pool is used to manage different kind of volumes (File
         based/LVM/Btrfs/...).
 
         3rd Parties providing own storage implementations will need to extend
         this class.
-    '''  # pylint: disable=unused-argument
+    """  # pylint: disable=unused-argument
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
@@ -745,63 +746,63 @@ class Pool:
 
     @property
     def config(self):
-        ''' Returns the pool config to be written to qubes.xml '''
+        """ Returns the pool config to be written to qubes.xml """
         raise self._not_implemented("config")
 
     def destroy(self):
-        ''' Called when removing the pool. Use this for implementation specific
+        """ Called when removing the pool. Use this for implementation specific
             clean up.
 
             This can be implemented as a coroutine.
-        '''
+        """
         raise self._not_implemented("destroy")
 
     def init_volume(self, vm, volume_config):
-        ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
-        '''
+        """ Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
+        """
         raise self._not_implemented("init_volume")
 
     def setup(self):
-        ''' Called when adding a pool to the system. Use this for implementation
+        """ Called when adding a pool to the system. Use this for implementation
             specific set up.
 
             This can be implemented as a coroutine.
-        '''
+        """
         raise self._not_implemented("setup")
 
     @property
     def volumes(self):
-        ''' Return a collection of volumes managed by this pool '''
+        """ Return a collection of volumes managed by this pool """
         return self._volumes_collection
 
     def list_volumes(self):
-        ''' Return a list of volumes managed by this pool '''
+        """ Return a list of volumes managed by this pool """
         raise self._not_implemented("list_volumes")
 
     def get_volume(self, vid):
-        ''' Return a volume with *vid* from this pool
+        """ Return a volume with *vid* from this pool
 
         :raise KeyError: if no volume is found
-        '''
+        """
         raise self._not_implemented("get_volume")
 
     def included_in(self, app):
-        ''' Check if this pool is physically included in another one
+        """ Check if this pool is physically included in another one
 
         This works on best-effort basis, because one pool driver may not know
         all the other drivers.
 
         :param app: Qubes() object to lookup other pools in
         :returns pool or None
-        '''
+        """
 
     @property
     def size(self):
-        ''' Storage pool size in bytes, or None if unknown '''
+        """ Storage pool size in bytes, or None if unknown """
 
     @property
     def usage(self):
-        ''' Space used in the pool in bytes, or None if unknown '''
+        """ Space used in the pool in bytes, or None if unknown """
 
     @property
     def usage_details(self):
@@ -818,15 +819,15 @@ class Pool:
         return result
 
     def _not_implemented(self, method_name):
-        ''' Helper for emitting helpful `NotImplementedError` exceptions '''
+        """ Helper for emitting helpful `NotImplementedError` exceptions """
         msg = "Pool driver {!s} has {!s}() not implemented"
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
 
 def _sanitize_config(config):
-    ''' Helper function to convert types to appropriate strings
-    '''  # FIXME: find another solution for serializing basic types
+    """ Helper function to convert types to appropriate strings
+    """  # FIXME: find another solution for serializing basic types
     result = {}
     for key, value in config.items():
         if isinstance(value, bool):
@@ -844,7 +845,7 @@ def pool_drivers():
 
 
 def driver_parameters(name):
-    ''' Get __init__ parameters from a driver with out `self` & `name`. '''
+    """ Get __init__ parameters from a driver with out `self` & `name`. """
     init_function = qubes.utils.get_entry_point_one(
         qubes.storage.STORAGE_ENTRY_POINT, name).__init__
     signature = inspect.signature(init_function)
@@ -854,14 +855,15 @@ def driver_parameters(name):
 
 
 def isodate(seconds):
-    ''' Helper method which returns an iso date '''
+    """ Helper method which returns an iso date """
     return datetime.utcfromtimestamp(seconds).isoformat("T")
 
+
 def search_pool_containing_dir(pools, dir_path):
-    ''' Helper function looking for a pool containing given directory.
+    """ Helper function looking for a pool containing given directory.
 
     This is useful for implementing Pool.included_in method
-    '''
+    """
 
     real_dir_path = os.path.realpath(dir_path)
 
@@ -870,7 +872,7 @@ def search_pool_containing_dir(pools, dir_path):
         if hasattr(pool, 'dir_path'):
             pool_real_dir_path = os.path.realpath(pool.dir_path)
             if os.path.commonpath([pool_real_dir_path, real_dir_path]) == \
-               pool_real_dir_path:
+                    pool_real_dir_path:
                 return pool
 
     # then look for lvm
@@ -884,8 +886,9 @@ def search_pool_containing_dir(pools, dir_path):
 
 
 class VmCreationManager:
-    ''' A `ContextManager` which cleans up if volume creation fails.
-    '''  # pylint: disable=too-few-public-methods
+    """ A `ContextManager` which cleans up if volume creation fails.
+    """  # pylint: disable=too-few-public-methods
+
     def __init__(self, vm):
         self.vm = vm
 
@@ -901,14 +904,15 @@ class VmCreationManager:
                     pass
             os.rmdir(self.vm.dir_path)
 
+
 # pylint: disable=too-few-public-methods
 class DirectoryThinPool:
-    '''The thin pool containing the device of given filesystem'''
+    """The thin pool containing the device of given filesystem"""
     _thin_pool = {}
 
     @classmethod
     def _init(cls, dir_path):
-        '''Find out the thin pool containing given filesystem'''
+        """Find out the thin pool containing given filesystem"""
         if dir_path not in cls._thin_pool:
             cls._thin_pool[dir_path] = None, None
 
@@ -921,15 +925,20 @@ class DirectoryThinPool:
                 if os.getuid():
                     sudo = ['sudo']
                 root_table = subprocess.check_output(sudo + ["dmsetup",
-                    "-j", str(fs_major), "-m", str(fs_minor),
-                    "table"], stderr=subprocess.DEVNULL)
+                                                             "-j",
+                                                             str(fs_major),
+                                                             "-m",
+                                                             str(fs_minor),
+                                                             "table"],
+                                                     stderr=subprocess.DEVNULL)
 
                 _start, _sectors, target_type, target_args = \
                     root_table.decode().split(" ", 3)
                 if target_type == "thin":
                     thin_pool_devnum, _thin_pool_id = target_args.split(" ")
                     with open("/sys/dev/block/{}/dm/name"
-                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                                      .format(thin_pool_devnum),
+                              "r") as thin_pool_tpool_f:
                         thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
                     if thin_pool_tpool.endswith("-tpool"):
                         volume_group, thin_pool, _tpool = \
@@ -940,6 +949,6 @@ class DirectoryThinPool:
 
     @classmethod
     def thin_pool(cls, dir_path):
-        '''Thin tuple (volume group, pool name) containing given filesystem'''
+        """Thin tuple (volume group, pool name) containing given filesystem"""
         cls._init(dir_path)
         return cls._thin_pool[dir_path]
