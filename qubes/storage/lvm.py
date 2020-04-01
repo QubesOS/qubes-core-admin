@@ -44,6 +44,226 @@ def check_lvm_version():
 
 lvm_is_very_old = check_lvm_version()
 
+_init_cache_cmd = ['lvs', '--noheadings', '-o',
+                   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
+                   'metadata_percent', '--units', 'b', '--separator', ';']
+
+
+def _parse_lvm_cache(lvm_output):
+    result = {}
+
+    for line in lvm_output.splitlines():
+        line = line.decode().strip()
+        pool_name, pool_lv, name, size, usage_percent, attr, \
+        origin, metadata_size, metadata_percent = line.split(';', 8)
+        if '' in [pool_name, name, size, usage_percent]:
+            continue
+        name = pool_name + "/" + name
+        size = int(size[:-1])  # Remove 'B' suffix
+        usage = int(size / 100 * float(usage_percent))
+        if metadata_size:
+            metadata_size = int(metadata_size[:-1])
+            metadata_usage = int(metadata_size / 100 * float(metadata_percent))
+        else:
+            metadata_usage = None
+        result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
+                        'attr': attr, 'origin': origin,
+                        'metadata_size': metadata_size,
+                        'metadata_usage': metadata_usage}
+
+    return result
+
+
+def init_cache(log=logging.getLogger('qubes.storage.lvm')):
+    cmd = _init_cache_cmd
+    if os.getuid() != 0:
+        cmd = ['sudo'] + cmd
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         close_fds=True, env=environ)
+    out, err = p.communicate()
+    return_code = p.returncode
+    if return_code == 0 and err:
+        log.warning(err)
+    elif return_code != 0:
+        raise qubes.storage.StoragePoolException(err)
+
+    return _parse_lvm_cache(out)
+
+
+@asyncio.coroutine
+def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
+    cmd = _init_cache_cmd
+    if os.getuid() != 0:
+        cmd = ['sudo'] + cmd
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = yield from asyncio.create_subprocess_exec(*cmd,
+                                                  stdout=subprocess.PIPE,
+                                                  stderr=subprocess.PIPE,
+                                                  close_fds=True, env=environ)
+    out, err = yield from p.communicate()
+    return_code = p.returncode
+    if return_code == 0 and err:
+        log.warning(err)
+    elif return_code != 0:
+        raise qubes.storage.StoragePoolException(err)
+
+    return _parse_lvm_cache(out)
+
+
+size_cache_time = 0
+size_cache = init_cache()
+
+
+def _revision_sort_key(revision):
+    """Sort key for revisions. Sort them by time
+
+    :returns timestamp
+    """
+    if isinstance(revision, tuple):
+        revision = revision[0]
+    if '-' in revision:
+        revision = revision.split('-')[0]
+    return int(revision)
+
+
+def locked(method):
+    """Decorator running given Volume's coroutine under a lock.
+    Needs to be added after wrapping with @asyncio.coroutine, for example:
+
+    >>>@locked
+    >>>@asyncio.coroutine
+    >>>def start(self):
+    >>>    pass
+    """
+
+    @asyncio.coroutine
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with (yield from self._lock):  # pylint: disable=protected-access
+            return (yield from method(self, *args, **kwargs))
+
+    return wrapper
+
+
+def pool_exists(pool_id):
+    """ Return true if pool exists """
+    try:
+        vol_info = size_cache[pool_id]
+        return vol_info['attr'][0] == 't'
+    except KeyError:
+        return False
+
+
+def _get_lvm_cmdline(cmd):
+    """ Build command line for :program:`lvm` call.
+    The purpose of this function is to keep all the detailed lvm options in
+    one place.
+
+    :param cmd: array of str, where cmd[0] is action and the rest are arguments
+    :return array of str appropriate for subprocess.Popen
+    """
+    action = cmd[0]
+    if action == 'remove':
+        lvm_cmd = ['lvremove', '-f', cmd[1]]
+    elif action == 'clone':
+        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
+    elif action == 'create':
+        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
+                   str(cmd[3]) + 'B']
+    elif action == 'extend':
+        size = int(cmd[2]) / (1024 * 1024)
+        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+    elif action == 'activate':
+        lvm_cmd = ['lvchange', '-ay', cmd[1]]
+    elif action == 'rename':
+        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
+    else:
+        raise NotImplementedError('unsupported action: ' + action)
+    if lvm_is_very_old:
+        # old lvm in trusty image used there does not support -k option
+        lvm_cmd = [x for x in lvm_cmd if x != '-kn']
+    if os.getuid() != 0:
+        cmd = ['sudo', 'lvm'] + lvm_cmd
+    else:
+        cmd = ['lvm'] + lvm_cmd
+
+    return cmd
+
+
+def _process_lvm_output(returncode, stdout, stderr, log):
+    """Process output of LVM, determine if the call was successful and
+    possibly log warnings."""
+    # Filter out warning about intended over-provisioning.
+    # Upstream discussion about missing option to silence it:
+    # https://bugzilla.redhat.com/1347008
+    err = '\n'.join(line for line in stderr.decode().splitlines()
+                    if 'exceeds the size of thin pool' not in line)
+    if stdout:
+        log.debug(stdout)
+    if returncode == 0 and err:
+        log.warning(err)
+    elif returncode != 0:
+        assert err, "Command exited unsuccessful, but printed nothing to stderr"
+        err = err.replace('%', '%%')
+        raise qubes.storage.StoragePoolException(err)
+    return True
+
+
+def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
+    """ Call :program:`lvm` to execute an LVM operation """
+    # the only caller for this non-coroutine version is ThinVolume.export()
+    cmd = _get_lvm_cmdline(cmd)
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         close_fds=True, env=environ)
+    out, err = p.communicate()
+    return _process_lvm_output(p.returncode, out, err, log)
+
+
+@asyncio.coroutine
+def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
+    """ Call :program:`lvm` to execute an LVM operation
+
+    Coroutine version of :py:func:`qubes_lvm`"""
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
+    if cmd[0] == "remove":
+        pre_cmd = ['blkdiscard', '/dev/' + cmd[1]]
+        p = yield from asyncio.create_subprocess_exec(*pre_cmd,
+                                                      stdout=subprocess.DEVNULL,
+                                                      stderr=subprocess.DEVNULL,
+                                                      close_fds=True,
+                                                      env=environ)
+        _, _ = yield from p.communicate()
+    cmd = _get_lvm_cmdline(cmd)
+    p = yield from asyncio.create_subprocess_exec(*cmd,
+                                                  stdout=subprocess.PIPE,
+                                                  stderr=subprocess.PIPE,
+                                                  close_fds=True, env=environ)
+    out, err = yield from p.communicate()
+    return _process_lvm_output(p.returncode, out, err, log)
+
+
+def reset_cache():
+    qubes.storage.lvm.size_cache = init_cache()
+    qubes.storage.lvm.size_cache_time = time.monotonic()
+
+
+@asyncio.coroutine
+def reset_cache_coro():
+    qubes.storage.lvm.size_cache = yield from init_cache_coro()
+    qubes.storage.lvm.size_cache_time = time.monotonic()
+
+
+def refresh_cache():
+    """Reset size cache, if it's older than 30sec """
+    if size_cache_time + 30 < time.monotonic():
+        reset_cache()
+
 
 class ThinPool(qubes.storage.Pool):
     """ LVM Thin based pool implementation
@@ -214,110 +434,6 @@ class ThinPool(qubes.storage.Pool):
         result['metadata_usage'] = metadata_usage
 
         return result
-
-
-_init_cache_cmd = ['lvs', '--noheadings', '-o',
-                   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
-                   'metadata_percent', '--units', 'b', '--separator', ';']
-
-
-def _parse_lvm_cache(lvm_output):
-    result = {}
-
-    for line in lvm_output.splitlines():
-        line = line.decode().strip()
-        pool_name, pool_lv, name, size, usage_percent, attr, \
-        origin, metadata_size, metadata_percent = line.split(';', 8)
-        if '' in [pool_name, name, size, usage_percent]:
-            continue
-        name = pool_name + "/" + name
-        size = int(size[:-1])  # Remove 'B' suffix
-        usage = int(size / 100 * float(usage_percent))
-        if metadata_size:
-            metadata_size = int(metadata_size[:-1])
-            metadata_usage = int(metadata_size / 100 * float(metadata_percent))
-        else:
-            metadata_usage = None
-        result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
-                        'attr': attr, 'origin': origin,
-                        'metadata_size': metadata_size,
-                        'metadata_usage': metadata_usage}
-
-    return result
-
-
-def init_cache(log=logging.getLogger('qubes.storage.lvm')):
-    cmd = _init_cache_cmd
-    if os.getuid() != 0:
-        cmd = ['sudo'] + cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         close_fds=True, env=environ)
-    out, err = p.communicate()
-    return_code = p.returncode
-    if return_code == 0 and err:
-        log.warning(err)
-    elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
-
-    return _parse_lvm_cache(out)
-
-
-@asyncio.coroutine
-def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
-    cmd = _init_cache_cmd
-    if os.getuid() != 0:
-        cmd = ['sudo'] + cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = yield from asyncio.create_subprocess_exec(*cmd,
-                                                  stdout=subprocess.PIPE,
-                                                  stderr=subprocess.PIPE,
-                                                  close_fds=True, env=environ)
-    out, err = yield from p.communicate()
-    return_code = p.returncode
-    if return_code == 0 and err:
-        log.warning(err)
-    elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
-
-    return _parse_lvm_cache(out)
-
-
-size_cache_time = 0
-size_cache = init_cache()
-
-
-def _revision_sort_key(revision):
-    """Sort key for revisions. Sort them by time
-
-    :returns timestamp
-    """
-    if isinstance(revision, tuple):
-        revision = revision[0]
-    if '-' in revision:
-        revision = revision.split('-')[0]
-    return int(revision)
-
-
-def locked(method):
-    """Decorator running given Volume's coroutine under a lock.
-    Needs to be added after wrapping with @asyncio.coroutine, for example:
-
-    >>>@locked
-    >>>@asyncio.coroutine
-    >>>def start(self):
-    >>>    pass
-    """
-
-    @asyncio.coroutine
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        with (yield from self._lock):  # pylint: disable=protected-access
-            return (yield from method(self, *args, **kwargs))
-
-    return wrapper
 
 
 class ThinVolume(qubes.storage.Volume):
@@ -761,120 +877,3 @@ class ThinVolume(qubes.storage.Volume):
             return qubes.storage.lvm.size_cache[self._vid_current]['usage']
         except KeyError:
             return 0
-
-
-def pool_exists(pool_id):
-    """ Return true if pool exists """
-    try:
-        vol_info = size_cache[pool_id]
-        return vol_info['attr'][0] == 't'
-    except KeyError:
-        return False
-
-
-def _get_lvm_cmdline(cmd):
-    """ Build command line for :program:`lvm` call.
-    The purpose of this function is to keep all the detailed lvm options in
-    one place.
-
-    :param cmd: array of str, where cmd[0] is action and the rest are arguments
-    :return array of str appropriate for subprocess.Popen
-    """
-    action = cmd[0]
-    if action == 'remove':
-        lvm_cmd = ['lvremove', '-f', cmd[1]]
-    elif action == 'clone':
-        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
-    elif action == 'create':
-        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
-                   str(cmd[3]) + 'B']
-    elif action == 'extend':
-        size = int(cmd[2]) / (1024 * 1024)
-        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
-    elif action == 'activate':
-        lvm_cmd = ['lvchange', '-ay', cmd[1]]
-    elif action == 'rename':
-        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
-    else:
-        raise NotImplementedError('unsupported action: ' + action)
-    if lvm_is_very_old:
-        # old lvm in trusty image used there does not support -k option
-        lvm_cmd = [x for x in lvm_cmd if x != '-kn']
-    if os.getuid() != 0:
-        cmd = ['sudo', 'lvm'] + lvm_cmd
-    else:
-        cmd = ['lvm'] + lvm_cmd
-
-    return cmd
-
-
-def _process_lvm_output(returncode, stdout, stderr, log):
-    """Process output of LVM, determine if the call was successful and
-    possibly log warnings."""
-    # Filter out warning about intended over-provisioning.
-    # Upstream discussion about missing option to silence it:
-    # https://bugzilla.redhat.com/1347008
-    err = '\n'.join(line for line in stderr.decode().splitlines()
-                    if 'exceeds the size of thin pool' not in line)
-    if stdout:
-        log.debug(stdout)
-    if returncode == 0 and err:
-        log.warning(err)
-    elif returncode != 0:
-        assert err, "Command exited unsuccessful, but printed nothing to stderr"
-        err = err.replace('%', '%%')
-        raise qubes.storage.StoragePoolException(err)
-    return True
-
-
-def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
-    """ Call :program:`lvm` to execute an LVM operation """
-    # the only caller for this non-coroutine version is ThinVolume.export()
-    cmd = _get_lvm_cmdline(cmd)
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         close_fds=True, env=environ)
-    out, err = p.communicate()
-    return _process_lvm_output(p.returncode, out, err, log)
-
-
-@asyncio.coroutine
-def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
-    """ Call :program:`lvm` to execute an LVM operation
-
-    Coroutine version of :py:func:`qubes_lvm`"""
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    if cmd[0] == "remove":
-        pre_cmd = ['blkdiscard', '/dev/' + cmd[1]]
-        p = yield from asyncio.create_subprocess_exec(*pre_cmd,
-                                                      stdout=subprocess.DEVNULL,
-                                                      stderr=subprocess.DEVNULL,
-                                                      close_fds=True,
-                                                      env=environ)
-        _, _ = yield from p.communicate()
-    cmd = _get_lvm_cmdline(cmd)
-    p = yield from asyncio.create_subprocess_exec(*cmd,
-                                                  stdout=subprocess.PIPE,
-                                                  stderr=subprocess.PIPE,
-                                                  close_fds=True, env=environ)
-    out, err = yield from p.communicate()
-    return _process_lvm_output(p.returncode, out, err, log)
-
-
-def reset_cache():
-    qubes.storage.lvm.size_cache = init_cache()
-    qubes.storage.lvm.size_cache_time = time.monotonic()
-
-
-@asyncio.coroutine
-def reset_cache_coro():
-    qubes.storage.lvm.size_cache = yield from init_cache_coro()
-    qubes.storage.lvm.size_cache_time = time.monotonic()
-
-
-def refresh_cache():
-    """Reset size cache, if it's older than 30sec """
-    if size_cache_time + 30 < time.monotonic():
-        reset_cache()
