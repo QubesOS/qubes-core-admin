@@ -123,13 +123,18 @@ class XS_Watcher(object):
                 self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
                 self.watch_token_dict.pop(i)
                 system_state.del_domain(i)
+        except:
+            self.log.exception('Updating domain list failed')
         finally:
             if got_lock:
                 global_lock.release()
                 self.log.debug('global_lock released')
 
         if not refresh_only:
-            system_state.do_balance()
+            try:
+                system_state.do_balance()
+            except:
+                self.log.exception('do_balance() failed')
 
 
     def meminfo_changed(self, domain_id):
@@ -143,10 +148,17 @@ class XS_Watcher(object):
         global_lock.acquire()
         self.log.debug('global_lock acquired')
         try:
+            global force_refresh_domain_list
             if force_refresh_domain_list:
                 self.domain_list_changed(refresh_only=True)
+                force_refresh_domain_list = False
+            if domain_id not in self.watch_token_dict:
+                # domain just destroyed
+                return
 
             system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
+        except:
+            self.log.exception('Updating meminfo for %d failed', domain_id)
         finally:
             global_lock.release()
             self.log.debug('global_lock released')
@@ -180,7 +192,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 self.data = self.request.recv(1024).strip()
                 self.log.debug('data={!r}'.format(self.data))
                 if len(self.data) == 0:
-                    self.log.info('EOF')
+                    self.log.info('client disconnected, resuming membalance')
                     if got_lock:
                         global force_refresh_domain_list
                         force_refresh_domain_list = True
