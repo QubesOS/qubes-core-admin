@@ -1195,6 +1195,13 @@ class TC_00_AppVMMixin(object):
         except subprocess.CalledProcessError as e:
             self.fail('Timeout waiting for pulseaudio start in {}: {}{}'.format(
                 vm.name, e.stdout, e.stderr))
+        # then wait for the stream to appear in dom0
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        p = self.loop.run_until_complete(asyncio.create_subprocess_shell(
+            "sudo -E -u {} timeout 30s sh -c '"
+            "while ! pactl list sink-inputs | grep -q :{}; do sleep 1; done'".format(
+                local_user, vm.name)))
+        self.loop.run_until_complete(p.wait())
         # and some more...
         self.loop.run_until_complete(asyncio.sleep(1))
 
@@ -1234,10 +1241,10 @@ class TC_00_AppVMMixin(object):
             # for some reason sudo do not relay SIGTERM sent above
             subprocess.check_call(['pkill', 'parecord'])
             p.wait()
-            # allow few bytes missing, don't use assertIn, to avoid printing
+            # allow up to 20ms missing, don't use assertIn, to avoid printing
             # the whole data in error message
             recorded_audio = recorded_audio.file.read()
-            if audio_in[:-8] not in recorded_audio:
+            if audio_in[:-3528] not in recorded_audio:
                 found_bytes = recorded_audio.count(audio_in[0])
                 all_bytes = len(audio_in)
                 self.fail('played sound not found in dom0, '
@@ -1338,12 +1345,15 @@ class TC_00_AppVMMixin(object):
         # wait for possible parecord buffering
         self.loop.run_until_complete(asyncio.sleep(1))
         self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pkill parecord'))
-        self.loop.run_until_complete(record.wait())
+            self.testvm1.run_for_stdio('pkill parecord || :'))
+        _, record_stderr = self.loop.run_until_complete(record.communicate())
+        if record_stderr:
+            self.fail('parecord printed something on stderr: {}'.format(
+                record_stderr))
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
-        # allow few bytes to be missing
-        if audio_in[:-8] not in recorded_audio:
+        # allow up to 20ms to be missing
+        if audio_in[:-3528] not in recorded_audio:
             found_bytes = recorded_audio.count(audio_in[0])
             all_bytes = len(audio_in)
             self.fail('VM not recorded expected data, '
