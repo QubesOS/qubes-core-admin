@@ -395,9 +395,11 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
-        qubes.utils.void_coros_maybe([volume.create()])
+        self.loop.run_until_complete(
+            qubes.utils.coro_maybe(volume.create()))
         new_size = 64 * 1024 ** 2
-        qubes.utils.void_coros_maybe([volume.resize(new_size)])
+        self.loop.run_until_complete(
+            qubes.utils.coro_maybe(volume.resize(new_size)))
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
 
@@ -435,8 +437,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
-        qubes.utils.void_coros_maybe([volume.create()])
-        qubes.utils.void_coros_maybe([volume.start()])
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.start()))
         self._setup_loop(volume.path)
         new_size = 64 * 1024 ** 2
         orig_check_call = subprocess.check_call
@@ -444,11 +446,12 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
             sudo = [] if os.getuid() == 0 else ['sudo']
             mock_subprocess.side_effect = (lambda *args, **kwargs:
                 orig_check_call(sudo + args[0], *args[1:], **kwargs))
-            qubes.utils.void_coros_maybe([volume.resize(new_size)])
+            self.loop.run_until_complete(
+                qubes.utils.coro_maybe(volume.resize(new_size)))
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(self._get_loop_size(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
-        qubes.utils.void_coros_maybe([volume.stop()])
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.stop()))
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
 
