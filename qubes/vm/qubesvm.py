@@ -1072,7 +1072,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """Start domain
 
         :param bool start_guid: FIXME
-        :param collections.Callable notify_function: FIXME
+        :param collections.abc.Callable notify_function: FIXME
         :param int mem_required: FIXME
         """
 

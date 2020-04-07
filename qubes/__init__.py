@@ -27,7 +27,7 @@ Qubes OS
 '''
 
 import builtins
-import collections
+import collections.abc
 import os
 import os.path
 import string
@@ -146,11 +146,11 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
     or, when no default, py:class:`exceptions.AttributeError`.
 
     :param str name: name of the property
-    :param collections.Callable setter: if not :py:obj:`None`, this is used to \
-        initialise value; first parameter to the function is holder instance \
-        and the second is value; this is called before ``type``
-    :param collections.Callable saver: function to coerce value to something \
-        readable by setter
+    :param collections.abc.Callable setter: if not :py:obj:`None`, this is \
+        used to initialise value; first parameter to the function is holder \
+        instance and the second is value; this is called before ``type``
+    :param collections.abc.Callable saver: function to coerce value to \
+        something readable by setter
     :param type type: if not :py:obj:`None`, value is coerced to this type
     :param object default: default value; if callable, will be called with \
         holder as first argument
@@ -203,7 +203,7 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         self.type = type
         self._default = default
         self._default_function = None
-        if isinstance(default, collections.Callable):
+        if isinstance(default, collections.abc.Callable):
             self._default_function = default
 
         self._write_once = write_once
