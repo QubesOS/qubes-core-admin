@@ -20,7 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import collections
+import collections.abc
 import copy
 import functools
 import grp
@@ -95,7 +95,7 @@ class VirDomainWrapper:
 
     def __getattr__(self, attrname):
         attr = getattr(self._vm, attrname)
-        if not isinstance(attr, collections.Callable):
+        if not isinstance(attr, collections.abc.Callable):
             return attr
 
         @functools.wraps(attr)
@@ -135,7 +135,7 @@ class VirConnectWrapper:
 
     def __getattr__(self, attrname):
         attr = getattr(self._conn, attrname)
-        if not isinstance(attr, collections.Callable):
+        if not isinstance(attr, collections.abc.Callable):
             return attr
         if attrname == 'close':
             return attr
