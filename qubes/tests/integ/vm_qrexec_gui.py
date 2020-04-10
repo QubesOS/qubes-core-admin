@@ -422,7 +422,7 @@ class TC_00_AppVMMixin(object):
                     "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
                     "wait", stdin=pipe1_r, stdout=pipe2_w))
 
-            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
+            self.service_proc = self.loop.run_until_complete(self.testvm2.run_service(
                 "test.write", stdin=pipe2_r, stdout=pipe1_w))
         finally:
             os.close(pipe1_r)
@@ -432,17 +432,12 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(
-                asyncio.wait_for(service_proc.wait(), timeout=10))
+                asyncio.wait_for(self.service_proc.wait(), timeout=10))
         except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
         else:
-            self.assertEqual(service_proc.returncode, 0,
+            self.assertEqual(self.service_proc.returncode, 0,
                 "Service call failed")
-        finally:
-            try:
-                service_proc.terminate()
-            except ProcessLookupError:
-                pass
 
     def test_072_qrexec_to_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)<-VM(dst) connection
@@ -474,8 +469,9 @@ class TC_00_AppVMMixin(object):
                     "dd of=/dev/null bs=993 count=10000 iflag=fullblock; ",
                     stdin=pipe1_r, stdout=pipe2_w))
 
-            service_proc = self.loop.run_until_complete(self.testvm2.run_service(
-                "test.write", stdin=pipe2_r, stdout=pipe1_w))
+            self.service_proc = self.loop.run_until_complete(
+                self.testvm2.run_service(
+                    "test.write", stdin=pipe2_r, stdout=pipe1_w))
         finally:
             os.close(pipe1_r)
             os.close(pipe1_w)
@@ -484,17 +480,12 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(
-                asyncio.wait_for(service_proc.wait(), timeout=10))
+                asyncio.wait_for(self.service_proc.wait(), timeout=10))
         except asyncio.TimeoutError:
             self.fail("Timeout, probably deadlock")
         else:
-            self.assertEqual(service_proc.returncode, 0,
+            self.assertEqual(self.service_proc.returncode, 0,
                 "Service call failed")
-        finally:
-            try:
-                service_proc.terminate()
-            except ProcessLookupError:
-                pass
 
     def test_080_qrexec_service_argument_allow_default(self):
         """Qrexec service call with argument"""
@@ -595,7 +586,7 @@ class TC_00_AppVMMixin(object):
         """Basic test socket services (dom0) - data receive"""
         self.loop.run_until_complete(self.testvm1.start())
 
-        service_proc = self.loop.run_until_complete(
+        self.service_proc = self.loop.run_until_complete(
             asyncio.create_subprocess_shell(
                 'socat -u UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666 -',
                 stdout=subprocess.PIPE, stdin=subprocess.PIPE))
@@ -616,7 +607,7 @@ class TC_00_AppVMMixin(object):
         try:
             (service_stdout, service_stderr) = self.loop.run_until_complete(
                 asyncio.wait_for(
-                    service_proc.communicate(),
+                    self.service_proc.communicate(),
                     timeout=10))
         except asyncio.TimeoutError:
             self.fail(
@@ -636,8 +627,9 @@ class TC_00_AppVMMixin(object):
 
         self.create_local_file('/tmp/service-input', TEST_DATA.decode())
 
-        service_proc = self.loop.run_until_complete(asyncio.create_subprocess_shell(
-            'socat -u OPEN:/tmp/service-input UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666'))
+        self.service_proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_shell(
+                'socat -u OPEN:/tmp/service-input UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666'))
 
         try:
             with self.qrexec_policy('test.Socket', self.testvm1, '@adminvm'):
@@ -655,7 +647,7 @@ class TC_00_AppVMMixin(object):
         try:
             (service_stdout, service_stderr) = self.loop.run_until_complete(
                 asyncio.wait_for(
-                    service_proc.communicate(),
+                    self.service_proc.communicate(),
                     timeout=10))
         except asyncio.TimeoutError:
             self.fail(
@@ -814,7 +806,7 @@ class TC_00_AppVMMixin(object):
             '/tmp/service-input',
             TEST_DATA.decode())
 
-        service_proc = self.loop.run_until_complete(self.testvm1.run(
+        self.service_proc = self.loop.run_until_complete(self.testvm1.run(
             'socat -u OPEN:/tmp/service-input UNIX-LISTEN:/etc/qubes-rpc/test.Socket,mode=666',
             user='root'))
 
@@ -834,7 +826,7 @@ class TC_00_AppVMMixin(object):
         try:
             (service_stdout, service_stderr) = self.loop.run_until_complete(
                 asyncio.wait_for(
-                    service_proc.communicate(),
+                    self.service_proc.communicate(),
                     timeout=10))
         except asyncio.TimeoutError:
             self.fail(
@@ -867,7 +859,7 @@ class TC_00_AppVMMixin(object):
             'time.sleep(15)\n'
         )
 
-        service_proc = self.loop.run_until_complete(self.testvm1.run(
+        self.service_proc = self.loop.run_until_complete(self.testvm1.run(
             'python3 /tmp/service_script',
             stdout=subprocess.PIPE, stdin=subprocess.PIPE,
             user='root'))
@@ -881,8 +873,11 @@ class TC_00_AppVMMixin(object):
             stdout = self.loop.run_until_complete(asyncio.wait_for(p.stdout.read(),
                 timeout=10))
         except asyncio.TimeoutError:
+            p.terminate()
             self.fail(
                 "service timeout, probably EOF wasn't transferred from the VM process")
+        finally:
+            self.loop.run_until_complete(p.wait())
 
         self.assertEqual(stdout,
                 b'test\n',
@@ -933,8 +928,11 @@ class TC_00_AppVMMixin(object):
                 self.service_proc.stdout.read(),
                 timeout=10))
         except asyncio.TimeoutError:
+            p.terminate()
             self.fail(
                 "service timeout, probably EOF wasn't transferred to the VM process")
+        finally:
+            self.loop.run_until_complete(p.wait())
 
         service_descriptor = b'test.Socket+ dom0\0'
         self.assertEqual(service_stdout, service_descriptor + b'test1test2',
@@ -945,11 +943,13 @@ class TC_00_AppVMMixin(object):
             self.testvm1.start(),
             self.testvm2.start()]))
 
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'cp /etc/passwd /tmp/passwd'))
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
                 self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
-                        'qvm-copy-to-vm {} /etc/passwd'.format(
+                        'qvm-copy-to-vm {} /tmp/passwd'.format(
                             self.testvm2.name)))
             except subprocess.CalledProcessError as e:
                 self.fail('qvm-copy-to-vm failed: {}'.format(e.stderr))
@@ -963,7 +963,7 @@ class TC_00_AppVMMixin(object):
 
         try:
             self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                'test -f /etc/passwd'))
+                'test -f /tmp/passwd'))
         except subprocess.CalledProcessError:
             self.fail('source file got removed')
 
@@ -1195,6 +1195,13 @@ class TC_00_AppVMMixin(object):
         except subprocess.CalledProcessError as e:
             self.fail('Timeout waiting for pulseaudio start in {}: {}{}'.format(
                 vm.name, e.stdout, e.stderr))
+        # then wait for the stream to appear in dom0
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        p = self.loop.run_until_complete(asyncio.create_subprocess_shell(
+            "sudo -E -u {} timeout 30s sh -c '"
+            "while ! pactl list sink-inputs | grep -q :{}; do sleep 1; done'".format(
+                local_user, vm.name)))
+        self.loop.run_until_complete(p.wait())
         # and some more...
         self.loop.run_until_complete(asyncio.sleep(1))
 
@@ -1234,10 +1241,10 @@ class TC_00_AppVMMixin(object):
             # for some reason sudo do not relay SIGTERM sent above
             subprocess.check_call(['pkill', 'parecord'])
             p.wait()
-            # allow few bytes missing, don't use assertIn, to avoid printing
+            # allow up to 20ms missing, don't use assertIn, to avoid printing
             # the whole data in error message
             recorded_audio = recorded_audio.file.read()
-            if audio_in[:-8] not in recorded_audio:
+            if audio_in[:-3528] not in recorded_audio:
                 found_bytes = recorded_audio.count(audio_in[0])
                 all_bytes = len(audio_in)
                 self.fail('played sound not found in dom0, '
@@ -1338,12 +1345,15 @@ class TC_00_AppVMMixin(object):
         # wait for possible parecord buffering
         self.loop.run_until_complete(asyncio.sleep(1))
         self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pkill parecord'))
-        self.loop.run_until_complete(record.wait())
+            self.testvm1.run_for_stdio('pkill parecord || :'))
+        _, record_stderr = self.loop.run_until_complete(record.communicate())
+        if record_stderr:
+            self.fail('parecord printed something on stderr: {}'.format(
+                record_stderr))
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
-        # allow few bytes to be missing
-        if audio_in[:-8] not in recorded_audio:
+        # allow up to 20ms to be missing
+        if audio_in[:-3528] not in recorded_audio:
             found_bytes = recorded_audio.count(audio_in[0])
             all_bytes = len(audio_in)
             self.fail('VM not recorded expected data, '
