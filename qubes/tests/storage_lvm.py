@@ -131,6 +131,7 @@ class TC_00_ThinPool(ThinPoolBase):
     def tearDown(self):
         super(TC_00_ThinPool, self).tearDown()
         os.unlink(self.app.store)
+        self.app.close()
         del self.app
         for attr in dir(self):
             if isinstance(getattr(self, attr), qubes.vm.BaseVM):
@@ -1141,6 +1142,7 @@ class TC_02_StorageHelpers(ThinPoolBase):
         self.thin_dir.cleanup()
         super(TC_02_StorageHelpers, self).tearDown()
         os.unlink(self.app.store)
+        self.app.close()
         del self.app
         for attr in dir(self):
             if isinstance(getattr(self, attr), qubes.vm.BaseVM):

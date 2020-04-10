@@ -30,6 +30,8 @@ import unittest.mock
 import libvirt
 import copy
 
+import pathlib
+
 import qubes
 import qubes.devices
 import qubes.firewall
@@ -134,6 +136,24 @@ class TC_00_VMs(AdminAPITestCase):
         value = self.call_mgmt_func(b'admin.vm.List', b'test-vm1')
         self.assertEqual(value,
             'test-vm1 class=AppVM state=Halted\n')
+
+    def test_002_vm_list_filter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pathlib.Path(tmpdir)
+            with unittest.mock.patch(
+                    'qubes.ext.admin.AdminExtension._instance.policy_cache.path',
+                    pathlib.Path(tmpdir)):
+                with (tmpdir / 'admin.policy').open('w') as f:
+                    f.write('admin.vm.List * @anyvm @adminvm allow\n')
+                    f.write('admin.vm.List * @anyvm test-vm1 allow')
+                mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'test-vm1',
+                    b'admin.vm.List', b'dom0', b'')
+                loop = asyncio.get_event_loop()
+                value = loop.run_until_complete(
+                    mgmt_obj.execute(untrusted_payload=b''))
+                self.assertEqual(value,
+                    'dom0 class=AdminVM state=Running\n'
+                    'test-vm1 class=AppVM state=Halted\n')
 
     def test_010_vm_property_list(self):
         # this test is kind of stupid, but at least check if appropriate
@@ -1111,6 +1131,45 @@ netvm default=True type=vm \n'''
                 unittest.mock.call(self.app, 'domain-add', vm=vm2),
                 unittest.mock.call(vm2, 'test-event2', arg1='abc'),
             ])
+
+    def test_272_events_filter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pathlib.Path(tmpdir)
+            with unittest.mock.patch(
+                    'qubes.ext.admin.AdminExtension._instance.policy_cache.path',
+                    pathlib.Path(tmpdir)):
+                with (tmpdir / 'admin.policy').open('w') as f:
+                    f.write('admin.Events * @anyvm @adminvm allow\n')
+                    f.write('admin.Events * @anyvm test-vm1 allow')
+
+                send_event = unittest.mock.Mock(spec=[])
+                mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'test-vm1',
+                    b'admin.Events',
+                    b'dom0', b'', send_event=send_event)
+
+                @asyncio.coroutine
+                def fire_event():
+                    # add VM _after_ starting admin.Events call
+                    vm = self.app.add_new_vm('AppVM', label='red',
+                        name='test-vm2',
+                        template='test-template')
+                    vm.fire_event('test-event2', arg1='abc')
+                    self.vm.fire_event('test-event', arg1='abc')
+                    mgmt_obj.cancel()
+                    return vm
+
+                loop = asyncio.get_event_loop()
+                execute_task = asyncio.ensure_future(
+                    mgmt_obj.execute(untrusted_payload=b''))
+                event_task = asyncio.ensure_future(fire_event())
+                loop.run_until_complete(execute_task)
+                vm2 = event_task.result()
+                self.assertIsNone(execute_task.result())
+                self.assertEqual(send_event.mock_calls,
+                    [
+                        unittest.mock.call(self.app, 'connection-established'),
+                        unittest.mock.call(self.vm, 'test-event', arg1='abc'),
+                    ])
 
     def test_280_feature_list(self):
         self.vm.features['test-feature'] = 'some-value'

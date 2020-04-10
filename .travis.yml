@@ -11,9 +11,10 @@ install:
   - sudo apt-get -y install python3-gi gir1.2-gtk-3.0
   - pip install --quiet -r ci/requirements.txt
   - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
+  - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-core-qrexec ~/qubes-core-qrexec
 script:
-  - PYTHONPATH=test-packages pylint qubes
-  - ./run-tests
+  - PYTHONPATH=test-packages:~/qubes-core-qrexec pylint qubes
+  - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   - ~/qubes-builder/scripts/travis-build
 env:
  - DIST_DOM0=fc31 USE_QUBES_REPO_VERSION=4.1 USE_QUBES_REPO_TESTING=1

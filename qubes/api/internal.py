@@ -30,6 +30,23 @@ import qubes.vm.adminvm
 import qubes.vm.dispvm
 
 
+def get_system_info(app):
+    system_info = {'domains': {
+        domain.name: {
+            'tags': list(domain.tags),
+            'type': domain.__class__.__name__,
+            'template_for_dispvms':
+                getattr(domain, 'template_for_dispvms', False),
+            'default_dispvm': (domain.default_dispvm.name if
+                getattr(domain, 'default_dispvm', None) else None),
+            'icon': str(domain.label.icon),
+            'guivm': (domain.guivm.name if getattr(domain, 'guivm', None)
+                      else None),
+        } for domain in app.domains
+    }}
+    return system_info
+
+
 class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     ''' Communication interface for dom0 components,
     by design the input here is trusted.'''
@@ -42,19 +59,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == 'dom0')
         self.enforce(not self.arg)
 
-        system_info = {'domains': {
-            domain.name: {
-                'tags': list(domain.tags),
-                'type': domain.__class__.__name__,
-                'template_for_dispvms':
-                    getattr(domain, 'template_for_dispvms', False),
-                'default_dispvm': (domain.default_dispvm.name if
-                    getattr(domain, 'default_dispvm', None) else None),
-                'icon': str(domain.label.icon),
-                'guivm': (domain.guivm.name if getattr(domain, 'guivm', None)
-                          else None),
-            } for domain in self.app.domains
-        }}
+        system_info = get_system_info(self.app)
 
         return json.dumps(system_info)
 
