@@ -91,7 +91,6 @@ Requires:       cronie
 Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
-Requires:       PyQt4
 
 # Required for qvm-console* tools
 Requires:       socat
