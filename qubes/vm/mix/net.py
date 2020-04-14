@@ -262,6 +262,8 @@ class NetVMMixin(qubes.events.Emitter):
         This will allow re-reconnecting them cleanly later.
         '''
         # pylint: disable=unused-argument
+        if self.netvm:
+            self.netvm.shutdown_routing_for_vm(self)
         for vm in self.connected_vms:
             if not vm.is_running():
                 continue
@@ -270,6 +272,19 @@ class NetVMMixin(qubes.events.Emitter):
             except (qubes.exc.QubesException, libvirt.libvirtError):
                 # ignore errors
                 pass
+
+    @qubes.ext.handler(
+        'domain-feature-set:routing-method',
+        'domain-feature-delete:routing-method',
+    )
+    def on_routing_method_changed(
+            self,
+            event, feature,
+            value=None, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if self.netvm:
+            self.netvm.reload_routing_for_vm(self)
 
     @qubes.events.handler('domain-start')
     def on_domain_started(self, event, **kwargs):
@@ -281,6 +296,7 @@ class NetVMMixin(qubes.events.Emitter):
 
         if self.netvm:
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
+            self.netvm.reload_routing_for_vm(self)  # pylint: disable=no-member
 
         for vm in self.connected_vms:
             if not vm.is_running():
@@ -350,6 +366,20 @@ class NetVMMixin(qubes.events.Emitter):
 
         return self.netvm is not None
 
+    def shutdown_routing_for_vm(self, vm):
+        self.reload_routing_for_vm(vm, True)
+
+    def reload_routing_for_vm(self, vm, shutdown=False):
+        '''Reload the routing method for the VM.'''
+        if not self.is_running():
+            return
+        for addr_family in (4, 6):
+            ip = vm.ip6 if addr_family == 6 else vm.ip
+            if ip is None:
+                continue
+            # report routing method
+            self.setup_non_masquerade_forwarding_for_vm(vm, ip, remove=shutdown)
+
     def reload_firewall_for_vm(self, vm):
         ''' Reload the firewall rules for the vm '''
         if not self.is_running():
@@ -369,6 +399,35 @@ class NetVMMixin(qubes.events.Emitter):
                 self.untrusted_qdb.write(base_dir + key, value)
             # signal its done
             self.untrusted_qdb.write(base_dir[:-1], '')
+
+    def setup_non_masquerade_forwarding_for_vm(self, vm, ip, remove=False):
+        '''
+        Record in Qubes DB that the passed VM may be meant to have traffic
+        forwarded to and from it, rather than masqueraded from it and blocked
+        to it.
+
+        The relevant incantation on the command line to assign the forwarding
+        behavior is `qvm-features <VM> routing-method forward`.  If the feature
+        is set on the TemplateVM upon which the VM is based, then that counts
+        as the forwarding method for the VM as well.
+
+        The counterpart code in qubes-firewall handles setting up the NetVM
+        with the proper networking configuration to permit forwarding without
+        masquerading behavior.
+
+        If `remove` is True, then we remove the respective routing method from
+        the Qubes DB instead.
+        '''
+        if ip is None:
+            return
+        routing_method = vm.features.check_with_template('routing-method', 'masquerade')
+        base_file = '/qubes-routing-method/{}'.format(ip)
+        if remove:
+            self.untrusted_qdb.rm(base_file)
+        elif routing_method == 'forward':
+            self.untrusted_qdb.write(base_file, 'forward')
+        else:
+            self.untrusted_qdb.write(base_file, 'masquerade')
 
     def set_mapped_ip_info_for_vm(self, vm):
         '''
@@ -467,6 +526,11 @@ class NetVMMixin(qubes.events.Emitter):
             self.create_qdb_entries()
             self.attach_network()
 
+            if oldvalue is not None and oldvalue.is_running():
+                # Delete now obsolete IP from the
+                # attached NetVM.
+                oldvalue.reload_routing_for_vm(self)
+
             newvalue.fire_event('net-domain-connect', vm=self)
 
     @qubes.events.handler('net-domain-connect')
@@ -474,6 +538,7 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall config for vm '''
         # pylint: disable=unused-argument
         self.reload_firewall_for_vm(vm)
+        self.reload_routing_for_vm(vm)
 
     @qubes.events.handler('domain-qdb-create')
     def on_domain_qdb_create(self, event):
@@ -486,6 +551,7 @@ class NetVMMixin(qubes.events.Emitter):
             if vm.is_running():
                 self.set_mapped_ip_info_for_vm(vm)
                 self.reload_firewall_for_vm(vm)
+                self.reload_routing_for_vm(vm)
 
     @qubes.events.handler('firewall-changed', 'domain-spawn')
     def on_firewall_changed(self, event, **kwargs):
@@ -494,7 +560,7 @@ class NetVMMixin(qubes.events.Emitter):
         if self.is_running() and self.netvm:
             self.netvm.reload_connected_ips()
             self.netvm.set_mapped_ip_info_for_vm(self)
-            self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
+            self.netvm.reload_firewall_for_vm(self)
 
     # CORE2: swallowed get_firewall_conf, write_firewall_conf,
     # get_firewall_defaults
