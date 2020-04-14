@@ -378,7 +378,7 @@ class NetVMMixin(qubes.events.Emitter):
             if ip is None:
                 continue
             # report routing method
-            self.setup_non_masquerade_forwarding_for_vm(vm, ip, remove=shutdown)
+            self.setup_forwarding_for_vm(vm, ip, remove=shutdown)
 
     def reload_firewall_for_vm(self, vm):
         ''' Reload the firewall rules for the vm '''
@@ -400,7 +400,7 @@ class NetVMMixin(qubes.events.Emitter):
             # signal its done
             self.untrusted_qdb.write(base_dir[:-1], '')
 
-    def setup_non_masquerade_forwarding_for_vm(self, vm, ip, remove=False):
+    def setup_forwarding_for_vm(self, vm, ip, remove=False):
         '''
         Record in Qubes DB that the passed VM may be meant to have traffic
         forwarded to and from it, rather than masqueraded from it and blocked
@@ -420,7 +420,9 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         if ip is None:
             return
-        routing_method = vm.features.check_with_template('routing-method', 'masquerade')
+        routing_method = vm.features.check_with_template(
+            'routing-method', 'masquerade'
+        )
         base_file = '/qubes-routing-method/{}'.format(ip)
         if remove:
             self.untrusted_qdb.rm(base_file)
