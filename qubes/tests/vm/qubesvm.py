@@ -1578,6 +1578,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected['/qubes-firewall/10.137.0.3'] = ''
             expected['/qubes-firewall/10.137.0.3/0000'] = 'action=accept'
             expected['/qubes-firewall/10.137.0.3/policy'] = 'drop'
+            expected['/qubes-routing-method/10.137.0.3'] = 'masquerade'
 
             with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
                     lambda _: True):
@@ -1593,6 +1594,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected['/qubes-firewall/' + ip6] = ''
             expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
             expected['/qubes-firewall/' + ip6 + '/policy'] = 'drop'
+            expected['/qubes-routing-method/fd09:24ef:4179::a89:3'] = 'masquerade'
             with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
                     lambda _: True):
                 netvm.create_qdb_entries()
