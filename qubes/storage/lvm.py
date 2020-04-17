@@ -44,9 +44,10 @@ def check_lvm_version():
 
 lvm_is_very_old = check_lvm_version()
 
-_init_cache_cmd = ['lvs', '--noheadings', '-o',
-                   'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
-                   'metadata_percent', '--units', 'b', '--separator', ';']
+_init_cache_cmd = [
+    'lvs', '--noheadings', '-o',
+    'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
+    'metadata_percent', '--units', 'b', '--separator', ';']
 
 
 def _parse_lvm_cache(lvm_output):

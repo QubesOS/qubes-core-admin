@@ -493,9 +493,10 @@ class Storage:
         yield from qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
-                yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
-                                                         input=volume.name.encode(),
-                                                         user='root')
+                yield from self.vm.run_service_for_stdio(
+                    'qubes.ResizeDisk',
+                    input=volume.name.encode(),
+                    user='root')
             except subprocess.CalledProcessError as e:
                 service_error = e.stderr.decode('ascii', errors='ignore')
                 service_error = service_error.replace('%', '')
