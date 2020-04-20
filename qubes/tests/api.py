@@ -118,18 +118,18 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         super(TC_00_QubesDaemonProtocol, self).tearDown()
 
     def test_000_message_ok(self):
-        self.writer.write(b'dom0\0mgmt.success\0dom0\0arg\0payload')
+        self.writer.write(b'mgmt.success+arg src name dest\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
                 asyncio.wait_for(self.reader.read(), 1))
         self.assertEqual(response,
-            b"0\0src: b'dom0', dest: b'dom0', arg: b'arg', payload: b'payload'")
+            b"0\0src: b'src', dest: b'dest', arg: b'arg', payload: b'payload'")
 
     def test_001_message_ok_in_parts(self):
-        self.writer.write(b'dom0\0mgmt.')
+        self.writer.write(b'mgmt.success+arg')
         self.loop.run_until_complete(self.writer.drain())
-        self.writer.write(b'success\0dom0\0arg\0payload')
+        self.writer.write(b' dom0 name dom0\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
@@ -138,7 +138,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
             b"0\0src: b'dom0', dest: b'dom0', arg: b'arg', payload: b'payload'")
 
     def test_002_message_ok_empty(self):
-        self.writer.write(b'dom0\0mgmt.success_none\0dom0\0arg\0payload')
+        self.writer.write(b'mgmt.success_none+arg dom0 name dom0\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
@@ -146,7 +146,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         self.assertEqual(response, b"0\0")
 
     def test_003_exception_qubes(self):
-        self.writer.write(b'dom0\0mgmt.qubesexception\0dom0\0arg\0payload')
+        self.writer.write(b'mgmt.qubesexception+arg dom0 name dom0\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
@@ -154,7 +154,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         self.assertEqual(response, b"2\0QubesException\0\0qubes-exception\0")
 
     def test_004_exception_generic(self):
-        self.writer.write(b'dom0\0mgmt.exception\0dom0\0arg\0payload')
+        self.writer.write(b'mgmt.exception+arg dom0 name dom0\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
@@ -162,7 +162,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         self.assertEqual(response, b"")
 
     def test_005_event(self):
-        self.writer.write(b'dom0\0mgmt.event\0dom0\0arg\0payload')
+        self.writer.write(b'mgmt.event+arg dom0 name dom0\0payload')
         self.writer.write_eof()
         with self.assertNotRaises(asyncio.TimeoutError):
             response = self.loop.run_until_complete(
@@ -174,3 +174,12 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         with self.assertNotRaises(asyncio.TimeoutError):
             self.loop.run_until_complete(
                 asyncio.wait_for(self.protocol.mgmt.task, 1))
+
+    def test_006_target_adminvm(self):
+        self.writer.write(b'mgmt.success+arg src keyword adminvm\0payload')
+        self.writer.write_eof()
+        with self.assertNotRaises(asyncio.TimeoutError):
+            response = self.loop.run_until_complete(
+                asyncio.wait_for(self.reader.read(), 1))
+        self.assertEqual(response,
+            b"0\0src: b'src', dest: b'dom0', arg: b'arg', payload: b'payload'")

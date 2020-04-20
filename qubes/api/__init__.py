@@ -252,8 +252,20 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
     def eof_received(self):
         try:
-            src, meth, dest, arg, untrusted_payload = \
-                self.untrusted_buffer.getvalue().split(b'\0', 4)
+            connection_params, untrusted_payload = \
+                self.untrusted_buffer.getvalue().split(b'\0', 1)
+            meth_arg, src, dest_type, dest = \
+                connection_params.split(b' ', 3)
+            if dest_type == b'keyword' and dest == b'adminvm':
+                dest_type, dest = b'name', b'dom0'
+            if dest_type != b'name':
+                raise ValueError(
+                    'got {} destination type, '
+                    'while only explicit name supported'.format(dest_type))
+            if b'+' in meth_arg:
+                meth, arg = meth_arg.split(b'+', 1)
+            else:
+                meth, arg = meth_arg, b''
         except ValueError:
             self.app.log.warning('framing error')
             self.transport.abort()

@@ -207,7 +207,7 @@ endif
 	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
 	install -m 0755 qvm-tools/qvm-console-dispvm $(DESTDIR)/usr/bin/qvm-console-dispvm
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
-		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
+		ln -s ../../var/run/qubesd.sock \
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
