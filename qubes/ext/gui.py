@@ -132,10 +132,11 @@ class GUI(qubes.ext.Extension):
         untrusted_variant = untrusted_xkb_layout[1]
         untrusted_options = untrusted_xkb_layout[2]
 
+        re_layout = r'^[a-zA-Z,]*$'
         re_variant = r'^[a-zA-Z0-9-_]*$'
         re_options = r'^[a-zA-Z0-9-_:,]*$'
 
-        if not untrusted_layout.isalpha():
+        if not re.match(re_layout, untrusted_layout):
             raise qubes.exc.QubesValueError("Invalid layout provided")
         if not re.match(re_variant, untrusted_variant):
             raise qubes.exc.QubesValueError("Invalid variant provided")
