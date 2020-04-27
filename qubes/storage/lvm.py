@@ -149,15 +149,6 @@ def locked(method):
     return wrapper
 
 
-def pool_exists(pool_id):
-    """ Return true if pool exists """
-    try:
-        vol_info = size_cache[pool_id]
-        return vol_info['attr'][0] == 't'
-    except KeyError:
-        return False
-
-
 def list_thin_pools():
     """ Return list of thin pools """
     thpools = []
