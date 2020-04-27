@@ -925,13 +925,9 @@ class DirectoryThinPool:
                 sudo = []
                 if os.getuid():
                     sudo = ['sudo']
-                root_table = subprocess.check_output(sudo + ["dmsetup",
-                                                             "-j",
-                                                             str(fs_major),
-                                                             "-m",
-                                                             str(fs_minor),
-                                                             "table"],
-                                                     stderr=subprocess.DEVNULL)
+                root_table = subprocess.check_output(
+                    sudo + ["dmsetup", "-j", str(fs_major), "-m", str(fs_minor),
+                            "table"], stderr=subprocess.DEVNULL)
 
                 _start, _sectors, target_type, target_args = \
                     root_table.decode().split(" ", 3)

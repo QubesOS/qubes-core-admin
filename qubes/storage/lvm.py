@@ -152,17 +152,14 @@ def locked(method):
 def list_thin_pools():
     """ Return list of thin pools """
     thpools = []
-    try:
-        for key, vol in size_cache.items():
-            if vol['attr'][0] == 't':
-                # e.g. 'qubes_dom0/pool00'
-                parsed_key = key.split('/')
-                if len(parsed_key) == 2:
-                    volume_group = parsed_key[0]
-                    thin_pool = parsed_key[1]
-                    thpools.append((volume_group, thin_pool))
-    except KeyError:
-        pass
+    for key, vol in size_cache.items():
+        if vol['attr'] and vol['attr'][0] == 't':
+            # e.g. 'qubes_dom0/pool00'
+            parsed_key = key.split('/')
+            if len(parsed_key) == 2:
+                volume_group = parsed_key[0]
+                thin_pool = parsed_key[1]
+                thpools.append((volume_group, thin_pool))
     return thpools
 
 
