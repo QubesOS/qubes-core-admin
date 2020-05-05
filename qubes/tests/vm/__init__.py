@@ -65,7 +65,10 @@ class TestPool(object):
         return TestVolume(self)
 
 class TestApp(qubes.tests.TestEmitter):
-    labels = {1: qubes.Label(1, '0xcc0000', 'red')}
+    labels = {1: qubes.Label(1, '0xcc0000', 'red'),
+              2: qubes.Label(2, '0x00cc00', 'green'),
+              3: qubes.Label(3, '0x0000cc', 'blue'),
+              4: qubes.Label(4, '0xcccccc', 'black')}
     check_updates_vm = False
 
     def get_label(self, label):
