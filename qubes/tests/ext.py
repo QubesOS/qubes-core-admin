@@ -34,8 +34,11 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
         self.features = {}
         self.vm.configure_mock(**{
             'features.get.side_effect': self.features.get,
+            'features.items.side_effect': self.features.items,
+            'features.__iter__.side_effect': self.features.__iter__,
             'features.__contains__.side_effect': self.features.__contains__,
             'features.__setitem__.side_effect': self.features.__setitem__,
+            'features.__delitem__.side_effect': self.features.__delitem__,
             })
 
     def test_010_notify_tools(self):
@@ -180,6 +183,16 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('qrexec',), {}),
             ('features.__contains__', ('gui',), {}),
         ])
+
+    def test_100_servicevm_feature(self):
+        self.vm.provides_network = True
+        self.ext.set_servicevm_feature(self.vm)
+        self.assertEqual(self.features['servicevm'], 1)
+
+        self.vm.provides_network = False
+        self.ext.set_servicevm_feature(self.vm)
+        self.assertNotIn('servicevm', self.features)
+
 
 class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
     def setUp(self):

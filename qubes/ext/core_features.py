@@ -62,3 +62,25 @@ class CoreFeatures(qubes.ext.Extension):
             # if this is the first time qrexec was advertised, now can finish
             #  template setup
             yield from vm.fire_event_async('template-postinstall')
+
+    # pylint: disable=no-self-use
+    def set_servicevm_feature(self, subject):
+        if getattr(subject, 'provides_network', False):
+            subject.features['servicevm'] = 1
+        elif 'servicevm' in subject.features:
+            del subject.features['servicevm']
+
+    @qubes.ext.handler('property-set:provides_network')
+    def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        self.set_servicevm_feature(subject)
+
+    @qubes.ext.handler('property-del:provides_network')
+    def on_property_del(self, subject, event, name):
+        # pylint: disable=unused-argument
+        self.set_servicevm_feature(subject)
+
+    @qubes.ext.handler('domain-load')
+    def on_domain_load(self, subject, event):
+        # pylint: disable=unused-argument
+        self.set_servicevm_feature(subject)
