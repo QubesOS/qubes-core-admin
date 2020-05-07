@@ -751,6 +751,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
         </os>
         <features>
+            <xen>
+            </xen>
         </features>
         <clock offset='utc' adjustment='reset'>
             <timer name="tsc" mode="native"/>
@@ -826,6 +828,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -884,6 +888,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -951,6 +957,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -1015,6 +1023,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset='utc' adjustment='reset'>
             <timer name="tsc" mode="native"/>
@@ -1085,6 +1095,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset='utc' adjustment='reset'>
             <timer name="tsc" mode="native"/>
@@ -1242,6 +1254,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -1324,6 +1338,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -1425,6 +1441,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
@@ -1499,6 +1517,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <acpi/>
             <apic/>
             <viridian/>
+            <xen>
+            </xen>
         </features>
         <clock offset="variable" adjustment="0" basis="localtime" />
         <on_poweroff>destroy</on_poweroff>
