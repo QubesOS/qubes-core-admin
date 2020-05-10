@@ -2101,6 +2101,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return None
 
+    @qubes.stateless_property
+    def icon(self):
+        """freedesktop icon name, suitable for use in
+        :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
+        #  pylint: disable=comparison-with-callable
+        raw_icon_name = self.label.name
+        if self.klass == 'TemplateVM':
+            return 'templatevm-' + raw_icon_name
+        if self.klass == 'DispVM':
+            return 'dispvm-' + raw_icon_name
+        if self.features.get('servicevm', False):
+            return 'servicevm-' + raw_icon_name
+        return 'appvm-' + raw_icon_name
+
     @property
     def kernelopts_common(self):
         """Kernel options which should be used in addition to *kernelopts*

@@ -47,7 +47,10 @@ import qubes.tests
 import qubes.tests.vm
 
 class TestApp(object):
-    labels = {1: qubes.Label(1, '0xcc0000', 'red')}
+    labels = {1: qubes.Label(1, '0xcc0000', 'red'),
+              2: qubes.Label(2, '0x00cc00', 'green'),
+              3: qubes.Label(3, '0x0000cc', 'blue'),
+              4: qubes.Label(4, '0xcccccc', 'black')}
 
     def __init__(self):
         self.domains = {}
@@ -394,23 +397,45 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             vm.uuid = uuid.uuid4()
 
-    @unittest.skip('TODO: how to not fail on making an icon symlink here?')
-    def test_130_label(self):
+    @unittest.mock.patch("os.symlink")
+    def test_130_label(self, _):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, 'label')
         self.assertPropertyValue(vm, 'label', self.app.labels[1],
-            self.app.labels[1], 'label-1')
+            self.app.labels[1], 'red')
         del vm.label
         self.assertPropertyDefaultValue(vm, 'label')
         self.assertPropertyValue(vm, 'label', 'red',
-            self.app.labels[1], 'label-1')
+            self.app.labels[1], 'red')
         self.assertPropertyValue(vm, 'label', 'label-1',
-            self.app.labels[1], 'label-1')
+            self.app.labels[1], 'red')
 
     def test_131_label_invalid(self):
         vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'label', 'invalid')
         self.assertPropertyInvalidValue(vm, 'label', 123)
+
+    @unittest.mock.patch("os.symlink")
+    def test_135_icon(self, _):
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM)
+        vm.label = "red"
+        self.assertEqual(vm.icon, "appvm-red")
+
+        templatevm = self.get_vm(cls=qubes.vm.templatevm.TemplateVM)
+        templatevm.label = "blue"
+        self.assertEqual(templatevm.icon, "templatevm-blue")
+
+        vm.template_for_dispvms = True
+        dispvm = self.get_vm(cls=qubes.vm.dispvm.DispVM, template=vm,
+                             dispid=10)
+        dispvm.label = "black"
+        self.assertEqual(dispvm.icon, "dispvm-black")
+
+        vm = self.get_vm()
+        vm.label = "green"
+        vm.features["servicevm"] = 1
+        self.assertEqual(vm.icon, "servicevm-green")
+
 
     def test_160_memory(self):
         vm = self.get_vm()
