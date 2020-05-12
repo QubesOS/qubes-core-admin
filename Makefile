@@ -170,31 +170,11 @@ ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
 endif
-	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
+	mkdir -p $(DESTDIR)/etc/qubes-rpc
+	mkdir -p $(DESTDIR)/etc/qubes/policy.d
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
-	cp qubes-rpc-policy/qubes.FeaturesRequest.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.FeaturesRequest
-	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
-	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
-	cp qubes-rpc-policy/qubes.OpenURL.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenURL
-	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
-	cp qubes-rpc-policy/qubes.VMRootShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMRootShell
-	cp qubes-rpc-policy/qubes.VMExec.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMExec
-	cp qubes-rpc-policy/qubes.VMExecGUI.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMExecGUI
-	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
-	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
-	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
-	cp qubes-rpc-policy/qubes.GetRandomizedTime.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetRandomizedTime
-	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
-	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
-	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
-	cp qubes-rpc-policy/qubes.StartApp.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.StartApp
-	cp qubes-rpc-policy/qubes.UpdatesProxy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.UpdatesProxy
-	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
-	cp qubes-rpc-policy/qubes.ConnectTCP.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.ConnectTCP
-	cp qubes-rpc-policy/admin.vm.Console.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.Console
-	cp qubes-rpc-policy/admin.vm.volume.Import.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.volume.Import
-	cp qubes-rpc-policy/admin.vm.volume.ImportWithSize.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.volume.ImportWithSize
-	cp qubes-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/qubes-rpc/policy/policy.RegisterArgument
+	install -m 0644 qubes-rpc-policy/90-default.policy \
+		$(DESTDIR)/etc/qubes/policy.d/90-default.policy
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
@@ -214,7 +194,8 @@ endif
 	ln -s admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/admin.vm.volume.ImportWithSize
 	install qubes-rpc/admin.vm.Console $(DESTDIR)/etc/qubes-rpc/
 	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
-		--destdir=$(DESTDIR)/etc/qubes-rpc/policy \
+		--dest=$(DESTDIR)/etc/qubes/policy.d/90-admin-default.policy \
+		--header=qubes-rpc-policy/90-admin-default.policy.header \
 		--exclude admin.vm.Create.AdminVM \
 				  admin.vm.CreateInPool.AdminVM \
 		          admin.vm.device.testclass.Attach \
@@ -222,16 +203,12 @@ endif
 				  admin.vm.device.testclass.List \
 				  admin.vm.device.testclass.Set.persistent \
 				  admin.vm.device.testclass.Available
-	# sanity check
-	for method in $(DESTDIR)/etc/qubes-rpc/policy/admin.*; do \
-		ls $(DESTDIR)/etc/qubes-rpc/$$(basename $$method) >/dev/null || exit 1; \
-	done
-	install -d $(DESTDIR)/etc/qubes-rpc/policy/include
+	install -d $(DESTDIR)/etc/qubes/policy.d/include
 	install -m 0644 qubes-rpc-policy/admin-local-ro \
 		qubes-rpc-policy/admin-local-rwx \
 		qubes-rpc-policy/admin-global-ro \
 		qubes-rpc-policy/admin-global-rwx \
-		$(DESTDIR)/etc/qubes-rpc/policy/include/
+		$(DESTDIR)/etc/qubes/policy.d/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"

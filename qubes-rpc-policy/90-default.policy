@@ -1,0 +1,127 @@
+## Do not modify this file, create a new policy file with a lower number in the
+## filename instead. For example `30-user.policy`.
+
+###
+### Default qrexec policy
+###
+
+## File format:
+## service-name|*       +argument|* source          destination action  [options]
+
+## Note that policy parsing stops at the first match.
+
+# policy.RegisterArgument should be allowed only for specific arguments.
+policy.RegisterArgument *           @anyvm          dom0        deny
+
+# WARNING: The qubes.ConnectTCP service is dangerous and allows any
+# qube to access any other qube TCP port. It should be restricted
+# only to restricted qubes. This is why the default policy is 'deny'
+
+# Example of policy: qubes.ConnectTCP +22 mytcp-client @default allow,target=mytcp-server
+qubes.ConnectTCP        *           @anyvm          @anyvm      deny
+
+# VM advertise its supported features
+qubes.FeaturesRequest   *           @anyvm	        dom0	    allow
+
+# Windows VM advertise installed Qubes Windows Tools
+qubes.NotifyTools       *           @anyvm          dom0        allow
+
+# File copy/move
+qubes.Filecopy          *           @anyvm          @anyvm      ask
+
+# Get current date/time
+qubes.GetDate           *           @tag:anon-vm    @anyvm      deny
+qubes.GetDate           *           @anyvm          @anyvm      allow target=dom0
+
+# Get slightly randomized date/time
+qubes.GetRandomizedTime *           @anyvm          dom0        allow
+
+# Convert image to a safe format, also, allows to get an image (icon) file from a VM
+qubes.GetImageRGBA      *           @anyvm          @dispvm     allow
+qubes.GetImageRGBA      *           @anyvm          @anyvm      ask
+
+# Notify about available updates
+qubes.NotifyUpdates     *           @anyvm          dom0        allow
+
+# Open a file in a VM
+qubes.OpenInVM          *           @anyvm          @dispvm     allow
+qubes.OpenInVM          *           @anyvm          @anyvm      ask
+
+# Open URL in a VM
+qubes.OpenURL           *           @anyvm          @dispvm     allow
+qubes.OpenURL           *           @anyvm          @anyvm      ask
+
+# Start application using its menu entry (only applications with menu entries
+# are allowed, no arbitrary command). Argument is an application name (in case
+# of Linux, basename of .desktop file from /usr/share/applications or similar
+# location).
+qubes.StartApp          *           @anyvm          @dispvm     allow
+qubes.StartApp          *           @anyvm          @anyvm      ask
+
+# HTTP proxy for downloading updates
+# Upgrade all TemplateVMs through sys-whonix.
+#qubes.UpdatesProxy * @type:TemplateVM @default allow,target=sys-whonix
+# Upgrade Whonix TemplateVMs through sys-whonix.
+qubes.UpdatesProxy      *   @tag:whonix-updatevm    @default    allow target=sys-whonix
+# Deny Whonix TemplateVMs using UpdatesProxy of any other VM.
+qubes.UpdatesProxy      *   @tag:whonix-updatevm    @anyvm      deny
+# Default rule for all TemplateVMs - direct the connection to sys-net
+qubes.UpdatesProxy      *   @type:TemplateVM        @default    allow target=sys-net
+qubes.UpdatesProxy      *   @anyvm                  @anyvm      deny
+
+# WARNING: The qubes.VMShell service is dangerous and there are really few
+# cases when it could be safely used. Especially when policy set to "ask" you
+# have no way to know for sure what command(s) will be called. Compromissed
+# source VM can substitute the command. Allowing one VM to execute
+# qubes.VMShell over the other VM allows the former to TAKE FULL CONTROL over
+# the later. In most cases this is not what we want!
+#
+# Instead we should be using task-specific qrexec services which provide
+# assurance as to what program will be responding to the (untrusted) VM
+# requests.
+#
+# It is, however, safe, in most cases, to allow ultimate control of the
+# creating AppVM over the DisposableVM it creates as part of the qrexec service
+# invocation. That's why by default we have "@anyvm  @dispvm allow" rule. Note
+# that it does _not_ allow any AppVM to execute qubes.VMShell service over any
+# DispVM created in the system -- that would obviously be wrong. It only allows
+# qubes.VMShell service access to the AppVM which creates the DispVM as part of
+# this very service invocation.
+#
+# See e.g. this thread for some discussion:
+# https://groups.google.com/d/msg/qubes-users/xnAByaL_bjI/3PjYdiTDW-0J
+qubes.VMShell           *           @anyvm          @dispvm     allow
+qubes.VMShell           *           @anyvm          @anyvm      deny
+
+# WARNING: qubes.VMRootShell has similar risks as qubes.VMExec
+# Add "user=root" option to any ask or allow rules.
+qubes.VMRootShell       *           @anyvm          @anyvm      deny
+
+# WARNING: The qubes.VMExec service is dangerous and there are really few
+# cases when it could be safely used. Contrary to qubes.VMShell, when policy is
+# set to "ask", the command to be executed is visible in the confirmation
+# prompt. But once allowed, the source VM have full control over the command
+# standard input/output. Allowing one VM to execute qubes.VMExec over the
+# other VM allows the former to TAKE FULL CONTROL over the later. In most cases
+# this is not what we want!
+#
+# Instead we should be using task-specific qrexec services which provide
+# assurance as to what program will be responding to the (untrusted) VM
+# requests.
+#
+# It is, however, safe, in most cases, to allow ultimate control of the
+# creating AppVM over the DisposableVM it creates as part of the qrexec service
+# invocation. That's why by default we have "@anyvm  @dispvm allow" rule. Note
+# that it does _not_ allow any AppVM to execute qubes.VMExec service over any
+# DispVM created in the system -- that would obviously be wrong. It only allows
+# qubes.VMExec service access to the AppVM which creates the DispVM as part of
+# this very service invocation.
+#
+# See e.g. this thread for some discussion:
+# https://groups.google.com/d/msg/qubes-users/xnAByaL_bjI/3PjYdiTDW-0J
+qubes.VMExec            *           @anyvm          @dispvm     allow
+qubes.VMExec            *           @anyvm          @anyvm      deny
+
+# WARNING: qubes.VMExecGUI has similar risks as qubes.VMExec
+qubes.VMExecGUI         *           @anyvm          @dispvm     allow
+qubes.VMExecGUI         *           @anyvm          @anyvm      deny

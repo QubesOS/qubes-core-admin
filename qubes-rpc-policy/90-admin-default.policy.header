@@ -1,0 +1,22 @@
+## Do not modify this file, create a new policy file with a lower number in the
+## filename instead. For example `30-admin-user.policy`.
+
+###
+### Default Admin API qrexec policy
+###
+
+## WARNING: most qrexec services here allows a qube to control system
+## configuration. It should be allowed only to trusted qubes.
+
+## Remember to add "target=dom0" option to any (allow/ask) entry you create.
+
+## For convenience of maintaining this policy, all services include one of:
+##  - include/admin-local-rwx (services to modify a specific qube configuration)
+##  - include/admin-local-ro (services to read a specific qube configuration)
+##  - include/admin-global-rwx (services to modify global parameters)
+##  - include/admin-global-ro (services to read global parameters)
+
+!include-service admin.vm.Console       * include/admin-local-rwx
+!include-service admin.vm.volume.Import * include/admin-local-rwx
+!include-service admin.vm.volume.ImportWithSize * include/admin-local-rwx
+

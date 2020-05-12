@@ -30,9 +30,12 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--include-base', action='store',
     default='include',
     help='Base path for included paths (default: %(default)s)')
-parser.add_argument('--destdir', action='store',
-    default='/etc/qubes-rpc/policy',
-    help='Directory where write output files to (default: %(default)s)')
+parser.add_argument('--dest', action='store',
+    default='/etc/qubes/policy.d/90-admin-default.policy',
+    help='Path where write output file to (default: %(default)s)')
+parser.add_argument('--header', action='store',
+    default='90-admin-default.policy.header',
+    help='File to prepend to the policy (default: %(default)s)')
 parser.add_argument('--verbose', action='store_true', default=False,
     help='Be verbose')
 parser.add_argument('--exclude', action='store', nargs='*',
@@ -40,22 +43,7 @@ parser.add_argument('--exclude', action='store', nargs='*',
 parser.add_argument('service', nargs='*', action='store',
     help='Generate policy for those services (default: all)')
 
-default_policy_header = '''\
-## Note that policy parsing stops at the first match.
-## Anything not specifically allowed here (or in included file) will be denied.
-
-## Please use a single # to start your custom comments
-
-## Add your entries here, make sure to append ",target=dom0" to all allow/ask actions
-
-## Include a common file for all admin.* methods to ease setting up
-## Management VM.
-## To allow only specific actions, edit specific policy file, like this one. To
-## allow all of them, edit appropriate /etc/qubes-rpc/include/admin-*.
-
-'''
-
-def write_default_policy(args, apiname, clasifiers):
+def write_default_policy(args, apiname, clasifiers, f):
     ''' Write single default policy for given API call '''
     assert 'scope' in clasifiers, \
         'Method {} lack scope classifier'.format(apiname)
@@ -73,22 +61,24 @@ def write_default_policy(args, apiname, clasifiers):
     if args.verbose:
         print('Service {}: include {}'.format(apiname, file_to_include),
             file=sys.stderr)
-    with open(os.path.join(args.destdir, apiname), 'w') as f:
-        f.write(default_policy_header)
-        f.write('$include:{}\n'.format(
-            os.path.join(args.include_base, file_to_include)))
+    f.write('!include-service {} * {}\n'.format(
+        apiname,
+        os.path.join(args.include_base, file_to_include)))
 
 
 def main(args=None):
     ''' Main function of default-admin-policy tool'''
     args = parser.parse_args(args)
 
-    for func, apiname, _ in qubes.api.admin.QubesAdminAPI.list_methods():
-        if args.service and apiname not in args.service:
-            continue
-        if args.exclude and apiname in args.exclude:
-            continue
-        write_default_policy(args, apiname, func.classifiers)
+    with open(os.path.join(args.dest), 'w') as f:
+        with open(args.header) as header_f:
+            f.write(header_f.read())
+        for func, apiname, _ in qubes.api.admin.QubesAdminAPI.list_methods():
+            if args.service and apiname not in args.service:
+                continue
+            if args.exclude and apiname in args.exclude:
+                continue
+            write_default_policy(args, apiname, func.classifiers, f)
 
 
 if __name__ == '__main__':
