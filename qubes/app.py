@@ -1201,7 +1201,7 @@ class Qubes(qubes.PropertyHolder):
             qubes.storage.DirectoryThinPool.thin_pool('/')
         if root_thin_pool:
             lvm_config = {
-                'name': 'lvm',
+                'name': 'root',
                 'driver': 'lvm_thin',
                 'volume_group': root_volume_group,
                 'thin_pool': root_thin_pool
