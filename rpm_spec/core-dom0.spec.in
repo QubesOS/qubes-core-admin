@@ -190,6 +190,148 @@ if [ "$1" = 0 ] ; then
     groupdel qubes
 fi
 
+%posttrans
+
+# Preserve user-modified legacy policy at original location, revert rpm adding
+# .rpmsave suffix. This needs to be done in %%posttrans, to be run after
+# uninstalling the old package.
+
+# List policy files explicitly, to not touch files from other packages.
+SERVICES="
+admin.Events
+admin.backup.Cancel
+admin.backup.Execute
+admin.backup.Info
+admin.deviceclass.List
+admin.label.Create
+admin.label.Get
+admin.label.Index
+admin.label.List
+admin.label.Remove
+admin.pool.Add
+admin.pool.Info
+admin.pool.List
+admin.pool.ListDrivers
+admin.pool.Remove
+admin.pool.Set.revisions_to_keep
+admin.pool.UsageDetails
+admin.pool.volume.List
+admin.property.Get
+admin.property.GetAll
+admin.property.GetDefault
+admin.property.Help
+admin.property.List
+admin.property.Reset
+admin.property.Set
+admin.vm.Console
+admin.vm.Create.AppVM
+admin.vm.Create.DispVM
+admin.vm.Create.StandaloneVM
+admin.vm.Create.TemplateVM
+admin.vm.CreateDisposable
+admin.vm.CreateInPool.AppVM
+admin.vm.CreateInPool.DispVM
+admin.vm.CreateInPool.StandaloneVM
+admin.vm.CreateInPool.TemplateVM
+admin.vm.CurrentState
+admin.vm.Kill
+admin.vm.List
+admin.vm.Pause
+admin.vm.Remove
+admin.vm.Shutdown
+admin.vm.Start
+admin.vm.Stats
+admin.vm.Unpause
+admin.vm.device.block.Attach
+admin.vm.device.block.Available
+admin.vm.device.block.Detach
+admin.vm.device.block.List
+admin.vm.device.block.Set.persistent
+admin.vm.device.pci.Attach
+admin.vm.device.pci.Available
+admin.vm.device.pci.Detach
+admin.vm.device.pci.List
+admin.vm.device.pci.Set.persistent
+admin.vm.feature.CheckWithAdminVM
+admin.vm.feature.CheckWithNetvm
+admin.vm.feature.CheckWithTemplate
+admin.vm.feature.CheckWithTemplateAndAdminVM
+admin.vm.feature.Get
+admin.vm.feature.List
+admin.vm.feature.Remove
+admin.vm.feature.Set
+admin.vm.firewall.Get
+admin.vm.firewall.Reload
+admin.vm.firewall.Set
+admin.vm.property.Get
+admin.vm.property.GetAll
+admin.vm.property.GetDefault
+admin.vm.property.Help
+admin.vm.property.List
+admin.vm.property.Reset
+admin.vm.property.Set
+admin.vm.tag.Get
+admin.vm.tag.List
+admin.vm.tag.Remove
+admin.vm.tag.Set
+admin.vm.volume.CloneFrom
+admin.vm.volume.CloneTo
+admin.vm.volume.Import
+admin.vm.volume.ImportWithSize
+admin.vm.volume.Info
+admin.vm.volume.List
+admin.vm.volume.ListSnapshots
+admin.vm.volume.Resize
+admin.vm.volume.Revert
+admin.vm.volume.Set.revisions_to_keep
+admin.vm.volume.Set.rw
+admin.vmclass.List
+include/admin-global-ro
+include/admin-global-rwx
+include/admin-local-ro
+include/admin-local-rwx
+policy.RegisterArgument
+qubes.ConnectTCP
+qubes.FeaturesRequest
+qubes.Filecopy
+qubes.GetDate
+qubes.GetImageRGBA
+qubes.GetRandomizedTime
+qubes.NotifyTools
+qubes.NotifyUpdates
+qubes.OpenInVM
+qubes.OpenURL
+qubes.StartApp
+qubes.UpdatesProxy
+qubes.VMExec
+qubes.VMExecGUI
+qubes.VMRootShell
+qubes.VMShell
+"
+
+for service in $SERVICES; do
+    if [ -f "/etc/qubes-rpc/policy/$service.rpmsave" ] && \
+            ! [ -e "/etc/qubes-rpc/policy/$service" ]; then
+        mv -n "/etc/qubes-rpc/policy/$service.rpmsave" \
+            "/etc/qubes-rpc/policy/$service"
+    fi
+done
+
+# Take extra care about policy files in include/ - if any of them is gone
+# (because unmodified) but user still reference them anywhere, the policy
+# loading will be broken. Check for this case, and avoid the issue by creating
+# a symlink to the new policy.
+
+INCLUDES="admin-global-ro admin-global-rwx admin-local-ro admin-local-rwx"
+
+for include in $INCLUDES; do
+    if grep -qr "include/$include" /etc/qubes-rpc && \
+            ! [ -e "/etc/qubes-rpc/policy/include/$include" ]; then
+        ln -s "../../../qubes/policy.d/include/$include" \
+            "/etc/qubes-rpc/policy/include/$include"
+    fi
+done
+
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
