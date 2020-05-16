@@ -384,6 +384,9 @@ class TC_00_BackupCompatibility(
         output.close()
 
     def assertRestored(self, name, **kwargs):
+        # ignore automatically added features
+        ignore_features = ['servicevm']
+
         with self.assertNotRaises((KeyError, qubes.exc.QubesException)):
             vm = self.app.domains[name]
             asyncio.get_event_loop().run_until_complete(vm.storage.verify())
@@ -391,7 +394,10 @@ class TC_00_BackupCompatibility(
                 if prop == 'klass':
                     self.assertIsInstance(vm, value)
                 elif prop == 'features':
-                    self.assertEqual(dict(vm.features), value,
+                    self.assertEqual(
+                        dict((k, v) for k, v in vm.features.items()
+                             if k not in ignore_features),
+                        value,
                         'VM {} - features mismatch'.format(vm.name))
                 elif value is qubes.property.DEFAULT:
                     self.assertTrue(vm.property_is_default(prop),
