@@ -1,6 +1,7 @@
-sudo: required
-dist: xenial
-language: python
+import:
+  - source: QubesOS/qubes-continuous-integration:R4.0/travis-base-r4.0.yml
+    mode: deep_merge_prepend
+  - source: QubesOS/qubes-continuous-integration:R4.0/travis-dom0-r4.0.yml
 python:
   - '3.5'
 virtualenv:
@@ -14,22 +15,10 @@ install:
 script:
   - PYTHONPATH=test-packages pylint qubes qubespolicy
   - ./run-tests
-  - ~/qubes-builder/scripts/travis-build
-env:
- - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
-
 after_success:
   - codecov -F unittests
   - ~/qubes-builder/scripts/travis-deploy
-
-# don't build tags which are meant for code signing only
-branches:
-  except:
-    - /.*_.*/
-
 addons:
   apt:
     packages:
       - debootstrap
-
-# vim: ts=2 sts=2 sw=2 et
