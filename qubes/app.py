@@ -1197,17 +1197,6 @@ class Qubes(qubes.PropertyHolder):
 
         pool_configs = copy.deepcopy(qubes.config.defaults['pool_configs'])
 
-        root_volume_group, root_thin_pool = \
-            qubes.storage.DirectoryThinPool.thin_pool('/')
-        if root_thin_pool:
-            lvm_config = {
-                'name': 'root',
-                'driver': 'lvm_thin',
-                'volume_group': root_volume_group,
-                'thin_pool': root_thin_pool
-            }
-            pool_configs[lvm_config['name']] = lvm_config
-
         for name, config in pool_configs.items():
             if 'driver' not in config and 'dir_path' in config:
                 config['driver'] = 'file'
