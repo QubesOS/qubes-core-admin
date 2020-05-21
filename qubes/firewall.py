@@ -329,8 +329,8 @@ class Rule(qubes.PropertyHolder):
         if newvalue not in ('icmp',):
             self.icmptype = qubes.property.DEFAULT
 
-    @qubes.events.handler('property-del:proto')
-    def on_del_proto(self, event, name, oldvalue):
+    @qubes.events.handler('property-reset:proto')
+    def on_reset_proto(self, event, name, oldvalue):
         # pylint: disable=unused-argument
         self.dstports = qubes.property.DEFAULT
         self.icmptype = qubes.property.DEFAULT

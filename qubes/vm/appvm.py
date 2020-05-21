@@ -112,8 +112,8 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument
         assert self.template
 
-    @qubes.events.handler('property-pre-del:template')
-    def on_property_pre_del_template(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-pre-reset:template')
+    def on_property_pre_reset_template(self, event, name, oldvalue=None):
         '''Forbid deleting template of running VM
         '''  # pylint: disable=unused-argument,no-self-use
         raise qubes.exc.QubesValueError('Cannot unset template')

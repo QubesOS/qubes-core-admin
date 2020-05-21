@@ -1006,8 +1006,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesException(
                 'Failed to set autostart for VM in systemd')
 
-    @qubes.events.handler('property-pre-del:autostart')
-    def on_property_pre_del_autostart(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-pre-reset:autostart')
+    def on_property_pre_reset_autostart(self, event, name, oldvalue=None):
         # pylint: disable=unused-argument
         if oldvalue:
             retcode = subprocess.call(

@@ -75,8 +75,8 @@ class CoreFeatures(qubes.ext.Extension):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
 
-    @qubes.ext.handler('property-del:provides_network')
-    def on_property_del(self, subject, event, name):
+    @qubes.ext.handler('property-reset:provides_network')
+    def on_property_reset(self, subject, event, name):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
 

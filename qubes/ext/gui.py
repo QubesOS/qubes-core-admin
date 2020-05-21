@@ -58,9 +58,8 @@ class GUI(qubes.ext.Extension):
             if 'guivm-' + vm.guivm.name not in vm.tags:
                 self.on_property_set(vm, event, name='guivm', newvalue=vm.guivm)
 
-    # property-del <=> property-reset-to-default
-    @qubes.ext.handler('property-del:guivm')
-    def on_property_del(self, subject, event, name, oldvalue=None):
+    @qubes.ext.handler('property-reset:guivm')
+    def on_property_reset(self, subject, event, name, oldvalue=None):
         newvalue = getattr(subject, 'guivm', None)
         self.on_property_set(subject, event, name, newvalue, oldvalue)
 

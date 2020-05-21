@@ -134,7 +134,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         assert self.template
 
     @qubes.events.handler('property-pre-set:template',
-        'property-pre-del:template')
+        'property-pre-reset:template')
     def on_property_pre_set_template(self, event, name, newvalue=None,
             oldvalue=None):
         ''' Disposable VM cannot have template changed '''

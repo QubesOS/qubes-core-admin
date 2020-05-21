@@ -406,8 +406,8 @@ class NetVMMixin(qubes.events.Emitter):
             '/connected-ips6',
             ' '.join(connected_ips6))
 
-    @qubes.events.handler('property-pre-del:netvm')
-    def on_property_pre_del_netvm(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-pre-reset:netvm')
+    def on_property_pre_reset_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
@@ -419,8 +419,8 @@ class NetVMMixin(qubes.events.Emitter):
         self.fire_event('property-pre-set:netvm', pre_event=True,
             name='netvm', newvalue=newvalue, oldvalue=oldvalue)
 
-    @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-reset:netvm')
+    def on_property_reset_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
