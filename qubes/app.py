@@ -1523,20 +1523,6 @@ class Qubes(qubes.PropertyHolder):
                 'is not running ({!r}).'.format(
                     name, newvalue.name))
 
-    @qubes.events.handler('property-set:default_fw_netvm')
-    def on_property_set_default_fw_netvm(self, event, name, newvalue,
-                                         oldvalue=None):
-        # pylint: disable=unused-argument,invalid-name
-        for vm in self.domains:
-            if hasattr(vm, 'provides_network') and vm.provides_network and \
-                    hasattr(vm, 'netvm') and vm.property_is_default('netvm'):
-                # fire property-del:netvm as it is responsible for resetting
-                # netvm to it's default value
-                vm.fire_event('property-pre-del:netvm', pre_event=True,
-                              name='netvm', oldvalue=oldvalue)
-                vm.fire_event('property-del:netvm',
-                              name='netvm', oldvalue=oldvalue)
-
     @qubes.events.handler('property-set:default_netvm')
     def on_property_set_default_netvm(self, event, name, newvalue,
                                       oldvalue=None):
