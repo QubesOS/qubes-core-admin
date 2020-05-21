@@ -170,7 +170,11 @@ class TC_10_property(qubes.tests.QubesTestCase):
 
         self.assertEventFired(self.holder, 'property-pre-del:testprop1',
             kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(self.holder, 'property-pre-reset:testprop1',
+            kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
         self.assertEventFired(self.holder, 'property-del:testprop1',
+            kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(self.holder, 'property-reset:testprop1',
             kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
 
     def test_081_delete_by_assign(self):
@@ -203,7 +207,11 @@ class TC_10_property(qubes.tests.QubesTestCase):
         self.assertEqual(holder.testprop1, 'defaultvalue')
         self.assertEventFired(holder, 'property-pre-del:testprop1', kwargs={
             'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(holder, 'property-pre-reset:testprop1', kwargs={
+            'name': 'testprop1', 'oldvalue': 'testvalue'})
         self.assertEventFired(holder, 'property-del:testprop1', kwargs={
+            'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(holder, 'property-reset:testprop1', kwargs={
             'name': 'testprop1', 'oldvalue': 'testvalue'})
 
     def test_090_write_once_set(self):

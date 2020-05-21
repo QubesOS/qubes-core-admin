@@ -284,6 +284,10 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
             has_oldvalue = False
 
         if has_oldvalue:
+            instance.fire_event('property-pre-reset:' + self.__name__,
+                pre_event=True,
+                name=self.__name__, oldvalue=oldvalue)
+            # deprecated, to be removed in Qubes 5.0
             instance.fire_event('property-pre-del:' + self.__name__,
                 pre_event=True,
                 name=self.__name__, oldvalue=oldvalue)
@@ -291,13 +295,23 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
                 delattr(instance, self._attr_name)
             except AttributeError:
                 pass
+            instance.fire_event('property-reset:' + self.__name__,
+                name=self.__name__, oldvalue=oldvalue)
+            # deprecated, to be removed in Qubes 5.0
             instance.fire_event('property-del:' + self.__name__,
                 name=self.__name__, oldvalue=oldvalue)
 
         else:
+            instance.fire_event('property-pre-reset:' + self.__name__,
+                pre_event=True,
+                name=self.__name__)
+            # deprecated, to be removed in Qubes 5.0
             instance.fire_event('property-pre-del:' + self.__name__,
                 pre_event=True,
                 name=self.__name__)
+            instance.fire_event('property-reset:' + self.__name__,
+                name=self.__name__)
+            # deprecated, to be removed in Qubes 5.0
             instance.fire_event('property-del:' + self.__name__,
                 name=self.__name__)
 
@@ -470,6 +484,9 @@ class PropertyHolder(qubes.events.Emitter):
             Fired when property gets deleted (is set to default). Signature is
             variable, *oldvalue* is present only if there was an old value.
 
+            This event is deprecated and will be removed in Qubes 5.0.
+            Use property-reset instead.
+
             :param name: Property name
             :param oldvalue: Old value of the property
 
@@ -478,6 +495,31 @@ class PropertyHolder(qubes.events.Emitter):
 
             Fired before property gets deleted (is set to default). Signature
             is variable, *oldvalue* is present only if there was an old value.
+
+            This event is deprecated and will be removed in Qubes 5.0.
+            Use property-pre-reset instead.
+
+            :param name: Property name
+            :param oldvalue: Old value of the property
+
+        .. event:: property-reset:<propname> \
+                (subject, event, name[, oldvalue])
+
+            Fired when property gets reset to the (possibly dynamic) default.
+            This even may be also fired when the property is already in
+            "default" state, but the calculated default value changes.
+            Signature is variable, *oldvalue* is present only if there was an
+            old value.
+
+            :param name: Property name
+            :param oldvalue: Old value of the property
+
+        .. event:: property-pre-reset:<propname> \
+                (subject, event, name[, oldvalue])
+
+            Fired before property gets reset to the (possibly dynamic) default.
+            Signature is variable, *oldvalue* is present only if there was an
+            old value.
 
             :param name: Property name
             :param oldvalue: Old value of the property
