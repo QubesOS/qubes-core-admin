@@ -48,9 +48,8 @@ class AUDIO(qubes.ext.Extension):
                 self.on_property_set(vm, event, name='audiovm',
                                      newvalue=vm.audiovm)
 
-    # property-del <=> property-reset-to-default
-    @qubes.ext.handler('property-del:audiovm')
-    def on_property_del(self, subject, event, name, oldvalue=None):
+    @qubes.ext.handler('property-reset:audiovm')
+    def on_property_reset(self, subject, event, name, oldvalue=None):
         newvalue = getattr(subject, 'audiovm', None)
         self.on_property_set(subject, event, name, newvalue, oldvalue)
 

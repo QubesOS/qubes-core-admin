@@ -406,8 +406,8 @@ class NetVMMixin(qubes.events.Emitter):
             '/connected-ips6',
             ' '.join(connected_ips6))
 
-    @qubes.events.handler('property-pre-del:netvm')
-    def on_property_pre_del_netvm(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-pre-reset:netvm')
+    def on_property_pre_reset_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
@@ -419,8 +419,8 @@ class NetVMMixin(qubes.events.Emitter):
         self.fire_event('property-pre-set:netvm', pre_event=True,
             name='netvm', newvalue=newvalue, oldvalue=oldvalue)
 
-    @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-reset:netvm')
+    def on_property_reset_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
@@ -474,6 +474,59 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall config for vm '''
         # pylint: disable=unused-argument
         self.reload_firewall_for_vm(vm)
+
+    @qubes.events.handler('property-set:ip', 'property-reset:ip')
+    def on_property_set_ip(self, _event, name, newvalue=None, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue == oldvalue:
+            return
+        if self.provides_network:
+            self.fire_event('property-reset:gateway', name='gateway')
+        self.fire_event('property-reset:visible_ip', name='visible_ip')
+        for vm in self.connected_vms:
+            vm.fire_event(
+                'property-reset:visible_gateway', name='visible_gateway')
+
+    @qubes.events.handler('property-set:ip6', 'property-reset:ipv6')
+    def on_property_set_ip6(self, _event, name, newvalue=None, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue == oldvalue:
+            return
+        if self.provides_network:
+            self.fire_event('property-reset:gateway6', name='gateway6')
+        self.fire_event('property-reset:visible_ip6', name='visible_ip6')
+        for vm in self.connected_vms:
+            vm.fire_event(
+                'property-reset:visible_gateway6', name='visible_gateway6')
+
+    @qubes.events.handler('feature-set:net.fake-ip')
+    def on_feature_set_net_fake_ip(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if oldvalue == newvalue:
+            return
+        self.fire_event('property-reset:visible_ip', name='visible_ip')
+        for vm in self.connected_vms:
+            vm.fire_event(
+                'property-reset:visible_gateway', name='visible_gateway')
+
+    @qubes.events.handler('feature-set:ipv6')
+    def on_feature_set_ipv6(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if oldvalue == newvalue:
+            return
+        self.fire_event('property-reset:visible_ip6', name='visible_ip6')
+        for vm in self.connected_vms:
+            vm.fire_event(
+                'property-reset:visible_gateway6', name='visible_gateway6')
+
+    @qubes.events.handler('property-set:provides_network')
+    def on_property_set_provides(
+            self, _event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue == oldvalue:
+            return
+        self.fire_event('property-reset:gateway', name='gateway')
+        self.fire_event('property-reset:gateway6', name='gateway6')
 
     @qubes.events.handler('domain-qdb-create')
     def on_domain_qdb_create(self, event):

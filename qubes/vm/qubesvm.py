@@ -965,6 +965,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 shutil.copy(newvalue.icon_path, self.icon_path)
 
+        # icon is calculated based on label
+        self.fire_event('property-reset:icon', name='icon')
+
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
@@ -1006,8 +1009,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesException(
                 'Failed to set autostart for VM in systemd')
 
-    @qubes.events.handler('property-pre-del:autostart')
-    def on_property_pre_del_autostart(self, event, name, oldvalue=None):
+    @qubes.events.handler('property-pre-reset:autostart')
+    def on_property_pre_reset_autostart(self, event, name, oldvalue=None):
         # pylint: disable=unused-argument
         if oldvalue:
             retcode = subprocess.call(
@@ -1142,6 +1145,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
 
+                # the above allocates xid, lets announce that
+                self.fire_event('property-reset:xid', name='xid')
+                self.fire_event('property-reset:start_time', name='start_time')
             except libvirt.libvirtError as exc:
                 # missing IOMMU?
                 if self.virt_mode == 'hvm' and \
@@ -1250,6 +1256,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except qubes.storage.StoragePoolException:
             self.log.exception('Failed to stop storage for domain %s',
                                self.name)
+        self.fire_event('property-reset:xid', name='xid')
+        self.fire_event('property-reset:start_time', name='start_time')
 
     @asyncio.coroutine
     def shutdown(self, force=False, wait=False, timeout=None):

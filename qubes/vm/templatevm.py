@@ -85,3 +85,27 @@ class TemplateVM(QubesVM):
             }
         }
         super(TemplateVM, self).__init__(*args, **kwargs)
+
+    @qubes.events.handler('property-set:default_user',
+                          'property-set:kernel',
+                          'property-set:kernelopts',
+                          'property-set:vcpus',
+                          'property-set:memory',
+                          'property-set:maxmem',
+                          'property-set:qrexec_timeout',
+                          'property-set:shutdown_timeout',
+                          'property-set:management_dispvm')
+    def on_property_set_child(self, _event, name, newvalue, oldvalue=None):
+        """Send event about default value change to child VMs
+           (which use default inherited from the template).
+
+           This handler is supposed to be set for properties using
+           `_default_with_template()` function for the default value.
+           """
+        if newvalue == oldvalue:
+            return
+
+        for vm in self.appvms:
+            if not vm.property_is_default(name):
+                continue
+            vm.fire_event('property-reset:' + name, name=name)

@@ -67,16 +67,20 @@ class CoreFeatures(qubes.ext.Extension):
     def set_servicevm_feature(self, subject):
         if getattr(subject, 'provides_network', False):
             subject.features['servicevm'] = 1
+            # icon is calculated based on this feature
+            subject.fire_event('property-reset:icon', name='icon')
         elif 'servicevm' in subject.features:
             del subject.features['servicevm']
+            # icon is calculated based on this feature
+            subject.fire_event('property-reset:icon', name='icon')
 
     @qubes.ext.handler('property-set:provides_network')
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
 
-    @qubes.ext.handler('property-del:provides_network')
-    def on_property_del(self, subject, event, name):
+    @qubes.ext.handler('property-reset:provides_network')
+    def on_property_reset(self, subject, event, name):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
 
