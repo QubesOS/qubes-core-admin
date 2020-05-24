@@ -147,7 +147,6 @@ rpms-dom0:
 
 all:
 	$(PYTHON) setup.py build
-	$(MAKE) -C qubes-rpc all
 	# Currently supported only on xen
 
 install:
@@ -181,13 +180,12 @@ endif
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.ConnectTCP $(DESTDIR)/etc/qubes-rpc/
-	install qubes-rpc/qubesd-query-fast $(DESTDIR)/usr/libexec/qubes/
 	install -m 0755 qvm-tools/qubes-bug-report $(DESTDIR)/usr/bin/qubes-bug-report
 	install -m 0755 qvm-tools/qubes-hcl-report $(DESTDIR)/usr/bin/qubes-hcl-report
 	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
 	install -m 0755 qvm-tools/qvm-console-dispvm $(DESTDIR)/usr/bin/qvm-console-dispvm
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
-		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
+		ln -s ../../var/run/qubesd.sock \
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/

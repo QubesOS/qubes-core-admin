@@ -83,8 +83,9 @@ def main(args=None):
     payload = sys.stdin.buffer.read() if args.payload else b''
     # pylint: enable=no-member
 
-    coro = asyncio.ensure_future(qubesd_client(args.socket, payload,
-        args.src, args.method, args.dest, args.arg))
+    coro = asyncio.ensure_future(qubesd_client(
+        args.socket, payload,
+        f'{args.method}+{args.arg} {args.src} name {args.dest}'))
 
     for signame in ('SIGINT', 'SIGTERM'):
         loop.add_signal_handler(getattr(signal, signame),
