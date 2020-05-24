@@ -2,12 +2,12 @@
 ## _in default configuration_. To allow only specific action,
 ## edit specific policy file.
 
-## Note that policy parsing stops at the first match,
+## Note that policy parsing stops at the first match.
 
 ## Please use a single # to start your custom comments
 
 ## Include all already having write access
-$include:include/admin-global-rwx
+!include include/admin-global-rwx
 
-## Add your entries here, make sure to append ",target=dom0" to all allow/ask actions
+## Add your entries here, make sure to append "target=dom0" to all allow/ask actions
 

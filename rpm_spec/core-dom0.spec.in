@@ -190,6 +190,148 @@ if [ "$1" = 0 ] ; then
     groupdel qubes
 fi
 
+%posttrans
+
+# Preserve user-modified legacy policy at original location, revert rpm adding
+# .rpmsave suffix. This needs to be done in %%posttrans, to be run after
+# uninstalling the old package.
+
+# List policy files explicitly, to not touch files from other packages.
+SERVICES="
+admin.Events
+admin.backup.Cancel
+admin.backup.Execute
+admin.backup.Info
+admin.deviceclass.List
+admin.label.Create
+admin.label.Get
+admin.label.Index
+admin.label.List
+admin.label.Remove
+admin.pool.Add
+admin.pool.Info
+admin.pool.List
+admin.pool.ListDrivers
+admin.pool.Remove
+admin.pool.Set.revisions_to_keep
+admin.pool.UsageDetails
+admin.pool.volume.List
+admin.property.Get
+admin.property.GetAll
+admin.property.GetDefault
+admin.property.Help
+admin.property.List
+admin.property.Reset
+admin.property.Set
+admin.vm.Console
+admin.vm.Create.AppVM
+admin.vm.Create.DispVM
+admin.vm.Create.StandaloneVM
+admin.vm.Create.TemplateVM
+admin.vm.CreateDisposable
+admin.vm.CreateInPool.AppVM
+admin.vm.CreateInPool.DispVM
+admin.vm.CreateInPool.StandaloneVM
+admin.vm.CreateInPool.TemplateVM
+admin.vm.CurrentState
+admin.vm.Kill
+admin.vm.List
+admin.vm.Pause
+admin.vm.Remove
+admin.vm.Shutdown
+admin.vm.Start
+admin.vm.Stats
+admin.vm.Unpause
+admin.vm.device.block.Attach
+admin.vm.device.block.Available
+admin.vm.device.block.Detach
+admin.vm.device.block.List
+admin.vm.device.block.Set.persistent
+admin.vm.device.pci.Attach
+admin.vm.device.pci.Available
+admin.vm.device.pci.Detach
+admin.vm.device.pci.List
+admin.vm.device.pci.Set.persistent
+admin.vm.feature.CheckWithAdminVM
+admin.vm.feature.CheckWithNetvm
+admin.vm.feature.CheckWithTemplate
+admin.vm.feature.CheckWithTemplateAndAdminVM
+admin.vm.feature.Get
+admin.vm.feature.List
+admin.vm.feature.Remove
+admin.vm.feature.Set
+admin.vm.firewall.Get
+admin.vm.firewall.Reload
+admin.vm.firewall.Set
+admin.vm.property.Get
+admin.vm.property.GetAll
+admin.vm.property.GetDefault
+admin.vm.property.Help
+admin.vm.property.List
+admin.vm.property.Reset
+admin.vm.property.Set
+admin.vm.tag.Get
+admin.vm.tag.List
+admin.vm.tag.Remove
+admin.vm.tag.Set
+admin.vm.volume.CloneFrom
+admin.vm.volume.CloneTo
+admin.vm.volume.Import
+admin.vm.volume.ImportWithSize
+admin.vm.volume.Info
+admin.vm.volume.List
+admin.vm.volume.ListSnapshots
+admin.vm.volume.Resize
+admin.vm.volume.Revert
+admin.vm.volume.Set.revisions_to_keep
+admin.vm.volume.Set.rw
+admin.vmclass.List
+include/admin-global-ro
+include/admin-global-rwx
+include/admin-local-ro
+include/admin-local-rwx
+policy.RegisterArgument
+qubes.ConnectTCP
+qubes.FeaturesRequest
+qubes.Filecopy
+qubes.GetDate
+qubes.GetImageRGBA
+qubes.GetRandomizedTime
+qubes.NotifyTools
+qubes.NotifyUpdates
+qubes.OpenInVM
+qubes.OpenURL
+qubes.StartApp
+qubes.UpdatesProxy
+qubes.VMExec
+qubes.VMExecGUI
+qubes.VMRootShell
+qubes.VMShell
+"
+
+for service in $SERVICES; do
+    if [ -f "/etc/qubes-rpc/policy/$service.rpmsave" ] && \
+            ! [ -e "/etc/qubes-rpc/policy/$service" ]; then
+        mv -n "/etc/qubes-rpc/policy/$service.rpmsave" \
+            "/etc/qubes-rpc/policy/$service"
+    fi
+done
+
+# Take extra care about policy files in include/ - if any of them is gone
+# (because unmodified) but user still reference them anywhere, the policy
+# loading will be broken. Check for this case, and avoid the issue by creating
+# a symlink to the new policy.
+
+INCLUDES="admin-global-ro admin-global-rwx admin-local-ro admin-local-rwx"
+
+for include in $INCLUDES; do
+    if grep -qr "include/$include" /etc/qubes-rpc && \
+            ! [ -e "/etc/qubes-rpc/policy/include/$include" ]; then
+        ln -s "../../../qubes/policy.d/include/$include" \
+            "/etc/qubes-rpc/policy/include/$include"
+    fi
+done
+
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
@@ -383,29 +525,12 @@ fi
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
-%attr(2775,root,qubes) %dir /etc/qubes-rpc/policy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-ro
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-rwx
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-ro
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-rwx
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.ConnectTCP
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.FeaturesRequest
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetRandomizedTime
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.StartApp
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMRootShell
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMExec
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMExecGUI
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.UpdatesProxy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetDate
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/policy.RegisterArgument
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-admin-default.policy
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-default.policy
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-rwx
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-local-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-local-rwx
 /etc/qubes-rpc/admin.*
 /etc/qubes-rpc/qubes.FeaturesRequest
 /etc/qubes-rpc/qubes.GetDate
