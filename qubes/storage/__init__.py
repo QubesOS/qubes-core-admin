@@ -932,8 +932,13 @@ class DirectoryThinPool:
                         .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
                         thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
                     if thin_pool_tpool.endswith("-tpool"):
+                        # LVM replaces '-' by '--' if name contains
+                        # a hyphen
+                        thin_pool_tpool = thin_pool_tpool.replace('--', '=')
                         volume_group, thin_pool, _tpool = \
                             thin_pool_tpool.rsplit("-", 2)
+                        volume_group = volume_group.replace('=', '-')
+                        thin_pool = thin_pool.replace('=', '-')
                         cls._thin_pool[dir_path] = volume_group, thin_pool
             except:  # pylint: disable=bare-except
                 pass
