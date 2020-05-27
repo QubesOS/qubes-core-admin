@@ -1443,12 +1443,12 @@ SHA256:
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
             self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/apt-repo && python -m SimpleHTTPServer 8080',
+                'cd /tmp/apt-repo && python3 -m http.server 8080',
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         elif self.template.count("fedora"):
             self.create_repo_yum()
             self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/yum-repo && python -m SimpleHTTPServer 8080',
+                'cd /tmp/yum-repo && python3 -m http.server 8080',
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         else:
             # not reachable...
