@@ -2160,7 +2160,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
 def _clean_volume_config(config):
     common_attributes = ['name', 'pool', 'size',
-                         'revisions_to_keep', 'rw', 'snap_on_start',
+                         'rw', 'snap_on_start',
                          'save_on_stop', 'source']
     return {k: v for k, v in config.items() if k in common_attributes}
 
