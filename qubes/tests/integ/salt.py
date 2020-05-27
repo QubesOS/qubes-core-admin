@@ -93,8 +93,7 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
 
         cmd_output = self.dom0_salt_call_json(['state.show_top'])
         self.assertIn('local', cmd_output)
-        self.assertIn('base', cmd_output['local'])
-        self.assertNotIn('test_salt.something', cmd_output['local']['base'])
+        self.assertNotIn('test_salt.something', cmd_output['local'].get('base', []))
 
     def test_001_state_sls(self):
         with open(os.path.join(self.salt_testdir, 'something.sls'), 'w') as f:
