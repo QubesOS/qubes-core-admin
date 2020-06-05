@@ -1440,6 +1440,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
             'qubes.tests.integ.devices_block',
             'qubes.tests.integ.devices_pci',
             'qubes.tests.integ.dom0_update',
+            'qubes.tests.integ.vm_update',
             'qubes.tests.integ.network',
             'qubes.tests.integ.dispvm',
             'qubes.tests.integ.vm_qrexec_gui',
