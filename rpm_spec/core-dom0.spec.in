@@ -489,6 +489,7 @@ done
 %{python3_sitelib}/qubes/tests/integ/network_ipv6.py
 %{python3_sitelib}/qubes/tests/integ/grub.py
 %{python3_sitelib}/qubes/tests/integ/salt.py
+%{python3_sitelib}/qubes/tests/integ/qrexec.py
 %{python3_sitelib}/qubes/tests/integ/storage.py
 %{python3_sitelib}/qubes/tests/integ/vm_qrexec_gui.py
 
