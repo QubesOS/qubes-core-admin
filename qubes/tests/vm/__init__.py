@@ -46,6 +46,7 @@ class TestHost(object):
     def __init__(self):
         self.memory_total = 1000 * 1024
         self.no_cpus = 4
+        self.cpu_family_model = (6, 6)
 
 class TestVMsCollection(dict):
     def get_vms_connected_to(self, vm):

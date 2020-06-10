@@ -19,6 +19,9 @@
             <feature name='svm' policy='disable'/>
             <!-- disable SMAP inside VM, because of Linux bug -->
             <feature name='smap' policy='disable'/>
+            {% if vm.app.host.cpu_family_model in [(6, 58), (6, 62)] -%}
+                <feature name='rdrand' policy='disable'/>
+            {% endif -%}
         </cpu>
     {% endif %}
     {% endblock %}

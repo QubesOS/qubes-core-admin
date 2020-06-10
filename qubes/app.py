@@ -265,6 +265,8 @@ class QubesHost:
         self._no_cpus = None
         self._total_mem = None
         self._physinfo = None
+        self._cpu_family = None
+        self._cpu_model = None
 
     def _fetch(self):
         if self._no_cpus is not None:
@@ -302,6 +304,27 @@ class QubesHost:
 
         self._fetch()
         return self._no_cpus
+
+    @property
+    def cpu_family_model(self):
+        """Get CPU family and model"""
+        if self._cpu_family is None or self._cpu_model is None:
+            family = None
+            model = None
+            with open('/proc/cpuinfo') as cpuinfo:
+                for line in cpuinfo.readlines():
+                    line = line.strip()
+                    if not line:
+                        # take info from the first core
+                        break
+                    field, value = line.split(':', 1)
+                    if field.strip() == 'model':
+                        model = int(value.strip())
+                    elif field.strip() == 'cpu family':
+                        family = int(value.strip())
+            self._cpu_family = family
+            self._cpu_model = model
+        return self._cpu_family, self._cpu_model
 
     def get_free_xen_memory(self):
         """Get free memory from Xen's physinfo.
