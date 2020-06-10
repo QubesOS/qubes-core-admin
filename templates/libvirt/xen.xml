@@ -189,12 +189,14 @@
                     {% endif %}
                     />
                 <input type="tablet" bus="usb"/>
-                <video>
-                    <model type="{{ vm.features.check_with_template('video-model', 'vga') }}"/>
-                </video>
-                {% if vm.features.check_with_template('linux-stubdom', True) %}
-                    {# TODO only add qubes gui if gui-agent is not installed in HVM #}
-                    <graphics type="qubes"/>
+                {% if vm.features.check_with_template('video-model', 'vga') != 'none' %}
+                    <video>
+                        <model type="{{ vm.features.check_with_template('video-model', 'vga') }}"/>
+                    </video>
+                    {% if vm.features.check_with_template('linux-stubdom', True) %}
+                        {# TODO only add qubes gui if gui-agent is not installed in HVM #}
+                        <graphics type="qubes"/>
+                    {% endif %}
                 {% endif %}
             {% endif %}
                 <console type="pty">
