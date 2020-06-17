@@ -28,6 +28,7 @@ import libvirt
 import qubes
 import qubes.exc
 import qubes.vm
+from qubes.vm.qubesvm import _setter_kbd_layout
 
 
 class AdminVM(qubes.vm.BaseVM):
@@ -60,6 +61,14 @@ class AdminVM(qubes.vm.BaseVM):
         type=bool,
         setter=qubes.property.forbidden,
         doc='True if this machine may be updated on its own.')
+
+    # for changes in keyboard_layout, see also the same property in QubesVM
+    keyboard_layout = qubes.property(
+        'keyboard_layout',
+        type=str,
+        setter=_setter_kbd_layout,
+        default='us++',
+        doc='Keyboard layout for this VM')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
