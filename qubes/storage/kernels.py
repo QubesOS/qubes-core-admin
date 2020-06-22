@@ -201,7 +201,7 @@ class LinuxKernel(Pool):
         # pylint: disable=no-self-use
         if value:
             raise qubes.exc.QubesValueError(
-                'LinuxModules supports only revisions_to_keep=0')
+                'LinuxKernel supports only revisions_to_keep=0')
 
     def included_in(self, app):
         ''' Check if there is pool containing /var/lib/qubes/vm-kernels '''
