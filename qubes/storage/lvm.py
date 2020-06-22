@@ -80,8 +80,8 @@ class ThinPool(qubes.storage.Pool):
 
     driver = 'lvm_thin'
 
-    def __init__(self, volume_group, thin_pool, revisions_to_keep=1, **kwargs):
-        super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
+    def __init__(self, *, name, revisions_to_keep=1, volume_group, thin_pool):
+        super().__init__(name=name, revisions_to_keep=revisions_to_keep)
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)

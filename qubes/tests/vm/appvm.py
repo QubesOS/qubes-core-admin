@@ -62,7 +62,7 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        self.app.pools['default'] = TestPool('default')
+        self.app.pools['default'] = TestPool(name='default')
         self.app.pools['linux-kernel'] = mock.Mock(**{
             'init_volume.return_value.pool': 'linux-kernel'})
         self.template = qubes.vm.templatevm.TemplateVM(self.app, None,

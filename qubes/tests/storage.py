@@ -30,8 +30,8 @@ from qubes.tests import SystemTestCase, QubesTestCase
 
 
 class TestPool(unittest.mock.Mock):
-    def __init__(self, *args, **kwargs):
-        super(TestPool, self).__init__(*args, spec=qubes.storage.Pool, **kwargs)
+    def __init__(self, **kwargs):
+        super(TestPool, self).__init__(spec=qubes.storage.Pool, **kwargs)
         try:
             self.name = kwargs['name']
         except KeyError:

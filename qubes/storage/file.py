@@ -52,9 +52,8 @@ class FilePool(qubes.storage.Pool):
     '''  # pylint: disable=protected-access
     driver = 'file'
 
-    def __init__(self, revisions_to_keep=1, dir_path=None, **kwargs):
-        super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
-        assert dir_path, "No pool dir_path specified"
+    def __init__(self, *, name, revisions_to_keep=1, dir_path):
+        super().__init__(name=name, revisions_to_keep=revisions_to_keep)
         self.dir_path = os.path.normpath(dir_path)
         self._volumes = []
 
