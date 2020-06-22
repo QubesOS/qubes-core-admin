@@ -53,7 +53,6 @@ class FilePool(qubes.storage.Pool):
     driver = 'file'
 
     def __init__(self, revisions_to_keep=1, dir_path=None, **kwargs):
-        self._revisions_to_keep = 0
         super(FilePool, self).__init__(revisions_to_keep=revisions_to_keep,
                                        **kwargs)
         assert dir_path, "No pool dir_path specified"
