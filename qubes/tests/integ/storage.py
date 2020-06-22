@@ -367,7 +367,7 @@ class StorageReflinkOnBtrfs(StorageReflinkMixin, qubes.tests.SystemTestCase):
 
 class StorageReflinkOnExt4(StorageReflinkMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
-        super().init_pool('ext4', setup_check='no')
+        super().init_pool('ext4', setup_check=False)
 
 
 @qubes.tests.storage_lvm.skipUnlessLvmPoolExists

@@ -1207,7 +1207,7 @@ class Qubes(qubes.PropertyHolder):
                     os.makedirs(config['dir_path'], exist_ok=True)
                     if qubes.storage.reflink.is_supported(config['dir_path']):
                         config['driver'] = 'file-reflink'
-                        config['setup_check'] = 'no'  # don't check twice
+                        config['setup_check'] = False  # don't check twice
                 except PermissionError:  # looks like a testing environment
                     pass  # stay with 'file'
             self.pools[name] = self._get_pool(**config)
