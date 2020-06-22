@@ -58,7 +58,7 @@ class ReflinkPool(qubes.storage.Pool):
     driver = 'file-reflink'
     _known_dir_path_prefixes = ['appvms', 'vm-templates']
 
-    def __init__(self, dir_path, setup_check='yes', revisions_to_keep=1,
+    def __init__(self, dir_path, setup_check=True, revisions_to_keep=1,
                  **kwargs):
         super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
         self._setup_check = qubes.property.bool(None, None, setup_check)
@@ -74,7 +74,7 @@ class ReflinkPool(qubes.storage.Pool):
             raise qubes.storage.StoragePoolException(
                 'The filesystem for {!r} does not support reflinks. If you'
                 ' can live with VM startup delays and wasted disk space, pass'
-                ' the "setup_check=no" option.'.format(self.dir_path))
+                ' the "setup_check=False" option.'.format(self.dir_path))
         for dir_path_prefix in self._known_dir_path_prefixes:
             _make_dir(os.path.join(self.dir_path, dir_path_prefix))
         return self
