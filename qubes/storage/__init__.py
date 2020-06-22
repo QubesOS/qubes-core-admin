@@ -99,7 +99,7 @@ class Volume:
 
         '''
 
-        super(Volume, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         assert isinstance(pool, Pool)
         assert source is None or (isinstance(source, Volume)
                                   and source.pool == pool)
@@ -717,7 +717,7 @@ class Pool:
     root_img_size = qubes.config.defaults['root_img_size']
 
     def __init__(self, name, revisions_to_keep=1, **kwargs):
-        super(Pool, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep

@@ -33,7 +33,7 @@ class LinuxModules(Volume):
 
     def __init__(self, target_dir, kernel_version, **kwargs):
         kwargs['vid'] = ''
-        super(LinuxModules, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._kernel_version = kernel_version
         self.target_dir = target_dir
         assert self.revisions_to_keep == 0
@@ -156,7 +156,7 @@ class LinuxKernel(Pool):
 
     def __init__(self, name=None, dir_path=None):
         assert dir_path, 'Missing dir_path'
-        super(LinuxKernel, self).__init__(name=name, revisions_to_keep=0)
+        super().__init__(name=name, revisions_to_keep=0)
         self.dir_path = dir_path
 
     def init_volume(self, vm, volume_config):

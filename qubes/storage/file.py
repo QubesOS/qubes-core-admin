@@ -53,8 +53,7 @@ class FilePool(qubes.storage.Pool):
     driver = 'file'
 
     def __init__(self, revisions_to_keep=1, dir_path=None, **kwargs):
-        super(FilePool, self).__init__(revisions_to_keep=revisions_to_keep,
-                                       **kwargs)
+        super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
         self._volumes = []
@@ -182,7 +181,7 @@ class FileVolume(qubes.storage.Volume):
         self.dir_path = dir_path
         assert self.dir_path, "dir_path not specified"
         self._revisions_to_keep = 0
-        super(FileVolume, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if self.snap_on_start:
             img_name = self.source.vid + '-cow.img'
