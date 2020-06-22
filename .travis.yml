@@ -12,7 +12,6 @@ services:
 install:
   - sudo apt-get -y install python3-gi gir1.2-gtk-3.0
   - pip3 install --quiet -r ci/requirements.txt
-  - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
 script:
   - PYTHONPATH=test-packages pylint qubes qubespolicy
   - ./run-tests
