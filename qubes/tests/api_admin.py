@@ -768,7 +768,7 @@ netvm default=True type=vm \n'''
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesException):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam3=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])

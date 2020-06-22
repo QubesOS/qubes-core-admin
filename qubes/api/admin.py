@@ -694,8 +694,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(pool_name not in self.app.pools)
 
         driver_parameters = qubes.storage.driver_parameters(self.arg)
-        self.enforce(
-            all(key in driver_parameters for key in untrusted_pool_config))
+        unexpected_parameters = [key for key in untrusted_pool_config
+                                 if key not in driver_parameters]
+        if unexpected_parameters:
+            raise qubes.exc.QubesException(
+                'unexpected driver options: ' + ' '.join(unexpected_parameters))
         pool_config = untrusted_pool_config
 
         self.fire_event_for_permission(name=pool_name,
