@@ -706,12 +706,10 @@ class Pool:
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
-    def __init__(self, name, revisions_to_keep=1, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, name, revisions_to_keep=1):
         self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
-        kwargs['name'] = self.name
 
     def __eq__(self, other):
         if isinstance(other, Pool):

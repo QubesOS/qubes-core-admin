@@ -47,7 +47,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         super(TC_00_DispVM, self).setUp()
         self.app = TestApp()
         self.app.save = mock.Mock()
-        self.app.pools['default'] = qubes.tests.vm.appvm.TestPool('default')
+        self.app.pools['default'] = qubes.tests.vm.appvm.TestPool(name='default')
         self.app.pools['linux-kernel'] = mock.Mock(**{
             'init_volume.return_value.pool': 'linux-kernel'})
         self.app.vmm.offline_mode = True

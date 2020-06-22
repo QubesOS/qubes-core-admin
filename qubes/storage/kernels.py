@@ -154,8 +154,7 @@ class LinuxKernel(Pool):
     ''' Provides linux kernels '''
     driver = 'linux-kernel'
 
-    def __init__(self, name=None, dir_path=None):
-        assert dir_path, 'Missing dir_path'
+    def __init__(self, *, name, dir_path):
         super().__init__(name=name, revisions_to_keep=0)
         self.dir_path = dir_path
 
