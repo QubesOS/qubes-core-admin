@@ -81,8 +81,7 @@ class ThinPool(qubes.storage.Pool):
     driver = 'lvm_thin'
 
     def __init__(self, volume_group, thin_pool, revisions_to_keep=1, **kwargs):
-        super(ThinPool, self).__init__(revisions_to_keep=revisions_to_keep,
-                                       **kwargs)
+        super().__init__(revisions_to_keep=revisions_to_keep, **kwargs)
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
@@ -292,7 +291,7 @@ class ThinVolume(qubes.storage.Volume):
 
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
-        super(ThinVolume, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.log = logging.getLogger('qubes.storage.lvm.%s' % str(self.pool))
 
         if self.snap_on_start or self.save_on_stop:
@@ -718,7 +717,7 @@ class ThinVolume(qubes.storage.Volume):
                 '/dev/' + self._vid_snap, self.name, self.script,
                 self.rw, self.domain, self.devtype)
 
-        return super(ThinVolume, self).block_device()
+        return super().block_device()
 
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
