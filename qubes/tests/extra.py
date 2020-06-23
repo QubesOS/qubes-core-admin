@@ -211,11 +211,11 @@ def load_tests(loader, tests, pattern):
         if entry.name in exclude_list:
             continue
         try:
-            for test_case in entry.load()():
+            for test_case in entry.resolve()():
                 tests.addTests(loader.loadTestsFromNames([
                     '{}.{}'.format(test_case.__module__, test_case.__name__)]))
         except Exception as err:  # pylint: disable=broad-except
-            def runTest(self):
+            def runTest(self, err=err):
                 raise err
             ExtraLoadFailure = type('ExtraLoadFailure',
                 (qubes.tests.QubesTestCase,),
@@ -229,13 +229,13 @@ def load_tests(loader, tests, pattern):
         if entry.name in exclude_list:
             continue
         try:
-            for test_case in entry.load()():
+            for test_case in entry.resolve()():
                 tests.addTests(loader.loadTestsFromNames(
                     qubes.tests.create_testcases_for_templates(
                         test_case.__name__, test_case,
                         module=sys.modules[test_case.__module__])))
         except Exception as err:  # pylint: disable=broad-except
-            def runTest(self):
+            def runTest(self, err=err):
                 raise err
             ExtraForTemplateLoadFailure = type('ExtraForTemplateLoadFailure',
                 (qubes.tests.QubesTestCase,),
