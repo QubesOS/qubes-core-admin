@@ -447,9 +447,8 @@ class TC_00_AppVMMixin(object):
         sfreq = 4400
         # generate signal
         audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
-        self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'pacat --raw --rate=44100 --channels=1 \
-            --format=float32le > audio_in.raw',
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat > audio_in.raw',
             input=audio_in.astype(np.float32).tobytes()))
         local_user = grp.getgrnam('qubes').gr_mem[0]
         with tempfile.NamedTemporaryFile() as recorded_audio:
