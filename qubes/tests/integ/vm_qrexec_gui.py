@@ -551,11 +551,14 @@ class TC_00_AppVMMixin(object):
                 'parecord --raw --format=float32le --rate=44100 \
                             --channels=1 audio_rec.raw'))
         # give it time to start recording
+        self.loop.run_until_complete(asyncio.sleep(0.5))
         p = subprocess.Popen(['sudo', '-E', '-u', local_user,
             'paplay', '--raw', '--format=float32le',
                     '--rate=44100', '--channels=1'],
             stdin=subprocess.PIPE)
         p.communicate(audio_in.astype(np.float32).tobytes())
+        # wait for possible parecord buffering
+        self.loop.run_until_complete(asyncio.sleep(1))
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pkill parecord || :'))
         _, record_stderr = self.loop.run_until_complete(record.communicate())
