@@ -430,7 +430,7 @@ class TC_00_AppVMMixin(object):
         # and some more...
         self.loop.run_until_complete(asyncio.sleep(1))
 
-    def is_vm_suitable(self):
+    def prepare_audio_vm(self):
         if 'whonix-gw' in self.template:
             self.skipTest('whonix-gw have no audio')
         self.loop.run_until_complete(self.testvm1.start())
@@ -439,10 +439,10 @@ class TC_00_AppVMMixin(object):
                 self.testvm1.run_for_stdio('which parecord'))
         except subprocess.CalledProcessError:
             self.skipTest('pulseaudio-utils not installed in VM')
+        self.wait_for_pulseaudio_startup(self.testvm1)
+
 
     def common_audio_playback(self):
-        self.is_vm_suitable()
-        self.wait_for_pulseaudio_startup(self.testvm1)
         # sine frequency
         sfreq = 4400
         # generate signal
@@ -506,8 +506,6 @@ class TC_00_AppVMMixin(object):
             ['pacmd', 'move-source-output', last_index, '0'])
 
     def common_audio_record_muted(self):
-        self.is_vm_suitable()
-        self.wait_for_pulseaudio_startup(self.testvm1)
         # connect VM's recording source output monitor (instead of mic)
         self._configure_audio_recording(self.testvm1)
 
@@ -534,8 +532,6 @@ class TC_00_AppVMMixin(object):
             self.fail('VM recorded something, even though mic disabled')
 
     def common_audio_record_unmuted(self):
-        self.is_vm_suitable()
-        self.wait_for_pulseaudio_startup(self.testvm1)
         deva = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].attach(deva))
@@ -574,16 +570,19 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_220_audio_play(self):
+        self.prepare_audio_vm()
         self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_221_audio_rec_muted(self):
+        self.prepare_audio_vm()
         self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_222_audio_rec_unmuted(self):
+        self.prepare_audio_vm()
         self.common_audio_record_unmuted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -591,6 +590,7 @@ class TC_00_AppVMMixin(object):
     def test_223_audio_play_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm()
         self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -598,6 +598,7 @@ class TC_00_AppVMMixin(object):
     def test_224_audio_rec_muted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm()
         self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -605,6 +606,7 @@ class TC_00_AppVMMixin(object):
     def test_225_audio_rec_unmuted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm()
         self.common_audio_record_unmuted()
 
     def test_250_resize_private_img(self):
