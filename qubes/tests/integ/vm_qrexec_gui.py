@@ -441,6 +441,22 @@ class TC_00_AppVMMixin(object):
             self.skipTest('pulseaudio-utils not installed in VM')
         self.wait_for_pulseaudio_startup(self.testvm1)
 
+    def check_audio_sample(self, sample, sfreq):
+        rec = np.fromstring(sample, dtype=np.float32)
+        # determine sample size using silence threshold
+        threshold = 10**-3
+        rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
+        if not rec_size:
+            self.fail('only silence detected, no useful audio data')
+        # find zero crossings
+        crossings = np.nonzero((rec[1:] > threshold) &
+                            (rec[:-1] < -threshold))[0]
+        np.seterr('raise')
+        # compare against sine wave frequency
+        rec_freq = rec_size/np.mean(np.diff(crossings))
+        if not sfreq*0.8 < rec_freq < sfreq*1.2:
+            self.fail('frequency {} not in specified range'
+                    .format(rec_freq))
 
     def common_audio_playback(self):
         # sine frequency
@@ -471,16 +487,7 @@ class TC_00_AppVMMixin(object):
             # for some reason sudo do not relay SIGTERM sent above
             subprocess.check_call(['pkill', 'parecord'])
             p.wait()
-            rec = np.fromstring(recorded_audio.file.read(), dtype=np.float32)
-            # find zero crossings
-            crossings = np.nonzero((rec[1:] > 0) & (rec[:-1] < 0))[0]
-            np.seterr('raise')
-            # compare against sine wave frequency
-            rec_freq = len(rec)/np.mean(np.diff(crossings))
-            if not sfreq*0.8 < rec_freq < sfreq*1.2:
-                self.fail('played sound not found in dom0, '
-                          'frequency {} not in specified range'
-                          .format(rec_freq))
+            self.check_audio_sample(recorded_audio.file.read(), sfreq)
 
     def _configure_audio_recording(self, vm):
         '''Connect VM's output-source to sink monitor instead of mic'''
@@ -558,14 +565,7 @@ class TC_00_AppVMMixin(object):
 
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.raw'))
-        rec = np.fromstring(recorded_audio, dtype=np.float32)
-        crossings = np.nonzero((rec[1:] > 0) & (rec[:-1] < 0))[0]
-        np.seterr('raise')
-        rec_freq = len(rec)/np.mean(np.diff(crossings))
-        if not sfreq*0.8 < rec_freq < sfreq*1.2:
-            self.fail('VM not recorded expected data, '
-                    'frequency {} not in specified range'
-                    .format(rec_freq))
+        self.check_audio_sample(recorded_audio, sfreq)
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
