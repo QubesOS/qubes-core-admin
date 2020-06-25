@@ -80,6 +80,7 @@ if __name__ == '__main__':
                 'file-reflink = qubes.storage.reflink:ReflinkPool',
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
+                'callback = qubes.storage.callback:CallbackPool',
             ],
             'qubes.tests.storage': [
                 'test = qubes.tests.storage:TestPool',
