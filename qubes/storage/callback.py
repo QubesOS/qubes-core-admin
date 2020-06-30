@@ -173,17 +173,17 @@ class CallbackPool(qubes.storage.Pool):
                        not to pick easily guessable `conf_id` values for your configuration as untrusted VMs may otherwise
                        execute callbacks meant for other pools.
         '''
-        self._cb_ctor_done = False
-        self._cb_log = logging.getLogger('qubes.storage.callback')
+        self._cb_ctor_done = False #: Boolean to indicate whether or not `__init__` successfully ran through.
+        self._cb_log = logging.getLogger('qubes.storage.callback') #: Logger instance.
         assert isinstance(conf_id, str), 'conf_id is no String. VM attack?!'
-        self._cb_conf_id = conf_id
+        self._cb_conf_id = conf_id #: Configuration ID as passed to `__init__`.
 
         with open(CallbackPool.config_path) as json_file:
             conf_all = json.load(json_file)
         assert isinstance(conf_all, dict), 'The file %s is supposed to define a dict.' % CallbackPool.config_path
 
         try:
-            self._cb_conf = conf_all[self._cb_conf_id]
+            self._cb_conf = conf_all[self._cb_conf_id] #: Dictionary holding all configuration for the given _cb_conf_id.
         except KeyError:
             #we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
             raise NameError('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
@@ -193,7 +193,7 @@ class CallbackPool(qubes.storage.Pool):
         except KeyError:
             raise NameError('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
 
-        self._cb_cmd_arg = json.dumps(self._cb_conf, sort_keys=True, indent=2)
+        self._cb_cmd_arg = json.dumps(self._cb_conf, sort_keys=True, indent=2) #: Full configuration as string in the format required by _callback().
 
         try:
             cls = qubes.utils.get_entry_point_one(qubes.storage.STORAGE_ENTRY_POINT, bdriver)
@@ -201,9 +201,9 @@ class CallbackPool(qubes.storage.Pool):
             raise NameError('The driver %s was not found on your system.' % bdriver)
         assert issubclass(cls, qubes.storage.Pool), 'The class %s must be a subclass of qubes.storage.Pool.' % cls
 
-        self._cb_requires_init = self._check_init()
+        self._cb_requires_init = self._check_init() #: Boolean indicating whether late storage initialization yet has to be done or not.
         bdriver_args = self._cb_conf.get('bdriver_args', {})
-        self._cb_impl = cls(name=name, **bdriver_args)
+        self._cb_impl = cls(name=name, **bdriver_args) #: Instance of the backend pool driver.
 
         super().__init__(name=name, revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)))
         self._cb_ctor_done = True
@@ -357,8 +357,8 @@ class CallbackVolume:
         '''
         assert isinstance(impl, qubes.storage.Volume), 'impl must be a qubes.storage.Volume instance. Found a %s instance.' % impl.__class__
         assert isinstance(pool, CallbackPool), 'pool must use a qubes.storage.CallbackPool instance. Found a %s instance.' % pool.__class__
-        self._cb_pool = pool
-        self._cb_impl = impl
+        self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
+        self._cb_impl = impl #: Backend volume implementation instance.
 
     def _assert_initialized(self, **kwargs):
         return self._cb_pool._assert_initialized(**kwargs) # pylint: disable=protected-access
