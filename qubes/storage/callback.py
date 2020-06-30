@@ -230,7 +230,7 @@ class CallbackPool(qubes.storage.Pool):
     def _callback(self, cb, cb_args=[], log=logging.getLogger('qubes.storage.callback')):
         '''Run a callback.
         :param cb: Callback identifier string.
-        :param cb_args: Optional arguments to pass to the command as first arguments.
+        :param cb_args: Optional arguments to pass to the command as last arguments.
                         Only passed on for the generic command specified as `cmd`, not for `on_xyz` callbacks.
         '''
         if self._cb_ctor_done:
@@ -244,7 +244,7 @@ class CallbackPool(qubes.storage.Pool):
                 args = ' '.join(quote(str(a)) for a in args)
                 cmd = ' '.join(filter(None, [cmd, args]))
                 log.info('callback driver executing (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, cmd))
-                res = subprocess.run(cmd, shell=True, check=True, executable='/bin/bash', stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                res = subprocess.run(['/bin/bash', '-c', cmd], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 #stdout & stderr are reported if the exit code check fails
                 log.debug('callback driver stdout (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, res.stdout))
                 log.debug('callback driver stderr (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, res.stderr))
