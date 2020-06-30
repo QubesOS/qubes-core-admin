@@ -31,7 +31,7 @@ class CallbackPool(qubes.storage.Pool):
 
     All configuration for this pool driver must be done in `/etc/qubes_callback.json`. Each configuration ID `conf_id` can be used
     to create a callback pool with e.g. `qvm-pool -o conf_id=your_conf_id -a pool_name callback`.
-    Check the `qubes_callback.json.example` for an overview of the available options.
+    Check `/usr/share/doc/qubes/qubes_callback.json.example` for an overview of the available options.
 
     Example applications of this driver:
         - custom pool mounts

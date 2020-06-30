@@ -117,11 +117,13 @@ DATADIR ?= /var/lib/qubes
 STATEDIR ?= /var/run/qubes
 LOGDIR ?= /var/log/qubes
 FILESDIR ?= /usr/share/qubes
+DOCDIR ?= /usr/share/doc/qubes
 else ifeq ($(OS),Windows_NT)
 DATADIR ?= c:/qubes
 STATEDIR ?= c:/qubes/state
 LOGDIR ?= c:/qubes/log
 FILESDIR ?= c:/program files/Invisible Things Lab/Qubes
+DOCDIR ?= c:/qubes/doc
 endif
 
 help:
@@ -211,6 +213,9 @@ endif
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
 	rm -f "$(DESTDIR)$(FILESDIR)/templates/README"
+
+	mkdir -p "$(DESTDIR)$(DOCDIR)"
+	cp qubes/storage/callback.json.example "$(DESTDIR)$(DOCDIR)/qubes_callback.json.example"
 
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates

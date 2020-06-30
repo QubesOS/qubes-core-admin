@@ -402,7 +402,7 @@ done
 %{python3_sitelib}/qubes/storage/kernels.py
 %{python3_sitelib}/qubes/storage/lvm.py
 %{python3_sitelib}/qubes/storage/callback.py
-%{python3_sitelib}/qubes/storage/qubes_callback.json.example
+%doc /usr/share/doc/qubes/qubes_callback.json.example
 
 %dir %{python3_sitelib}/qubes/tools
 %dir %{python3_sitelib}/qubes/tools/__pycache__
