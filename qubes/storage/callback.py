@@ -19,7 +19,6 @@
 
 import logging
 import subprocess
-import importlib
 import json
 from shlex import quote
 
@@ -42,7 +41,7 @@ class CallbackPool(qubes.storage.Pool):
 
     **Integration tests**:
     (all of these tests assume the `qubes_callback.json.example` configuration)
-    
+
     Tests that should **fail**:
     ```
     qvm-pool -a test callback
@@ -51,14 +50,14 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-fail-missing-all -a test callback
     qvm-pool -o conf_id=testing-fail-missing-bdriver-args -a test callback
     ```
-    
+
     Tests that should **work**:
     ```
     qvm-pool -o conf_id=testing-succ-file-01 -a test callback
     qvm-pool
     ls /mnt/test01
     qvm-pool -r test && sudo rm -rf /mnt/test01
-    
+
     echo '#!/bin/bash'$'\n''i=0 ; for arg in "$@" ; do echo "$i: $arg" >> /tmp/callback.log ; (( i++)) ; done ; exit 0' > /usr/bin/testCbLogArgs && chmod +x /usr/bin/testCbLogArgs
     rm -f /tmp/callback.log
     qvm-pool -o conf_id=testing-succ-file-02 -a test callback
@@ -81,14 +80,14 @@ class CallbackPool(qubes.storage.Pool):
     qvm-shutdown --wait test-vm && qvm-remove test-vm
     qvm-pool -r test && sudo rm -rf /mnt/test02
     less /tmp/callback.log (2x on_volume_stop, 2x on_volume_remove, on_destroy should be added)
-    
+
     qvm-pool -o conf_id=testing-succ-file-03 -a test callback
     qvm-pool
     ls /mnt/test03
     less /tmp/callback.log (on_ctor & on_setup should be there, no more arguments)
     qvm-pool -r test && sudo rm -rf /mnt/test03
     less /tmp/callback.log (nothing should have been added)
-    
+
     #luks pool test:
     #(make sure /mnt/test.key & /mnt/test.luks don't exist)
     qvm-pool -o conf_id=testing-succ-file-luks -a tluks callback
@@ -111,7 +110,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -r tluks
     sudo cryptsetup status test-luks
     ls -l /mnt/
-    
+
     #ephemeral luks pool test (key in RAM / lost on reboot):
     qvm-pool -o conf_id=testing-succ-file-luks-eph -a teph callback (executes setup() twice due to signal_back)
     ls /mnt/
@@ -163,7 +162,7 @@ class CallbackPool(qubes.storage.Pool):
     '''  # pylint: disable=protected-access
 
     driver = 'callback'
-    config_path='/etc/qubes_callback.json'
+    config_path = '/etc/qubes_callback.json'
 
     def __init__(self, *, name, conf_id):
         '''Constructor.
@@ -217,37 +216,41 @@ class CallbackPool(qubes.storage.Pool):
         return bool(cmd and cmd != '-')
 
     def _init(self, callback=True):
-        #late initialization on first use for e.g. decryption on first usage request
+        ''' Late storage initialization on first use for e.g. decryption on first usage request.
+        :param callback: Whether to trigger the `on_sinit` callback or not.
+        '''
         #maybe TODO: if this function is meant to be run in parallel (are Pool operations asynchronous?), a function lock is required!
         if callback:
             self._callback('on_sinit')
         self._cb_requires_init = False
 
-    def _assertInitialized(self, **kwargs):
+    def _assert_initialized(self, **kwargs):
         if self._cb_requires_init:
             self._init(**kwargs)
 
-    def _callback(self, cb, cb_args=[], log=logging.getLogger('qubes.storage.callback')):
+    def _callback(self, cb, cb_args=None, log=logging.getLogger('qubes.storage.callback')):
         '''Run a callback.
         :param cb: Callback identifier string.
-        :param cb_args: Optional arguments to pass to the command as last arguments.
+        :param cb_args: Optional list of arguments to pass to the command as last arguments.
                         Only passed on for the generic command specified as `cmd`, not for `on_xyz` callbacks.
         '''
         if self._cb_ctor_done:
             cmd = self._cb_conf.get(cb)
             args = [] #on_xyz callbacks should never receive arguments
             if not cmd:
+                if cb_args is None:
+                    cb_args = []
                 cmd = self._cb_conf.get('cmd')
-                args = [ self.name, self._cb_conf['bdriver'], cb, self._cb_cmd_arg, *cb_args ]
+                args = [self.name, self._cb_conf['bdriver'], cb, self._cb_cmd_arg, *cb_args]
             if cmd and cmd != '-':
                 args = filter(None, args)
                 args = ' '.join(quote(str(a)) for a in args)
                 cmd = ' '.join(filter(None, [cmd, args]))
-                log.info('callback driver executing (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, cmd))
+                log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
                 res = subprocess.run(['/bin/bash', '-c', cmd], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 #stdout & stderr are reported if the exit code check fails
-                log.debug('callback driver stdout (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, res.stdout))
-                log.debug('callback driver stderr (%s, %s %s): %s' % (self._cb_conf_id, cb, cb_args, res.stderr))
+                log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stdout)
+                log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stderr)
                 if self._cb_conf.get('signal_back', False) is True:
                     self._process_signals(res.stdout, log)
 
@@ -258,13 +261,8 @@ class CallbackPool(qubes.storage.Pool):
         '''
         for line in out.splitlines():
             if line == 'SIGNAL_setup':
-                log.info('callback driver processing SIGNAL_setup for %s' % self._cb_conf_id)
-                self.setup(callback=False)
-
-    def __del__(self):
-        s = super()
-        if hasattr(s, '__del__'):
-            s.__del__()
+                log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
+                self._setup_cb(callback=False)
 
     @property
     def config(self):
@@ -275,7 +273,7 @@ class CallbackPool(qubes.storage.Pool):
         }
 
     def destroy(self):
-        self._assertInitialized()
+        self._assert_initialized()
         ret = self._cb_impl.destroy()
         self._callback('on_destroy')
         return ret
@@ -283,11 +281,14 @@ class CallbackPool(qubes.storage.Pool):
     def init_volume(self, vm, volume_config):
         return CallbackVolume(self, self._cb_impl.init_volume(vm, volume_config))
 
-    def setup(self, callback=True):
+    def _setup_cb(self, callback=True):
         if callback:
             self._callback('on_setup')
-        self._assertInitialized(callback=False) #setup is assumed to include initialization
+        self._assert_initialized(callback=False) #setup is assumed to include storage initialization
         return self._cb_impl.setup()
+
+    def setup(self):
+        return self._setup_cb()
 
     @property
     def volumes(self):
@@ -304,22 +305,19 @@ class CallbackPool(qubes.storage.Pool):
     def included_in(self, app):
         if self._cb_requires_init:
             return None
-        else:
-            return self._cb_impl.included_in(app)
+        return self._cb_impl.included_in(app)
 
     @property
     def size(self):
         if self._cb_requires_init:
             return None
-        else:
-            return self._cb_impl.size
+        return self._cb_impl.size
 
     @property
     def usage(self):
         if self._cb_requires_init:
             return None
-        else:
-            return self._cb_impl.usage
+        return self._cb_impl.usage
 
     #remaining method & attribute delegation ("delegation pattern")
     #Convention: The methods of this object have priority over the delegated object's methods. All attributes are
@@ -361,72 +359,72 @@ class CallbackVolume:
         self._cb_pool = pool
         self._cb_impl = impl
 
-    def _assertInitialized(self, **kwargs):
-        return self._cb_pool._assertInitialized(**kwargs)
+    def _assert_initialized(self, **kwargs):
+        return self._cb_pool._assert_initialized(**kwargs) # pylint: disable=protected-access
 
-    def _callback(self, cb, cb_args=[], **kwargs):
-        vol_args = [ *cb_args, self.name, self.vid ]
-        return self._cb_pool._callback(cb, cb_args=vol_args, **kwargs)
+    def _callback(self, cb, cb_args=None, **kwargs):
+        if cb_args is None:
+            cb_args = []
+        vol_args = [self.name, self.vid, *cb_args]
+        return self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
 
     def create(self):
-        self._assertInitialized()
+        self._assert_initialized()
         self._callback('on_volume_create')
         return self._cb_impl.create()
 
     def remove(self):
-        self._assertInitialized()
+        self._assert_initialized()
         ret = self._cb_impl.remove()
         self._callback('on_volume_remove')
         return ret
 
     def resize(self, size):
-        self._assertInitialized()
+        self._assert_initialized()
         self._callback('on_volume_resize', cb_args=[size])
         return self._cb_impl.resize(size)
 
     def start(self):
-        self._assertInitialized()
+        self._assert_initialized()
         self._callback('on_volume_start')
         return self._cb_impl.start()
 
     def stop(self):
-        self._assertInitialized()
+        self._assert_initialized()
         ret = self._cb_impl.stop()
         self._callback('on_volume_stop')
         return ret
 
     def import_data(self):
-        self._assertInitialized()
+        self._assert_initialized()
         self._callback('on_volume_import_data')
         return self._cb_impl.import_data()
 
     def import_data_end(self, success):
-        self._assertInitialized()
+        self._assert_initialized()
         ret = self._cb_impl.import_data_end(success)
         self._callback('on_volume_import_data_end', cb_args=[success])
         return ret
 
     def import_volume(self, src_volume):
-        self._assertInitialized()
+        self._assert_initialized()
         self._callback('on_volume_import', cb_args=[src_volume.vid])
         return self._cb_impl.import_volume(src_volume)
 
     def is_dirty(self):
-        if self._cb_pool._cb_requires_init:
+        if self._cb_pool._cb_requires_init: # pylint: disable=protected-access
             return False
-        else:
-            return self._cb_impl.is_dirty()
+        return self._cb_impl.is_dirty()
 
     def is_outdated(self):
-        if self._cb_pool._cb_requires_init:
+        if self._cb_pool._cb_requires_init: # pylint: disable=protected-access
             return False
-        else:
-            return self._cb_impl.is_outdated()
+        return self._cb_impl.is_outdated()
 
     #remaining method & attribute delegation
     def __getattr__(self, name):
-        if name in [ 'block_device', 'verify', 'revert', 'export' ]:
-            self._assertInitialized()
+        if name in ['block_device', 'verify', 'revert', 'export']:
+            self._assert_initialized()
         return getattr(self._cb_impl, name)
 
     def __setattr__(self, name, value):
