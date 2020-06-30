@@ -159,7 +159,7 @@ class CallbackPool(qubes.storage.Pool):
     ls /mnt/
     ls /mnt/ram/ (should be empty)
     ```
-    '''  # pylint: disable=protected-access
+    '''
 
     driver = 'callback'
     config_path = '/etc/qubes_callback.json'
@@ -173,6 +173,7 @@ class CallbackPool(qubes.storage.Pool):
                        not to pick easily guessable `conf_id` values for your configuration as untrusted VMs may otherwise
                        execute callbacks meant for other pools.
         '''
+        #NOTE: attribute names **must** start with `_cb_` unless they are meant to be stored as self._cb_impl attributes
         self._cb_ctor_done = False #: Boolean to indicate whether or not `__init__` successfully ran through.
         self._cb_log = logging.getLogger('qubes.storage.callback') #: Logger instance.
         if not isinstance(conf_id, str):
