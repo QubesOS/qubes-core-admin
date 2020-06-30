@@ -174,6 +174,7 @@ class CallbackPool(qubes.storage.Pool):
                        execute callbacks meant for other pools.
         '''
         self._cb_ctor_done = False
+        self._cb_log = logging.getLogger('qubes.storage.callback')
         assert isinstance(conf_id, str), 'conf_id is no String. VM attack?!'
         self._cb_conf_id = conf_id
 
@@ -228,7 +229,7 @@ class CallbackPool(qubes.storage.Pool):
         if self._cb_requires_init:
             self._init(**kwargs)
 
-    def _callback(self, cb, cb_args=None, log=logging.getLogger('qubes.storage.callback')):
+    def _callback(self, cb, cb_args=None):
         '''Run a callback.
         :param cb: Callback identifier string.
         :param cb_args: Optional list of arguments to pass to the command as last arguments.
@@ -246,22 +247,22 @@ class CallbackPool(qubes.storage.Pool):
                 args = filter(None, args)
                 args = ' '.join(quote(str(a)) for a in args)
                 cmd = ' '.join(filter(None, [cmd, args]))
-                log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
+                self._cb_log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
                 res = subprocess.run(['/bin/bash', '-c', cmd], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 #stdout & stderr are reported if the exit code check fails
-                log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stdout)
-                log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stderr)
+                self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stdout)
+                self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stderr)
                 if self._cb_conf.get('signal_back', False) is True:
-                    self._process_signals(res.stdout, log)
+                    self._process_signals(res.stdout)
 
-    def _process_signals(self, out, log=logging.getLogger('qubes.storage.callback')):
+    def _process_signals(self, out):
         '''Process any signals found inside a string.
         :param out: String to check for signals. Each signal must be on a dedicated line.
                     They are executed in the order they are found. Callbacks are not triggered.
         '''
         for line in out.splitlines():
             if line == 'SIGNAL_setup':
-                log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
+                self._cb_log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
                 self._setup_cb(callback=False)
 
     @property
