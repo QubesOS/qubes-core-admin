@@ -175,31 +175,35 @@ class CallbackPool(qubes.storage.Pool):
         '''
         self._cb_ctor_done = False #: Boolean to indicate whether or not `__init__` successfully ran through.
         self._cb_log = logging.getLogger('qubes.storage.callback') #: Logger instance.
-        assert isinstance(conf_id, str), 'conf_id is no String. VM attack?!'
+        if not isinstance(conf_id, str):
+            raise qubes.storage.StoragePoolException('conf_id is no String. VM attack?!')
         self._cb_conf_id = conf_id #: Configuration ID as passed to `__init__`.
 
         with open(CallbackPool.config_path) as json_file:
             conf_all = json.load(json_file)
-        assert isinstance(conf_all, dict), 'The file %s is supposed to define a dict.' % CallbackPool.config_path
+        if not isinstance(conf_all, dict):
+            raise qubes.storage.StoragePoolException('The file %s is supposed to define a dict.' % CallbackPool.config_path)
 
         try:
             self._cb_conf = conf_all[self._cb_conf_id] #: Dictionary holding all configuration for the given _cb_conf_id.
         except KeyError:
             #we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
-            raise NameError('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
+            raise qubes.storage.StoragePoolException('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
 
         try:
             bdriver = self._cb_conf['bdriver']
         except KeyError:
-            raise NameError('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
+            raise qubes.storage.StoragePoolException('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
 
         self._cb_cmd_arg = json.dumps(self._cb_conf, sort_keys=True, indent=2) #: Full configuration as string in the format required by _callback().
 
         try:
             cls = qubes.utils.get_entry_point_one(qubes.storage.STORAGE_ENTRY_POINT, bdriver)
         except KeyError:
-            raise NameError('The driver %s was not found on your system.' % bdriver)
-        assert issubclass(cls, qubes.storage.Pool), 'The class %s must be a subclass of qubes.storage.Pool.' % cls
+            raise qubes.storage.StoragePoolException('The driver %s was not found on your system.' % bdriver)
+
+        if not issubclass(cls, qubes.storage.Pool):
+            raise qubes.storage.StoragePoolException('The class %s must be a subclass of qubes.storage.Pool.' % cls)
 
         self._cb_requires_init = self._check_init() #: Boolean indicating whether late storage initialization yet has to be done or not.
         bdriver_args = self._cb_conf.get('bdriver_args', {})
