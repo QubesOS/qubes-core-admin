@@ -17,6 +17,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+# pylint: disable=line-too-long
+
 import logging
 import subprocess
 import json
