@@ -809,10 +809,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.name)
 
     @property
-    def icon_path(self):
-        return os.path.join(self.dir_path, 'icon.png')
-
-    @property
     def conf_file(self):
         return os.path.join(self.dir_path, 'libvirt.xml')
 
@@ -954,17 +950,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
-        if self.icon_path:
-            try:
-                os.remove(self.icon_path)
-            except OSError:
-                pass
-            if hasattr(os, "symlink"):
-                os.symlink(newvalue.icon_path, self.icon_path)
-                subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
-            else:
-                shutil.copy(newvalue.icon_path, self.icon_path)
-
         # icon is calculated based on label
         self.fire_event('property-reset:icon', name='icon')
 
@@ -1687,15 +1672,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                    'creation'.format(self.dir_path))
             raise
 
-        if os.path.exists(self.icon_path):
-            os.unlink(self.icon_path)
-        self.log.info('Creating icon symlink: {} -> {}'.format(
-            self.icon_path, self.label.icon_path))
-        if hasattr(os, "symlink"):
-            os.symlink(self.label.icon_path, self.icon_path)
-        else:
-            shutil.copy(self.label.icon_path, self.icon_path)
-
         # fire hooks
         yield from self.fire_event_async('domain-create-on-disk')
 
@@ -1753,21 +1729,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         yield from self.storage.clone(src)
         self.storage.verify()
         assert self.volumes != {}
-
-        if src.icon_path is not None \
-                and os.path.exists(src.icon_path) \
-                and self.icon_path is not None:
-            if os.path.islink(src.icon_path):
-                icon_path = os.readlink(src.icon_path)
-                self.log.info(
-                    'Creating icon symlink {} -> {}'.format(
-                        self.icon_path, icon_path))
-                os.symlink(icon_path, self.icon_path)
-            else:
-                self.log.info(
-                    'Copying icon {} -> {}'.format(
-                        src.icon_path, self.icon_path))
-                shutil.copy(src.icon_path, self.icon_path)
 
         # fire hooks
         yield from self.fire_event_async('domain-clone-files', src=src)
