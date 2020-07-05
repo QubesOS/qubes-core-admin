@@ -518,9 +518,14 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.app.save()
 
     def get_rootimg_checksum(self):
-        return subprocess.check_output(
-            ['sha1sum', self.test_template.volumes['root'].export()]).\
-            decode().split(' ')[0]
+        path = self.loop.run_until_complete(
+            self.test_template.storage.export('root'))
+        try:
+            return subprocess.check_output(['sha1sum', path]).\
+                decode().split(' ')[0]
+        finally:
+            self.loop.run_until_complete(
+                self.test_template.storage.export_end('root', path))
 
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()

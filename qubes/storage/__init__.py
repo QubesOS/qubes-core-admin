@@ -203,6 +203,9 @@ class Volume:
             volume data. If extracting volume data require something more
             than just reading from file (for example connecting to some other
             domain, or decompressing the data), the returned path may be a pipe.
+
+            This can be implemented as a coroutine.
+
         '''
         raise self._not_implemented("export")
 
@@ -646,14 +649,14 @@ class Storage:
                     for target in parsed_xml.xpath(
                         "//domain/devices/disk/target")}
 
+    @asyncio.coroutine
     def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            return volume.export()
-
-        return self.vm.volumes[volume].export()
+        if not isinstance(volume, Volume):
+            volume = self.vm.volumes[volume]
+        return (yield from qubes.utils.coro_maybe(volume.export()))
 
     @asyncio.coroutine
     def export_end(self, volume, export_path):

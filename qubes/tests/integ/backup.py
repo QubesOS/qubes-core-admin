@@ -36,6 +36,7 @@ import qubes.exc
 import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
+import qubes.utils
 import qubes.vm
 import qubes.vm.appvm
 import qubes.vm.templatevm
@@ -106,6 +107,13 @@ class BackupTestsMixin(object):
 
         f.close()
 
+    def fill_image_vm(self, vm, volume, size=None, sparse=False):
+        path = self.loop.run_until_complete(vm.storage.export(volume))
+        try:
+            self.fill_image(path, size=size, sparse=sparse)
+        finally:
+            self.loop.run_until_complete(vm.storage.export_end(volume, path))
+
     # NOTE: this was create_basic_vms
     def create_backup_vms(self, pool=None):
         template = self.app.default_template
@@ -120,7 +128,7 @@ class BackupTestsMixin(object):
             testnet.create_on_disk(pool=pool))
         testnet.features['service.ntpd'] = True
         vms.append(testnet)
-        self.fill_image(testnet.storage.export('private'), 20*1024*1024)
+        self.fill_image_vm(testnet, 'private', 20*1024*1024)
 
         vmname = self.make_vm_name('test1')
         self.log.debug("Creating %s" % vmname)
@@ -130,7 +138,7 @@ class BackupTestsMixin(object):
         self.loop.run_until_complete(
             testvm1.create_on_disk(pool=pool))
         vms.append(testvm1)
-        self.fill_image(testvm1.storage.export('private'), 100 * 1024 * 1024)
+        self.fill_image_vm(testvm1, 'private', 100 * 1024 * 1024)
 
         vmname = self.make_vm_name('testhvm1')
         self.log.debug("Creating %s" % vmname)
@@ -140,8 +148,7 @@ class BackupTestsMixin(object):
                                       label='red')
         self.loop.run_until_complete(
             testvm2.create_on_disk(pool=pool))
-        self.fill_image(testvm2.storage.export('root'), 1024 * 1024 * 1024, \
-            True)
+        self.fill_image_vm(testvm2, 'root', 1024 * 1024 * 1024, True)
         vms.append(testvm2)
 
         vmname = self.make_vm_name('template')
@@ -150,7 +157,7 @@ class BackupTestsMixin(object):
             name=vmname, label='red')
         self.loop.run_until_complete(
             testvm3.create_on_disk(pool=pool))
-        self.fill_image(testvm3.storage.export('root'), 100 * 1024 * 1024, True)
+        self.fill_image_vm(testvm3, 'root', 100 * 1024 * 1024, True)
         vms.append(testvm3)
 
         vmname = self.make_vm_name('custom')
@@ -262,11 +269,14 @@ class BackupTestsMixin(object):
             for name, volume in vm.volumes.items():
                 if not volume.rw or not volume.save_on_stop:
                     continue
-                vol_path = volume.export()
+                vol_path = self.loop.run_until_complete(
+                    qubes.utils.coro_maybe(volume.export()))
                 hasher = hashlib.sha1()
                 with open(vol_path, 'rb') as afile:
                     for buf in iter(lambda: afile.read(4096000), b''):
                         hasher.update(buf)
+                self.loop.run_until_complete(
+                    qubes.utils.coro_maybe(volume.export_end(vol_path)))
                 hashes[vm.name][name] = hasher.hexdigest()
         return hashes
 
@@ -382,9 +392,9 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
             self.fill_image(
                 os.path.join(self.hvmtemplate.dir_path, '00file'),
                 195 * 1024 * 1024 - 4096 * 3)
-            self.fill_image(self.hvmtemplate.storage.export('private'),
+            self.fill_image_vm(self.hvmtemplate, 'private',
                             195 * 1024 * 1024 - 4096 * 3)
-            self.fill_image(self.hvmtemplate.storage.export('root'), 1024 * 1024 * 1024,
+            self.fill_image_vm(self.hvmtemplate, 'root', 1024 * 1024 * 1024,
                             sparse=True)
             vms.append(self.hvmtemplate)
             self.app.save()

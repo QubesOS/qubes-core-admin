@@ -35,6 +35,7 @@ import tempfile
 from contextlib import contextmanager, suppress
 
 import qubes.storage
+import qubes.utils
 
 FICLONE = 1074041865        # defined in <linux/fs.h>, assuming sizeof(int)==4
 LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
@@ -297,15 +298,22 @@ class ReflinkVolume(qubes.storage.Volume):
         _import_data_end))
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @asyncio.coroutine
     def import_volume(self, src_volume):
         if self.save_on_stop:
             try:
                 success = False
-                _copy_file(src_volume.export(), self._path_import)
+                src_path = yield from qubes.utils.coro_maybe(
+                    src_volume.export())
+                try:
+                    yield from _coroutinized(_copy_file)(
+                        src_path, self._path_import)
+                finally:
+                    yield from qubes.utils.coro_maybe(
+                        src_volume.export_end(src_path))
                 success = True
             finally:
-                self._import_data_end(success)
+                yield from _coroutinized(self._import_data_end)(success)
         return self
 
     def _path_revision(self, number, timestamp=None):

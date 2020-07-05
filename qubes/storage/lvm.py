@@ -518,15 +518,19 @@ class ThinVolume(qubes.storage.Volume):
                    self._vid_import.split('/')[1],
                    str(src_volume.size)]
             yield from qubes_lvm_coro(cmd, self.log)
-            src_path = src_volume.export()
-            cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
-                'conv=sparse', 'status=none', 'bs=128K']
-            if not os.access('/dev/' + self._vid_import, os.W_OK) or \
-                    not os.access(src_path, os.R_OK):
-                cmd.insert(0, 'sudo')
+            src_path = yield from qubes.utils.coro_maybe(src_volume.export())
+            try:
+                cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
+                    'conv=sparse', 'status=none', 'bs=128K']
+                if not os.access('/dev/' + self._vid_import, os.W_OK) or \
+                        not os.access(src_path, os.R_OK):
+                    cmd.insert(0, 'sudo')
 
-            p = yield from asyncio.create_subprocess_exec(*cmd)
-            yield from p.wait()
+                p = yield from asyncio.create_subprocess_exec(*cmd)
+                yield from p.wait()
+            finally:
+                yield from qubes.utils.coro_maybe(
+                    src_volume.export_end(src_path))
             if p.returncode != 0:
                 cmd = ['remove', self._vid_import]
                 yield from qubes_lvm_coro(cmd, self.log)
