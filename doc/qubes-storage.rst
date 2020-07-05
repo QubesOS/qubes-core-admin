@@ -99,6 +99,10 @@ Methods and properties required to be implemented by the volume class:
  - :py:meth:`~qubes.storage.Volume.export` - return a path to be read to extract
    volume data; for complex formats, this can be a pipe (connected to some
    data-extracting process)
+ - :py:meth:`~qubes.storage.Volume.export_end` - cleanup after exporting the
+   data; this function is called when the path returned by
+   :py:meth:`~qubes.storage.Volume.export` is not used anymore. This method
+   optional - some storage drivers may not implement it if not needed.
  - :py:meth:`~qubes.storage.Volume.import_data` - return a path the data should
    be written to, to import volume data; for complex formats, this can be pipe
    (connected to some data-importing process)

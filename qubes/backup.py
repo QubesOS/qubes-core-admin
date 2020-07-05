@@ -394,7 +394,8 @@ class Backup:
                     volume.export,
                     subdir,
                     name + '.img',
-                    volume.usage))
+                    volume.usage,
+                    cleanup_func=volume.export_end))
 
             vm_files.extend(self.FileToBackup(i, subdir)
                 for i in vm.fire_event('backup-get-files'))
