@@ -96,6 +96,18 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -r test && sudo rm -rf /mnt/test02
     less /tmp/callback.log (2x on_volume_stop, 2x on_volume_remove, on_destroy should be added)
 
+    qvm-pool -o conf_id=testing-succ-file-02 -a test callback
+    qvm-create -l red -P test test-dvm
+    qvm-prefs test-dvm template_for_dispvms True
+    qvm-run --dispvm test-dvm xterm
+    grep -E 'test-dvm|disp' /var/lib/qubes/qubes.xml
+    qvm-volume | grep -E 'test-dvm|disp' (unexpected by most users: Qubes OS only places the private volume on the pool, cf. #5933)
+    ls /mnt/test02/appvms/
+    cat /tmp/callback.log
+    #close the disposable VM
+    qvm-remove test-dvm
+    qvm-pool -r test
+
     qvm-pool -o conf_id=testing-succ-file-03 -a test callback
     qvm-pool
     ls /mnt/test03
@@ -135,7 +147,8 @@ class CallbackPool(qubes.storage.Pool):
     sudo cryptsetup status test-eph
     qvm-create -l red -P teph test-eph (should execute two on_volume_create callbacks)
     qvm-volume | grep test-eph
-    ls /mnt/test_eph/appvms
+    ls /mnt/test_eph/appvms (should have private.img and volatile.img)
+    ls /var/lib/qubes/appvms/test-eph (should only have the icon)
     qvm-start test-eph
     #reboot
     ls /mnt/ram (should be empty)
@@ -343,7 +356,9 @@ class CallbackPool(qubes.storage.Pool):
         return ret
 
     def init_volume(self, vm, volume_config):
-        return CallbackVolume(self, self._cb_impl.init_volume(vm, volume_config))
+        ret = CallbackVolume(self, self._cb_impl.init_volume(vm, volume_config))
+        volume_config['pool'] = self
+        return ret
 
     @asyncio.coroutine
     def setup(self):
@@ -417,6 +432,7 @@ class CallbackVolume:
         '''
         assert isinstance(impl, qubes.storage.Volume), 'impl must be a qubes.storage.Volume instance. Found a %s instance.' % impl.__class__
         assert isinstance(pool, CallbackPool), 'pool must use a qubes.storage.CallbackPool instance. Found a %s instance.' % pool.__class__
+        impl.pool = pool #enforce the CallbackPool instance as the parent pool of the volume
         self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
         self._cb_impl = impl #: Backend volume implementation instance.
 
