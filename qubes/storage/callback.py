@@ -442,7 +442,7 @@ class CallbackVolume(qubes.storage.Volume):
     def _callback(self, cb, cb_args=None, **kwargs):
         if cb_args is None:
             cb_args = []
-        vol_args = [self.name, self.vid, *cb_args]
+        vol_args = [self.name, self.vid, self.source, *cb_args]
         yield from self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
 
     @asyncio.coroutine
