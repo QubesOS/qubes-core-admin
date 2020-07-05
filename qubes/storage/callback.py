@@ -101,7 +101,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-prefs test-dvm template_for_dispvms True
     qvm-run --dispvm test-dvm xterm
     grep -E 'test-dvm|disp' /var/lib/qubes/qubes.xml
-    qvm-volume | grep -E 'test-dvm|disp' (unexpected by most users: Qubes OS only places the private volume on the pool, cf. #5933)
+    qvm-volume | grep -E 'test-dvm|disp' (unexpected by most users: Qubes OS places only the private volume on the pool, cf. #5933)
     ls /mnt/test02/appvms/
     cat /tmp/callback.log
     #close the disposable VM
@@ -416,13 +416,10 @@ class CallbackPool(qubes.storage.Pool):
         else:
             delattr(self._cb_impl, name)
 
-class CallbackVolume:
+class CallbackVolume(qubes.storage.Volume):
     ''' Proxy volume adding callback functionality to other volumes.
 
-        Required to support the `on_sinit` callback for late storage initialization.
-
-        **Important for Developers**: Even though instances of this class behave exactly as `qubes.storage.Volume` instances,
-                                    they are no such instances (e.g. `assert isinstance(obj, qubes.storage.Volume)` will fail).
+        Required to support the `on_sinit` and other callbacks.
     '''
 
     def __init__(self, pool, impl):
@@ -435,6 +432,7 @@ class CallbackVolume:
         impl.pool = pool #enforce the CallbackPool instance as the parent pool of the volume
         self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
         self._cb_impl = impl #: Backend volume implementation instance.
+        #NOTE: we must *not* call super().__init()__ as it would prevent attribute delegation
 
     @asyncio.coroutine
     def _assert_initialized(self, **kwargs):
@@ -509,6 +507,22 @@ class CallbackVolume:
         if self._cb_pool._cb_requires_init:
             return False
         return self._cb_impl.is_outdated()
+
+    @property
+    def revisions(self):
+        return self._cb_impl.revisions
+
+    @property
+    def size(self):
+        return self._cb_impl.size
+
+    @size.setter
+    def size(self, size):
+        self._cb_impl.size = size
+
+    @property
+    def config(self):
+        return self._cb_impl.config
 
     def block_device(self):
         # pylint: disable=protected-access
