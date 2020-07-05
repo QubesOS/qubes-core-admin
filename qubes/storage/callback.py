@@ -78,23 +78,23 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-succ-file-02 -a test callback
     qvm-pool
     ls /mnt/test02
-    less /tmp/callback.log (on_ctor & on_setup should be there and in that order)
+    less /tmp/callback.log (post_ctor & pre_setup should be there and in that order)
     qvm-create -l red -P test test-vm
-    cat /tmp/callback.log (2x on_volume_create should be added)
+    cat /tmp/callback.log (2x pre_volume_create should be added)
     qvm-start test-vm
     qvm-volume | grep test-vm
     grep test-vm /var/lib/qubes/qubes.xml
     ls /mnt/test02/appvms/
-    cat /tmp/callback.log (2x on_volume_start should be added)
+    cat /tmp/callback.log (2x pre_volume_start should be added)
     qvm-shutdown test-vm
-    cat /tmp/callback.log (2x on_volume_stop should be added)
+    cat /tmp/callback.log (2x post_volume_stop should be added)
     #reboot
-    cat /tmp/callback.log (only (!) on_ctor should be there)
+    cat /tmp/callback.log (only (!) post_ctor should be there)
     qvm-start test-vm
-    cat /tmp/callback.log (on_sinit & 2x on_volume_start should be added)
+    cat /tmp/callback.log (pre_sinit & 2x pre_volume_start should be added)
     qvm-shutdown --wait test-vm && qvm-remove test-vm
     qvm-pool -r test && sudo rm -rf /mnt/test02
-    less /tmp/callback.log (2x on_volume_stop, 2x on_volume_remove, on_destroy should be added)
+    less /tmp/callback.log (2x post_volume_stop, 2x post_volume_remove, post_destroy should be added)
 
     qvm-pool -o conf_id=testing-succ-file-02 -a test callback
     qvm-create -l red -P test test-dvm
@@ -111,7 +111,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-succ-file-03 -a test callback
     qvm-pool
     ls /mnt/test03
-    less /tmp/callback.log (on_ctor & on_setup should be there, no more arguments)
+    less /tmp/callback.log (post_ctor & pre_setup should be there, no more arguments)
     qvm-pool -r test && sudo rm -rf /mnt/test03
     less /tmp/callback.log (nothing should have been added)
 
@@ -123,13 +123,13 @@ class CallbackPool(qubes.storage.Pool):
     sudo cryptsetup status test-luks
     sudo mount | grep test_luks
     ls /mnt/test_luks/
-    qvm-create -l red -P tluks test-luks (journalctl -b0 should show two on_volume_create callbacks)
+    qvm-create -l red -P tluks test-luks (journalctl -b0 should show two pre_volume_create callbacks)
     ls /mnt/test_luks/appvms/test-luks/
     qvm-volume | grep test-luks
     qvm-start test-luks
     #reboot
     grep luks /var/lib/qubes/qubes.xml
-    sudo cryptsetup status test-luks (should be inactive due to late on_sinit!)
+    sudo cryptsetup status test-luks (should be inactive due to late pre_sinit!)
     qvm-start test-luks
     sudo mount | grep test_luks
     qvm-shutdown --wait test-luks
@@ -145,7 +145,7 @@ class CallbackPool(qubes.storage.Pool):
     md5sum /mnt/ram/teph.key (1)
     sudo mount|grep -E 'ram|test'
     sudo cryptsetup status test-eph
-    qvm-create -l red -P teph test-eph (should execute two on_volume_create callbacks)
+    qvm-create -l red -P teph test-eph (should execute two pre_volume_create callbacks)
     qvm-volume | grep test-eph
     ls /mnt/test_eph/appvms (should have private.img and volatile.img)
     ls /var/lib/qubes/appvms/test-eph (should only have the icon)
@@ -242,11 +242,11 @@ class CallbackPool(qubes.storage.Pool):
 
         super().__init__(name=name, revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)))
         self._cb_ctor_done = True
-        self._callback_nocoro('on_ctor')
+        self._callback_nocoro('post_ctor')
 
     def _check_init(self):
         ''' Whether or not this object requires late storage initialization via callback. '''
-        cmd = self._cb_conf.get('on_sinit')
+        cmd = self._cb_conf.get('pre_sinit')
         if not cmd:
             cmd = self._cb_conf.get('cmd')
         return bool(cmd and cmd != '-')
@@ -254,12 +254,12 @@ class CallbackPool(qubes.storage.Pool):
     @asyncio.coroutine
     def _init(self, callback=True):
         ''' Late storage initialization on first use for e.g. decryption on first usage request.
-        :param callback: Whether to trigger the `on_sinit` callback or not.
+        :param callback: Whether to trigger the `pre_sinit` callback or not.
         '''
         with self._cb_init_lock:
             if self._cb_requires_init:
                 if callback:
-                    yield from self._callback('on_sinit')
+                    yield from self._callback('pre_sinit')
                 self._cb_requires_init = False
 
     def _init_nocoro(self, callback=True):
@@ -267,7 +267,7 @@ class CallbackPool(qubes.storage.Pool):
         with self._cb_init_lock:
             if self._cb_requires_init:
                 if callback:
-                    self._callback_nocoro('on_sinit')
+                    self._callback_nocoro('pre_sinit')
                 self._cb_requires_init = False
 
     @asyncio.coroutine
@@ -352,7 +352,7 @@ class CallbackPool(qubes.storage.Pool):
     def destroy(self):
         yield from self._assert_initialized()
         ret = yield from coro_maybe(self._cb_impl.destroy())
-        yield from self._callback('on_destroy')
+        yield from self._callback('post_destroy')
         return ret
 
     def init_volume(self, vm, volume_config):
@@ -363,7 +363,7 @@ class CallbackPool(qubes.storage.Pool):
     @asyncio.coroutine
     def setup(self):
         yield from self._assert_initialized(callback=False) #setup is assumed to include storage initialization
-        yield from self._callback('on_setup')
+        yield from self._callback('pre_setup')
         return (yield from coro_maybe(self._cb_impl.setup()))
 
     @property
@@ -419,7 +419,7 @@ class CallbackPool(qubes.storage.Pool):
 class CallbackVolume(qubes.storage.Volume):
     ''' Proxy volume adding callback functionality to other volumes.
 
-        Required to support the `on_sinit` and other callbacks.
+        Required to support the `pre_sinit` and other callbacks.
     '''
 
     def __init__(self, pool, impl):
@@ -432,7 +432,7 @@ class CallbackVolume(qubes.storage.Volume):
         impl.pool = pool #enforce the CallbackPool instance as the parent pool of the volume
         self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
         self._cb_impl = impl #: Backend volume implementation instance.
-        #NOTE: we must *not* call super().__init()__ as it would prevent attribute delegation
+        #NOTE: we must *not* call super().__init__() as it would prevent attribute delegation
 
     @asyncio.coroutine
     def _assert_initialized(self, **kwargs):
@@ -448,52 +448,52 @@ class CallbackVolume(qubes.storage.Volume):
     @asyncio.coroutine
     def create(self):
         yield from self._assert_initialized()
-        yield from self._callback('on_volume_create')
+        yield from self._callback('pre_volume_create')
         return (yield from coro_maybe(self._cb_impl.create()))
 
     @asyncio.coroutine
     def remove(self):
         yield from self._assert_initialized()
         ret = yield from coro_maybe(self._cb_impl.remove())
-        yield from self._callback('on_volume_remove')
+        yield from self._callback('post_volume_remove')
         return ret
 
     @asyncio.coroutine
     def resize(self, size):
         yield from self._assert_initialized()
-        yield from self._callback('on_volume_resize', cb_args=[size])
+        yield from self._callback('pre_volume_resize', cb_args=[size])
         return (yield from coro_maybe(self._cb_impl.resize(size)))
 
     @asyncio.coroutine
     def start(self):
         yield from self._assert_initialized()
-        yield from self._callback('on_volume_start')
+        yield from self._callback('pre_volume_start')
         return (yield from coro_maybe(self._cb_impl.start()))
 
     @asyncio.coroutine
     def stop(self):
         yield from self._assert_initialized()
         ret = yield from coro_maybe(self._cb_impl.stop())
-        yield from self._callback('on_volume_stop')
+        yield from self._callback('post_volume_stop')
         return ret
 
     @asyncio.coroutine
     def import_data(self):
         yield from self._assert_initialized()
-        yield from self._callback('on_volume_import_data')
+        yield from self._callback('pre_volume_import_data')
         return (yield from coro_maybe(self._cb_impl.import_data()))
 
     @asyncio.coroutine
     def import_data_end(self, success):
         yield from self._assert_initialized()
         ret = yield from coro_maybe(self._cb_impl.import_data_end(success))
-        yield from self._callback('on_volume_import_data_end', cb_args=[success])
+        yield from self._callback('post_volume_import_data_end', cb_args=[success])
         return ret
 
     @asyncio.coroutine
     def import_volume(self, src_volume):
         yield from self._assert_initialized()
-        yield from self._callback('on_volume_import', cb_args=[src_volume.vid])
+        yield from self._callback('pre_volume_import', cb_args=[src_volume.vid])
         return (yield from coro_maybe(self._cb_impl.import_volume(src_volume)))
 
     def is_dirty(self):
