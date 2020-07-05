@@ -252,7 +252,8 @@ class Backup:
     # pylint: disable=too-many-instance-attributes
     class FileToBackup:
         # pylint: disable=too-few-public-methods
-        def __init__(self, file_path_or_func, subdir=None, name=None, size=None):
+        def __init__(self, file_path_or_func, subdir=None, name=None, size=None,
+                     cleanup_func=None):
             """Store a single file to backup
 
             :param file_path_or_func: path to the file or a function
@@ -262,6 +263,8 @@ class Backup:
             :param subdir: directory in a backup archive to place file in
             :param name: name of the file in the backup archive
             :param size: size
+            :param cleanup_func: function to call after processing the file;
+                the function will get the file path as an argument
             """
             if callable(file_path_or_func):
                 assert subdir is not None \
@@ -295,6 +298,8 @@ class Backup:
             self.subdir = subdir
             #: use this name in the archive (aka rename)
             self.name = name
+            #: function to call after processing the file
+            self.cleanup_func = cleanup_func
 
     class VMToBackup:
         # pylint: disable=too-few-public-methods
@@ -674,6 +679,10 @@ class Backup:
                     except ProcessLookupError:
                         pass
                     raise
+                finally:
+                    if file_info.cleanup_func is not None:
+                        yield from qubes.utils.coro_maybe(
+                            file_info.cleanup_func(path))
 
                 yield from tar_sparse.wait()
                 if tar_sparse.returncode:
