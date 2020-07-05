@@ -85,13 +85,13 @@ class CallbackPool(qubes.storage.Pool):
     qvm-volume | grep test-vm
     grep test-vm /var/lib/qubes/qubes.xml
     ls /mnt/test02/appvms/
-    cat /tmp/callback.log (2x pre_volume_start should be added)
+    cat /tmp/callback.log (2x pre_volume_start & 2x post_volume_start should be added)
     qvm-shutdown test-vm
     cat /tmp/callback.log (2x post_volume_stop should be added)
     #reboot
     cat /tmp/callback.log (only (!) post_ctor should be there)
     qvm-start test-vm
-    cat /tmp/callback.log (pre_sinit & 2x pre_volume_start should be added)
+    cat /tmp/callback.log (pre_sinit & 2x pre_volume_start & 2x post_volume_start should be added)
     qvm-shutdown --wait test-vm && qvm-remove test-vm
     qvm-pool -r test && sudo rm -rf /mnt/test02
     less /tmp/callback.log (2x post_volume_stop, 2x post_volume_remove, post_destroy should be added)
@@ -468,7 +468,9 @@ class CallbackVolume(qubes.storage.Volume):
     def start(self):
         yield from self._assert_initialized()
         yield from self._callback('pre_volume_start')
-        return (yield from coro_maybe(self._cb_impl.start()))
+        ret = yield from coro_maybe(self._cb_impl.start())
+        yield from self._callback('post_volume_start')
+        return ret
 
     @asyncio.coroutine
     def stop(self):

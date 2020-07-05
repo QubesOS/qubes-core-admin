@@ -16,6 +16,7 @@
         "post_volume_remove": "Called after removal of a volume of the pool. Same as above otherwise.",
         "pre_volume_resize": "Called before resizing a volume of the pool. Same as above otherwise.",
         "pre_volume_start": "Called before starting a volume of the pool. Same as above otherwise.",
+        "post_volume_start": "Called after starting a volume of the pool. Same as above otherwise.",
         "post_volume_stop": "Called after stopping a volume of the pool. Same as above otherwise.",
         "pre_volume_import": "Called before importing a volume from elsewhere. Same as above otherwise.",
         "pre_volume_import_data": "Called before importing a volume from elsewhere. Same as above otherwise.",
