@@ -427,12 +427,13 @@ class CallbackVolume(qubes.storage.Volume):
         :param pool: `CallbackPool` of this volume
         :param impl: `qubes.storage.Volume` object to wrap
         '''
+        # pylint: disable=super-init-not-called
+        #NOTE: we must *not* call super().__init__() as it would prevent attribute delegation
         assert isinstance(impl, qubes.storage.Volume), 'impl must be a qubes.storage.Volume instance. Found a %s instance.' % impl.__class__
         assert isinstance(pool, CallbackPool), 'pool must use a qubes.storage.CallbackPool instance. Found a %s instance.' % pool.__class__
         impl.pool = pool #enforce the CallbackPool instance as the parent pool of the volume
         self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
         self._cb_impl = impl #: Backend volume implementation instance.
-        #NOTE: we must *not* call super().__init__() as it would prevent attribute delegation
 
     @asyncio.coroutine
     def _assert_initialized(self, **kwargs):
@@ -480,10 +481,10 @@ class CallbackVolume(qubes.storage.Volume):
         return ret
 
     @asyncio.coroutine
-    def import_data(self):
+    def import_data(self, size):
         yield from self._assert_initialized()
-        yield from self._callback('pre_volume_import_data')
-        return (yield from coro_maybe(self._cb_impl.import_data()))
+        yield from self._callback('pre_volume_import_data', cb_args=[size])
+        return (yield from coro_maybe(self._cb_impl.import_data(size)))
 
     @asyncio.coroutine
     def import_data_end(self, success):
@@ -534,12 +535,12 @@ class CallbackVolume(qubes.storage.Volume):
             return None
         return self._cb_impl.block_device()
 
-    def export(self, volume):
+    def export(self):
         # pylint: disable=protected-access
         #TODO: once this becomes a coroutine in the Volume class, avoid the below blocking & potentially exception-throwing code; maybe also add a callback
         if self._cb_pool._cb_requires_init:
             self._cb_pool._init_nocoro()
-        return self._cb_impl.export(volume)
+        return self._cb_impl.export()
 
     @asyncio.coroutine
     def verify(self):
