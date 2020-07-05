@@ -251,6 +251,7 @@ def wait_on_fail(func):
                     lambda: asyncio.StreamReaderProtocol(reader),
                     sys.stdin))
             self.loop.run_until_complete(reader.readline())
+            transport.close()
             raise
 
     return wrapper
