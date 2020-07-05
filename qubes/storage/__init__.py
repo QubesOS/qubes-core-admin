@@ -423,7 +423,7 @@ class Storage:
         if 'internal' in volume_config:
             # migrate old config
             del volume_config['internal']
-        volume = pool.init_volume(self.vm, volume_config)
+        volume = pool.init_volume(self.vm, volume_config.copy())
         self.vm.volumes[name] = volume
         return volume
 
