@@ -536,9 +536,8 @@ class Backup:
         if retcode:
             raise qubes.exc.QubesException(
                 "Failed to compute hmac of header file: "
-                + scrypt.stderr.read())
+                + (yield from scrypt.stderr.read()).decode())
         return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
-
 
     def _send_progress_update(self):
         if not self.total_backup_bytes:
