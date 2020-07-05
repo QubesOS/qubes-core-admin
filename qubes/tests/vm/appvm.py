@@ -51,11 +51,24 @@ class TestVM(object):
     def is_running(self):
         return self.running
 
+class TestVolume(qubes.storage.Volume):
+    def create(self):
+        pass
+
 class TestPool(qubes.storage.Pool):
+    def __init__(self, *args, **kwargs):
+        super(TestPool, self).__init__(*args, **kwargs)
+        self._volumes = {}
+
     def init_volume(self, vm, volume_config):
         vid = '{}/{}'.format(vm.name, volume_config['name'])
         assert volume_config.pop('pool', None) == self
-        return qubes.storage.Volume(vid=vid, pool=self, **volume_config)
+        vol = TestVolume(vid=vid, pool=self, **volume_config)
+        self._volumes[vid] = vol
+        return vol
+
+    def get_volume(self, vid):
+        return self._volumes[vid]
 
 
 class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
