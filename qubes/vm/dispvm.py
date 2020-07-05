@@ -109,6 +109,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     self.volume_config[name] = config.copy()
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
+                # copy pool setting from base AppVM; root and private would be
+                # in the same pool anyway (because of snap_on_start),
+                # but not volatile, which could be surprising
+                elif 'pool' not in self.volume_config[name] \
+                        and 'pool' in config:
+                    self.volume_config[name]['pool'] = config['pool']
 
         super(DispVM, self).__init__(app, xml, *args, **kwargs)
 
