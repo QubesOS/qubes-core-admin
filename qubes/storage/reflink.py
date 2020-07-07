@@ -43,9 +43,9 @@ LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
 def _coroutinized(function):
-    ''' Decorator transforming a synchronous function into a coroutine
-        that runs the function in the event loop's thread-based
-        default executor.
+    ''' Wrap a synchronous function in a coroutine that runs the
+        function via the event loop's ThreadPool-based default
+        executor.
     '''
     @asyncio.coroutine
     @functools.wraps(function)
