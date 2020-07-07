@@ -18,7 +18,6 @@
 #
 
 ''' Driver for storing vm images in a LVM thin pool '''
-import functools
 import logging
 import os
 import subprocess
@@ -292,22 +291,6 @@ def _revision_sort_key(revision):
         revision = revision.split('-')[0]
     return int(revision)
 
-def locked(method):
-    '''Decorator running given Volume's coroutine under a lock.
-    Needs to be added after wrapping with @asyncio.coroutine, for example:
-
-    >>>@locked
-    >>>@asyncio.coroutine
-    >>>def start(self):
-    >>>    pass
-    '''
-    @asyncio.coroutine
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        with (yield from self._lock):  # pylint: disable=protected-access
-            return (yield from method(self, *args, **kwargs))
-    return wrapper
-
 class ThinVolume(qubes.storage.Volume):
     ''' Default LVM thin volume implementation
     '''  # pylint: disable=too-few-public-methods
@@ -322,8 +305,6 @@ class ThinVolume(qubes.storage.Volume):
             self._vid_snap = self.vid + '-snap'
         if self.save_on_stop:
             self._vid_import = self.vid + '-import'
-
-        self._lock = asyncio.Lock()
 
     @property
     def path(self):
@@ -461,7 +442,7 @@ class ThinVolume(qubes.storage.Volume):
         # and remove old snapshots, if needed
         yield from self._remove_revisions()
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def create(self):
         assert self.vid
@@ -480,7 +461,7 @@ class ThinVolume(qubes.storage.Volume):
             yield from reset_cache_coro()
         return self
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def remove(self):
         assert self.vid
@@ -514,7 +495,7 @@ class ThinVolume(qubes.storage.Volume):
         devpath = self.path
         return devpath
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def import_volume(self, src_volume):
         if not src_volume.save_on_stop:
@@ -556,7 +537,7 @@ class ThinVolume(qubes.storage.Volume):
 
         return self
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def import_data(self, size):
         ''' Returns an object that can be `open()`. '''
@@ -573,7 +554,7 @@ class ThinVolume(qubes.storage.Volume):
         devpath = '/dev/' + self._vid_import
         return devpath
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def import_data_end(self, success):
         '''Either commit imported data, or discard temporary volume'''
@@ -609,7 +590,7 @@ class ThinVolume(qubes.storage.Volume):
         return (size_cache[self._vid_snap]['origin'] !=
                self.source.path.split('/')[-1])
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def revert(self, revision=None):
         if self.is_dirty():
@@ -633,7 +614,7 @@ class ThinVolume(qubes.storage.Volume):
         yield from reset_cache_coro()
         return self
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def resize(self, size):
         ''' Expands volume, throws
@@ -682,7 +663,7 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self.source.path, self._vid_snap]
         yield from qubes_lvm_coro(cmd, self.log)
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def start(self):
         self.abort_if_import_in_progress()
@@ -696,7 +677,7 @@ class ThinVolume(qubes.storage.Volume):
             yield from reset_cache_coro()
         return self
 
-    @locked
+    @qubes.storage.Volume.locked
     @asyncio.coroutine
     def stop(self):
         try:
