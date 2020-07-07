@@ -1147,6 +1147,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 # the above allocates xid, lets announce that
                 self.fire_event('property-reset:xid', name='xid')
+                self.fire_event('property-reset:stubdom_xid',
+                                name='stubdom_xid')
                 self.fire_event('property-reset:start_time', name='start_time')
             except libvirt.libvirtError as exc:
                 # missing IOMMU?
@@ -1257,6 +1259,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.log.exception('Failed to stop storage for domain %s',
                                self.name)
         self.fire_event('property-reset:xid', name='xid')
+        self.fire_event('property-reset:stubdom_xid', name='stubdom_xid')
         self.fire_event('property-reset:start_time', name='start_time')
 
     @asyncio.coroutine
