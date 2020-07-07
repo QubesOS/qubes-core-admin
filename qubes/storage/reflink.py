@@ -32,7 +32,6 @@ import logging
 import os
 import subprocess
 import tempfile
-import threading
 from contextlib import contextmanager, suppress
 
 import qubes.storage
@@ -131,28 +130,17 @@ class ReflinkPool(qubes.storage.Pool):
             self.dir_path)
 
 
-def _locked(method):
-    ''' Decorator transforming a synchronous volume method to run
-        under the volume lock.
-    '''
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        with self._lock:  # pylint: disable=protected-access
-            return method(self, *args, **kwargs)
-    return wrapper
-
 class ReflinkVolume(qubes.storage.Volume):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._lock = threading.Lock()
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)
         self._path_clean = self._path_vid + '.img'
         self._path_dirty = self._path_vid + '-dirty.img'
         self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def create(self):
         self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
@@ -173,8 +161,8 @@ class ReflinkVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             'Missing image file {!r} for volume {}'.format(img, self.vid))
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def remove(self):
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
         self._remove_all_images()
@@ -203,8 +191,8 @@ class ReflinkVolume(qubes.storage.Volume):
     def is_dirty(self):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def start(self):
         self._remove_incomplete_images()
         if not self.is_dirty():
@@ -220,8 +208,8 @@ class ReflinkVolume(qubes.storage.Volume):
                 _create_sparse_file(self._path_dirty, self.size)
         return self
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def stop(self):
         if self.save_on_stop:
             self._commit(self._path_dirty)
@@ -253,8 +241,8 @@ class ReflinkVolume(qubes.storage.Volume):
         for number, timestamp in list(self.revisions.items())[:-keep or None]:
             _remove_file(self._path_revision(number, timestamp))
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def revert(self, revision=None):
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
@@ -268,8 +256,8 @@ class ReflinkVolume(qubes.storage.Volume):
         _rename_file(path_revision, self._path_clean)
         return self
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def resize(self, size):
         ''' Resize a read-write volume; notify any corresponding loop
             devices of the size change.
@@ -292,8 +280,8 @@ class ReflinkVolume(qubes.storage.Volume):
                 'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def import_data(self):
         if not self.save_on_stop:
             raise NotImplementedError(
@@ -305,10 +293,11 @@ class ReflinkVolume(qubes.storage.Volume):
         (self._commit if success else _remove_file)(self._path_import)
         return self
 
-    import_data_end = _coroutinized(_locked(_import_data_end))
+    import_data_end = qubes.storage.Volume.locked(_coroutinized(
+        _import_data_end))
 
+    @qubes.storage.Volume.locked
     @_coroutinized
-    @_locked
     def import_volume(self, src_volume):
         if self.save_on_stop:
             try:

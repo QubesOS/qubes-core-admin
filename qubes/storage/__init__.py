@@ -22,6 +22,7 @@
 
 """ Qubes storage system"""
 
+import functools
 import inspect
 import os
 import os.path
@@ -133,6 +134,8 @@ class Volume:
         self.source = source
         #: Volume unique (inside given pool) identifier
         self.vid = vid
+        #: Asynchronous lock for @Volume.locked decorator
+        self._lock = asyncio.Lock()
 
     def __eq__(self, other):
         if isinstance(other, Volume):
@@ -154,6 +157,23 @@ class Volume:
     def __xml__(self):
         config = _sanitize_config(self.config)
         return lxml.etree.Element('volume', **config)
+
+    @staticmethod
+    def locked(method):
+        '''Decorator running given Volume's coroutine under a lock.
+        Needs to be added after wrapping with @asyncio.coroutine, for example:
+
+        >>>@Volume.locked
+        >>>@asyncio.coroutine
+        >>>def start(self):
+        >>>    pass
+        '''
+        @asyncio.coroutine
+        @functools.wraps(method)
+        def wrapper(self, *args, **kwargs):
+            with (yield from self._lock):  # pylint: disable=protected-access
+                return (yield from method(self, *args, **kwargs))
+        return wrapper
 
     def create(self):
         ''' Create the given volume on disk.
