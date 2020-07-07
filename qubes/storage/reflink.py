@@ -226,6 +226,8 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.save_on_stop:
             self._commit(self._path_dirty)
         else:
+            if not self.snap_on_start:
+                self._get_size()  # preserve manual resize of image
             _remove_file(self._path_dirty)
             _remove_file(self._path_clean)
         return self
