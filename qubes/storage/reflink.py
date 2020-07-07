@@ -217,7 +217,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 # Preferably use the size of a leftover image, in case
                 # the volume was previously resized - but then a crash
                 # prevented qubes.xml serialization of the new size.
-                _create_sparse_file(self._path_dirty, self._get_size())
+                _create_sparse_file(self._path_dirty, self.size)
         return self
 
     @_coroutinized
@@ -227,7 +227,7 @@ class ReflinkVolume(qubes.storage.Volume):
             self._commit(self._path_dirty)
         else:
             if not self.snap_on_start:
-                self._get_size()  # preserve manual resize of image
+                self._size = self.size  # preserve manual resize of image
             _remove_file(self._path_dirty)
             _remove_file(self._path_clean)
         return self
@@ -339,14 +339,12 @@ class ReflinkVolume(qubes.storage.Volume):
         return collections.OrderedDict(sorted(items,
                                               key=lambda item: int(item[0])))
 
-    def _get_size(self):
+    @property
+    def size(self):
         for path in (self._path_dirty, self._path_clean):
             with suppress(FileNotFoundError):
-                self._size = os.path.getsize(path)
-                break
+                return os.path.getsize(path)
         return self._size
-
-    size = property(_locked(_get_size))
 
     @property
     def usage(self):
