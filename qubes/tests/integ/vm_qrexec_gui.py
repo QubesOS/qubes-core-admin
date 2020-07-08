@@ -615,6 +615,8 @@ class TC_00_AppVMMixin(object):
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm()
         self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
+        self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
         self.common_audio_record_unmuted()
 
