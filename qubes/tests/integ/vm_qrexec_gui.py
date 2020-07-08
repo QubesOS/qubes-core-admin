@@ -423,7 +423,7 @@ class TC_00_AppVMMixin(object):
         # then wait for the stream to appear in dom0
         local_user = grp.getgrnam('qubes').gr_mem[0]
         p = self.loop.run_until_complete(asyncio.create_subprocess_shell(
-            "sudo -E -u {} timeout 30s sh -c '"
+            "sudo -E -u {} timeout 60s sh -c '"
             "while ! pactl list sink-inputs | grep -q :{}; do sleep 1; done'"
             .format(local_user, vm.name)))
         self.loop.run_until_complete(p.wait())
