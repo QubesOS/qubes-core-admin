@@ -40,7 +40,7 @@ from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm
 if 'DEFAULT_LVM_POOL' in os.environ.keys():
     DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
 else:
-    DEFAULT_LVM_POOL = 'qubes_dom0/pool00'
+    DEFAULT_LVM_POOL = 'qubes_dom0/vm-pool'
 
 
 def lvm_pool_exists(volume_group, thin_pool):
