@@ -59,6 +59,8 @@ def skipUnlessLvmPoolExists(test_item):  # pylint: disable=invalid-name
     return unittest.skipUnless(result, msg)(test_item)
 
 
+POOL_CLASS = ThinPool
+VOLUME_CLASS = ThinVolume
 POOL_CONF = {'name': 'test-lvm',
              'driver': 'lvm_thin',
              'volume_group': DEFAULT_LVM_POOL.split('/')[0],
@@ -107,7 +109,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
             ``thin_pool``, or None.
         '''
         pools = [p for p in self.app.pools.values()
-            if issubclass(p.__class__, ThinPool)]
+            if issubclass(p.__class__, POOL_CLASS)]
         for pool in pools:
             if pool.volume_group == volume_group \
                     and pool.thin_pool == thin_pool:
@@ -155,7 +157,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, ThinVolume)
+        self.assertIsInstance(volume, VOLUME_CLASS)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -175,7 +177,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, ThinVolume)
+        self.assertIsInstance(volume, VOLUME_CLASS)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -790,7 +792,8 @@ class TC_00_ThinPool(ThinPoolBase):
 
         # also should be different than source volume (clone, not the same LV)
         self.assertNotEqual(uuid_after, source_uuid)
-        self.assertEqual(self._get_lv_origin_uuid(volume.path), source_uuid)
+        if VOLUME_CLASS == ThinVolume:
+            self.assertEqual(self._get_lv_origin_uuid(volume.path), source_uuid)
 
         expected_revisions = {
             '1521065906-back': '2018-03-14T22:18:26',
@@ -952,7 +955,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         volume = self.app.get_pool(self.pool.name).init_volume(
             vm, config_snapshot)
-        self.assertIsInstance(volume, ThinVolume)
+        self.assertIsInstance(volume, VOLUME_CLASS)
         self.assertEqual(volume.name, 'root2')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
