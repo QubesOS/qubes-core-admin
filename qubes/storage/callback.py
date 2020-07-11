@@ -189,9 +189,6 @@ class CallbackPool(qubes.storage.Pool):
     ```
     '''
 
-    driver = 'callback'
-    config_path = '/etc/qubes_callback.json'
-
     def __init__(self, *, name, conf_id):
         '''Constructor.
         :param conf_id: Identifier as found inside the user-controlled configuration at `/etc/qubes_callback.json`.
@@ -209,21 +206,22 @@ class CallbackPool(qubes.storage.Pool):
             raise qubes.storage.StoragePoolException('conf_id is no String. VM attack?!')
         self._cb_conf_id = conf_id #: Configuration ID as passed to `__init__()`.
 
-        with open(CallbackPool.config_path) as json_file:
+        config_path = '/etc/qubes_callback.json'
+        with open(config_path) as json_file:
             conf_all = json.load(json_file)
         if not isinstance(conf_all, dict):
-            raise qubes.storage.StoragePoolException('The file %s is supposed to define a dict.' % CallbackPool.config_path)
+            raise qubes.storage.StoragePoolException('The file %s is supposed to define a dict.' % config_path)
 
         try:
             self._cb_conf = conf_all[self._cb_conf_id] #: Dictionary holding all configuration for the given _cb_conf_id.
         except KeyError:
             #we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
-            raise qubes.storage.StoragePoolException('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
+            raise qubes.storage.StoragePoolException('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, config_path))
 
         try:
             bdriver = self._cb_conf['bdriver']
         except KeyError:
-            raise qubes.storage.StoragePoolException('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, CallbackPool.config_path))
+            raise qubes.storage.StoragePoolException('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, config_path))
 
         self._cb_cmd_arg = json.dumps(self._cb_conf, sort_keys=True, indent=2) #: Full configuration as string in the format required by _callback().
 
@@ -344,7 +342,7 @@ class CallbackPool(qubes.storage.Pool):
     def config(self):
         return {
             'name': self.name,
-            'driver': CallbackPool.driver,
+            'driver': 'callback',
             'conf_id': self._cb_conf_id,
         }
 
@@ -394,6 +392,30 @@ class CallbackPool(qubes.storage.Pool):
         if self._cb_requires_init:
             return None
         return self._cb_impl.usage
+
+    @property
+    def usage_details(self):
+        if self._cb_requires_init:
+            return {}
+        return self._cb_impl.usage_details
+
+    #shadow all qubes.storage.Pool class attributes as instance properties
+    #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackPool.private_img_size will return a property object, Pool.private_img_size the actual value
+    @property
+    def private_img_size(self):
+        return self._cb_impl.private_img_size
+
+    @private_img_size.setter
+    def private_img_size(self, private_img_size):
+        self._cb_impl.private_img_size = private_img_size
+
+    @property
+    def root_img_size(self):
+        return self._cb_impl.root_img_size
+
+    @root_img_size.setter
+    def root_img_size(self, root_img_size):
+        self._cb_impl.root_img_size = root_img_size
 
     #remaining method & attribute delegation ("delegation pattern")
     #Convention: The methods of this object have priority over the delegated object's methods. All attributes are
@@ -551,6 +573,48 @@ class CallbackVolume(qubes.storage.Volume):
     def revert(self, revision=None):
         yield from self._assert_initialized()
         return (yield from coro_maybe(self._cb_impl.revert(revision=revision)))
+
+    #shadow all qubes.storage.Volume class attributes as instance properties
+    #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
+    @property
+    def devtype(self):
+        return self._cb_impl.devtype
+
+    @devtype.setter
+    def devtype(self, devtype):
+        self._cb_impl.devtype = devtype
+
+    @property
+    def domain(self):
+        return self._cb_impl.domain
+
+    @domain.setter
+    def domain(self, domain):
+        self._cb_impl.domain = domain
+
+    @property
+    def path(self):
+        return self._cb_impl.path
+
+    @path.setter
+    def path(self, path):
+        self._cb_impl.path = path
+
+    @property
+    def script(self):
+        return self._cb_impl.script
+
+    @script.setter
+    def script(self, script):
+        self._cb_impl.script = script
+
+    @property
+    def usage(self):
+        return self._cb_impl.usage
+
+    @usage.setter
+    def usage(self, usage):
+        self._cb_impl.usage = usage
 
     #remaining method & attribute delegation
     def __getattr__(self, name):
