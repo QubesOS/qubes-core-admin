@@ -24,6 +24,7 @@ from qubes.exc import QubesException
 from qubes.storage import pool_drivers
 from qubes.storage.file import FilePool
 from qubes.storage.reflink import ReflinkPool
+from qubes.storage.zfs import ZFSQpool
 from qubes.tests import SystemTestCase, QubesTestCase
 
 # :pylint: disable=invalid-name
