@@ -20,6 +20,7 @@
 #
 
 import asyncio
+import contextlib
 import os
 import subprocess
 import sys
@@ -585,6 +586,10 @@ class TC_00_QrexecMixin(object):
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred from the VM process")
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                p.terminate()
+            self.loop.run_until_complete(p.wait())
 
         self.assertEqual(stdout, b'test\n',
             'Received data differs from what was expected')
@@ -633,6 +638,10 @@ class TC_00_QrexecMixin(object):
         except asyncio.TimeoutError:
             self.fail(
                 "service timeout, probably EOF wasn't transferred from the VM process")
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                p.terminate()
+            self.loop.run_until_complete(p.wait())
 
         service_descriptor = b'test.Socket+ test-inst-vm1 keyword adminvm\0'
         self.assertEqual(service_stdout, service_descriptor + b'test1test2',
