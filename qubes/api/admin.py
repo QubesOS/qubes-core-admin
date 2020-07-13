@@ -27,6 +27,7 @@ import itertools
 import os
 import string
 import subprocess
+import pathlib
 
 import libvirt
 import lxml.etree
@@ -485,6 +486,32 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             yield from self.dest.storage.resize(self.arg, size)
         finally:  # even if calling qubes.ResizeDisk inside the VM failed
             self.app.save()
+
+    @qubes.api.method('admin.vm.volume.Clear', no_payload=True,
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_volume_clear(self):
+        self.enforce(self.arg in self.dest.volumes.keys())
+
+        self.fire_event_for_permission()
+
+        volume = self.dest.volumes[self.arg]
+        size = volume.size
+
+        # Clear the volume by importing empty data into it
+        path = yield from volume.import_data(size)
+        self.dest.fire_event('domain-volume-import-begin',
+            volume=self.arg, size=size)
+        pathlib.Path(path).touch()
+        try:
+            yield from volume.import_data_end(True)
+        except:
+            self.dest.fire_event('domain-volume-import-end',
+                volume=self.arg, success=False)
+            raise
+        self.dest.fire_event('domain-volume-import-end',
+            volume=self.arg, success=True)
+        self.app.save()
 
     @qubes.api.method('admin.vm.volume.Set.revisions_to_keep',
         scope='local', write=True)
