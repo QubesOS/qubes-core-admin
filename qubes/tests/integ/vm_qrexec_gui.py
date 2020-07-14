@@ -99,6 +99,8 @@ class TC_00_AppVMMixin(object):
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
         if 'whonix' in self.template:
             self.skipTest("Whonix template doesn't have 'gnome-terminal'")
+        if 'xfce' in self.template:
+            self.skipTest("Xfce template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
