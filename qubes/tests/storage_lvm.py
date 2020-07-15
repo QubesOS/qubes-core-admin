@@ -792,8 +792,7 @@ class TC_00_ThinPool(ThinPoolBase):
 
         # also should be different than source volume (clone, not the same LV)
         self.assertNotEqual(uuid_after, source_uuid)
-        if VOLUME_CLASS == ThinVolume:
-            self.assertEqual(self._get_lv_origin_uuid(volume.path), source_uuid)
+        self.assertEqual(self._get_lv_origin_uuid(volume.path), source_uuid)
 
         expected_revisions = {
             '1521065906-back': '2018-03-14T22:18:26',
