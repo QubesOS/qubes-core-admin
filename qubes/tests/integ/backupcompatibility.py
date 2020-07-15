@@ -184,16 +184,12 @@ class TC_00_BackupCompatibility(
         os.mkdir(self.fullpath("appvms/test-work"))
         self.create_whitelisted_appmenus(self.fullpath(
             "appvms/test-work/whitelisted-appmenus.list"))
-        os.symlink("/usr/share/qubes/icons/green.png",
-                   self.fullpath("appvms/test-work/icon.png"))
         self.create_private_img(self.fullpath("appvms/test-work/private.img"))
 
         # StandaloneVM
         os.mkdir(self.fullpath("appvms/test-standalonevm"))
         self.create_whitelisted_appmenus(self.fullpath(
             "appvms/test-standalonevm/whitelisted-appmenus.list"))
-        os.symlink("/usr/share/qubes/icons/blue.png",
-                   self.fullpath("appvms/test-standalonevm/icon.png"))
         self.create_private_img(self.fullpath(
             "appvms/test-standalonevm/private.img"))
         self.create_sparse(
@@ -254,8 +250,6 @@ class TC_00_BackupCompatibility(
             self.create_whitelisted_appmenus(self.fullpath(
                 "vm-templates/test-template-clone/netvm-whitelisted-appmenus"
                 ".list"))
-        os.symlink("/usr/share/qubes/icons/green.png",
-                   self.fullpath("vm-templates/test-template-clone/icon.png"))
         os.mkdir(
             self.fullpath("vm-templates/test-template-clone/apps.templates"))
         self.create_appmenus(

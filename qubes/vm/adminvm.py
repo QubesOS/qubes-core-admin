@@ -214,10 +214,6 @@ class AdminVM(qubes.vm.BaseVM):
         raise qubes.exc.QubesVMError(self, 'Cannot kill Dom0 fake domain!')
 
     @property
-    def icon_path(self):
-        pass
-
-    @property
     def untrusted_qdb(self):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
