@@ -339,6 +339,13 @@ class CallbackPool(qubes.storage.Pool):
                 raise UnhandledSignalException(self, line)
 
     @property
+    def backend_class(self):
+        '''Class of the first non-CallbackPool backend Pool.'''
+        if isinstance(self._cb_impl, CallbackPool):
+            return self._cb_impl.backend_class
+        return self._cb_impl.__class__
+
+    @property
     def config(self):
         return {
             'name': self.name,
@@ -467,6 +474,13 @@ class CallbackVolume(qubes.storage.Volume):
             cb_args = []
         vol_args = [self.name, self.vid, self.source, *cb_args]
         yield from self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
+
+    @property
+    def backend_class(self):
+        '''Class of the first non-CallbackVolume backend Volume.'''
+        if isinstance(self._cb_impl, CallbackVolume):
+            return self._cb_impl.backend_class
+        return self._cb_impl.__class__
 
     @asyncio.coroutine
     def create(self):
