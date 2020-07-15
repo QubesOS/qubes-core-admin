@@ -499,12 +499,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         size = volume.size
 
         # Clear the volume by importing empty data into it
-        path = yield from volume.import_data(size)
+        path = yield from self.dest.storage.import_data(self.arg, size)
         self.dest.fire_event('domain-volume-import-begin',
             volume=self.arg, size=size)
         pathlib.Path(path).touch()
         try:
-            yield from volume.import_data_end(True)
+            yield from self.dest.storage.import_data_end(self.arg, True)
         except:
             self.dest.fire_event('domain-volume-import-end',
                 volume=self.arg, success=False)
