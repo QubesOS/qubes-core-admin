@@ -252,12 +252,30 @@ class Backup:
     # pylint: disable=too-many-instance-attributes
     class FileToBackup:
         # pylint: disable=too-few-public-methods
-        def __init__(self, file_path, subdir=None, name=None, size=None):
+        def __init__(self, file_path_or_func, subdir=None, name=None, size=None,
+                     cleanup_func=None):
+            """Store a single file to backup
+
+            :param file_path_or_func: path to the file or a function
+                returning one; in case of function, it can be a coroutine;
+                if a function is given, *name*, *subdir* and *size* needs to be
+                given too
+            :param subdir: directory in a backup archive to place file in
+            :param name: name of the file in the backup archive
+            :param size: size
+            :param cleanup_func: function to call after processing the file;
+                the function will get the file path as an argument
+            """
+            if callable(file_path_or_func):
+                assert subdir is not None \
+                       and name is not None \
+                       and size is not None
+
             if size is None:
-                size = qubes.storage.file.get_disk_usage(file_path)
+                size = qubes.storage.file.get_disk_usage(file_path_or_func)
 
             if subdir is None:
-                abs_file_path = os.path.abspath(file_path)
+                abs_file_path = os.path.abspath(file_path_or_func)
                 abs_base_dir = os.path.abspath(
                     qubes.config.system_path["qubes_base_dir"]) + '/'
                 abs_file_dir = os.path.dirname(abs_file_path) + '/'
@@ -269,16 +287,19 @@ class Backup:
                 if subdir and not subdir.endswith('/'):
                     subdir += '/'
 
-            #: real path to the file
-            self.path = file_path
+            if name is None:
+                name = os.path.basename(file_path_or_func)
+
+            #: real path to the file (or callable to get one)
+            self.path = file_path_or_func
             #: size of the file
             self.size = size
             #: directory in backup archive where file should be placed
             self.subdir = subdir
             #: use this name in the archive (aka rename)
-            self.name = os.path.basename(file_path)
-            if name is not None:
-                self.name = name
+            self.name = name
+            #: function to call after processing the file
+            self.cleanup_func = cleanup_func
 
     class VMToBackup:
         # pylint: disable=too-few-public-methods
@@ -370,10 +391,11 @@ class Backup:
                 if not volume.save_on_stop:
                     continue
                 vm_files.append(self.FileToBackup(
-                    volume.export(),
+                    volume.export,
                     subdir,
                     name + '.img',
-                    volume.usage))
+                    volume.usage,
+                    cleanup_func=volume.export_end))
 
             vm_files.extend(self.FileToBackup(i, subdir)
                 for i in vm.fire_event('backup-get-files'))
@@ -514,9 +536,8 @@ class Backup:
         if retcode:
             raise qubes.exc.QubesException(
                 "Failed to compute hmac of header file: "
-                + scrypt.stderr.read())
+                + (yield from scrypt.stderr.read()).decode())
         return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
-
 
     def _send_progress_update(self):
         if not self.total_backup_bytes:
@@ -610,18 +631,21 @@ class Backup:
                 # Files will be verified before untaring this.
                 # Prefix the path in archive with filename["subdir"] to have it
                 # verified during untar
+                path = file_info.path
+                if callable(path):
+                    path = yield from qubes.utils.coro_maybe(path())
                 tar_cmdline = (["tar", "-Pc", '--sparse',
-                                '-C', os.path.dirname(file_info.path)] +
+                                '-C', os.path.dirname(path)] +
                                (['--dereference'] if
                                file_info.subdir != "dom0-home/" else []) +
                                ['--xform=s:^%s:%s\\0:' % (
-                                   os.path.basename(file_info.path),
+                                   os.path.basename(path),
                                    file_info.subdir),
-                                   os.path.basename(file_info.path)
+                                   os.path.basename(path)
                                ])
-                file_stat = os.stat(file_info.path)
+                file_stat = os.stat(path)
                 if stat.S_ISBLK(file_stat.st_mode) or \
-                        file_info.name != os.path.basename(file_info.path):
+                        file_info.name != os.path.basename(path):
                     # tar doesn't handle content of block device, use our
                     # writer
                     # also use our tar writer when renaming file
@@ -631,7 +655,7 @@ class Backup:
                         '--override-name=%s' % (
                             os.path.join(file_info.subdir, os.path.basename(
                                 file_info.name))),
-                        file_info.path]
+                        path]
                 if self.compressed:
                     tar_cmdline.insert(-2,
                         "--use-compress-program=%s" % self.compression_filter)
@@ -655,6 +679,10 @@ class Backup:
                     except ProcessLookupError:
                         pass
                     raise
+                finally:
+                    if file_info.cleanup_func is not None:
+                        yield from qubes.utils.coro_maybe(
+                            file_info.cleanup_func(path))
 
                 yield from tar_sparse.wait()
                 if tar_sparse.returncode:

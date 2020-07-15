@@ -21,7 +21,7 @@
 #
 
 ''' This module contains pool implementations backed by file images'''
-
+import asyncio
 import os
 import os.path
 import re
@@ -29,6 +29,7 @@ import subprocess
 from contextlib import suppress
 
 import qubes.storage
+import qubes.utils
 
 BLKSIZE = 512
 
@@ -268,6 +269,7 @@ class FileVolume(qubes.storage.Volume):
         #  if domain is running
         return self.path
 
+    @asyncio.coroutine
     def import_volume(self, src_volume):
         if src_volume.snap_on_start:
             raise qubes.storage.StoragePoolException(
@@ -275,7 +277,11 @@ class FileVolume(qubes.storage.Volume):
                     src_volume, self))
         if self.save_on_stop:
             _remove_if_exists(self.path)
-            copy_file(src_volume.export(), self.path)
+            path = yield from qubes.utils.coro_maybe(src_volume.export())
+            try:
+                copy_file(path, self.path)
+            finally:
+                yield from qubes.utils.coro_maybe(src_volume.export_end(path))
         return self
 
     def import_data(self, size):

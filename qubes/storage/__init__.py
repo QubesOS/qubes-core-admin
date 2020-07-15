@@ -203,8 +203,23 @@ class Volume:
             volume data. If extracting volume data require something more
             than just reading from file (for example connecting to some other
             domain, or decompressing the data), the returned path may be a pipe.
+
+            This can be implemented as a coroutine.
+
         '''
         raise self._not_implemented("export")
+
+    def export_end(self, path):
+        """ Cleanup after exporting data.
+
+            This method is called after exporting the volume data (using
+            :py:meth:`export`), when the *path* is not needed anymore.
+
+            This can be implemented as a coroutine.
+
+            :param path: path to cleanup, returned by :py:meth:`export`
+        """
+        # do nothing by default (optional method)
 
     def import_data(self, size):
         ''' Returns a path to overwrite volume data.
@@ -423,7 +438,7 @@ class Storage:
         if 'internal' in volume_config:
             # migrate old config
             del volume_config['internal']
-        volume = pool.init_volume(self.vm, volume_config)
+        volume = pool.init_volume(self.vm, volume_config.copy())
         self.vm.volumes[name] = volume
         return volume
 
@@ -634,14 +649,27 @@ class Storage:
                     for target in parsed_xml.xpath(
                         "//domain/devices/disk/target")}
 
+    @asyncio.coroutine
     def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            return volume.export()
+        if not isinstance(volume, Volume):
+            volume = self.vm.volumes[volume]
+        return (yield from qubes.utils.coro_maybe(volume.export()))
 
-        return self.vm.volumes[volume].export()
+    @asyncio.coroutine
+    def export_end(self, volume, export_path):
+        """ Cleanup after exporting data from the volume
+
+        :param volume: volume that was exported
+        :param export_path: path returned by the export() call
+        """
+        assert isinstance(volume, (Volume, str)), \
+            "You need to pass a Volume or pool name as str"
+        if not isinstance(volume, Volume):
+            volume = self.vm.volumes[volume]
+        yield from qubes.utils.coro_maybe(volume.export_end(export_path))
 
     @asyncio.coroutine
     def import_data(self, volume, size):

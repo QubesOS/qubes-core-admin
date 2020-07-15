@@ -166,3 +166,28 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                     name='test-dispvm', template=self.appvm)
             self.assertFalse(mock_domains.get_new_unused_dispid.called)
+
+    @mock.patch('os.symlink')
+    @mock.patch('os.makedirs')
+    def test_020_copy_storage_pool(self, mock_makedirs, mock_symlink):
+        self.app.pools['alternative'] = qubes.tests.vm.appvm.TestPool(name='alternative')
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk(pool='alternative'))
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+            self.loop.run_until_complete(dispvm.create_on_disk())
+        self.assertEqual(dispvm.template, self.appvm)
+        self.assertEqual(dispvm.volumes['private'].pool,
+                         self.appvm.volumes['private'].pool)
+        self.assertEqual(dispvm.volumes['root'].pool,
+                         self.appvm.volumes['root'].pool)
+        self.assertEqual(dispvm.volumes['volatile'].pool,
+                         self.appvm.volumes['volatile'].pool)
