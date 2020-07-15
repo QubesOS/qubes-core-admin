@@ -21,8 +21,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import re
-
 import qubes.config
 import qubes.ext
 import qubes.exc
@@ -89,14 +87,12 @@ class GUI(qubes.ext.Extension):
 
         # Add GuiVM Xen ID for gui-daemon
         if getattr(vm, 'guivm', None):
-            if vm != vm.guivm and vm.guivm.is_running():
-                vm.untrusted_qdb.write('/qubes-gui-domain-xid',
-                                       str(vm.guivm.xid))
+            if vm != vm.guivm:
+                vm.untrusted_qdb.write('/keyboard-layout', vm.keyboard_layout)
 
-            # Add keyboard layout from that of GuiVM
-            kbd_layout = vm.guivm.features.get('keyboard-layout', None)
-            if kbd_layout:
-                vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
+                if vm.guivm.is_running():
+                    vm.untrusted_qdb.write('/qubes-gui-domain-xid',
+                                           str(vm.guivm.xid))
 
         # Set GuiVM prefix
         guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')
@@ -121,22 +117,21 @@ class GUI(qubes.ext.Extension):
             attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
                                             str(vm.xid))
 
-    @qubes.ext.handler('domain-feature-pre-set:keyboard-layout')
-    def on_feature_pre_set(self, subject, event, feature, value, oldvalue=None):
-        untrusted_xkb_layout = value.split('+')
-        if len(untrusted_xkb_layout) != 3:
-            raise qubes.exc.QubesValueError("Invalid number of parameters")
+    @qubes.ext.handler('property-reset:keyboard_layout')
+    def on_keyboard_reset(self, vm, event, name, oldvalue=None):
+        if not vm.is_running():
+            return
+        kbd_layout = vm.keyboard_layout
 
-        untrusted_layout = untrusted_xkb_layout[0]
-        untrusted_variant = untrusted_xkb_layout[1]
-        untrusted_options = untrusted_xkb_layout[2]
+        vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
 
-        re_variant = r'^[a-zA-Z0-9-_]*$'
-        re_options = r'^[a-zA-Z0-9-_:,]*$'
+    @qubes.ext.handler('property-set:keyboard_layout')
+    def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
+        for domain in vm.app.domains:
+            if getattr(domain, 'guivm', None) == vm and \
+                    domain.property_is_default('keyboard_layout'):
+                domain.fire_event('property-reset:keyboard_layout',
+                                  name='keyboard_layout', oldvalue=oldvalue)
 
-        if not untrusted_layout.isalpha():
-            raise qubes.exc.QubesValueError("Invalid layout provided")
-        if not re.match(re_variant, untrusted_variant):
-            raise qubes.exc.QubesValueError("Invalid variant provided")
-        if not re.match(re_options, untrusted_options):
-            raise qubes.exc.QubesValueError("Invalid options provided")
+        if vm.is_running():
+            vm.untrusted_qdb.write('/keyboard-layout', newvalue)

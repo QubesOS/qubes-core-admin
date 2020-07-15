@@ -23,6 +23,7 @@
 import asyncio
 import base64
 import grp
+import re
 import os
 import os.path
 import shutil
@@ -112,6 +113,32 @@ def _setter_virt_mode(self, prop, value):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
             "pvh mode can't be set if pci devices are attached")
+    return value
+
+
+def _setter_kbd_layout(self, prop, value):
+    untrusted_xkb_layout = value.split('+')
+    if len(untrusted_xkb_layout) != 3:
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "invalid number of keyboard layout parameters")
+
+    untrusted_layout = untrusted_xkb_layout[0]
+    untrusted_variant = untrusted_xkb_layout[1]
+    untrusted_options = untrusted_xkb_layout[2]
+
+    re_variant = r'^[a-zA-Z0-9-_]*$'
+    re_options = r'^[a-zA-Z0-9-_:,]*$'
+
+    if not untrusted_layout.isalpha():
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "Invalid keyboard layout provided")
+    if not re.match(re_variant, untrusted_variant):
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "Invalid layout variant provided")
+    if not re.match(re_options, untrusted_options):
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "Invalid layout options provided")
+
     return value
 
 
@@ -689,6 +716,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         type=bool,
         setter=qubes.property.forbidden,
         doc='True if this machine may be updated on its own.')
+
+    # for changes in keyboard_layout, see also the same property in AdminVM
+    keyboard_layout = qubes.property(
+        'keyboard_layout',
+        default=(lambda self: getattr(self.guivm, 'keyboard_layout', 'us++')),
+        type=str,
+        setter=_setter_kbd_layout,
+        doc='Keyboard layout for this VM')
 
     #
     # static, class-wide properties
