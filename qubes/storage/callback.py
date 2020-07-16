@@ -23,7 +23,6 @@ import logging
 import subprocess
 import json
 import asyncio
-import threading
 from shlex import quote
 from qubes.utils import coro_maybe
 
@@ -234,7 +233,7 @@ class CallbackPool(qubes.storage.Pool):
             raise qubes.storage.StoragePoolException('The class %s must be a subclass of qubes.storage.Pool.' % cls)
 
         self._cb_requires_init = self._check_init() #: Boolean indicating whether late storage initialization yet has to be done or not.
-        self._cb_init_lock = threading.Lock() #: Lock ensuring that late storage initialization is only run exactly once. Currently a `threading.Lock()` to make it accessible from synchronous code as well.
+        self._cb_init_lock = asyncio.Lock() #: Lock ensuring that late storage initialization is only run exactly once.
         bdriver_args = self._cb_conf.get('bdriver_args', {})
         self._cb_impl = cls(name=name, **bdriver_args) #: Instance of the backend pool driver.
 
@@ -254,18 +253,10 @@ class CallbackPool(qubes.storage.Pool):
         ''' Late storage initialization on first use for e.g. decryption on first usage request.
         :param callback: Whether to trigger the `pre_sinit` callback or not.
         '''
-        with self._cb_init_lock:
+        with (yield from self._cb_init_lock):
             if self._cb_requires_init:
                 if callback:
                     yield from self._callback('pre_sinit')
-                self._cb_requires_init = False
-
-    def _init_nocoro(self, callback=True):
-        ''' `_init()` in synchronous code. '''
-        with self._cb_init_lock:
-            if self._cb_requires_init:
-                if callback:
-                    self._callback_nocoro('pre_sinit')
                 self._cb_requires_init = False
 
     @asyncio.coroutine
@@ -571,12 +562,18 @@ class CallbackVolume(qubes.storage.Volume):
             return None
         return self._cb_impl.block_device()
 
+    @asyncio.coroutine
     def export(self):
-        # pylint: disable=protected-access
-        #TODO: once this becomes a coroutine in the Volume class, avoid the below blocking & potentially exception-throwing code; maybe also add a callback
-        if self._cb_pool._cb_requires_init:
-            self._cb_pool._init_nocoro()
-        return self._cb_impl.export()
+        yield from self._assert_initialized()
+        yield from self._callback('pre_volume_export')
+        return (yield from coro_maybe(self._cb_impl.export()))
+
+    @asyncio.coroutine
+    def export_end(self, path):
+        yield from self._assert_initialized()
+        ret = yield from coro_maybe(self._cb_impl.export_end(path))
+        yield from self._callback('post_volume_export_end', cb_args=[path])
+        return ret
 
     @asyncio.coroutine
     def verify(self):

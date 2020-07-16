@@ -21,6 +21,8 @@
         "pre_volume_import": "Called before importing a volume from elsewhere. Same as above otherwise.",
         "pre_volume_import_data": "Called before importing a volume from elsewhere. Same as above otherwise.",
         "post_volume_import_data_end": "Called after finishing an `import_data` action. Same as above otherwise.",
+        "pre_volume_export": "Called before exporting a volume. Same as above otherwise.",
+        "post_volume_export_end": "Called after a volume export completed. Same as above otherwise.",
         "description": "Optional description for your personal reference."
     },
 "testing-fail-missing-all":
