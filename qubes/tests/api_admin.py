@@ -2756,6 +2756,44 @@ netvm default=True type=vm \n'''
         }
         value = self.call_mgmt_func(b'admin.pool.volume.List', b'dom0', b'pool1')
         self.assertEqual(value, 'vol1\nvol2\n')
+    
+    def test_710_vm_volume_clear(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = os.path.join(tmpdir, 'testfile')
+
+            @asyncio.coroutine
+            def coroutine_mock(*args, **kwargs):
+                return tmpfile
+
+            self.vm.volumes = unittest.mock.MagicMock()
+            volumes_conf = {
+                'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+                '__getitem__.return_value.size': 0xdeadbeef
+            }
+            self.vm.volumes.configure_mock(**volumes_conf)
+            self.vm.storage = unittest.mock.Mock()
+            storage_conf = {
+                'import_data.side_effect': coroutine_mock,
+                'import_data_end.side_effect': self.dummy_coro
+            }
+            self.vm.storage.configure_mock(**storage_conf)
+            self.app.domains['test-vm1'].fire_event = self.emitter.fire_event
+            value = self.call_mgmt_func(b'admin.vm.volume.Clear',
+                b'test-vm1', b'private')
+            self.assertIsNone(value)
+            self.assertTrue(os.path.exists(tmpfile))
+            self.assertEqual(self.vm.volumes.mock_calls, [
+                unittest.mock.call.keys(),
+                unittest.mock.call.__getattr__('__getitem__')('private')])
+            self.assertEqual(self.vm.storage.mock_calls, [
+                unittest.mock.call.import_data('private', 0xdeadbeef),
+                unittest.mock.call.import_data_end('private', True)])
+            self.assertEventFired(
+                self.emitter, 'admin-permission:admin.vm.volume.Clear')
+            self.assertEventFired(
+                self.emitter, 'domain-volume-import-begin')
+            self.assertEventFired(
+                self.emitter, 'domain-volume-import-end')
 
     def test_800_current_state_default(self):
         value = self.call_mgmt_func(b'admin.vm.CurrentState', b'test-vm1')
@@ -3057,6 +3095,7 @@ netvm default=True type=vm \n'''
             b'admin.vm.volume.Info',
             b'admin.vm.volume.Revert',
             b'admin.vm.volume.Resize',
+            b'admin.vm.volume.Clear',
             b'admin.vm.Start',
             b'admin.vm.Shutdown',
             b'admin.vm.Pause',
