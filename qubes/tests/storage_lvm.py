@@ -72,14 +72,10 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
 
     created_pool = False
 
-    def setUp(self):
+    def setUp(self, init_pool=True):
         super(ThinPoolBase, self).setUp()
-        volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
-        self.pool = self._find_pool(volume_group, thin_pool)
-        if not self.pool:
-            self.pool = self.loop.run_until_complete(
-                self.app.add_pool(**POOL_CONF))
-            self.created_pool = True
+        if init_pool:
+            self.init_pool()
 
     def cleanup_test_volumes(self):
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
@@ -98,11 +94,19 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         ''' Remove the default lvm pool if it was created only for this test '''
-        self.cleanup_test_volumes()
+        if hasattr(self, 'pool'):
+            self.cleanup_test_volumes()
         if self.created_pool:
             self.loop.run_until_complete(self.app.remove_pool(self.pool.name))
         super(ThinPoolBase, self).tearDown()
 
+    def init_pool(self):
+        volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
+        self.pool = self._find_pool(volume_group, thin_pool)
+        if not self.pool:
+            self.pool = self.loop.run_until_complete(
+                self.app.add_pool(**POOL_CONF))
+            self.created_pool = True
 
     def _find_pool(self, volume_group, thin_pool):
         ''' Returns the pool matching the specified ``volume_group`` &
@@ -120,7 +124,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
 class TC_00_ThinPool(ThinPoolBase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
-    def setUp(self):
+    def setUp(self, **kwargs):
         xml_path = '/tmp/qubes-test.xml'
         self.app = qubes.Qubes.create_empty_store(store=xml_path,
             clockvm=None,
@@ -128,7 +132,7 @@ class TC_00_ThinPool(ThinPoolBase):
             offline_mode=True,
         )
         os.environ['QUBES_XML_PATH'] = xml_path
-        super(TC_00_ThinPool, self).setUp()
+        super().setUp(**kwargs)
 
     def tearDown(self):
         super(TC_00_ThinPool, self).tearDown()
@@ -1061,8 +1065,8 @@ class TC_00_ThinPool(ThinPoolBase):
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
-    def setUp(self):
-        super(TC_01_ThinPool, self).setUp()
+    def setUp(self, **kwargs):
+        super().setUp(**kwargs)
         self.init_default_template()
 
     def test_004_import(self):
@@ -1109,7 +1113,7 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
 
 @skipUnlessLvmPoolExists
 class TC_02_StorageHelpers(ThinPoolBase):
-    def setUp(self):
+    def setUp(self, **kwargs):
         xml_path = '/tmp/qubes-test.xml'
         self.app = qubes.Qubes.create_empty_store(store=xml_path,
             clockvm=None,
@@ -1117,7 +1121,7 @@ class TC_02_StorageHelpers(ThinPoolBase):
             offline_mode=True,
         )
         os.environ['QUBES_XML_PATH'] = xml_path
-        super(TC_02_StorageHelpers, self).setUp()
+        super().setUp(**kwargs)
         # reset cache
         qubes.storage.DirectoryThinPool._thin_pool = {}
 
