@@ -388,3 +388,9 @@ class TC_92_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
         #missing bdriver args
         with self.assertRaises(TypeError):
             cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='testing-fail-missing-bdriver-args')
+
+class TC_93_CallbackPool(qubes.tests.QubesTestCase):
+    def test_001_missing_conf(self):
+        ''' A missing config file must cause errors. '''
+        with self.assertRaises(FileNotFoundError):
+            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='nonexisting-id')
