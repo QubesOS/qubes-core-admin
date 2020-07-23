@@ -150,6 +150,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.dom0.default_dispvm = None
         self.dom0.template_for_dispvms = False
         self.dom0.label.icon = 'icon-dom0'
+        self.dom0.get_power_state.return_value = 'Running'
         del self.dom0.guivm
 
         vm = mock.NonCallableMock(spec=qubes.vm.qubesvm.QubesVM)
@@ -159,6 +160,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         vm.template_for_dispvms = True
         vm.label.icon = 'icon-vm'
         vm.guivm = vm
+        vm.get_power_state.return_value = 'Halted'
         self.domains['vm'] = vm
 
         ret = json.loads(self.call_mgmt_func(b'internal.GetSystemInfo'))
@@ -171,6 +173,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     'template_for_dispvms': False,
                     'icon': 'icon-dom0',
                     'guivm': None,
+                    'power_state': 'Running',
                 },
                 'vm': {
                     'tags': ['tag3', 'tag4'],
@@ -179,6 +182,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     'template_for_dispvms': True,
                     'icon': 'icon-vm',
                     'guivm': 'vm',
+                    'power_state': 'Halted',
                 }
             }
         })
