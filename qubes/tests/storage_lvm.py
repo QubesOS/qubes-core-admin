@@ -58,19 +58,27 @@ def skipUnlessLvmPoolExists(test_item):  # pylint: disable=invalid-name
     msg = 'LVM thin pool {!r} does not exist'.format(DEFAULT_LVM_POOL)
     return unittest.skipUnless(result, msg)(test_item)
 
-
-POOL_CLASS = ThinPool
-VOLUME_CLASS = ThinVolume
-POOL_CONF = {'name': 'test-lvm',
-             'driver': 'lvm_thin',
-             'volume_group': DEFAULT_LVM_POOL.split('/')[0],
-             'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
-
-
 class ThinPoolBase(qubes.tests.QubesTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
+    pool_class = None
+    volume_class = None
+    pool_conf = None
     created_pool = False
+
+    @classmethod
+    def setUpClass(cls, pool_class=ThinPool, volume_class=ThinVolume, pool_conf=None):
+        ''' Other test classes (e.g. callback) may use this to test their own config. '''
+        conf = pool_conf
+        if not conf:
+            conf = {'name': 'test-lvm',
+                    'driver': 'lvm_thin',
+                    'volume_group': DEFAULT_LVM_POOL.split('/')[0],
+                    'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
+
+        ThinPoolBase.pool_class = pool_class
+        ThinPoolBase.volume_class = volume_class
+        ThinPoolBase.pool_conf = conf
 
     def setUp(self, init_pool=True):
         super(ThinPoolBase, self).setUp()
@@ -105,7 +113,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
             self.pool = self.loop.run_until_complete(
-                self.app.add_pool(**POOL_CONF))
+                self.app.add_pool(**ThinPoolBase.pool_conf))
             self.created_pool = True
 
     def _find_pool(self, volume_group, thin_pool):
@@ -113,7 +121,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
             ``thin_pool``, or None.
         '''
         pools = [p for p in self.app.pools.values()
-            if issubclass(p.__class__, POOL_CLASS)]
+            if issubclass(p.__class__, ThinPoolBase.pool_class)]
         for pool in pools:
             if pool.volume_group == volume_group \
                     and pool.thin_pool == thin_pool:
@@ -161,7 +169,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, VOLUME_CLASS)
+        self.assertIsInstance(volume, ThinPoolBase.volume_class)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -181,7 +189,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, VOLUME_CLASS)
+        self.assertIsInstance(volume, ThinPoolBase.volume_class)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -958,7 +966,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         volume = self.app.get_pool(self.pool.name).init_volume(
             vm, config_snapshot)
-        self.assertIsInstance(volume, VOLUME_CLASS)
+        self.assertIsInstance(volume, ThinPoolBase.volume_class)
         self.assertEqual(volume.name, 'root2')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])

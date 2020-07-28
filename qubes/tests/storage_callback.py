@@ -29,13 +29,7 @@ import qubes.tests
 import qubes.tests.storage
 import qubes.tests.storage_lvm
 from qubes.tests.storage_lvm import skipUnlessLvmPoolExists
-import qubes.storage.callback
-
-POOL_CLASS = qubes.storage.callback.CallbackPool
-VOLUME_CLASS = qubes.storage.callback.CallbackVolume
-POOL_CONF = {'name': 'test-callback',
-             'driver': 'callback',
-             'conf_id': 'invalid'}
+from qubes.storage.callback import CallbackPool, CallbackVolume
 
 CB_CONF = '/etc/qubes_callback.json'
 LOG_BIN = '/tmp/testCbLogArgs'
@@ -93,21 +87,15 @@ CB_DATA = {'utest-callback-01': {
 
 class CallbackBase:
     ''' Mixin base class for callback tests. Has no base class. '''
-    bak_pool_class = None
-    bak_volume_class = None
-    bak_pool_conf = None
     conf_id = None
+    pool_name = 'test-callback'
 
     @classmethod
     def setUpClass(cls, conf_id='utest-callback-01'):
-        CallbackBase.bak_pool_class = qubes.tests.storage_lvm.POOL_CLASS
-        CallbackBase.bak_volume_class = qubes.tests.storage_lvm.VOLUME_CLASS
-        CallbackBase.bak_pool_conf = qubes.tests.storage_lvm.POOL_CONF
-        qubes.tests.storage_lvm.POOL_CLASS = POOL_CLASS
-        qubes.tests.storage_lvm.VOLUME_CLASS = VOLUME_CLASS
-        cdict = {'conf_id': conf_id}
+        conf = {'name': CallbackBase.pool_name,
+                'driver': 'callback',
+                'conf_id': conf_id}
         CallbackBase.conf_id = conf_id
-        qubes.tests.storage_lvm.POOL_CONF = {**POOL_CONF, **cdict}
 
         assert not(os.path.exists(CB_CONF)), '%s must NOT exist. Please delete it, if you do not need it.' % CB_CONF
 
@@ -116,17 +104,11 @@ class CallbackBase:
 
         with open(CB_CONF, 'w') as outfile:
             json.dump(CB_DATA, outfile)
-        super().setUpClass()
+        super().setUpClass(pool_class=CallbackPool, volume_class=CallbackVolume, pool_conf=conf)
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        if CallbackBase.bak_pool_class:
-            qubes.tests.storage_lvm.POOL_CLASS = CallbackBase.bak_pool_class
-        if CallbackBase.bak_volume_class:
-            qubes.tests.storage_lvm.VOLUME_CLASS = CallbackBase.bak_volume_class
-        if CallbackBase.bak_pool_conf:
-            qubes.tests.storage_lvm.POOL_CONF = CallbackBase.bak_pool_conf
 
         sudo = [] if os.getuid() == 0 else ['sudo']
         subprocess.run(sudo + ['rm', '-f', CB_CONF], check=True)
@@ -140,7 +122,7 @@ class CallbackBase:
     def test_000_000_callback_test_init(self):
         ''' Check whether the test init did work. '''
         if hasattr(self, 'pool'):
-            self.assertIsInstance(self.pool, qubes.storage.callback.CallbackPool)
+            self.assertIsInstance(self.pool, CallbackPool)
             self.assertEqual(self.pool.backend_class, qubes.storage.lvm.ThinPool)
         self.assertTrue(os.path.isfile(CB_CONF))
 
@@ -218,7 +200,7 @@ exit 0
         </qubes>
         """
         xml = xml.replace('CONF_ID', CallbackBase.conf_id)
-        xml = xml.replace('POOL_NAME', POOL_CONF['name'])
+        xml = xml.replace('POOL_NAME', CallbackBase.pool_name)
         with open(LoggingCallbackBase.xml_path, 'w') as f:
             f.write(xml)
         self.app = qubes.Qubes(LoggingCallbackBase.xml_path,
@@ -273,7 +255,7 @@ exit 0
         ''' create a lvm pool with additional callbacks '''
         config = {
             'name': LoggingCallbackBase.volume_name,
-            'pool': POOL_CONF['name'],
+            'pool': CallbackBase.pool_name,
             'save_on_stop': True,
             'rw': True,
             'revisions_to_keep': 2,
@@ -285,7 +267,7 @@ exit 0
         self.assertLog(test_name, 0)
         self.init_pool()
         self.assertFalse(self.created_pool)
-        self.assertIsInstance(self.pool, qubes.storage.callback.CallbackPool)
+        self.assertIsInstance(self.pool, CallbackPool)
         self.assertLog(test_name, 1)
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
@@ -309,7 +291,7 @@ class TC_91_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
     @classmethod
     def setUpClass(cls):
         conf_id = 'utest-callback-02'
-        name = POOL_CONF['name']
+        name = CallbackBase.pool_name
         bdriver = (CB_DATA[conf_id])['bdriver']
         ctor_params = json.dumps(CB_DATA[conf_id], sort_keys=True, indent=2)
         vname = LoggingCallbackBase.volume_name
@@ -353,7 +335,7 @@ class TC_92_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
         ''' Make sure that we check the exit code of executed callbacks. '''
         config = {
             'name': LoggingCallbackBase.volume_name,
-            'pool': POOL_CONF['name'],
+            'pool': CallbackBase.pool_name,
             'save_on_stop': True,
             'rw': True,
             'revisions_to_keep': 2,
@@ -371,26 +353,26 @@ class TC_92_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
         ''' Make sure we error out on common user & dev mistakes. '''
         #missing conf_id
         with self.assertRaises(qubes.storage.StoragePoolException):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='')
+            cb = CallbackPool(name='some-name', conf_id='')
 
         #invalid conf_id
         with self.assertRaises(qubes.storage.StoragePoolException):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='nonexisting-id')
+            cb = CallbackPool(name='some-name', conf_id='nonexisting-id')
 
         #incorrect backend driver
         with self.assertRaises(qubes.storage.StoragePoolException):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='testing-fail-incorrect-bdriver')
+            cb = CallbackPool(name='some-name', conf_id='testing-fail-incorrect-bdriver')
 
         #missing config entries
         with self.assertRaises(qubes.storage.StoragePoolException):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='testing-fail-missing-all')
+            cb = CallbackPool(name='some-name', conf_id='testing-fail-missing-all')
 
         #missing bdriver args
         with self.assertRaises(TypeError):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='testing-fail-missing-bdriver-args')
+            cb = CallbackPool(name='some-name', conf_id='testing-fail-missing-bdriver-args')
 
 class TC_93_CallbackPool(qubes.tests.QubesTestCase):
     def test_001_missing_conf(self):
         ''' A missing config file must cause errors. '''
         with self.assertRaises(FileNotFoundError):
-            cb = qubes.storage.callback.CallbackPool(name='some-name', conf_id='nonexisting-id')
+            cb = CallbackPool(name='some-name', conf_id='nonexisting-id')
