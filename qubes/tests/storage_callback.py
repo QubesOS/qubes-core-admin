@@ -58,10 +58,10 @@ CB_DATA = {'utest-callback-01': {
                      'thin_pool':    qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/')[1]
                 },
                 'cmd': 'exit 1',
-                'post_ctor': LOG_BIN + ' post_ctor',
                 'pre_sinit': LOG_BIN + ' pre_sinit',
                 'pre_setup': LOG_BIN + ' pre_setup',
                 'pre_volume_create': LOG_BIN + ' pre_volume_create',
+                'post_volume_create': LOG_BIN + ' post_volume_create',
                 'pre_volume_import_data': LOG_BIN + ' pre_volume_import_data',
                 'post_volume_import_data_end': LOG_BIN + ' post_volume_import_data_end',
                 'post_volume_remove': LOG_BIN + ' post_volume_remove',
@@ -299,10 +299,10 @@ class TC_91_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
         vsize = 2 * qubes.config.defaults['root_img_size']
         log_expected = \
             {str(cls) + 'test_001_callbacks':
-                {0: '1: {0}\n2: {1}\n3: post_ctor\n4: {2}'.format(name, bdriver, ctor_params),
+                {0: '',
                  1: '',
                  2: '',
-                 3: '1: {0}\n2: {1}\n3: pre_sinit\n4: {2}\n1: {0}\n2: {1}\n3: pre_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: None'.format(name, bdriver, ctor_params, vname, vid),
+                 3: '1: {0}\n2: {1}\n3: pre_sinit\n4: {2}\n1: {0}\n2: {1}\n3: pre_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: None\n1: {0}\n2: {1}\n3: post_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: None'.format(name, bdriver, ctor_params, vname, vid),
                  4: '1: {0}\n2: {1}\n3: pre_volume_import_data\n4: {2}\n5: {3}\n6: {4}\n7: None\n8: {5}'.format(name, bdriver, ctor_params, vname, vid, vsize),
                  5: '1: {0}\n2: {1}\n3: post_volume_import_data_end\n4: {2}\n5: {3}\n6: {4}\n7: None\n8: {5}'.format(name, bdriver, ctor_params, vname, vid, True),
                  6: '1: {0}\n2: {1}\n3: post_volume_remove\n4: {2}\n5: {3}\n6: {4}\n7: None'.format(name, bdriver, ctor_params, vname, vid),
@@ -320,10 +320,10 @@ class TC_92_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
     def setUpClass(cls):
         log_expected = \
             {str(cls) + 'test_001_callbacks':
-                {0: '1: post_ctor',
+                {0: '',
                  1: '',
                  2: '',
-                 3: '1: pre_sinit\n1: pre_volume_create',
+                 3: '1: pre_sinit\n1: pre_volume_create\n1: post_volume_create',
                  4: '1: pre_volume_import_data',
                  5: '1: post_volume_import_data_end',
                  6: '1: post_volume_remove',

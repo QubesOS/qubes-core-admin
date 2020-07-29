@@ -23,6 +23,7 @@ import logging
 import subprocess
 import json
 import asyncio
+import locale
 from shlex import quote
 from qubes.utils import coro_maybe
 
@@ -77,9 +78,9 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-succ-file-02 -a test callback
     qvm-pool
     ls /mnt/test02
-    less /tmp/callback.log (post_ctor & pre_setup should be there and in that order)
+    less /tmp/callback.log (pre_setup should be there and in that order)
     qvm-create -l red -P test test-vm
-    cat /tmp/callback.log (2x pre_volume_create should be added)
+    cat /tmp/callback.log (2x pre_volume_create + 2x post_volume_create should be added)
     qvm-start test-vm
     qvm-volume | grep test-vm
     grep test-vm /var/lib/qubes/qubes.xml
@@ -88,7 +89,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-shutdown test-vm
     cat /tmp/callback.log (2x post_volume_stop should be added)
     #reboot
-    cat /tmp/callback.log (only (!) post_ctor should be there)
+    cat /tmp/callback.log (nothing (!) should be there)
     qvm-start test-vm
     cat /tmp/callback.log (pre_sinit & 2x pre_volume_start & 2x post_volume_start should be added)
     qvm-shutdown --wait test-vm && qvm-remove test-vm
@@ -110,7 +111,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-succ-file-03 -a test callback
     qvm-pool
     ls /mnt/test03
-    less /tmp/callback.log (post_ctor & pre_setup should be there, no more arguments)
+    less /tmp/callback.log (pre_setup should be there, no more arguments)
     qvm-pool -r test && sudo rm -rf /mnt/test03
     less /tmp/callback.log (nothing should have been added)
 
@@ -239,7 +240,6 @@ class CallbackPool(qubes.storage.Pool):
 
         super().__init__(name=name, revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)))
         self._cb_ctor_done = True
-        self._callback_nocoro('post_ctor')
 
     def _check_init(self):
         ''' Whether or not this object requires late storage initialization via callback. '''
@@ -264,14 +264,13 @@ class CallbackPool(qubes.storage.Pool):
         if self._cb_requires_init:
             yield from self._init(**kwargs)
 
-    def _callback_nocoro(self, cb, cb_args=None, handle_signals=True):
-        '''Run a callback (variant that can be used outside of coroutines / from synchronous code).
+    @asyncio.coroutine
+    def _callback(self, cb, cb_args=None):
+        '''Run a callback.
         :param cb: Callback identifier string.
         :param cb_args: Optional list of arguments to pass to the command as last arguments.
                         Only passed on for the generic command specified as `cmd`, not for `on_xyz` callbacks.
-        :param handle_signals: Attempt to handle signals locally in synchronous code.
-                        May throw an exception, if a callback signal cannot be handled locally.
-        :return: String with potentially unhandled signals, if `handle_signals` is `False`. Nothing otherwise.
+        :return: Nothing.
         '''
         if self._cb_ctor_done:
             cmd = self._cb_conf.get(cb)
@@ -285,27 +284,18 @@ class CallbackPool(qubes.storage.Pool):
                 args = ' '.join(quote(str(a)) for a in args)
                 cmd = ' '.join(filter(None, [cmd, args]))
                 self._cb_log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
-                res = subprocess.run(['/bin/bash', '-c', cmd], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-                #stdout & stderr are reported if the exit code check fails
-                self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stdout)
-                self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, res.stderr)
+                cmd_arr = ['/bin/bash', '-c', cmd]
+                proc = yield from asyncio.create_subprocess_exec(*cmd_arr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = yield from proc.communicate()
+                encoding = locale.getpreferredencoding()
+                stdout = stdout.decode(encoding)
+                stderr = stderr.decode(encoding)
+                if proc.returncode != 0:
+                    raise subprocess.CalledProcessError(returncode=proc.returncode, cmd=cmd, output=stdout, stderr=stderr)
+                self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stdout)
+                self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stderr)
                 if self._cb_conf.get('signal_back', False) is True:
-                    if handle_signals:
-                        self._process_signals_nocoro(res.stdout)
-                    else:
-                        return res.stdout
-        return None
-
-    @asyncio.coroutine
-    def _callback(self, cb, cb_args=None):
-        '''Run a callback.
-        :param cb: Callback identifier string.
-        :param cb_args: Optional list of arguments to pass to the command as last arguments.
-                        Only passed on for the generic command specified as `cmd`, not for `on_xyz` callbacks.
-        '''
-        ret = self._callback_nocoro(cb, cb_args=cb_args, handle_signals=False)
-        if ret:
-            yield from self._process_signals(ret)
+                        yield from self._process_signals(stdout)
 
     @asyncio.coroutine
     def _process_signals(self, out):
@@ -318,16 +308,6 @@ class CallbackPool(qubes.storage.Pool):
                 self._cb_log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
                 #NOTE: calling our own methods may lead to a deadlock / qubesd freeze due to `self._assert_initialized()` / `self._cb_init_lock`
                 yield from coro_maybe(self._cb_impl.setup())
-
-    def _process_signals_nocoro(self, out):
-        '''Variant of `process_signals` to be used with synchronous code.
-        :param out: String to check for signals. Each signal must be on a dedicated line.
-                    They are executed in the order they are found. Callbacks are not triggered.
-        :raise UnhandledSignalException: If signals cannot be handled here / in synchronous code.
-        '''
-        for line in out.splitlines():
-            if line == 'SIGNAL_setup':
-                raise UnhandledSignalException(self, line)
 
     @property
     def backend_class(self):
@@ -477,7 +457,9 @@ class CallbackVolume(qubes.storage.Volume):
     def create(self):
         yield from self._assert_initialized()
         yield from self._callback('pre_volume_create')
-        return (yield from coro_maybe(self._cb_impl.create()))
+        ret = yield from coro_maybe(self._cb_impl.create())
+        yield from self._callback('post_volume_create')
+        return ret
 
     @asyncio.coroutine
     def remove(self):
@@ -524,7 +506,9 @@ class CallbackVolume(qubes.storage.Volume):
     def import_volume(self, src_volume):
         yield from self._assert_initialized()
         yield from self._callback('pre_volume_import', cb_args=[src_volume.vid])
-        return (yield from coro_maybe(self._cb_impl.import_volume(src_volume)))
+        ret = yield from coro_maybe(self._cb_impl.import_volume(src_volume))
+        yield from self._callback('post_volume_import', cb_args=[src_volume.vid])
+        return ret
 
     def is_dirty(self):
         # pylint: disable=protected-access
