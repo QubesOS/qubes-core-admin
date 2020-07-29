@@ -302,10 +302,10 @@ class TC_91_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
                 {0: '',
                  1: '',
                  2: '',
-                 3: '1: {0}\n2: {1}\n3: pre_sinit\n4: {2}\n1: {0}\n2: {1}\n3: pre_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: None\n1: {0}\n2: {1}\n3: post_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: None'.format(name, bdriver, ctor_params, vname, vid),
-                 4: '1: {0}\n2: {1}\n3: pre_volume_import_data\n4: {2}\n5: {3}\n6: {4}\n7: None\n8: {5}'.format(name, bdriver, ctor_params, vname, vid, vsize),
-                 5: '1: {0}\n2: {1}\n3: post_volume_import_data_end\n4: {2}\n5: {3}\n6: {4}\n7: None\n8: {5}'.format(name, bdriver, ctor_params, vname, vid, True),
-                 6: '1: {0}\n2: {1}\n3: post_volume_remove\n4: {2}\n5: {3}\n6: {4}\n7: None'.format(name, bdriver, ctor_params, vname, vid),
+                 3: '1: {0}\n2: {1}\n3: pre_sinit\n4: {2}\n5: {3}\n1: {0}\n2: {1}\n3: pre_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: {5}\n8: None\n1: {0}\n2: {1}\n3: post_volume_create\n4: {2}\n5: {3}\n6: {4}\n7: {5}\n8: None'.format(name, bdriver, conf_id, ctor_params, vname, vid),
+                 4: '1: {0}\n2: {1}\n3: pre_volume_import_data\n4: {2}\n5: {3}\n6: {4}\n7: {5}\n8: None\n9: {6}'.format(name, bdriver, conf_id, ctor_params, vname, vid, vsize),
+                 5: '1: {0}\n2: {1}\n3: post_volume_import_data_end\n4: {2}\n5: {3}\n6: {4}\n7: {5}\n8: None\n9: {6}'.format(name, bdriver, conf_id, ctor_params, vname, vid, True),
+                 6: '1: {0}\n2: {1}\n3: post_volume_remove\n4: {2}\n5: {3}\n6: {4}\n7: {5}\n8: None'.format(name, bdriver, conf_id, ctor_params, vname, vid),
                  }
             }
         super().setUpClass(conf_id=conf_id, log_expected=log_expected)

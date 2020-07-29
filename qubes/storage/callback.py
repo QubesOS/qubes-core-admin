@@ -279,7 +279,7 @@ class CallbackPool(qubes.storage.Pool):
                 if cb_args is None:
                     cb_args = []
                 cmd = self._cb_conf.get('cmd')
-                args = [self.name, self._cb_conf['bdriver'], cb, self._cb_cmd_arg, *cb_args]
+                args = [self.name, self._cb_conf['bdriver'], cb, self._cb_conf_id, self._cb_cmd_arg, *cb_args]
             if cmd and cmd != '-':
                 args = ' '.join(quote(str(a)) for a in args)
                 cmd = ' '.join(filter(None, [cmd, args]))
@@ -295,7 +295,7 @@ class CallbackPool(qubes.storage.Pool):
                 self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stdout)
                 self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stderr)
                 if self._cb_conf.get('signal_back', False) is True:
-                        yield from self._process_signals(stdout)
+                    yield from self._process_signals(stdout)
 
     @asyncio.coroutine
     def _process_signals(self, out):
