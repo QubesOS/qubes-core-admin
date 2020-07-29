@@ -78,7 +78,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-pool -o conf_id=testing-succ-file-02 -a test callback
     qvm-pool
     ls /mnt/test02
-    less /tmp/callback.log (pre_setup should be there and in that order)
+    less /tmp/callback.log (pre_setup should be there)
     qvm-create -l red -P test test-vm
     cat /tmp/callback.log (2x pre_volume_create + 2x post_volume_create should be added)
     qvm-start test-vm
@@ -89,7 +89,7 @@ class CallbackPool(qubes.storage.Pool):
     qvm-shutdown test-vm
     cat /tmp/callback.log (2x post_volume_stop should be added)
     #reboot
-    cat /tmp/callback.log (nothing (!) should be there)
+    cat /tmp/callback.log (it should not exist)
     qvm-start test-vm
     cat /tmp/callback.log (pre_sinit & 2x pre_volume_start & 2x post_volume_start should be added)
     qvm-shutdown --wait test-vm && qvm-remove test-vm
@@ -106,7 +106,7 @@ class CallbackPool(qubes.storage.Pool):
     cat /tmp/callback.log
     #close the disposable VM
     qvm-remove test-dvm
-    qvm-pool -r test
+    qvm-pool -r test && sudo rm -rf /mnt/test02
 
     qvm-pool -o conf_id=testing-succ-file-03 -a test callback
     qvm-pool
@@ -147,7 +147,7 @@ class CallbackPool(qubes.storage.Pool):
     sudo cryptsetup status test-eph
     qvm-create -l red -P teph test-eph (should execute two pre_volume_create callbacks)
     qvm-volume | grep test-eph
-    ls /mnt/test_eph/appvms (should have private.img and volatile.img)
+    ls /mnt/test_eph/appvms/test-eph/ (should have private.img and volatile.img)
     ls /var/lib/qubes/appvms/test-eph (should only have the icon)
     qvm-start test-eph
     #reboot
