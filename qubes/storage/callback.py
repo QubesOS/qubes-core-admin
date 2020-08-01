@@ -46,12 +46,6 @@ class CallbackPool(qubes.storage.Pool):
         - custom pool mounts
         - encryption
         - debugging
-        - run synchronous pool drivers asynchronously
-
-    A word of caution:
-    This implementation runs all methods that `qubes.storage.Pool` allows to be asynchronous asynchronously. So if a backend pool driver does
-    not support a particular method to be run asynchronously, there may be issues. In short, it is always preferable to use the original backend
-    driver over this one unless the functionality of this driver is required for a particular use case.
 
 
     **Integration tests**:
