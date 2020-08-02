@@ -43,12 +43,22 @@ import qubes.vm
 import qubes.vm.mix.net
 
 qmemman_present = False
-try:
-    import qubes.qmemman.client  # pylint: disable=wrong-import-position
+#### KVM:
+##try:
+##    import qubes.qmemman.client  # pylint: disable=wrong-import-position
+##
+##    qmemman_present = True
+##except ImportError:
+##    pass
+from qubes.hypervisor import is_xen
+if is_xen():
+    try:
+        import qubes.qmemman.client  # pylint: disable=wrong-import-position
 
-    qmemman_present = True
-except ImportError:
-    pass
+        qmemman_present = True
+    except ImportError:
+        pass
+########
 
 # overhead of per-qube/per-vcpu Xen structures,
 # taken from OpenStack nova/virt/xenapi/driver.py
