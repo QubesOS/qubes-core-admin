@@ -87,6 +87,9 @@ Requires:       xen-hvm-stubdom-linux >= 1.0.13
 Requires:       xen-hvm-stubdom-linux-full >= 1.0.13
 Requires:       libvirt-daemon-xen >= 3.3.0-7
 %endif
+%if x%{?backend_vmm} == xkvm
+Requires:       libvirt-daemon-kvm >= 3.3.0-7
+%endif
 Requires:       cronie
 Requires:       scrypt
 # for qubes-hcl-report
@@ -138,12 +141,18 @@ mkdir -p $RPM_BUILD_ROOT/etc/qubes/backup
 
 %post
 %systemd_post qubes-core.service
+## Xen only
+%if x%{?backend_vmm} == xxen
 %systemd_post qubes-qmemman.service
+%endif
+########
 %systemd_post qubesd.service
 
+%if x%{?backend_vmm} == xxen
 sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
 echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
+%endif
 
 if [ -e /etc/sysconfig/prelink ]; then
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
@@ -168,12 +177,18 @@ if ! grep -q ^qubes: /etc/group ; then
 		groupadd qubes
 fi
 
+%if x%{?backend_vmm} == xxen
 %triggerin -- xen-runtime
 /usr/lib/qubes/fix-dir-perms.sh
+%endif
 
 %preun
 %systemd_preun qubes-core.service
+## Xen only
+%if x%{?backend_vmm} == xxen
 %systemd_preun qubes-qmemman.service
+%endif
+########
 %systemd_preun qubesd.service
 
 if [ "$1" = 0 ] ; then
@@ -184,7 +199,11 @@ fi
 
 %postun
 %systemd_postun qubes-core.service
+## Xen only
+%if x%{?backend_vmm} == xxen
 %systemd_postun_with_restart qubes-qmemman.service
+%endif
+########
 %systemd_postun_with_restart qubesd.service
 
 if [ "$1" = 0 ] ; then
@@ -338,12 +357,20 @@ done
 
 %files
 %defattr(-,root,root,-)
+## Xen only
+%if x%{?backend_vmm} == xxen
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
+%endif
+########
 %config(noreplace) /etc/logrotate.d/qubes
 %attr(770,root,qubes) %dir /etc/qubes/backup
 /usr/bin/qvm-*
 /usr/bin/qubes-*
+## Xen only - XXX:  TEMP:  Package since it installed.  Need to prevent install
+#%%if x%{?backend_vmm} == xxen
 /usr/bin/qmemmand
+#%%endif
+########
 /usr/bin/qubesd*
 
 %{_mandir}/man1/qubes*.1*
@@ -411,7 +438,9 @@ done
 %dir %{python3_sitelib}/qubes/tools/__pycache__
 %{python3_sitelib}/qubes/tools/__pycache__/*
 %{python3_sitelib}/qubes/tools/__init__.py
+## XXX:
 %{python3_sitelib}/qubes/tools/qmemmand.py
+########
 %{python3_sitelib}/qubes/tools/qubes_create.py
 %{python3_sitelib}/qubes/tools/qubesd.py
 %{python3_sitelib}/qubes/tools/qubesd_query.py
@@ -510,19 +539,23 @@ done
 %{python3_sitelib}/qubes/tests/integ/tools/__init__.py
 %{python3_sitelib}/qubes/tests/integ/tools/qubes_create.py
 
+## XXX:
 %dir %{python3_sitelib}/qubes/qmemman
 %dir %{python3_sitelib}/qubes/qmemman/__pycache__
 %{python3_sitelib}/qubes/qmemman/__pycache__/*
 %{python3_sitelib}/qubes/qmemman/__init__.py
 %{python3_sitelib}/qubes/qmemman/algo.py
 %{python3_sitelib}/qubes/qmemman/client.py
+########
 
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 %{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
 %{_unitdir}/qubes-core.service
+## XXX:
 %{_unitdir}/qubes-qmemman.service
+########
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
 %attr(2770,root,qubes) %dir /var/lib/qubes
@@ -530,6 +563,9 @@ done
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(2770,root,qubes) %dir /var/lib/qubes/backup
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
+%if x%{?backend_vmm} == xkvm
+/usr/share/qubes/templates/libvirt/kvm.xml
+%endif
 /usr/share/qubes/templates/libvirt/xen.xml
 /usr/share/qubes/templates/libvirt/devices/block.xml
 /usr/share/qubes/templates/libvirt/devices/pci.xml
