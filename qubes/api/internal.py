@@ -75,7 +75,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         When the script finish importing, it will trigger
         internal.vm.volume.ImportEnd (with either b'ok' or b'fail' as a
-        payload) and response from that call will be actually send to the
+        payload) and response from that call will be actually sent to the
         caller.
         """
         self.enforce(self.arg in self.dest.volumes.keys())
@@ -121,7 +121,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     async def vm_volume_import_end(self, untrusted_payload):
         '''
         This is second half of admin.vm.volume.Import handling. It is called
-        when actual import is finished. Response from this method is sent do
+        when actual import is finished. Response from this method is sent to
         the client (as a response for admin.vm.volume.Import call).
 
         The payload is either 'ok', or 'fail\n<error message>'.
