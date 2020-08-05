@@ -92,10 +92,10 @@ class CallbackBase:
 
     @classmethod
     def setUpClass(cls, conf_id='utest-callback-01'):
-        conf = {'name': CallbackBase.pool_name,
+        conf = {'name': cls.pool_name,
                 'driver': 'callback',
                 'conf_id': conf_id}
-        CallbackBase.conf_id = conf_id
+        cls.conf_id = conf_id
 
         assert not(os.path.exists(CB_CONF)), '%s must NOT exist. Please delete it, if you do not need it.' % CB_CONF
 
@@ -155,12 +155,12 @@ for arg in "$@" ; do
 done
 exit 0
 """
-        script = script.replace('LOG_OUT', LoggingCallbackBase.test_log)
+        script = script.replace('LOG_OUT', cls.test_log)
         with open(LOG_BIN, 'w') as f:
             f.write(script)
         os.chmod(LOG_BIN, 0o775)
 
-        LoggingCallbackBase.test_log_expected = log_expected
+        cls.test_log_expected = log_expected
         super().setUpClass(conf_id=conf_id)
 
     @classmethod
@@ -169,7 +169,7 @@ exit 0
         os.remove(LOG_BIN)
 
     def setUp(self, init_pool=False):
-        assert not(os.path.exists(LoggingCallbackBase.test_log)), '%s must NOT exist. Please delete it, if you do not need it.' % LoggingCallbackBase.test_log
+        assert not(os.path.exists(self.test_log)), '%s must NOT exist. Please delete it, if you do not need it.' % self.test_log
         self.maxDiff = None
 
         xml = """
@@ -199,16 +199,16 @@ exit 0
           </domains>
         </qubes>
         """
-        xml = xml.replace('CONF_ID', CallbackBase.conf_id)
-        xml = xml.replace('POOL_NAME', CallbackBase.pool_name)
-        with open(LoggingCallbackBase.xml_path, 'w') as f:
+        xml = xml.replace('CONF_ID', self.conf_id)
+        xml = xml.replace('POOL_NAME', self.pool_name)
+        with open(self.xml_path, 'w') as f:
             f.write(xml)
-        self.app = qubes.Qubes(LoggingCallbackBase.xml_path,
+        self.app = qubes.Qubes(self.xml_path,
             clockvm=None,
             updatevm=None,
             offline_mode=True,
         )
-        os.environ['QUBES_XML_PATH'] = LoggingCallbackBase.xml_path
+        os.environ['QUBES_XML_PATH'] = self.xml_path
         super().setUp(init_pool=init_pool)
 
     def tearDown(self):
@@ -220,18 +220,18 @@ exit 0
             if isinstance(getattr(self, attr), qubes.vm.BaseVM):
                 delattr(self, attr)
 
-        if os.path.exists(LoggingCallbackBase.test_log):
-            os.remove(LoggingCallbackBase.test_log)
+        if os.path.exists(self.test_log):
+            os.remove(self.test_log)
 
-        if os.path.exists(LoggingCallbackBase.xml_path):
-            os.remove(LoggingCallbackBase.xml_path)
+        if os.path.exists(self.xml_path):
+            os.remove(self.xml_path)
 
     def assertLogContent(self, expected):
         ''' Assert that the log matches the given string.
         :param expected: Expected content of the log file (String).
         '''
         try:
-            with open(LoggingCallbackBase.test_log, 'r') as f:
+            with open(self.test_log, 'r') as f:
                 found = f.read()
         except FileNotFoundError:
             found = ''
@@ -244,7 +244,7 @@ exit 0
         :param test_name: Name of the test.
         :param ind: Index inside `test_log_expected` to check against (Integer starting at 0).
         '''
-        d = LoggingCallbackBase.test_log_expected[str(self.__class__) + test_name]
+        d = self.test_log_expected[str(self.__class__) + test_name]
         expected = []
         for i in range(ind+1):
             expected = expected + [d[i]]
@@ -254,8 +254,8 @@ exit 0
     def test_001_callbacks(self):
         ''' create a lvm pool with additional callbacks '''
         config = {
-            'name': LoggingCallbackBase.volume_name,
-            'pool': CallbackBase.pool_name,
+            'name': self.volume_name,
+            'pool': self.pool_name,
             'save_on_stop': True,
             'rw': True,
             'revisions_to_keep': 2,
@@ -291,10 +291,10 @@ class TC_91_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
     @classmethod
     def setUpClass(cls):
         conf_id = 'utest-callback-02'
-        name = CallbackBase.pool_name
+        name = cls.pool_name
         bdriver = (CB_DATA[conf_id])['bdriver']
         ctor_params = json.dumps(CB_DATA[conf_id], sort_keys=True, indent=2)
-        vname = LoggingCallbackBase.volume_name
+        vname = cls.volume_name
         vid = '{0}/vm-test-inst-appvm-{1}'.format(qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/')[0], vname)
         vsize = 2 * qubes.config.defaults['root_img_size']
         log_expected = \
@@ -334,8 +334,8 @@ class TC_92_CallbackPool(LoggingCallbackBase, qubes.tests.storage_lvm.ThinPoolBa
     def test_002_failing_callback(self):
         ''' Make sure that we check the exit code of executed callbacks. '''
         config = {
-            'name': LoggingCallbackBase.volume_name,
-            'pool': CallbackBase.pool_name,
+            'name': self.volume_name,
+            'pool': self.pool_name,
             'save_on_stop': True,
             'rw': True,
             'revisions_to_keep': 2,

@@ -76,9 +76,9 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
                     'volume_group': DEFAULT_LVM_POOL.split('/')[0],
                     'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
 
-        ThinPoolBase.pool_class = pool_class
-        ThinPoolBase.volume_class = volume_class
-        ThinPoolBase.pool_conf = conf
+        cls.pool_class = pool_class
+        cls.volume_class = volume_class
+        cls.pool_conf = conf
 
     def setUp(self, init_pool=True):
         super(ThinPoolBase, self).setUp()
@@ -113,7 +113,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
             self.pool = self.loop.run_until_complete(
-                self.app.add_pool(**ThinPoolBase.pool_conf))
+                self.app.add_pool(**self.pool_conf))
             self.created_pool = True
 
     def _find_pool(self, volume_group, thin_pool):
@@ -121,7 +121,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
             ``thin_pool``, or None.
         '''
         pools = [p for p in self.app.pools.values()
-            if issubclass(p.__class__, ThinPoolBase.pool_class)]
+            if issubclass(p.__class__, self.pool_class)]
         for pool in pools:
             if pool.volume_group == volume_group \
                     and pool.thin_pool == thin_pool:
@@ -169,7 +169,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, ThinPoolBase.volume_class)
+        self.assertIsInstance(volume, self.volume_class)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -189,7 +189,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
-        self.assertIsInstance(volume, ThinPoolBase.volume_class)
+        self.assertIsInstance(volume, self.volume_class)
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
@@ -966,7 +966,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         volume = self.app.get_pool(self.pool.name).init_volume(
             vm, config_snapshot)
-        self.assertIsInstance(volume, ThinPoolBase.volume_class)
+        self.assertIsInstance(volume, self.volume_class)
         self.assertEqual(volume.name, 'root2')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
