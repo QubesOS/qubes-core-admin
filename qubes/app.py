@@ -1546,3 +1546,15 @@ class Qubes(qubes.PropertyHolder):
                 # netvm to it's default value
                 vm.fire_event('property-reset:netvm',
                               name='netvm', oldvalue=oldvalue)
+
+    @qubes.events.handler('property-set:default_dispvm')
+    def on_property_set_default_dispvm(self, event, name, newvalue,
+                                      oldvalue=None):
+        # pylint: disable=unused-argument
+        for vm in self.domains:
+            if hasattr(vm, 'default_dispvm') and \
+                    vm.property_is_default('default_dispvm'):
+                # fire property-reset:default_dispvm as it is responsible for
+                # resetting dispvm to it's default value
+                vm.fire_event('property-reset:default_dispvm',
+                              name='default_dispvm', oldvalue=oldvalue)
