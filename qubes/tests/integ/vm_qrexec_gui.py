@@ -458,7 +458,7 @@ class TC_00_AppVMMixin(object):
                             (rec[:-1] < -threshold))[0]
         np.seterr('raise')
         # compare against sine wave frequency
-        rec_freq = rec_size/np.mean(np.diff(crossings))
+        rec_freq = 44100/np.mean(np.diff(crossings))
         if not sfreq*0.8 < rec_freq < sfreq*1.2:
             self.fail('frequency {} not in specified range'
                     .format(rec_freq))
