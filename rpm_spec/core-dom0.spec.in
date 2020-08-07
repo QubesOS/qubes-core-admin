@@ -416,6 +416,7 @@ done
 %{python3_sitelib}/qubes/ext/__pycache__/*
 %{python3_sitelib}/qubes/ext/__init__.py
 %{python3_sitelib}/qubes/ext/admin.py
+%{python3_sitelib}/qubes/ext/backup_restore.py
 %{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/core_features.py
 %{python3_sitelib}/qubes/ext/gui.py
@@ -478,6 +479,7 @@ done
 %{python3_sitelib}/qubes/tests/integ/__init__.py
 %{python3_sitelib}/qubes/tests/integ/backup.py
 %{python3_sitelib}/qubes/tests/integ/backupcompatibility.py
+%{python3_sitelib}/qubes/tests/integ/backupdispvm.py
 %{python3_sitelib}/qubes/tests/integ/basic.py
 %{python3_sitelib}/qubes/tests/integ/devices_block.py
 %{python3_sitelib}/qubes/tests/integ/devices_pci.py
@@ -529,6 +531,7 @@ done
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/85-admin-backup-restore.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-admin-default.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-default.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-ro

@@ -142,3 +142,12 @@ class AdminExtension(qubes.ext.Extension):
         if hasattr(self, 'policy_cache'):
             self.policy_cache.cleanup()
             del self.policy_cache
+
+    @qubes.ext.handler('domain-tag-add:created-by-*')
+    def on_tag_add(self, vm, event, tag, **kwargs):
+        '''Add extra tags based on creators 'tag-created-vm-with' feature'''
+        # pylint: disable=unused-argument,no-self-use
+        created_by = vm.app.domains[tag.partition('created-by-')[2]]
+        tag_with = created_by.features.get('tag-created-vm-with', '')
+        for tag_with_single in tag_with.split():
+            vm.tags.add(tag_with_single)
