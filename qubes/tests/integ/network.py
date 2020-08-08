@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
-
+import contextlib
 from distutils import spawn
 
 import asyncio
@@ -86,6 +86,32 @@ class VmNetworkingMixin(object):
         self.app.save()
 
         self.configure_netvm()
+
+    def _run_cmd_and_log_output(self, vm, cmd):
+        """Used in tearDown to collect more info"""
+        if not vm.is_running():
+            return
+        with contextlib.suppress(subprocess.CalledProcessError):
+            output = self.loop.run_until_complete(
+                self.testnetvm.run_for_stdio(cmd, user='root'))
+            self.log.error('{}: {}: {}'.format(vm.name, cmd, output))
+
+    def tearDown(self):
+        # collect more info on failure
+        if self._outcome and not self._outcome.success:
+            for vm in (self.testnetvm, self.testvm1, getattr(self, 'proxy', None)):
+                if vm is None:
+                    continue
+                self._run_cmd_and_log_output(vm, 'ip a')
+                self._run_cmd_and_log_output(vm, 'ip r')
+                self._run_cmd_and_log_output(vm, 'iptables -vnL')
+                self._run_cmd_and_log_output(vm, 'iptables -vnL -t nat')
+                self._run_cmd_and_log_output(vm, 'nft list table qubes-firewall')
+                self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-firewall')
+                self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-iptables')
+                self._run_cmd_and_log_output(vm, 'systemctl --no-pager status xendriverdomain')
+
+        super(VmNetworkingMixin, self).tearDown()
 
 
     def configure_netvm(self):
