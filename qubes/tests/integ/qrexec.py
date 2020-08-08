@@ -197,6 +197,7 @@ class TC_00_QrexecMixin(object):
                     self.testvm1.run_for_stdio('''\
                         /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
                             /bin/sh -c 'cat /dev/zero; echo $? >/tmp/exit-code';
+                            sleep 1;
                             e=$(cat /tmp/exit-code);
                             test $e -eq 141 -o $e -eq 1'''),
                     timeout=10))
