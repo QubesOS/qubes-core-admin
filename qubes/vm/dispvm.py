@@ -26,12 +26,18 @@ import qubes.vm.qubesvm
 import qubes.vm.appvm
 import qubes.config
 
+def _setter_template(self, prop, value):
+    if not getattr(value, 'template_for_dispvms', False):
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'template for DispVM must have template_for_dispvms=True')
+    return value
+
 class DispVM(qubes.vm.qubesvm.QubesVM):
     '''Disposable VM'''
 
     template = qubes.VMProperty('template',
                                 load_stage=4,
-                                vmclass=qubes.vm.appvm.AppVM,
+                                setter=_setter_template,
                                 doc='AppVM, on which this DispVM is based.')
 
     dispid = qubes.property('dispid', type=int, write_once=True,
