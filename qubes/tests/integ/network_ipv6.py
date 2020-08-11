@@ -43,6 +43,19 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.ping6_ip = self.ping6_cmd.format(target=self.test_ip6)
         self.ping6_name = self.ping6_cmd.format(target=self.test_name)
 
+    def tearDown(self):
+        # collect more info on failure (ipv4 info collected in parent)
+        if self._outcome and not self._outcome.success:
+            for vm in (self.testnetvm, self.testvm1, getattr(self, 'proxy', None)):
+                if vm is None:
+                    continue
+                self._run_cmd_and_log_output(vm, 'ip -6 r')
+                self._run_cmd_and_log_output(vm, 'ip6tables -vnL')
+                self._run_cmd_and_log_output(vm, 'ip6tables -vnL -t nat')
+                self._run_cmd_and_log_output(vm, 'nft list table ip6 qubes-firewall')
+
+        super().tearDown()
+
     def configure_netvm(self):
         '''
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin

@@ -80,7 +80,14 @@ class VMWrapper(object):
         return self._loop.run_until_complete(self._vm.shutdown())
 
     def run(self, command, wait=False, user=None, passio_popen=False,
-            passio_stderr=False, **kwargs):
+            passio_stderr=False, gui=False, **kwargs):
+        if gui:
+            try:
+                self._loop.run_until_complete(
+                    self._vm.run_service_for_stdio('qubes.WaitForSession',
+                                                   user=user))
+            except subprocess.CalledProcessError as err:
+                return err.returncode
         if wait:
             try:
                 self._loop.run_until_complete(
