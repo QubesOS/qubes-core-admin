@@ -73,6 +73,9 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def test_000_init(self):
         pass
 
+    def test_001_property_icon(self):
+        self.assertEqual(self.vm.icon, 'adminvm-black')
+
     def test_100_xid(self):
         self.assertEqual(self.vm.xid, 0)
 

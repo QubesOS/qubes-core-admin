@@ -99,6 +99,12 @@ class AdminVM(qubes.vm.BaseVM):
         '''
         return 0
 
+    @qubes.stateless_property
+    def icon(self): # pylint: disable=no-self-use
+        """freedesktop icon name, suitable for use in
+        :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
+        return 'adminvm-black'
+
     @property
     def libvirt_domain(self):
         '''Libvirt object for dom0.
