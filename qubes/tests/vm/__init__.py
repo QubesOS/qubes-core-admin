@@ -56,7 +56,7 @@ class TestVMsCollection(dict):
         self.clear()
 
     def __iter__(self):
-        return iter(self.values())
+        return iter(set(self.values()))
 
 class TestVolume(object):
     def __init__(self, pool):
