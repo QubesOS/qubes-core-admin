@@ -208,3 +208,14 @@ class QubesTagNotFoundError(QubesException, KeyError):
     def __str__(self):
         # KeyError overrides __str__ method
         return QubesException.__str__(self)
+
+
+class QubesLabelNotFoundError(QubesException, KeyError):
+    """Label does not exists"""
+    def __init__(self, label):
+        super().__init__('Label does not exist: {}'.format(label))
+        self.label = label
+
+    def __str__(self):
+        # KeyError overrides __str__ method
+        return QubesException.__str__(self)
