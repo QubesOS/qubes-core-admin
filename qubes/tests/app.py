@@ -454,6 +454,49 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             self.app.close()
             del self.app
 
+    def test_101_property_migrate_label(self):
+        xml_template = """<?xml version="1.0" encoding="utf-8" ?>
+        <qubes version="3.0">
+            <labels>
+                <label id="label-1" color="{old_gray}">gray</label>
+            </labels>
+            <pools>
+              <pool driver="file" dir_path="/tmp/qubes-test" name="default"/>
+            </pools>
+            <domains>
+                <domain class="StandaloneVM" id="domain-1">
+                    <properties>
+                        <property name="qid">1</property>
+                        <property name="name">sys-net</property>
+                        <property name="provides_network">True</property>
+                        <property name="label" ref="label-1" />
+                        <property name="netvm"></property>
+                        <property name="uuid">2fcfc1f4-b2fe-4361-931a-c5294b35edfa</property>
+                    </properties>
+                    <features/>
+                    <devices class="pci"/>
+                </domain>
+            </domains>
+        </qubes>
+        """
+        with self.subTest('replace_label'):
+            with open('/tmp/qubestest.xml', 'w') as xml_file:
+                xml_file.write(xml_template.format(old_gray='0x555753'))
+            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+            self.assertEqual(
+                self.app.get_label('gray').color, '0x555555')
+            self.app.close()
+            del self.app
+
+        with self.subTest('dont_replace_label'):
+            with open('/tmp/qubestest.xml', 'w') as xml_file:
+                xml_file.write(xml_template.format(old_gray='0x123456'))
+            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+            self.assertEqual(
+                self.app.get_label('gray').color, '0x123456')
+            self.app.close()
+            del self.app
+
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     def tearDown(self):

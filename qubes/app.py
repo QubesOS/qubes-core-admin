@@ -946,6 +946,16 @@ class Qubes(qubes.PropertyHolder):
                 pass
             node_default_fw_netvm.getparent().remove(node_default_fw_netvm)
 
+    def _migrate_labels(self):
+        """Migrate changed labels"""
+        if self.xml is None:
+            return
+
+        # fix grey being green
+        grey_label = self.xml.find('./labels/label[@color=\'0x555753\']')
+        if grey_label is not None:
+            grey_label.set('color', '0x555555')
+
     def load(self, lock=False):
         '''Open qubes.xml
 
@@ -956,6 +966,8 @@ class Qubes(qubes.PropertyHolder):
 
         fh = self._acquire_lock()
         self.xml = lxml.etree.parse(fh)
+
+        self._migrate_labels()
 
         # stage 1: load labels and pools
         for node in self.xml.xpath('./labels/label'):
@@ -1180,7 +1192,7 @@ class Qubes(qubes.PropertyHolder):
             2: qubes.Label(2, '0xf57900', 'orange'),
             3: qubes.Label(3, '0xedd400', 'yellow'),
             4: qubes.Label(4, '0x73d216', 'green'),
-            5: qubes.Label(5, '0x555753', 'gray'),
+            5: qubes.Label(5, '0x555555', 'gray'),
             6: qubes.Label(6, '0x3465a4', 'blue'),
             7: qubes.Label(7, '0x75507b', 'purple'),
             8: qubes.Label(8, '0x000000', 'black'),
