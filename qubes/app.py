@@ -1340,7 +1340,7 @@ class Qubes(qubes.PropertyHolder):
         except (KeyError, ValueError):
             pass
 
-        raise KeyError(label)
+        raise qubes.exc.QubesLabelNotFoundError(label)
 
     @asyncio.coroutine
     def setup_pools(self):

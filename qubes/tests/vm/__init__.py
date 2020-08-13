@@ -82,7 +82,7 @@ class TestApp(qubes.tests.TestEmitter):
         for l in self.labels.values():
             if l.name == label:
                 return l
-        raise KeyError(label)
+        raise qubes.exc.QubesLabelNotFoundError(label)
 
     def get_pool(self, pool):
         return self.pools[pool]
