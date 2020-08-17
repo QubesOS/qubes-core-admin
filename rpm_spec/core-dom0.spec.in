@@ -393,6 +393,9 @@ done
 %{python3_sitelib}/qubes/features.py
 %{python3_sitelib}/qubes/firewall.py
 %{python3_sitelib}/qubes/log.py
+#### KVM:  Added for KVM
+%{python3_sitelib}/qubes/hypervisor.py
+########
 %{python3_sitelib}/qubes/rngdoc.py
 %{python3_sitelib}/qubes/tarwriter.py
 %{python3_sitelib}/qubes/utils.py
