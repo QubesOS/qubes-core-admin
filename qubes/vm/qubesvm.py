@@ -864,7 +864,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     kwargs['virt_mode'] = 'pv'
                 node_hvm.getparent().remove(node_hvm)
 
-        super(QubesVM, self).__init__(app, xml, **kwargs)
+        super().__init__(app, xml, **kwargs)
 
         if volume_config is None:
             volume_config = {}
@@ -950,7 +950,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def __xml__(self):
         # pylint: disable=no-member
-        element = super(QubesVM, self).__xml__()
+        element = super().__xml__()
         # pylint: enable=no-member
 
         if hasattr(self, 'volumes'):

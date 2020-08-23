@@ -59,4 +59,4 @@ class StandaloneVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
                 'rw': False,
             }
         }
-        super(StandaloneVM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)

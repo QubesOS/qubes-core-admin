@@ -58,7 +58,7 @@ class PropertyAction(argparse.Action):
             metavar='NAME=VALUE',
             required=False,
             help='set property to a value'):
-        super(PropertyAction, self).__init__(option_strings, 'properties',
+        super().__init__(option_strings, 'properties',
             metavar=metavar, default={}, help=help)
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -90,7 +90,7 @@ class SinglePropertyAction(argparse.Action):
         if const is not None:
             nargs = 0
 
-        super(SinglePropertyAction, self).__init__(option_strings, 'properties',
+        super().__init__(option_strings, 'properties',
             metavar=metavar, help=help, default={}, const=const,
             nargs=nargs)
 
@@ -112,7 +112,7 @@ class HelpPropertiesAction(argparse.Action):
             default=argparse.SUPPRESS,
             help='list all available properties with short descriptions'
                 ' and exit'):
-        super(HelpPropertiesAction, self).__init__(
+        super().__init__(
             option_strings=option_strings,
             dest=dest,
             default=default,
@@ -165,7 +165,7 @@ class VmNameAction(QubesAction):
                     nargs, "Passed unexpected value {!s} as {!s} nargs ".format(
                         nargs, dest))
 
-        super(VmNameAction, self).__init__(option_strings, dest=dest, help=help,
+        super().__init__(option_strings, dest=dest, help=help,
                                            nargs=nargs, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -215,11 +215,11 @@ class RunningVmNameAction(VmNameAction):
                 raise argparse.ArgumentError(
                     nargs, "Passed unexpected value {!s} as {!s} nargs ".format(
                         nargs, dest))
-        super(RunningVmNameAction, self).__init__(
+        super().__init__(
             option_strings, dest=dest, help=help, nargs=nargs, **kwargs)
 
     def parse_qubes_app(self, parser, namespace):
-        super(RunningVmNameAction, self).parse_qubes_app(parser, namespace)
+        super().parse_qubes_app(parser, namespace)
         for vm in namespace.domains:
             if not vm.is_running():
                 parser.error_runtime("domain {!r} is not running".format(
@@ -235,7 +235,7 @@ class VolumeAction(QubesAction):
     def __init__(self, help='A pool & volume id combination',
                  required=True, **kwargs):
         # pylint: disable=redefined-builtin
-        super(VolumeAction, self).__init__(help=help, required=required,
+        super().__init__(help=help, required=required,
                                            **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
@@ -319,7 +319,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
     def __init__(self, want_app=True, want_app_no_instance=False,
                  want_force_root=False, vmname_nargs=None, **kwargs):
 
-        super(QubesArgumentParser, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self._want_app = want_app
         self._want_app_no_instance = want_app_no_instance
@@ -352,7 +352,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
         self.set_defaults(verbose=1, quiet=0)
 
     def parse_args(self, args=None, namespace=None):
-        namespace = super(QubesArgumentParser, self).parse_args(args, namespace)
+        namespace = super().parse_args(args, namespace)
 
         if self._want_app and not self._want_app_no_instance:
             self.set_qubes_verbosity(namespace)
@@ -437,8 +437,7 @@ class AliasedSubParsersAction(argparse._SubParsersAction):
             dest = name
             if aliases:
                 dest += ' (%s)' % ','.join(aliases)
-            sup = super(AliasedSubParsersAction._AliasedPseudoAction, self)
-            sup.__init__(option_strings=[], dest=dest, help=help)
+            super().__init__(option_strings=[], dest=dest, help=help)
 
         def __call__(self, parser, namespace, values, option_string=None):
             raise NotImplementedError
@@ -450,8 +449,7 @@ class AliasedSubParsersAction(argparse._SubParsersAction):
         else:
             aliases = []
 
-        local_parser = super(AliasedSubParsersAction, self).add_parser(
-            name, **kwargs)
+        local_parser = super().add_parser(name, **kwargs)
 
         # Make the aliases work.
         for alias in aliases:
@@ -497,7 +495,7 @@ class VmNameGroup(argparse._MutuallyExclusiveGroup):
 
     def __init__(self, container, required, vm_action=VmNameAction, help=None):
         # pylint: disable=redefined-builtin
-        super(VmNameGroup, self).__init__(container, required=required)
+        super().__init__(container, required=required)
         if not help:
             help = 'perform the action on all qubes'
         self.add_argument('--all', action='store_true', dest='all_domains',

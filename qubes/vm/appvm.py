@@ -92,7 +92,7 @@ class AppVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
 
-        super(AppVM, self).__init__(app, xml, **kwargs)
+        super().__init__(app, xml, **kwargs)
 
     @qubes.events.handler('domain-load')
     def on_domain_loaded(self, event):

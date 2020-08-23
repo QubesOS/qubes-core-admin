@@ -914,7 +914,7 @@ class Qubes(qubes.PropertyHolder):
                                              qubes.config.system_path[
                                                  'qubes_store_filename']))
 
-        super(Qubes, self).__init__(xml=None, **kwargs)
+        super().__init__(xml=None, **kwargs)
 
         self.__load_timestamp = None
         self.__locked_fh = None

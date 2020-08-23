@@ -69,7 +69,7 @@ _re_alphanum = re.compile(r'^[A-Za-z0-9-]*$')
 
 class BackupCanceledError(qubes.exc.QubesException):
     def __init__(self, msg, tmpdir=None):
-        super(BackupCanceledError, self).__init__(msg)
+        super().__init__(msg)
         self.tmpdir = tmpdir
 
 
@@ -124,7 +124,7 @@ class BackupHeader:
 class SendWorker:
     # pylint: disable=too-few-public-methods
     def __init__(self, queue, base_dir, backup_stdout):
-        super(SendWorker, self).__init__()
+        super().__init__()
         self.queue = queue
         self.base_dir = base_dir
         self.backup_stdout = backup_stdout
@@ -317,7 +317,7 @@ class Backup:
         If vms = None, use default list based on vm.include_in_backups property;
         exclude_list is always applied
         """
-        super(Backup, self).__init__()
+        super().__init__()
 
         #: progress of the backup - bytes handled of the current VM
         self.chunk_size = 100 * 1024 * 1024

@@ -44,7 +44,7 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 class BlockDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident):
-        super(BlockDevice, self).__init__(backend_domain=backend_domain,
+        super().__init__(backend_domain=backend_domain,
             ident=ident)
         self._description = None
         self._mode = None

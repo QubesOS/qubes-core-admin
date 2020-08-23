@@ -237,7 +237,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     def __init__(self, *args, **kwargs):
         self._firewall = None
-        super(NetVMMixin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @qubes.events.handler('domain-load')
     def on_domain_load_netvm_loop_check(self, event):

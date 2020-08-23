@@ -36,7 +36,7 @@ class JustEvaluateAllowResolution(parser.AllowResolution):
 
 class AdminExtension(qubes.ext.Extension):
     def __init__(self):
-        super(AdminExtension, self).__init__()
+        super().__init__()
         # during tests, __init__() of the extension can be called multiple
         # times, because there are multiple Qubes() object instances
         if not hasattr(self, 'policy_cache'):

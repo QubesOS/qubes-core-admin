@@ -84,7 +84,7 @@ class TemplateVM(QubesVM):
                 'rw': False
             }
         }
-        super(TemplateVM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @qubes.events.handler('property-set:default_user',
                           'property-set:kernel',

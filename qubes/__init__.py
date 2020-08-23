@@ -543,7 +543,7 @@ class PropertyHolder(qubes.events.Emitter):
                 continue
             propvalues[key] = kwargs.pop(key)
 
-        super(PropertyHolder, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         for key, value in propvalues.items():
             setattr(self, key, value)
