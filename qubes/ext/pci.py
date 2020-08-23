@@ -140,7 +140,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
             assert dev_match
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
-        super(PCIDevice, self).__init__(backend_domain, ident, None)
+        super().__init__(backend_domain, ident, None)
 
         # lazy loading
         self._description = None
@@ -171,7 +171,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
 
 class PCIDeviceExtension(qubes.ext.Extension):
     def __init__(self):
-        super(PCIDeviceExtension, self).__init__()
+        super().__init__()
         # lazy load this
         self.pci_classes = {}
 

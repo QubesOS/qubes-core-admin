@@ -116,7 +116,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                         and 'pool' in config:
                     self.volume_config[name]['pool'] = config['pool']
 
-        super(DispVM, self).__init__(app, xml, *args, **kwargs)
+        super().__init__(app, xml, *args, **kwargs)
 
         if xml is None:
             # by default inherit properties from the DispVM template
@@ -223,7 +223,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     'template for DispVM ({}) needs to have '
                     'template_for_dispvms=True'.format(self.template.name))
 
-            yield from super(DispVM, self).start(**kwargs)
+            yield from super().start(**kwargs)
         except:
             # Cleanup also on failed startup
             yield from self._auto_cleanup()

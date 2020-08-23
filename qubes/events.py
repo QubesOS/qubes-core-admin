@@ -102,7 +102,7 @@ class Emitter(metaclass=EmitterMeta):
     '''
 
     def __init__(self, *args, **kwargs):
-        super(Emitter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         if not hasattr(self, 'events_enabled'):
             self.events_enabled = False
         self.__handlers__ = collections.defaultdict(set)

@@ -31,7 +31,7 @@ import qubes.ext
 
 class QubesManager(qubes.ext.Extension):
     def __init__(self, *args, **kwargs):
-        super(QubesManager, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         try:
             self._system_bus = dbus.SystemBus()
         except dbus.exceptions.DBusException:

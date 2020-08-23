@@ -57,4 +57,4 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'rw': False,
             }
         }
-        super(StandaloneVM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)

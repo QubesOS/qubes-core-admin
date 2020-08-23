@@ -22,6 +22,7 @@ disable=
   logging-format-interpolation,
   missing-docstring,
   not-an-iterable,
+  raise-missing-from,
   star-args,
   wrong-import-order
 

@@ -103,7 +103,7 @@ class Tags(set):
     # using official documentation, but use only our (overloaded) methods.
     #
     def __init__(self, vm, seq=()):
-        super(Tags, self).__init__()
+        super().__init__()
         self.vm = vm
         self.update(seq)
 
@@ -148,12 +148,12 @@ class Tags(set):
             raise ValueError('Invalid character in tag')
         if elem in self:
             return
-        super(Tags, self).add(elem)
+        super().add(elem)
         self.vm.fire_event('domain-tag-add:' + elem, tag=elem)
 
     def remove(self, elem):
         '''Remove a tag'''
-        super(Tags, self).remove(elem)
+        super().remove(elem)
         self.vm.fire_event('domain-tag-delete:' + elem, tag=elem)
 
     #
@@ -212,7 +212,7 @@ class BaseVM(qubes.PropertyHolder):
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
 
-        super(BaseVM, self).__init__(xml, **kwargs)
+        super().__init__(xml, **kwargs)
 
         #: dictionary of features of this qube
         self.features = qubes.features.Features(self, features)
@@ -454,7 +454,7 @@ class VMProperty(qubes.property):
             raise TypeError(
                 "'vmclass' should specify a subclass of qubes.vm.BaseVM")
 
-        super(VMProperty, self).__init__(name,
+        super().__init__(name,
             saver=(lambda self_, prop, value:
                 self._none_value if value is None else value.name),
             **kwargs)
@@ -470,7 +470,7 @@ class VMProperty(qubes.property):
             value = None
         if value is None:
             if self.allow_none:
-                super(VMProperty, self).__set__(instance, value)
+                super().__set__(instance, value)
                 return
             raise ValueError(
                 'Property {!r} does not allow setting to {!r}'.format(
@@ -489,7 +489,7 @@ class VMProperty(qubes.property):
                     vm.__class__.__name__,
                     self.vmclass.__name__))
 
-        super(VMProperty, self).__set__(instance, vm)
+        super().__set__(instance, vm)
 
     def sanitize(self, *, untrusted_newvalue):
         try:

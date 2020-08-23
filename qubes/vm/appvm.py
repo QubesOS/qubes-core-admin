@@ -95,7 +95,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
 
-        super(AppVM, self).__init__(app, xml, **kwargs)
+        super().__init__(app, xml, **kwargs)
 
     @property
     def dispvms(self):

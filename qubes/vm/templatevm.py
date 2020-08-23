@@ -84,4 +84,4 @@ class TemplateVM(QubesVM):
                 'rw': False
             }
         }
-        super(TemplateVM, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
