@@ -52,7 +52,7 @@ class DBusHandler(logging.Handler):
     }
 
     def __init__(self, *args, **kwargs):
-        super(DBusHandler, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self._notify_object = dbus.SessionBus().get_object(
             'org.freedesktop.Notifications', '/org/freedesktop/Notifications')

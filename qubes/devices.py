@@ -411,7 +411,7 @@ class DeviceManager(dict):
     '''
 
     def __init__(self, vm):
-        super(DeviceManager, self).__init__()
+        super().__init__()
         self._vm = vm
 
     def __missing__(self, key):
@@ -427,7 +427,7 @@ class UnknownDevice(DeviceInfo):
             frontend_domain=None):
         if description is None:
             description = "Unknown device"
-        super(UnknownDevice, self).__init__(backend_domain, ident, description,
+        super().__init__(backend_domain, ident, description,
             frontend_domain)
 
 

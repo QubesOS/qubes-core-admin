@@ -63,7 +63,7 @@ class RuleChoice(RuleOption):
     # pylint: disable=abstract-method
     def __init__(self, untrusted_value):
         # preliminary validation
-        super(RuleChoice, self).__init__(untrusted_value)
+        super().__init__(untrusted_value)
         self.allowed_values = \
             [v for k, v in self.__class__.__dict__.items()
                 if not k.startswith('__') and isinstance(v, str) and
@@ -152,7 +152,7 @@ class DstHost(RuleOption):
                 except socket.error:
                     raise ValueError('Invalid IP address: ' + untrusted_host)
 
-        super(DstHost, self).__init__(value)
+        super().__init__(value)
 
     @property
     def rule(self):
@@ -173,7 +173,7 @@ class DstPorts(RuleOption):
             raise ValueError('Ports out of range')
         if self.range[0] > self.range[1]:
             raise ValueError('Invalid port range')
-        super(DstPorts, self).__init__(
+        super().__init__(
             str(self.range[0]) if self.range[0] == self.range[1]
             else '-'.join(map(str, self.range)))
 
@@ -187,7 +187,7 @@ class IcmpType(RuleOption):
         untrusted_value = int(untrusted_value)
         if untrusted_value < 0 or untrusted_value > 255:
             raise ValueError('ICMP type out of range')
-        super(IcmpType, self).__init__(untrusted_value)
+        super().__init__(untrusted_value)
 
     @property
     def rule(self):
@@ -204,7 +204,7 @@ class SpecialTarget(RuleChoice):
 
 class Expire(RuleOption):
     def __init__(self, untrusted_value):
-        super(Expire, self).__init__(untrusted_value)
+        super().__init__(untrusted_value)
         self.datetime = datetime.datetime.fromtimestamp(int(untrusted_value))
 
     @property
@@ -248,7 +248,7 @@ class Rule(qubes.PropertyHolder):
         :param xml: XML element describing rule, or None
         :param kwargs: rule elements
         '''
-        super(Rule, self).__init__(xml, **kwargs)
+        super().__init__(xml, **kwargs)
         self.load_properties()
         self.events_enabled = True
         # validate dependencies

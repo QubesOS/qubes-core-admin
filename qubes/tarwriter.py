@@ -27,7 +27,7 @@ BUF_SIZE = 409600
 
 class TarSparseInfo(tarfile.TarInfo):
     def __init__(self, name="", sparsemap=None):
-        super(TarSparseInfo, self).__init__(name)
+        super().__init__(name)
         if sparsemap is not None:
             self.type = tarfile.REGTYPE
             self.sparsemap = sparsemap
@@ -65,7 +65,7 @@ class TarSparseInfo(tarfile.TarInfo):
     def tobuf(self, format=tarfile.PAX_FORMAT, encoding=tarfile.ENCODING,
             errors="strict"):
         # pylint: disable=redefined-builtin
-        header_buf = super(TarSparseInfo, self).tobuf(format, encoding, errors)
+        header_buf = super().tobuf(format, encoding, errors)
         return header_buf + self.sparsemap_buf
 
 def get_sparse_map(input_file):
