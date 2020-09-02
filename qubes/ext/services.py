@@ -174,7 +174,13 @@ class ServicesExtension(qubes.ext.Extension):
         for feature in new_supported_services.difference(
                 old_supported_services):
             vm.features[feature] = True
+            if feature == 'supported-service.apparmor' and \
+               not 'apparmor' in vm.features:
+                vm.features['apparmor'] = True
 
         for feature in old_supported_services.difference(
                 new_supported_services):
             del vm.features[feature]
+            if feature == 'supported-service.apparmor' and \
+               'apparmor' in vm.features and vm.features['apparmor'] == '1':
+                del vm.features['apparmor']
