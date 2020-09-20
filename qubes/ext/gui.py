@@ -118,9 +118,9 @@ class GUI(qubes.ext.Extension):
         for attached_vm in attached_vms:
             attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
                                             str(vm.xid))
-        if vm.features.get('input-proxy-ps2', None) == '1':
+        if vm.features.get('input-dom0-proxy', None):
             yield from asyncio.create_subprocess_exec(
-                '/usr/bin/qubes-input-trigger-ps2')
+                '/usr/bin/qubes-input-trigger')
 
     @qubes.ext.handler('property-reset:keyboard_layout')
     def on_keyboard_reset(self, vm, event, name, oldvalue=None):
