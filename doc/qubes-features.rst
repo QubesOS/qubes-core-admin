@@ -183,6 +183,30 @@ Services and features can be then inspected from dom0 using
    $ qvm-features my-qube
    supported-service.my-service  1
 
+
+Announcing supported features
+------------------------------
+
+For non-service features, there is similar announce mechanis to the above, but
+uses ``supported-feature.`` prefix. It works like this:
+
+1. The TemplateVM (or StandaloneVM) announces
+``supported-feature.FEATURE_NAME=1`` (with ``FEATURE_NAME`` replaced with an
+actual feature name) using ``qvm-features-request`` tool (see above how to use it).
+2. core-admin extension
+:py:class:`qubes.ext.supported_features.SupportedFeaturesExtension` records
+such requests as features on the same VM.
+3. Any tool that wants to check if the feature support is advertised by the VM,
+can look into its features. For template-based VMs it is advised to check
+also its template - there is a `vm.features.check_with_template()`
+function specifically for this.
+
+Note that (similar to services) it is not necessary for the feature to be
+advertised to enable it. In fact, many features does not need any support from
+the VM side, so they will work without matching ``supported-feature.`` entry.
+Whether a feature requires VM-side support, is documented on case-by-case basis
+in `qvm-features` tool manual page.
+
 Module contents
 ---------------
 

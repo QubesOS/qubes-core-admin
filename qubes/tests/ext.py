@@ -395,3 +395,64 @@ class TC_20_Services(qubes.tests.QubesTestCase):
             'service.guivm-gui-agent', '')
 
         self.assertEqual(os.path.exists(service_path), False)
+
+class TC_30_SupportedFeatures(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.supported_features.SupportedFeaturesExtension()
+        self.features = {}
+        specs = {
+            'features.get.side_effect': self.features.get,
+            'features.items.side_effect': self.features.items,
+            'features.__iter__.side_effect': self.features.__iter__,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            'features.__delitem__.side_effect': self.features.__delitem__,
+        }
+        vmspecs = {**specs, **{
+            'template': None,
+            'maxmem': 1024,
+            'is_running.return_value': True,
+            }}
+        dom0specs = {**specs, **{
+            'name': "dom0",
+            }}
+        self.vm = mock.MagicMock()
+        self.vm.configure_mock(**vmspecs)
+        self.dom0 = mock.MagicMock()
+        self.dom0.configure_mock(**dom0specs)
+
+    def test_010_supported_features(self):
+        self.ext.supported_features(self.vm, 'features-request',
+            untrusted_features={
+                'supported-feature.test1': '1',  # ok
+                'supported-feature.test2': '0',  # ignored
+                'supported-feature.test3': 'some text',  # ignored
+                'no-feature': '1',  # ignored
+            })
+        self.assertEqual(self.features, {
+            'supported-feature.test1': True,
+        })
+
+    def test_011_supported_features_add(self):
+        self.features['supported-feature.test1'] = '1'
+        self.ext.supported_features(self.vm, 'features-request',
+            untrusted_features={
+                'supported-feature.test1': '1',  # ok
+                'supported-feature.test2': '1',  # ok
+            })
+        # also check if existing one is untouched
+        self.assertEqual(self.features, {
+            'supported-feature.test1': '1',
+            'supported-feature.test2': True,
+        })
+
+    def test_012_supported_features_remove(self):
+        self.features['supported-feature.test1'] = '1'
+        self.ext.supported_features(self.vm, 'features-request',
+            untrusted_features={
+                'supported-feature.test2': '1',  # ok
+            })
+        self.assertEqual(self.features, {
+            'supported-feature.test2': True,
+        })
