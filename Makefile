@@ -211,6 +211,7 @@ endif
 		$(DESTDIR)/etc/qubes/policy.d/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
+	cp qubes-master-key.asc "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
 	rm -f "$(DESTDIR)$(FILESDIR)/templates/README"
 
