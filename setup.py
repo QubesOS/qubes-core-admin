@@ -70,6 +70,7 @@ if __name__ == '__main__':
                 'qubes.ext.pci = qubes.ext.pci:PCIDeviceExtension',
                 'qubes.ext.block = qubes.ext.block:BlockDeviceExtension',
                 'qubes.ext.services = qubes.ext.services:ServicesExtension',
+                'qubes.ext.supported_features = qubes.ext.supported_features:SupportedFeaturesExtension',
                 'qubes.ext.windows = qubes.ext.windows:WindowsFeatures',
             ],
             'qubes.devices': [
