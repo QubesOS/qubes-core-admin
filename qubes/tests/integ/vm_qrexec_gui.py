@@ -593,38 +593,6 @@ class TC_00_AppVMMixin(object):
         self.prepare_audio_vm()
         self.common_audio_record_unmuted()
 
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_223_audio_play_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_playback()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_224_audio_rec_muted_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_record_muted()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_225_audio_rec_unmuted_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_record_unmuted()
-
     def test_250_resize_private_img(self):
         """
         Test private.img resize, both offline and online
