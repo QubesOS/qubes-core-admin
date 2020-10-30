@@ -141,7 +141,7 @@ class VmNetworkingMixin(object):
         run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT --wait".format(
             self.test_ip))
         # ignore failure
-        self.run_cmd(self.testnetvm, "pkill dnsmasq")
+        self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
         run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(

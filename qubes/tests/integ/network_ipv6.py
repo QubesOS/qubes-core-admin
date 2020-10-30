@@ -75,7 +75,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         run_netvm_cmd(
             "ip6tables -I INPUT -d {} -j ACCEPT".format(self.test_ip6))
         # ignore failure
-        self.run_cmd(self.testnetvm, "pkill dnsmasq")
+        self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd(
             "dnsmasq -a {ip} -A /{name}/{ip} -A /{name}/{ip6} -i test0 -z".
             format(ip=self.test_ip, ip6=self.test_ip6, name=self.test_name))
