@@ -166,9 +166,9 @@ class TC_00_AppVMMixin(object):
         self.wait_for_window(title, show=False)
 
     def test_100_qrexec_filecopy(self):
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'cp /etc/passwd /tmp/passwd'))
@@ -195,9 +195,9 @@ class TC_00_AppVMMixin(object):
             self.fail('source file got removed')
 
     def test_105_qrexec_filemove(self):
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'cp /etc/passwd /tmp/passwd'))
@@ -254,9 +254,9 @@ class TC_00_AppVMMixin(object):
             self.fail('source file got removed')
 
     def test_110_qrexec_filecopy_deny(self):
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2,
                 allow=False):
@@ -275,9 +275,9 @@ class TC_00_AppVMMixin(object):
         # The operation should not hang when qrexec-agent is down on target
         # machine, see QubesOS/qubes-issues#5347.
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
@@ -318,9 +318,9 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_130_qrexec_filemove_disk_full(self):
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
 
@@ -373,9 +373,9 @@ class TC_00_AppVMMixin(object):
         """Test time synchronization mechanism"""
         if self.template.startswith('whonix-'):
             self.skipTest('qvm-sync-clock disabled for Whonix VMs')
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start(),]))
+            self.testvm2.start()))
         start_time = subprocess.check_output(['date', '-u', '+%s'])
 
         try:
