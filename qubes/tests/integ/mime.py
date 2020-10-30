@@ -65,9 +65,9 @@ class TC_50_MimeHandlers:
         self.target_vm.template_for_dispvms = True
         self.source_vm.default_dispvm = self.target_vm
 
-        done, not_done = self.loop.run_until_complete(asyncio.wait([
+        done, not_done = self.loop.run_until_complete(asyncio.gather(
             self.source_vm.start(),
-            self.target_vm.start()]))
+            self.target_vm.start()))
         for result in itertools.chain(done, not_done):
             # catch any exceptions
             result.result()

@@ -307,9 +307,9 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testvm2.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.assertNotEqual(self.run_cmd(self.testvm1,
             self.ping_cmd.format(target=self.testvm2.ip6)), 0)
