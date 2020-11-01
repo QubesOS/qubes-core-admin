@@ -773,7 +773,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpv">linux</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
         </os>
         <features>
         </features>
@@ -902,7 +902,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
         </os>
         <features>
             <pae/>
@@ -969,7 +969,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>kernel specific options nopat</cmdline>
+            <cmdline>kernel specific options</cmdline>
         </os>
         <features>
             <pae/>
@@ -1033,7 +1033,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
         </os>
         <features>
             <pae/>
@@ -1103,7 +1103,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
         </os>
         <features>
             <pae/>
@@ -1342,7 +1342,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
         </os>
         <features>
             <pae/>
