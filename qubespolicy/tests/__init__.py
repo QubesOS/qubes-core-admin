@@ -857,6 +857,28 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         with self.assertRaises(qubespolicy.AccessDenied):
             policy.evaluate(system_info, 'test-vm3', '@default')
 
+    def test_038_eval_invalid_to_default(self):
+        with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
+            f.write('test-vm1 test-vm2 allow\n')
+            f.write('test-vm1 @default allow,target=test-vm2\n')
+            f.write('@tag:tag1 test-vm2 ask\n')
+            f.write('@tag:tag2 @anyvm allow\n')
+            f.write('test-vm3 @anyvm deny\n')
+
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
+        action = policy.evaluate(system_info, 'test-vm1', 'no-such-domain')
+        self.assertEqual(action.rule, policy.policy_rules[1])
+        self.assertEqual(action.action, qubespolicy.Action.allow)
+        self.assertEqual(action.target, 'test-vm2')
+        self.assertEqual(action.original_target, '@default')
+        self.assertEqual(action.service, 'test.service')
+        self.assertIsNone(action.targets_for_ask)
+        with self.assertRaises(qubespolicy.AccessDenied):
+            # action allow should hit, but no target specified (either by
+            # caller or policy)
+            policy.evaluate(system_info, 'test-standalone', '@default')
+
+
 
 class TC_30_Misc(qubes.tests.QubesTestCase):
     @unittest.mock.patch('socket.socket')

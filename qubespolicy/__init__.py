@@ -24,6 +24,7 @@
 import enum
 import itertools
 import json
+import logging
 import os
 import os.path
 import socket
@@ -656,6 +657,10 @@ class Policy(object):
         list of possible targets for 'ask' action (rule.action == Action.ask)
         '''
         if target == '':
+            target = '@default'
+        # treat non-existing target as @default, to avoid enumerating domains
+        if not target.startswith('@') and target not in system_info['domains']:
+            logging.warning('qrexec: invalid target, intepreting as @default')
             target = '@default'
         rule = self.find_matching_rule(system_info, source, target)
         if rule.action == Action.deny:
