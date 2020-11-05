@@ -779,8 +779,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -836,8 +834,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -903,8 +899,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -973,8 +967,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">pvh</type>
@@ -1043,8 +1035,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">pvh</type>
@@ -1114,8 +1104,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1195,8 +1183,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1269,8 +1255,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
-            <!-- disable SMAP inside VM, because of Linux bug -->
-            <feature name='smap' policy='disable'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
