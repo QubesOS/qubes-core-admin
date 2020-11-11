@@ -158,12 +158,21 @@ class TC_41_HVMGrub(GrubBase):
     virt_mode = 'hvm'
     kernel = None
 
+@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2-pvh'),
+                     'grub2-xen-pvh package not installed')
+class TC_42_PVHGrub(GrubBase):
+    virt_mode = 'pvh'
+    kernel = 'pvgrub2-pvh'
+
 def create_testcases_for_templates():
     yield from qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
         TC_40_PVGrub, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
     yield from qubes.tests.create_testcases_for_templates('TC_41_HVMGrub',
         TC_41_HVMGrub, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_42_PVHGrub',
+        TC_42_PVHGrub, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
