@@ -249,7 +249,7 @@ def wait_on_fail(func):
             transport, protocol = self.loop.run_until_complete(
                 self.loop.connect_read_pipe(
                     lambda: asyncio.StreamReaderProtocol(reader),
-                    sys.stdin))
+                    os.fdopen(os.dup(sys.stdin.fileno()))))
             self.loop.run_until_complete(reader.readline())
             transport.close()
             raise
