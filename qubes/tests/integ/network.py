@@ -92,9 +92,9 @@ class VmNetworkingMixin(object):
         if not vm.is_running():
             return
         with contextlib.suppress(subprocess.CalledProcessError):
-            output = self.loop.run_until_complete(
-                self.testnetvm.run_for_stdio(cmd, user='root'))
-            self.log.error('{}: {}: {}'.format(vm.name, cmd, output))
+            output, _ = self.loop.run_until_complete(
+                vm.run_for_stdio(cmd, user='root', stderr=subprocess.STDOUT))
+            self.log.critical('{}: {}: {}'.format(vm.name, cmd, output))
 
     def tearDown(self):
         # collect more info on failure
@@ -110,6 +110,7 @@ class VmNetworkingMixin(object):
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-firewall')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-iptables')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status xendriverdomain')
+                self._run_cmd_and_log_output(vm, 'cat /var/log/xen/xen-hotplug.log')
 
         super(VmNetworkingMixin, self).tearDown()
 
