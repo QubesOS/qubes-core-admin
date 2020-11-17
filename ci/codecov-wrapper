@@ -1,0 +1,11 @@
+#!/bin/bash
+
+PATH="$PATH:$HOME/.local/bin"
+
+set -x
+
+if [[ "$CI_COMMIT_BRANCH" =~ ^pr- ]]; then
+    PR=${CI_COMMIT_BRANCH#pr-}
+    exec codecov --pr "$PR" "$@"
+fi
+exec codecov "$@"
