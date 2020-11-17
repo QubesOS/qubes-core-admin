@@ -79,7 +79,7 @@ Requires:       qubes-core-qrexec-dom0 >= 4.1.8
 Requires:       qubes-db-dom0
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
-%if x%{?backend_vmm} == xxen
+%if "x%{?backend_vmm}" == "xxen"
 Requires:       xen-runtime
 Requires:       xen-hvm
 Requires:       xen-hvm-stubdom-linux >= 1.0.13
