@@ -58,6 +58,13 @@ def skipUnlessLvmPoolExists(test_item):  # pylint: disable=invalid-name
     msg = 'LVM thin pool {!r} does not exist'.format(DEFAULT_LVM_POOL)
     return unittest.skipUnless(result, msg)(test_item)
 
+
+POOL_CONF = {'name': 'test-lvm',
+             'driver': 'lvm_thin',
+             'volume_group': DEFAULT_LVM_POOL.split('/')[0],
+             'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
+
+
 class ThinPoolBase(qubes.tests.QubesTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
@@ -71,10 +78,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
         ''' Other test classes (e.g. callback) may use this to test their own config. '''
         conf = pool_conf
         if not conf:
-            conf = {'name': 'test-lvm',
-                    'driver': 'lvm_thin',
-                    'volume_group': DEFAULT_LVM_POOL.split('/')[0],
-                    'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
+            conf = POOL_CONF
 
         cls.pool_class = pool_class
         cls.volume_class = volume_class
