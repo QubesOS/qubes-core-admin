@@ -3,3 +3,26 @@ include:
     file: '/r4.1/gitlab-base.yml'
   - project: 'QubesOS/qubes-continuous-integration'
     file: '/r4.1/gitlab-dom0.yml'
+
+checks:pylint:
+  stage: checks
+  before_script:
+    - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
+    - pip3 install --quiet -r ci/requirements.txt
+  script:
+    - PYTHONPATH=test-packages:~/qubes-core-qrexec pylint-3 qubes
+
+checks:tests:
+  stage: checks
+  tags:
+    - short-living-job
+    - vm-runner
+  before_script:
+    - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
+    - pip3 install --user --quiet -r ci/requirements.txt
+    # vim-common for xxd
+    - sudo dnf install -y lvm2 vim-common
+  script:
+    - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
+  after_script:
+    - ci/codecov-wrapper -F unittests
