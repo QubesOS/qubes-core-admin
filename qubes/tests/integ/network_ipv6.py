@@ -84,7 +84,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         '''
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
         '''
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
 
@@ -102,7 +102,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.proxy, self.ping6_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -131,7 +131,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0,
                          "Ping by IP failed")
@@ -187,7 +187,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
         self.testvm1.firewall.rules = [qubes.firewall.Rule(action='drop')]
         self.testvm1.firewall.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
@@ -308,8 +308,8 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.app.save()
 
         self.loop.run_until_complete(asyncio.gather(
-            self.testvm1.start(),
-            self.testvm2.start()))
+            self.start_vm(self.testvm1),
+            self.start_vm(self.testvm2)))
 
         self.assertNotEqual(self.run_cmd(self.testvm1,
             self.ping_cmd.format(target=self.testvm2.ip6)), 0)
@@ -335,7 +335,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
         '''
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         # add a simple rule counting packets
@@ -369,7 +369,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         '''
         self.testvm1.ip6 = '2000:aaaa:bbbb::1'
         self.app.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
 
@@ -388,7 +388,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
@@ -416,7 +416,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
         self.testvm1.firewall.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
