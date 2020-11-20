@@ -265,9 +265,7 @@ class FileVolume(qubes.storage.Volume):
         return self
 
     def export(self):
-        # FIXME: this should rather return snapshot(self.path, self.path_cow)
-        #  if domain is running
-        return self.path
+        return snapshot(self.path, self.path_cow)
 
     @asyncio.coroutine
     def import_volume(self, src_volume):
