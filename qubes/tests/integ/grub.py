@@ -61,6 +61,9 @@ class GrubBase(object):
         else:
             assert False, "Unsupported template?!"
 
+        # wait for full VM startup first, to have functional network
+        self.loop.run_until_complete(self.wait_for_session(vm))
+
         for cmd in [cmd_install1, cmd_install2, cmd_update_grub]:
             try:
                 self.loop.run_until_complete(vm.run_for_stdio(
