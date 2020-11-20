@@ -139,14 +139,33 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument
         assert self.template
 
-    @qubes.events.handler('property-pre-set:template',
-        'property-pre-del:template')
-    def on_property_pre_set_template(self, event, name, newvalue=None,
+    @qubes.events.handler('property-pre-del:template')
+    def on_property_pre_reset_template(self, event, name, oldvalue=None):
+        '''Forbid deleting template of running VM
+        '''  # pylint: disable=unused-argument,no-self-use
+        raise qubes.exc.QubesValueError('Cannot unset template')
+
+    @qubes.events.handler('property-pre-set:template')
+    def on_property_pre_set_template(self, event, name, newvalue,
             oldvalue=None):
-        ''' Disposable VM cannot have template changed '''
-        # pylint: disable=unused-argument
-        raise qubes.exc.QubesValueError(self,
-            'Cannot change template of Disposable VM')
+        '''Forbid changing template of running VM
+        '''  # pylint: disable=unused-argument
+        if not self.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self,
+                'Cannot change template while qube is running')
+
+    @qubes.events.handler('property-set:template')
+    def on_property_set_template(self, event, name, newvalue, oldvalue=None):
+        ''' Adjust root (and possibly other snap_on_start=True) volume
+        on template change.
+        '''  # pylint: disable=unused-argument
+
+        for volume_name, conf in self.default_volume_config.items():
+            if conf.get('snap_on_start', False) and \
+                    conf.get('source', None) is None:
+                config = conf.copy()
+                self.volume_config[volume_name] = config
+                self.storage.init_volume(volume_name, config)
 
     @qubes.events.handler('domain-shutdown')
     @asyncio.coroutine

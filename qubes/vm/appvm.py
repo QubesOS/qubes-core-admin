@@ -143,10 +143,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self,
                 'Cannot change template while qube is running')
-        if any(self.dispvms):
-            raise qubes.exc.QubesVMInUseError(self,
-                'Cannot change template '
-                'while there are DispVMs based on this qube')
 
     @qubes.events.handler('property-set:template')
     def on_property_set_template(self, event, name, newvalue, oldvalue=None):
@@ -160,3 +156,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 config = conf.copy()
                 self.volume_config[volume_name] = config
                 self.storage.init_volume(volume_name, config)
+
+        for vm in self.dispvms:
+            vm.on_property_set_template(event, name, newvalue, oldvalue)
