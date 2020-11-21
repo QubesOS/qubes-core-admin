@@ -27,6 +27,14 @@ import qubes.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
 from qubes.config import defaults
 
+def template_changed_update_storage(self, volume_config):
+    '''Update storage configuration for TemplateVM changes'''
+    for volume_name, conf in volume_config.items():
+        if conf.get('snap_on_start', False) and \
+                conf.get('source', None) is None:
+            config = conf.copy()
+            self.volume_config[volume_name] = config
+            self.storage.init_volume(volume_name, config)
 
 class AppVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
         qubes.vm.qubesvm.QubesVM):
@@ -120,10 +128,4 @@ class AppVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
         ''' Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         '''  # pylint: disable=unused-argument
-
-        for volume_name, conf in self.default_volume_config.items():
-            if conf.get('snap_on_start', False) and \
-                    conf.get('source', None) is None:
-                config = conf.copy()
-                self.volume_config[volume_name] = config
-                self.storage.init_volume(volume_name, config)
+        template_changed_update_storage(self, self.default_volume_config)
