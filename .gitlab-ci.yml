@@ -7,10 +7,11 @@ include:
 checks:pylint:
   stage: checks
   before_script:
+    - sudo dnf install -y python3-pip
     - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
     - pip3 install --quiet -r ci/requirements.txt
   script:
-    - PYTHONPATH=test-packages:~/qubes-core-qrexec pylint-3 qubes
+    - PYTHONPATH=test-packages:~/qubes-core-qrexec python3 -m pylint qubes
 
 checks:tests:
   stage: checks
