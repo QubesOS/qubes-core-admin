@@ -159,7 +159,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         ''' Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         '''  # pylint: disable=unused-argument
-        qubes.vm.appvm.template_changed_update_storage(self, DispVM.default_volume_config)
+        qubes.vm.appvm.template_changed_update_storage(self, self.volume_config)
 
     @qubes.events.handler('domain-shutdown')
     @asyncio.coroutine
