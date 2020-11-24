@@ -345,7 +345,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'ip -6 addr flush dev eth0 && '
             'ip -6 addr add {}/128 dev eth0 && '
-            'ip -6 route add default via {} dev eth0'.format(
+            'ip -6 route replace default via {} dev eth0'.format(
                 str(self.testvm1.visible_ip6) + '1',
                 str(self.testvm1.visible_gateway6)),
             user='root'))
