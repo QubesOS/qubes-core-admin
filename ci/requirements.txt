@@ -9,3 +9,4 @@ pylint
 sphinx
 pydbus
 PyYAML
+asynctest

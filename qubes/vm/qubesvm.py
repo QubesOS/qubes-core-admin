@@ -1392,6 +1392,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             input = b''
         return b''.join((command.rstrip('\n').encode('utf-8'), b'\n', input))
 
+    @asyncio.coroutine
     def run(self, command, user=None, **kwargs):
         '''Run a shell command inside the domain using qrexec.
 
@@ -1401,11 +1402,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if user is None:
             user = self.default_user
 
-        return asyncio.create_subprocess_exec(
+        return (yield from asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
             '{}:{}'.format(user, command),
-            **kwargs)
+            **kwargs))
 
     @asyncio.coroutine
     def run_for_stdio(self, *args, input=None, **kwargs):
