@@ -265,7 +265,9 @@ class FileVolume(qubes.storage.Volume):
         return self
 
     def export(self):
-        return snapshot(self.path, self.path_cow)
+        if self.is_dirty():
+            self._not_implemented('exporting a dirty volume')
+        return self.path
 
     @asyncio.coroutine
     def import_volume(self, src_volume):
