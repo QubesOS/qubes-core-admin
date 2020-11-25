@@ -237,8 +237,7 @@ class AdminVM(qubes.vm.BaseVM):
             self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
-    @asyncio.coroutine
-    def run_service(self, service, source=None, user=None,
+    async def run_service(self, service, source=None, user=None,
             filter_esc=False, autostart=False, gui=False, **kwargs):
         '''Run service on this VM
 
@@ -267,7 +266,7 @@ class AdminVM(qubes.vm.BaseVM):
         if user is None:
             user = 'root'
 
-        yield from self.fire_event_async('domain-cmd-pre-run', pre_event=True,
+        await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
             start_guid=gui)
 
         if user != 'root':
@@ -281,12 +280,11 @@ class AdminVM(qubes.vm.BaseVM):
             'name',
             self.name,
             ])
-        return (yield from asyncio.create_subprocess_exec(
+        return (await asyncio.create_subprocess_exec(
             *cmd,
             **kwargs))
 
-    @asyncio.coroutine
-    def run_service_for_stdio(self, *args, input=None, **kwargs):
+    async def run_service_for_stdio(self, *args, input=None, **kwargs):
         '''Run a service, pass an optional input and return (stdout, stderr).
 
         Raises an exception if return code != 0.
@@ -302,10 +300,10 @@ class AdminVM(qubes.vm.BaseVM):
         kwargs.setdefault('stdin', subprocess.PIPE)
         kwargs.setdefault('stdout', subprocess.PIPE)
         kwargs.setdefault('stderr', subprocess.PIPE)
-        p = yield from self.run_service(*args, **kwargs)
+        p = await self.run_service(*args, **kwargs)
 
         # this one is actually a tuple, but there is no need to unpack it
-        stdouterr = yield from p.communicate(input=input)
+        stdouterr = await p.communicate(input=input)
 
         if p.returncode:
             raise subprocess.CalledProcessError(p.returncode,

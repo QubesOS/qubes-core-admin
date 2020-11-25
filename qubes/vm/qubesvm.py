@@ -1415,8 +1415,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    @asyncio.coroutine
-    def run_service(self, service, source=None, user=None,
+    async def run_service(self, service, source=None, user=None,
                     filter_esc=False, autostart=False, gui=False, **kwargs):
         """Run service on this VM
 
@@ -1456,24 +1455,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running():
             if not autostart:
                 raise qubes.exc.QubesVMNotRunningError(self)
-            yield from self.start(start_guid=gui)
+            await self.start(start_guid=gui)
 
         if not self.is_qrexec_running():
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
-        yield from self.fire_event_async('domain-cmd-pre-run', pre_event=True,
+        await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
                                          start_guid=gui)
 
-        return (yield from asyncio.create_subprocess_exec(
+        return (await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
             **kwargs))
 
-    @asyncio.coroutine
-    def run_service_for_stdio(self, *args, input=None, **kwargs):
+    async def run_service_for_stdio(self, *args, input=None, **kwargs):
         """Run a service, pass an optional input and return (stdout, stderr).
 
         Raises an exception if return code != 0.
@@ -1492,10 +1490,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if kwargs['stdin'] == subprocess.PIPE and input is None:
             # workaround for https://bugs.python.org/issue39744
             input = b''
-        p = yield from self.run_service(*args, **kwargs)
+        p = await self.run_service(*args, **kwargs)
 
         # this one is actually a tuple, but there is no need to unpack it
-        stdouterr = yield from p.communicate(input=input)
+        stdouterr = await p.communicate(input=input)
 
         if p.returncode:
             raise subprocess.CalledProcessError(p.returncode,
@@ -1503,7 +1501,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return stdouterr
 
-    def run(self, command, user=None, **kwargs):
+    async def run(self, command, user=None, **kwargs):
         """Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
@@ -1512,14 +1510,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if user is None:
             user = self.default_user
 
-        return asyncio.create_subprocess_exec(
+        return await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
             '{}:{}'.format(user, command),
             **kwargs)
 
-    @asyncio.coroutine
-    def run_for_stdio(self, *args, input=None, **kwargs):
+    async def run_for_stdio(self, *args, input=None, **kwargs):
         """Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
@@ -1531,8 +1528,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if kwargs['stdin'] == subprocess.PIPE and input is None:
             # workaround for https://bugs.python.org/issue39744
             input = b''
-        p = yield from self.run(*args, **kwargs)
-        stdouterr = yield from p.communicate(input=input)
+        p = await self.run(*args, **kwargs)
+        stdouterr = await p.communicate(input=input)
 
         if p.returncode:
             raise subprocess.CalledProcessError(p.returncode,
