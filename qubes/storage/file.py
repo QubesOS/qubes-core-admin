@@ -271,6 +271,8 @@ class FileVolume(qubes.storage.Volume):
         if self._export_lock is not None:
             assert self._export_lock is FileVolume._marker_running, \
                 'nested calls to export()'
+            self._not_implemented('exporting a starting volume')
+        if self.is_dirty():
             self._not_implemented('exporting a dirty volume')
         self._export_lock = FileVolume._marker_exported
         return self.path
@@ -326,8 +328,6 @@ class FileVolume(qubes.storage.Volume):
             assert self._export_lock is FileVolume._marker_exported, \
                 'nested calls to start()'
             self._not_implemented('starting a VM with an exported volume')
-        if self.is_dirty():
-            self._not_implemented('exporting a dirty volume')
         self._export_lock = FileVolume._marker_running
         if not self.save_on_stop and not self.snap_on_start:
             self.reset()
