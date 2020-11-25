@@ -18,10 +18,10 @@ checks:tests:
     - short-living-job
     - vm-runner
   before_script:
+    # vim-common for xxd
+    - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils python3-gobject gtk3 xorg-x11-server-Xvfb
     - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
     - pip3 install --user --quiet -r ci/requirements.txt
-    # vim-common for xxd
-    - sudo dnf install -y lvm2 vim-common python3-gobject gtk3 xorg-x11-server-Xvfb python3-lxml python3-docutils
   script:
     - PYTHONPATH=test-packages:~/qubes-core-qrexec xvfb-run ./run-tests
   after_script:
