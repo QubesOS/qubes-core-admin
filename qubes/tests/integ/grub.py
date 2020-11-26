@@ -57,6 +57,9 @@ class GrubBase(object):
         else:
             assert False, "Unsupported template?!"
 
+        # wait for full VM startup first, to have functional network
+        self.loop.run_until_complete(self.wait_for_session(vm))
+
         for cmd in [cmd_install1, cmd_install2, cmd_update_grub]:
             try:
                 self.loop.run_until_complete(vm.run_for_stdio(
@@ -158,12 +161,21 @@ class TC_41_HVMGrub(GrubBase):
     virt_mode = 'hvm'
     kernel = None
 
+@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2-pvh'),
+                     'grub2-xen-pvh package not installed')
+class TC_42_PVHGrub(GrubBase):
+    virt_mode = 'pvh'
+    kernel = 'pvgrub2-pvh'
+
 def create_testcases_for_templates():
     yield from qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
         TC_40_PVGrub, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
     yield from qubes.tests.create_testcases_for_templates('TC_41_HVMGrub',
         TC_41_HVMGrub, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_42_PVHGrub',
+        TC_42_PVHGrub, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):

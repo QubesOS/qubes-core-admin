@@ -249,7 +249,7 @@ def wait_on_fail(func):
             transport, protocol = self.loop.run_until_complete(
                 self.loop.connect_read_pipe(
                     lambda: asyncio.StreamReaderProtocol(reader),
-                    sys.stdin))
+                    os.fdopen(os.dup(sys.stdin.fileno()))))
             self.loop.run_until_complete(reader.readline())
             transport.close()
             raise
@@ -1277,7 +1277,7 @@ class SystemTestCase(QubesTestCase):
 
     @asyncio.coroutine
     def wait_for_session(self, vm):
-        timeout = 30
+        timeout = vm.qrexec_timeout
         if getattr(vm, 'template', None) and 'whonix-ws' in vm.template.name:
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
@@ -1286,6 +1286,12 @@ class SystemTestCase(QubesTestCase):
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
             timeout=timeout)
+
+    @asyncio.coroutine
+    def start_vm(self, vm):
+        """Start a VM and wait for it to be fully up"""
+        yield from vm.start()
+        yield from self.wait_for_session(vm)
 
 
 _templates = None

@@ -92,9 +92,9 @@ class VmNetworkingMixin(object):
         if not vm.is_running():
             return
         with contextlib.suppress(subprocess.CalledProcessError):
-            output = self.loop.run_until_complete(
-                self.testnetvm.run_for_stdio(cmd, user='root'))
-            self.log.error('{}: {}: {}'.format(vm.name, cmd, output))
+            output, _ = self.loop.run_until_complete(
+                vm.run_for_stdio(cmd, user='root', stderr=subprocess.STDOUT))
+            self.log.critical('{}: {}: {}'.format(vm.name, cmd, output))
 
     def tearDown(self):
         # collect more info on failure
@@ -110,6 +110,7 @@ class VmNetworkingMixin(object):
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-firewall')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-iptables')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status xendriverdomain')
+                self._run_cmd_and_log_output(vm, 'cat /var/log/xen/xen-hotplug.log')
 
         super(VmNetworkingMixin, self).tearDown()
 
@@ -141,7 +142,7 @@ class VmNetworkingMixin(object):
         run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT --wait".format(
             self.test_ip))
         # ignore failure
-        self.run_cmd(self.testnetvm, "pkill dnsmasq")
+        self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
         run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(
@@ -153,7 +154,7 @@ class VmNetworkingMixin(object):
         '''
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
         '''
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -171,7 +172,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -200,7 +201,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed")
@@ -251,7 +252,7 @@ class VmNetworkingMixin(object):
 
         self.testvm1.firewall.rules = [qubes.firewall.Rule(action='drop')]
         self.testvm1.firewall.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
@@ -350,9 +351,9 @@ class VmNetworkingMixin(object):
         self.testvm2.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(asyncio.wait([
-            self.testvm1.start(),
-            self.testvm2.start()]))
+        self.loop.run_until_complete(asyncio.gather(
+            self.start_vm(self.testvm1),
+            self.start_vm(self.testvm2)))
 
         self.assertNotEqual(self.run_cmd(self.testvm1,
             self.ping_cmd.format(target=self.testvm2.ip)), 0)
@@ -376,7 +377,7 @@ class VmNetworkingMixin(object):
 
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
         '''
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testnetvm,
@@ -409,7 +410,7 @@ class VmNetworkingMixin(object):
         cmd = "systemctl stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command '%s' failed" % cmd)
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         cmd = "systemctl start xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
@@ -422,7 +423,7 @@ class VmNetworkingMixin(object):
 
     def test_110_dynamic_attach(self):
         self.testvm1.netvm = None
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.testvm1.netvm = self.testnetvm
         # wait for it to settle down
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
@@ -430,7 +431,7 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_111_dynamic_detach_attach(self):
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.testvm1.netvm = None
         # wait for it to settle down
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
@@ -450,9 +451,9 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.create_on_disk())
         self.testvm1.netvm = self.proxy
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.loop.run_until_complete(self.proxy.shutdown(force=True, wait=True))
-        self.loop.run_until_complete(self.proxy.start())
+        self.loop.run_until_complete(self.start_vm(self.proxy))
         # wait for it to settle down
         self.loop.run_until_complete(self.wait_for_session(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
@@ -466,11 +467,9 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.create_on_disk())
         self.testvm1.netvm = self.proxy
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.loop.run_until_complete(self.proxy.kill())
-        self.loop.run_until_complete(self.proxy.start())
-        # wait for it to settle down
-        self.loop.run_until_complete(self.wait_for_session(self.proxy))
+        self.loop.run_until_complete(self.start_vm(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_114_reattach_after_provider_crash(self):
@@ -482,7 +481,7 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.create_on_disk())
         self.testvm1.netvm = self.proxy
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         p = self.loop.run_until_complete(self.proxy.run(
             'echo c > /proc/sysrq-trigger', user='root'))
         self.loop.run_until_complete(p.wait())
@@ -492,9 +491,7 @@ class VmNetworkingMixin(object):
             timeout -= 1
             self.assertGreater(timeout, 0,
                 'timeout waiting for crash cleanup')
-        self.loop.run_until_complete(self.proxy.start())
-        # wait for it to settle down
-        self.loop.run_until_complete(self.wait_for_session(self.proxy))
+        self.loop.run_until_complete(self.start_vm(self.proxy))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_200_fake_ip_simple(self):
@@ -506,7 +503,7 @@ class VmNetworkingMixin(object):
         self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
         self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
         self.app.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -538,7 +535,7 @@ class VmNetworkingMixin(object):
         '''
         self.testvm1.features['net.fake-ip'] = '192.168.1.128'
         self.app.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -578,7 +575,7 @@ class VmNetworkingMixin(object):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
         self.testvm1.firewall.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(
@@ -623,8 +620,8 @@ class VmNetworkingMixin(object):
         self.testvm2.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
-        self.loop.run_until_complete(self.testvm2.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.start_vm(self.testvm2))
 
         cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
             self.testvm2.ip, self.testvm1.ip)
@@ -672,7 +669,7 @@ class VmNetworkingMixin(object):
         self.proxy.features['net.fake-netmask'] = '255.255.255.0'
         self.testvm1.netvm = self.proxy
         self.app.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0)
@@ -727,7 +724,7 @@ class VmNetworkingMixin(object):
         '''
         self.testvm1.ip = '192.168.1.1'
         self.app.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -746,7 +743,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -774,7 +771,7 @@ class VmNetworkingMixin(object):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
         self.testvm1.firewall.save()
-        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertTrue(self.proxy.is_running())
 
         server = self.loop.run_until_complete(self.testnetvm.run(

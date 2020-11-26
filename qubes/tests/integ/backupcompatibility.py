@@ -426,12 +426,17 @@ class TC_00_BackupCompatibility(
             'debug': False,
             'maxmem': min(int(self.app.host.memory_total / 1024 / 2), 4000),
             'memory': 400,
-            'features': {},
+            'features': {
+                'menu-items': 'gnome-terminal.desktop nautilus.desktop '
+                              'firefox.desktop mozilla-thunderbird.desktop '
+                              'libreoffice-startcenter.desktop',
+            },
         }
         template_standalone_props = common_props.copy()
         template_standalone_props['features'] = {
             'qrexec': '1',
             'gui': '1',
+            'menu-items': common_props['features']['menu-items'],
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,
@@ -481,12 +486,17 @@ class TC_00_BackupCompatibility(
             'debug': False,
             'maxmem': min(int(self.app.host.memory_total / 1024 / 2), 4000),
             'memory': 400,
-            'features': {},
+            'features': {
+                'menu-items': 'gnome-terminal.desktop nautilus.desktop '
+                              'firefox.desktop mozilla-thunderbird.desktop '
+                              'libreoffice-startcenter.desktop',
+            },
         }
         template_standalone_props = common_props.copy()
         template_standalone_props['features'] = {
             'qrexec': '1',
             'gui': '1',
+            'menu-items': common_props['features']['menu-items'],
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,

@@ -123,12 +123,12 @@ class TC_00_QrexecMixin(object):
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
-        self.loop.run_until_complete(asyncio.wait([
+            self.testvm2.start()))
+        self.loop.run_until_complete(asyncio.gather(
             self.wait_for_session(self.testvm1),
-            self.wait_for_session(self.testvm2)]))
+            self.wait_for_session(self.testvm2)))
         self.create_remote_file(self.testvm2,
                                 '/etc/qubes-rpc/test.EOF',
                                 '#!/bin/sh\n/bin/cat\n')
@@ -153,9 +153,9 @@ class TC_00_QrexecMixin(object):
     def test_053_qrexec_vm_service_eof_reverse(self):
         """Test for EOF transmission VM(src)<-VM(dst)"""
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.EOF',
                 '#!/bin/sh\n'
                 'echo test; exec >&-; cat >/dev/null')
@@ -219,9 +219,9 @@ class TC_00_QrexecMixin(object):
         self.assertEqual(e.exception.returncode, 3)
 
     def test_065_qrexec_exit_code_vm(self):
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         with self.qrexec_policy('test.Retcode', self.testvm1, self.testvm2):
             self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Retcode',
@@ -254,9 +254,9 @@ class TC_00_QrexecMixin(object):
             handling anything else.
         """
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.write', '''\
             # first write a lot of data
@@ -381,9 +381,9 @@ class TC_00_QrexecMixin(object):
     def test_080_qrexec_service_argument_allow_default(self):
         """Qrexec service call with argument"""
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
             '/usr/bin/printf %s "$1"')
@@ -397,9 +397,9 @@ class TC_00_QrexecMixin(object):
     def test_081_qrexec_service_argument_allow_specific(self):
         """Qrexec service call with argument - allow only specific value"""
 
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
             '/usr/bin/printf %s "$1"')
@@ -416,9 +416,9 @@ class TC_00_QrexecMixin(object):
 
     def test_082_qrexec_service_argument_deny_specific(self):
         """Qrexec service call with argument - deny specific value"""
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
             '/usr/bin/printf %s "$1"')
@@ -436,9 +436,9 @@ class TC_00_QrexecMixin(object):
     def test_083_qrexec_service_argument_specific_implementation(self):
         """Qrexec service call with argument - argument specific
         implementatation"""
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2,
             '/etc/qubes-rpc/test.Argument',
@@ -457,9 +457,9 @@ class TC_00_QrexecMixin(object):
 
     def test_084_qrexec_service_argument_extra_env(self):
         """Qrexec service call with argument - extra env variables"""
-        self.loop.run_until_complete(asyncio.wait([
+        self.loop.run_until_complete(asyncio.gather(
             self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm2.start()))
 
         self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
             '/usr/bin/printf "%s %s" '
