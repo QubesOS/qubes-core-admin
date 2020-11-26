@@ -509,7 +509,7 @@ class ThinVolume(qubes.storage.Volume):
         # HACK: neat trick to speed up testing if you have same physical thin
         # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
         # pylint: disable=line-too-long
-        if isinstance(src_volume.pool, ThinPool) and \
+        if hasattr(src_volume.pool, 'thin_pool') and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
             yield from self._commit(src_volume.path[len('/dev/'):], keep=True)
         else:

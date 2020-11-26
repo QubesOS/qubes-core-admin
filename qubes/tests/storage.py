@@ -116,7 +116,7 @@ class TC_00_Pool(QubesTestCase):
     def test_001_all_pool_drivers(self):
         """ Expect all our pool drivers (and only them) """
         self.assertCountEqual(
-            ['linux-kernel', 'lvm_thin', 'file', 'file-reflink'],
+            ['linux-kernel', 'lvm_thin', 'file', 'file-reflink', 'callback'],
             pool_drivers())
 
     def test_002_get_pool_klass(self):

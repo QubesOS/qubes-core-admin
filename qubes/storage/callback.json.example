@@ -1,0 +1,99 @@
+{
+"conf_id":
+    {
+        "bdriver": "Backend pool driver to proxy. This can be a class name or a full module path to a class implementing `qubes.storage.Pool`.",
+        "bdriver_args": {
+            "arg name 1": "arg value 1",
+            "arg name 2": "arg value 2"
+        },
+        "cmd": "Default command to call when the [pre|post]_[op] operations are not specified (default: None). The command is called as such: `[cmd] [name] [bdriver] [operation] [ctor params]`. [name]: name of the pool, [operation]: any of the `[pre|post]_` operations from below including its arguments, [bdriver]: backend driver of the pool, [ctor params]: Parameters passed to the `bdriver` constructor in JSON format. Each parameter is on a single line for easy parsing.",
+        "signal_back": "Boolean (true|false) to allow the executed commands to send signals back to the callback driver (default: false). Signals must be on a dedicated line on stdout. Currently only `SIGNAL_setup` is supported. When found, it causes the callback driver to re-setup the backend pool.",
+        "pre_sinit": "Command to call before one-time storage initialization/first usage (default: None). Called exactly once for every `qubesd` start. Can be used to override `cmd`. Pass `-` to ignore this callback entirely even if `cmd` is specified.",
+        "pre_setup": "Called before creating a new pool. Can be used to override `cmd`. Pass `-` to ignore this callback entirely even if `cmd` is specified.",
+        "post_destroy": "Called after removing an existing pool. Same as above otherwise.",
+        "pre_volume_create": "Called before creating a volume for the pool. Same as above otherwise.",
+        "post_volume_create": "Called after creating a volume for the pool. Same as above otherwise.",
+        "post_volume_remove": "Called after removing a volume of the pool. Same as above otherwise.",
+        "pre_volume_resize": "Called before resizing a volume of the pool. Same as above otherwise.",
+        "pre_volume_start": "Called before starting a volume of the pool. Same as above otherwise.",
+        "post_volume_start": "Called after starting a volume of the pool. Same as above otherwise.",
+        "post_volume_stop": "Called after stopping a volume of the pool. Same as above otherwise.",
+        "pre_volume_import": "Called before importing a volume from another. Same as above otherwise.",
+        "post_volume_import": "Called after importing a volume from another. Same as above otherwise.",
+        "pre_volume_import_data": "Called before overwriting this volume with new data. Same as above otherwise.",
+        "post_volume_import_data_end": "Called after finishing an `import_data` action. Same as above otherwise.",
+        "pre_volume_export": "Called before exporting a volume. Same as above otherwise.",
+        "post_volume_export_end": "Called after a volume export completed. Same as above otherwise.",
+        "description": "Optional description for your personal reference."
+    },
+"testing-fail-missing-all":
+    {
+        "description": "For testing purposes only."
+    },
+"testing-fail-missing-bdriver-args":
+    {
+        "bdriver": "file",
+        "description": "For testing purposes only."
+    },
+"testing-succ-file-01":
+    {
+        "bdriver": "file",
+        "bdriver_args": {
+            "dir_path": "/mnt/test01",
+            "revisions_to_keep": 0
+        },
+        "description": "For testing purposes only."
+    },
+"testing-succ-file-02":
+    {
+        "bdriver": "file",
+        "bdriver_args": {
+            "dir_path": "/mnt/test02"
+        },
+        "cmd": "testCbLogArgs",
+        "description": "For testing purposes only."
+    },
+"testing-succ-file-03":
+    {
+        "bdriver": "file",
+        "bdriver_args": {
+            "dir_path": "/mnt/test03"
+        },
+        "cmd": "exit 1",
+        "pre_sinit": "testCbLogArgs pre_sinit",
+        "pre_setup": "testCbLogArgs pre_setup",
+        "post_destroy": "-",
+        "description": "For testing purposes only."
+    },
+"testing-succ-file-luks":
+    {
+        "bdriver": "file",
+        "bdriver_args": {
+            "dir_path": "/mnt/test_luks"
+        },
+        "pre_setup": "set -e -o pipefail ; [ ! -e /mnt/test.key ] ; [ ! -e /mnt/test.luks ] ; dd if=/dev/random bs=100 of=/mnt/test.key iflag=fullblock count=1 ; dd if=/dev/urandom bs=1M of=/mnt/test.luks iflag=fullblock count=2048 ; cryptsetup luksFormat -q --key-file /mnt/test.key /mnt/test.luks ; cryptsetup open -q --key-file /mnt/test.key /mnt/test.luks test-luks ; mkfs -t ext4 /dev/mapper/test-luks ; mkdir -p /mnt/test_luks ; mount /dev/mapper/test-luks /mnt/test_luks",
+        "pre_sinit": "set -e -o pipefail ; if [[ \"$(findmnt -S /dev/mapper/test-luks -n -o TARGET)\" != \"/mnt/test_luks\" ]] ; then cryptsetup status test-luks > /dev/null || cryptsetup open -q --key-file /mnt/test.key /mnt/test.luks test-luks ; mount /dev/mapper/test-luks /mnt/test_luks ; else exit 0 ; fi",
+        "post_destroy": "umount /mnt/test_luks && cryptsetup close test-luks ; set -e -o pipefail ; dd if=/dev/urandom bs=100 of=/mnt/test.key iflag=fullblock count=1 ; rm -f /mnt/test.key ; rm -f /mnt/test.luks ; rmdir /mnt/test_luks",
+        "pre_volume_create":           "[[ \"$(findmnt -S /dev/mapper/test-luks -n -o TARGET)\" == \"/mnt/test_luks\" ]]",
+        "pre_volume_import":           "[[ \"$(findmnt -S /dev/mapper/test-luks -n -o TARGET)\" == \"/mnt/test_luks\" ]]",
+        "pre_volume_import_data":      "[[ \"$(findmnt -S /dev/mapper/test-luks -n -o TARGET)\" == \"/mnt/test_luks\" ]]",
+        "post_volume_import_data_end": "[[ \"$(findmnt -S /dev/mapper/test-luks -n -o TARGET)\" == \"/mnt/test_luks\" ]]",
+        "description": "For testing purposes only: Showcasing seemless use of encrypted VM pools. For personal use, a dedicated script is recommended."
+    },
+"testing-succ-file-luks-eph":
+    {
+        "bdriver": "file",
+        "bdriver_args": {
+            "dir_path": "/mnt/test_eph"
+        },
+        "signal_back": true,
+        "pre_setup": "set -e -o pipefail ; if [[ \"$(findmnt -T /mnt/ram -o SOURCE -n)\" != \"ramfs\" ]] ; then mkdir -p /mnt/ram ; mount -t ramfs ramfs /mnt/ram ; fi ; if [[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" != \"/mnt/test_eph\" ]] ; then if [ -f /mnt/ram/teph.key ] ; then cryptsetup status test-eph > /dev/null || cryptsetup open -q --key-file /mnt/ram/teph.key /mnt/teph.luks test-eph ; else dd if=/dev/random bs=100 of=/mnt/ram/teph.key iflag=fullblock count=1 ; if [ ! -f /mnt/teph.luks ] ; then dd if=/dev/urandom bs=1M of=/mnt/teph.luks iflag=fullblock count=2048 ; fi ; cryptsetup luksFormat -q --key-file /mnt/ram/teph.key /mnt/teph.luks ;cryptsetup open -q --key-file /mnt/ram/teph.key /mnt/teph.luks test-eph ; mkfs -t ext4 /dev/mapper/test-eph ; echo SIGNAL_setup ; fi ; mkdir -p /mnt/test_eph ; mount /dev/mapper/test-eph /mnt/test_eph ; fi ; exit 0",
+        "pre_sinit": "set -e -o pipefail ; if [[ \"$(findmnt -T /mnt/ram -o SOURCE -n)\" != \"ramfs\" ]] ; then mkdir -p /mnt/ram ; mount -t ramfs ramfs /mnt/ram ; fi ; if [[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" != \"/mnt/test_eph\" ]] ; then if [ -f /mnt/ram/teph.key ] ; then cryptsetup status test-eph > /dev/null || cryptsetup open -q --key-file /mnt/ram/teph.key /mnt/teph.luks test-eph ; else dd if=/dev/random bs=100 of=/mnt/ram/teph.key iflag=fullblock count=1 ; if [ ! -f /mnt/teph.luks ] ; then dd if=/dev/urandom bs=1M of=/mnt/teph.luks iflag=fullblock count=2048 ; fi ; cryptsetup luksFormat -q --key-file /mnt/ram/teph.key /mnt/teph.luks ;cryptsetup open -q --key-file /mnt/ram/teph.key /mnt/teph.luks test-eph ; mkfs -t ext4 /dev/mapper/test-eph ; echo SIGNAL_setup ; fi ; mkdir -p /mnt/test_eph ; mount /dev/mapper/test-eph /mnt/test_eph ; fi ; exit 0",
+        "post_destroy": "umount /mnt/test_eph && cryptsetup close test-eph ; set -e -o pipefail ; if [ -f /mnt/ram/teph.key ] ; then dd if=/dev/urandom bs=100 of=/mnt/ram/teph.key iflag=fullblock count=1 ; rm -f /mnt/ram/teph.key ; fi ; rm -f /mnt/teph.luks ; rmdir /mnt/test_eph",
+        "pre_volume_create":           "[[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" == \"/mnt/test_eph\" ]]",
+        "pre_volume_import":           "[[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" == \"/mnt/test_eph\" ]]",
+        "pre_volume_import_data":      "[[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" == \"/mnt/test_eph\" ]]",
+        "post_volume_import_data_end": "[[ \"$(findmnt -S /dev/mapper/test-eph -n -o TARGET)\" == \"/mnt/test_eph\" ]]",
+        "description": "For testing purposes only: Showcasing seemless use of encrypted disposable (upon boot) VM pools with keys held in RAM only. For personal use, a dedicated script is recommended."
+    }
+}

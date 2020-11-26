@@ -402,6 +402,8 @@ done
 %{python3_sitelib}/qubes/storage/reflink.py
 %{python3_sitelib}/qubes/storage/kernels.py
 %{python3_sitelib}/qubes/storage/lvm.py
+%{python3_sitelib}/qubes/storage/callback.py
+%doc /usr/share/doc/qubes/qubes_callback.json.example
 
 %dir %{python3_sitelib}/qubes/tools
 %dir %{python3_sitelib}/qubes/tools/__pycache__
@@ -452,6 +454,7 @@ done
 %{python3_sitelib}/qubes/tests/storage_reflink.py
 %{python3_sitelib}/qubes/tests/storage_kernels.py
 %{python3_sitelib}/qubes/tests/storage_lvm.py
+%{python3_sitelib}/qubes/tests/storage_callback.py
 %{python3_sitelib}/qubes/tests/tarwriter.py
 
 %dir %{python3_sitelib}/qubes/tests/vm
