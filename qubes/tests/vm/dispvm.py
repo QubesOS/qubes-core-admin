@@ -116,10 +116,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
 
-            with self.assertRaises(qubes.exc.QubesValueError):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 dispvm.template = self.appvm
-            with self.assertRaises(qubes.exc.QubesValueError):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 dispvm.template = qubes.property.DEFAULT
+            dispvm.kill()
+            dispvm.template = qubes.property.DEFAULT
 
     def test_003_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
