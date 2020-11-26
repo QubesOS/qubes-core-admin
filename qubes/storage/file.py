@@ -176,11 +176,14 @@ class FilePool(qubes.storage.Pool):
 class FileVolume(qubes.storage.Volume):
     ''' Parent class for the xen volumes implementation which expects a
         `target_dir` param on initialization.  '''
+    _marker_running = object()
+    _marker_exported = object()
 
     def __init__(self, dir_path, **kwargs):
         self.dir_path = dir_path
         assert self.dir_path, "dir_path not specified"
         self._revisions_to_keep = 0
+        self._export_lock = None
         super().__init__(**kwargs)
 
         if self.snap_on_start:
@@ -265,9 +268,21 @@ class FileVolume(qubes.storage.Volume):
         return self
 
     def export(self):
-        # FIXME: this should rather return snapshot(self.path, self.path_cow)
-        #  if domain is running
+        if self._export_lock is not None:
+            assert self._export_lock is FileVolume._marker_running, \
+                'nested calls to export()'
+            raise qubes.storage.StoragePoolException(
+                'file pool cannot export running volumes')
+        if self.is_dirty():
+            raise qubes.storage.StoragePoolException(
+                'file pool cannot export dirty volumes')
+        self._export_lock = FileVolume._marker_exported
         return self.path
+
+    def export_end(self, path):
+        assert self._export_lock is not FileVolume._marker_running, \
+            'ending an export on a running volume?'
+        self._export_lock = None
 
     @asyncio.coroutine
     def import_volume(self, src_volume):
@@ -311,6 +326,12 @@ class FileVolume(qubes.storage.Volume):
         return self
 
     def start(self):
+        if self._export_lock is not None:
+            assert self._export_lock is FileVolume._marker_exported, \
+                'nested calls to start()'
+            raise qubes.storage.StoragePoolException(
+                'file pool cannot start a VM with an exported volume')
+        self._export_lock = FileVolume._marker_running
         if not self.save_on_stop and not self.snap_on_start:
             self.reset()
         else:
@@ -328,12 +349,15 @@ class FileVolume(qubes.storage.Volume):
         return self
 
     def stop(self):
+        assert self._export_lock is not FileVolume._marker_exported, \
+            'trying to stop exported file volume?'
         if self.save_on_stop:
             self.commit()
         elif self.snap_on_start:
             _remove_if_exists(self.path_cow)
         else:
             _remove_if_exists(self.path)
+        self._export_lock = None
         return self
 
     @property
