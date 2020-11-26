@@ -9,6 +9,10 @@ fi
 : "${PYTHON:=python3}"
 : "${TESTPYTHONPATH:=test-packages}"
 
+if [ -d ../core-qrexec/qrexec ] && ! $PYTHON -c 'import qrexec' 2>/dev/null; then
+    PYTHONPATH="${PYTHONPATH}:../core-qrexec"
+fi
+
 PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
 export PYTHONPATH
 
