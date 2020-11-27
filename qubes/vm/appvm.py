@@ -26,9 +26,9 @@ import qubes.events
 import qubes.vm.qubesvm
 from qubes.config import defaults
 
-def template_changed_update_storage(self, volume_config):
+def template_changed_update_storage(self):
     '''Update storage configuration for TemplateVM changes'''
-    for volume_name, conf in volume_config.items():
+    for volume_name, conf in self.volume_config.items():
         if conf.get('snap_on_start', False) and \
                 conf.get('source', None) is None:
             config = conf.copy()
@@ -153,9 +153,11 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'Cannot change template while qube is running')
 
         for vm in self.dispvms:
-            if vm.is_running:
+            running = vm.is_running()
+            assert type(running) is bool
+            if running:
                 raise qubes.exc.QubesVMNotHaltedError(self,
-                    'Cannot change template while there are running DispVMs'
+                    'Cannot change template while there are running DispVMs '
                     'based on this DVM template')
 
     @qubes.events.handler('property-set:template')
@@ -163,7 +165,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         ''' Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         '''  # pylint: disable=unused-argument
-        template_changed_update_storage(self, self.default_volume_config)
-
+        template_changed_update_storage(self)
         for vm in self.dispvms:
             vm.on_property_set_template(event, name, newvalue, oldvalue)
