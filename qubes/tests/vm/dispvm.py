@@ -118,12 +118,16 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
 
-            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                dispvm.template = self.appvm
-            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+            dispvm.template = self.appvm
+            dispvm.start()
+            if not self.app.vmm.offline_mode:
+                assert not dispvm.is_halted()
+                with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                    dispvm.template = self.appvm
+            with self.assertRaises(qubes.exc.QubesValueError):
                 dispvm.template = qubes.property.DEFAULT
             dispvm.kill()
-            dispvm.template = qubes.property.DEFAULT
+            dispvm.template = self.appvm
 
     def test_003_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
@@ -139,7 +143,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
 
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 self.appvm.template = self.template
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.appvm.template = qubes.property.DEFAULT
