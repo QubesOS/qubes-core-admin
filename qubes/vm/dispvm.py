@@ -65,14 +65,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'save_on_stop': False,
                 'rw': True,
                 'source': None,
-            },
+            }.copy(),
             'private': {
                 'name': 'private',
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': True,
                 'source': None,
-            },
+            }.copy(),
             'volatile': {
                 'name': 'volatile',
                 'snap_on_start': False,
@@ -80,13 +80,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'rw': True,
                 'size': qubes.config.defaults['root_img_size'] +
                         qubes.config.defaults['private_img_size'],
-            },
+            }.copy(),
             'kernel': {
                 'name': 'kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,
-            }
+            }.copy()
         }
 
         template = kwargs.get('template', None)
@@ -165,7 +165,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         ''' Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         '''  # pylint: disable=unused-argument
-        qubes.vm.appvm.template_changed_update_storage(self, self.volume_config)
+        for volume_name, conf in self.volume_config.items():
+            if conf.get('snap_on_start', False) and \
+                    conf.get('source', None) is None:
+                config = conf.copy()
+                self.volume_config[volume_name] = config
+                self.storage.init_volume(volume_name, config)
+            qubes.vm.appvm.template_changed_update_storage(self)
 
     @qubes.events.handler('domain-shutdown')
     @asyncio.coroutine

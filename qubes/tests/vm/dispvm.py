@@ -113,19 +113,19 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 'get_new_unused_dispid': mock.Mock(return_value=42),
                 '__getitem__.side_effect': orig_getitem
             })
-            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+            self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
 
-            dispvm.template = self.appvm
-            dispvm.start()
+            self.dispvm.template = self.appvm
+            self.dispvm.start()
             if not self.app.vmm.offline_mode:
                 assert not dispvm.is_halted()
                 with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                    dispvm.template = self.appvm
+                    self.dispvm.template = self.appvm
             with self.assertRaises(qubes.exc.QubesValueError):
-                dispvm.template = qubes.property.DEFAULT
-            dispvm.kill()
-            dispvm.template = self.appvm
+                self.dispvm.template = qubes.property.DEFAULT
+            self.dispvm.kill()
+            self.dispvm.template = self.appvm
 
     def test_003_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
@@ -141,8 +141,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
 
-            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                self.appvm.template = self.template
+            self.appvm.template = self.template
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.appvm.template = qubes.property.DEFAULT
 
@@ -172,9 +171,10 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 'get_new_unused_dispid': mock.Mock(return_value=42),
                 '__getitem__.side_effect': orig_getitem
             })
-            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+            self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
             mock_domains.get_new_unused_dispid.assert_called_once_with()
+        dispvm=self.dispvm
         self.assertEqual(dispvm.name, 'test-dispvm')
         self.assertEqual(dispvm.template, self.appvm)
         self.assertEqual(dispvm.label, self.appvm.label)
@@ -235,3 +235,80 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                          self.appvm.volumes['root'].pool)
         self.assertEqual(dispvm.volumes['volatile'].pool,
                          self.appvm.volumes['volatile'].pool)
+
+    def test_021_storage_template_change(self):
+        self.appvm.template_for_dispvms = True
+        orig_domains = self.app.domains
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_domains.__getitem__,
+                '__iter__.side_effect': orig_domains.__iter__,
+                '__setitem__.side_effect': orig_domains.__setitem__,
+            })
+            vm = self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+            self.loop.run_until_complete(vm.create_on_disk())
+            # create new mock, so new template will get different volumes
+            self.app.pools['default'] = mock.Mock(**{
+                'init_volume.return_value.pool': 'default'})
+            template2 = qubes.vm.templatevm.TemplateVM(self.app, None,
+                qid=3, name=qubes.tests.VMPREFIX + 'template2')
+            self.app.domains[template2.name] = template2
+            self.app.domains[template2] = template2
+            self.appvm.template = template2
+
+        self.assertFalse(vm.volume_config['root']['save_on_stop'])
+        self.assertTrue(vm.volume_config['root']['snap_on_start'])
+        self.assertNotEqual(vm.volume_config['root'].get('source', None),
+            self.template.volumes['root'].source)
+        self.assertIs(template2, self.app.domains[template2.name])
+        self.assertEqual(vm.volume_config['root'].get('source', None),
+            template2.volumes['root'].source)
+
+    def test_022_storage_app_change(self):
+        self.appvm.template_for_dispvms = True
+        self.assertTrue(self.appvm.events_enabled)
+        orig_domains = self.app.domains
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_domains.__getitem__,
+                '__iter__.side_effect': orig_domains.__iter__,
+                '__setitem__.side_effect': orig_domains.__setitem__,
+            })
+            vm = self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+            self.assertTrue(vm.events_enabled)
+            self.loop.run_until_complete(self.dispvm.create_on_disk())
+            # create new mock, so new template will get different volumes
+            self.app.pools['default'] = mock.Mock(**{
+                'init_volume.return_value.pool': 'default'})
+            template2 = qubes.vm.templatevm.TemplateVM(self.app, None,
+                qid=3, name=qubes.tests.VMPREFIX + 'template2')
+            self.assertTrue(template2.events_enabled)
+            self.app.domains[template2.name] = template2
+            self.app.domains[template2] = template2
+            app2 = qubes.vm.appvm.AppVM(self.app, None,
+                qid=4, name=qubes.tests.VMPREFIX + 'app2', template=template2)
+            self.assertTrue(app2.events_enabled)
+            app2.template_for_dispvms = True
+            self.app.domains[app2.name] = app2
+            self.app.domains[app2] = app2
+            self.dispvm.template = app2
+
+        self.assertIs(vm, self.dispvm)
+        self.assertFalse(vm.volume_config['root']['save_on_stop'])
+        self.assertTrue(vm.volume_config['root']['snap_on_start'])
+        self.assertNotEqual(vm.volume_config['root'].get('source', None),
+            self.template.volumes['root'].source)
+        self.assertNotEqual(vm.volume_config['root'].get('source', None),
+            self.appvm.volumes['root'].source)
+        self.assertNotEqual(vm.volume_config['private'].get('source', None),
+            self.appvm.volumes['private'].source)
+        self.assertEqual(vm.volume_config['root'].get('source', None),
+            app2.volumes['root'])
+        self.assertEqual(vm.volume_config['private'].get('source', None),
+            app2.volumes['private'])

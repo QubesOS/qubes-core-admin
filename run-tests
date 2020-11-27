@@ -1,7 +1,7 @@
 #!/bin/sh --
 
 set -eu
-sudo dnf -y install lvm2 python3-inotify python3-sphinx python3-docutils python3-PyYAML python3-jinja2 python3-lxml python3-pylint python3-coverage
+sudo dnf -y install lvm2 python3-inotify python3-sphinx python3-docutils python3-PyYAML python3-jinja2 python3-lxml python3-pylint python3-coverage btrfs-progs vim-common
 CLEANUP_LVM=
 if sudo --non-interactive $(dirname "$0")/ci/lvm-manage setup-lvm vg$$/pool; then
     export DEFAULT_LVM_POOL=vg$$/pool
@@ -12,7 +12,7 @@ fi
 : "${TESTPYTHONPATH:=test-packages}"
 
 if [ -d ../core-qrexec/qrexec ] && ! $PYTHON -c 'import qrexec' 2>/dev/null; then
-    PYTHONPATH="${PYTHONPATH}:../core-qrexec"
+    PYTHONPATH="${PYTHONPATH-}:../core-qrexec"
 fi
 
 PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
