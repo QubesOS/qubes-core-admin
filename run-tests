@@ -1,13 +1,16 @@
 #!/bin/bash --
 
 set -eu
-unset applications do_install_deps CLEANUP_LVM name DEFAULT_LVM_POOL retcode
-applications=(lvm2 python3-inotify python3-sphinx python3-docutils
-    python3-pyyaml python3-jinja2 python3-lxml python3-pylint python3-coverage
-    btrfs-progs vim-common)
-do_install_deps=false
-rpm -q --quiet -- "${applications[@]}" ||
-sudo dnf -- install "${applications[@]}"
+unset CLEANUP_LVM name DEFAULT_LVM_POOL retcode
+install_rpm_deps () {
+    local applications
+    applications=(lvm2 python3-inotify python3-sphinx python3-docutils
+        python3-pyyaml python3-jinja2 python3-lxml python3-pylint
+        python3-coverage btrfs-progs vim-common)
+    rpm -q --quiet -- "${applications[@]}" ||
+    sudo dnf -- install "${applications[@]}"
+}
+if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
 CLEANUP_LVM=
 name=$(dirname "$0")
 if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then
