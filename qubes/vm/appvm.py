@@ -28,7 +28,7 @@ from qubes.config import defaults
 
 def template_changed_update_storage(self):
     '''Update storage configuration for TemplateVM changes'''
-    for volume_name, conf in self.volume_config.items():
+    for volume_name, conf in self.default_volume_config.items():
         if conf.get('snap_on_start', False) and \
                 conf.get('source', None) is None:
             config = conf.copy()
@@ -153,9 +153,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'Cannot change template while qube is running')
 
         for vm in self.dispvms:
-            running = vm.is_running()
-            assert type(running) is bool
-            if running:
+            if vm.is_running():
                 raise qubes.exc.QubesVMNotHaltedError(self,
                     'Cannot change template while there are running DispVMs '
                     'based on this DVM template')
