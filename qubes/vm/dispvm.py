@@ -20,7 +20,7 @@
 
 ''' A disposable vm implementation '''
 
-import asyncio
+import asyncio, copy
 
 import qubes.vm.qubesvm
 import qubes.vm.appvm
@@ -57,38 +57,39 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         default=(lambda self: self.template),
         doc='Default VM to be used as Disposable VM for service calls.')
 
-    def __init__(self, app, xml, *args, **kwargs):
-        self.volume_config = {
-            'root': {
-                'name': 'root',
-                'snap_on_start': True,
-                'save_on_stop': False,
-                'rw': True,
-                'source': None,
-            }.copy(),
-            'private': {
-                'name': 'private',
-                'snap_on_start': True,
-                'save_on_stop': False,
-                'rw': True,
-                'source': None,
-            }.copy(),
-            'volatile': {
-                'name': 'volatile',
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': True,
-                'size': qubes.config.defaults['root_img_size'] +
-                        qubes.config.defaults['private_img_size'],
-            }.copy(),
-            'kernel': {
-                'name': 'kernel',
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': False,
-            }.copy()
-        }
+    default_volume_config = {
+        'root': {
+            'name': 'root',
+            'snap_on_start': True,
+            'save_on_stop': False,
+            'rw': True,
+            'source': None,
+        },
+        'private': {
+            'name': 'private',
+            'snap_on_start': True,
+            'save_on_stop': False,
+            'rw': True,
+            'source': None,
+        },
+        'volatile': {
+            'name': 'volatile',
+            'snap_on_start': False,
+            'save_on_stop': False,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'] +
+                    qubes.config.defaults['private_img_size'],
+        },
+        'kernel': {
+            'name': 'kernel',
+            'snap_on_start': False,
+            'save_on_stop': False,
+            'rw': False,
+        },
+    }
 
+    def __init__(self, app, xml, *args, **kwargs):
+        self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get('template', None)
 
         if xml is None:
@@ -147,7 +148,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
     @qubes.events.handler('property-pre-reset:template')
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
-        '''Forbid deleting template of running VM
+        '''Forbid deleting template of VM
         '''  # pylint: disable=unused-argument,no-self-use
         raise qubes.exc.QubesValueError('Cannot unset template')
 
@@ -165,13 +166,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         ''' Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         '''  # pylint: disable=unused-argument
-        for volume_name, conf in self.volume_config.items():
-            if conf.get('snap_on_start', False) and \
-                    conf.get('source', None) is None:
-                config = conf.copy()
-                self.volume_config[volume_name] = config
-                self.storage.init_volume(volume_name, config)
-            qubes.vm.appvm.template_changed_update_storage(self)
+        qubes.vm.appvm.template_changed_update_storage(self)
 
     @qubes.events.handler('domain-shutdown')
     @asyncio.coroutine

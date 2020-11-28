@@ -29,7 +29,7 @@ from qubes.config import defaults
 
 def template_changed_update_storage(self):
     '''Update storage configuration for TemplateVM changes'''
-    for volume_name, conf in self.volume_config.items():
+    for volume_name, conf in self.default_volume_config.items():
         if conf.get('snap_on_start', False) and \
                 conf.get('source', None) is None:
             config = conf.copy()

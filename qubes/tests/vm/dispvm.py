@@ -228,12 +228,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
             self.loop.run_until_complete(dispvm.create_on_disk())
-        self.assertEqual(dispvm.template, self.appvm)
-        self.assertEqual(dispvm.volumes['private'].pool,
+        self.assertIs(dispvm.template, self.appvm)
+        self.assertIs(dispvm.volumes['private'].pool,
                          self.appvm.volumes['private'].pool)
-        self.assertEqual(dispvm.volumes['root'].pool,
+        self.assertIs(dispvm.volumes['root'].pool,
                          self.appvm.volumes['root'].pool)
-        self.assertEqual(dispvm.volumes['volatile'].pool,
+        self.assertIs(dispvm.volumes['volatile'].pool,
                          self.appvm.volumes['volatile'].pool)
 
     def test_021_storage_template_change(self):
@@ -250,6 +250,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             vm = self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
             self.loop.run_until_complete(vm.create_on_disk())
+            self.assertIs(vm.volume_config['root']['source'],
+                self.template.volumes['root'])
             # create new mock, so new template will get different volumes
             self.app.pools['default'] = mock.Mock(**{
                 'init_volume.return_value.pool': 'default'})
@@ -261,11 +263,14 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
         self.assertFalse(vm.volume_config['root']['save_on_stop'])
         self.assertTrue(vm.volume_config['root']['snap_on_start'])
-        self.assertNotEqual(vm.volume_config['root'].get('source', None),
-            self.template.volumes['root'].source)
-        self.assertIs(template2, self.app.domains[template2.name])
-        self.assertEqual(vm.volume_config['root'].get('source', None),
-            template2.volumes['root'].source)
+        self.assertNotEqual(vm.volume_config['root']['source'],
+            self.template.volumes['root'])
+        self.assertIs(vm.volume_config['root']['source'],
+            template2.volumes['root'])
+        self.assertIs(vm.volume_config['root']['source'],
+            self.appvm.volume_config['root']['source'])
+        self.assertIs(vm.volume_config['private']['source'],
+            self.appvm.volumes['private'])
 
     def test_022_storage_app_change(self):
         self.appvm.template_for_dispvms = True
@@ -302,13 +307,17 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertIs(vm, self.dispvm)
         self.assertFalse(vm.volume_config['root']['save_on_stop'])
         self.assertTrue(vm.volume_config['root']['snap_on_start'])
-        self.assertNotEqual(vm.volume_config['root'].get('source', None),
-            self.template.volumes['root'].source)
-        self.assertNotEqual(vm.volume_config['root'].get('source', None),
+        self.assertFalse(vm.volume_config['private']['save_on_stop'])
+        self.assertTrue(vm.volume_config['private']['snap_on_start'])
+        self.assertNotEqual(vm.volume_config['root']['source'],
+            self.template.volumes['root'])
+        self.assertNotEqual(vm.volume_config['root']['source'],
             self.appvm.volumes['root'].source)
-        self.assertNotEqual(vm.volume_config['private'].get('source', None),
-            self.appvm.volumes['private'].source)
-        self.assertEqual(vm.volume_config['root'].get('source', None),
-            app2.volumes['root'])
-        self.assertEqual(vm.volume_config['private'].get('source', None),
+        self.assertNotEqual(vm.volume_config['private']['source'],
+            self.appvm.volumes['private'])
+        self.assertIs(vm.volume_config['root']['source'],
+            template2.volumes['root'])
+        self.assertIs(app2.volume_config['root']['source'],
+            template2.volumes['root'])
+        self.assertIs(vm.volume_config['private']['source'],
             app2.volumes['private'])

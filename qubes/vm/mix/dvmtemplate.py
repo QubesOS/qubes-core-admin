@@ -50,9 +50,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             oldvalue=None):
         # pylint: disable=unused-argument
         for vm in self.dispvms:
-            running = vm.is_running()
-            assert type(running) is bool
-            if running:
+            if vm.is_running():
                 raise qubes.exc.QubesVMNotHaltedError(self,
                     'Cannot change template while there are running DispVMs '
                     'based on this DVM template')
