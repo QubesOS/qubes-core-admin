@@ -20,7 +20,8 @@
 
 ''' A disposable vm implementation '''
 
-import asyncio, copy
+import asyncio
+import copy
 
 import qubes.vm.qubesvm
 import qubes.vm.appvm
