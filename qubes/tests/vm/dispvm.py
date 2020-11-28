@@ -251,7 +251,6 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             })
             vm = self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
-            self.loop.run_until_complete(vm.create_on_disk())
             self.assertIs(vm.volume_config['root']['source'],
                 self.template.volumes['root'])
             # create new mock, so new template will get different volumes
@@ -289,7 +288,6 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             vm = self.dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
                 name='test-dispvm', template=self.appvm)
             self.assertTrue(vm.events_enabled)
-            self.loop.run_until_complete(self.dispvm.create_on_disk())
             # create new mock, so new template will get different volumes
             self.app.pools['default'] = mock.Mock(**{
                 'init_volume.return_value.pool': 'default'})
