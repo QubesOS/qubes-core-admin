@@ -71,7 +71,7 @@ DATE=`date +%Y%m%d-%H%M%S`
 TEMP_DIR=`mktemp --tmpdir -d HCL.XXXXXXXXXX`
 cat /etc/qubes-release > $TEMP_DIR/qubes-release
 cat /proc/cpuinfo > $TEMP_DIR/cpuinfo
-lspci -nnvk > $TEMP_DIR/lspci
+sudo lspci -nnvk > $TEMP_DIR/lspci
 cat /proc/scsi/scsi > $TEMP_DIR/scsi
 sudo dmidecode > $TEMP_DIR/dmidecode
 xl info > $TEMP_DIR/xl-info
