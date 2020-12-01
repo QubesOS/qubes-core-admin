@@ -1,22 +1,39 @@
-#!/bin/bash
+#!/bin/bash --
+set -eu
 print_usage() {
 cat >&2 << USAGE
-Usage: $0 vmname
+Usage: $0 [--autostart] [--] vmname
 Connects to VM console throught DispVM using the qubes.ShowInTerminal RPC service.
+With --autostart, start the VM first.
 USAGE
 }
 
-if [ $# -lt 1 ]; then
+do_start=false
+if [[ $# -ge 2 ]] && [[ "$1" = '--autostart' ]]; then
+    do_start=:
+    shift
+fi
+if [[ $# -eq 2 ]] && [[ "$1" = '--' ]]; then
+    shift
+elif [ $# -ne 1 ]; then
     print_usage
     exit 1
 fi
 
 QREXEC_REQUESTED_TARGET="$1"
 
-qvm-check --quiet --running "$QREXEC_REQUESTED_TARGET" > /dev/null 2>&1 || { echo "Error: domain '$QREXEC_REQUESTED_TARGET' does not exist or is not running"; exit 1; }
+[[ "$QREXEC_REQUESTED_TARGET" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || { printf 'Invalid qube name %q\n' "$QREXEC_REQUESTED_TARGET">&2; exit 1; }
 
-DISPVM="$(qvm-prefs "$QREXEC_REQUESTED_TARGET" management_dispvm)"
+if "$do_start"; then
+    msg='cannot be started'
+    qvm-start --skip-if-running -- "$QREXEC_REQUESTED_TARGET"
+else
+    msg='is not running'
+    qvm-check --quiet --running -- "$QREXEC_REQUESTED_TARGET"
+fi > /dev/null 2>&1 || { echo "Error: domain '$QREXEC_REQUESTED_TARGET' does not exist or $msg">&2; exit 1; }
 
-[[ "x$DISPVM" == "x" ]] && { echo "Error: cannot determine management DispVM to use"; exit 1; }
+DISPVM="$(qvm-prefs -- "$QREXEC_REQUESTED_TARGET" management_dispvm)"
+
+[[ "x$DISPVM" == "x" ]] && { echo "Error: cannot determine management DispVM of domain '$QREXEC_REQUESTED_TARGET'">&2; exit 1; }
 
 sudo qvm-run -p --localcmd="QREXEC_REQUESTED_TARGET=$QREXEC_REQUESTED_TARGET QREXEC_REMOTE_DOMAIN=dom0 /etc/qubes-rpc/admin.vm.Console" --service --dispvm="$DISPVM" -- qubes.ShowInTerminal
