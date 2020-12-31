@@ -161,6 +161,15 @@ class TC_40_PVGrub(GrubBase):
     virt_mode = 'pv'
     kernel = 'pvgrub2'
 
+    def setUp(self):
+        if 'fedora' in self.template:
+            # requires a zstd decompression filter in grub
+            # (see grub_file_filter_id enum in grub sources)
+            self.skipTest('Fedora kernel is compressed with zstd '
+                          'which is not supported by pvgrub2')
+        super().setUp()
+
+
 class TC_41_HVMGrub(GrubBase):
     virt_mode = 'hvm'
     kernel = None
