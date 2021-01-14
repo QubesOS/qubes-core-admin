@@ -11,11 +11,15 @@ install_rpm_deps () {
     : # we don’t actually care if this succeeds
 }
 if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
-CLEANUP_LVM=
+
+cleanup_lvm() {
+    sudo --non-interactive $(dirname "$0")/ci/lvm-manage cleanup-lvm "$DEFAULT_LVM_POOL"
+}
+
 name=$(dirname "$0")
 if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then
     export DEFAULT_LVM_POOL=vg$$/pool
-    CLEANUP_LVM=yes
+    trap cleanup_lvm EXIT
 fi
 
 : "${PYTHON:=python3}"
@@ -30,8 +34,3 @@ export PYTHONPATH
 
 "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
 "${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
-retcode=$?
-if [ -n "$CLEANUP_LVM" ]; then
-    sudo --non-interactive $(dirname "$0")/ci/lvm-manage cleanup-lvm "$DEFAULT_LVM_POOL"
-fi
-exit $retcode
