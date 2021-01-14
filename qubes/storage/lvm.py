@@ -223,16 +223,21 @@ def _parse_lvm_cache(lvm_output):
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
             origin, metadata_size, metadata_percent = line.split(';', 8)
-        if '' in [pool_name, name, size, usage_percent]:
+        if '' in [pool_name, name, size]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
-        usage = int(size / 100 * float(usage_percent))
+        if usage_percent:
+            usage = int(size / 100 * float(usage_percent))
+        else:
+            # keep cached usage for non-active volumes
+            usage = size_cache.get(name, {}).get('usage')
         if metadata_size:
             metadata_size = int(metadata_size[:-1])
+        if metadata_percent:
             metadata_usage = int(metadata_size / 100 * float(metadata_percent))
         else:
-            metadata_usage = None
+            metadata_usage = size_cache.get(name, {}).get('metadata_usage')
         result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
             'attr': attr, 'origin': origin, 'metadata_size': metadata_size,
                         'metadata_usage': metadata_usage}
@@ -277,6 +282,7 @@ def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
     return _parse_lvm_cache(out)
 
 size_cache_time = 0
+size_cache = {}
 size_cache = init_cache()
 
 
@@ -357,7 +363,7 @@ class ThinVolume(qubes.storage.Volume):
 
     @asyncio.coroutine
     def _reset(self):
-        ''' Resets a volatile volume '''
+        """ Resets a volatile volume. Leave it in an active state """
         assert not self.snap_on_start and not self.save_on_stop, \
             "Not a volatile volume"
         self.log.debug('Resetting volatile %s', self.vid)
@@ -367,7 +373,7 @@ class ThinVolume(qubes.storage.Volume):
         except qubes.storage.StoragePoolException:
             pass
         # pylint: disable=protected-access
-        cmd = ['create', self.pool._pool_id, self.vid.split('/')[1],
+        cmd = ['create-activate', self.pool._pool_id, self.vid.split('/')[1],
                str(self.size)]
         yield from qubes_lvm_coro(cmd, self.log)
 
@@ -420,7 +426,7 @@ class ThinVolume(qubes.storage.Volume):
             vid_to_commit = self._vid_snap
 
         assert self._lock.locked()
-        if not os.path.exists('/dev/' + vid_to_commit):
+        if vid_to_commit not in size_cache:
             # nothing to commit
             return
 
@@ -466,21 +472,21 @@ class ThinVolume(qubes.storage.Volume):
     def remove(self):
         assert self.vid
         try:
-            if os.path.exists('/dev/' + self._vid_snap):
+            if self._vid_snap in size_cache:
                 cmd = ['remove', self._vid_snap]
                 yield from qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
         try:
-            if os.path.exists('/dev/' + self._vid_import):
+            if self._vid_import in size_cache:
                 cmd = ['remove', self._vid_import]
                 yield from qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
         yield from self._remove_revisions(self.revisions.keys())
-        if not os.path.exists(self.path):
+        if self._vid_current not in size_cache:
             return
         cmd = ['remove', self.path]
         yield from qubes_lvm_coro(cmd, self.log)
@@ -491,9 +497,21 @@ class ThinVolume(qubes.storage.Volume):
     def export(self):
         ''' Returns an object that can be `open()`. '''
         # make sure the device node is available
-        qubes_lvm(['activate', self.path], self.log)
+        qubes_lvm(['activate', self._vid_current], self.log)
         devpath = self.path
         return devpath
+
+    def export_end(self, path):
+        ''' Returns an object that can be `open()`. '''
+        # release device node
+        assert path == '/dev/' + self._vid_current
+        try:
+            qubes_lvm(['deactivate', path[len('/dev/'):]], self.log)
+        except subprocess.CalledProcessError as e:
+            self.log.warning('Cannot deactivate %s - failed with code %d',
+                             self._vid_current, e.returncode)
+            # device may be in use by another export
+            pass
 
     @qubes.storage.Volume.locked
     @asyncio.coroutine
@@ -513,11 +531,12 @@ class ThinVolume(qubes.storage.Volume):
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
             yield from self._commit(src_volume.path[len('/dev/'):], keep=True)
         else:
-            cmd = ['create',
+            cmd = ['create-activate',
                    self.pool._pool_id,  # pylint: disable=protected-access
                    self._vid_import.split('/')[1],
                    str(src_volume.size)]
             yield from qubes_lvm_coro(cmd, self.log)
+            yield from reset_cache_coro()
             src_path = yield from qubes.utils.coro_maybe(src_volume.export())
             try:
                 cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
@@ -525,7 +544,7 @@ class ThinVolume(qubes.storage.Volume):
                 if not os.access('/dev/' + self._vid_import, os.W_OK) or \
                         not os.access(src_path, os.R_OK):
                     cmd.insert(0, 'sudo')
-
+                print(cmd)
                 p = yield from asyncio.create_subprocess_exec(*cmd)
                 yield from p.wait()
             finally:
@@ -551,7 +570,7 @@ class ThinVolume(qubes.storage.Volume):
                 format(self.vid))
         self.abort_if_import_in_progress()
         # pylint: disable=protected-access
-        cmd = ['create', self.pool._pool_id, self._vid_import.split('/')[1],
+        cmd = ['create-activate', self.pool._pool_id, self._vid_import.split('/')[1],
                str(size)]
         yield from qubes_lvm_coro(cmd, self.log)
         yield from reset_cache_coro()
@@ -562,7 +581,9 @@ class ThinVolume(qubes.storage.Volume):
     @asyncio.coroutine
     def import_data_end(self, success):
         '''Either commit imported data, or discard temporary volume'''
-        if not os.path.exists('/dev/' + self._vid_import):
+        print(self._vid_import)
+        print(list(size_cache.keys()))
+        if self._vid_import not in size_cache:
             raise qubes.storage.StoragePoolException(
                 'No import operation in progress on {}'.format(self.vid))
         if success:
@@ -570,11 +591,11 @@ class ThinVolume(qubes.storage.Volume):
         else:
             cmd = ['remove', self._vid_import]
             yield from qubes_lvm_coro(cmd, self.log)
+        yield from reset_cache_coro()
 
     def abort_if_import_in_progress(self):
         try:
-            devpath = '/dev/' + self._vid_import
-            if os.path.exists(devpath):
+            if self._vid_import in size_cache:
                 raise qubes.storage.StoragePoolException(
                     'Import operation in progress on {}'.format(self.vid))
         except AttributeError:  # self._vid_import
@@ -583,7 +604,9 @@ class ThinVolume(qubes.storage.Volume):
 
     def is_dirty(self):
         if self.save_on_stop:
-            return os.path.exists('/dev/' + self._vid_snap)
+            print('is_dirty({}): {}'.format(self._vid_snap, list(size_cache.keys())))
+            subprocess.check_output(['sudo', 'lvs'])
+            return self._vid_snap in size_cache
         return False
 
     def is_outdated(self):
@@ -605,9 +628,9 @@ class ThinVolume(qubes.storage.Volume):
         if revision is None:
             revision = \
                 max(self.revisions.items(), key=_revision_sort_key)[0]
-        old_path = '/dev/' + self.vid + '-' + revision
-        if not os.path.exists(old_path):
-            msg = "Volume {!s} has no {!s}".format(self, old_path)
+        old_vid = self.vid + '-' + revision
+        if old_vid not in size_cache:
+            msg = "Volume {!s} has no {!s}".format(self, old_vid)
             raise qubes.storage.StoragePoolException(msg)
 
         if self.vid in size_cache:
@@ -640,21 +663,30 @@ class ThinVolume(qubes.storage.Volume):
             return
 
         if self.is_dirty():
+            print('dirty')
             cmd = ['extend', self._vid_snap, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, '_vid_import') and \
-                os.path.exists('/dev/' + self._vid_import):
+                self._vid_import in size_cache:
+            print('in import')
             cmd = ['extend', self._vid_import, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
         elif self.save_on_stop and not self.snap_on_start:
+            print('normal')
             cmd = ['extend', self._vid_current, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
 
+        print('done')
         self._size = size
         yield from reset_cache_coro()
 
     @asyncio.coroutine
     def _snapshot(self):
+        """
+        Make an *active* snapshot of the source volume.
+
+        :return:
+        """
         try:
             cmd = ['remove', self._vid_snap]
             yield from qubes_lvm_coro(cmd, self.log)
@@ -662,9 +694,9 @@ class ThinVolume(qubes.storage.Volume):
             pass
 
         if self.source is None:
-            cmd = ['clone', self._vid_current, self._vid_snap]
+            cmd = ['clone-activate', self._vid_current, self._vid_snap]
         else:
-            cmd = ['clone', self.source.path, self._vid_snap]
+            cmd = ['clone-activate', self.source.path, self._vid_snap]
         yield from qubes_lvm_coro(cmd, self.log)
 
     @qubes.storage.Volume.locked
@@ -675,6 +707,9 @@ class ThinVolume(qubes.storage.Volume):
             if self.snap_on_start or self.save_on_stop:
                 if not self.save_on_stop or not self.is_dirty():
                     yield from self._snapshot()
+                else:
+                    cmd = ['activate', self._vid_snap]
+                    yield from qubes_lvm_coro(cmd, self.log)
             else:
                 yield from self._reset()
         finally:
@@ -706,12 +741,7 @@ class ThinVolume(qubes.storage.Volume):
             vid = self.source.path[len('/dev/'):]
         else:
             vid = self._vid_current
-        try:
-            vol_info = size_cache[vid]
-            if vol_info['attr'][4] != 'a':
-                raise qubes.storage.StoragePoolException(
-                    'volume {} not active'.format(vid))
-        except KeyError:
+        if vid not in size_cache:
             raise qubes.storage.StoragePoolException(
                 'volume {} missing'.format(vid))
         return True
@@ -755,25 +785,28 @@ def _get_lvm_cmdline(cmd):
     :return array of str appropriate for subprocess.Popen
     '''
     action = cmd[0]
+    activate = '-ay' if '-activate' in action else '-an'
     if action == 'remove':
         lvm_cmd = ['lvremove', '-f', cmd[1]]
-    elif action == 'clone':
-        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
-    elif action == 'create':
-        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
-           str(cmd[3]) + 'B']
+    elif action in ('clone', 'clone-activate'):
+        lvm_cmd = ['lvcreate', '-K', '-ky', activate, '-s', cmd[1], '-n', cmd[2]]
+    elif action in ('create', 'create-activate'):
+        lvm_cmd = ['lvcreate', '-T', cmd[1], '-K', '-ky', activate, '-n', cmd[2],
+                   '-V', str(cmd[3]) + 'B']
     elif action == 'extend':
         size = int(cmd[2]) / (1024 * 1024)
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
     elif action == 'activate':
-        lvm_cmd = ['lvchange', '-ay', cmd[1]]
+        lvm_cmd = ['lvchange', '-K', '-ay', cmd[1]]
+    elif action == 'deactivate':
+        lvm_cmd = ['lvchange', '-an', cmd[1]]
     elif action == 'rename':
         lvm_cmd = ['lvrename', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if lvm_is_very_old:
         # old lvm in trusty image used there does not support -k option
-        lvm_cmd = [x for x in lvm_cmd if x != '-kn']
+        lvm_cmd = [x for x in lvm_cmd if x not in ('-kn', '-ky')]
     if os.getuid() != 0:
         cmd = ['sudo', 'lvm'] + lvm_cmd
     else:
@@ -825,6 +858,7 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
             close_fds=True, env=environ)
         _, _ = yield from p.communicate()
     cmd = _get_lvm_cmdline(cmd)
+    print('calling {}'.format(' '.join(cmd)))
     p = yield from asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
