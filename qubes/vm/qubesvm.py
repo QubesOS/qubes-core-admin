@@ -1211,6 +1211,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.libvirt_domain.resume()
 
                 yield from self.start_qrexec_daemon()
+                if self.virt_mode == 'hvm' and \
+                    self.features.check_with_template('stubdom_qrexec', False):
+                    yield from self.start_qrexec_daemon(stubdom=True)
 
                 yield from self.fire_event_async('domain-start',
                                                  start_guid=start_guid)
@@ -1629,14 +1632,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                 output=stdout, stderr=stderr)
 
     @asyncio.coroutine
-    def start_qrexec_daemon(self):
+    def start_qrexec_daemon(self, stubdom=False):
         """Start qrexec daemon.
 
         :raises OSError: when starting fails.
         """
 
         self.log.debug('Starting the qrexec daemon')
-        qrexec_args = [str(self.xid), self.name, self.default_user]
+        if stubdom:
+            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', \
+                            self.default_user]
+        else:
+            qrexec_args = [str(self.xid), self.name, self.default_user]
+
         if not self.debug:
             qrexec_args.insert(0, "-q")
 
