@@ -1418,7 +1418,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def run_service(self, service, source=None, user=None,
+    async def run_service(self, service, source=None, user=None, stubdom=False,
                     filter_esc=False, autostart=False, gui=False, **kwargs):
         """Run service on this VM
 
@@ -1448,13 +1448,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         source = 'dom0' if source is None else self.app.domains[source].name
 
+        name = self.name + '-dm' if stubdom else self.name
+
         if user is None:
             user = self.default_user
 
         if self.is_paused():
             # XXX what about autostart?
             raise qubes.exc.QubesVMNotRunningError(
-                self, 'Domain {!r} is paused'.format(self.name))
+                self, 'Domain {!r} is paused'.format(name))
         if not self.is_running():
             if not autostart:
                 raise qubes.exc.QubesVMNotRunningError(self)
@@ -1462,14 +1464,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if not self.is_qrexec_running():
             raise qubes.exc.QubesVMError(
-                self, 'Domain {!r}: qrexec not connected'.format(self.name))
+                self, 'Domain {!r}: qrexec not connected'.format(name))
 
         await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
                                          start_guid=gui)
 
         return (await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
-            '-d', str(self.name),
+            '-d', str(name),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
             **kwargs))
