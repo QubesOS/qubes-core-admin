@@ -1642,8 +1642,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.debug('Starting the qrexec daemon')
         if stubdom:
-            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', \
-                            self.default_user]
+            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', 'root']
         else:
             qrexec_args = [str(self.xid), self.name, self.default_user]
 
