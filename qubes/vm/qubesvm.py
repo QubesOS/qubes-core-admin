@@ -1210,10 +1210,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
 
-                yield from self.start_qrexec_daemon()
                 if self.virt_mode == 'hvm' and \
-                    self.features.check_with_template('stubdom_qrexec', False):
+                    self.features.check_with_template('stubdom-qrexec', False):
                     yield from self.start_qrexec_daemon(stubdom=True)
+                yield from self.start_qrexec_daemon()
 
                 yield from self.fire_event_async('domain-start',
                                                  start_guid=start_guid)
