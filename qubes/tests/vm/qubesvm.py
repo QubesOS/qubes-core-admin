@@ -2085,6 +2085,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 'user:QUBESRPC test.service test-inst-vm')
             self.assertFalse(start_mock.called)
 
+        mock_subprocess.reset_mock()
+        start_mock.reset_mock()
+        with self.subTest('stubdom'):
+            vm.is_running = lambda: True
+            vm.is_qrexec_running = lambda: True
+            self.loop.run_until_complete(vm.run_service('test.service',
+                                                        stubdom=True))
+            mock_subprocess.assert_called_once_with(
+                '/usr/bin/qrexec-client', '-d', 'test-inst-vm-dm',
+                'user:QUBESRPC test.service dom0')
+            self.assertFalse(start_mock.called)
+
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.run')
     def test_710_run_for_stdio(self, mock_run):
         vm = self.get_vm(cls=qubes.vm.standalonevm.StandaloneVM,
