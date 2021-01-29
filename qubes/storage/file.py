@@ -214,11 +214,10 @@ class FileVolume(qubes.storage.Volume):
             _remove_if_exists(self.path_cow)
 
     def is_dirty(self):
-        if not self.save_on_stop:
-            return False
-        if os.path.exists(self.path_cow):
-            stat = os.stat(self.path_cow)
-            return stat.st_blocks > 0
+        if self.save_on_stop:
+            with suppress(FileNotFoundError), open(self.path_cow, 'rb') as cow:
+                cow_used = os.fstat(cow.fileno()).st_blocks * BLKSIZE
+                return cow_used > 0
         return False
 
     def resize(self, size):
