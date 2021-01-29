@@ -275,7 +275,6 @@ class FileVolume(qubes.storage.Volume):
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
                 'file pool cannot export dirty volumes')
-        self._export_lock = FileVolume._marker_exported
         return self.path
 
     def import_volume(self, src_volume):
