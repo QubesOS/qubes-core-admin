@@ -9,9 +9,6 @@
 /var/log/qubes/qubes.log {
     create 0640 root qubes
     su root qubes
-    postrotate
-        /bin/systemctl restart qubesd.service >/dev/null 2>/dev/null || true
-    endscript
 }
 
 /var/log/qubes/vm-*.log {
