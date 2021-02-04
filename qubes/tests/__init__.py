@@ -106,7 +106,6 @@ try:
         ['git', 'rev-parse', '--show-toplevel'], stderr=subprocess.DEVNULL
     ).decode().strip()
     qubes.log.LOGPATH = '/tmp'
-    qubes.log.LOGFILE = '/tmp/qubes.log'
 except subprocess.CalledProcessError:
     # git returned nonzero, we are outside git repo
     pass
