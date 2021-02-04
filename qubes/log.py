@@ -24,6 +24,7 @@ See also: :py:attr:`qubes.vm.qubesvm.QubesVM.log`
 '''
 
 import logging
+import logging.handlers
 import os
 import sys
 import fcntl
@@ -102,7 +103,8 @@ def enable():
         log_path = '/tmp/qubes.log'
     old_umask = os.umask(0o007)
     try:
-        handler_log = logging.FileHandler(log_path, 'a', encoding='utf-8')
+        handler_log = logging.handlers.WatchedFileHandler(
+            log_path, 'a', encoding='utf-8')
         fcntl.fcntl(handler_log.stream.fileno(),
             fcntl.F_SETFD, fcntl.FD_CLOEXEC)
     finally:
@@ -136,7 +138,7 @@ def get_vm_logger(vmname):
         return logger
     old_umask = os.umask(0o007)
     try:
-        handler = logging.FileHandler(
+        handler = logging.handlers.WatchedFileHandler(
             os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
         fcntl.fcntl(handler.stream.fileno(),
             fcntl.F_SETFD, fcntl.FD_CLOEXEC)
