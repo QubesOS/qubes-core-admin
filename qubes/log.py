@@ -24,20 +24,23 @@ See also: :py:attr:`qubes.vm.qubesvm.QubesVM.log`
 '''
 
 import logging
-import logging.handlers
-import os
 import sys
-import fcntl
 
-FORMAT_CONSOLE = '%(message)s'
-FORMAT_LOG = '%(asctime)s %(message)s'
-FORMAT_DEBUG = '%(asctime)s ' \
-    '[%(processName)s %(module)s.%(funcName)s:%(lineno)d] %(name)s: %(message)s'
-LOGPATH = '/var/log/qubes'
 
-formatter_console = logging.Formatter(FORMAT_CONSOLE)
-formatter_log = logging.Formatter(FORMAT_LOG)
-formatter_debug = logging.Formatter(FORMAT_DEBUG)
+class Formatter(logging.Formatter):
+    def __init__(self, *args, debug=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.debug = debug
+
+    def formatMessage(self, record):
+        fmt = ''
+        if self.debug:
+            fmt += '[%(processName)s %(module)s.%(funcName)s:%(lineno)d] '
+        if self.debug or record.name.startswith('vm.'):
+            fmt += '%(name)s: '
+        fmt += '%(message)s'
+
+        return fmt % record.__dict__
 
 
 def enable():
@@ -55,24 +58,8 @@ def enable():
         return
 
     handler_console = logging.StreamHandler(sys.stderr)
-    handler_console.setFormatter(formatter_console)
+    handler_console.setFormatter(Formatter())
     logging.root.addHandler(handler_console)
-
-    if os.path.exists('/var/log/qubes'):
-        log_path = '/var/log/qubes/qubes.log'
-    else:
-        # for tests, travis etc
-        log_path = '/tmp/qubes.log'
-    old_umask = os.umask(0o007)
-    try:
-        handler_log = logging.handlers.WatchedFileHandler(
-            log_path, 'a', encoding='utf-8')
-        fcntl.fcntl(handler_log.stream.fileno(),
-            fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-    finally:
-        os.umask(old_umask)
-    handler_log.setFormatter(formatter_log)
-    logging.root.addHandler(handler_log)
 
     logging.root.setLevel(logging.INFO)
 
@@ -83,10 +70,11 @@ def enable_debug():
     '''
 
     enable()
-    logging.root.setLevel(logging.DEBUG)
 
     for handler in logging.root.handlers:
-        handler.setFormatter(formatter_debug)
+        handler.setFormatter(Formatter(debug=True))
+
+    logging.root.setLevel(logging.DEBUG)
 
 def get_vm_logger(vmname):
     '''Initialise logging for particular VM name
@@ -95,18 +83,4 @@ def get_vm_logger(vmname):
     :rtype: :py:class:`logging.Logger`
     '''
 
-    logger = logging.getLogger('vm.' + vmname)
-    if logger.handlers:
-        return logger
-    old_umask = os.umask(0o007)
-    try:
-        handler = logging.handlers.WatchedFileHandler(
-            os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
-        fcntl.fcntl(handler.stream.fileno(),
-            fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-    finally:
-        os.umask(old_umask)
-    handler.setFormatter(formatter_log)
-    logger.addHandler(handler)
-
-    return logger
+    return logging.getLogger('vm.' + vmname)

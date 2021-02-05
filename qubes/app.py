@@ -1486,7 +1486,7 @@ class Qubes(qubes.PropertyHolder):
                         raise qubes.exc.QubesVMInUseError(
                             vm,
                             'Domain is in use: {!r};'
-                            'see /var/log/qubes/qubes.log in dom0 for '
+                            "see 'journalctl -u qubesd -e' in dom0 for "
                             'details'.format(
                                 vm.name))
                 except AttributeError:
