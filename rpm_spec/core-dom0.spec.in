@@ -55,7 +55,10 @@ BuildRequires:	python3-lxml
 BuildRequires:	libvirt-python3
 BuildRequires:	python3-dbus
 BuildRequires:	python3-PyYAML
+
+%if x%{?backend_vmm} == xxen
 BuildRequires:  python3-xen
+%endif
 
 Requires(post): systemd-units
 Requires(preun): systemd-units
@@ -69,8 +72,11 @@ Requires:       python3-lxml
 Requires:       python3-qubesdb
 Requires:       python3-setuptools
 Requires:       python3-PyYAML
-Requires:       python3-xen
 Requires:       libvirt-python3
+
+%if x%{?backend_vmm} == xxen
+Requires:       python3-xen
+%endif
 
 Requires:       pciutils
 # udev rules for encrypted volatile volumes
