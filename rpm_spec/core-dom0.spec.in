@@ -560,6 +560,7 @@ done
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
+/usr/lib/qubes/hypervisor.sh
 %{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
 %{_unitdir}/qubes-core.service
 ## XXX:
