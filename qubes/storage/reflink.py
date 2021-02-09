@@ -32,15 +32,25 @@ import logging
 import os
 import subprocess
 import tempfile
+import platform
+import sys
 from contextlib import contextmanager, suppress
 
 import qubes.storage
 import qubes.utils
 
-FICLONE = 1074041865        # defined in <linux/fs.h>, assuming sizeof(int)==4
+HOST_MACHINE = platform.machine()
+
+if HOST_MACHINE == "x86_64":
+    FICLONE = 0x40049409       # defined in <linux/fs.h>
+elif HOST_MACHINE == "ppc64le":
+    FICLONE = 0x80049409
+else:
+    print("Missing IOCTL definitions for platform {}".format(HOST_MACHINE))
+    sys.exit(1)
+
 LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
-
 
 def _coroutinized(function):
     ''' Wrap a synchronous function in a coroutine that runs the
