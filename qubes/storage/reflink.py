@@ -388,7 +388,7 @@ def _make_dir(path):
     with suppress(FileExistsError):
         os.mkdir(path)
         _fsync_path(os.path.dirname(path))
-        LOGGER.info('Created directory: %s', path)
+        LOGGER.info('Created directory: %r', path)
         return True
     return False
 
@@ -396,13 +396,13 @@ def _remove_file(path):
     with suppress(FileNotFoundError):
         os.remove(path)
         _fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed file: %s', path)
+        LOGGER.info('Removed file: %r', path)
 
 def _remove_empty_dir(path):
     try:
         os.rmdir(path)
         _fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed empty directory: %s', path)
+        LOGGER.info('Removed empty directory: %r', path)
     except OSError as ex:
         if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
             raise
@@ -414,7 +414,7 @@ def _rename_file(src, dst):
     _fsync_path(dst_dir)
     if src_dir != dst_dir:
         _fsync_path(src_dir)
-    LOGGER.info('Renamed file: %s -> %s', src, dst)
+    LOGGER.info('Renamed file: %r -> %r', src, dst)
 
 def _resize_file(path, size):
     ''' Resize an existing file. '''
@@ -426,7 +426,7 @@ def _create_sparse_file(path, size):
     ''' Create an empty sparse file. '''
     with _replace_file(path) as tmp:
         tmp.truncate(size)
-        LOGGER.info('Created sparse file: %s', tmp.name)
+        LOGGER.info('Created sparse file: %r', tmp.name)
 
 def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
@@ -456,9 +456,9 @@ def _copy_file(src, dst):
     with _replace_file(dst) as tmp_io:
         with open(src, 'rb') as src_io:
             if _attempt_ficlone(src_io, tmp_io):
-                LOGGER.info('Reflinked file: %s -> %s', src, tmp_io.name)
+                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
                 return True
-        LOGGER.info('Copying file: %s -> %s', src, tmp_io.name)
+        LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
         cmd = 'cp', '--sparse=always', src, tmp_io.name
         p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                            check=False)
