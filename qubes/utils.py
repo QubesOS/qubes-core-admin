@@ -22,12 +22,16 @@
 
 import asyncio
 import hashlib
+import logging
 import random
 import string
 import os
+import os.path
 import re
 import socket
 import subprocess
+import tempfile
+from contextlib import contextmanager, suppress
 
 import pkg_resources
 
@@ -35,6 +39,8 @@ import docutils
 import docutils.core
 import docutils.io
 import qubes.exc
+
+LOGGER = logging.getLogger('qubes.utils')
 
 
 def get_timezone():
@@ -185,6 +191,58 @@ def match_vm_name_with_special(vm, name):
     if name.startswith('@type:'):
         return name[len('@type:'):] == vm.__class__.__name__
     return name == vm.name
+
+@contextmanager
+def replace_file(dst, *, permissions, close_on_success=True,
+                 logger=LOGGER, log_level=logging.DEBUG):
+    ''' Yield a tempfile whose name starts with dst. If the block does
+        not raise an exception, apply permissions and persist the
+        tempfile to dst (which is allowed to already exist). Otherwise
+        ensure that the tempfile is cleaned up.
+    '''
+    tmp_dir, prefix = os.path.split(dst + '~')
+    tmp = tempfile.NamedTemporaryFile(dir=tmp_dir, prefix=prefix, delete=False)
+    try:
+        yield tmp
+        tmp.flush()
+        os.fchmod(tmp.fileno(), permissions)
+        os.fsync(tmp.fileno())
+        if close_on_success:
+            tmp.close()
+        rename_file(tmp.name, dst, logger=logger, log_level=log_level)
+    except:
+        try:
+            tmp.close()
+        finally:
+            remove_file(tmp.name, logger=logger, log_level=log_level)
+        raise
+
+def rename_file(src, dst, *, logger=LOGGER, log_level=logging.DEBUG):
+    ''' Durably rename src to dst. '''
+    os.rename(src, dst)
+    dst_dir = os.path.dirname(dst)
+    src_dir = os.path.dirname(src)
+    fsync_path(dst_dir)
+    if src_dir != dst_dir:
+        fsync_path(src_dir)
+    logger.log(log_level, 'Renamed file: %r -> %r', src, dst)
+
+def remove_file(path, *, logger=LOGGER, log_level=logging.DEBUG):
+    ''' Durably remove the file at path, if it exists. Return whether
+        we removed it. '''
+    with suppress(FileNotFoundError):
+        os.remove(path)
+        fsync_path(os.path.dirname(path))
+        logger.log(log_level, 'Removed file: %r', path)
+        return True
+    return False
+
+def fsync_path(path):
+    fd = os.open(path, os.O_RDONLY)  # works for a file or a directory
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 @asyncio.coroutine
 def coro_maybe(value):
