@@ -29,7 +29,6 @@ import logging
 import os
 import random
 import sys
-import tempfile
 import time
 import traceback
 import uuid
@@ -1102,18 +1101,12 @@ class Qubes(qubes.PropertyHolder):
         if not self.__locked_fh:
             self._acquire_lock(for_save=True)
 
-        fh_new = tempfile.NamedTemporaryFile(
-            prefix=self._store, delete=False)
-        lxml.etree.ElementTree(self.__xml__()).write(
-            fh_new, encoding='utf-8', pretty_print=True)
-        fh_new.flush()
-        try:
-            os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
-            os.chmod(fh_new.name, 0o660)
-        except KeyError:  # group 'qubes' not found
-            # don't change mode if no 'qubes' group in the system
-            pass
-        os.rename(fh_new.name, self._store)
+        with qubes.utils.replace_file(self._store, permissions=0o660,
+                                      close_on_success=False) as fh_new:
+            lxml.etree.ElementTree(self.__xml__()).write(
+                fh_new, encoding='utf-8', pretty_print=True)
+            with suppress(KeyError):  # group not found
+                os.fchown(fh_new.fileno(), -1, grp.getgrnam('qubes').gr_gid)
 
         # update stored mtime, in case of multiple save() calls without
         # loading qubes.xml again
