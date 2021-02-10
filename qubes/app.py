@@ -32,6 +32,7 @@ import sys
 import time
 import traceback
 import uuid
+from contextlib import suppress
 
 import asyncio
 import jinja2
@@ -275,11 +276,9 @@ class QubesHost:
 
         self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(
             self.no_cpus, self.memory_total))
-        try:
+        with suppress(NotImplementedError):
             self.app.log.debug('QubesHost: xen_free_memory={}'.format(
                 self.get_free_xen_memory()))
-        except NotImplementedError:
-            pass
 
 
     @property
@@ -1299,10 +1298,8 @@ class Qubes(qubes.PropertyHolder):
         '''
 
         # first search for index, verbatim
-        try:
+        with suppress(KeyError):
             return self.labels[label]
-        except KeyError:
-            pass
 
         # then search for name
         for i in self.labels.values():
@@ -1310,10 +1307,8 @@ class Qubes(qubes.PropertyHolder):
                 return i
 
         # last call, if label is a number represented as str, search in indices
-        try:
+        with suppress(KeyError, ValueError):
             return self.labels[int(label)]
-        except (KeyError, ValueError):
-            pass
 
         raise qubes.exc.QubesLabelNotFoundError(label)
 
@@ -1452,17 +1447,15 @@ class Qubes(qubes.PropertyHolder):
                 # allow removed VM to reference itself
                 continue
             for prop in obj.property_list():
-                try:
+                with suppress(AttributeError):
                     if isinstance(prop, qubes.vm.VMProperty) and \
                             getattr(obj, prop.__name__) == vm:
                         self.log.error(
                             'Cannot remove %s, used by %s.%s',
                             vm, obj, prop.__name__)
                         raise qubes.exc.QubesVMInUseError(vm, 'Domain is in '
-                        'use: {!r}; see \'journalctl -u qubesd -e\' in dom0 for '
-                        'details'.format(vm.name))
-                except AttributeError:
-                    pass
+                        'use: {!r}; see \'journalctl -u qubesd -e\' '
+                        'in dom0 for details'.format(vm.name))
 
         assignments = vm.get_provided_assignments()
         if assignments:
@@ -1482,12 +1475,10 @@ class Qubes(qubes.PropertyHolder):
                 'clockvm',
                 'updatevm',
                 'default_template',
-                ):
-            try:
+        ):
+            with suppress(AttributeError):
                 if getattr(self, propname) == vm:
                     delattr(self, propname)
-            except AttributeError:
-                pass
 
 
     @qubes.events.handler('property-pre-set:clockvm')
