@@ -268,17 +268,16 @@ class BaseVM(qubes.PropertyHolder):
                 for option in node.xpath('./option'):
                     options[option.get('name')] = option.text
 
+                vm = self.app.domains[node.get('backend-domain')]
+                ident = node.get('id')
+                if 'alias' in options:
+                    vm.events_enabled = True
+                    for dev in vm.devices[devclass]:
+                        if options['alias'] == dev.description:
+                            ident = dev.ident
+                            break
+                    vm.events_enabled = False
                 try:
-                    vm = self.app.domains[node.get('backend-domain')]
-                    ident = node.get('id')
-                    if 'alias' in options:
-                        vm.events_enabled = True
-                        for dev in vm.devices[devclass]:
-                            if options['alias'] == dev.description:
-                                ident = dev.ident
-                                break;
-                        vm.events_enabled = False
-
                     device_assignment = qubes.devices.DeviceAssignment(
                         vm,
                         ident,
