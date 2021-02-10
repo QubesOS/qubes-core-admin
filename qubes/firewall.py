@@ -31,6 +31,7 @@ import asyncio
 import lxml.etree
 
 import qubes
+import qubes.utils
 import qubes.vm.qubesvm
 
 
@@ -577,14 +578,13 @@ class Firewall:
         xml_tree = lxml.etree.ElementTree(xml_root)
 
         try:
-            old_umask = os.umask(0o002)
-            with open(firewall_conf, 'wb') as firewall_xml:
-                xml_tree.write(firewall_xml, encoding="UTF-8",
-                    pretty_print=True)
-            os.umask(old_umask)
+            with qubes.utils.replace_file(firewall_conf,
+                                          permissions=0o664) as tmp_io:
+                xml_tree.write(tmp_io, encoding='UTF-8', pretty_print=True)
         except EnvironmentError as err:
-            self.vm.log.error("save error: {}".format(err))
-            raise qubes.exc.QubesException('save error: {}'.format(err))
+            msg='firewall save error: {}'.format(err)
+            self.vm.log.error(msg)
+            raise qubes.exc.QubesException(msg)
 
         self.vm.fire_event('firewall-changed')
 
