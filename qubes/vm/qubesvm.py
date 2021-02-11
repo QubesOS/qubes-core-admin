@@ -1462,14 +1462,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
         await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
-                                         start_guid=gui)
+                                    start_guid=gui)
 
-        return (await asyncio.create_subprocess_exec(
+        return await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
-            **kwargs))
+            **kwargs)
 
     async def run_service_for_stdio(self, *args, input=None, **kwargs):
         """Run a service, pass an optional input and return (stdout, stderr).
