@@ -233,8 +233,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             yield from self.remove_from_disk()
             self.app.save()
 
-    @asyncio.coroutine
-    def start(self, **kwargs):
+    async def start(self, **kwargs):
         # pylint: disable=arguments-differ
 
         try:
@@ -244,10 +243,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     'template for DispVM ({}) needs to have '
                     'template_for_dispvms=True'.format(self.template.name))
 
-            yield from super().start(**kwargs)
+            await super().start(**kwargs)
         except:
             # Cleanup also on failed startup
-            yield from self._auto_cleanup()
+            await self._auto_cleanup()
             raise
 
     def create_qdb_entries(self):
