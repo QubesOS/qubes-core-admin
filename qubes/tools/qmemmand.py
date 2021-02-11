@@ -35,7 +35,6 @@ import qubes.qmemman.algo
 import qubes.utils
 
 SOCK_PATH = '/var/run/qubes/qmemman.sock'
-LOG_PATH = '/var/log/qubes/qmemman.log'
 
 system_state = qubes.qmemman.SystemState()
 global_lock = threading.Lock()
@@ -242,12 +241,6 @@ def main():
     ha_syslog.setFormatter(
         logging.Formatter('%(name)s[%(process)d]: %(message)s'))
     logging.root.addHandler(ha_syslog)
-
-    # leave log for backwards compatibility
-    ha_file = logging.FileHandler(LOG_PATH)
-    ha_file.setFormatter(
-        logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
-    logging.root.addHandler(ha_file)
 
     if args.foreground:
         ha_stderr = logging.StreamHandler(sys.stderr)
