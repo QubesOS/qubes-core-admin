@@ -1191,13 +1191,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.Remove', no_payload=True,
         scope='global', write=True)
-    @asyncio.coroutine
-    def vm_remove(self):
+    async def vm_remove(self):
         self.enforce(not self.arg)
 
         self.fire_event_for_permission()
 
-        with (yield from self.dest.startup_lock):
+        async with self.dest.startup_lock:
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
@@ -1207,7 +1206,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             del self.app.domains[self.dest]
             try:
-                yield from self.dest.remove_from_disk()
+                await self.dest.remove_from_disk()
             except:  # pylint: disable=bare-except
                 self.app.log.exception('Error while removing VM \'%s\' files',
                     self.dest.name)
