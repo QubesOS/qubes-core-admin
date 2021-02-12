@@ -250,8 +250,6 @@ def main():
 
     sys.stdin.close()
 
-    logging.root.setLevel(parser.get_loglevel_from_verbosity(args))
-
     log = logging.getLogger('qmemman.daemon')
 
     config = configparser.SafeConfigParser({
@@ -268,6 +266,8 @@ def main():
             qubes.utils.parse_size(config.get('global', 'dom0-mem-boost'))
         qubes.qmemman.algo.CACHE_FACTOR = \
             config.getfloat('global', 'cache-margin-factor')
+        loglevel = config.getint('global', 'log-level')
+        logging.root.setLevel(loglevel)
 
     log.info('MIN_PREFMEM={algo.MIN_PREFMEM}'
         ' DOM0_MEM_BOOST={algo.DOM0_MEM_BOOST}'
