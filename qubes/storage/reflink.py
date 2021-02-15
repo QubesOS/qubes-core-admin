@@ -397,15 +397,15 @@ def _remove_empty_dir(path):
 
 def _resize_file(path, size):
     ''' Resize an existing file. '''
-    with open(path, 'rb+') as file:
-        file.truncate(size)
-        os.fsync(file.fileno())
+    with open(path, 'rb+') as file_io:
+        file_io.truncate(size)
+        os.fsync(file_io.fileno())
 
 def _create_sparse_file(path, size):
     ''' Create an empty sparse file. '''
-    with _replace_file(path) as tmp:
-        tmp.truncate(size)
-        LOGGER.info('Created sparse file: %r', tmp.name)
+    with _replace_file(path) as tmp_io:
+        tmp_io.truncate(size)
+        LOGGER.info('Created sparse file: %r', tmp_io.name)
 
 def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
@@ -420,9 +420,9 @@ def _update_loopdev_sizes(img):
         with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
             fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
-def _attempt_ficlone(src, dst):
+def _attempt_ficlone(src_io, dst_io):
     try:
-        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
+        fcntl.ioctl(dst_io.fileno(), FICLONE, src_io.fileno())
         return True
     except OSError as ex:
         if ex.errno not in (errno.EBADF, errno.EINVAL,
