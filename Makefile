@@ -233,10 +233,8 @@ endif
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates
 	mkdir -p $(DESTDIR)$(DATADIR)/appvms
-	mkdir -p $(DESTDIR)$(DATADIR)/servicevms
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-kernels
 	mkdir -p $(DESTDIR)$(DATADIR)/backup
-	mkdir -p $(DESTDIR)$(DATADIR)/dvmdata
 	mkdir -p $(DESTDIR)$(STATEDIR)
 	mkdir -p $(DESTDIR)$(LOGDIR)
 

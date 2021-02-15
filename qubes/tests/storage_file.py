@@ -470,7 +470,6 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
     POOL_DIR = '/tmp/test-pool'
     APPVMS_DIR = '/tmp/test-pool/appvms'
     TEMPLATES_DIR = '/tmp/test-pool/vm-templates'
-    SERVICE_DIR = '/tmp/test-pool/servicevms'
     POOL_NAME = 'test-pool'
     POOL_CONFIG = {'driver': 'file', 'dir_path': POOL_DIR, 'name': POOL_NAME}
 
