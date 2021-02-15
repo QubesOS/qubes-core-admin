@@ -524,10 +524,8 @@ class Storage:
     @asyncio.coroutine
     def create(self):
         ''' Creates volumes on disk '''
-        old_umask = os.umask(0o002)
         yield from qubes.utils.void_coros_maybe(
             vol.create() for vol in self.vm.volumes.values())
-        os.umask(old_umask)
 
     @asyncio.coroutine
     def clone_volume(self, src_vm, name):

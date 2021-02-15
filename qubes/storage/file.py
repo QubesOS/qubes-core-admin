@@ -210,7 +210,7 @@ class FileVolume(qubes.storage.Volume):
         assert isinstance(self.size, int) and self.size > 0, \
             'Volume size must be > 0'
         if not self.snap_on_start:
-            create_sparse_file(self.path, self.size)
+            create_sparse_file(self.path, self.size, permissions=0o664)
 
     def remove(self):
         if not self.snap_on_start:
@@ -443,7 +443,7 @@ class FileVolume(qubes.storage.Volume):
 
 
 
-def create_sparse_file(path, size):
+def create_sparse_file(path, size, permissions=None):
     ''' Create an empty sparse file '''
     if os.path.exists(path):
         raise IOError("Volume %s already exists" % path)
@@ -451,6 +451,8 @@ def create_sparse_file(path, size):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     with open(path, 'a+b') as fh:
+        if permissions is not None:
+            os.fchmod(fh.fileno(), permissions)
         fh.truncate(size)
 
 
