@@ -253,8 +253,8 @@ def coro_maybe(value):
 @asyncio.coroutine
 def void_coros_maybe(values):
     ''' Ignore elements of the iterable values that are not coroutine
-        objects. Run all coroutine objects to completion, in parallel
-        to each other. If there were exceptions, re-raise the leftmost
+        objects. Run all coroutine objects to completion, concurrent
+        with each other. If there were exceptions, raise the leftmost
         one (not necessarily chronologically first). Return nothing.
     '''
     coros = [val for val in values if asyncio.iscoroutine(val)]
