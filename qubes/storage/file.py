@@ -217,6 +217,7 @@ class FileVolume(qubes.storage.Volume):
             _remove_if_exists(self.path)
         if self.snap_on_start or self.save_on_stop:
             _remove_if_exists(self.path_cow)
+            _remove_if_exists(self.path_cow + '.old')
 
     def is_outdated(self):
         return False  # avoid spamming the log with NotImplementedError
