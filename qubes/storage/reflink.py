@@ -30,27 +30,26 @@ import functools
 import glob
 import logging
 import os
+import platform
 import subprocess
 import tempfile
-import platform
-import sys
 from contextlib import suppress
 
 import qubes.storage
 import qubes.utils
 
-HOST_MACHINE = platform.machine()
 
-if HOST_MACHINE == "x86_64":
-    FICLONE = 0x40049409       # defined in <linux/fs.h>
-elif HOST_MACHINE == "ppc64le":
-    FICLONE = 0x80049409
-else:
-    print("Missing IOCTL definitions for platform {}".format(HOST_MACHINE))
-    sys.exit(1)
-
-LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
+
+# defined in <linux/loop.h>
+LOOP_SET_CAPACITY = 0x4C07
+
+# defined in <linux/fs.h>
+FICLONE = {
+    'x86_64':  0x40049409,
+    'ppc64le': 0x80049409,
+}[platform.machine()]
+
 
 def _coroutinized(function):
     ''' Wrap a synchronous function in a coroutine that runs the
@@ -63,6 +62,7 @@ def _coroutinized(function):
         return (yield from asyncio.get_event_loop().run_in_executor(
             None, functools.partial(function, *args, **kwargs)))
     return wrapper
+
 
 class ReflinkPool(qubes.storage.Pool):
     driver = 'file-reflink'
