@@ -27,7 +27,6 @@ import random
 import string
 import os
 import os.path
-import re
 import socket
 import subprocess
 import tempfile
@@ -44,20 +43,9 @@ LOGGER = logging.getLogger('qubes.utils')
 
 
 def get_timezone():
-    # fc18
     if os.path.islink('/etc/localtime'):
         tz_path = '/'.join(os.readlink('/etc/localtime').split('/'))
         return tz_path.split('zoneinfo/')[1]
-    # <=fc17
-    if os.path.exists('/etc/sysconfig/clock'):
-        clock_config = open('/etc/sysconfig/clock', "r")
-        clock_config_lines = clock_config.readlines()
-        clock_config.close()
-        zone_re = re.compile(r'^ZONE="(.*)"')
-        for line in clock_config_lines:
-            line_match = zone_re.match(line)
-            if line_match:
-                return line_match.group(1)
     # last resort way, some applications makes /etc/localtime
     # hardlink instead of symlink...
     tz_info = os.stat('/etc/localtime')
