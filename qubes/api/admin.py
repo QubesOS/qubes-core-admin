@@ -899,9 +899,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', execute=True)
     @asyncio.coroutine
     def vm_shutdown(self):
-        force = (self.arg == 'force')
-        self.fire_event_for_permission(force=force)
-        yield from self.dest.shutdown(force=force)
+        if self.arg:
+            args = self.arg.split('+')
+        else:
+            args = []
+        self.enforce(all(arg in ('force', 'wait') for arg in args))
+        force = ('force' in args)
+        wait = ('wait' in args)
+        self.fire_event_for_permission(force=force, wait=wait)
+        yield from self.dest.shutdown(force=force, wait=wait)
 
     @qubes.api.method('admin.vm.Pause', no_payload=True,
         scope='local', execute=True)
