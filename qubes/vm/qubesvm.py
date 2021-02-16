@@ -1462,7 +1462,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesVMNotRunningError(self)
             await self.start(start_guid=gui)
 
-        if not self.is_qrexec_running():
+        if not self.is_qrexec_running(stubdom=stubdom):
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(name))
 
@@ -1974,7 +1974,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return self.libvirt_domain \
                and self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED
 
-    def is_qrexec_running(self):
+    def is_qrexec_running(self, stubdom=False):
         """Check whether qrexec for this domain is available.
 
         :returns: :py:obj:`True` if qrexec is running, \
@@ -1983,7 +1983,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """
         if self.xid < 0:  # pylint: disable=comparison-with-callable
             return False
-        return os.path.exists('/var/run/qubes/qrexec.%s' % self.name)
+        name = self.name + '-dm' if stubdom else self.name
+        return os.path.exists('/var/run/qubes/qrexec.%s' % name)
 
     def is_fully_usable(self):
         return all(self.fire_event('domain-is-fully-usable'))
