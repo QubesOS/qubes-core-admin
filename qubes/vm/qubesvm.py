@@ -1456,7 +1456,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.is_paused():
             # XXX what about autostart?
             raise qubes.exc.QubesVMNotRunningError(
-                self, 'Domain {!r} is paused'.format(name))
+                self, 'Domain {!r} is paused'.format(self.name))
         if not self.is_running():
             if not autostart:
                 raise qubes.exc.QubesVMNotRunningError(self)
