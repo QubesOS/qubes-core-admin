@@ -30,6 +30,8 @@ import qubes
 import qubes.storage
 import qubes.utils
 
+_sudo, _dd, _lvm = 'sudo', 'dd', 'lvm'
+
 class ThinPool(qubes.storage.Pool):
     ''' LVM Thin based pool implementation
 
@@ -199,9 +201,11 @@ class ThinPool(qubes.storage.Pool):
 
         return result
 
-_init_cache_cmd = ['lvs', '--noheadings', '-o',
+_init_cache_cmd = [_lvm, 'lvs', '--noheadings', '-o',
    'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
    'metadata_percent', '--units', 'b', '--separator', ';']
+if os.getuid() != 0:
+    _init_cache_cmd.insert(0, _sudo)
 
 def _parse_lvm_cache(lvm_output):
     result = {}
@@ -228,10 +232,7 @@ def _parse_lvm_cache(lvm_output):
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    if os.getuid() != 0:
-        cmd = ['sudo'] + cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
+    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
@@ -246,10 +247,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
 @asyncio.coroutine
 def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    if os.getuid() != 0:
-        cmd = ['sudo'] + cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
+    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
     p = yield from asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -502,11 +500,11 @@ class ThinVolume(qubes.storage.Volume):
             yield from qubes_lvm_coro(cmd, self.log)
             src_path = yield from qubes.utils.coro_maybe(src_volume.export())
             try:
-                cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
+                cmd = [_dd, 'if=' + src_path, 'of=/dev/' + self._vid_import,
                     'conv=sparse', 'status=none', 'bs=128K']
                 if not os.access('/dev/' + self._vid_import, os.W_OK) or \
                         not os.access(src_path, os.R_OK):
-                    cmd.insert(0, 'sudo')
+                    cmd.insert(0, _sudo)
 
                 p = yield from asyncio.create_subprocess_exec(*cmd)
                 yield from p.wait()
@@ -754,9 +752,9 @@ def _get_lvm_cmdline(cmd):
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if os.getuid() != 0:
-        cmd = ['sudo', 'lvm'] + lvm_cmd
+        cmd = [_sudo, _lvm] + lvm_cmd
     else:
-        cmd = ['lvm'] + lvm_cmd
+        cmd = [_lvm] + lvm_cmd
 
     return cmd
 
@@ -782,8 +780,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation '''
     # the only caller for this non-coroutine version is ThinVolume.export()
     cmd = _get_lvm_cmdline(cmd)
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
+    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
@@ -794,8 +791,7 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation
 
     Coroutine version of :py:func:`qubes_lvm`'''
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
+    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
     if cmd[0] == "remove":
         pre_cmd = ['blkdiscard', '-p', '1G', '/dev/'+cmd[1]]
         p = yield from asyncio.create_subprocess_exec(*pre_cmd,
