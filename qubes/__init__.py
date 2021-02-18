@@ -409,11 +409,12 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         This is used to effectively disable property in classes which inherit
         unwanted property. When someone attempts to load such a property, it
 
-        :throws AttributeError: always
+        :throws qubes.exc.QubesPropertyValueError: always
         ''' # pylint: disable=bad-staticmethod-argument,unused-argument
 
-        raise AttributeError(
-            'setting {} property on {} instance is forbidden'.format(
+        raise qubes.exc.QubesPropertyValueError(
+            self, self.property_get_def(prop), value,
+            'property {!r} on {} instance cannot be set'.format(
                 prop.__name__, self.__class__.__name__))
 
 
