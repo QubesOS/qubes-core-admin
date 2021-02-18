@@ -289,16 +289,8 @@ class TC_00_ThinPool(ThinPoolBase):
 
     def _get_lv_origin_uuid(self, lv):
         sudo = [] if os.getuid() == 0 else ['sudo']
-        if qubes.storage.lvm.lvm_is_very_old:
-            # no support for origin_uuid directly
-            lvs_output = subprocess.check_output(
-                sudo + ['lvs', '--noheadings', '-o', 'origin', lv])
-            lvs_output = subprocess.check_output(
-                sudo + ['lvs', '--noheadings', '-o', 'lv_uuid',
-                    lv.rsplit('/', 1)[0] + '/' + lvs_output.strip().decode()])
-        else:
-            lvs_output = subprocess.check_output(
-                sudo + ['lvs', '--noheadings', '-o', 'origin_uuid', lv])
+        lvs_output = subprocess.check_output(
+            sudo + ['lvs', '--noheadings', '-o', 'origin_uuid', lv])
         return lvs_output.strip()
 
     def test_008_commit(self):

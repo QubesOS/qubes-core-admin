@@ -30,19 +30,6 @@ import qubes
 import qubes.storage
 import qubes.utils
 
-
-def check_lvm_version():
-    #Check if lvm is very very old, like in Travis-CI
-    try:
-        lvm_help = subprocess.check_output(['lvm', 'lvcreate', '--help'],
-            stderr=subprocess.DEVNULL).decode()
-        return '--setactivationskip' not in lvm_help
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-
-lvm_is_very_old = check_lvm_version()
-
-
 class ThinPool(qubes.storage.Pool):
     ''' LVM Thin based pool implementation
 
@@ -349,11 +336,6 @@ class ThinVolume(qubes.storage.Volume):
             return qubes.storage.lvm.size_cache[self._vid_current]['size']
         except KeyError:
             return self._size
-
-    @size.setter
-    def size(self, _):
-        raise qubes.storage.StoragePoolException(
-            "You shouldn't use lvm size setter")
 
     @asyncio.coroutine
     def _reset(self):
@@ -771,9 +753,6 @@ def _get_lvm_cmdline(cmd):
         lvm_cmd = ['lvrename', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
-    if lvm_is_very_old:
-        # old lvm in trusty image used there does not support -k option
-        lvm_cmd = [x for x in lvm_cmd if x != '-kn']
     if os.getuid() != 0:
         cmd = ['sudo', 'lvm'] + lvm_cmd
     else:
