@@ -911,7 +911,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>kernel specific options nopat</cmdline>
+            <cmdline>kernel &lt;text&gt; specific options nopat</cmdline>
         </os>
         <features>
             <pae/>
@@ -950,7 +950,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
             with open(os.path.join(kernel_dir,
                     'default-kernelopts-common.txt'), 'w') as f:
-                f.write('kernel specific options \n')
+                f.write('kernel <text> specific options \n')
             self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
             vm.kernel = 'dummy'
             libvirt_xml = vm.create_config_file()
