@@ -112,4 +112,5 @@ class TestApp(qubes.tests.TestEmitter):
                 '/etc/qubes/templates',
                 '/usr/share/qubes/templates',
             ]),
-            undefined=jinja2.StrictUndefined)
+            undefined=jinja2.StrictUndefined,
+            autoescape=True)
