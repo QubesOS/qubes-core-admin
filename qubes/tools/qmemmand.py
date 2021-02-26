@@ -247,7 +247,7 @@ def main():
 
     if args.foreground:
         ha_stderr = logging.StreamHandler(sys.stderr)
-        ha_file.setFormatter(
+        ha_stderr.setFormatter(
             logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
         logging.root.addHandler(ha_stderr)
 
