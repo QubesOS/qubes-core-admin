@@ -269,7 +269,7 @@ def main():
             qubes.utils.parse_size(config.get('global', 'dom0-mem-boost'))
         qubes.qmemman.algo.CACHE_FACTOR = \
             config.getfloat('global', 'cache-margin-factor')
-        loglevel = config.getint('global', 'log-level')
+        loglevel = config.getint('global', 'log-level', fallback=30)
         logging.root.setLevel(loglevel)
 
     log.info('MIN_PREFMEM={algo.MIN_PREFMEM}'
