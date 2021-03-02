@@ -509,10 +509,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         del vm.kernelopts
         self.assertPropertyDefaultValue(vm, 'kernelopts',
             qubes.config.defaults['kernelopts'])
-        self.assertPropertyValue(vm, 'kernelopts', '',
-            '', '')
-        # TODO?
-        # self.assertPropertyInvalidValue(vm, 'kernelopts', None),
+        self.assertPropertyValue(vm, 'kernelopts', '', '', '')
+        self.assertPropertyInvalidValue(vm, 'kernelopts', 'A' * 1024),
 
     @unittest.skip('test not implemented')
     def test_261_kernelopts_pcidevs(self):

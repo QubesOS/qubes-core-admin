@@ -69,6 +69,22 @@ def _setter_kernel(self, prop, value):
     return value
 
 
+def _setter_kernelopts(self, prop, value):
+    """Helper for setting the domain kernelopts and running sanity checks on it.
+    """
+    if not value:
+        return ''
+    value = str(value)
+    # At least some parts of the Xen boot ABI limits the cmdline to 1024 chars.
+    # Limit it here to 512 chars, to leave some space for kernelopts_common
+    # and still be safe also against off-by-one errors.
+    if len(value) > 512:
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value,
+            'Kernelopts value too long (512 chars max)')
+    return value
+
+
 def _setter_positive_int(self, prop, value):
     ''' Helper for setting a positive int. Checks that the int is > 0 '''
     # pylint: disable=unused-argument
@@ -531,6 +547,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
+        setter=_setter_kernelopts,
         doc='Kernel command line passed to domain. TemplateBasedVMs use its '
             'template\'s value by default.')
 
