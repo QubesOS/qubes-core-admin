@@ -65,12 +65,9 @@ class TC_50_MimeHandlers:
         self.target_vm.template_for_dispvms = True
         self.source_vm.default_dispvm = self.target_vm
 
-        done, not_done = self.loop.run_until_complete(asyncio.gather(
+        self.loop.run_until_complete(asyncio.gather(
             self.source_vm.start(),
             self.target_vm.start()))
-        for result in itertools.chain(done, not_done):
-            # catch any exceptions
-            result.result()
 
 
     def get_window_class(self, winid, dispvm=False):
