@@ -833,10 +833,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """ Return all :py:class:`qubes.storage.BlockDevice` for current domain
         for serialization in the libvirt XML template as <disk>.
         """
-        for v in self.volumes.values():
-            block_dev = v.block_device()
-            if block_dev is not None:
-                yield block_dev
+        return self.storage.block_devices()
 
     @property
     def untrusted_qdb(self):

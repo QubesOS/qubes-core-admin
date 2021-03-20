@@ -118,7 +118,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertEqual(assignments[0].options, {'no-strict-reset': 'True'})
         self.assertEqual(assignments[0].persistent, True)
 
-        self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
+        self.assertXMLIsValid(vm.__xml__(), 'relaxng/domain.rng')
 
     def test_001_nxproperty(self):
         xml = lxml.etree.XML('''

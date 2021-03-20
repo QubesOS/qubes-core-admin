@@ -592,3 +592,6 @@ class CallbackVolume(qubes.storage.Volume):
             super().__delattr__(name)
         else:
             delattr(self._cb_impl, name)
+
+    def encrypted_volume_path(self, qube_name, device_name):
+        return self._cb_impl.encrypted_volume_path(qube_name, device_name)

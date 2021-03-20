@@ -813,6 +813,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1068,6 +1069,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1136,6 +1138,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1387,6 +1390,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
@@ -1568,18 +1572,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/dev/loop0',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
+            'ephemeral': False,
         })
         vm.volumes['other'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop1',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
+            'ephemeral': False,
         })
         vm.volumes['other2'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop2',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
+            'ephemeral': False,
         })
         assignments = [
             unittest.mock.Mock(**{

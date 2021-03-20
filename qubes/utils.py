@@ -274,3 +274,23 @@ async def void_coros_maybe(values):
         done, _ = await asyncio.wait(coros)
         for task in done:
             task.result()  # re-raises exception if task failed
+
+def cryptsetup(*args):
+    """
+    Run cryptsetup with the given arguments.  This method returns a future.
+    """
+    if os.getuid():
+        prog = ['sudo', '--', 'cryptsetup', *args]
+        exe = '/usr/bin/sudo'
+    else:
+        prog = ['cryptsetup', *args]
+        exe = '/usr/sbin/cryptsetup'
+    return run_program(
+        *prog,
+        executable=exe,
+        # otherwise cryptsetup tries to mlock() the entire locale archive :(
+        env={'LC_ALL':'C', **os.environ},
+        cwd='/',
+        stdin=subprocess.DEVNULL,
+        check=True,
+    )

@@ -701,6 +701,12 @@ class ThinVolume(qubes.storage.Volume):
 
         return super().block_device()
 
+    def encrypted_volume_path(self, qube_name, device_name):
+        """Find the name of the encrypted volatile volume"""
+        # pylint: disable=line-too-long
+        vid = '-'.join(i.replace('-', '--') for i in self._vid_current.split('/'))
+        return '/dev/mapper/' + vid + '@crypt'
+
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
                       # the parent

@@ -73,7 +73,8 @@ Requires:       python3-xen
 Requires:       libvirt-python3
 
 Requires:       pciutils
-Requires:       qubes-core-dom0-linux >= 4.0.11
+# udev rules for encrypted volatile volumes
+Requires:       qubes-core-dom0-linux >= 4.1.13
 # policy (daemon) using changed qubesd socket protocol
 Requires:       qubes-core-qrexec-dom0 >= 4.1.8
 Requires:       qubes-db-dom0
