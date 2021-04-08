@@ -402,12 +402,6 @@ class QubesArgumentParser(argparse.ArgumentParser):
                 'refusing to run as root; add --force-root to override')
 
     @staticmethod
-    def get_loglevel_from_verbosity(namespace):
-        ''' Return loglevel calculated from quiet and verbose arguments '''
-        return (namespace.quiet - namespace.verbose) * 10 + logging.WARNING
-
-
-    @staticmethod
     def set_qubes_verbosity(namespace):
         '''Apply a verbosity setting.
 

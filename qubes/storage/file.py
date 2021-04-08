@@ -33,6 +33,12 @@ import qubes.utils
 
 BLKSIZE = 512
 
+# 256 KiB chunk, same as in block-snapshot script. Header created by
+# struct.pack('<4I', 0x70416e53, 1, 1, 256) mimicking write_header()
+# in linux/drivers/md/dm-snap-persistent.c
+EMPTY_SNAPSHOT = b'SnAp\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00' \
+                 + bytes(262128)
+
 
 class FilePool(qubes.storage.Pool):
     ''' File based 'original' disk implementation
@@ -205,20 +211,26 @@ class FileVolume(qubes.storage.Volume):
         assert isinstance(self.size, int) and self.size > 0, \
             'Volume size must be > 0'
         if not self.snap_on_start:
-            create_sparse_file(self.path, self.size)
+            create_sparse_file(self.path, self.size, permissions=0o664)
 
     def remove(self):
         if not self.snap_on_start:
             _remove_if_exists(self.path)
         if self.snap_on_start or self.save_on_stop:
             _remove_if_exists(self.path_cow)
+            _remove_if_exists(self.path_cow + '.old')
+
+    def is_outdated(self):
+        return False  # avoid spamming the log with NotImplementedError
 
     def is_dirty(self):
-        if not self.save_on_stop:
-            return False
-        if os.path.exists(self.path_cow):
-            stat = os.stat(self.path_cow)
-            return stat.st_blocks > 0
+        if self.save_on_stop:
+            with suppress(FileNotFoundError), open(self.path_cow, 'rb') as cow:
+                cow_used = os.fstat(cow.fileno()).st_blocks * BLKSIZE
+                return (cow_used > 0 and
+                        (cow_used > len(EMPTY_SNAPSHOT) or
+                         cow.read(len(EMPTY_SNAPSHOT)) != EMPTY_SNAPSHOT or
+                         cow_used > cow.seek(0, os.SEEK_HOLE)))
         return False
 
     def resize(self, size):
@@ -443,7 +455,7 @@ class FileVolume(qubes.storage.Volume):
 
 
 
-def create_sparse_file(path, size):
+def create_sparse_file(path, size, permissions=None):
     ''' Create an empty sparse file '''
     if os.path.exists(path):
         raise IOError("Volume %s already exists" % path)
@@ -451,6 +463,8 @@ def create_sparse_file(path, size):
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)
     with open(path, 'a+b') as fh:
+        if permissions is not None:
+            os.fchmod(fh.fileno(), permissions)
         fh.truncate(size)
 
 

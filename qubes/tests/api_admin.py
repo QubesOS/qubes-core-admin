@@ -1030,7 +1030,7 @@ netvm default=True type=vm \n'''
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1')
         self.assertIsNone(value)
-        func_mock.assert_called_once_with(force=False)
+        func_mock.assert_called_once_with(force=False, wait=False)
 
     def test_231_shutdown_force(self):
         func_mock = unittest.mock.Mock()
@@ -1041,7 +1041,51 @@ netvm default=True type=vm \n'''
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'force')
         self.assertIsNone(value)
-        func_mock.assert_called_once_with(force=True)
+        func_mock.assert_called_once_with(force=True, wait=False)
+
+    def test_232_shutdown_wait(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'wait')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, wait=True)
+
+    def test_233_shutdown_wait_force(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'wait+force')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, wait=True)
+
+    def test_234_shutdown_force_wait(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'force+wait')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, wait=True)
+
+    def test_234_shutdown_force_wait_invalid(self):
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        with self.assertRaises(qubes.api.PermissionDenied):
+            self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'forcewait')
+        func_mock.assert_not_called()
 
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()

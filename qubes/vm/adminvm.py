@@ -280,9 +280,7 @@ class AdminVM(qubes.vm.BaseVM):
             'name',
             self.name,
             ])
-        return (await asyncio.create_subprocess_exec(
-            *cmd,
-            **kwargs))
+        return await asyncio.create_subprocess_exec(*cmd, **kwargs)
 
     async def run_service_for_stdio(self, *args, input=None, **kwargs):
         '''Run a service, pass an optional input and return (stdout, stderr).

@@ -4,6 +4,8 @@
 #
 # This creates dm-snapshot device on given arguments
 
+SNAPSHOT_CHUNKSIZE=256  # same as in file.py
+
 dir=$(dirname "$0")
 if [ "$1" = "prepare" ] || [ "$1" = "cleanup" ]; then
   # shellcheck disable=SC1090,SC1091
@@ -80,7 +82,7 @@ create_dm_snapshot() {
     base_dev=$(get_dev "$base")
     cow_dev=$(get_dev "$cow")
     base_sz=$(blockdev --getsz "$base_dev")
-    do_or_die dmsetup create "$dm_devname" --table "0 $base_sz snapshot $base_dev $cow_dev P 256"
+    do_or_die dmsetup create "$dm_devname" --table "0 $base_sz snapshot $base_dev $cow_dev P $SNAPSHOT_CHUNKSIZE"
   fi
 
 }

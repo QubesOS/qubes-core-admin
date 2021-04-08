@@ -168,11 +168,10 @@ class Volume:
         >>>def start(self):
         >>>    pass
         '''
-        @asyncio.coroutine
         @functools.wraps(method)
-        def wrapper(self, *args, **kwargs):
-            with (yield from self._lock):  # pylint: disable=protected-access
-                return (yield from method(self, *args, **kwargs))
+        async def wrapper(self, *args, **kwargs):
+            async with self._lock:  # pylint: disable=protected-access
+                return await method(self, *args, **kwargs)
         return wrapper
 
     def create(self):
@@ -541,10 +540,8 @@ class Storage:
     @asyncio.coroutine
     def create(self):
         ''' Creates volumes on disk '''
-        old_umask = os.umask(0o002)
         yield from qubes.utils.void_coros_maybe(
             vol.create() for vol in self.vm.volumes.values())
-        os.umask(old_umask)
 
     @asyncio.coroutine
     def clone_volume(self, src_vm, name):

@@ -242,15 +242,14 @@ class CallbackPool(qubes.storage.Pool):
             cmd = self._cb_conf.get('cmd')
         return bool(cmd and cmd != '-')
 
-    @asyncio.coroutine
-    def _init(self, callback=True):
+    async def _init(self, callback=True):
         ''' Late storage initialization on first use for e.g. decryption on first usage request.
         :param callback: Whether to trigger the `pre_sinit` callback or not.
         '''
-        with (yield from self._cb_init_lock):
+        async with self._cb_init_lock:
             if self._cb_requires_init:
                 if callback:
-                    yield from self._callback('pre_sinit')
+                    await self._callback('pre_sinit')
                 self._cb_requires_init = False
 
     @asyncio.coroutine

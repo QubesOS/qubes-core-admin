@@ -6,6 +6,7 @@ import signal
 import sys
 
 QUBESD_SOCK = '/var/run/qubesd.sock'
+MAX_PAYLOAD_SIZE = 65536
 
 parser = argparse.ArgumentParser(
     description='low-level qubesd interrogation tool')
@@ -80,7 +81,17 @@ def main(args=None):
     loop = asyncio.get_event_loop()
 
     # pylint: disable=no-member
-    payload = sys.stdin.buffer.read() if args.payload else b''
+    if args.payload:
+        # read one byte more to check for too long payload,
+        # instead of silently truncating
+        payload = sys.stdin.buffer.read(MAX_PAYLOAD_SIZE + 1)
+        if len(payload) > MAX_PAYLOAD_SIZE:
+            parser.error('Payload too long (max {})'.format(MAX_PAYLOAD_SIZE))
+            # make sure to terminate, even if parser.error() would return
+            # for some reason
+            return 1
+    else:
+        payload = b''
     # pylint: enable=no-member
 
     coro = asyncio.ensure_future(qubesd_client(

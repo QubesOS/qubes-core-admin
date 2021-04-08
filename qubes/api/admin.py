@@ -899,9 +899,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', execute=True)
     @asyncio.coroutine
     def vm_shutdown(self):
-        force = (self.arg == 'force')
-        self.fire_event_for_permission(force=force)
-        yield from self.dest.shutdown(force=force)
+        if self.arg:
+            args = self.arg.split('+')
+        else:
+            args = []
+        self.enforce(all(arg in ('force', 'wait') for arg in args))
+        force = ('force' in args)
+        wait = ('wait' in args)
+        self.fire_event_for_permission(force=force, wait=wait)
+        yield from self.dest.shutdown(force=force, wait=wait)
 
     @qubes.api.method('admin.vm.Pause', no_payload=True,
         scope='local', execute=True)
@@ -1191,13 +1197,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.Remove', no_payload=True,
         scope='global', write=True)
-    @asyncio.coroutine
-    def vm_remove(self):
+    async def vm_remove(self):
         self.enforce(not self.arg)
 
         self.fire_event_for_permission()
 
-        with (yield from self.dest.startup_lock):
+        async with self.dest.startup_lock:
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
@@ -1207,7 +1212,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             del self.app.domains[self.dest]
             try:
-                yield from self.dest.remove_from_disk()
+                await self.dest.remove_from_disk()
             except:  # pylint: disable=bare-except
                 self.app.log.exception('Error while removing VM \'%s\' files',
                     self.dest.name)

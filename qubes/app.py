@@ -29,10 +29,10 @@ import logging
 import os
 import random
 import sys
-import tempfile
 import time
 import traceback
 import uuid
+from contextlib import suppress
 
 import asyncio
 import jinja2
@@ -280,11 +280,9 @@ class QubesHost:
 
         self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(
             self.no_cpus, self.memory_total))
-        try:
+        with suppress(NotImplementedError):
             self.app.log.debug('QubesHost: xen_free_memory={}'.format(
                 self.get_free_xen_memory()))
-        except NotImplementedError:
-            pass
 
     @property
     def memory_total(self):
@@ -926,7 +924,8 @@ class Qubes(qubes.PropertyHolder):
                 '/etc/qubes/templates',
                 '/usr/share/qubes/templates',
             ]),
-            undefined=jinja2.StrictUndefined)
+            undefined=jinja2.StrictUndefined,
+            autoescape=True)
 
         if load:
             self.load(lock=lock)
@@ -1103,18 +1102,12 @@ class Qubes(qubes.PropertyHolder):
         if not self.__locked_fh:
             self._acquire_lock(for_save=True)
 
-        fh_new = tempfile.NamedTemporaryFile(
-            prefix=self._store, delete=False)
-        lxml.etree.ElementTree(self.__xml__()).write(
-            fh_new, encoding='utf-8', pretty_print=True)
-        fh_new.flush()
-        try:
-            os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
-            os.chmod(fh_new.name, 0o660)
-        except KeyError:  # group 'qubes' not found
-            # don't change mode if no 'qubes' group in the system
-            pass
-        os.rename(fh_new.name, self._store)
+        with qubes.utils.replace_file(self._store, permissions=0o660,
+                                      close_on_success=False) as fh_new:
+            lxml.etree.ElementTree(self.__xml__()).write(
+                fh_new, encoding='utf-8', pretty_print=True)
+            with suppress(KeyError):  # group not found
+                os.fchown(fh_new.fileno(), -1, grp.getgrnam('qubes').gr_gid)
 
         # update stored mtime, in case of multiple save() calls without
         # loading qubes.xml again
@@ -1324,10 +1317,8 @@ class Qubes(qubes.PropertyHolder):
         """
 
         # first search for index, verbatim
-        try:
+        with suppress(KeyError):
             return self.labels[label]
-        except KeyError:
-            pass
 
         # then search for name
         for i in self.labels.values():
@@ -1335,10 +1326,8 @@ class Qubes(qubes.PropertyHolder):
                 return i
 
         # last call, if label is a number represented as str, search in indices
-        try:
+        with suppress(KeyError, ValueError):
             return self.labels[int(label)]
-        except (KeyError, ValueError):
-            pass
 
         raise qubes.exc.QubesLabelNotFoundError(label)
 
@@ -1477,7 +1466,7 @@ class Qubes(qubes.PropertyHolder):
                 # allow removed VM to reference itself
                 continue
             for prop in obj.property_list():
-                try:
+                with suppress(AttributeError):
                     if isinstance(prop, qubes.vm.VMProperty) and \
                             getattr(obj, prop.__name__) == vm:
                         self.log.error(
@@ -1486,11 +1475,9 @@ class Qubes(qubes.PropertyHolder):
                         raise qubes.exc.QubesVMInUseError(
                             vm,
                             'Domain is in use: {!r};'
-                            'see /var/log/qubes/qubes.log in dom0 for '
+                            "see 'journalctl -u qubesd -e' in dom0 for "
                             'details'.format(
                                 vm.name))
-                except AttributeError:
-                    pass
 
         assignments = vm.get_provided_assignments()
         if assignments:
@@ -1512,11 +1499,9 @@ class Qubes(qubes.PropertyHolder):
                 'updatevm',
                 'default_template',
         ):
-            try:
+            with suppress(AttributeError):
                 if getattr(self, propname) == vm:
                     delattr(self, propname)
-            except AttributeError:
-                pass
 
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):

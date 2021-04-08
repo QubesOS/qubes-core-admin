@@ -499,6 +499,30 @@ class NetVMMixin(qubes.events.Emitter):
             vm.fire_event(
                 'property-reset:visible_gateway6', name='visible_gateway6')
 
+    @qubes.events.handler('feature-pre-set:net.fake-ip')
+    def on_feature_pre_set_net_fake_ip(self, event, name, newvalue,
+                                       oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+        # format validation
+        ipaddress.IPv4Address(newvalue)
+
+    @qubes.events.handler('feature-pre-set:net.fake-gateway')
+    def on_feature_pre_set_net_fake_gw(self, event, name, newvalue,
+                                       oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+        # format validation
+        ipaddress.IPv4Address(newvalue)
+
+    @qubes.events.handler('feature-pre-set:net.fake-netmask')
+    def on_feature_pre_set_net_fake_nm(self, event, name, newvalue,
+                                       oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+        # format validation
+        if not newvalue.isdigit():
+            ipaddress.IPv4Address(newvalue)
+        elif not 0 <= int(newvalue) <= 24:
+            raise qubes.exc.QubesValueError('Invalid netmask value')
+
     @qubes.events.handler('feature-set:net.fake-ip')
     def on_feature_set_net_fake_ip(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument

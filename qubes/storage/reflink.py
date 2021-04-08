@@ -30,16 +30,25 @@ import functools
 import glob
 import logging
 import os
+import platform
 import subprocess
 import tempfile
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 
 import qubes.storage
 import qubes.utils
 
-FICLONE = 1074041865        # defined in <linux/fs.h>, assuming sizeof(int)==4
-LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
+
 LOGGER = logging.getLogger('qubes.storage.reflink')
+
+# defined in <linux/loop.h>
+LOOP_SET_CAPACITY = 0x4C07
+
+# defined in <linux/fs.h>
+FICLONE = {
+    'x86_64':  0x40049409,
+    'ppc64le': 0x80049409,
+}[platform.machine()]
 
 
 def _coroutinized(function):
@@ -53,6 +62,7 @@ def _coroutinized(function):
         return (yield from asyncio.get_event_loop().run_in_executor(
             None, functools.partial(function, *args, **kwargs)))
     return wrapper
+
 
 class ReflinkPool(qubes.storage.Pool):
     driver = 'file-reflink'
@@ -224,7 +234,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def _commit(self, path_from):
         self._add_revision()
         self._prune_revisions()
-        _fsync_path(path_from)
+        qubes.utils.fsync_path(path_from)
         _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
@@ -354,32 +364,16 @@ class ReflinkVolume(qubes.storage.Volume):
         return 0
 
 
-@contextmanager
 def _replace_file(dst):
-    ''' Yield a tempfile whose name starts with dst, creating the last
-        directory component if necessary. If the block does not raise
-        an exception, safely rename the tempfile to dst.
-    '''
-    tmp_dir, prefix = os.path.split(dst + '~')
-    _make_dir(tmp_dir)
-    tmp = tempfile.NamedTemporaryFile(dir=tmp_dir, prefix=prefix, delete=False)
-    try:
-        yield tmp
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp.close()
-        _rename_file(tmp.name, dst)
-    except:
-        tmp.close()
-        _remove_file(tmp.name)
-        raise
+    _make_dir(os.path.dirname(dst))
+    return qubes.utils.replace_file(
+        dst, permissions=0o600, log_level=logging.INFO)
 
-def _fsync_path(path):
-    fd = os.open(path, os.O_RDONLY)  # works for a file or a directory
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+_rename_file = functools.partial(
+    qubes.utils.rename_file, log_level=logging.INFO)
+
+_remove_file = functools.partial(
+    qubes.utils.remove_file, log_level=logging.INFO)
 
 def _make_dir(path):
     ''' mkdir path, ignoring FileExistsError; return whether we
@@ -387,46 +381,31 @@ def _make_dir(path):
     '''
     with suppress(FileExistsError):
         os.mkdir(path)
-        _fsync_path(os.path.dirname(path))
-        LOGGER.info('Created directory: %s', path)
+        qubes.utils.fsync_path(os.path.dirname(path))
+        LOGGER.info('Created directory: %r', path)
         return True
     return False
-
-def _remove_file(path):
-    with suppress(FileNotFoundError):
-        os.remove(path)
-        _fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed file: %s', path)
 
 def _remove_empty_dir(path):
     try:
         os.rmdir(path)
-        _fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed empty directory: %s', path)
+        qubes.utils.fsync_path(os.path.dirname(path))
+        LOGGER.info('Removed empty directory: %r', path)
     except OSError as ex:
         if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
             raise
 
-def _rename_file(src, dst):
-    os.rename(src, dst)
-    dst_dir = os.path.dirname(dst)
-    src_dir = os.path.dirname(src)
-    _fsync_path(dst_dir)
-    if src_dir != dst_dir:
-        _fsync_path(src_dir)
-    LOGGER.info('Renamed file: %s -> %s', src, dst)
-
 def _resize_file(path, size):
     ''' Resize an existing file. '''
-    with open(path, 'rb+') as file:
-        file.truncate(size)
-        os.fsync(file.fileno())
+    with open(path, 'rb+') as file_io:
+        file_io.truncate(size)
+        os.fsync(file_io.fileno())
 
 def _create_sparse_file(path, size):
     ''' Create an empty sparse file. '''
-    with _replace_file(path) as tmp:
-        tmp.truncate(size)
-        LOGGER.info('Created sparse file: %s', tmp.name)
+    with _replace_file(path) as tmp_io:
+        tmp_io.truncate(size)
+        LOGGER.info('Created sparse file: %r', tmp_io.name)
 
 def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
@@ -441,9 +420,9 @@ def _update_loopdev_sizes(img):
         with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
             fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
-def _attempt_ficlone(src, dst):
+def _attempt_ficlone(src_io, dst_io):
     try:
-        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
+        fcntl.ioctl(dst_io.fileno(), FICLONE, src_io.fileno())
         return True
     except OSError as ex:
         if ex.errno not in (errno.EBADF, errno.EINVAL,
@@ -456,9 +435,9 @@ def _copy_file(src, dst):
     with _replace_file(dst) as tmp_io:
         with open(src, 'rb') as src_io:
             if _attempt_ficlone(src_io, tmp_io):
-                LOGGER.info('Reflinked file: %s -> %s', src, tmp_io.name)
+                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
                 return True
-        LOGGER.info('Copying file: %s -> %s', src, tmp_io.name)
+        LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
         cmd = 'cp', '--sparse=always', src, tmp_io.name
         p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                            check=False)

@@ -1,5 +1,3 @@
-# pylint: skip-file
-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -19,6 +17,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 #
+# pylint: disable=global-statement
+
 import configparser
 import socketserver
 import logging
@@ -27,19 +27,20 @@ import os
 import socket
 import sys
 import threading
+from dataclasses import dataclass
+from typing import Callable, Any
 
-import xen.lowlevel.xs
+import xen.lowlevel.xs  # pylint: disable=import-error
 
 import qubes.qmemman
 import qubes.qmemman.algo
 import qubes.utils
 
 SOCK_PATH = '/var/run/qubes/qmemman.sock'
-LOG_PATH = '/var/log/qubes/qmemman.log'
 
 system_state = qubes.qmemman.SystemState()
 global_lock = threading.Lock()
-# If XS_Watcher will
+# If XSWatcher will
 # handle meminfo event before @introduceDomain, it will use
 # incomplete domain list for that and may redistribute memory
 # allocated to some VM, but not yet used (see #1389).
@@ -49,10 +50,10 @@ global_lock = threading.Lock()
 # this flag before processing other event.
 force_refresh_domain_list = False
 
-def only_in_first_list(l1, l2):
+def only_in_first_list(list1, list2):
     ret = []
-    for i in l1:
-        if not i in l2:
+    for i in list1:
+        if i not in list2:
             ret.append(i)
     return ret
 
@@ -60,21 +61,22 @@ def get_domain_meminfo_key(domain_id):
     return '/local/domain/'+domain_id+'/memory/meminfo'
 
 
-class WatchType(object):
-    def __init__(self, fn, param):
-        self.fn = fn
-        self.param = param
+@dataclass
+class WatchType:
+    func: Callable
+    param: Any
 
-class XS_Watcher(object):
+
+class XSWatcher:
     def __init__(self):
         self.log = logging.getLogger('qmemman.daemon.xswatcher')
         self.log.debug('XS_Watcher()')
 
         self.handle = xen.lowlevel.xs.xs()
         self.handle.watch('@introduceDomain', WatchType(
-            XS_Watcher.domain_list_changed, False))
+            XSWatcher.domain_list_changed, False))
         self.handle.watch('@releaseDomain', WatchType(
-            XS_Watcher.domain_list_changed, False))
+            XSWatcher.domain_list_changed, False))
         self.watch_token_dict = {}
 
     def domain_list_changed(self, refresh_only=False):
@@ -113,17 +115,18 @@ class XS_Watcher(object):
 
             for i in only_in_first_list(curr, self.watch_token_dict.keys()):
                 # new domain has been created
-                watch = WatchType(XS_Watcher.meminfo_changed, i)
+                watch = WatchType(XSWatcher.meminfo_changed, i)
                 self.watch_token_dict[i] = watch
                 self.handle.watch(get_domain_meminfo_key(i), watch)
                 system_state.add_domain(i)
 
             for i in only_in_first_list(self.watch_token_dict.keys(), curr):
                 # domain destroyed
-                self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
+                self.handle.unwatch(get_domain_meminfo_key(i),
+                                    self.watch_token_dict[i])
                 self.watch_token_dict.pop(i)
                 system_state.del_domain(i)
-        except:
+        except:  # pylint: disable=bare-except
             self.log.exception('Updating domain list failed')
         finally:
             if got_lock:
@@ -133,7 +136,7 @@ class XS_Watcher(object):
         if not refresh_only:
             try:
                 system_state.do_balance()
-            except:
+            except:  # pylint: disable=bare-except
                 self.log.exception('do_balance() failed')
 
 
@@ -141,7 +144,7 @@ class XS_Watcher(object):
         self.log.debug('meminfo_changed(domain_id={!r})'.format(domain_id))
         untrusted_meminfo_key = self.handle.read(
             '', get_domain_meminfo_key(domain_id))
-        if untrusted_meminfo_key == None or untrusted_meminfo_key == b'':
+        if untrusted_meminfo_key is None or untrusted_meminfo_key == b'':
             return
 
         self.log.debug('acquiring global_lock')
@@ -157,12 +160,11 @@ class XS_Watcher(object):
                 return
 
             system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
-        except:
+        except:  # pylint: disable=bare-except
             self.log.exception('Updating meminfo for %d failed', domain_id)
         finally:
             global_lock.release()
             self.log.debug('global_lock released')
-
 
     def watch_loop(self):
         self.log.debug('watch_loop()')
@@ -170,7 +172,7 @@ class XS_Watcher(object):
             result = self.handle.read_watch()
             self.log.debug('watch_loop result={!r}'.format(result))
             token = result[1]
-            token.fn(self, token.param)
+            token.func(self, token.param)
 
 
 class QMemmanReqHandler(socketserver.BaseRequestHandler):
@@ -243,21 +245,13 @@ def main():
         logging.Formatter('%(name)s[%(process)d]: %(message)s'))
     logging.root.addHandler(ha_syslog)
 
-    # leave log for backwards compatibility
-    ha_file = logging.FileHandler(LOG_PATH)
-    ha_file.setFormatter(
-        logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
-    logging.root.addHandler(ha_file)
-
     if args.foreground:
         ha_stderr = logging.StreamHandler(sys.stderr)
-        ha_file.setFormatter(
+        ha_stderr.setFormatter(
             logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
         logging.root.addHandler(ha_stderr)
 
     sys.stdin.close()
-
-    logging.root.setLevel(parser.get_loglevel_from_verbosity(args))
 
     log = logging.getLogger('qmemman.daemon')
 
@@ -275,6 +269,8 @@ def main():
             qubes.utils.parse_size(config.get('global', 'dom0-mem-boost'))
         qubes.qmemman.algo.CACHE_FACTOR = \
             config.getfloat('global', 'cache-margin-factor')
+        loglevel = config.getint('global', 'log-level', fallback=30)
+        logging.root.setLevel(loglevel)
 
     log.info('MIN_PREFMEM={algo.MIN_PREFMEM}'
         ' DOM0_MEM_BOOST={algo.DOM0_MEM_BOOST}'
@@ -283,7 +279,7 @@ def main():
 
     try:
         os.unlink(SOCK_PATH)
-    except:
+    except FileNotFoundError:
         pass
 
     log.debug('instantiating server')
@@ -299,12 +295,12 @@ def main():
     nofity_socket = os.getenv('NOTIFY_SOCKET')
     if nofity_socket:
         log.debug('notifying systemd')
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         if nofity_socket.startswith('@'):
             nofity_socket = '\0%s' % nofity_socket[1:]
-        s.connect(nofity_socket)
-        s.sendall(b"READY=1")
-        s.close()
+        sock.connect(nofity_socket)
+        sock.sendall(b"READY=1")
+        sock.close()
 
     threading.Thread(target=server.serve_forever).start()
-    XS_Watcher().watch_loop()
+    XSWatcher().watch_loop()
