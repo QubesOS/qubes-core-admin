@@ -1228,7 +1228,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self.features.check_with_template('stubdom-qrexec', False):
                     await self.start_qrexec_daemon(stubdom=True)
                 await self.start_qrexec_daemon()
-        
+
                 await self.fire_event_async('domain-start',
                                             start_guid=start_guid)
 
