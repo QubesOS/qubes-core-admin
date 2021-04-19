@@ -34,97 +34,37 @@ struct loop_info64 {
 	__u64		   lo_init[2];
 };
 
-struct qubes_stat {
-    uint64_t	st_dev;
-    uint64_t	st_ino;
-    uint32_t	st_mode;
+typedef unsigned long... dev_t;
+typedef unsigned long... ino_t;
+typedef unsigned long... mode_t;
+typedef unsigned long... nlink_t;
+typedef unsigned long... uid_t;
+typedef unsigned long... gid_t;
+typedef unsigned long... off_t;
+typedef unsigned long... blksize_t;
+typedef unsigned long... blkcnt_t;
+
+struct stat {
+    dev_t	st_dev;
+    ino_t	st_ino;
+    mode_t	st_mode;
+    nlink_t	st_nlink;
+    uid_t	st_uid;
+    gid_t	st_gid;
+    dev_t	st_rdev;
+    off_t	st_size;
+    blksize_t	st_blksize;
+    blkcnt_t	st_blocks;
+    ...;
 };
 
 int qubes_get_loop_dev_info(const int loop_fd, struct loop_info64 *stat);
-int qubes_create_loop_dev(const int, const int, struct qubes_stat *);
+int qubes_create_loop_dev(const int, const int, struct stat *);
 """)
 
-ffibuilder.set_source("_qubes_loop", """\
-#include <stdio.h>
-#include <errno.h>
-#include <stddef.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-#include <linux/loop.h>
-
-struct qubes_stat {
-    uint64_t	st_dev;
-    uint64_t	st_ino;
-    uint32_t	st_mode;
-};
-
-int qubes_get_loop_dev_info(const int loop_fd, struct loop_info64 *info) {
-    return ioctl(loop_fd, LOOP_GET_STATUS64, info);
-}
-
-/**
- * @brief Create a block device file descriptor from the given FD
- * @param loop_control_fd An open file descriptor to `/dev/loop-control`.
- * @param file_fd An open file descriptor to a block device, character device,
- * or regular file.
- * @return An open file descriptor on success, or a negative errno value on
- * error.  Block and character device file descriptors are duplicated.  Regular
- * file descriptors are used to create a loop device.  For other types of files,
- * `-EINVAL` is returned.
- */
-int qubes_create_loop_dev(const int loop_control_fd, const int file_fd,
-                          struct qubes_stat *s_buf) {
-    int sp, dev_fd, dev;
-    char buf[40];
-    struct stat stat_buf;
-    if (fstat(file_fd, &stat_buf) == -1)
-        return -errno;
-    s_buf->st_dev = stat_buf.st_dev;
-    s_buf->st_ino = stat_buf.st_ino;
-    s_buf->st_mode = stat_buf.st_mode;
-    switch (stat_buf.st_mode & S_IFMT) {
-    case S_IFBLK:
-        dev_fd = fcntl(file_fd, F_DUPFD_CLOEXEC, 3);
-        return dev_fd >= 0 ? dev_fd : -errno;
-    case S_IFREG:
-        break;
-    default:
-    case S_IFCHR:
-        return -EINVAL;
-    }
-retry:
-    if ((dev = ioctl(loop_control_fd, LOOP_CTL_GET_FREE)) < 0)
-        return -errno;
-    if ((sp = snprintf(buf, sizeof buf, "/dev/loop%d", dev)) < 0)
-        return -ENOMEM;
-    if (sp >= sizeof buf)
-        return -EFAULT;
-    if ((dev_fd = open(buf, O_RDWR|O_CLOEXEC|O_NOCTTY, 0)) < 0)
-        return -errno;
-    struct loop_config config = {
-        .fd = file_fd,
-        .block_size = 0,
-        .info = {
-            .lo_number = dev,
-            .lo_encrypt_type = LO_CRYPT_NONE,
-            .lo_flags = LO_FLAGS_AUTOCLEAR | LO_FLAGS_DIRECT_IO,
-        }
-    };
-    if (ioctl(dev_fd, LOOP_CONFIGURE, &config) < 0) {
-        if (errno == EBUSY) {
-            (void)close(dev_fd);
-            goto retry;
-        }
-        return -errno;
-    }
-    return dev_fd;
-}
-""")
+ffibuilder.set_source("_qubes_loop",
+                      '#include "../../loop.c"\n',
+                      extra_compile_args=["-Wall", "-Wextra", "-Werror"])
 
 # don't import: import * is unreliable and there is no need, since this is
 # compile time and we have source files

@@ -797,8 +797,8 @@ class PropertyHolder(qubes.events.Emitter):
 
 
 # pylint: disable=wrong-import-position
-from qubes.vm import VMProperty
-from qubes.app import Qubes
+#from qubes.vm import VMProperty
+#from qubes.app import Qubes
 
 __all__ = [
     'Label',
