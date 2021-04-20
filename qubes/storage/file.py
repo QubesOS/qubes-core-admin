@@ -436,11 +436,6 @@ class FileVolume(qubes.storage.Volume):
             self._size = os.path.getsize(self.path)
         return self._size
 
-    @size.setter
-    def size(self, _):
-        raise qubes.storage.StoragePoolException(
-            "You shouldn't use volume size setter, use resize method instead")
-
     @property
     def usage(self):
         ''' Returns the actualy used space '''
