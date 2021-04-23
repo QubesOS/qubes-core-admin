@@ -42,7 +42,8 @@ create_dm_snapshot() {
   if [[ ! -e "/dev/mapper/$dm_devname" ]]; then
     # prepare new snapshot device
     base_sz=$(blockdev --getsz "$base_dev")
-    dmsetup create "$dm_devname" --table "0 $base_sz snapshot $base_dev $cow_dev P $SNAPSHOT_CHUNKSIZE" ||
+    3< "$base_dev" 4< "$cow_dev" dmsetup create "$dm_devname" \
+      --table "0 $base_sz snapshot /dev/fd/3 /dev/fd/4 P $SNAPSHOT_CHUNKSIZE" ||
       fatal 'could not create snapshot'
   fi
 }
