@@ -690,7 +690,7 @@ class ThinVolume(qubes.storage.Volume):
         '''
         if self.snap_on_start or self.save_on_stop:
             return qubes.storage.BlockDevice(
-                '/dev/' + self._vid_snap, self.name, self.script,
+                '/dev/' + self._vid_snap, self.name, None,
                 self.rw, self.domain, self.devtype)
 
         return super().block_device()

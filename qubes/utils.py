@@ -239,8 +239,8 @@ _am_root = os.getuid() == 0
 
 # pylint: disable=redefined-builtin
 async def run_program(*args, check=True, input=None, sudo=False, **kwargs):
-    '''Async version of subprocess.run()
-    '''
+    """Async version of subprocess.run()
+    """
     if not _am_root and sudo:
         args = ['sudo'] + list(args)
     p = await asyncio.create_subprocess_exec(*args, **kwargs)

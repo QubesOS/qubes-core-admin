@@ -810,7 +810,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
@@ -1066,7 +1065,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
@@ -1135,7 +1133,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
@@ -1387,7 +1384,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
@@ -1513,7 +1509,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/dev/loop0" />
                 <target dev="xvda" />
                 <backenddomain name="dom0" />
-                <script path="/tmp/script" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
@@ -1573,21 +1568,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/dev/loop0',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': '/tmp/script',
         })
         vm.volumes['other'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop1',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
         })
         vm.volumes['other2'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop2',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
         })
         assignments = [
             unittest.mock.Mock(**{

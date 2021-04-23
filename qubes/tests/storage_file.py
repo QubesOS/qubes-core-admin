@@ -240,7 +240,6 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         block = volume.block_device()
         self.assertEqual(block.name, 'root')
         self.assertEqual(block.rw, True)
-        self.assertEqual(block.script, 'block-origin')
 
     def test_003_read_only_volume(self):
         template = self.app.default_template
