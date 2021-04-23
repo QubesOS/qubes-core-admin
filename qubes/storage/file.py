@@ -201,10 +201,10 @@ class FileVolume(qubes.storage.Volume):
 
     @revisions_to_keep.setter
     def revisions_to_keep(self, value):
-        if int(value) > 1:
+        if type(value) is not int or value > 1 or value < 0:
             raise NotImplementedError(
                 'FileVolume supports maximum 1 volume revision to keep')
-        self._revisions_to_keep = int(value)
+        self._revisions_to_keep = value
 
     def create(self):  # pylint: disable=invalid-overridden-method
         assert isinstance(self.size, int) and self.size > 0, \
@@ -362,6 +362,7 @@ class FileVolume(qubes.storage.Volume):
         assert self._export_lock is not FileVolume._marker_exported, \
             'trying to stop exported file volume?'
         if self.save_on_stop:
+            assert not self.snap_on_start
             self.commit()
         elif self.snap_on_start:
             _remove_if_exists(self.path_cow)
@@ -373,6 +374,7 @@ class FileVolume(qubes.storage.Volume):
     @property
     def path(self):
         if self.snap_on_start:
+            assert not self.save_on_stop
             return os.path.join(self.dir_path, self.source.vid + '.img')
         return os.path.join(self.dir_path, self.vid + '.img')
 
@@ -396,13 +398,16 @@ class FileVolume(qubes.storage.Volume):
 
     @property
     def script(self):
-        if not self.snap_on_start and not self.save_on_stop:
-            return None
-        if not self.snap_on_start and self.save_on_stop:
-            return 'block-origin'
         if self.snap_on_start:
-            return 'block-snapshot'
-        return None
+            if self.save_on_stop:
+                raise NotImplementedError('snap_on_start=True with save_on_stop=True')
+            else:
+                return 'block-snapshot'
+        else:
+            if self.save_on_stop:
+                return 'block-origin'
+            else:
+                return None
 
     def block_device(self):
         ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
