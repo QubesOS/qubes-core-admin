@@ -201,7 +201,7 @@ class FileVolume(qubes.storage.Volume):
 
     @revisions_to_keep.setter
     def revisions_to_keep(self, value):
-        if type(value) is not int or value > 1 or value < 0:
+        if not isinstance(value, int) or value > 1 or value < 0:
             raise NotImplementedError(
                 'FileVolume supports maximum 1 volume revision to keep')
         self._revisions_to_keep = value
@@ -399,15 +399,12 @@ class FileVolume(qubes.storage.Volume):
     @property
     def script(self):
         if self.snap_on_start:
-            if self.save_on_stop:
-                raise NotImplementedError('snap_on_start=True with save_on_stop=True')
-            else:
-                return 'block-snapshot'
-        else:
-            if self.save_on_stop:
-                return 'block-origin'
-            else:
-                return None
+            assert not self.save_on_stop, \
+                'snap_on_start=True with save_on_stop=True'
+            return 'block-snapshot'
+        elif self.save_on_stop:
+            return 'block-origin'
+        return None
 
     def block_device(self):
         ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
