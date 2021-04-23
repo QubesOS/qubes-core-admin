@@ -33,6 +33,13 @@ from qubes.config import defaults
 
 # :pylint: disable=invalid-name
 
+import qubes.storage.file
+import os.path
+_dir = os.path.dirname(__file__)
+qubes.storage.file.CREATE_SCRIPT = \
+    os.path.join(_dir, '../../linux/system-config/create-snapshot')
+qubes.storage.file.DESTROY_SCRIPT = \
+    os.path.join(_dir, '../../linux/system-config/destroy-snapshot')
 
 class TestApp(qubes.Qubes):
     ''' A Mock App object '''
@@ -48,6 +55,7 @@ class TestApp(qubes.Qubes):
         open(os.path.join(dummy_kernel, 'modules.img'), 'w').close()
         open(os.path.join(dummy_kernel, 'initramfs'), 'w').close()
         self.default_kernel = 'dummy'
+        self.default_pool = 'varlibqubes'
 
     def cleanup(self):
         ''' Remove temporary directories '''
@@ -78,6 +86,7 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
         self.app.cleanup()
         self.app.close()
         del self.app
+        shutil.rmtree('/tmp/qubes-test-basedir', ignore_errors=True)
         super(TC_00_FilePool, self).tearDown()
 
     def test000_default_pool_dir(self):
@@ -151,11 +160,10 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        base=self.POOL_DIR + '/appvms/' + vm.name + '/root'
+        os.mkdir(os.path.dirname(base))
+        with open(base + '.img', 'wb'), open(base + '-cow.img', 'wb'): pass
         block = volume.block_device()
-        self.assertEqual(block.path,
-            '{base}.img:{base}-cow.img'.format(
-                base=self.POOL_DIR + '/appvms/' + vm.name + '/root'))
-        self.assertEqual(block.script, 'block-origin')
         self.assertEqual(block.rw, True)
         self.assertEqual(block.name, 'root')
         self.assertEqual(block.devtype, 'disk')
@@ -193,19 +201,22 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.rw)
         self.assertEqual(volume.usage, 0)
+        self.loop.run_until_complete(qubes.utils.coro_maybe(source.create()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(source.start()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.start()))
+        base = self.POOL_DIR + '/vm-templates/' + template_vm.name + '/root'
+        app = self.POOL_DIR + '/appvms/' + vm.name + '/root-cow.img'
+        self.assertTrue(os.path.exists(base + '.img'))
+        self.assertTrue(os.path.exists(base + '-cow.img'))
+        self.assertEqual(base, '/tmp/test-pool/vm-templates/test-template/root')
         block = volume.block_device()
         assert isinstance(block, qubes.storage.BlockDevice)
-        self.assertEqual(block.path,
-            '{base}/{src}.img:{base}/{src}-cow.img:'
-            '{base}/{dst}-cow.img'.format(
-                base=self.POOL_DIR,
-                src='vm-templates/' + template_vm.name + '/root',
-                dst='appvms/' + vm.name + '/root',
-        ))
         self.assertEqual(block.name, 'root')
-        self.assertEqual(block.script, 'block-snapshot')
         self.assertEqual(block.rw, False)
         self.assertEqual(block.devtype, 'disk')
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.remove()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(source.remove()))
 
     def test_002_read_write_volume(self):
         config = {
@@ -223,10 +234,11 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        base=self.POOL_DIR + '/appvms/' + vm.name + '/root'
+        os.mkdir(os.path.dirname(base))
+        with open(base + '.img', 'wb'), open(base + '-cow.img', 'wb'): pass
         block = volume.block_device()
         self.assertEqual(block.name, 'root')
-        self.assertEqual(block.path, '{base}.img:{base}-cow.img'.format(
-            base=self.POOL_DIR + '/appvms/' + vm.name + '/root'))
         self.assertEqual(block.rw, True)
         self.assertEqual(block.script, 'block-origin')
 
@@ -275,6 +287,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=vmname,
                                  template=self.app.default_template,
                                  label='red')
+        for vol in self.app.default_template.volumes.values():
+            self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
 
         template_dir = os.path.join(self.POOL_DIR, 'vm-templates',
             vm.template.name)
@@ -476,15 +490,18 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertEqual(self._get_loop_size(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
         self.loop.run_until_complete(qubes.utils.coro_maybe(volume.stop()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.stop()))
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
 
     def assertVolumePath(self, vm, dev_name, expected, rw=True):
         # :pylint: disable=invalid-name
         volumes = vm.volumes
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volumes[dev_name].create()))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volumes[dev_name].start()))
         b_dev = volumes[dev_name].block_device()
         self.assertEqual(b_dev.rw, rw)
-        self.assertEqual(b_dev.path, expected)
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volumes[dev_name].stop()))
 
 
 class TC_03_FilePool(qubes.tests.QubesTestCase):
@@ -630,16 +647,14 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         expected_root_cow_path = os.path.join(expected_vmdir, 'root-cow.img')
         expected_root_path = '%s:%s' % (expected_root_origin_path,
                                         expected_root_cow_path)
-        self.assertEqual(vm.volumes['root'].block_device().path,
-                          expected_root_path)
-        self.assertExist(vm.volumes['root'].path)
+        self.assertEqualAndExists(vm.volumes['root'].path,
+                                  expected_root_origin_path)
 
         expected_private_path = os.path.join(expected_vmdir, 'private.img')
         self.assertEqualAndExists(vm.volumes['private'].path,
                                    expected_private_path)
 
-        expected_rootcow_path = os.path.join(expected_vmdir, 'root-cow.img')
-        self.assertEqual(vm.volumes['root'].path_cow, expected_rootcow_path)
+        self.assertEqual(vm.volumes['root'].path_cow, expected_root_cow_path)
 
     def assertEqualAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.
