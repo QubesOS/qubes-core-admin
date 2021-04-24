@@ -252,13 +252,11 @@ class CallbackPool(qubes.storage.Pool):
                     await self._callback('pre_sinit')
                 self._cb_requires_init = False
 
-    @asyncio.coroutine
-    def _assert_initialized(self, **kwargs):
+    async def _assert_initialized(self, **kwargs):
         if self._cb_requires_init:
-            yield from self._init(**kwargs)
+            await self._init(**kwargs)
 
-    @asyncio.coroutine
-    def _callback(self, cb, cb_args=None):
+    async def _callback(self, cb, cb_args=None):
         '''Run a callback.
         :param cb: Callback identifier string.
         :param cb_args: Optional list of arguments to pass to the command as last arguments.
@@ -278,8 +276,8 @@ class CallbackPool(qubes.storage.Pool):
                 cmd = ' '.join(filter(None, [cmd, args]))
                 self._cb_log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
                 cmd_arr = ['/bin/bash', '-c', cmd]
-                proc = yield from asyncio.create_subprocess_exec(*cmd_arr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                stdout, stderr = yield from proc.communicate()
+                proc = await asyncio.create_subprocess_exec(*cmd_arr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, stderr = await proc.communicate()
                 encoding = locale.getpreferredencoding()
                 stdout = stdout.decode(encoding)
                 stderr = stderr.decode(encoding)
@@ -288,10 +286,9 @@ class CallbackPool(qubes.storage.Pool):
                 self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stdout)
                 self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stderr)
                 if self._cb_conf.get('signal_back', False) is True:
-                    yield from self._process_signals(stdout)
+                    await self._process_signals(stdout)
 
-    @asyncio.coroutine
-    def _process_signals(self, out):
+    async def _process_signals(self, out):
         '''Process any signals found inside a string.
         :param out: String to check for signals. Each signal must be on a dedicated line.
                     They are executed in the order they are found. Callbacks are not triggered.
@@ -300,7 +297,7 @@ class CallbackPool(qubes.storage.Pool):
             if line == 'SIGNAL_setup':
                 self._cb_log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
                 #NOTE: calling our own methods may lead to a deadlock / qubesd freeze due to `self._assert_initialized()` / `self._cb_init_lock`
-                yield from coro_maybe(self._cb_impl.setup())
+                await coro_maybe(self._cb_impl.setup())
 
     @property
     def backend_class(self):
@@ -317,11 +314,10 @@ class CallbackPool(qubes.storage.Pool):
             'conf_id': self._cb_conf_id,
         }
 
-    @asyncio.coroutine
-    def destroy(self):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.destroy())
-        yield from self._callback('post_destroy')
+    async def destroy(self):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.destroy())
+        await self._callback('post_destroy')
         return ret
 
     def init_volume(self, vm, volume_config):
@@ -329,11 +325,10 @@ class CallbackPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ret
 
-    @asyncio.coroutine
-    def setup(self):
-        yield from self._assert_initialized(callback=False) #setup is assumed to include storage initialization
-        yield from self._callback('pre_setup')
-        return (yield from coro_maybe(self._cb_impl.setup()))
+    async def setup(self):
+        await self._assert_initialized(callback=False) #setup is assumed to include storage initialization
+        await self._callback('pre_setup')
+        return (await coro_maybe(self._cb_impl.setup()))
 
     @property
     def volumes(self):
@@ -428,16 +423,14 @@ class CallbackVolume(qubes.storage.Volume):
         self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
         self._cb_impl = impl #: Backend volume implementation instance.
 
-    @asyncio.coroutine
-    def _assert_initialized(self, **kwargs):
-        yield from self._cb_pool._assert_initialized(**kwargs) # pylint: disable=protected-access
+    async def _assert_initialized(self, **kwargs):
+        await self._cb_pool._assert_initialized(**kwargs) # pylint: disable=protected-access
 
-    @asyncio.coroutine
-    def _callback(self, cb, cb_args=None, **kwargs):
+    async def _callback(self, cb, cb_args=None, **kwargs):
         if cb_args is None:
             cb_args = []
         vol_args = [self.name, self.vid, self.source, *cb_args]
-        yield from self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
+        await self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
 
     @property
     def backend_class(self):
@@ -446,61 +439,53 @@ class CallbackVolume(qubes.storage.Volume):
             return self._cb_impl.backend_class
         return self._cb_impl.__class__
 
-    @asyncio.coroutine
-    def create(self):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_create')
-        ret = yield from coro_maybe(self._cb_impl.create())
-        yield from self._callback('post_volume_create')
+    async def create(self):
+        await self._assert_initialized()
+        await self._callback('pre_volume_create')
+        ret = await coro_maybe(self._cb_impl.create())
+        await self._callback('post_volume_create')
         return ret
 
-    @asyncio.coroutine
-    def remove(self):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.remove())
-        yield from self._callback('post_volume_remove')
+    async def remove(self):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.remove())
+        await self._callback('post_volume_remove')
         return ret
 
-    @asyncio.coroutine
-    def resize(self, size):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_resize', cb_args=[size])
-        return (yield from coro_maybe(self._cb_impl.resize(size)))
+    async def resize(self, size):
+        await self._assert_initialized()
+        await self._callback('pre_volume_resize', cb_args=[size])
+        return (await coro_maybe(self._cb_impl.resize(size)))
 
-    @asyncio.coroutine
-    def start(self):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_start')
-        ret = yield from coro_maybe(self._cb_impl.start())
-        yield from self._callback('post_volume_start')
+    async def start(self):
+        await self._assert_initialized()
+        await self._callback('pre_volume_start')
+        ret = await coro_maybe(self._cb_impl.start())
+        await self._callback('post_volume_start')
         return ret
 
-    @asyncio.coroutine
-    def stop(self):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.stop())
-        yield from self._callback('post_volume_stop')
+    async def stop(self):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.stop())
+        await self._callback('post_volume_stop')
         return ret
 
-    @asyncio.coroutine
-    def import_data(self, size):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_import_data', cb_args=[size])
-        return (yield from coro_maybe(self._cb_impl.import_data(size)))
+    async def import_data(self, size):
+        await self._assert_initialized()
+        await self._callback('pre_volume_import_data', cb_args=[size])
+        return (await coro_maybe(self._cb_impl.import_data(size)))
 
-    @asyncio.coroutine
-    def import_data_end(self, success):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.import_data_end(success))
-        yield from self._callback('post_volume_import_data_end', cb_args=[success])
+    async def import_data_end(self, success):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.import_data_end(success))
+        await self._callback('post_volume_import_data_end', cb_args=[success])
         return ret
 
-    @asyncio.coroutine
-    def import_volume(self, src_volume):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_import', cb_args=[src_volume.vid])
-        ret = yield from coro_maybe(self._cb_impl.import_volume(src_volume))
-        yield from self._callback('post_volume_import', cb_args=[src_volume.vid])
+    async def import_volume(self, src_volume):
+        await self._assert_initialized()
+        await self._callback('pre_volume_import', cb_args=[src_volume.vid])
+        ret = await coro_maybe(self._cb_impl.import_volume(src_volume))
+        await self._callback('post_volume_import', cb_args=[src_volume.vid])
         return ret
 
     def is_dirty(self):
@@ -539,28 +524,24 @@ class CallbackVolume(qubes.storage.Volume):
             return None
         return self._cb_impl.block_device()
 
-    @asyncio.coroutine
-    def export(self):
-        yield from self._assert_initialized()
-        yield from self._callback('pre_volume_export')
-        return (yield from coro_maybe(self._cb_impl.export()))
+    async def export(self):
+        await self._assert_initialized()
+        await self._callback('pre_volume_export')
+        return (await coro_maybe(self._cb_impl.export()))
 
-    @asyncio.coroutine
-    def export_end(self, path):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.export_end(path))
-        yield from self._callback('post_volume_export_end', cb_args=[path])
+    async def export_end(self, path):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.export_end(path))
+        await self._callback('post_volume_export_end', cb_args=[path])
         return ret
 
-    @asyncio.coroutine
-    def verify(self):
-        yield from self._assert_initialized()
-        return (yield from coro_maybe(self._cb_impl.verify()))
+    async def verify(self):
+        await self._assert_initialized()
+        return (await coro_maybe(self._cb_impl.verify()))
 
-    @asyncio.coroutine
-    def revert(self, revision=None):
-        yield from self._assert_initialized()
-        return (yield from coro_maybe(self._cb_impl.revert(revision=revision)))
+    async def revert(self, revision=None):
+        await self._assert_initialized()
+        return (await coro_maybe(self._cb_impl.revert(revision=revision)))
 
     #shadow all qubes.storage.Volume class attributes as instance properties
     #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value

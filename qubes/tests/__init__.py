@@ -181,9 +181,8 @@ class TestEmitter(qubes.events.Emitter):
         self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
-    @asyncio.coroutine
-    def fire_event_async(self, event, pre_event=False, **kwargs):
-        effects = yield from super(TestEmitter, self).fire_event_async(
+    async def fire_event_async(self, event, pre_event=False, **kwargs):
+        effects = await super(TestEmitter, self).fire_event_async(
             event, pre_event=pre_event, **kwargs)
         ev_kwargs = frozenset(
             (key,
@@ -1052,8 +1051,7 @@ class SystemTestCase(QubesTestCase):
         return _QrexecPolicyContext(service, source, destination,
                                     allow=allow, action=action)
 
-    @asyncio.coroutine
-    def wait_for_window_hide_coro(self, title, winid, timeout=30):
+    async def wait_for_window_hide_coro(self, title, winid, timeout=30):
         """
         Wait for window do disappear
         :param winid: window id
@@ -1067,10 +1065,9 @@ class SystemTestCase(QubesTestCase):
             if wait_count > timeout * 10:
                 self.fail("Timeout while waiting for {}({}) window to "
                           "disappear".format(title, winid))
-            yield from asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
 
-    @asyncio.coroutine
-    def wait_for_window_coro(self, title, search_class=False, timeout=30,
+    async def wait_for_window_coro(self, title, search_class=False, timeout=30,
                              show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
@@ -1098,17 +1095,16 @@ class SystemTestCase(QubesTestCase):
             except subprocess.CalledProcessError:
                 # already gone
                 return
-            yield from self.wait_for_window_hide_coro(winid, title,
-                                                      timeout=timeout)
+            await self.wait_for_window_hide_coro(winid, title, timeout=timeout)
             return
 
         winid = None
         while not winid:
-            p = yield from asyncio.create_subprocess_exec(
+            p = await asyncio.create_subprocess_exec(
                 *xdotool_search, title,
                 stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
             try:
-                (winid, _) = yield from asyncio.wait_for(
+                (winid, _) = await asyncio.wait_for(
                     p.communicate(), timeout)
                 # don't check exit code, getting winid on stdout is enough
                 # indicator of success; specifically ignore xdotool failing
@@ -1273,23 +1269,21 @@ class SystemTestCase(QubesTestCase):
             'cat > {0}; chmod {1:o} {0}'.format(shlex.quote(filename), mode),
             user='root', input=content.encode('utf-8')))
 
-    @asyncio.coroutine
-    def wait_for_session(self, vm):
+    async def wait_for_session(self, vm):
         timeout = vm.qrexec_timeout
         if getattr(vm, 'template', None) and 'whonix-ws' in vm.template.name:
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
             timeout = 120
-        yield from asyncio.wait_for(
+        await asyncio.wait_for(
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
             timeout=timeout)
 
-    @asyncio.coroutine
-    def start_vm(self, vm):
+    async def start_vm(self, vm):
         """Start a VM and wait for it to be fully up"""
-        yield from vm.start()
-        yield from self.wait_for_session(vm)
+        await vm.start()
+        await self.wait_for_session(vm)
 
 
 _templates = None

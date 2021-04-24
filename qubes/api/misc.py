@@ -33,8 +33,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
     SOCKNAME = '/var/run/qubesd.misc.sock'
 
     @qubes.api.method('qubes.FeaturesRequest', no_payload=True)
-    @asyncio.coroutine
-    def qubes_features_request(self):
+    async def qubes_features_request(self):
         ''' qubes.FeaturesRequest handler
 
         VM (mostly templates) can request some features from dom0 for itself.
@@ -61,13 +60,12 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
             untrusted_value = untrusted_features[untrusted_key]
             self.enforce(all((c in safe_set) for c in untrusted_value))
 
-        yield from self.src.fire_event_async('features-request',
+        await self.src.fire_event_async('features-request',
             untrusted_features=untrusted_features)
         self.app.save()
 
     @qubes.api.method('qubes.NotifyTools', no_payload=True)
-    @asyncio.coroutine
-    def qubes_notify_tools(self):
+    async def qubes_notify_tools(self):
         '''
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
         '''
@@ -88,13 +86,12 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 untrusted_features[feature] = untrusted_value
             del untrusted_value
 
-        yield from self.src.fire_event_async('features-request',
+        await self.src.fire_event_async('features-request',
             untrusted_features=untrusted_features)
         self.app.save()
 
     @qubes.api.method('qubes.NotifyUpdates')
-    @asyncio.coroutine
-    def qubes_notify_updates(self, untrusted_payload):
+    async def qubes_notify_updates(self, untrusted_payload):
         '''
         Receive VM notification about updates availability
 

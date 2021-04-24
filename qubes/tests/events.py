@@ -138,19 +138,16 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
     def test_005_fire_for_effect_async(self):
         class TestEmitter(qubes.events.Emitter):
             @qubes.events.handler('testevent')
-            @asyncio.coroutine
-            def on_testevent_1(self, event):
+            async def on_testevent_1(self, event):
                 pass
 
             @qubes.events.handler('testevent')
-            @asyncio.coroutine
-            def on_testevent_2(self, event):
-                yield from asyncio.sleep(0.01)
+            async def on_testevent_2(self, event):
+                await asyncio.sleep(0.01)
                 return ['testvalue1']
 
             @qubes.events.handler('testevent')
-            @asyncio.coroutine
-            def on_testevent_3(self, event):
+            async def on_testevent_3(self, event):
                 return ('testvalue2', 'testvalue3')
 
             @qubes.events.handler('testevent')

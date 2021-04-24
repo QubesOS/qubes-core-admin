@@ -170,21 +170,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         qubes.vm.appvm.template_changed_update_storage(self)
 
     @qubes.events.handler('domain-shutdown')
-    @asyncio.coroutine
-    def on_domain_shutdown(self, _event, **_kwargs):
-        yield from self._auto_cleanup()
+    async def on_domain_shutdown(self, _event, **_kwargs):
+        await self._auto_cleanup()
 
-    @asyncio.coroutine
-    def _auto_cleanup(self):
+    async def _auto_cleanup(self):
         '''Do auto cleanup if enabled'''
         if self.auto_cleanup and self in self.app.domains:
             del self.app.domains[self]
-            yield from self.remove_from_disk()
+            await self.remove_from_disk()
             self.app.save()
 
     @classmethod
-    @asyncio.coroutine
-    def from_appvm(cls, appvm, **kwargs):
+    async def from_appvm(cls, appvm, **kwargs):
         '''Create a new instance from given AppVM
 
         :param qubes.vm.appvm.AppVM appvm: template from which the VM should \
@@ -211,12 +208,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             template=appvm,
             auto_cleanup=True,
             **kwargs)
-        yield from dispvm.create_on_disk()
+        await dispvm.create_on_disk()
         app.save()
         return dispvm
 
-    @asyncio.coroutine
-    def cleanup(self):
+    async def cleanup(self):
         '''Clean up after the DispVM
 
         This stops the disposable qube and removes it from the store.
@@ -224,13 +220,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''
         try:
             # pylint: disable=not-an-iterable
-            yield from self.kill()
+            await self.kill()
         except qubes.exc.QubesVMNotStartedError:
             pass
         # if auto_cleanup is set, this will be done automatically
         if not self.auto_cleanup:
             del self.app.domains[self]
-            yield from self.remove_from_disk()
+            await self.remove_from_disk()
             self.app.save()
 
     async def start(self, **kwargs):

@@ -90,28 +90,27 @@ class TC_00_QrexecMixin(object):
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
 
-        @asyncio.coroutine
-        def run(self):
-            p = yield from self.testvm1.run(
+        async def run(self):
+            p = await self.testvm1.run(
                     'echo test; exec >&-; cat > /dev/null',
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE)
 
             # this will hang on test failure
-            stdout = yield from asyncio.wait_for(p.stdout.read(), timeout=10)
+            stdout = await asyncio.wait_for(p.stdout.read(), timeout=10)
 
             p.stdin.write(TEST_DATA)
-            yield from p.stdin.drain()
+            await p.stdin.drain()
             p.stdin.close()
             self.assertEqual(stdout.strip(), b'test',
                 'Received data differs from what was expected')
             # this may hang in some buggy cases
-            self.assertFalse((yield from p.stderr.read()),
+            self.assertFalse((await p.stderr.read()),
                 'Some data was printed to stderr')
 
             try:
-                yield from asyncio.wait_for(p.wait(), timeout=1)
+                await asyncio.wait_for(p.wait(), timeout=1)
             except asyncio.TimeoutError:
                 self.fail("Timeout, "
                     "probably EOF wasn't transferred from the VM process")

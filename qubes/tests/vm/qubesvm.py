@@ -2010,8 +2010,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertEqual(test_qubesdb.data, expected)
 
 
-    @asyncio.coroutine
-    def coroutine_mock(self, mock, *args, **kwargs):
+    async def coroutine_mock(self, mock, *args, **kwargs):
         return mock(*args, **kwargs)
 
     @unittest.mock.patch('asyncio.create_subprocess_exec')

@@ -1331,14 +1331,12 @@ class Qubes(qubes.PropertyHolder):
 
         raise qubes.exc.QubesLabelNotFoundError(label)
 
-    @asyncio.coroutine
-    def setup_pools(self):
+    async def setup_pools(self):
         """ Run implementation specific setup for each storage pool. """
-        yield from qubes.utils.void_coros_maybe(
+        await qubes.utils.void_coros_maybe(
             pool.setup() for pool in self.pools.values())
 
-    @asyncio.coroutine
-    def add_pool(self, name, **kwargs):
+    async def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""
 
         if name in self.pools.keys():
@@ -1347,13 +1345,12 @@ class Qubes(qubes.PropertyHolder):
 
         kwargs['name'] = name
         pool = self._get_pool(**kwargs)
-        yield from qubes.utils.coro_maybe(pool.setup())
+        await qubes.utils.coro_maybe(pool.setup())
         self.pools[name] = pool
-        yield from self.fire_event_async('pool-add', pool=pool)
+        await self.fire_event_async('pool-add', pool=pool)
         return pool
 
-    @asyncio.coroutine
-    def remove_pool(self, name):
+    async def remove_pool(self, name):
         """ Remove a storage pool from config file.  """
         try:
             pool = self.pools[name]
@@ -1369,11 +1366,11 @@ class Qubes(qubes.PropertyHolder):
                         pool,
                         'Storage pool is in use: '
                         'set as {}'.format('default_pool' + suffix))
-            yield from self.fire_event_async('pool-pre-delete',
+            await self.fire_event_async('pool-pre-delete',
                                              pre_event=True, pool=pool)
             del self.pools[name]
-            yield from qubes.utils.coro_maybe(pool.destroy())
-            yield from self.fire_event_async('pool-delete', pool=pool)
+            await qubes.utils.coro_maybe(pool.destroy())
+            await self.fire_event_async('pool-delete', pool=pool)
         except KeyError:
             return
 

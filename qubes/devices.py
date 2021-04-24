@@ -228,8 +228,7 @@ class DeviceCollection:
         self.devclass = qubes.utils.get_entry_point_one(
             'qubes.devices', self._bus)
 
-    @asyncio.coroutine
-    def attach(self, device_assignment: DeviceAssignment):
+    async def attach(self, device_assignment: DeviceAssignment):
         '''Attach (add) device to domain.
 
         :param DeviceInfo device: device object
@@ -249,12 +248,12 @@ class DeviceCollection:
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
-        yield from self._vm.fire_event_async('device-pre-attach:' + self._bus,
+        await self._vm.fire_event_async('device-pre-attach:' + self._bus,
             pre_event=True,
             device=device, options=device_assignment.options)
         if device_assignment.persistent:
             self._set.add(device_assignment)
-        yield from self._vm.fire_event_async('device-attach:' + self._bus,
+        await self._vm.fire_event_async('device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
     def load_persistent(self, device_assignment: DeviceAssignment):
@@ -289,8 +288,7 @@ class DeviceCollection:
         elif not persistent and device in self._set:
             self._set.discard(assignment)
 
-    @asyncio.coroutine
-    def detach(self, device_assignment: DeviceAssignment):
+    async def detach(self, device_assignment: DeviceAssignment):
         '''Detach (remove) device from domain.
 
         :param DeviceInfo device: device object
@@ -311,13 +309,13 @@ class DeviceCollection:
                     device_assignment.ident, self._bus, self._vm))
 
         device = device_assignment.device
-        yield from self._vm.fire_event_async('device-pre-detach:' + self._bus,
+        await self._vm.fire_event_async('device-pre-detach:' + self._bus,
             pre_event=True, device=device)
         if device in self._set:
             device_assignment.persistent = True
             self._set.discard(device_assignment)
 
-        yield from self._vm.fire_event_async('device-detach:' + self._bus,
+        await self._vm.fire_event_async('device-detach:' + self._bus,
             device=device)
 
     def attached(self):

@@ -161,11 +161,10 @@ class Volume:
     @staticmethod
     def locked(method):
         '''Decorator running given Volume's coroutine under a lock.
-        Needs to be added after wrapping with @asyncio.coroutine, for example:
+        Only valid for async methods, for example:
 
         >>>@Volume.locked
-        >>>@asyncio.coroutine
-        >>>def start(self):
+        >>>async def start(self):
         >>>    pass
         '''
         @functools.wraps(method)
@@ -518,15 +517,14 @@ class Storage:
             result += volume.usage
         return result
 
-    @asyncio.coroutine
-    def resize(self, volume, size):
+    async def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
         if isinstance(volume, str):
             volume = self.vm.volumes[volume]
-        yield from qubes.utils.coro_maybe(volume.resize(size))
+        await qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
-                yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
+                await self.vm.run_service_for_stdio('qubes.ResizeDisk',
                     input=volume.name.encode(),
                     user='root')
             except subprocess.CalledProcessError as e:
@@ -537,14 +535,12 @@ class Storage:
                     'filesystem manually): {}'.format(volume, service_error))
 
 
-    @asyncio.coroutine
-    def create(self):
+    async def create(self):
         ''' Creates volumes on disk '''
-        yield from qubes.utils.void_coros_maybe(
+        await qubes.utils.void_coros_maybe(
             vol.create() for vol in self.vm.volumes.values())
 
-    @asyncio.coroutine
-    def clone_volume(self, src_vm, name):
+    async def clone_volume(self, src_vm, name):
         ''' Clone single volume from the specified vm
 
         :param QubesVM src_vm: source VM
@@ -557,18 +553,17 @@ class Storage:
         src_volume = src_vm.volumes[name]
         msg = "Importing volume {!s} from vm {!s}"
         self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-        yield from qubes.utils.coro_maybe(dst.create())
-        yield from qubes.utils.coro_maybe(dst.import_volume(src_volume))
+        await qubes.utils.coro_maybe(dst.create())
+        await qubes.utils.coro_maybe(dst.import_volume(src_volume))
         self.vm.volumes[name] = dst
         return self.vm.volumes[name]
 
-    @asyncio.coroutine
-    def clone(self, src_vm):
+    async def clone(self, src_vm):
         ''' Clone volumes from the specified vm '''
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            yield from qubes.utils.void_coros_maybe(
+            await qubes.utils.void_coros_maybe(
                 self.clone_volume(src_vm, vol_name)
                 for vol_name in self.vm.volume_config.keys())
 
@@ -586,8 +581,7 @@ class Storage:
 
         return result
 
-    @asyncio.coroutine
-    def verify(self):
+    async def verify(self):
         '''Verify that the storage is sane.
 
         On success, returns normally. On failure, raises exception.
@@ -596,13 +590,12 @@ class Storage:
             raise qubes.exc.QubesVMError(
                 self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
-        yield from qubes.utils.void_coros_maybe(
+        await qubes.utils.void_coros_maybe(
             vol.verify() for vol in self.vm.volumes.values())
         self.vm.fire_event('domain-verify-files')
         return True
 
-    @asyncio.coroutine
-    def remove(self):
+    async def remove(self):
         ''' Remove all the volumes.
 
             Errors on removal are catched and logged.
@@ -615,20 +608,18 @@ class Storage:
             except (IOError, OSError) as e:
                 self.vm.log.exception("Failed to remove volume %s", vol.name, e)
         try:
-            yield from qubes.utils.void_coros_maybe(results)
+            await qubes.utils.void_coros_maybe(results)
         except (IOError, OSError) as e:
             self.vm.log.exception("Failed to remove some volume", e)
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         ''' Execute the start method on each volume '''
-        yield from qubes.utils.void_coros_maybe(
+        await qubes.utils.void_coros_maybe(
             vol.start() for vol in self.vm.volumes.values())
 
-    @asyncio.coroutine
-    def stop(self):
+    async def stop(self):
         ''' Execute the stop method on each volume '''
-        yield from qubes.utils.void_coros_maybe(
+        await qubes.utils.void_coros_maybe(
             vol.stop() for vol in self.vm.volumes.values())
 
     def unused_frontend(self):
@@ -646,17 +637,15 @@ class Storage:
                     for target in parsed_xml.xpath(
                         "//domain/devices/disk/target")}
 
-    @asyncio.coroutine
-    def export(self, volume):
+    async def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if not isinstance(volume, Volume):
             volume = self.vm.volumes[volume]
-        return (yield from qubes.utils.coro_maybe(volume.export()))
+        return await qubes.utils.coro_maybe(volume.export())
 
-    @asyncio.coroutine
-    def export_end(self, volume, export_path):
+    async def export_end(self, volume, export_path):
         """ Cleanup after exporting data from the volume
 
         :param volume: volume that was exported
@@ -666,10 +655,9 @@ class Storage:
             "You need to pass a Volume or pool name as str"
         if not isinstance(volume, Volume):
             volume = self.vm.volumes[volume]
-        yield from qubes.utils.coro_maybe(volume.export_end(export_path))
+        await qubes.utils.coro_maybe(volume.export_end(export_path))
 
-    @asyncio.coroutine
-    def import_data(self, volume, size):
+    async def import_data(self, volume, size):
         '''
         Helper function to import volume data (pool.import_data(volume)).
 
@@ -685,10 +673,9 @@ class Storage:
             size = volume.size
 
         ret = volume.import_data(size)
-        return (yield from qubes.utils.coro_maybe(ret))
+        return await qubes.utils.coro_maybe(ret)
 
-    @asyncio.coroutine
-    def import_data_end(self, volume, success):
+    async def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import
         (pool.import_data_end( volume))'''
         assert isinstance(volume, (Volume, str)), \
@@ -697,7 +684,7 @@ class Storage:
             ret = volume.import_data_end(success=success)
         else:
             ret = self.vm.volumes[volume].import_data_end(success=success)
-        return (yield from qubes.utils.coro_maybe(ret))
+        return await qubes.utils.coro_maybe(ret)
 
 
 class VolumesCollection:

@@ -25,8 +25,7 @@ from unittest import mock
 import json
 
 def mock_coro(f):
-    @asyncio.coroutine
-    def coro_f(*args, **kwargs):
+    async def coro_f(*args, **kwargs):
         return f(*args, **kwargs)
 
     return coro_f

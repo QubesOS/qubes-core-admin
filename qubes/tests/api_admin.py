@@ -1013,8 +1013,7 @@ netvm default=True type=vm \n'''
     def test_220_start(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.start = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Start', b'test-vm1')
@@ -1024,8 +1023,7 @@ netvm default=True type=vm \n'''
     def test_230_shutdown(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1')
@@ -1035,8 +1033,7 @@ netvm default=True type=vm \n'''
     def test_231_shutdown_force(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'force')
@@ -1046,8 +1043,7 @@ netvm default=True type=vm \n'''
     def test_232_shutdown_wait(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'wait')
@@ -1057,8 +1053,7 @@ netvm default=True type=vm \n'''
     def test_233_shutdown_wait_force(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'wait+force')
@@ -1068,8 +1063,7 @@ netvm default=True type=vm \n'''
     def test_234_shutdown_force_wait(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'force+wait')
@@ -1079,8 +1073,7 @@ netvm default=True type=vm \n'''
     def test_234_shutdown_force_wait_invalid(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
         with self.assertRaises(qubes.api.PermissionDenied):
@@ -1090,8 +1083,7 @@ netvm default=True type=vm \n'''
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.pause = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Pause', b'test-vm1')
@@ -1101,8 +1093,7 @@ netvm default=True type=vm \n'''
     def test_250_unpause(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.unpause = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Unpause', b'test-vm1')
@@ -1112,8 +1103,7 @@ netvm default=True type=vm \n'''
     def test_260_kill(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.kill = coroutine_mock
         value = self.call_mgmt_func(b'admin.vm.Kill', b'test-vm1')
@@ -1125,8 +1115,7 @@ netvm default=True type=vm \n'''
         mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'admin.Events',
             b'dom0', b'', send_event=send_event)
 
-        @asyncio.coroutine
-        def fire_event():
+        async def fire_event():
             self.vm.fire_event('test-event', arg1='abc')
             mgmt_obj.cancel()
 
@@ -1149,8 +1138,7 @@ netvm default=True type=vm \n'''
         mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'admin.Events',
             b'dom0', b'', send_event=send_event)
 
-        @asyncio.coroutine
-        def fire_event():
+        async def fire_event():
             self.vm.fire_event('test-event', arg1='abc')
             # add VM _after_ starting admin.Events call
             vm = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
@@ -1191,8 +1179,7 @@ netvm default=True type=vm \n'''
                     b'admin.Events',
                     b'dom0', b'', send_event=send_event)
 
-                @asyncio.coroutine
-                def fire_event():
+                async def fire_event():
                     # add VM _after_ starting admin.Events call
                     vm = self.app.add_new_vm('AppVM', label='red',
                         name='test-vm2',
@@ -1336,15 +1323,13 @@ netvm default=True type=vm \n'''
         self.assertNotIn('test-feature', self.vm.features)
         self.assertFalse(self.app.save.called)
 
-    @asyncio.coroutine
-    def dummy_coro(self, *args, **kwargs):
+    async def dummy_coro(self, *args, **kwargs):
         pass
 
     def coroutine_mock(self):
         func_mock = unittest.mock.Mock()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
+        async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         return func_mock, coroutine_mock
 
@@ -2355,8 +2340,7 @@ netvm default=True type=vm \n'''
             'passphrase_vm: test-vm1\n'
         )
 
-        @asyncio.coroutine
-        def service_passphrase(*args, **kwargs):
+        async def service_passphrase(*args, **kwargs):
             return (b'pass-from-vm', None)
 
         mock_backup.return_value.backup_do.side_effect = self.dummy_coro
@@ -2805,8 +2789,7 @@ netvm default=True type=vm \n'''
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = os.path.join(tmpdir, 'testfile')
 
-            @asyncio.coroutine
-            def coroutine_mock(*args, **kwargs):
+            async def coroutine_mock(*args, **kwargs):
                 return tmpfile
 
             self.vm.volumes = unittest.mock.MagicMock()

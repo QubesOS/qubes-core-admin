@@ -24,8 +24,7 @@ import qubes.ext
 class CoreFeatures(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
     @qubes.ext.handler('features-request')
-    @asyncio.coroutine
-    def qubes_features_request(self, vm, event, untrusted_features):
+    async def qubes_features_request(self, vm, event, untrusted_features):
         '''Handle features provided by qubes-core-agent and qubes-gui-agent'''
         # pylint: disable=no-self-use,unused-argument
         if getattr(vm, 'template', None):
@@ -61,7 +60,7 @@ class CoreFeatures(qubes.ext.Extension):
         if not qrexec_before and vm.features.get('qrexec', False):
             # if this is the first time qrexec was advertised, now can finish
             #  template setup
-            yield from vm.fire_event_async('template-postinstall')
+            async vm.fire_event_async('template-postinstall')
 
     # pylint: disable=no-self-use
     def set_servicevm_feature(self, subject):

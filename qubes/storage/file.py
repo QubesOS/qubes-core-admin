@@ -296,19 +296,18 @@ class FileVolume(qubes.storage.Volume):
             'ending an export on a running volume?'
         self._export_lock = None
 
-    @asyncio.coroutine
-    def import_volume(self, src_volume):
+    async def import_volume(self, src_volume):
         if src_volume.snap_on_start:
             raise qubes.storage.StoragePoolException(
                 "Can not import snapshot volume {!s} in to pool {!s} ".format(
                     src_volume, self))
         if self.save_on_stop:
             _remove_if_exists(self.path)
-            path = yield from qubes.utils.coro_maybe(src_volume.export())
+            path = await qubes.utils.coro_maybe(src_volume.export())
             try:
                 copy_file(path, self.path)
             finally:
-                yield from qubes.utils.coro_maybe(src_volume.export_end(path))
+                await qubes.utils.coro_maybe(src_volume.export_end(path))
         return self
 
     def import_data(self, size):

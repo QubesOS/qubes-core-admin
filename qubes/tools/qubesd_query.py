@@ -41,8 +41,7 @@ def sighandler(loop, signame, coro):
     coro.cancel()
     loop.stop()
 
-@asyncio.coroutine
-def qubesd_client(socket, payload, *args):
+async def qubesd_client(socket, payload, *args):
     '''
     Connect to qubesd, send request and passthrough response to stdout
 
@@ -52,7 +51,7 @@ def qubesd_client(socket, payload, *args):
     :return:
     '''
     try:
-        reader, writer = yield from asyncio.open_unix_connection(socket)
+        reader, writer = await asyncio.open_unix_connection(socket)
     except asyncio.CancelledError:
         return 1
 
@@ -63,11 +62,11 @@ def qubesd_client(socket, payload, *args):
     writer.write_eof()
 
     try:
-        header_data = yield from reader.read(1)
+        header_data = await reader.read(1)
         returncode = int(header_data)
         sys.stdout.buffer.write(header_data)  # pylint: disable=no-member
         while not reader.at_eof():
-            data = yield from reader.read(4096)
+            data = await reader.read(4096)
             sys.stdout.buffer.write(data)  # pylint: disable=no-member
             sys.stdout.flush()
         return returncode
