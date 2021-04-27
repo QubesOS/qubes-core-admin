@@ -56,11 +56,10 @@ def _coroutinized(function):
         function via the event loop's ThreadPool-based default
         executor.
     '''
-    @asyncio.coroutine
     @functools.wraps(function)
-    def wrapper(*args, **kwargs):
-        return (yield from asyncio.get_event_loop().run_in_executor(
-            None, functools.partial(function, *args, **kwargs)))
+    async def wrapper(*args, **kwargs):
+        return await asyncio.get_event_loop().run_in_executor(
+            None, functools.partial(function, *args, **kwargs))
     return wrapper
 
 
@@ -158,6 +157,7 @@ class ReflinkVolume(qubes.storage.Volume):
             _create_sparse_file(self._path_clean, self._size)
         return self
 
+    # pylint: disable=invalid-overridden-method
     @_coroutinized
     def verify(self):
         if self.snap_on_start:
@@ -291,6 +291,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
+    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
     def import_data(self, size):

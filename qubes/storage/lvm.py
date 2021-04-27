@@ -442,29 +442,28 @@ class ThinVolume(qubes.storage.Volume):
         return self
 
     @qubes.storage.Volume.locked
-    @asyncio.coroutine
-    def remove(self):
+    async def remove(self):
         assert self.vid
         try:
             if os.path.exists('/dev/' + self._vid_snap):
                 cmd = ['remove', self._vid_snap]
-                yield from qubes_lvm_coro(cmd, self.log)
+                await qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
         try:
             if os.path.exists('/dev/' + self._vid_import):
                 cmd = ['remove', self._vid_import]
-                yield from qubes_lvm_coro(cmd, self.log)
+                await qubes_lvm_coro(cmd, self.log)
         except AttributeError:
             pass
 
-        yield from self._remove_revisions(self.revisions.keys())
+        await self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
         cmd = ['remove', self.path]
-        yield from qubes_lvm_coro(cmd, self.log)
-        yield from reset_cache_coro()
+        await qubes_lvm_coro(cmd, self.log)
+        await reset_cache_coro()
         # pylint: disable=protected-access
         self.pool._volume_objects_cache.pop(self.vid, None)
 

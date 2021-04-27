@@ -185,7 +185,7 @@ class Volume:
         '''
         raise self._not_implemented("create")
 
-    def remove(self):
+    async def remove(self):
         ''' Remove volume.
 
         This can be implemented as a coroutine.'''
@@ -601,8 +601,7 @@ class Storage:
         self.vm.fire_event('domain-verify-files')
         return True
 
-    @asyncio.coroutine
-    def remove(self):
+    async def remove(self):
         ''' Remove all the volumes.
 
             Errors on removal are catched and logged.
@@ -615,7 +614,7 @@ class Storage:
             except (IOError, OSError) as e:
                 self.vm.log.exception("Failed to remove volume %s", vol.name, e)
         try:
-            yield from qubes.utils.void_coros_maybe(results)
+            await qubes.utils.void_coros_maybe(results)
         except (IOError, OSError) as e:
             self.vm.log.exception("Failed to remove some volume", e)
 

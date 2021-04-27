@@ -454,11 +454,10 @@ class CallbackVolume(qubes.storage.Volume):
         yield from self._callback('post_volume_create')
         return ret
 
-    @asyncio.coroutine
-    def remove(self):
-        yield from self._assert_initialized()
-        ret = yield from coro_maybe(self._cb_impl.remove())
-        yield from self._callback('post_volume_remove')
+    async def remove(self):
+        await self._assert_initialized()
+        ret = await coro_maybe(self._cb_impl.remove())
+        await self._callback('post_volume_remove')
         return ret
 
     @asyncio.coroutine

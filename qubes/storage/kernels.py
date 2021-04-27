@@ -95,7 +95,7 @@ class LinuxModules(Volume):
     def create(self):
         return self
 
-    def remove(self):
+    async def remove(self):
         pass
 
     def commit(self):
