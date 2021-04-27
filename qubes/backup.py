@@ -130,12 +130,11 @@ class SendWorker:
         self.backup_stdout = backup_stdout
         self.log = logging.getLogger('qubes.backup')
 
-    @asyncio.coroutine
-    def run(self):
+    async def run(self):
         self.log.debug("Started sending thread")
 
         while True:
-            filename = yield from self.queue.get()
+            filename = await self.queue.get()
             if filename in (QUEUE_FINISHED, QUEUE_ERROR):
                 break
 
@@ -146,10 +145,10 @@ class SendWorker:
             tar_final_cmd = ["tar", "-cO", "--posix",
                              "-C", self.base_dir, filename]
             # pylint: disable=not-an-iterable
-            final_proc = yield from asyncio.create_subprocess_exec(
+            final_proc = await asyncio.create_subprocess_exec(
                 *tar_final_cmd,
                 stdout=self.backup_stdout)
-            retcode = yield from final_proc.wait()
+            retcode = await final_proc.wait()
             if retcode >= 2:
                 # handle only exit code 2 (tar fatal error) or
                 # greater (call failed?)
@@ -163,8 +162,7 @@ class SendWorker:
 
         self.log.debug("Finished sending thread")
 
-@asyncio.coroutine
-def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
+async def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
     """Similar to pty.fork, but handle stdin/stdout according to parameters
     instead of connecting to the pty
 
@@ -182,7 +180,7 @@ def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
     (pty_master, pty_slave) = os.openpty()
     # pylint: disable=not-an-iterable
-    p = yield from asyncio.create_subprocess_exec(*args,
+    p = await asyncio.create_subprocess_exec(*args,
         stdin=stdin,
         stdout=stdout,
         stderr=stderr,
@@ -191,8 +189,7 @@ def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
     return p, open(pty_master, 'wb+', buffering=0)
 
 
-@asyncio.coroutine
-def launch_scrypt(action, input_name, output_name, passphrase):
+async def launch_scrypt(action, input_name, output_name, passphrase):
     '''
     Launch 'scrypt' process, pass passphrase to it and return
     subprocess.Popen object.
@@ -205,7 +202,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
     :return: subprocess.Popen object
     '''
     command_line = ['scrypt', action, input_name, output_name]
-    (p, pty) = yield from launch_proc_with_pty(command_line,
+    (p, pty) = await launch_proc_with_pty(command_line,
         stdin=subprocess.PIPE if input_name == '-' else None,
         stdout=subprocess.PIPE if output_name == '-' else None,
         stderr=subprocess.PIPE,
@@ -215,7 +212,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
     else:
         prompts = (b'Please enter passphrase: ',)
     for prompt in prompts:
-        actual_prompt = yield from p.stderr.read(len(prompt))
+        actual_prompt = await p.stderr.read(len(prompt))
         if actual_prompt != prompt:
             raise qubes.exc.QubesException(
                 'Unexpected prompt from scrypt: {}'.format(actual_prompt))
@@ -512,8 +509,7 @@ class Backup:
 
         return summary
 
-    @asyncio.coroutine
-    def _prepare_backup_header(self):
+    async def _prepare_backup_header(self):
         header_file_path = os.path.join(self.tmpdir, HEADER_FILENAME)
         backup_header = BackupHeader(
             version=CURRENT_BACKUP_FORMAT_VERSION,
@@ -528,15 +524,15 @@ class Backup:
         # protection
         scrypt_passphrase = '{filename}!'.format(
             filename=HEADER_FILENAME).encode() + self.passphrase
-        scrypt = yield from launch_scrypt(
+        scrypt = await launch_scrypt(
             'enc', header_file_path, header_file_path + '.hmac',
             scrypt_passphrase)
 
-        retcode = yield from scrypt.wait()
+        retcode = await scrypt.wait()
         if retcode:
             raise qubes.exc.QubesException(
                 "Failed to compute hmac of header file: "
-                + (yield from scrypt.stderr.read()).decode())
+                + (await scrypt.stderr.read()).decode())
         return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
 
     def _send_progress_update(self):
@@ -555,8 +551,7 @@ class Backup:
         self._current_vm_bytes += bytes_done
         self._send_progress_update()
 
-    @asyncio.coroutine
-    def _split_and_send(self, input_stream, file_basename,
+    async def _split_and_send(self, input_stream, file_basename,
             output_queue):
         '''Split *input_stream* into parts of max *chunk_size* bytes and send
         to *output_queue*.
@@ -585,10 +580,10 @@ class Backup:
                     filename=os.path.relpath(chunkfile[:-4],
                         self.tmpdir)).encode() + self.passphrase
             try:
-                scrypt = yield from launch_scrypt(
+                scrypt = await launch_scrypt(
                     "enc", "-", chunkfile, scrypt_passphrase)
 
-                run_error = yield from handle_streams(
+                run_error = await handle_streams(
                     input_stream,
                     scrypt.stdin,
                     self.chunk_size,
@@ -602,16 +597,15 @@ class Backup:
                 raise
 
             scrypt.stdin.close()
-            yield from scrypt.wait()
+            await scrypt.wait()
             self.log.debug("scrypt return code: {}".format(
                 scrypt.returncode))
 
             # Send the chunk to the backup target
-            yield from output_queue.put(
+            await output_queue.put(
                 os.path.relpath(chunkfile, self.tmpdir))
 
-    @asyncio.coroutine
-    def _wrap_and_send_files(self, files_to_backup, output_queue):
+    async def _wrap_and_send_files(self, files_to_backup, output_queue):
         for vm_info in files_to_backup:
             for file_info in vm_info.files:
 
@@ -633,7 +627,7 @@ class Backup:
                 # verified during untar
                 path = file_info.path
                 if callable(path):
-                    path = yield from qubes.utils.coro_maybe(path())
+                    path = await qubes.utils.coro_maybe(path())
                 tar_cmdline = (["tar", "-Pc", '--sparse',
                                 '-C', os.path.dirname(path)] +
                                (['--dereference'] if
@@ -665,11 +659,11 @@ class Backup:
                 # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
                 # pylint: disable=not-an-iterable
-                tar_sparse = yield from asyncio.create_subprocess_exec(
+                tar_sparse = await asyncio.create_subprocess_exec(
                     *tar_cmdline, stdout=subprocess.PIPE)
 
                 try:
-                    yield from self._split_and_send(
+                    await self._split_and_send(
                         tar_sparse.stdout,
                         backup_tempfile,
                         output_queue)
@@ -681,10 +675,10 @@ class Backup:
                     raise
                 finally:
                     if file_info.cleanup_func is not None:
-                        yield from qubes.utils.coro_maybe(
+                        await qubes.utils.coro_maybe(
                             file_info.cleanup_func(path))
 
-                yield from tar_sparse.wait()
+                await tar_sparse.wait()
                 if tar_sparse.returncode:
                     raise qubes.exc.QubesException(
                         'Failed to archive {} file'.format(file_info.path))
@@ -695,20 +689,19 @@ class Backup:
             self._current_vm_bytes = 0
             self._send_progress_update()
 
-        yield from output_queue.put(QUEUE_FINISHED)
+        await output_queue.put(QUEUE_FINISHED)
 
     @staticmethod
-    @asyncio.coroutine
-    def _monitor_process(proc, error_message):
+    async def _monitor_process(proc, error_message):
         try:
-            yield from proc.wait()
+            await proc.wait()
         except:
             proc.terminate()
             raise
 
         if proc.returncode:
             if proc.stderr is not None:
-                proc_stderr = (yield from proc.stderr.read())
+                proc_stderr = (await proc.stderr.read())
                 proc_stderr = proc_stderr.decode('ascii', errors='ignore')
                 proc_stderr = ''.join(
                     c for c in proc_stderr if c in string.printable and
@@ -717,8 +710,7 @@ class Backup:
             raise qubes.exc.QubesException(error_message)
 
     @staticmethod
-    @asyncio.coroutine
-    def _cancel_on_error(future, previous_task):
+    async def _cancel_on_error(future, previous_task):
         '''If further element of chain fail, cancel previous one to
         avoid deadlock.
         When earlier element of chain fail, it will be handled by
@@ -728,12 +720,11 @@ class Backup:
         :py:meth:`_wrap_and_send_files` -> :py:class:`SendWorker` -> vmproc
         '''
         try:
-            yield from future
+            await future
         except:  # pylint: disable=bare-except
             previous_task.cancel()
 
-    @asyncio.coroutine
-    def backup_do(self):
+    async def backup_do(self):
         # pylint: disable=too-many-statements
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
@@ -765,7 +756,7 @@ class Backup:
             # Prepare the backup target (Qubes service call)
             # If APPVM, STDOUT is a PIPE
             read_fd, write_fd = os.pipe()
-            vmproc = yield from self.target_vm.run_service('qubes.Backup',
+            vmproc = await self.target_vm.run_service('qubes.Backup',
                 stdin=read_fd,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.DEVNULL)
@@ -797,7 +788,7 @@ class Backup:
 
         self.log.debug("Will backup: {}".format(files_to_backup))
 
-        header_files = yield from self._prepare_backup_header()
+        header_files = await self._prepare_backup_header()
 
         # Setup worker to send encrypted data chunks to the backup_target
         to_send = asyncio.Queue(10)
@@ -814,7 +805,7 @@ class Backup:
                 vmproc_task, send_task))
 
         for file_name in header_files:
-            yield from to_send.put(file_name)
+            await to_send.put(file_name)
 
         qubes_xml_info = self.VMToBackup(
             None,
@@ -831,20 +822,20 @@ class Backup:
 
         try:
             try:
-                yield from inner_archive_task
+                await inner_archive_task
             except:
-                yield from to_send.put(QUEUE_ERROR)
+                await to_send.put(QUEUE_ERROR)
                 # in fact we may be handling CancelledError, induced by
                 # exception in send_task or vmproc_task (and propagated by
                 # self._cancel_on_error call above); in such a case this
-                # yield from will raise exception, covering CancelledError -
+                # await will raise exception, covering CancelledError -
                 # this is intended behaviour
                 if vmproc_task:
-                    yield from vmproc_task
-                yield from send_task
+                    await vmproc_task
+                await send_task
                 raise
 
-            yield from send_task
+            await send_task
 
         finally:
             if isinstance(backup_stdout, int):
@@ -853,7 +844,7 @@ class Backup:
                 backup_stdout.close()
             try:
                 if vmproc_task:
-                    yield from vmproc_task
+                    await vmproc_task
             finally:
                 shutil.rmtree(self.tmpdir)
 
@@ -866,8 +857,7 @@ class Backup:
         self.app.save()
 
 
-@asyncio.coroutine
-def handle_streams(stream_in, stream_out, size_limit=None,
+async def handle_streams(stream_in, stream_out, size_limit=None,
         progress_callback=None):
     '''
     Copy stream_in to all streams_out and monitor all mentioned processes.
@@ -890,7 +880,7 @@ def handle_streams(stream_in, stream_out, size_limit=None,
                 return "size_limit"
         else:
             to_copy = buffer_size
-        buf = yield from stream_in.read(to_copy)
+        buf = await stream_in.read(to_copy)
         if not buf:
             # done
             break

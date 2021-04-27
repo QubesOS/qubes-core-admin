@@ -24,12 +24,15 @@ import qubes.api.misc
 
 
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
+    maxDiff = None
     def setUp(self):
         super(TC_00_API_Misc, self).setUp()
         self.tpl = mock.NonCallableMagicMock(name='template')
         del self.tpl.template
+        self.async_src = mock.AsyncMock()
         self.src = mock.NonCallableMagicMock(name='appvm',
             template=self.tpl)
+        self.src.configure_mock(fire_event_async=self.async_src)
         self.app = mock.NonCallableMock()
         self.dest = mock.NonCallableMock()
         self.dest.name = 'dom0'
@@ -74,7 +77,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/features-request/feature3'),
             mock.call.fire_event_async('features-request', untrusted_features={
                 'feature1': '1', 'feature2': '', 'feature3': 'other'}),
-            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_001_features_request_empty(self):
@@ -88,7 +90,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.list('/features-request/'),
             mock.call.fire_event_async('features-request',
                 untrusted_features={}),
-            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_002_features_request_invalid1(self):
@@ -142,7 +143,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                 'default-user': 'user',
                 'qrexec': '1',
                 'os': 'Linux'}),
-            ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
@@ -167,7 +167,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                 'default-user': 'user',
                 'qrexec': '1',
                 'os': 'Linux'}),
-            ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 

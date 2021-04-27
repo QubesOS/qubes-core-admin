@@ -1286,11 +1286,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             await self.fire_event_async('domain-shutdown')
 
     @qubes.events.handler('domain-stopped')
-    @asyncio.coroutine
-    def on_domain_stopped(self, _event, **_kwargs):
+    async def on_domain_stopped(self, _event, **_kwargs):
         """Cleanup after domain was stopped"""
         try:
-            yield from self.storage.stop()
+            await self.storage.stop()
         except qubes.storage.StoragePoolException:
             self.log.exception('Failed to stop storage for domain %s',
                                self.name)
@@ -1352,8 +1351,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    @asyncio.coroutine
-    def _kill_locked(self):
+    async def _kill_locked(self):
         """Forcefully shutdown (destroy) domain.
 
         This function needs to be called with self.startup_lock held."""
@@ -1365,10 +1363,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise
 
         # make sure all shutdown tasks are completed
-        yield from self._ensure_shutdown_handled()
+        await self._ensure_shutdown_handled()
 
-    @asyncio.coroutine
-    def suspend(self):
+    async def suspend(self):
         """Suspend (pause) domain.
 
         :raises qubes.exc.QubesVMNotRunnignError: \
@@ -1380,7 +1377,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if list(self.devices['pci'].attached()):
             if self.features.check_with_template('qrexec', False):
-                yield from self.run_service_for_stdio('qubes.SuspendPre',
+                await self.run_service_for_stdio('qubes.SuspendPre',
                                                       user='root')
             self.libvirt_domain.pMSuspendForDuration(
                 libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
@@ -1389,8 +1386,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    @asyncio.coroutine
-    def pause(self):
+    async def pause(self):
         """Pause (suspend) domain."""
 
         if not self.is_running():
@@ -1400,8 +1396,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    @asyncio.coroutine
-    def resume(self):
+    async def resume(self):
         """Resume suspended domain.
 
         :raises qubes.exc.QubesVMNotSuspendedError: when machine is not paused
@@ -1412,15 +1407,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
             if self.features.check_with_template('qrexec', False):
-                yield from self.run_service_for_stdio('qubes.SuspendPost',
+                await self.run_service_for_stdio('qubes.SuspendPost',
                                                       user='root')
         else:
-            yield from self.unpause()
+            await self.unpause()
 
         return self
 
-    @asyncio.coroutine
-    def unpause(self):
+    async def unpause(self):
         """Resume (unpause) a domain"""
         if not self.is_paused():
             raise qubes.exc.QubesVMNotPausedError(self)
@@ -1619,8 +1613,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return qmemman_client
 
     @staticmethod
-    @asyncio.coroutine
-    def start_daemon(*command, input=None, **kwargs):
+    async def start_daemon(*command, input=None, **kwargs):
         """Start a daemon for the VM
 
         This function take care to run it as appropriate user.
@@ -1638,14 +1631,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qubes_group = grp.getgrnam('qubes')
             command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + \
                       list(command)
-        p = yield from asyncio.create_subprocess_exec(*command, **kwargs)
-        stdout, stderr = yield from p.communicate(input=input)
+        p = await asyncio.create_subprocess_exec(*command, **kwargs)
+        stdout, stderr = await p.communicate(input=input)
         if p.returncode:
             raise subprocess.CalledProcessError(p.returncode, command,
                                                 output=stdout, stderr=stderr)
 
-    @asyncio.coroutine
-    def start_qrexec_daemon(self, stubdom=False):
+    async def start_qrexec_daemon(self, stubdom=False):
         """Start qrexec daemon.
 
         :raises OSError: when starting fails.
@@ -1669,7 +1661,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
 
         try:
-            yield from self.start_daemon(
+            await self.start_daemon(
                 qubes.config.system_path['qrexec_daemon_path'], *qrexec_args,
                 env=qrexec_env, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as err:
@@ -1683,8 +1675,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(
                 self, 'qrexec-daemon startup failed: ' + err.stderr.decode())
 
-    @asyncio.coroutine
-    def start_qubesdb(self):
+    async def start_qubesdb(self):
         """Start QubesDB daemon.
 
         :raises OSError: when starting fails.
@@ -1695,15 +1686,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('Starting Qubes DB')
         try:
-            yield from self.start_daemon(
+            await self.start_daemon(
                 qubes.config.system_path['qubesdb_daemon_path'],
                 str(self.xid),
                 self.name)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
 
-    @asyncio.coroutine
-    def create_on_disk(self, pool=None, pools=None):
+    async def create_on_disk(self, pool=None, pools=None):
         """Create files needed for VM.
         """
 
@@ -1717,10 +1707,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.storage = qubes.storage.Storage(self)
 
         try:
-            yield from self.storage.create()
+            await self.storage.create()
         except:
             try:
-                yield from self.storage.remove()
+                await self.storage.remove()
                 os.rmdir(self.dir_path)
             except:  # pylint: disable=bare-except
                 self.log.exception('failed to cleanup {} after failed VM '
@@ -1728,10 +1718,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise
 
         # fire hooks
-        yield from self.fire_event_async('domain-create-on-disk')
+        await self.fire_event_async('domain-create-on-disk')
 
-    @asyncio.coroutine
-    def remove_from_disk(self):
+    async def remove_from_disk(self):
         """Remove domain remnants from disk."""
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
@@ -1742,11 +1731,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # handling is pending; if not, we may be called from within
         # domain-shutdown event (DispVM._auto_cleanup), which would deadlock
         if not self._domain_stopped_event_handled:
-            yield from self._ensure_shutdown_handled()
+            await self._ensure_shutdown_handled()
 
-        yield from self.fire_event_async('domain-remove-from-disk')
+        await self.fire_event_async('domain-remove-from-disk')
         try:
-            yield from self.storage.remove()
+            await self.storage.remove()
         finally:
             try:
                 # TODO: make it async?
@@ -1754,8 +1743,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except FileNotFoundError:
                 pass
 
-    @asyncio.coroutine
-    def clone_disk_files(self, src, pool=None, pools=None, ):
+    async def clone_disk_files(self, src, pool=None, pools=None, ):
         """Clone files from other vm.
 
         :param qubes.vm.qubesvm.QubesVM src: source VM
@@ -1781,12 +1769,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                       pools)
 
         self.storage = qubes.storage.Storage(self)
-        yield from self.storage.clone(src)
+        await self.storage.clone(src)
         self.storage.verify()
         assert self.volumes != {}
 
         # fire hooks
-        yield from self.fire_event_async('domain-clone-files', src=src)
+        await self.fire_event_async('domain-clone-files', src=src)
 
     #
     # methods for querying domain state

@@ -111,15 +111,14 @@ class GUI(qubes.ext.Extension):
                               oldvalue=oldvalue)
 
     @qubes.ext.handler('domain-start')
-    @asyncio.coroutine
-    def on_domain_start(self, vm, event, **kwargs):
+    async def on_domain_start(self, vm, event, **kwargs):
         attached_vms = [domain for domain in self.attached_vms(vm) if
                         domain.is_running()]
         for attached_vm in attached_vms:
             attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
                                             str(vm.xid))
         if vm.features.get('input-dom0-proxy', None):
-            yield from asyncio.create_subprocess_exec(
+            await asyncio.create_subprocess_exec(
                 '/usr/bin/qubes-input-trigger --all --dom0')
 
     @qubes.ext.handler('property-reset:keyboard_layout')

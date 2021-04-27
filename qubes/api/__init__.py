@@ -279,12 +279,11 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
         return True
 
-    @asyncio.coroutine
-    def respond(self, src, meth, dest, arg, *, untrusted_payload):
+    async def respond(self, src, meth, dest, arg, *, untrusted_payload):
         try:
             self.mgmt = self.handler(self.app, src, meth, dest, arg,
                 self.send_event)
-            response = yield from self.mgmt.execute(
+            response = await self.mgmt.execute(
                 untrusted_payload=untrusted_payload)
             assert not (self.event_sent and response)
             if self.transport is None:
@@ -397,8 +396,7 @@ def cleanup_socket(sockpath, force):
             raise FileExistsError(errno.EEXIST,
                 'socket already exists: {!r}'.format(sockpath))
 
-@asyncio.coroutine
-def create_servers(*args, force=False, loop=None, **kwargs):
+async def create_servers(*args, force=False, loop=None, **kwargs):
     '''Create multiple Qubes API servers
 
     :param qubes.Qubes app: the app that is a backend of the servers
@@ -429,7 +427,7 @@ def create_servers(*args, force=False, loop=None, **kwargs):
             if os.path.exists(sockpath):
                 cleanup_socket(sockpath, force)
 
-            server = yield from loop.create_unix_server(
+            server = await loop.create_unix_server(
                 functools.partial(QubesDaemonProtocol, handler, **kwargs),
                 sockpath)
 
@@ -446,7 +444,7 @@ def create_servers(*args, force=False, loop=None, **kwargs):
                     pass
             server.close()
         if servers:
-            yield from asyncio.wait([
+            await asyncio.wait([
                 server.wait_closed() for server in servers])
         raise
     finally:
