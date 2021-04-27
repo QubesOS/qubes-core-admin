@@ -30,7 +30,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.ext = qubes.ext.core_features.CoreFeatures()
-        self.vm = mock.MagicMock()
+        self.vm = mock.AsyncMock()
         self.features = {}
         self.vm.configure_mock(**{
             'features.get.side_effect': self.features.get,

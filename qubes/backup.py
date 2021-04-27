@@ -162,7 +162,7 @@ class SendWorker:
 
         self.log.debug("Finished sending thread")
 
-def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
+async def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
     """Similar to pty.fork, but handle stdin/stdout according to parameters
     instead of connecting to the pty
 
@@ -189,7 +189,7 @@ def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
     return p, open(pty_master, 'wb+', buffering=0)
 
 
-def launch_scrypt(action, input_name, output_name, passphrase):
+async def launch_scrypt(action, input_name, output_name, passphrase):
     '''
     Launch 'scrypt' process, pass passphrase to it and return
     subprocess.Popen object.

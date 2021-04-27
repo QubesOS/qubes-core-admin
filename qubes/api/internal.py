@@ -118,7 +118,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         return '{} {}'.format(size, path)
 
     @qubes.api.method('internal.vm.volume.ImportEnd')
-    await def vm_volume_import_end(self, untrusted_payload):
+    async def vm_volume_import_end(self, untrusted_payload):
         '''
         This is second half of admin.vm.volume.Import handling. It is called
         when actual import is finished. Response from this method is sent do
@@ -149,7 +149,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 'Data import failed: {}'.format(error))
 
     @qubes.api.method('internal.SuspendPre', no_payload=True)
-    def suspend_pre(self):
+    async def suspend_pre(self):
         '''
         Method called before host system goes to sleep.
 

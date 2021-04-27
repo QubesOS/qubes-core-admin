@@ -21,15 +21,16 @@ import asyncio
 from unittest import mock
 import qubes.tests
 import qubes.api.misc
+import qubes.vm.templatevm
 
 
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_API_Misc, self).setUp()
-        self.tpl = mock.NonCallableMagicMock(name='template')
+        self.tpl = mock.AsyncMock(name='template', spec=qubes.vm.templatevm.TemplateVM)
         del self.tpl.template
         self.src = mock.NonCallableMagicMock(name='appvm',
-            template=self.tpl)
+            template=self.tpl, spec=qubes.vm.appvm.AppVM)
         self.app = mock.NonCallableMock()
         self.dest = mock.NonCallableMock()
         self.dest.name = 'dom0'
@@ -39,11 +40,14 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         })
 
     def configure_qdb(self, entries):
+        async def dummy_coro(something, *, untrusted_features):
+            pass
         self.src.configure_mock(**{
             'untrusted_qdb.read.side_effect': (
                 lambda path: entries.get(path, None)),
             'untrusted_qdb.list.side_effect': (
                 lambda path: sorted(entries.keys())),
+            'fire_event_async': dummy_coro,
         })
 
     def call_mgmt_func(self, method, arg=b'', payload=b''):

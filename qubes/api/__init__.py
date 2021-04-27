@@ -176,8 +176,6 @@ class AbstractQubesAPI:
 
     def execute(self, *, untrusted_payload):
         '''Execute management operation.
-
-        This method is a coroutine.
         '''
         handler, _, endpoint = self._handler
         kwargs = {}

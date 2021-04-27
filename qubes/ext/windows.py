@@ -52,7 +52,7 @@ class WindowsFeatures(qubes.ext.Extension):
             vm.features['rpc-clipboard'] = True
 
     @qubes.ext.handler('domain-create-on-disk')
-    await def on_domain_create_on_disk(self, vm, _event, **kwargs):
+    async def on_domain_create_on_disk(self, vm, _event, **kwargs):
         # pylint: disable=no-self-use,unused-argument
         if getattr(vm, 'template', None) is None:
             # handle only template-based vms

@@ -60,7 +60,7 @@ class CoreFeatures(qubes.ext.Extension):
         if not qrexec_before and vm.features.get('qrexec', False):
             # if this is the first time qrexec was advertised, now can finish
             #  template setup
-            async vm.fire_event_async('template-postinstall')
+            await vm.fire_event_async('template-postinstall')
 
     # pylint: disable=no-self-use
     def set_servicevm_feature(self, subject):

@@ -402,7 +402,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     # one - still having the same data
     @qubes.api.method('admin.vm.volume.CloneFrom', no_payload=True,
         scope='local', write=True)
-    def vm_volume_clone_from(self):
+    async def vm_volume_clone_from(self):
         self.enforce(self.arg in self.dest.volumes.keys())
 
         volume = self.dest.volumes[self.arg]
@@ -422,7 +422,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.volume.CloneTo',
         scope='local', write=True)
-    def vm_volume_clone_to(self, untrusted_payload):
+    async def vm_volume_clone_to(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
         untrusted_token = untrusted_payload.decode('ascii').strip()
         del untrusted_payload
@@ -927,14 +927,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.List', no_payload=True,
         scope='local', read=True)
-    def vm_feature_list(self):
+    async def vm_feature_list(self):
         self.enforce(not self.arg)
         features = self.fire_event_for_filter(self.dest.features.keys())
         return ''.join('{}\n'.format(feature) for feature in features)
 
     @qubes.api.method('admin.vm.feature.Get', no_payload=True,
         scope='local', read=True)
-    def vm_feature_get(self):
+    async def vm_feature_get(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -946,7 +946,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.CheckWithTemplate', no_payload=True,
         scope='local', read=True)
-    def vm_feature_checkwithtemplate(self):
+    async def vm_feature_checkwithtemplate(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -958,7 +958,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.CheckWithNetvm', no_payload=True,
         scope='local', read=True)
-    def vm_feature_checkwithnetvm(self):
+    async def vm_feature_checkwithnetvm(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -970,7 +970,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.CheckWithAdminVM', no_payload=True,
         scope='local', read=True)
-    def vm_feature_checkwithadminvm(self):
+    async def vm_feature_checkwithadminvm(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -982,7 +982,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.CheckWithTemplateAndAdminVM',
         no_payload=True, scope='local', read=True)
-    def vm_feature_checkwithtpladminvm(self):
+    async def vm_feature_checkwithtpladminvm(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -994,7 +994,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.Remove', no_payload=True,
         scope='local', write=True)
-    def vm_feature_remove(self):
+    async def vm_feature_remove(self):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
@@ -1006,7 +1006,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.feature.Set',
         scope='local', write=True)
-    def vm_feature_set(self, untrusted_payload):
+    async def vm_feature_set(self, untrusted_payload):
         # validation of self.arg done by qrexec-policy is enough
         value = untrusted_payload.decode('ascii', errors='strict')
         del untrusted_payload
@@ -1160,7 +1160,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.deviceclass.List', no_payload=True,
         scope='global', read=True)
-    def deviceclass_list(self):
+    async def deviceclass_list(self):
         """List all DEVICES classes"""
         self.enforce(not self.arg)
         self.enforce(self.dest.name == 'dom0')
@@ -1174,7 +1174,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             for ep in pkg_resources.iter_entry_points('qubes.devices')),
             no_payload=True,
         scope='local', read=True)
-    def vm_device_available(self, endpoint):
+    async def vm_device_available(self, endpoint):
         devclass = endpoint
         devices = self.dest.devices[devclass].available()
         if self.arg:
@@ -1363,7 +1363,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('admin.vm.firewall.Reload', no_payload=True,
             scope='local', execute=True)
-    def vm_firewall_reload(self):
+    async def vm_firewall_reload(self):
         self.enforce(not self.arg)
 
         self.fire_event_for_permission()

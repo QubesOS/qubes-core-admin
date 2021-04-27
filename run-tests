@@ -1,11 +1,12 @@
 #!/bin/bash --
 
 set -eu
+case $0 in (/*) cd "${0%/*}/";; (*/*) cd "./${0%/*}";; esac
 unset CLEANUP_LVM name DEFAULT_LVM_POOL retcode
 install_rpm_deps () {
     local applications
     applications=(lvm2 python3-docutils python3-pyyaml python3-jinja2
-        python3-lxml btrfs-progs vim-common)
+        python3-lxml btrfs-progs vim-common python3-libvirt python3-coverage python3-inotify)
     rpm -q --quiet -- "${applications[@]}" ||
     sudo dnf -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
@@ -22,10 +23,10 @@ fi
 : "${TESTPYTHONPATH:=test-packages}"
 
 if [ -d ../core-qrexec/qrexec ] && ! $PYTHON -c 'import qrexec' 2>/dev/null; then
-    PYTHONPATH="${PYTHONPATH-}:../core-qrexec"
+    PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}../core-qrexec
 fi
 
-PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
+PYTHONPATH=$TESTPYTHONPATH${PYTHONPATH+":${PYTHONPATH-}"}
 export PYTHONPATH
 
 "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"

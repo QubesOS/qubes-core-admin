@@ -103,7 +103,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm))
 
-    def test_002_template_change(self):
+    async def test_002_template_change(self):
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
@@ -123,7 +123,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     self.dispvm.template = self.appvm
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.dispvm.template = qubes.property.DEFAULT
-            self.dispvm.kill()
+            await self.dispvm.kill()
             self.dispvm.template = self.appvm
 
     def test_003_dvmtemplate_template_change(self):
