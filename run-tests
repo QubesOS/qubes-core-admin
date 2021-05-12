@@ -6,7 +6,7 @@ case $0 in (/*) cd "${0%/*}/";; (*/*) cd "./${0%/*}";; esac
 install_rpm_deps () {
     local applications
     applications=(lvm2 python3-docutils python3-pyyaml python3-jinja2
-        python3-lxml btrfs-progs vim-common)
+        python3-lxml btrfs-progs vim-common python3-coverage)
     rpm -q --quiet -- "${applications[@]}" ||
     sudo dnf -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
