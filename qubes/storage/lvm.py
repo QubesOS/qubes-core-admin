@@ -790,7 +790,7 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
     environ = os.environ.copy()
     environ['LC_ALL'] = 'C.utf8'
     if cmd[0] == "remove":
-        pre_cmd = ['blkdiscard', '/dev/'+cmd[1]]
+        pre_cmd = ['blkdiscard', '-p', '1G', '/dev/'+cmd[1]]
         p = yield from asyncio.create_subprocess_exec(*pre_cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
