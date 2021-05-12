@@ -2,6 +2,7 @@
 
 set -eu
 unset CLEANUP_LVM name DEFAULT_LVM_POOL retcode
+case $0 in (/*) cd "${0%/*}/";; (*/*) cd "./${0%/*}";; esac
 install_rpm_deps () {
     local applications
     applications=(lvm2 python3-docutils python3-pyyaml python3-jinja2
