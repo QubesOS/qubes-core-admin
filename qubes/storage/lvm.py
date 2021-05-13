@@ -418,6 +418,7 @@ class ThinVolume(qubes.storage.Volume):
         # and remove old snapshots, if needed
         await self._remove_revisions()
 
+    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     async def create(self):
         assert self.vid

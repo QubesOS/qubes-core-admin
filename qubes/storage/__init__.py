@@ -168,7 +168,7 @@ class Volume:
                 return await method(self, *args, **kwargs)
         return wrapper
 
-    async def create(self):
+    def create(self):
         ''' Create the given volume on disk.
 
             This method is called only once in the volume lifetime. Before
@@ -185,7 +185,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("remove")
 
-    async def export(self):
+    def export(self):
         ''' Returns a path to read the volume data from.
 
             Reading from this path when domain owning this volume is
@@ -306,7 +306,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("stop")
 
-    async def verify(self):
+    def verify(self):
         ''' Verifies the volume.
 
         This function is supposed to either return :py:obj:`True`, or raise
@@ -773,7 +773,7 @@ class Pool:
         ''' Returns the pool config to be written to qubes.xml '''
         raise self._not_implemented("config")
 
-    async def destroy(self):
+    def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
             clean up.
 
@@ -786,7 +786,7 @@ class Pool:
         '''
         raise self._not_implemented("init_volume")
 
-    async def setup(self):
+    def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
 

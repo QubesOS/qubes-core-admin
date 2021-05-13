@@ -524,6 +524,7 @@ class CallbackVolume(qubes.storage.Volume):
             return None
         return self._cb_impl.block_device()
 
+    # pylint: disable=invalid-overridden-method
     async def export(self):
         await self._assert_initialized()
         await self._callback('pre_volume_export')
