@@ -258,7 +258,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the beginning of :py:meth:`start` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-start'``)
@@ -272,7 +272,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-spawn'``)
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             *other arguments are as in :py:meth:`start`*
 
@@ -280,7 +280,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the end of :py:meth:`start` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-start'``)
@@ -292,7 +292,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             Fired when :py:meth:`start` method fails.
             *reason* argument is a textual error message.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-start-failed'``)
@@ -323,7 +323,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             ``'domain-pre-start'``. This also can be emitted in case of a
             startup failure, before or after ``'domain-start-failed'``.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-stopped'``)
@@ -337,7 +337,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             ``'domain-pre-start'``. This also can be emitted in case of a
             startup failure, before or after ``'domain-start-failed'``.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-shutdown'``)
@@ -346,7 +346,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the beginning of :py:meth:`shutdown` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-shutdown'``)
@@ -359,7 +359,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             ``domain-pre-shutdown`` handler blocking the operation with an
             exception, or a shutdown timeout.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-shutdown-failed'``)
@@ -369,7 +369,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the beginning of :py:meth:`run_service` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-cmd-pre-run'``)
@@ -379,7 +379,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the end of :py:meth:`create_on_disk` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-create-on-disk'``)
@@ -389,7 +389,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             Fired at the beginning of :py:meth:`remove_from_disk` method, before
             the qube directory is removed.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-remove-from-disk'``)
@@ -398,7 +398,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the end of :py:meth:`clone_disk_files` method.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-clone-files'``)
@@ -540,7 +540,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             ranging from plainly ignoring the request to verbatim copy into
             :py:attr:`features` with only minimal sanitisation.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
         .. event:: firewall-changed (subject, event)
 
@@ -567,7 +567,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             domain startup just after its installation and is suitable for
             performing various post-installation setup.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
     """
 
     #

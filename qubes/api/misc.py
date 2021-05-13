@@ -21,7 +21,6 @@
 ''' Interface for methods not being part of Admin API, but still handled by
 qubesd. '''
 
-import asyncio
 import string
 
 import qubes.api

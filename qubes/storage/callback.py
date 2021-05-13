@@ -328,7 +328,7 @@ class CallbackPool(qubes.storage.Pool):
     async def setup(self):
         await self._assert_initialized(callback=False) #setup is assumed to include storage initialization
         await self._callback('pre_setup')
-        return (await coro_maybe(self._cb_impl.setup()))
+        return await coro_maybe(self._cb_impl.setup())
 
     @property
     def volumes(self):
@@ -527,7 +527,7 @@ class CallbackVolume(qubes.storage.Volume):
     async def export(self):
         await self._assert_initialized()
         await self._callback('pre_volume_export')
-        return (await coro_maybe(self._cb_impl.export()))
+        return await coro_maybe(self._cb_impl.export())
 
     async def export_end(self, path):
         await self._assert_initialized()
@@ -537,11 +537,11 @@ class CallbackVolume(qubes.storage.Volume):
 
     async def verify(self):
         await self._assert_initialized()
-        return (await coro_maybe(self._cb_impl.verify()))
+        return await coro_maybe(self._cb_impl.verify())
 
     async def revert(self, revision=None):
         await self._assert_initialized()
-        return (await coro_maybe(self._cb_impl.revert(revision=revision)))
+        return await coro_maybe(self._cb_impl.revert(revision=revision))
 
     #shadow all qubes.storage.Volume class attributes as instance properties
     #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value

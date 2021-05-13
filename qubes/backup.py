@@ -162,7 +162,8 @@ class SendWorker:
 
         self.log.debug("Finished sending thread")
 
-async def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
+async def launch_proc_with_pty(args, stdin=None, stdout=None,
+                               stderr=None, echo=True):
     """Similar to pty.fork, but handle stdin/stdout according to parameters
     instead of connecting to the pty
 

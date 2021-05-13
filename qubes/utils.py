@@ -233,9 +233,7 @@ def fsync_path(path):
         os.close(fd)
 
 async def coro_maybe(value):
-    if asyncio.iscoroutine(value):
-        return (await value)
-    return value
+    return (await value) if asyncio.iscoroutine(value) else value
 
 async def void_coros_maybe(values):
     ''' Ignore elements of the iterable values that are not coroutine

@@ -323,7 +323,7 @@ class ReflinkVolume(qubes.storage.Volume):
                         src_volume.export_end(src_path))
                 success = True
             finally:
-                await _coroutinized(self._import_data_end)(success)
+                await _coroutinized(self.import_data_end)(success)
         return self
 
     def _path_revision(self, number, timestamp=None):

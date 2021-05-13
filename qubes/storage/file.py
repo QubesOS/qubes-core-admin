@@ -21,7 +21,6 @@
 #
 
 ''' This module contains pool implementations backed by file images'''
-import asyncio
 import os
 import os.path
 import re

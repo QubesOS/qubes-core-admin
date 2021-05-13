@@ -34,7 +34,6 @@ import traceback
 import uuid
 from contextlib import suppress
 
-import asyncio
 import jinja2
 import libvirt
 import lxml.etree
@@ -717,7 +716,7 @@ class Qubes(qubes.PropertyHolder):
 
             When storage pool is added.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter
             :param event: Event name (``'pool-add'``)
@@ -728,7 +727,7 @@ class Qubes(qubes.PropertyHolder):
             When pool is deleted. Pool is still contained within app.pools
             dictionary. You may prevent removal by raising an exception.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter
             :param event: Event name (``'pool-pre-delete'``)
@@ -739,7 +738,7 @@ class Qubes(qubes.PropertyHolder):
             When storage pool is deleted. The pool is already removed at this
             point.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter
             :param event: Event name (``'pool-delete'``)

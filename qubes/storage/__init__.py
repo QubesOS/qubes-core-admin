@@ -168,7 +168,7 @@ class Volume:
                 return await method(self, *args, **kwargs)
         return wrapper
 
-    def create(self):
+    async def create(self):
         ''' Create the given volume on disk.
 
             This method is called only once in the volume lifetime. Before
@@ -185,7 +185,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("remove")
 
-    def export(self):
+    async def export(self):
         ''' Returns a path to read the volume data from.
 
             Reading from this path when domain owning this volume is
@@ -202,7 +202,7 @@ class Volume:
         '''
         raise self._not_implemented("export")
 
-    def export_end(self, path):
+    async def export_end(self, path):
         """ Cleanup after exporting data.
 
             This method is called after exporting the volume data (using
@@ -242,7 +242,7 @@ class Volume:
         '''
         # by default do nothing
 
-    def import_volume(self, src_volume):
+    async def import_volume(self, src_volume):
         ''' Imports data from a different volume (possibly in a different
         pool.
 
@@ -267,7 +267,7 @@ class Volume:
         '''
         raise self._not_implemented("is_outdated")
 
-    def resize(self, size):
+    async def resize(self, size):
         ''' Expands volume, throws
             :py:class:`qubes.storage.StoragePoolException` if
             given size is less than current_size
@@ -279,7 +279,7 @@ class Volume:
         # pylint: disable=unused-argument
         raise self._not_implemented("resize")
 
-    def revert(self, revision=None):
+    async def revert(self, revision=None):
         ''' Revert volume to previous revision
 
         This can be implemented as a coroutine.
@@ -289,7 +289,7 @@ class Volume:
         # pylint: disable=unused-argument
         raise self._not_implemented("revert")
 
-    def start(self):
+    async def start(self):
         ''' Do what ever is needed on start.
 
         This include making a snapshot of template's volume if
@@ -298,7 +298,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("start")
 
-    def stop(self):
+    async def stop(self):
         ''' Do what ever is needed on stop.
 
         This include committing data if :py:attr:`save_on_stop` is set.
@@ -306,7 +306,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("stop")
 
-    def verify(self):
+    async def verify(self):
         ''' Verifies the volume.
 
         This function is supposed to either return :py:obj:`True`, or raise
@@ -638,7 +638,7 @@ class Storage:
             "You need to pass a Volume or pool name as str"
         if not isinstance(volume, Volume):
             volume = self.vm.volumes[volume]
-        return (await qubes.utils.coro_maybe(volume.export()))
+        return await qubes.utils.coro_maybe(volume.export())
 
     async def export_end(self, volume, export_path):
         """ Cleanup after exporting data from the volume
@@ -773,7 +773,7 @@ class Pool:
         ''' Returns the pool config to be written to qubes.xml '''
         raise self._not_implemented("config")
 
-    def destroy(self):
+    async def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
             clean up.
 
@@ -786,7 +786,7 @@ class Pool:
         '''
         raise self._not_implemented("init_volume")
 
-    def setup(self):
+    async def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
 

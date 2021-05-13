@@ -55,8 +55,6 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 '''
-import asyncio
-
 import qubes.utils
 
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
@@ -170,7 +168,7 @@ class DeviceCollection:
 
             Fired when device is attached to a VM.
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param device: :py:class:`DeviceInfo` object to be attached
             :param options: :py:class:`dict` of attachment options
@@ -179,7 +177,7 @@ class DeviceCollection:
 
             Fired before device is attached to a VM
 
-            Handler for this event can be asynchronous (a coroutine).
+            Handler for this event may be asynchronous.
 
             :param device: :py:class:`DeviceInfo` object to be attached
 

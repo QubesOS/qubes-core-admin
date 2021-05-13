@@ -1029,7 +1029,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._vm_create(endpoint, allow_pool=True,
             untrusted_payload=untrusted_payload)
 
-    async def _vm_create(self, vm_type, allow_pool=False, untrusted_payload=None):
+    async def _vm_create(self, vm_type, allow_pool=False,
+                         untrusted_payload=None):
         self.enforce(self.dest.name == 'dom0')
 
         kwargs = {}
