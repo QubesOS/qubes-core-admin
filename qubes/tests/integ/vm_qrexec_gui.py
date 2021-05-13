@@ -57,6 +57,12 @@ class TC_00_AppVMMixin(object):
             name=self.make_vm_name('vm2'),
             template=self.app.domains[self.template])
         self.loop.run_until_complete(self.testvm2.create_on_disk())
+        if self.template.startswith('whonix-gw'):
+            # Whonix Gateway loudly complains if the VM doesn't provide network,
+            # which spams the screen with error messages that interfere with
+            # other tests
+            self.testvm1.provides_network = True
+            self.testvm2.provides_network = True
         self.app.save()
 
     def test_000_start_shutdown(self):
