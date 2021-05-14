@@ -232,7 +232,7 @@ def _parse_lvm_cache(lvm_output):
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
+    environ={'LC_ALL': 'C.UTF-8', **os.environ}
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
@@ -247,7 +247,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
 @asyncio.coroutine
 def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
+    environ={'LC_ALL': 'C.UTF-8', **os.environ}
     p = yield from asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -780,7 +780,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation '''
     # the only caller for this non-coroutine version is ThinVolume.export()
     cmd = _get_lvm_cmdline(cmd)
-    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
+    environ={'LC_ALL': 'C.UTF-8', **os.environ}
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
@@ -791,7 +791,7 @@ def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation
 
     Coroutine version of :py:func:`qubes_lvm`'''
-    environ={'LC_ALL': 'C.UTF-8', 'PATH': '/usr/sbin:/usr/bin'}
+    environ={'LC_ALL': 'C.UTF-8', **os.environ}
     if cmd[0] == "remove":
         pre_cmd = ['blkdiscard', '-p', '1G', '/dev/'+cmd[1]]
         p = yield from asyncio.create_subprocess_exec(*pre_cmd,
