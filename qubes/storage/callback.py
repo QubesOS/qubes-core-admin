@@ -314,6 +314,7 @@ class CallbackPool(qubes.storage.Pool):
             'conf_id': self._cb_conf_id,
         }
 
+    # pylint: disable=invalid-overridden-method
     async def destroy(self):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.destroy())
@@ -325,6 +326,7 @@ class CallbackPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ret
 
+    # pylint: disable=invalid-overridden-method
     async def setup(self):
         await self._assert_initialized(callback=False) #setup is assumed to include storage initialization
         await self._callback('pre_setup')
@@ -439,6 +441,7 @@ class CallbackVolume(qubes.storage.Volume):
             return self._cb_impl.backend_class
         return self._cb_impl.__class__
 
+    # pylint: disable=invalid-overridden-method
     async def create(self):
         await self._assert_initialized()
         await self._callback('pre_volume_create')

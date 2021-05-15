@@ -212,6 +212,7 @@ class FileVolume(qubes.storage.Volume):
         if not self.snap_on_start:
             create_sparse_file(self.path, self.size, permissions=0o664)
 
+    # pylint: disable=invalid-overridden-method
     def remove(self):
         if not self.snap_on_start:
             _remove_if_exists(self.path)
@@ -232,6 +233,7 @@ class FileVolume(qubes.storage.Volume):
                          cow_used > cow.seek(0, os.SEEK_HOLE)))
         return False
 
+    # pylint: disable=invalid-overridden-method
     def resize(self, size):
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
