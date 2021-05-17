@@ -9,6 +9,7 @@ Environment=DISPLAY=:0
 ExecStart=/usr/bin/qvm-start --skip-if-running %i
 Group=qubes
 RemainAfterExit=yes
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
