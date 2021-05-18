@@ -345,8 +345,8 @@ class DeviceCollection:
         :file:`qubes.xml`) or not. Device can also be in :file:`qubes.xml`,
         but be temporarily detached.
 
-        :param Optional[bool] persistent: only include devices which are or are not
-        attached persistently.
+        :param Optional[bool] persistent: only include devices which are or are
+        not attached persistently.
         '''
 
         try:
