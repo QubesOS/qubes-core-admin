@@ -345,46 +345,6 @@ class DeviceCollection:
         :file:`qubes.xml`) or not. Device can also be in :file:`qubes.xml`,
         but be temporarily detached.
 
-        :param bool persistent: only include devices which are or are not
-        attached persistently.
-        '''
-
-        try:
-            devices = self._vm.fire_event('device-list-attached:' + self._bus,
-                persistent=persistent)
-        except Exception:  # pylint: disable=broad-except
-            self._vm.log.exception('Failed to list {} devices'.format(
-                self._bus))
-            if persistent is True:
-                # don't break app.save()
-                return self._set
-            raise
-        result = set()
-        for dev, options in devices:
-            if dev in self._set and not persistent:
-                continue
-            if dev in self._set:
-                result.add(self._set.get(dev))
-            elif dev not in self._set and persistent:
-                continue
-            else:
-                result.add(
-                    DeviceAssignment(
-                        backend_domain=dev.backend_domain,
-                        ident=dev.ident, options=options,
-                        bus=self._bus))
-        if persistent is not False:
-            result.update(self._set)
-        return result
-
-    def assignments_list(self, persistent: Optional[bool]=None):
-        '''List assignments for devices which are (or may be) attached to the
-           vm.
-
-        Devices may be attached persistently (so they are included in
-        :file:`qubes.xml`) or not. Device can also be in :file:`qubes.xml`,
-        but be temporarily detached.
-
         :param Optional[bool] persistent: only include devices which are or are not
         attached persistently.
         '''
