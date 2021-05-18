@@ -55,6 +55,8 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 '''
+from typing import Optional
+
 import qubes.utils
 
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
@@ -339,7 +341,7 @@ class DeviceCollection:
         :file:`qubes.xml`) or not. Device can also be in :file:`qubes.xml`,
         but be temporarily detached.
 
-        :param bool persistent: only include devices which are or are not
+        :param Optional[bool] persistent: only include devices which are or are not
         attached persistently.
         '''
 
@@ -351,24 +353,19 @@ class DeviceCollection:
                 self._bus))
             if persistent is True:
                 # don't break app.save()
-                return self._set
+                return list(self._set)
             raise
-        result = set()
-        for dev, options in devices:
-            if dev in self._set and not persistent:
-                continue
-            if dev in self._set:
-                result.add(self._set.get(dev))
-            elif dev not in self._set and persistent:
-                continue
-            else:
-                result.add(
-                    DeviceAssignment(
-                        backend_domain=dev.backend_domain,
-                        ident=dev.ident, options=options,
-                        bus=self._bus))
-        if persistent is not False:
-            result.update(self._set)
+        result = []
+        if persistent is not False:  # None or True
+            result.extend(self._set)
+        if not persistent:  # None or False
+            for dev, options in devices:
+                if dev not in self._set:
+                    result.append(
+                        DeviceAssignment(
+                            backend_domain=dev.backend_domain,
+                            ident=dev.ident, options=options,
+                            bus=self._bus))
         return result
 
     def available(self):
