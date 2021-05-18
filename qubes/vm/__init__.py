@@ -323,7 +323,7 @@ class BaseVM(qubes.PropertyHolder):
         for devclass in self.devices:
             devices = lxml.etree.Element('devices')
             devices.set('class', devclass)
-            for device in self.devices[devclass].assignments(persistent=True):
+            for device in self.devices[devclass].assignments_list(persistent=True):
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
