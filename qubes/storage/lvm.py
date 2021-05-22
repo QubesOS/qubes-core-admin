@@ -21,6 +21,7 @@
 import logging
 import os
 import subprocess
+import re
 
 import time
 
@@ -30,6 +31,7 @@ import qubes
 import qubes.storage
 import qubes.utils
 
+_suffix_re = re.compile(r'-(?:private|root|volatile)(?:-snap|-import|-[0-9]+-back)\Z')
 
 def check_lvm_version():
     #Check if lvm is very very old, like in Travis-CI
@@ -158,9 +160,10 @@ class ThinPool(qubes.storage.Pool):
 
     def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        volumes = []
-        for vid, vol_info in size_cache.items():
-            if not vid.startswith(self.volume_group + '/'):
+        volumes = set()
+        prefix = self.volume_group + '/vm-'
+        for vid, vol_info in size_cache.items(prefix):
+            if not vid.startswith():
                 continue
             if vol_info['pool_lv'] != self.thin_pool:
                 continue
@@ -216,7 +219,7 @@ _init_cache_cmd = ['lvs', '--noheadings', '-o',
    'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
    'metadata_percent', '--units', 'b', '--separator', ';']
 
-def _parse_lvm_cache(lvm_output):
+def _parse_lvm_cache(lvm_output, replace=True):
     result = {}
 
     for line in lvm_output.splitlines():
@@ -225,6 +228,8 @@ def _parse_lvm_cache(lvm_output):
             origin, metadata_size, metadata_percent = line.split(';', 8)
         if '' in [pool_name, name, size, usage_percent]:
             continue
+        if replace:
+            name = name.replace('+', '-').replace('.', '-')
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
         usage = int(size / 100 * float(usage_percent))
@@ -241,20 +246,33 @@ def _parse_lvm_cache(lvm_output):
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    if os.getuid() != 0:
-        cmd = ['sudo'] + cmd
-    environ = os.environ.copy()
-    environ['LC_ALL'] = 'C.utf8'
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True, env=environ)
-    out, err = p.communicate()
-    return_code = p.returncode
-    if return_code == 0 and err:
-        log.warning(err)
-    elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
+    def process_cmd(cmd):
+        if os.getuid() != 0:
+            cmd = ['sudo'] + cmd
+        environ = os.environ.copy()
+        environ['LC_ALL'] = 'C.utf8'
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            close_fds=True, env=environ)
+        out, err = p.communicate()
+        return_code = p.returncode
+        if return_code:
+            raise qubes.storage.StoragePoolException(err)
+        elif err:
+            log.warning(err)
+        return out
 
-    return _parse_lvm_cache(out)
+    res = _parse_lvm_cache(process_cmd(cmd), False)
+    for name, _ in res:
+        pool, name = name.split('/')
+        if not name.startswith('vm-'):
+            continue
+        match_res = _suffix_re.search(name, 3)
+        if match_res:
+            match_offset = match_res.span()[0]
+            suffix = name[match_offset + 1:]
+            qube_name = name[3:match_offset]
+            new_name = 'vm-' + qube_name.replace('_', '+') + '.' + suffix
+            process_cmd(['lvm', 'lvrename', '--', pool, name, new_name])
 
 @asyncio.coroutine
 def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
