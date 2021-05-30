@@ -211,6 +211,8 @@ class TC_00_VMs(AdminAPITestCase):
     def test_027_vm_property_get_all(self):
         # any string property, test \n encoding
         self.vm.kernelopts = 'opt1\nopt2\nopt3\\opt4'
+        # let it have 'dns' property
+        self.vm.provides_network = True
         with unittest.mock.patch.object(self.vm, 'property_list') as list_mock:
             list_mock.return_value = [
                 self.vm.property_get_def('name'),
@@ -223,11 +225,13 @@ class TC_00_VMs(AdminAPITestCase):
                 self.vm.property_get_def('qrexec_timeout'),
                 self.vm.property_get_def('qid'),
                 self.vm.property_get_def('updateable'),
+                self.vm.property_get_def('dns'),
             ]
             value = self.call_mgmt_func(b'admin.vm.property.GetAll', b'test-vm1')
         self.maxDiff = None
         expected = '''debug default=True type=bool False
 default_user default=True type=str user
+dns default=True type=str 10.139.1.1 10.139.1.2
 klass default=True type=str AppVM
 label default=False type=label red
 name default=False type=str test-vm1
@@ -237,6 +241,29 @@ updateable default=True type=bool False
 kernelopts default=False type=str opt1\\nopt2\\nopt3\\\\opt4
 netvm default=True type=vm \n'''
         self.assertEqual(value, expected)
+
+    def test_028_vm_property_get_list(self):
+        self.vm.provides_network = True
+        value = self.call_mgmt_func(
+            b'admin.vm.property.Get',
+            b'test-vm1',
+            b'dns')
+        self.assertEqual(value, 'default=True type=str 10.139.1.1 10.139.1.2')
+
+    def test_029_vm_property_get_list_none(self):
+        value = self.call_mgmt_func(
+            b'admin.vm.property.Get',
+            b'test-vm1',
+            b'dns')
+        self.assertEqual(value, 'default=True type=str ')
+
+    def test_029_vm_property_get_list_default(self):
+        self.vm.provides_network = True
+        value = self.call_mgmt_func(
+            b'admin.vm.property.GetDefault',
+            b'test-vm1',
+            b'dns')
+        self.assertEqual(value, 'type=str 10.139.1.1 10.139.1.2')
 
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',

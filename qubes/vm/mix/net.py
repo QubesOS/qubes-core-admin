@@ -91,6 +91,16 @@ def _setter_provides_network(self, prop, value):
     return value
 
 
+class StrSerializableTuple(tuple):
+    def __str__(self):
+        # verify it can be deserialized later(currently 'dns'
+        # property is the only using this, and it is safe)
+        if any(' ' in el for el in self):
+            raise ValueError(
+                'space found in a list element {!r}'.format(self))
+        return ' '.join(self)
+
+
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
@@ -224,14 +234,14 @@ class NetVMMixin(qubes.events.Emitter):
     # used in both
     #
 
-    @property
+    @qubes.stateless_property
     def dns(self):
-        '''Secondary DNS server set up for this domain.'''
+        '''DNS servers set up for this domain.'''
         if self.netvm is not None or self.provides_network:
-            return (
+            return StrSerializableTuple((
                 '10.139.1.1',
                 '10.139.1.2',
-            )
+            ))
 
         return None
 
