@@ -118,20 +118,21 @@ class AbstractQubesAPI:
         #: :py:class:`qubes.Qubes` object
         self.app = app
 
-        #: source qube
-        self.src = self.app.domains[src.decode('ascii')]
-
         try:
+            vm = src.decode('ascii')
+            #: source qube
+            self.src = self.app.domains[vm]
+
+            vm = dest.decode('ascii')
             #: destination qube
-            self.dest = self.app.domains[dest.decode('ascii')]
+            self.dest = self.app.domains[vm]
         except KeyError:
             # normally this should filtered out by qrexec policy, but there are
             # two cases it might not be:
             # 1. The call comes from dom0, which bypasses qrexec policy
             # 2. Domain was removed between checking the policy and here
-            # For uniform handling on the client side, treat this as permission
-            # denied error too
-            raise PermissionDenied
+            # we inform the client accordingly
+            raise qubes.exc.QubesVMNotFoundError(vm)
 
         #: argument
         self.arg = arg.decode('ascii')
