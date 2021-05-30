@@ -74,7 +74,7 @@ CLSVMPREFIX = 'test-cls-'
 if 'DEFAULT_LVM_POOL' in os.environ.keys():
     DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
 else:
-    DEFAULT_LVM_POOL = 'qubes_dom0/pool00'
+    DEFAULT_LVM_POOL = 'qubes_dom0/vm-pool'
 
 POOL_CONF = {'name': 'test-lvm',
              'driver': 'lvm_thin',
@@ -824,7 +824,7 @@ class SystemTestCase(QubesTestCase):
 
     def init_lvm_pool(self):
         volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
-        path = "/dev/mapper/{!s}-{!s}".format(volume_group, thin_pool)
+        path = "/dev/mapper/{!s}-{!s}".format(volume_group, thin_pool.replace('-', '--'))
         if not os.path.exists(path):
             self.skipTest('LVM thin pool {!r} does not exist'.
                           format(DEFAULT_LVM_POOL))
