@@ -97,7 +97,7 @@ class GUI(qubes.ext.Extension):
 
         # Set GuiVM prefix
         guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')
-        if vm.features.get('service.guivm-gui-agent', None):
+        if vm.features.get('service.guivm', None):
             vm.untrusted_qdb.write('/guivm-windows-prefix',
                                    guivm_windows_prefix)
 
