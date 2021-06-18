@@ -201,7 +201,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This method modifies :file:`qubes.xml` file.
         The qube returned is not started.
         '''
-        if not appvm.template_for_dispvms:
+        if not getattr(appvm, 'template_for_dispvms', False):
             raise qubes.exc.QubesException(
                 'Refusing to create DispVM out of this AppVM, because '
                 'template_for_dispvms=False')
