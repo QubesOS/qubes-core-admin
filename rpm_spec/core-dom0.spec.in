@@ -82,6 +82,7 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 %if "x%{?backend_vmm}" == "xxen"
 Requires:       xen-runtime
 Requires:       xen-hvm
+Requires:       xen-hvm-stubdom-linux >= 1.0.13
 Requires:       xen-hvm-stubdom-linux-full >= 1.0.13
 Requires:       libvirt-daemon-xen >= 3.3.0-7
 %endif
