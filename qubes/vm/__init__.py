@@ -62,6 +62,9 @@ def validate_name(holder, prop, value):
     if value in ('none', 'default'):
         raise qubes.exc.QubesValueError(
             'VM name cannot be \'none\' nor \'default\'')
+    if value.endswith('-dm'):
+        raise qubes.exc.QubesValueError(
+            'VM name cannot end with -dm')
 
 def setter_label(self, prop, value):
     ''' Helper for setting the domain label '''
