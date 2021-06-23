@@ -1224,6 +1224,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
 
+                if self.virt_mode == 'hvm' and \
+                    self.features.check_with_template('stubdom-qrexec', False):
+                    await self.start_qrexec_daemon(stubdom=True)
                 await self.start_qrexec_daemon()
 
                 await self.fire_event_async('domain-start',
@@ -1426,7 +1429,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def run_service(self, service, source=None, user=None,
+    async def run_service(self, service, source=None, user=None, stubdom=False,
                     filter_esc=False, autostart=False, gui=False, **kwargs):
         """Run service on this VM
 
@@ -1456,6 +1459,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         source = 'dom0' if source is None else self.app.domains[source].name
 
+        name = self.name + '-dm' if stubdom else self.name
+
         if user is None:
             user = self.default_user
 
@@ -1468,16 +1473,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesVMNotRunningError(self)
             await self.start(start_guid=gui)
 
-        if not self.is_qrexec_running():
+        if not self.is_qrexec_running(stubdom=stubdom):
             raise qubes.exc.QubesVMError(
-                self, 'Domain {!r}: qrexec not connected'.format(self.name))
+                self, 'Domain {!r}: qrexec not connected'.format(name))
 
         await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
                                     start_guid=gui)
 
         return await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
-            '-d', str(self.name),
+            '-d', str(name),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
             **kwargs)
@@ -1640,14 +1645,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                 output=stdout, stderr=stderr)
 
     @asyncio.coroutine
-    def start_qrexec_daemon(self):
+    def start_qrexec_daemon(self, stubdom=False):
         """Start qrexec daemon.
 
         :raises OSError: when starting fails.
         """
 
         self.log.debug('Starting the qrexec daemon')
-        qrexec_args = [str(self.xid), self.name, self.default_user]
+        if stubdom:
+            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', 'root']
+        else:
+            qrexec_args = [str(self.xid), self.name, self.default_user]
+
         if not self.debug:
             qrexec_args.insert(0, "-q")
 
@@ -1976,7 +1985,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return self.libvirt_domain \
                and self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED
 
-    def is_qrexec_running(self):
+    def is_qrexec_running(self, stubdom=False):
         """Check whether qrexec for this domain is available.
 
         :returns: :py:obj:`True` if qrexec is running, \
@@ -1985,7 +1994,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """
         if self.xid < 0:  # pylint: disable=comparison-with-callable
             return False
-        return os.path.exists('/var/run/qubes/qrexec.%s' % self.name)
+        name = self.name + '-dm' if stubdom else self.name
+        return os.path.exists('/var/run/qubes/qrexec.%s' % name)
 
     def is_fully_usable(self):
         return all(self.fire_event('domain-is-fully-usable'))

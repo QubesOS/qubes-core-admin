@@ -187,6 +187,11 @@
                     {% if vm.stubdom_mem %}
                         memory="{{ vm.stubdom_mem * 1024 -}}"
                     {% endif %}
+                    {% if vm.features.check_with_template('audio-model', False)
+                    or vm.features.check_with_template('stubdom-qrexec', False) %}
+                        kernel="/usr/libexec/xen/boot/qemu-stubdom-linux-full-kernel"
+                        ramdisk="/usr/libexec/xen/boot/qemu-stubdom-linux-full-rootfs"
+                    {% endif %}
                     />
                 <input type="tablet" bus="usb"/>
                 {% if vm.features.check_with_template('audio-model', False) %}

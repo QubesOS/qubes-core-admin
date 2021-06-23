@@ -2021,7 +2021,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(cls=qubes.vm.standalonevm.StandaloneVM,
                          name='vm')
         vm.is_running = lambda: True
-        vm.is_qrexec_running = lambda: True
+        vm.is_qrexec_running = lambda stubdom=False: True
         vm.start = start_mock
         with self.subTest('running'):
             self.loop.run_until_complete(vm.run_service('test.service'))
@@ -2053,7 +2053,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         start_mock.reset_mock()
         with self.subTest('no_qrexec'):
             vm.is_running = lambda: True
-            vm.is_qrexec_running = lambda: False
+            vm.is_qrexec_running = lambda stubdom=False: False
             with self.assertRaises(qubes.exc.QubesVMError):
                 self.loop.run_until_complete(vm.run_service('test.service'))
             self.assertFalse(start_mock.called)
@@ -2063,7 +2063,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         start_mock.reset_mock()
         with self.subTest('other_user'):
             vm.is_running = lambda: True
-            vm.is_qrexec_running = lambda: True
+            vm.is_qrexec_running = lambda stubdom=False: True
             self.loop.run_until_complete(vm.run_service('test.service',
                                                         user='other'))
             mock_subprocess.assert_called_once_with(
@@ -2075,12 +2075,24 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         start_mock.reset_mock()
         with self.subTest('other_source'):
             vm.is_running = lambda: True
-            vm.is_qrexec_running = lambda: True
+            vm.is_qrexec_running = lambda stubdom=False: True
             self.loop.run_until_complete(vm.run_service('test.service',
                                                         source='test-inst-vm'))
             mock_subprocess.assert_called_once_with(
                 '/usr/bin/qrexec-client', '-d', 'test-inst-vm',
                 'user:QUBESRPC test.service test-inst-vm')
+            self.assertFalse(start_mock.called)
+
+        mock_subprocess.reset_mock()
+        start_mock.reset_mock()
+        with self.subTest('stubdom'):
+            vm.is_running = lambda: True
+            vm.is_qrexec_running = lambda stubdom=True: True
+            self.loop.run_until_complete(vm.run_service('test.service',
+                                                        stubdom=True))
+            mock_subprocess.assert_called_once_with(
+                '/usr/bin/qrexec-client', '-d', 'test-inst-vm-dm',
+                'user:QUBESRPC test.service dom0')
             self.assertFalse(start_mock.called)
 
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.run')
