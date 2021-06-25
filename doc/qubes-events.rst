@@ -56,6 +56,7 @@ The easiest way to hook an event is to use
                print('Got event 2')
 
    o = MyClass()
+   o.events_enabled = True
    o.fire_event('event1')
 
 Note that your handler will be called for all instances of this class.
