@@ -140,6 +140,7 @@ returned to the caller as list. The order of this list is undefined.
            return ('123', '456')
 
    o = MyClass()
+   o.events_enabled = True
 
    # returns ['aqq', 'zxc', '123', '456'], possibly not in order
    effect = o.fire_event('event1')
@@ -177,6 +178,7 @@ handler (a coroutine) for synchronous event (the one fired with
                print('Done')
 
    o = MyClass()
+   o.events_enabled = True
    loop = asyncio.get_event_loop()
    loop.run_until_complete(o.fire_event_async('event1'))
 
@@ -208,6 +210,7 @@ yield individual values (because of python limitation):
             yield 'sync result'
 
    o = MyClass()
+   o.events_enabled = True
    loop = asyncio.get_event_loop()
    # returns ['sync result', 'result1', 'result2', 'result3', 'result4'],
    # possibly not in order
