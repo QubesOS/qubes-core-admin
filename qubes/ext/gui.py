@@ -140,3 +140,14 @@ class GUI(qubes.ext.Extension):
 
         if vm.is_running():
             vm.untrusted_qdb.write('/keyboard-layout', newvalue)
+
+    @qubes.ext.handler('domain-tag-add:created-by-*')
+    def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
+        '''Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
+           features
+        '''
+        # pylint: disable=unused-argument,no-self-use
+        created_by = vm.app.domains[tag.partition('created-by-')[2]]
+        if created_by.features.get('set-created-guivm', None):
+            guivm = vm.app.domains[created_by.features['set-created-guivm']]
+            vm.guivm = guivm
