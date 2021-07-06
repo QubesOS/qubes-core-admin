@@ -2134,10 +2134,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         raw_icon_name = self.label.name
         if self.klass == 'TemplateVM':
             return 'templatevm-' + raw_icon_name
-        if self.klass == 'DispVM':
-            return 'dispvm-' + raw_icon_name
         if self.features.get('servicevm', False):
             return 'servicevm-' + raw_icon_name
+        if self.klass == 'DispVM':
+            return 'dispvm-' + raw_icon_name
         return 'appvm-' + raw_icon_name
 
     @property
