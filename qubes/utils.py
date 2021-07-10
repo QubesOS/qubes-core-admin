@@ -232,14 +232,10 @@ def fsync_path(path):
     finally:
         os.close(fd)
 
-@asyncio.coroutine
-def coro_maybe(value):
-    if asyncio.iscoroutine(value):
-        return (yield from value)
-    return value
+async def coro_maybe(value):
+    return (await value) if asyncio.iscoroutine(value) else value
 
-@asyncio.coroutine
-def void_coros_maybe(values):
+async def void_coros_maybe(values):
     ''' Ignore elements of the iterable values that are not coroutine
         objects. Run all coroutine objects to completion, concurrent
         with each other. If there were exceptions, raise the leftmost
@@ -247,6 +243,6 @@ def void_coros_maybe(values):
     '''
     coros = [val for val in values if asyncio.iscoroutine(val)]
     if coros:
-        done, _ = yield from asyncio.wait(coros)
+        done, _ = await asyncio.wait(coros)
         for task in done:
             task.result()  # re-raises exception if task failed

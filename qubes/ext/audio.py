@@ -17,11 +17,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import asyncio
-
 import qubes.config
 import qubes.ext
-
 
 class AUDIO(qubes.ext.Extension):
     # pylint: disable=unused-argument,no-self-use
@@ -32,7 +29,6 @@ class AUDIO(qubes.ext.Extension):
                 yield domain
 
     @qubes.ext.handler('domain-pre-shutdown')
-    @asyncio.coroutine
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
         attached_vms = [domain for domain in self.attached_vms(vm) if
                         domain.is_running()]

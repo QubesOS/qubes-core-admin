@@ -670,18 +670,17 @@ class TC_00_AppVMMixin(object):
         return self.loop.run_until_complete(
             self._test_300_bug_1028_gui_memory_pinning())
 
-    @asyncio.coroutine
-    def _test_300_bug_1028_gui_memory_pinning(self):
+    async def _test_300_bug_1028_gui_memory_pinning(self):
         self.testvm1.memory = 800
         self.testvm1.maxmem = 800
 
         # exclude from memory balancing
         self.testvm1.features['service.meminfo-writer'] = False
-        yield from self.testvm1.start()
-        yield from self.wait_for_session(self.testvm1)
+        await self.testvm1.start()
+        await self.wait_for_session(self.testvm1)
 
         # and allow large map count
-        yield from self.testvm1.run('echo 256000 > /proc/sys/vm/max_map_count',
+        await self.testvm1.run('echo 256000 > /proc/sys/vm/max_map_count',
             user="root")
 
         allocator_c = '''
@@ -730,25 +729,25 @@ int main(int argc, char **argv) {
 }
 '''
 
-        yield from self.testvm1.run_for_stdio('cat > allocator.c',
+        await self.testvm1.run_for_stdio('cat > allocator.c',
             input=allocator_c.encode())
 
         try:
-            yield from self.testvm1.run_for_stdio(
+            await self.testvm1.run_for_stdio(
                 'gcc allocator.c -o allocator')
         except subprocess.CalledProcessError as e:
             self.skipTest('allocator compile failed: {}'.format(e.stderr))
 
         # drop caches to have even more memory pressure
-        yield from self.testvm1.run_for_stdio(
+        await self.testvm1.run_for_stdio(
             'echo 3 > /proc/sys/vm/drop_caches', user='root')
 
         # now fragment all free memory
-        stdout, _ = yield from self.testvm1.run_for_stdio(
+        stdout, _ = await self.testvm1.run_for_stdio(
             "grep ^MemFree: /proc/meminfo|awk '{print $2}'")
         memory_pages = int(stdout) // 4  # 4k pages
 
-        alloc1 = yield from self.testvm1.run(
+        alloc1 = await self.testvm1.run(
             'ulimit -l unlimited; exec /home/user/allocator {}'.format(
                 memory_pages),
             user="root",
@@ -758,9 +757,9 @@ int main(int argc, char **argv) {
         # wait for memory being allocated; can't use just .read(), because EOF
         # passing is unreliable while the process is still running
         alloc1.stdin.write(b'\n')
-        yield from alloc1.stdin.drain()
+        await alloc1.stdin.drain()
         try:
-            alloc_out = yield from alloc1.stdout.readexactly(
+            alloc_out = await alloc1.stdout.readexactly(
                 len('Stage1\nStage2\nStage3\n'))
         except asyncio.IncompleteReadError as e:
             alloc_out = e.partial
@@ -772,41 +771,41 @@ int main(int argc, char **argv) {
             # stderr isn't always read, because on not-failed run, the process
             # is still running, so stderr.read() will wait (indefinitely).
             self.assertIn(b'Stage3', alloc_out,
-                (yield from alloc1.stderr.read()))
+                (await alloc1.stderr.read()))
 
         # now, launch some window - it should get fragmented composition buffer
         # it is important to have some changing content there, to generate
         # content update events (aka damage notify)
-        proc = yield from self.testvm1.run(
+        proc = await self.testvm1.run(
             'xterm -maximized -e top')
 
         if proc.returncode is not None:
             self.fail('xterm failed to start')
         # get window ID
-        winid = yield from self.wait_for_window_coro(
+        winid = await self.wait_for_window_coro(
             self.testvm1.name + ':xterm',
             search_class=True)
-        xprop = yield from asyncio.get_event_loop().run_in_executor(None,
+        xprop = await asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])
         vm_winid = xprop.decode().strip().split(' ')[4]
 
         # now free the fragmented memory and trigger compaction
         alloc1.stdin.write(b'\n')
-        yield from alloc1.stdin.drain()
-        yield from alloc1.wait()
-        yield from self.testvm1.run_for_stdio(
+        await alloc1.stdin.drain()
+        await alloc1.wait()
+        await self.testvm1.run_for_stdio(
             'echo 1 > /proc/sys/vm/compact_memory', user='root')
 
         # now window may be already "broken"; to be sure, allocate (=zero)
         # some memory
-        alloc2 = yield from self.testvm1.run(
+        alloc2 = await self.testvm1.run(
             'ulimit -l unlimited; /home/user/allocator {}'.format(memory_pages),
             user='root', stdout=subprocess.PIPE)
-        yield from alloc2.stdout.read(len('Stage1\n'))
+        await alloc2.stdout.read(len('Stage1\n'))
 
         # wait for damage notify - top updates every 3 sec by default
-        yield from asyncio.sleep(6)
+        await asyncio.sleep(6)
 
         # stop changing the window content
         subprocess.check_call(['xdotool', 'key', '--window', winid, 'd'])
@@ -814,10 +813,10 @@ int main(int argc, char **argv) {
         # now take screenshot of the window, from dom0 and VM
         # choose pnm format, as it doesn't have any useless metadata - easy
         # to compare
-        vm_image, _ = yield from self.testvm1.run_for_stdio(
+        vm_image, _ = await self.testvm1.run_for_stdio(
             'import -window {} pnm:-'.format(vm_winid))
 
-        dom0_image = yield from asyncio.get_event_loop().run_in_executor(None,
+        dom0_image = await asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output, ['import', '-window', winid, 'pnm:-'])
 
         if vm_image != dom0_image:

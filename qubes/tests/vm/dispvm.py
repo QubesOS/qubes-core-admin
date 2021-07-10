@@ -70,8 +70,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.app.domains.clear()
         self.app.pools.clear()
 
-    @asyncio.coroutine
-    def mock_coro(self, *args, **kwargs):
+    async def mock_coro(self, *args, **kwargs):
         pass
 
     @mock.patch('os.symlink')

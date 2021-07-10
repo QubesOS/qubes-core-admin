@@ -56,11 +56,10 @@ def _coroutinized(function):
         function via the event loop's ThreadPool-based default
         executor.
     '''
-    @asyncio.coroutine
     @functools.wraps(function)
-    def wrapper(*args, **kwargs):
-        return (yield from asyncio.get_event_loop().run_in_executor(
-            None, functools.partial(function, *args, **kwargs)))
+    async def wrapper(*args, **kwargs):
+        return await asyncio.get_event_loop().run_in_executor(
+            None, functools.partial(function, *args, **kwargs))
     return wrapper
 
 
@@ -158,6 +157,7 @@ class ReflinkVolume(qubes.storage.Volume):
             _create_sparse_file(self._path_clean, self._size)
         return self
 
+    # pylint: disable=invalid-overridden-method
     @_coroutinized
     def verify(self):
         if self.snap_on_start:
@@ -172,6 +172,7 @@ class ReflinkVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             'Missing image file {!r} for volume {}'.format(img, self.vid))
 
+    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
     def remove(self):
@@ -291,6 +292,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
+    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
     def import_data(self, size):
@@ -300,30 +302,29 @@ class ReflinkVolume(qubes.storage.Volume):
         _create_sparse_file(self._path_import, size)
         return self._path_import
 
-    def _import_data_end(self, success):
+    # pylint: disable=invalid-overridden-method
+    @qubes.storage.Volume.locked
+    @_coroutinized
+    def import_data_end(self, success):
         (self._commit if success else _remove_file)(self._path_import)
         return self
 
-    import_data_end = qubes.storage.Volume.locked(_coroutinized(
-        _import_data_end))
-
     @qubes.storage.Volume.locked
-    @asyncio.coroutine
-    def import_volume(self, src_volume):
+    async def import_volume(self, src_volume):
         if self.save_on_stop:
             try:
                 success = False
-                src_path = yield from qubes.utils.coro_maybe(
+                src_path = await qubes.utils.coro_maybe(
                     src_volume.export())
                 try:
-                    yield from _coroutinized(_copy_file)(
+                    await _coroutinized(_copy_file)(
                         src_path, self._path_import)
                 finally:
-                    yield from qubes.utils.coro_maybe(
+                    await qubes.utils.coro_maybe(
                         src_volume.export_end(src_path))
                 success = True
             finally:
-                yield from _coroutinized(self._import_data_end)(success)
+                await _coroutinized(self.import_data_end)(success)
         return self
 
     def _path_revision(self, number, timestamp=None):

@@ -85,7 +85,7 @@ class LinuxModules(Volume):
     def is_dirty(self):
         return False
 
-    def import_volume(self, src_volume):
+    async def import_volume(self, src_volume):
         if isinstance(src_volume, LinuxModules):
             # do nothing
             return self
@@ -95,7 +95,7 @@ class LinuxModules(Volume):
     def create(self):
         return self
 
-    def remove(self):
+    async def remove(self):
         pass
 
     def commit(self):
@@ -129,9 +129,11 @@ class LinuxModules(Volume):
             raise qubes.exc.QubesValueError(
                 'LinuxModules supports only read-only volumes')
 
+    # pylint: disable=invalid-overridden-method
     def start(self):
         return self
 
+    # pylint: disable=invalid-overridden-method
     def stop(self):
         pass
 
@@ -185,7 +187,7 @@ class LinuxKernel(Pool):
     def destroy(self):
         pass
 
-    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
+    async def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
 
     def setup(self):

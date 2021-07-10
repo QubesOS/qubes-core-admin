@@ -36,9 +36,7 @@ def handler(*events):
     To hook an event, decorate a method in your plugin class with this
     decorator.
 
-    Some event handlers may be defined as coroutine. In such a case
-    :py:func:`asyncio.coroutine` decorator should be used after this one,
-    i.e. you should decorate a coroutine.
+    Some event handlers may be async functions.
     See appropriate event documentation for details.
 
     .. note::
@@ -203,8 +201,7 @@ class Emitter(metaclass=EmitterMeta):
         return sync_effects
 
 
-    @asyncio.coroutine
-    def fire_event_async(self, event, pre_event=False, **kwargs):
+    async def fire_event_async(self, event, pre_event=False, **kwargs):
         '''Call all handlers for an event, allowing async calls.
 
         Handlers are called for class and all parent classes, in **reversed**
@@ -231,7 +228,7 @@ class Emitter(metaclass=EmitterMeta):
             kwargs, pre_event=pre_event)
         effects = sync_effects
         if async_effects:
-            async_tasks, _ = yield from asyncio.wait(async_effects)
+            async_tasks, _ = await asyncio.wait(async_effects)
             for task in async_tasks:
                 effect = task.result()
                 if effect is not None:

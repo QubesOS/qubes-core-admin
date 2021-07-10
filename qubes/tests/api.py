@@ -53,26 +53,21 @@ class TestMgmt(object):
     def cancel(self):
         self.task.cancel()
 
-    @asyncio.coroutine
-    def success(self, untrusted_payload):
+    async def success(self, untrusted_payload):
         return 'src: {!r}, dest: {!r}, arg: {!r}, payload: {!r}'.format(
             self.src, self.dest, self.arg, untrusted_payload
         )
 
-    @asyncio.coroutine
-    def success_none(self, untrusted_payload):
+    async def success_none(self, untrusted_payload):
         pass
 
-    @asyncio.coroutine
-    def qubesexception(self, untrusted_payload):
+    async def qubesexception(self, untrusted_payload):
         raise qubes.exc.QubesException('qubes-exception')
 
-    @asyncio.coroutine
-    def exception(self, untrusted_payload):
+    async def exception(self, untrusted_payload):
         raise Exception('exception')
 
-    @asyncio.coroutine
-    def event(self, untrusted_payload):
+    async def event(self, untrusted_payload):
         future = asyncio.get_event_loop().create_future()
 
         class Subject:
@@ -84,11 +79,11 @@ class TestMgmt(object):
         self.send_event(Subject(), 'event', payload=untrusted_payload.decode())
         try:
             # give some time to close the other end
-            yield from asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
             # should be canceled
             self.send_event(Subject, 'event2',
                 payload=untrusted_payload.decode())
-            yield from future
+            await future
         except asyncio.CancelledError:
             pass
 

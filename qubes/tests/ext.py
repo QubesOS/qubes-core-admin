@@ -22,15 +22,19 @@ import os
 import qubes.ext.core_features
 import qubes.ext.services
 import qubes.ext.windows
+import qubes.ext.supported_features
 import qubes.tests
+import qubes.vm.qubesvm
 
 from unittest import mock
 
 class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
+    maxDiff = None
     def setUp(self):
         super().setUp()
         self.ext = qubes.ext.core_features.CoreFeatures()
         self.vm = mock.MagicMock()
+        self.async_vm = mock.AsyncMock()
         self.features = {}
         self.vm.configure_mock(**{
             'features.get.side_effect': self.features.get,
@@ -39,6 +43,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             'features.__contains__.side_effect': self.features.__contains__,
             'features.__setitem__.side_effect': self.features.__setitem__,
             'features.__delitem__.side_effect': self.features.__delitem__,
+            'fire_event_async': self.async_vm,
             })
 
     def test_010_notify_tools(self):
@@ -60,7 +65,6 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__setitem__', ('vmexec', True), {}),
             ('features.get', ('qrexec', False), {}),
             ('fire_event_async', ('template-postinstall',), {}),
-            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_011_notify_tools_uninstall(self):
@@ -113,7 +117,6 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__setitem__', ('gui', True), {}),
             ('features.get', ('qrexec', False), {}),
             ('fire_event_async', ('template-postinstall',), {}),
-            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_015_notify_tools_invalid_value_qrexec(self):
@@ -149,7 +152,6 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__setitem__', ('qrexec', True), {}),
             ('features.get', ('qrexec', False), {}),
             ('fire_event_async', ('template-postinstall',), {}),
-            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_017_notify_tools_template_based(self):

@@ -21,7 +21,6 @@
 #
 
 ''' This module contains pool implementations backed by file images'''
-import asyncio
 import os
 import os.path
 import re
@@ -213,6 +212,7 @@ class FileVolume(qubes.storage.Volume):
         if not self.snap_on_start:
             create_sparse_file(self.path, self.size, permissions=0o664)
 
+    # pylint: disable=invalid-overridden-method
     def remove(self):
         if not self.snap_on_start:
             _remove_if_exists(self.path)
@@ -233,6 +233,7 @@ class FileVolume(qubes.storage.Volume):
                          cow_used > cow.seek(0, os.SEEK_HOLE)))
         return False
 
+    # pylint: disable=invalid-overridden-method
     def resize(self, size):
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
@@ -291,26 +292,27 @@ class FileVolume(qubes.storage.Volume):
         self._export_lock = FileVolume._marker_exported
         return self.path
 
+    # pylint: disable=invalid-overridden-method
     def export_end(self, path):
         assert self._export_lock is not FileVolume._marker_running, \
             'ending an export on a running volume?'
         self._export_lock = None
 
-    @asyncio.coroutine
-    def import_volume(self, src_volume):
+    async def import_volume(self, src_volume):
         if src_volume.snap_on_start:
             raise qubes.storage.StoragePoolException(
                 "Can not import snapshot volume {!s} in to pool {!s} ".format(
                     src_volume, self))
         if self.save_on_stop:
             _remove_if_exists(self.path)
-            path = yield from qubes.utils.coro_maybe(src_volume.export())
+            path = await qubes.utils.coro_maybe(src_volume.export())
             try:
                 copy_file(path, self.path)
             finally:
-                yield from qubes.utils.coro_maybe(src_volume.export_end(path))
+                await qubes.utils.coro_maybe(src_volume.export_end(path))
         return self
 
+    # pylint: disable=invalid-overridden-method
     def import_data(self, size):
         if not self.save_on_stop:
             raise qubes.storage.StoragePoolException(
@@ -319,6 +321,7 @@ class FileVolume(qubes.storage.Volume):
         create_sparse_file(self.path_import, size)
         return self.path_import
 
+    # pylint: disable=invalid-overridden-method
     def import_data_end(self, success):
         if success:
             os.rename(self.path_import, self.path)
@@ -337,6 +340,7 @@ class FileVolume(qubes.storage.Volume):
         create_sparse_file(self.path, self.size)
         return self
 
+    # pylint: disable=invalid-overridden-method
     def start(self):
         if self._export_lock is not None:
             assert self._export_lock is FileVolume._marker_exported, \
@@ -360,6 +364,7 @@ class FileVolume(qubes.storage.Volume):
                     create_sparse_file(self.path_source_cow, self.size)
         return self
 
+    # pylint: disable=invalid-overridden-method
     def stop(self):
         assert self._export_lock is not FileVolume._marker_exported, \
             'trying to stop exported file volume?'
