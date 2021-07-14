@@ -103,7 +103,7 @@ class Proto(RuleChoice):
 
 
 class Host(RuleOption):
-'''Represent host/network address: either IPv4, IPv6, or DNS name'''
+    '''Represent host/network address: either IPv4, IPv6, or DNS name'''
     def __init__(self, untrusted_value, prefixlen=None):
         if untrusted_value.count('/') > 1:
             raise ValueError('Too many /: ' + untrusted_value)
@@ -511,7 +511,7 @@ class Rule(qubes.PropertyHolder):
                         'dsthost'))
                 kwargs['dsthost'] = DstHost(untrusted_value=untrusted_value)
             else:
-                raise ValueError('Unknown firewall option')
+                raise ValueError('Unknown firewall option {}'.format(untrusted_option))
 
         return cls(**kwargs)
 
