@@ -76,10 +76,20 @@ class RuleChoice(RuleOption):
 class Action(RuleChoice):
     accept = 'accept'
     drop = 'drop'
+    forward = 'forward'
 
     @property
     def rule(self):
         return 'action=' + str(self)
+
+
+class ForwardType(RuleChoice):
+    external = 'external'
+    internal = 'internal'
+
+    @property
+    def rule(self):
+        return 'forwardtype=' + str(self)
 
 
 class Proto(RuleChoice):
@@ -92,8 +102,8 @@ class Proto(RuleChoice):
         return 'proto=' + str(self)
 
 
-class DstHost(RuleOption):
-    '''Represent host/network address: either IPv4, IPv6, or DNS name'''
+class Host(RuleOption):
+'''Represent host/network address: either IPv4, IPv6, or DNS name'''
     def __init__(self, untrusted_value, prefixlen=None):
         if untrusted_value.count('/') > 1:
             raise ValueError('Too many /: ' + untrusted_value)
@@ -155,12 +165,20 @@ class DstHost(RuleOption):
 
         super().__init__(value)
 
+
+class DstHost(Host):
+    
     @property
     def rule(self):
         return self.type + '=' + str(self)
 
+class SrcHost(Host):
+    
+    @property
+    def rule(self):
+        return 'src' + self.type + '=' + str(self)
 
-class DstPorts(RuleOption):
+class Ports(RuleOption):
     def __init__(self, untrusted_value):
         if isinstance(untrusted_value, int):
             untrusted_value = str(untrusted_value)
@@ -178,9 +196,17 @@ class DstPorts(RuleOption):
             str(self.range[0]) if self.range[0] == self.range[1]
             else '-'.join(map(str, self.range)))
 
+
+class DstPorts(Ports):
     @property
     def rule(self):
         return 'dstports=' + '{!s}-{!s}'.format(*self.range)
+
+
+class SrcPorts(Ports):
+    @property
+    def rule(self):
+        return 'srcports=' + '{!s}-{!s}'.format(*self.range)
 
 
 class IcmpType(RuleOption):
@@ -259,12 +285,28 @@ class Rule(qubes.PropertyHolder):
         if self.icmptype:
             self.on_set_icmptype('property-set:icmptype', 'icmptype',
                 self.icmptype, None)
+        # dependencies for forwarding
+        if self.forwardtype:
+            self.on_set_forwardtype('property-set:forwardtype', 'forwardtype',
+                self.forwardtype, None)
+        if self.srcports:
+            self.on_set_srcports('property-set:srcports', 'srcports',
+                self.srcports, None)
         self.property_require('action', False, True)
+        if self.action is 'forward':
+            self.property_require('forwardtype', False, True)
+            self.property_require('srcports', False, True)
 
     action = qubes.property('action',
         type=Action,
         order=0,
         doc='rule action')
+
+    forwardtype = qubes.property('forwardtype',
+        type=ForwardType,
+        default=None,
+        order=1,
+        doc='forwarding type (\'internal\' or \'external\')')
 
     proto = qubes.property('proto',
         type=Proto,
@@ -277,6 +319,18 @@ class Rule(qubes.PropertyHolder):
         default=None,
         order=1,
         doc='destination host/network')
+
+    srchost = qubes.property('srchost',
+        type=SrcHost,
+        default=None,
+        order=2,
+        doc='allowed inbound hosts for connections (for forwarding only)')
+
+    srcports = qubes.property('srcports',
+        type=SrcPorts,
+        default=None,
+        order=2,
+        doc='Inbound port(s) (for forwarding only)') 
 
     dstports = qubes.property('dstports',
         type=DstPorts,
@@ -329,6 +383,24 @@ class Rule(qubes.PropertyHolder):
             self.dstports = qubes.property.DEFAULT
         if newvalue not in ('icmp',):
             self.icmptype = qubes.property.DEFAULT
+
+    @qubes.events.handler('property-set:forwardtype')
+    def on_set_forwardtype(self, event, name, newvalue, oldvalue=None):
+        if self.action != 'forward':
+            raise ValueError(
+                'forwardtype valid only for forward action')
+
+    @qubes.events.handler('property-set:srcports')
+    def on_set_srcports(self, event, name, newvalue, oldvalue=None):
+        if self.action != 'forward':
+            raise ValueError(
+                'srcports valid only for forward action')
+
+    @qubes.events.handler('property-set:srchost')
+    def on_set_srchost(self, event, name, newvalue, oldvalue=None):
+        if self.action != 'forward':
+            raise ValueError(
+                'srchost valid only for forward action')
 
     @qubes.events.handler('property-reset:proto')
     def on_reset_proto(self, event, name, oldvalue):
@@ -614,5 +686,29 @@ class Firewall:
             # exclude rules for another address family
             if rule.dsthost and rule.dsthost.type == exclude_dsttype:
                 continue
+            # exclude forwarding rules, managed separately
+            if rule.action == "forward":
+                continue
             entries['{:04}'.format(ruleno)] = rule.rule
         return entries
+
+    def qdb_forward_entries(self, addr_family=None, type="internal"):
+        ''' In order to keep all the 'parsing' logic here and not in net.py,
+        directly separate forwarding rules from standard rules since they need
+        to be handled differently later.
+        '''
+        entries = {}
+        if addr_family is not None:
+            exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
+        for ruleno, rule in zip(itertools.count(), self.rules):
+            if rule.expire and rule.expire.expired:
+                continue
+            # exclude rules for another address family
+            if rule.dsthost and rule.dsthost.type == exclude_dsttype:
+                continue
+            # include only forwarding rules
+            if rule.action != "forward":
+                continue
+            if rule.forwardtype == type:
+                entries['{:04}'.format(ruleno)] = rule.rule
+        return entries            
