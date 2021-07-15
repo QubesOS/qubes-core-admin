@@ -117,7 +117,7 @@ class Host(RuleOption):
                     raise ValueError(
                         'netmask for IPv6 must be between 0 and 128')
                 value += '/' + str(self.prefixlen)
-                self.type = 'dst6'
+                self.type = '6'
             except socket.error:
                 try:
                     socket.inet_pton(socket.AF_INET, untrusted_value)
@@ -130,9 +130,9 @@ class Host(RuleOption):
                         raise ValueError(
                             'netmask for IPv4 must be between 0 and 32')
                     value += '/' + str(self.prefixlen)
-                    self.type = 'dst4'
+                    self.type = '4'
                 except socket.error:
-                    self.type = 'dsthost'
+                    self.type = 'host'
                     self.prefixlen = 0
                     safe_set = string.ascii_lowercase + string.digits + '-._'
                     if not all(c in safe_set for c in untrusted_value):
@@ -149,13 +149,13 @@ class Host(RuleOption):
                 value = untrusted_value
                 if prefixlen > 128:
                     raise ValueError('netmask for IPv6 must be <= 128')
-                self.type = 'dst6'
+                self.type = '6'
             except socket.error:
                 try:
                     socket.inet_pton(socket.AF_INET, untrusted_host)
                     if prefixlen > 32:
                         raise ValueError('netmask for IPv4 must be <= 32')
-                    self.type = 'dst4'
+                    self.type = '4'
                     if untrusted_host.count('.') != 3:
                         raise ValueError(
                             'Invalid number of dots in IPv4 address')
@@ -170,7 +170,7 @@ class DstHost(Host):
     
     @property
     def rule(self):
-        return self.type + '=' + str(self)
+        return 'dst' + self.type + '=' + str(self)
 
 class SrcHost(Host):
     
@@ -292,10 +292,14 @@ class Rule(qubes.PropertyHolder):
         if self.srcports:
             self.on_set_srcports('property-set:srcports', 'srcports',
                 self.srcports, None)
+        if self.srchost:
+            self.on_set_srcports('property-set:srchost', 'srchost',
+                self.srcports, None)
         self.property_require('action', False, True)
         if self.action is 'forward':
             self.property_require('forwardtype', False, True)
             self.property_require('srcports', False, True)
+            self.property_require('srchost', False, True)
 
     action = qubes.property('action',
         type=Action,
@@ -510,6 +514,11 @@ class Rule(qubes.PropertyHolder):
                     raise ValueError('Option \'{}\' already set'.format(
                         'dsthost'))
                 kwargs['dsthost'] = DstHost(untrusted_value=untrusted_value)
+            elif untrusted_key in ('src4', 'src6'):
+                if 'srchost' in kwargs:
+                    raise ValueError('Option \'{}\' already set'.format(
+                        'srchost'))
+                kwargs['srchost'] = SrcHost(untrusted_value=untrusted_value)
             else:
                 raise ValueError('Unknown firewall option {}'.format(untrusted_option))
 
@@ -696,6 +705,9 @@ class Firewall:
         ''' In order to keep all the 'parsing' logic here and not in net.py,
         directly separate forwarding rules from standard rules since they need
         to be handled differently later.
+        '''
+        '''
+        TODO: missing correct src6/dst4 handling
         '''
         entries = {}
         if addr_family is not None:
