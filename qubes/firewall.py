@@ -365,6 +365,13 @@ class Rule(qubes.PropertyHolder):
         doc='User comment')
 
     # noinspection PyUnusedLocal
+    @qubes.events.handler('property-pre-set:dsthost')
+    def on_set_dsthost(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if self.action not in ('accept', 'drop'):
+            raise ValueError(
+                'dsthost valid only for \'accept\' and \'drop\' action')
+
     @qubes.events.handler('property-pre-set:dstports')
     def on_set_dstports(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
