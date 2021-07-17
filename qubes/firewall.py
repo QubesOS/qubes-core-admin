@@ -22,7 +22,6 @@
 
 import datetime
 import string
-import uuid
 
 import itertools
 import os
@@ -710,7 +709,7 @@ class Firewall:
             entries['{:04}'.format(ruleno)] = rule.rule
         return entries
 
-    def qdb_forward_entries(self, addr_family=None, type="internal"):
+    def qdb_forward_entries(self, addr_family=None):
         ''' In order to keep all the 'parsing' logic here and not in net.py,
         directly separate forwarding rules from standard rules since they need
         to be handled differently later.
@@ -721,13 +720,14 @@ class Firewall:
         entries = {}
         if addr_family is not None:
             exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
+            exclude_srctype = 'src4' if addr_family == 6 else 'src6'
         for ruleno, rule in zip(itertools.count(), 
-            filter(lambda x: (x.action == "forward" and x.forwardtype == type), self.rules)):
+            filter(lambda x: (x.action == "forward"), self.rules)):
             
             if rule.expire and rule.expire.expired:
                 continue
             # exclude rules for another address family
             if rule.dsthost and rule.dsthost.type == exclude_dsttype:
                 continue
-            entries['{:04}'.format(ruleno)] = rule.rule
+            entries['{:04}:{}'.format(ruleno, rule.forwardtype)] = rule.rule
         return entries            

@@ -398,30 +398,35 @@ class NetVMMixin(qubes.events.Emitter):
             self.untrusted_qdb.write(base_dir[:-1], '')
 
             # begin write new forward rules
-            # if internal
-            base_dir = '/qubes-firewall-forward/{}/'.format(ip)
-            self.untrusted_qdb.rm(base_dir)
-
-            for key, value in vm.firewall.qdb_forward_entries(
-                    addr_family=addr_family, type="internal").items():
-                self.untrusted_qdb.write(base_dir + key, value)
-            self.untrusted_qdb.write(base_dir[:-1], '')
-            # endif
-
-            # if external
-            # super ugly cleaning, surely has to be improved
-            cleaned = []
-            for key, value in vm.firewall.qdb_forward_entries(
-                    addr_family=addr_family, type="external").items():
-                current_ip = ip
+            #clean
+            if netpath:
                 for netvm in netpath:
-                    base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, current_ip)
-                    if base_dir not in cleaned:
-                        netvm.untrusted_qdb.rm(base_dir)
-                        cleaned.append(base_dir)
-                    netvm.untrusted_qdb.write(base_dir + key, value)
-                    current_ip = netvm.ip
+                    base_dir = '/qubes-firewall-forward/{}/'.format(vm.name)
+                    netvm.untrusted_qdb.rm(base_dir)
+
+            for key, value in vm.firewall.qdb_forward_entries(
+                    addr_family=addr_family).items():
+                forwardtype = key.split(":")[1]
+                key = key.split(":")[0]
+                if forwardtype == "internal":
+                    base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, ip)
+                    self.untrusted_qdb.write(base_dir + key, value)
+                    self.untrusted_qdb.write(base_dir + key + '/first', '1')
+                    self.untrusted_qdb.write(base_dir + key + '/last', '1')
                     self.untrusted_qdb.write(base_dir[:-1], '')
+                elif forwardtype == "external":
+                    current_ip = ip
+                    for i, netvm in enumerate(netpath):
+                        base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, current_ip)
+                        netvm.untrusted_qdb.write(base_dir + key, value)
+                        if i == 0:
+                            netvm.untrusted_qdb.write(base_dir + key + '/first', '1')
+                        if i == len(netpath)-1:
+                            netvm.untrusted_qdb.write(base_dir + key + '/last', '1')
+                        current_ip = netvm.ip
+                        self.untrusted_qdb.write(base_dir[:-1], '')
+                else:
+                    raise ValueError('Invalid forwardtype')
             # end forward rules
             
 
