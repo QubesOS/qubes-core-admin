@@ -22,6 +22,7 @@
 
 import datetime
 import string
+import uuid
 
 import itertools
 import os
@@ -696,7 +697,8 @@ class Firewall:
         exclude_dsttype = None
         if addr_family is not None:
             exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
-        for ruleno, rule in zip(itertools.count(), self.rules):
+        for ruleno, rule in zip(itertools.count(), 
+            filter(lambda x: (x.action != "forward"), self.rules)):
             if rule.expire and rule.expire.expired:
                 continue
             # exclude rules for another address family
@@ -719,15 +721,13 @@ class Firewall:
         entries = {}
         if addr_family is not None:
             exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
-        for ruleno, rule in zip(itertools.count(), self.rules):
+        for ruleno, rule in zip(itertools.count(), 
+            filter(lambda x: (x.action == "forward" and x.forwardtype == type), self.rules)):
+            
             if rule.expire and rule.expire.expired:
                 continue
             # exclude rules for another address family
             if rule.dsthost and rule.dsthost.type == exclude_dsttype:
                 continue
-            # include only forwarding rules
-            if rule.action != "forward":
-                continue
-            if rule.forwardtype == type:
-                entries['{:04}'.format(ruleno)] = rule.rule
+            entries['{:04}'.format(ruleno)] = rule.rule
         return entries            

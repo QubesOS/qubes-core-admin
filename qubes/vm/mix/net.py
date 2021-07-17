@@ -409,11 +409,16 @@ class NetVMMixin(qubes.events.Emitter):
             # endif
 
             # if external
+            # super ugly cleaning, surely has to be improved
+            cleaned = []
             for key, value in vm.firewall.qdb_forward_entries(
                     addr_family=addr_family, type="external").items():
                 current_ip = ip
                 for netvm in netpath:
-                    base_dir = '/qubes-firewall-forward/{}/'.format(current_ip)
+                    base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, current_ip)
+                    if base_dir not in cleaned:
+                        netvm.untrusted_qdb.rm(base_dir)
+                        cleaned.append(base_dir)
                     netvm.untrusted_qdb.write(base_dir + key, value)
                     current_ip = netvm.ip
                     self.untrusted_qdb.write(base_dir[:-1], '')
