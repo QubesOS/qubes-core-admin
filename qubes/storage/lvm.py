@@ -93,7 +93,7 @@ class ThinPool(qubes.storage.Pool):
             'revisions_to_keep': self.revisions_to_keep,
         }
 
-    def destroy(self):
+    async def destroy(self):
         pass  # TODO Should we remove an existing pool?
 
     def init_volume(self, vm, volume_config):
@@ -418,7 +418,6 @@ class ThinVolume(qubes.storage.Volume):
         # and remove old snapshots, if needed
         await self._remove_revisions()
 
-    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     async def create(self):
         assert self.vid
@@ -665,7 +664,7 @@ class ThinVolume(qubes.storage.Volume):
             await reset_cache_coro()
         return self
 
-    def verify(self):
+    async def verify(self):
         ''' Verifies the volume. '''
         if not self.save_on_stop and not self.snap_on_start:
             # volatile volumes don't need any files

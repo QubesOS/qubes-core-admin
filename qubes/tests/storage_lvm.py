@@ -921,9 +921,9 @@ class TC_00_ThinPool(ThinPoolBase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
         # volatile volume don't need any file, verify should succeed
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.loop.run_until_complete(volume.create())
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.snap_on_start)
         path = volume.path
@@ -968,7 +968,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
         # only origin volume really needs to exist, verify should succeed
         # even before create
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.loop.run_until_complete(volume.create())
         path = volume.path
         self.assertEqual(path, '/dev/' + volume.vid)
