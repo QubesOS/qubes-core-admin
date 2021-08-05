@@ -120,8 +120,8 @@ class ThinPool(qubes.storage.Pool):
         self._volume_objects_cache[volume_config['vid']] = volume
         return volume
 
-    def setup(self):
-        reset_cache()
+    async def setup(self):
+        await reset_cache_coro()
         cache_key = self.volume_group + '/' + self.thin_pool
         if cache_key not in size_cache:
             raise qubes.storage.StoragePoolException(
@@ -463,10 +463,11 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=protected-access
         self.pool._volume_objects_cache.pop(self.vid, None)
 
-    def export(self):
+    async def export(self):
         ''' Returns an object that can be `open()`. '''
         # make sure the device node is available
-        qubes_lvm(['activate', self.path], self.log)
+        cmd = ['activate', self.path]
+        await qubes_lvm_coro(cmd, self.log)
         devpath = self.path
         return devpath
 
@@ -763,20 +764,8 @@ def _process_lvm_output(returncode, stdout, stderr, log):
         raise qubes.storage.StoragePoolException(err)
     return True
 
-def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
-    ''' Call :program:`lvm` to execute an LVM operation '''
-    # the only caller for this non-coroutine version is ThinVolume.export()
-    cmd = _get_lvm_cmdline(cmd)
-    environ={'LC_ALL': 'C.UTF-8', **os.environ}
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True, env=environ)
-    out, err = p.communicate()
-    return _process_lvm_output(p.returncode, out, err, log)
-
 async def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
-    ''' Call :program:`lvm` to execute an LVM operation
-
-    Coroutine version of :py:func:`qubes_lvm`'''
+    ''' Call :program:`lvm` to execute an LVM operation '''
     environ={'LC_ALL': 'C.UTF-8', **os.environ}
     if cmd[0] == "remove":
         pre_cmd = ['blkdiscard', '-p', '1G', '/dev/'+cmd[1]]
