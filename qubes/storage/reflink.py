@@ -302,12 +302,12 @@ class ReflinkVolume(qubes.storage.Volume):
         _create_sparse_file(self._path_import, size)
         return self._path_import
 
-    # pylint: disable=invalid-overridden-method
-    @qubes.storage.Volume.locked
     @_coroutinized
-    def import_data_end(self, success):
+    def _import_data_end_unlocked(self, success):
         (self._commit if success else _remove_file)(self._path_import)
         return self
+
+    import_data_end = qubes.storage.Volume.locked(_import_data_end_unlocked)
 
     @qubes.storage.Volume.locked
     async def import_volume(self, src_volume):
@@ -324,7 +324,7 @@ class ReflinkVolume(qubes.storage.Volume):
                         src_volume.export_end(src_path))
                 success = True
             finally:
-                await _coroutinized(self.import_data_end)(success)
+                await self._import_data_end_unlocked(success)
         return self
 
     def _path_revision(self, number, timestamp=None):
