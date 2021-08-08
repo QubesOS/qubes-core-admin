@@ -1395,6 +1395,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
 
     for modname in (
             # unit tests
+            'qubes.tests.selftest',
             'qubes.tests.events',
             'qubes.tests.devices',
             'qubes.tests.devices_block',
