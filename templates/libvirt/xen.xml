@@ -76,7 +76,7 @@
 
     {% block clock %}
         {% if vm.virt_mode == 'hvm' %}
-            {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
+            {% set timezone = vm.features.check_with_template('timezone', '').lower() %}
             {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
             {% elif timezone.isdigit() %}
