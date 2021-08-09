@@ -45,6 +45,7 @@ import time
 import traceback
 import unittest
 import warnings
+from contextlib import contextmanager
 from distutils import spawn
 
 import gc
@@ -384,9 +385,45 @@ class substitute_entry_points(object):
         self._orig_iter_entry_points = None
 
 
+@contextmanager
+def detect_never_awaited(ignore=False, gc_before=False, gc_after=False):
+    detected = []
+    showwarning_orig = warnings.showwarning
+
+    def showwarning(message, category, filename, lineno, file=None, line=None):
+        if issubclass(category, RuntimeWarning) \
+           and str.endswith(str(message), ' was never awaited'):
+            detected.append(warnings.WarningMessage(
+                message, category, filename, lineno, file, line))
+        else:
+            showwarning_orig(message, category, filename, lineno, file, line)
+
+    if gc_before:
+        gc.collect()
+    warnings.showwarning = showwarning
+
+    try:
+        yield
+    finally:
+        if gc_after:
+            gc.collect()
+        warnings.showwarning = showwarning_orig
+        if detected and not ignore:
+            raise RuntimeError('\n' + ';\n'.join(map(str, detected)))
+
+
+ignore_never_awaited = functools.partial(
+        detect_never_awaited, ignore=True, gc_before=True, gc_after=True)
+
+
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests.
     """
+
+    _callSetUp      = detect_never_awaited()(unittest.TestCase._callSetUp)
+    _callTestMethod = detect_never_awaited()(unittest.TestCase._callTestMethod)
+    _callTearDown   = detect_never_awaited()(unittest.TestCase._callTearDown)
+    _callCleanup    = detect_never_awaited()(unittest.TestCase._callCleanup)
 
     def __init__(self, *args, **kwargs):
         super(QubesTestCase, self).__init__(*args, **kwargs)

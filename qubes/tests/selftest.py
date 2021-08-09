@@ -17,8 +17,20 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import unittest
+
 import qubes.tests
 
 
 class TC_00_SelfTest(qubes.tests.QubesTestCase):
+    def test_000_ignore_never_awaited(self):
+        with qubes.tests.ignore_never_awaited():
+            intentionally_never_awaited()
+
+    @unittest.expectedFailure
+    def test_001_raise_never_awaited_by_default(self):
+        intentionally_never_awaited()
+
+
+async def intentionally_never_awaited():
     pass
