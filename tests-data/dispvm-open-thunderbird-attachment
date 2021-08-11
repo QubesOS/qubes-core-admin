@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+import sys
+import time
+import os
+import mimetypes
+import subprocess
+from email.message import EmailMessage
+
+try:
+    from dogtail import tree
+except ImportError:
+    subprocess.check_call(['git', 'clone',
+                           'https://gitlab.com/dogtail/dogtail.git'])
+    subprocess.check_call(['git', '-C', 'dogtail', 'checkout', 'cb39d4b0'])
+    sys.path.insert(0, os.getcwd() + '/dogtail')
+    from dogtail import tree
+from dogtail.config import config
+
+defaultCutoffCount = 10
+
+
+def make_email(attach_file):
+    m = EmailMessage()
+    m['Subject'] = 'Test Message'
+    m['From'] = 'user@localhost'
+    m['To'] = 'user@localhost'
+    mimetype = mimetypes.guess_type(attach_file)
+    if mimetype[0] == 'text/plain':
+        with open(attach_file) as f:
+            m.add_attachment(f.read(), filename=os.path.basename(attach_file))
+    else:
+        if mimetype[0]:
+            typesubtype = mimetype[0].split('/')
+        else:
+            typesubtype = 'application', 'octet-stream'
+        with open(attach_file, 'rb') as f:
+            m.add_attachment(f.read(), filename=os.path.basename(attach_file),
+                             maintype=typesubtype[0], subtype=typesubtype[1])
+    return m.as_bytes()
+
+
+def get_app():
+    config.searchCutoffCount = 50
+    tree.root.application('Thunderbird|Icedove')
+    time.sleep(5)
+    # now get it again to make sure we have the main window,
+    # not any splash screen
+    tb = tree.root.application('Thunderbird|Icedove')
+    config.searchCutoffCount = defaultCutoffCount
+    return tb
+
+
+def skip_autoconf(tb):
+    try:
+        welcome = tb.childNamed('Mail Account Setup'
+                                '|Set Up .* Existing Email .*')
+        time.sleep(3)
+        welcome.button('Cancel').doActionNamed('press')
+    except tree.SearchError:
+        pass
+
+
+def skip_autoconf2(tb):
+    try:
+        wizard = tb.dialog('Account Wizard')
+        time.sleep(3)
+        wizard.button('Cancel').doActionNamed('press')
+        confirm = tb.child(name='Account Wizard', roleName='frame')
+        confirm.button('Exit').doActionNamed('press')
+    except tree.SearchError:
+        pass
+
+
+def open_attachment(tb, name):
+    # message subject
+    msg = tb.child(name='Test Message - .*', roleName='frame')
+    msg.button(name).click()
+    confirm = tb.child(name='Opening ' + name, roleName='frame')
+    time.sleep(3)
+    confirm.button('OK').doActionNamed('press')
+
+
+def main():
+    tb = get_app()
+    skip_autoconf(tb)
+    eml_path = sys.argv[1] + '.eml'
+    with open(eml_path, 'wb') as eml_file:
+        eml_file.write(make_email(sys.argv[1]))
+    # should open in existing app instance
+    subprocess.check_call(['thunderbird', eml_path])
+    skip_autoconf2(tb)
+    open_attachment(tb, os.path.basename(sys.argv[1]))
+
+
+if __name__ == '__main__':
+    main()
