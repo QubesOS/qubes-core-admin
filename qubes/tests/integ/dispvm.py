@@ -184,7 +184,7 @@ class TC_20_DispVMMixin(object):
         self.assertNotIn(dispvm_name, self.app.domains,
                           "DispVM not removed from qubes.xml")
 
-    def _handle_editor(self, winid):
+    def _handle_editor(self, winid, copy=False):
         (window_title, _) = subprocess.Popen(
             ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE).\
             communicate()
@@ -192,13 +192,20 @@ class TC_20_DispVMMixin(object):
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
         if "gedit" in window_title or 'KWrite' in window_title:
-            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'type', 'Test test 2'])
-            subprocess.check_call(['xdotool', 'key', '--window', winid,
-                                   'key', 'Return'])
+            subprocess.check_call(
+                ['xdotool', 'windowactivate', '--sync', winid])
+            if copy:
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'ctrl+a', 'ctrl+c',
+                                       'ctrl+shift+c'])
+            else:
+                subprocess.check_call(['xdotool', 'type', 'Test test 2'])
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'Return'])
+                time.sleep(0.5)
+                subprocess.check_call(['xdotool', 'key', 'ctrl+s'])
             time.sleep(0.5)
-            subprocess.check_call(['xdotool',
-                                   'key', 'ctrl+s', 'ctrl+q'])
+            subprocess.check_call(['xdotool', 'key', 'ctrl+q'])
         elif "LibreOffice" in window_title:
             # wait for actual editor (we've got splash screen)
             search = subprocess.Popen(['xdotool', 'search', '--sync',
@@ -209,32 +216,52 @@ class TC_20_DispVMMixin(object):
             if retcode == 0:
                 winid = search.stdout.read().strip()
             time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'type', 'Test test 2'])
-            subprocess.check_call(['xdotool', 'key', '--window', winid,
-                                   'key', 'Return'])
+            subprocess.check_call(
+                ['xdotool', 'windowactivate', '--sync', winid])
+            if copy:
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'ctrl+a', 'ctrl+c',
+                                       'ctrl+shift+c'])
+            else:
+                subprocess.check_call(['xdotool', 'type', 'Test test 2'])
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'Return'])
+                time.sleep(0.5)
+                subprocess.check_call(['xdotool',
+                                       'key', '--delay', '100', 'ctrl+s',
+                                       'Return'])
             time.sleep(0.5)
-            subprocess.check_call(['xdotool',
-                                   'key', '--delay', '100', 'ctrl+s',
-                'Return', 'ctrl+q'])
+            subprocess.check_call(['xdotool', 'key', 'ctrl+q'])
         elif "emacs" in window_title:
-            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'type', 'Test test 2'])
-            subprocess.check_call(['xdotool', 'key', '--window', winid,
-                                   'key', 'Return'])
+            subprocess.check_call(
+                ['xdotool', 'windowactivate', '--sync', winid])
+            if copy:
+                subprocess.check_call(['xdotool',
+                                       'key', 'ctrl+x', 'h', 'alt+w',
+                                       'ctrl+shift+c'])
+            else:
+                subprocess.check_call(['xdotool', 'type', 'Test test 2'])
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'Return'])
+                time.sleep(0.5)
+                subprocess.check_call(['xdotool',
+                                       'key', 'ctrl+x', 'ctrl+s'])
             time.sleep(0.5)
-            subprocess.check_call(['xdotool',
-                                   'key', 'ctrl+x', 'ctrl+s'])
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+c'])
         elif "vim" in window_title or "user@" in window_title:
-            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'key', 'i', 'type', 'Test test 2'])
-            subprocess.check_call(['xdotool', 'key', '--window', winid,
-                                   'key', 'Return'])
             subprocess.check_call(
-                ['xdotool',
-                 'key', 'Escape', 'colon', 'w', 'q', 'Return'])
+                ['xdotool', 'windowactivate', '--sync', winid])
+            if copy:
+                raise NotImplementedError('copy not implemented for vim')
+            else:
+                subprocess.check_call(
+                    ['xdotool', 'key', 'i', 'type', 'Test test 2'])
+                subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                       'key', 'Return'])
+                subprocess.check_call(
+                    ['xdotool',
+                     'key', 'Escape', 'colon', 'w', 'q', 'Return'])
         else:
             self.fail("Unknown editor window: {}".format(window_title))
 
