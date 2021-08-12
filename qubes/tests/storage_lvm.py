@@ -35,7 +35,7 @@ import asyncio
 import qubes.tests
 import qubes.tests.storage
 import qubes.storage
-from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm
+from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm_coro
 
 if 'DEFAULT_LVM_POOL' in os.environ.keys():
     DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
@@ -338,7 +338,7 @@ class TC_00_ThinPool(ThinPoolBase):
         for rev in revisions:
             cmd = ['create', self.pool._pool_id,
                    volume.vid.split('/')[1] + rev, str(config['size'])]
-            qubes_lvm(cmd)
+            self.loop.run_until_complete(qubes_lvm_coro(cmd))
             orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
@@ -392,7 +392,7 @@ class TC_00_ThinPool(ThinPoolBase):
         for rev in revisions:
             cmd = ['create', self.pool._pool_id,
                    volume.vid.split('/')[1] + rev, str(config['size'])]
-            qubes_lvm(cmd)
+            self.loop.run_until_complete(qubes_lvm_coro(cmd))
             orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
@@ -455,7 +455,7 @@ class TC_00_ThinPool(ThinPoolBase):
         for rev in revisions:
             cmd = ['create', self.pool._pool_id,
                    volume.vid.split('/')[1] + rev, str(config['size'])]
-            qubes_lvm(cmd)
+            self.loop.run_until_complete(qubes_lvm_coro(cmd))
             orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
@@ -510,7 +510,7 @@ class TC_00_ThinPool(ThinPoolBase):
         for rev in revisions:
             cmd = ['create', self.pool._pool_id,
                    volume.vid.split('/')[1] + rev, str(config['size'])]
-            qubes_lvm(cmd)
+            self.loop.run_until_complete(qubes_lvm_coro(cmd))
             orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
@@ -552,7 +552,7 @@ class TC_00_ThinPool(ThinPoolBase):
         for rev in revisions:
             cmd = ['create', self.pool._pool_id,
                    volume.vid.split('/')[1] + rev, str(config['size'])]
-            qubes_lvm(cmd)
+            self.loop.run_until_complete(qubes_lvm_coro(cmd))
             orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
@@ -921,9 +921,9 @@ class TC_00_ThinPool(ThinPoolBase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
         # volatile volume don't need any file, verify should succeed
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.loop.run_until_complete(volume.create())
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.snap_on_start)
         path = volume.path
@@ -968,7 +968,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
         # only origin volume really needs to exist, verify should succeed
         # even before create
-        self.assertTrue(volume.verify())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.loop.run_until_complete(volume.create())
         path = volume.path
         self.assertEqual(path, '/dev/' + volume.vid)

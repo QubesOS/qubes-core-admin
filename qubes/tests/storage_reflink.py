@@ -126,15 +126,17 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.pool.init_volume(vm, config)
         self.loop.run_until_complete(volume.create())
-        with open(volume.export(), 'w') as vol_file:
-            vol_file.write('test data')
+        volume_exported = self.loop.run_until_complete(volume.export())
+        with open(volume_exported, 'w') as volume_file:
+            volume_file.write('test data')
         import_path = self.loop.run_until_complete(volume.import_data(volume.size))
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+'):
             pass
         self.loop.run_until_complete(volume.import_data_end(True))
         self.assertFalse(os.path.exists(import_path), import_path)
-        with open(volume.export()) as volume_file:
+        volume_exported = self.loop.run_until_complete(volume.export())
+        with open(volume_exported) as volume_file:
             volume_data = volume_file.read().strip('\0')
         self.assertNotEqual(volume_data, 'test data')
 

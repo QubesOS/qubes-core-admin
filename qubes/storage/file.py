@@ -109,10 +109,10 @@ class FilePool(qubes.storage.Pool):
                 'FilePool supports maximum 1 volume revision to keep')
         self._revisions_to_keep = value
 
-    def destroy(self):
+    async def destroy(self):
         pass
 
-    def setup(self):
+    def setup(self):  # pylint: disable=invalid-overridden-method
         create_dir_if_not_exists(self.dir_path)
         appvms_path = os.path.join(self.dir_path, 'appvms')
         create_dir_if_not_exists(appvms_path)
@@ -206,14 +206,13 @@ class FileVolume(qubes.storage.Volume):
                 'FileVolume supports maximum 1 volume revision to keep')
         self._revisions_to_keep = int(value)
 
-    def create(self):
+    def create(self):  # pylint: disable=invalid-overridden-method
         assert isinstance(self.size, int) and self.size > 0, \
             'Volume size must be > 0'
         if not self.snap_on_start:
             create_sparse_file(self.path, self.size, permissions=0o664)
 
-    # pylint: disable=invalid-overridden-method
-    def remove(self):
+    def remove(self):  # pylint: disable=invalid-overridden-method
         if not self.snap_on_start:
             _remove_if_exists(self.path)
         if self.snap_on_start or self.save_on_stop:
@@ -233,8 +232,7 @@ class FileVolume(qubes.storage.Volume):
                          cow_used > cow.seek(0, os.SEEK_HOLE)))
         return False
 
-    # pylint: disable=invalid-overridden-method
-    def resize(self, size):
+    def resize(self, size):  # pylint: disable=invalid-overridden-method
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
             given size is less than current_size
@@ -280,7 +278,7 @@ class FileVolume(qubes.storage.Volume):
         create_sparse_file(self.path_cow, self.size)
         return self
 
-    def export(self):
+    def export(self):  # pylint: disable=invalid-overridden-method
         if self._export_lock is not None:
             assert self._export_lock is FileVolume._marker_running, \
                 'nested calls to export()'
@@ -292,8 +290,7 @@ class FileVolume(qubes.storage.Volume):
         self._export_lock = FileVolume._marker_exported
         return self.path
 
-    # pylint: disable=invalid-overridden-method
-    def export_end(self, path):
+    async def export_end(self, path):
         assert self._export_lock is not FileVolume._marker_running, \
             'ending an export on a running volume?'
         self._export_lock = None
@@ -312,8 +309,7 @@ class FileVolume(qubes.storage.Volume):
                 await qubes.utils.coro_maybe(src_volume.export_end(path))
         return self
 
-    # pylint: disable=invalid-overridden-method
-    def import_data(self, size):
+    def import_data(self, size):  # pylint: disable=invalid-overridden-method
         if not self.save_on_stop:
             raise qubes.storage.StoragePoolException(
                 "Can not import into save_on_stop=False volume {!s}".format(
@@ -321,8 +317,7 @@ class FileVolume(qubes.storage.Volume):
         create_sparse_file(self.path_import, size)
         return self.path_import
 
-    # pylint: disable=invalid-overridden-method
-    def import_data_end(self, success):
+    def import_data_end(self, success):  # pylint: disable=invalid-overridden-method
         if success:
             os.rename(self.path_import, self.path)
         else:
@@ -340,8 +335,7 @@ class FileVolume(qubes.storage.Volume):
         create_sparse_file(self.path, self.size)
         return self
 
-    # pylint: disable=invalid-overridden-method
-    def start(self):
+    def start(self):  # pylint: disable=invalid-overridden-method
         if self._export_lock is not None:
             assert self._export_lock is FileVolume._marker_exported, \
                 'nested calls to start()'
@@ -364,8 +358,7 @@ class FileVolume(qubes.storage.Volume):
                     create_sparse_file(self.path_source_cow, self.size)
         return self
 
-    # pylint: disable=invalid-overridden-method
-    def stop(self):
+    def stop(self):  # pylint: disable=invalid-overridden-method
         assert self._export_lock is not FileVolume._marker_exported, \
             'trying to stop exported file volume?'
         if self.save_on_stop:
@@ -393,7 +386,7 @@ class FileVolume(qubes.storage.Volume):
         img_name = self.vid + '-import.img'
         return os.path.join(self.dir_path, img_name)
 
-    def verify(self):
+    def verify(self):  # pylint: disable=invalid-overridden-method
         ''' Verifies the volume. '''
         if not os.path.exists(self.path) and \
                 (self.snap_on_start or self.save_on_stop):
