@@ -723,7 +723,6 @@ class Firewall:
             exclude_srctype = 'src4' if addr_family == 6 else 'src6'
         for ruleno, rule in zip(itertools.count(), 
             filter(lambda x: (x.action == "forward"), self.rules)):
-            
             if rule.expire and rule.expire.expired:
                 continue
             # exclude rules for another address family
