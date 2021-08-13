@@ -848,7 +848,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -904,7 +904,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -969,7 +969,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1176,7 +1176,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <e820_host state="on"/>
             </xen>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1252,7 +1252,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1332,7 +1332,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1431,7 +1431,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1503,7 +1503,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
