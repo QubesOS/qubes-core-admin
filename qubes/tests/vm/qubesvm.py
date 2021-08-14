@@ -1838,6 +1838,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.is_running = lambda: True
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
+        guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1886,6 +1887,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.audiovm = audiovm
         vm.is_running = lambda: True
         audiovm.is_running = lambda: True
+        audiovm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1959,6 +1961,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.is_running = lambda: True
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
+        guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write

@@ -761,8 +761,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         Or not Xen, but ID.
         """
 
-        if self.libvirt_domain is None:
-            return -1
         try:
             if self.is_running():
                 return self.libvirt_domain.ID()
@@ -821,15 +819,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.app.vmm.offline_mode:
             return None
 
-        # XXX _update_libvirt_domain?
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
                 self.uuid.bytes)
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                self._update_libvirt_domain()
-            else:
-                raise
+                return None
+            raise
         return self._libvirt_domain
 
     @property
