@@ -1681,7 +1681,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.storage = qubes.storage.Storage(self)
         yield from self.storage.clone(src)
-        self.storage.verify()
+        yield from self.storage.verify()
         assert self.volumes != {}
 
         if src.icon_path is not None \
