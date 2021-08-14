@@ -1770,7 +1770,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.storage = qubes.storage.Storage(self)
         await self.storage.clone(src)
-        self.storage.verify()
+        await self.storage.verify()
         assert self.volumes != {}
 
         # fire hooks
