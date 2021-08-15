@@ -411,15 +411,14 @@ class NetVMMixin(qubes.events.Emitter):
                 if forwardtype == "internal":
                     base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, ip)
                     self.untrusted_qdb.write(base_dir + key, value)
-                    self.untrusted_qdb.write(base_dir + 'last', '1')
                     self.untrusted_qdb.write(base_dir[:-1], '')
                 elif forwardtype == "external":
                     current_ip = ip
                     for i, netvm in enumerate(netpath):
                         base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, current_ip)
-                        netvm.untrusted_qdb.write(base_dir + key, value)
                         if i == len(netpath)-1:
-                            netvm.untrusted_qdb.write(base_dir + 'last', '1')
+                            value += ' last=1'
+                        netvm.untrusted_qdb.write(base_dir + key, value)
                         current_ip = netvm.ip
                         self.untrusted_qdb.write(base_dir[:-1], '')
                 else:
