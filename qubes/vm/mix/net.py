@@ -420,7 +420,7 @@ class NetVMMixin(qubes.events.Emitter):
                             value += ' last=1'
                         netvm.untrusted_qdb.write(base_dir + key, value)
                         current_ip = netvm.ip
-                        self.untrusted_qdb.write(base_dir[:-1], '')
+                        netvm.untrusted_qdb.write(base_dir[:-1], '')
                 else:
                     raise ValueError('Invalid forwardtype')
             # end forward rules
