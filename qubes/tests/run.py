@@ -229,6 +229,13 @@ class QubesTestResult(unittest.TestResult):
             self.stream.writeln(self.separator2)
             self.stream.writeln('%s' % err)
 
+    def _is_relevant_tb_level(self, *args, **kwargs):
+        # Don't let unittest.TestResult attempt to omit irrelevant
+        # traceback levels on test failure - the patched in decorator
+        # detect_never_awaited() would confuse it.
+
+        return False  # method decides the opposite of what its name says
+
 
 def demo(verbosity=2):
     class TC_00_Demo(qubes.tests.QubesTestCase):

@@ -31,6 +31,10 @@ class TC_00_SelfTest(qubes.tests.QubesTestCase):
     def test_001_raise_never_awaited_by_default(self):
         intentionally_never_awaited()
 
+    def test_002_full_traceback_on_failure(self):
+        self.assertTrue(callable(
+            getattr(unittest.TestResult, '_is_relevant_tb_level', None)))
+
 
 async def intentionally_never_awaited():
     pass
