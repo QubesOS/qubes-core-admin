@@ -392,14 +392,12 @@ def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
     needle = os.fsencode(os.path.realpath(img)) + b'\n'
     for sys_path in glob.iglob('/sys/block/loop[0-9]*/loop/backing_file'):
-        try:
-            with open(sys_path, 'rb') as sys_io:
-                if sys_io.read() != needle:
-                    continue
-        except FileNotFoundError:
-            continue
-        with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
-            fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
+        matched = False
+        with suppress(FileNotFoundError), open(sys_path, 'rb') as sys_io:
+            matched = sys_io.read() == needle
+        if matched:
+            with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
+                fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
 def _attempt_ficlone(src, dst):
     try:
