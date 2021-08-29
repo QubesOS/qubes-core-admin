@@ -332,9 +332,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @property
     def _next_revision_number(self):
         numbers = self.revisions.keys()
-        if numbers:
-            return str(int(list(numbers)[-1]) + 1)
-        return '1'
+        return str(int(list(numbers)[-1]) + 1) if numbers else '1'
 
     @property
     def revisions(self):
