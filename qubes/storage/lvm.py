@@ -313,7 +313,7 @@ class ThinVolume(qubes.storage.Volume):
                 continue
             # get revision without suffix
             seconds = int(revision_vid.split('-')[0])
-            iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
+            iso_date = qubes.storage.isodate(seconds)
             revisions[revision_vid] = iso_date
         return revisions
 
