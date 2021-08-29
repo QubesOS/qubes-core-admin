@@ -415,16 +415,17 @@ def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
     with _replace_file(dst) as tmp_io:
         with open(src, 'rb') as src_io:
-            if _attempt_ficlone(src_io, tmp_io):
-                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
-                return True
-        LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
-        cmd = 'cp', '--sparse=always', src, tmp_io.name
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           check=False)
-        if p.returncode != 0:
-            raise qubes.storage.StoragePoolException(str(p))
-        return False
+            reflinked = _attempt_ficlone(src_io, tmp_io)
+        if reflinked:
+            LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+        else:
+            LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
+            result = subprocess.run(
+                ['cp', '--sparse=always', '--', src, tmp_io.name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            if result.returncode != 0:
+                raise qubes.storage.StoragePoolException(str(result))
+    return reflinked
 
 def is_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies
