@@ -89,8 +89,8 @@ class ReflinkPool(qubes.storage.Pool):
         if 'revisions_to_keep' not in volume_config:
             volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config:
-            volume_config['vid'] = os.path.join(vm.dir_path_prefix, vm.name,
-                                                volume_config['name'])
+            volume_config['vid'] = os.path.join(
+                vm.dir_path_prefix, vm.name, volume_config['name'])
         volume = ReflinkVolume(**volume_config)
         self._volumes[volume_config['vid']] = volume
         return volume
@@ -324,8 +324,8 @@ class ReflinkVolume(qubes.storage.Volume):
         prefix = self._path_clean + '.'
         paths = glob.iglob(glob.escape(prefix) + '*@*Z')
         items = (path[len(prefix):-1].split('@') for path in paths)
-        return collections.OrderedDict(sorted(items,
-                                              key=lambda item: int(item[0])))
+        return collections.OrderedDict(
+            sorted(items, key=lambda item: int(item[0])))
 
     @property
     def size(self):
