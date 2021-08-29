@@ -425,6 +425,13 @@ class Storage:
         self.vm.volumes[name] = volume
         return volume
 
+    def get_volume(self, volume_or_name):
+        if isinstance(volume_or_name, Volume):
+            return volume_or_name
+        if isinstance(volume_or_name, str):
+            return self.vm.volumes[volume_or_name]
+        raise TypeError("You need to pass a Volume object or name")
+
     def attach(self, volume, rw=False):
         ''' Attach a volume to the domain '''
         assert self.vm.is_running()
@@ -505,8 +512,7 @@ class Storage:
     @asyncio.coroutine
     def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
-        if isinstance(volume, str):
-            volume = self.vm.volumes[volume]
+        volume = self.get_volume(volume)
         yield from qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
@@ -625,34 +631,19 @@ class Storage:
 
     def export(self, volume):
         ''' Helper function to export volume '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            return volume.export()
-
-        return self.vm.volumes[volume].export()
+        return self.get_volume(volume).export()
 
     @asyncio.coroutine
     def import_data(self, volume):
         ''' Helper function to import volume data '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            ret = volume.import_data()
-        else:
-            ret = self.vm.volumes[volume].import_data()
-        return (yield from qubes.utils.coro_maybe(ret))
+        volume = self.get_volume(volume)
+        return (yield from qubes.utils.coro_maybe(volume.import_data()))
 
     @asyncio.coroutine
     def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            ret = volume.import_data_end(success=success)
-        else:
-            ret = self.vm.volumes[volume].import_data_end(success=success)
-        return (yield from qubes.utils.coro_maybe(ret))
+        return (yield from qubes.utils.coro_maybe(
+            self.get_volume(volume).import_data_end(success=success)))
 
 
 class VolumesCollection:
