@@ -559,16 +559,9 @@ class Storage:
     @property
     def outdated_volumes(self):
         ''' Returns a list of outdated volumes '''
-        result = []
         if self.vm.is_halted():
-            return result
-
-        volumes = self.vm.volumes
-        for volume in volumes.values():
-            if volume.is_outdated():
-                result += [volume]
-
-        return result
+            return []
+        return [vol for vol in self.vm.volumes.values() if vol.is_outdated()]
 
     @asyncio.coroutine
     def verify(self):
