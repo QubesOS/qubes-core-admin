@@ -168,7 +168,20 @@ def systemd_notify():
         nofity_socket = '\0' + nofity_socket[1:]
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     sock.connect(nofity_socket)
-    sock.sendall(b'READY=1')
+    sock.sendall(b'READY=1\nSTATUS=qubesd online and operational\n')
+    sock.close()
+
+def systemd_extend_timeout():
+    """Extend systemd startup timeout by 60s"""
+    notify_socket = os.getenv('NOTIFY_SOCKET')
+    if not notify_socket:
+        return
+    if notify_socket.startswith('@'):
+        notify_socket = '\0' + notify_socket[1:]
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.connect(notify_socket)
+    sock.sendall(b'EXTEND_TIMEOUT_USEC=60000000\n'
+                 b'STATUS=Cleaning up storage for stopped qubes\n')
     sock.close()
 
 def match_vm_name_with_special(vm, name):

@@ -7,6 +7,7 @@ import signal
 import libvirtaio
 
 import qubes
+import qubes.app
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
@@ -36,6 +37,9 @@ def main(args=None):
         raise
 
     args.app.register_event_handlers()
+
+    # Stop storage for domains not currently running
+    loop.run_until_complete(args.app.stop_storage())
 
     if args.debug:
         qubes.log.enable_debug()
