@@ -435,6 +435,13 @@ class Storage:
         self.vm.volumes[name] = volume
         return volume
 
+    def get_volume(self, volume_or_name):
+        if isinstance(volume_or_name, Volume):
+            return volume_or_name
+        if isinstance(volume_or_name, str):
+            return self.vm.volumes[volume_or_name]
+        raise TypeError("You need to pass a Volume object or name")
+
     def attach(self, volume, rw=False):
         ''' Attach a volume to the domain '''
         assert self.vm.is_running()
@@ -514,8 +521,7 @@ class Storage:
 
     async def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
-        if isinstance(volume, str):
-            volume = self.vm.volumes[volume]
+        volume = self.get_volume(volume)
         await qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
@@ -627,11 +633,7 @@ class Storage:
 
     async def export(self, volume):
         ''' Helper function to export volume '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if not isinstance(volume, Volume):
-            volume = self.vm.volumes[volume]
-        return await qubes.utils.coro_maybe(volume.export())
+        return await qubes.utils.coro_maybe(self.get_volume(volume).export())
 
     async def export_end(self, volume, export_path):
         """ Cleanup after exporting data from the volume
@@ -639,11 +641,8 @@ class Storage:
         :param volume: volume that was exported
         :param export_path: path returned by the export() call
         """
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if not isinstance(volume, Volume):
-            volume = self.vm.volumes[volume]
-        await qubes.utils.coro_maybe(volume.export_end(export_path))
+        await qubes.utils.coro_maybe(
+            self.get_volume(volume).export_end(export_path))
 
     async def import_data(self, volume, size):
         '''
@@ -652,26 +651,15 @@ class Storage:
         :size: new size in bytes, or None if using old size
         '''
 
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, str):
-            volume = self.vm.volumes[volume]
-
+        volume = self.get_volume(volume)
         if size is None:
             size = volume.size
-
-        ret = volume.import_data(size)
-        return await qubes.utils.coro_maybe(ret)
+        return await qubes.utils.coro_maybe(volume.import_data(size))
 
     async def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            ret = volume.import_data_end(success=success)
-        else:
-            ret = self.vm.volumes[volume].import_data_end(success=success)
-        return await qubes.utils.coro_maybe(ret)
+        return await qubes.utils.coro_maybe(
+            self.get_volume(volume).import_data_end(success=success))
 
 
 class VolumesCollection:
