@@ -410,8 +410,10 @@ class FileVolume(qubes.storage.Volume):
         if self.save_on_stop or self.snap_on_start:
             await self._destroy_blockdev()
         if self.save_on_stop:
-            assert self.rw, 'Attempted to commit read-only volume'
-            self.commit()
+            if self.rw:
+                self.commit()
+            else:
+                _remove_if_exists(self.path_cow)
         elif self.snap_on_start:
             _remove_if_exists(self.path_cow)
         else:
