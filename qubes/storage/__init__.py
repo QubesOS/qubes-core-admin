@@ -626,7 +626,7 @@ class Storage:
                         "//domain/devices/disk/target")}
 
     async def export(self, volume):
-        ''' Helper function to export volume (pool.export(volume))'''
+        ''' Helper function to export volume '''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if not isinstance(volume, Volume):
@@ -647,7 +647,7 @@ class Storage:
 
     async def import_data(self, volume, size):
         '''
-        Helper function to import volume data (pool.import_data(volume)).
+        Helper function to import volume data.
 
         :size: new size in bytes, or None if using old size
         '''
@@ -664,8 +664,7 @@ class Storage:
         return await qubes.utils.coro_maybe(ret)
 
     async def import_data_end(self, volume, success):
-        ''' Helper function to finish/cleanup data import
-        (pool.import_data_end(volume))'''
+        ''' Helper function to finish/cleanup data import '''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
