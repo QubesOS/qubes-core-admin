@@ -539,9 +539,10 @@ def copy_file(source, destination):
 
 def _remove_if_exists(path):
     ''' Removes a file if it exist, silently succeeds if file does not exist '''
-    if os.path.exists(path):
+    try:
         os.remove(path)
-
+    except FileNotFoundError:
+        pass
 
 def _check_path(path):
     ''' Raise an StoragePoolException if ``path`` does not exist'''

@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
 import collections.abc
 import copy
 import functools
@@ -65,7 +66,6 @@ import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
-
 
 # pylint: enable=wrong-import-position
 
@@ -1403,6 +1403,26 @@ class Qubes(qubes.PropertyHolder):
         except KeyError:
             raise qubes.exc.QubesException('No driver %s for pool %s' %
                                            (driver, name))
+
+    async def stop_storage(self):
+        """
+        Stop the storage of all domains that are not running.
+        """
+        async def stop(i):
+            async with i.startup_lock:
+                if not i.is_running():
+                    await i.storage.stop()
+        future = tuple(stop(i) for i in self.domains if i.klass != 'AdminVM')
+        finished = ()
+        while future:
+            qubes.utils.systemd_extend_timeout()
+            finished, future = await asyncio.wait(future, timeout=30000000)
+            for i in finished:
+                try:
+                    await i
+                except Exception:  # pylint: disable=broad-except
+                    self.log.exception(
+                        'Stopping storage for a qube raised an exception')
 
     def register_event_handlers(self, old_connection=None):
         """Register libvirt event handlers, which will translate libvirt

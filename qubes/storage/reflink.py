@@ -222,7 +222,8 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     def stop(self):  # pylint: disable=invalid-overridden-method
         if self.save_on_stop:
-            self._commit(self._path_dirty)
+            if os.path.exists(self._path_dirty):
+                self._commit(self._path_dirty)
         else:
             if not self.snap_on_start:
                 self._size = self.size  # preserve manual resize of image

@@ -340,7 +340,9 @@ class ThinVolume(qubes.storage.Volume):
             "Not a volatile volume"
         self.log.debug('Resetting volatile %s', self.vid)
         try:
-            cmd = ['remove', self.vid]
+            assert self.path.startswith('/dev/'), \
+                'bad value for self.path: %r' % self.path
+            cmd = ['remove', self.path[5:]]
             await qubes_lvm_coro(cmd, self.log)
         except qubes.storage.StoragePoolException:
             pass
@@ -456,7 +458,9 @@ class ThinVolume(qubes.storage.Volume):
         await self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
-        cmd = ['remove', self.path]
+        assert self.path.startswith('/dev/'), \
+            'bad value for self.path: %r' % self.path
+        cmd = ['remove', self.path[5:]]
         await qubes_lvm_coro(cmd, self.log)
         await reset_cache_coro()
         # pylint: disable=protected-access
@@ -627,6 +631,8 @@ class ThinVolume(qubes.storage.Volume):
         try:
             cmd = ['remove', self._vid_snap]
             await qubes_lvm_coro(cmd, self.log)
+        except AssertionError:
+            raise
         except:  # pylint: disable=bare-except
             pass
 
@@ -723,6 +729,7 @@ def _get_lvm_cmdline(cmd):
     '''
     action = cmd[0]
     if action == 'remove':
+        assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
         lvm_cmd = ['lvremove', '-f', cmd[1]]
     elif action == 'clone':
         lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
@@ -767,6 +774,9 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation '''
     environ={'LC_ALL': 'C.UTF-8', **os.environ}
     if cmd[0] == "remove":
+        if not os.path.exists('/dev/' + cmd[1]):
+            # ignore errors if the file does not exist
+            return
         pre_cmd = ['blkdiscard', '-p', '1G', '/dev/'+cmd[1]]
         p = await asyncio.create_subprocess_exec(*pre_cmd,
             stdout=subprocess.DEVNULL,
