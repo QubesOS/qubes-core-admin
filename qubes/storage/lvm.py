@@ -660,10 +660,10 @@ class ThinVolume(qubes.storage.Volume):
         try:
             if self.save_on_stop:
                 await self._commit()
-            if self.snap_on_start and not self.save_on_stop:
+            elif self.snap_on_start:
                 cmd = ['remove', self._vid_snap]
                 await qubes_lvm_coro(cmd, self.log)
-            elif not self.snap_on_start and not self.save_on_stop:
+            else:
                 cmd = ['remove', self.vid]
                 await qubes_lvm_coro(cmd, self.log)
         finally:
@@ -790,6 +790,7 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
             close_fds=True, env=environ)
         _, _ = await p.communicate()
     cmd = _get_lvm_cmdline(cmd)
+    log.debug('Invoked with arguments %r', cmd)
     p = await asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
