@@ -136,10 +136,6 @@
                     {% if device.domain %}
                         <backenddomain name="{{ device.domain }}" />
                     {% endif %}
-
-                    {% if device.script %}
-                        <script path="{{ device.script }}" />
-                    {% endif %}
                 </disk>
             {% endfor %}
 

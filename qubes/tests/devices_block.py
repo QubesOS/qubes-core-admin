@@ -59,7 +59,6 @@ domain_xml_template = '''
       <driver name='phy'/>
       <source dev='/var/lib/qubes/vm-templates/fedora-25/root.img:/var/lib/qubes/vm-templates/fedora-25/root-cow.img'/>
       <backingStore/>
-      <script path='block-snapshot'/>
       <target dev='xvda' bus='xen'/>
       <readonly/>
     </disk>

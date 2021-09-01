@@ -1,0 +1,75 @@
+#!/bin/bash
+
+set -euo pipefail
+shopt -s nullglob
+unset is_origin origin snapshot deps node
+
+is_unused () {
+  dmsetup -- info "$1" 2>/dev/null|grep -Eq '^Open count: +0$'
+}
+
+deps () {
+  dmsetup -o blkdevname -- deps "$1" | cut -d: -f2 | sed -e 's#(\([a-z0-9-]\+\))#/dev/\1#g'
+}
+
+fatal () {
+  printf %s\\n "$@" >&2
+  exit 1
+}
+
+if [[ "$#" -ne 1 ]]; then
+  fatal "Expected one argument (name of device to remove), got $#"
+elif [[ ! -b "$1" ]]; then
+  fatal "Device $1 does not exist"
+elif ! is_unused "$1"; then
+  echo "Cannot remove device $1 that is still in use!" >&2
+  exit 0
+fi
+
+node=$1
+
+# get list of used (loop) devices
+deps=$(deps "$node")
+
+has_snapshot=false
+case $node in
+  (/dev/mapper/snapshot-*)
+    # do not remove snapshot if snapshot origin is still present
+    if [[ -e "${node/snapshot/origin}" ]]; then exit 0; fi
+    ;;
+  (/dev/mapper/origin-*)
+    # remove unused snapshots
+    for snap in "${node/origin/snapshot}-"*; do
+      if is_unused "$snap"; then
+        # unused snapshot - remove it
+        deps+=" $(deps "$snap")"
+        dmsetup -- remove "$snap"
+      else
+        has_snapshot=true
+      fi
+    done
+    ;;
+  (*)
+    fatal "Bad name $node"
+    ;;
+esac
+
+if [[ "$has_snapshot" = 'false' ]] && [[ -e "$node" ]]; then
+  dmsetup -- remove "$node"
+fi
+
+# try to free unused devices
+for dev in $deps; do
+  if [[ -b "$dev" ]]; then
+    case $dev in
+      /dev/loop*)
+        losetup -d "$dev" 2> /dev/null || true
+        ;;
+      /dev/dm-*)
+        dmsetup remove "$dev" 2> /dev/null || true
+        ;;
+    esac
+  fi
+done
+
+# vim:sw=2:et:

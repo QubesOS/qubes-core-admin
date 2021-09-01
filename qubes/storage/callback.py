@@ -570,14 +570,6 @@ class CallbackVolume(qubes.storage.Volume):
         self._cb_impl.path = path
 
     @property
-    def script(self):
-        return self._cb_impl.script
-
-    @script.setter
-    def script(self, script):
-        self._cb_impl.script = script
-
-    @property
     def usage(self):
         return self._cb_impl.usage
 

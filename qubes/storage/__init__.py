@@ -52,10 +52,10 @@ class BlockDevice:
                  devtype='disk'):
         assert name, 'Missing device name'
         assert path, 'Missing device path'
+        assert script is None, 'block scripts are obsolete'
         self.path = path
         self.name = name
         self.rw = rw
-        self.script = script
         self.domain = domain
         self.devtype = devtype
 
@@ -75,7 +75,6 @@ class Volume:
     devtype = 'disk'
     domain = None
     path = None
-    script = None
     #: disk space used by this volume, can be smaller than :py:attr:`size`
     #: for sparse volumes
     usage = 0
@@ -319,7 +318,7 @@ class Volume:
         ''' Return :py:class:`BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        return BlockDevice(self.path, self.name, self.script,
+        return BlockDevice(self.path, self.name, None,
                                          self.rw, self.domain, self.devtype)
 
     @property

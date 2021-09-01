@@ -533,8 +533,8 @@ done
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
 /usr/lib/tmpfiles.d/qubes.conf
-/etc/xen/scripts/block-snapshot
-/etc/xen/scripts/block-origin
+%attr(0755,root,root) /usr/lib/qubes/create-snapshot
+%attr(0755,root,root) /usr/lib/qubes/destroy-snapshot
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/85-admin-backup-restore.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-admin-default.policy
