@@ -98,9 +98,6 @@ class LinuxModules(Volume):
     async def remove(self):
         pass
 
-    def commit(self):
-        return self
-
     async def export(self):
         return self.path
 

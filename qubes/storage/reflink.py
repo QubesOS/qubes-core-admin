@@ -98,8 +98,8 @@ class ReflinkPool(qubes.storage.Pool):
         if 'revisions_to_keep' not in volume_config:
             volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config:
-            volume_config['vid'] = os.path.join(vm.dir_path_prefix, vm.name,
-                                                volume_config['name'])
+            volume_config['vid'] = os.path.join(
+                vm.dir_path_prefix, vm.name, volume_config['name'])
         volume = ReflinkVolume(**volume_config)
         self._volumes[volume_config['vid']] = volume
         return volume
@@ -312,11 +312,9 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.save_on_stop:
             try:
                 success = False
-                src_path = await qubes.utils.coro_maybe(
-                    src_volume.export())
+                src_path = await qubes.utils.coro_maybe(src_volume.export())
                 try:
-                    await _coroutinized(_copy_file)(
-                        src_path, self._path_import)
+                    await _coroutinized(_copy_file)(src_path, self._path_import)
                 finally:
                     await qubes.utils.coro_maybe(
                         src_volume.export_end(src_path))
@@ -333,17 +331,15 @@ class ReflinkVolume(qubes.storage.Volume):
     @property
     def _next_revision_number(self):
         numbers = self.revisions.keys()
-        if numbers:
-            return str(int(list(numbers)[-1]) + 1)
-        return '1'
+        return str(int(list(numbers)[-1]) + 1) if numbers else '1'
 
     @property
     def revisions(self):
         prefix = self._path_clean + '.'
         paths = glob.iglob(glob.escape(prefix) + '*@*Z')
         items = (path[len(prefix):-1].split('@') for path in paths)
-        return collections.OrderedDict(sorted(items,
-                                              key=lambda item: int(item[0])))
+        return collections.OrderedDict(
+            sorted(items, key=lambda item: int(item[0])))
 
     @property
     def size(self):
@@ -410,14 +406,12 @@ def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
     needle = os.fsencode(os.path.realpath(img)) + b'\n'
     for sys_path in glob.iglob('/sys/block/loop[0-9]*/loop/backing_file'):
-        try:
-            with open(sys_path, 'rb') as sys_io:
-                if sys_io.read() != needle:
-                    continue
-        except FileNotFoundError:
-            continue
-        with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
-            fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
+        matched = False
+        with suppress(FileNotFoundError), open(sys_path, 'rb') as sys_io:
+            matched = sys_io.read() == needle
+        if matched:
+            with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
+                fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
 def _attempt_ficlone(src_io, dst_io):
     try:
@@ -433,16 +427,17 @@ def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
     with _replace_file(dst) as tmp_io:
         with open(src, 'rb') as src_io:
-            if _attempt_ficlone(src_io, tmp_io):
-                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
-                return True
-        LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
-        cmd = 'cp', '--sparse=always', src, tmp_io.name
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           check=False)
-        if p.returncode != 0:
-            raise qubes.storage.StoragePoolException(str(p))
-        return False
+            reflinked = _attempt_ficlone(src_io, tmp_io)
+        if reflinked:
+            LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+        else:
+            LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
+            result = subprocess.run(
+                ['cp', '--sparse=always', '--', src, tmp_io.name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            if result.returncode != 0:
+                raise qubes.storage.StoragePoolException(str(result))
+    return reflinked
 
 def is_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies
