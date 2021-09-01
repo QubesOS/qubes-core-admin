@@ -201,7 +201,6 @@ class ReflinkVolume(qubes.storage.Volume):
     def is_dirty(self):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
-    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
     def start(self):  # pylint: disable=invalid-overridden-method
@@ -219,7 +218,6 @@ class ReflinkVolume(qubes.storage.Volume):
                 _create_sparse_file(self._path_dirty, self.size)
         return self
 
-    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
     def stop(self):  # pylint: disable=invalid-overridden-method
