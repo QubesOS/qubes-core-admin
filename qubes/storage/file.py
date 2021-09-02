@@ -241,6 +241,13 @@ class FileVolume(qubes.storage.Volume):
             msg = 'Can not resize reađonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)
 
+        if self.snap_on_start:
+            # this theoretically could be supported, but it's unusual
+            # enough to not worth the effort
+            msg = 'Cannot resize volume based on a template - resize' \
+                  'the template instead'
+            raise qubes.storage.StoragePoolException(msg)
+
         if size < self.size:
             raise qubes.storage.StoragePoolException(
                 'For your own safety, shrinking of %s is'
