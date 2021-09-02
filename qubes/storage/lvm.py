@@ -611,7 +611,7 @@ class ThinVolume(qubes.storage.Volume):
         if size == self.size:
             return
 
-        if self.is_dirty():
+        if self.is_dirty() or self.snap_on_start:
             cmd = ['extend', self._vid_snap, str(size)]
             yield from qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, '_vid_import') and \
