@@ -23,9 +23,9 @@ import qubes.tests
 
 
 class TC_00_SelfTest(qubes.tests.QubesTestCase):
+    @qubes.tests.never_awaited.ignore()
     def test_000_ignore_never_awaited(self):
-        with qubes.tests.ignore_never_awaited():
-            intentionally_never_awaited()
+        intentionally_never_awaited()
 
     @unittest.expectedFailure
     def test_001_raise_never_awaited_by_default(self):

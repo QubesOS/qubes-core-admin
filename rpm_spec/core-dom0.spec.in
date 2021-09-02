@@ -449,6 +449,7 @@ done
 %{python3_sitelib}/qubes/tests/ext.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
+%{python3_sitelib}/qubes/tests/never_awaited.py
 %{python3_sitelib}/qubes/tests/rpc_import.py
 %{python3_sitelib}/qubes/tests/selftest.py
 %{python3_sitelib}/qubes/tests/storage.py
