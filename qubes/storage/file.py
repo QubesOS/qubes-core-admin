@@ -263,6 +263,29 @@ class FileVolume(qubes.storage.Volume):
                          cow_used > cow.seek(0, os.SEEK_HOLE)))
         return False
 
+    def _resize_snapshot_dev(self, size):
+        path = self._block_device_path()
+        # read old table:
+        dm_table = subprocess.check_output(['dmsetup', 'table', path])
+        assert dm_table.count(b'\n') == 1
+        dm_table_parts = dm_table.decode().split(' ')
+        assert dm_table_parts[0] == '0'
+        # Kernel docs say:
+        # > When loading or unloading the snapshot target, the corresponding
+        # > snapshot-origin or snapshot-merge target must be suspended.
+        # > A failure to suspend the origin target could result in data
+        # > corruption.
+        # This doesn't apply to loading snapshot-origin target itself.
+        # Beware if ever adding resize of 'snapshot' target.
+        assert dm_table_parts[2] == 'snapshot-origin'
+        # replace the size
+        dm_table_parts[1] = str(size // 512)
+        dm_table = ' '.join(dm_table_parts)
+        # load new table
+        subprocess.check_call(['dmsetup', 'load', '--table=' + dm_table, path])
+        # and make it active
+        subprocess.check_call(['dmsetup', 'resume', path])
+
     def resize(self, size):  # pylint: disable=invalid-overridden-method
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
@@ -300,6 +323,9 @@ class FileVolume(qubes.storage.Volume):
             # resize loop device
             subprocess.check_call(['losetup', '--set-capacity',
                                    loop_dev])
+            if self.save_on_stop:
+                self._resize_snapshot_dev(size)
+
         self._size = size
 
     def commit(self):

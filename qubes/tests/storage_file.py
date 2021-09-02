@@ -475,14 +475,18 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
         self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
-        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.start()))
-        self._setup_loop(volume.path)
+        #self._setup_loop(volume.path)
         new_size = 64 * 1024 ** 2
         orig_check_call = subprocess.check_call
-        with unittest.mock.patch('subprocess.check_call') as mock_subprocess:
+        orig_check_output = subprocess.check_output
+        with unittest.mock.patch('subprocess.check_call') as mock_subprocess, \
+                unittest.mock.patch('subprocess.check_output') as mock_check_output:
             sudo = [] if os.getuid() == 0 else ['sudo']
             mock_subprocess.side_effect = (lambda *args, **kwargs:
                 orig_check_call(sudo + args[0], *args[1:], **kwargs))
+            mock_check_output.side_effect = (lambda *args, **kwargs:
+                orig_check_output(sudo + args[0], *args[1:], **kwargs))
+            self.loop.run_until_complete(qubes.utils.coro_maybe(volume.start()))
             self.loop.run_until_complete(
                 qubes.utils.coro_maybe(volume.resize(new_size)))
         self.assertEqual(os.path.getsize(volume.path), new_size)
