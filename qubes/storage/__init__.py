@@ -675,6 +675,11 @@ class Storage:
             Errors on removal are catched and logged.
         '''
         results = []
+        try:
+            await self.stop()
+        except (IOError, OSError, subprocess.SubprocessError) as e:
+            self.vm.log.exception(
+                "Failed to stop some volume, continuing anyway", e)
         for vol in self.vm.volumes.values():
             self.log.info('Removing volume %s: %s' % (vol.name, vol.vid))
             try:
