@@ -866,6 +866,8 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
         with unittest.mock.patch('time.time') as mock_time:
             mock_time.side_effect = [1521065905]
             self.loop.run_until_complete(volume.create())
