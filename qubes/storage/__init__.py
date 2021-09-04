@@ -39,7 +39,10 @@ import qubes.exc
 import qubes.utils
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
+_am_root = os.getuid() == 0
 
+BYTES_TO_ZERO = 1 << 16
+_big_buffer = b'\0' * BYTES_TO_ZERO
 
 class StoragePoolException(qubes.exc.QubesException):
     ''' A general storage exception '''
@@ -178,6 +181,7 @@ class Volume:
         assert name.startswith('/dev/mapper/'), \
             'Invalid path %r passed to cryptsetup' % name
         must_stop = os.path.exists(name)
+        path = name
         name = name[12:]
         assert '/' not in name, 'Invalid name passed to cryptsetup'
         if must_stop:
@@ -192,6 +196,18 @@ class Volume:
             self.block_device().path,
             name,
         )
+        if _am_root:
+            with open(path, 'wb+') as clearer:
+                clearer.write(_big_buffer)
+        else:
+            await qubes.utils.run_program(
+                'dd',
+                'if=/dev/zero',
+                'of=' + path,
+                'count=1',
+                'bs=' + str(BYTES_TO_ZERO),
+                sudo=True,
+            )
 
     async def stop_encrypted(self, name):
         """
