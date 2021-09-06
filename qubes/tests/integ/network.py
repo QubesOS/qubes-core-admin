@@ -98,7 +98,7 @@ class VmNetworkingMixin(object):
 
     def tearDown(self):
         # collect more info on failure
-        if self._outcome and not self._outcome.success:
+        if not self.success():
             for vm in (self.testnetvm, self.testvm1, getattr(self, 'proxy', None)):
                 if vm is None:
                     continue
