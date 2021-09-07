@@ -287,7 +287,8 @@ class TC_20_DispVMMixin(object):
         winid = None
         for _ in range(5):
             try:
-                winid = self.wait_for_window('disp[0-9]*', search_class=True)
+                winid = self.wait_for_window('disp[0-9]*', search_class=True,
+                                             timeout=60)
             except Exception as e:
                 try:
                     self.loop.run_until_complete(asyncio.wait_for(p.wait(), 1))
