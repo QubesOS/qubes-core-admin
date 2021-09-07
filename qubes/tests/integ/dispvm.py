@@ -104,6 +104,8 @@ class TC_20_DispVMMixin(object):
 
     def setUp(self):
         super(TC_20_DispVMMixin, self).setUp()
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw is not supported as DisposableVM Template')
         self.init_default_template(self.template)
         self.disp_base = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('dvm'),
