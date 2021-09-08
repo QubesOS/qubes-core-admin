@@ -384,7 +384,7 @@ class ThinVolume(qubes.storage.Volume):
         :param vid_to_commit: LVM volume ID to commit into this one
         :param keep: whether to keep or not *vid_to_commit*.
           IOW use 'clone' or 'rename' methods.
-        :return: None
+        :return: True if any change was made
         '''
         msg = "Trying to commit {!s}, but it has save_on_stop == False"
         msg = msg.format(self)
@@ -400,7 +400,7 @@ class ThinVolume(qubes.storage.Volume):
         assert self._lock.locked()
         if not os.path.exists('/dev/' + vid_to_commit):
             # nothing to commit
-            return
+            return False
 
         if self._vid_current == self.vid:
             cmd = ['rename', self.vid,
@@ -419,6 +419,7 @@ class ThinVolume(qubes.storage.Volume):
 
         # and remove old snapshots, if needed
         await self._remove_revisions()
+        return True
 
     @qubes.storage.Volume.locked
     async def create(self):
@@ -642,6 +643,17 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self.source.path, self._vid_snap]
         await qubes_lvm_coro(cmd, self.log)
 
+    async def _remove_if_exists(self, vid):
+        """Remove LVM volume if it exists.
+
+        :return bool True if anything was removed, False otherwise
+        """
+        if not os.path.exists('/dev/' + vid):
+            return False
+        cmd = ['remove', vid]
+        await qubes_lvm_coro(cmd, self.log)
+        return True
+
     @qubes.storage.Volume.locked
     async def start(self):
         self.abort_if_import_in_progress()
@@ -657,17 +669,18 @@ class ThinVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     async def stop(self):
+        # assume something was changed in case of exception too
+        changed = True
         try:
             if self.save_on_stop:
-                await self._commit()
+                changed = await self._commit()
             elif self.snap_on_start:
-                cmd = ['remove', self._vid_snap]
-                await qubes_lvm_coro(cmd, self.log)
+                changed = await self._remove_if_exists(self._vid_snap)
             else:
-                cmd = ['remove', self.vid]
-                await qubes_lvm_coro(cmd, self.log)
+                changed = await self._remove_if_exists(self.vid)
         finally:
-            await reset_cache_coro()
+            if changed:
+                await reset_cache_coro()
         return self
 
     async def verify(self):
