@@ -279,6 +279,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertFalse(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        self.assertTrue(volume.ephemeral)
 
     def test_005_appvm_volumes(self):
         ''' Check if AppVM volumes are propertly initialized '''

@@ -95,6 +95,10 @@ class LinuxModules(Volume):
     async def create(self):
         return self
 
+    @property
+    def ephemeral(self):
+        return False
+
     async def remove(self):
         pass
 

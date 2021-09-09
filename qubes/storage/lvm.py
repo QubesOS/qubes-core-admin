@@ -660,10 +660,10 @@ class ThinVolume(qubes.storage.Volume):
         try:
             if self.save_on_stop:
                 await self._commit()
-            if self.snap_on_start and not self.save_on_stop:
+            elif self.snap_on_start:
                 cmd = ['remove', self._vid_snap]
                 await qubes_lvm_coro(cmd, self.log)
-            elif not self.snap_on_start and not self.save_on_stop:
+            else:
                 cmd = ['remove', self.vid]
                 await qubes_lvm_coro(cmd, self.log)
         finally:
@@ -700,6 +700,12 @@ class ThinVolume(qubes.storage.Volume):
                 self.rw, self.domain, self.devtype)
 
         return super().block_device()
+
+    def encrypted_volume_path(self, qube_name, device_name):
+        """Find the name of the encrypted volatile volume"""
+        # pylint: disable=line-too-long
+        vid = '-'.join(i.replace('-', '--') for i in self._vid_current.split('/'))
+        return '/dev/mapper/' + vid + '@crypt'
 
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
@@ -784,6 +790,7 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger('qubes.storage.lvm')):
             close_fds=True, env=environ)
         _, _ = await p.communicate()
     cmd = _get_lvm_cmdline(cmd)
+    log.debug('Invoked with arguments %r', cmd)
     p = await asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

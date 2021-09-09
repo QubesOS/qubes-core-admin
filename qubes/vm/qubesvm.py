@@ -833,10 +833,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """ Return all :py:class:`qubes.storage.BlockDevice` for current domain
         for serialization in the libvirt XML template as <disk>.
         """
-        for v in self.volumes.values():
-            block_dev = v.block_device()
-            if block_dev is not None:
-                yield block_dev
+        return self.storage.block_devices()
 
     @property
     def untrusted_qdb(self):
@@ -877,6 +874,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 node_hvm.getparent().remove(node_hvm)
 
         super().__init__(app, xml, **kwargs)
+        self.__waiter = None
 
         if volume_config is None:
             volume_config = {}
@@ -1264,6 +1262,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # or subsequent start()
             return
 
+        if self.__waiter is not None:
+            self.__waiter.set_result(None)
+            self.__waiter = None
+
         self._domain_stopped_event_received = True
         self._domain_stopped_future = \
             asyncio.ensure_future(self._domain_stopped_coro())
@@ -1351,6 +1353,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """Forcefully shutdown (destroy) domain.
 
         This function needs to be called with self.startup_lock held."""
+        self.__waiter = asyncio.get_running_loop().create_future()
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
@@ -1359,6 +1362,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise
 
         # make sure all shutdown tasks are completed
+        try:
+            await asyncio.wait_for(self.__waiter, timeout=10)
+        except asyncio.TimeoutError:
+            pass
         await self._ensure_shutdown_handled()
 
     async def suspend(self):

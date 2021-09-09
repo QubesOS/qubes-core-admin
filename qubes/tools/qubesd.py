@@ -16,6 +16,10 @@ import qubes.log
 import qubes.utils
 import qubes.vm.qubesvm
 
+# Wait for the system entropy pool to fill, so we can use “/dev/urandom” with
+# confidence.
+os.getrandom(1)
+
 def sighandler(loop, signame, servers):
     print('caught {}, exiting'.format(signame))
     for server in servers:
