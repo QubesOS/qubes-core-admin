@@ -321,3 +321,24 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             template2.volumes['root'])
         self.assertIs(vm.volume_config['private']['source'],
             app2.volumes['private'])
+
+    @mock.patch('os.symlink')
+    @mock.patch('os.makedirs')
+    def test_023_inherit_ephemeral(self, mock_makedirs, mock_symlink):
+        self.app.pools['alternative'] = qubes.tests.vm.appvm.TestPool(name='alternative')
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        self.appvm.volumes['volatile'].ephemeral = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+            self.loop.run_until_complete(dispvm.create_on_disk())
+        self.assertIs(dispvm.template, self.appvm)
+        self.assertTrue(dispvm.volumes['volatile'].ephemeral)
