@@ -2535,7 +2535,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         with self.assertRaises(qubes.api.ProtocolError):
-            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+            self.call_mgmt_func(b'admin.vm.volume.Set.rw',
                 b'test-vm1', b'private', b'abc')
         self.assertFalse(self.app.save.called)
 
