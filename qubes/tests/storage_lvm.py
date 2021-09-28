@@ -928,6 +928,53 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(self.loop.run_until_complete(volume.verify()), 'volume cannot be verified?')
         self.assertFalse(volume.save_on_stop, 'volume is save_on_stop?')
         self.assertFalse(volume.snap_on_start, 'volume is snap_on_start?')
+        self.assertFalse(volume.ephemeral, 'volume is ephemeral by default?')
+        path = volume.path
+        self.assertEqual(path, '/dev/' + volume.vid)
+        self.assertFalse(os.path.exists(path), 'volume path %r exists but should not!' % path)
+        encrypted_path = volume.encrypted_volume_path(vm.name, config['name'])
+        self.loop.run_until_complete(volume.start_encrypted(encrypted_path))
+        self.assertTrue(os.path.exists(path), 'volume path %r does not exist but should!' % path)
+        self.assertTrue(os.path.exists(encrypted_path), 'encrypted path %r does not exist but should!' % encrypted_path)
+        self.assertNotEqual(path, encrypted_path)
+        bdev = volume.make_encrypted_device(volume.block_device(), vm.name)
+        self.assertTrue(bdev.domain is None)
+        self.assertEqual(bdev.devtype, 'disk')
+        self.assertEqual(bdev.name, 'volatile')
+        self.assertTrue(bdev.path.startswith('/dev/mapper/vg'))
+        self.assertTrue(bdev.path.endswith('-vm--test--inst--appvm--volatile@crypt'))
+        self.assertEqual(bdev.path, '/dev/mapper/' + '-'.join(i.replace('-', '--') for i in volume.vid.split('/')) + '@crypt')
+        self.assertTrue(encrypted_path.startswith('/dev/mapper/'), 'bad path %r' % encrypted_path)
+        self.assertTrue(encrypted_path.endswith('@crypt'), 'bad encrypted path %r' % encrypted_path)
+        vol_uuid = self._get_lv_uuid(path)
+        self.loop.run_until_complete(volume.start_encrypted(encrypted_path))
+        self.assertTrue(os.path.exists(path), 'time 2: volume path %r does not exist but should!' % path)
+        vol_uuid2 = self._get_lv_uuid(path)
+        self.assertNotEqual(vol_uuid, vol_uuid2)
+        self.loop.run_until_complete(volume.stop_encrypted(
+            volume.encrypted_volume_path(vm.name, config['name'])))
+        self.assertFalse(os.path.exists(path), 'after stop: volume path %r exists but should not!' % path)
+        # Check that the volume can be successfully restarted
+        self.loop.run_until_complete(volume.start_encrypted(encrypted_path))
+        self.loop.run_until_complete(volume.stop_encrypted(encrypted_path))
+
+    def test_041_volatile_encrypted(self):
+        '''Volatile volume test'''
+        config = {
+            'name': 'volatile',
+            'pool': self.pool.name,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+            'ephemeral': True,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # volatile volume don't need any file, verify should succeed
+        self.assertTrue(self.loop.run_until_complete(volume.verify()), 'volume cannot be verified?')
+        self.loop.run_until_complete(volume.create())
+        self.assertTrue(self.loop.run_until_complete(volume.verify()), 'volume cannot be verified?')
+        self.assertFalse(volume.save_on_stop, 'volume is save_on_stop?')
+        self.assertFalse(volume.snap_on_start, 'volume is snap_on_start?')
         self.assertTrue(volume.ephemeral, 'volume is not ephemeral?')
         path = volume.path
         self.assertEqual(path, '/dev/' + volume.vid)

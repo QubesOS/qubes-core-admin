@@ -279,6 +279,24 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertFalse(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        self.assertFalse(volume.ephemeral)
+
+    def test_004_volatile_volume_encrypted(self):
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'size': defaults['root_img_size'],
+            'rw': True,
+            'ephemeral': True,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        self.assertEqual(volume.name, 'root')
+        self.assertEqual(volume.pool, self.POOL_NAME)
+        self.assertEqual(volume.size, defaults['root_img_size'])
+        self.assertFalse(volume.snap_on_start)
+        self.assertFalse(volume.save_on_stop)
+        self.assertTrue(volume.rw)
         self.assertTrue(volume.ephemeral)
 
     def test_005_appvm_volumes(self):

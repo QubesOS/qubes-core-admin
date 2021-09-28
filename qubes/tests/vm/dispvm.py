@@ -236,6 +236,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                          self.appvm.volumes['root'].pool)
         self.assertIs(dispvm.volumes['volatile'].pool,
                          self.appvm.volumes['volatile'].pool)
+        self.assertFalse(dispvm.volumes['volatile'].ephemeral)
 
     def test_021_storage_template_change(self):
         self.appvm.template_for_dispvms = True
