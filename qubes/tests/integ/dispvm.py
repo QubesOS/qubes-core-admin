@@ -193,7 +193,8 @@ class TC_20_DispVMMixin(object):
         window_title = window_title.decode().strip().\
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
-        if "gedit" in window_title or 'KWrite' in window_title:
+        if "gedit" in window_title or 'KWrite' in window_title or \
+                'Mousepad' in window_title:
             subprocess.check_call(
                 ['xdotool', 'windowactivate', '--sync', winid])
             if copy:
