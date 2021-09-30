@@ -1072,8 +1072,8 @@ class SystemTestCase(QubesTestCase):
                           "disappear".format(title, winid))
             await asyncio.sleep(0.1)
 
-    async def wait_for_window_coro(self, title, search_class=False, timeout=30,
-                             show=True):
+    async def wait_for_window_coro(self, title, search_class=False,
+                                   include_tray=True, timeout=30, show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
         it will wait for either window to show or to disappear.
@@ -1083,6 +1083,7 @@ class SystemTestCase(QubesTestCase):
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
         :param search_class: search based on window class instead of title
+        :param include_tray: include windows docked in tray
         :return: window id of found window, if show=True
         """
 
@@ -1091,6 +1092,8 @@ class SystemTestCase(QubesTestCase):
             xdotool_search.append('--class')
         else:
             xdotool_search.append('--name')
+        if not include_tray:
+            xdotool_search.extend(('--maxdepth', '2'))
         if show:
             xdotool_search.append('--sync')
         if not show:
@@ -1131,6 +1134,7 @@ class SystemTestCase(QubesTestCase):
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
         :param search_class: search based on window class instead of title
+        :param include_tray: include windows docked in tray
         :return: window id of found window, if show=True
         """
         return self.loop.run_until_complete(
