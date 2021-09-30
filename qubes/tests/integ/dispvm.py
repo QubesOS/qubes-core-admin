@@ -291,6 +291,7 @@ class TC_20_DispVMMixin(object):
         for _ in range(5):
             try:
                 winid = self.wait_for_window('disp[0-9]*', search_class=True,
+                                             include_tray=False,
                                              timeout=60)
             except Exception as e:
                 try:
@@ -397,6 +398,7 @@ class TC_20_DispVMMixin(object):
         winid = None
         for _ in range(5):
             winid = self.wait_for_window('disp[0-9]*', search_class=True,
+                                         include_tray=False,
                                          timeout=60)
             # get window title
             (window_title, _) = subprocess.Popen(
