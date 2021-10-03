@@ -21,7 +21,7 @@
 
 '''API for various types of devices.
 
-Main concept is that some domain main
+Main concept is that some domain may
 expose (potentially multiple) devices, which can be attached to other domains.
 Devices can be of different buses (like 'pci', 'usb', etc). Each device
 bus is implemented by an extension.
@@ -401,7 +401,7 @@ class DeviceCollection:
 
 
 class DeviceManager(dict):
-    '''Device manager that hold all devices by their classess.
+    '''Device manager that hold all devices by their classes.
 
     :param vm: VM for which we manage devices
     '''

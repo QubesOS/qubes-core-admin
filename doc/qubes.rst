@@ -41,12 +41,12 @@ default NetVM for all AppVMs. All of those *configurable* parameters are called
 Definition
 ^^^^^^^^^^
 Properties are defined on global :py:class:`qubes.Qubes` application object and
-on every domain. Those classess inherit from :py:class:`PropertyHolder` class,
+on every domain. Those classes inherit from :py:class:`PropertyHolder` class,
 which is responsible for operation of properties.
 
 Each Qubes property is actually a *data descriptor* (a Python term), which means
-they are attributes of their classess, but when trying to access it from
-*instance*, they return it's underlying value instead. They can be thought of as
+they are attributes of their classes, but when trying to access it from
+*instance*, they return its underlying value instead. They can be thought of as
 Python's builtin :py:class:`property`, but greatly enhanced. They are defined in
 definition of their class::
 
@@ -123,7 +123,7 @@ similar to `type`, but is always executed (not only when types don't agree) and
 accepts more parameters: `self`, `prop` and `value` being respectively: owners'
 instance, property's instance and the value being set. There is also `saver`,
 which does reverse: given value of the property it should return a string that
-can be parsed by `saver`.
+can be parsed by `setter`.
 
 
 Unset properties and default values
@@ -176,13 +176,13 @@ property::
 Setting netvm on particular domain of course does not affect global default, but
 only this instance. But there are two problems:
 
-- You don't know if the value of the property you just accessed was it's
+- You don't know if the value of the property you just accessed was its
   true or default value.
 - After ``del``'ing a property, you still will get a value on access. You
   cannot count on `AttributeError` raised from them.
 
 Therefore Qubes support alternative semantics. You can (and probably should,
-wherever applicable) use no ``del``, but assignment of special magic object
+wherever applicable) use not ``del``, but assignment of special magic object
 :py:obj:`qubes.property.DEFAULT`. There is also method
 :py:meth:`qubes.PropertyHolder.property_is_default`, which can be used to
 distinguish unset from set properties::
@@ -205,7 +205,7 @@ distinguish unset from set properties::
 
 Inheritance
 ^^^^^^^^^^^
-Properties in subclassess overload properties from their parents, like
+Properties in subclasses overload properties from their parents, like
 expected::
 
    >>> import qubes
