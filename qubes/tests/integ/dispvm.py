@@ -266,7 +266,7 @@ class TC_20_DispVMMixin(object):
                     ['xdotool',
                      'key', 'Escape', 'colon', 'w', 'q', 'Return'])
         else:
-            self.fail("Unknown editor window: {}".format(window_title))
+            raise KeyError(window_title)
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -303,25 +303,16 @@ class TC_20_DispVMMixin(object):
                     self.fail(
                         'qvm-open-in-dvm exited prematurely with {}: {}'.format(
                             p.returncode, stdout))
-            # get window title
-            (window_title, _) = subprocess.Popen(
-                ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
-                communicate()
-            window_title = window_title.decode().strip()
-            # ignore LibreOffice splash screen and window with no title
-            # set yet
-            if window_title and not window_title.startswith("LibreOffice")\
-                    and not window_title == 'VMapp command' \
-                    and 'whonixcheck' not in window_title \
-                    and not window_title == 'NetworkManager Applet':
-                break
+            # let the application initialize
             self.loop.run_until_complete(asyncio.sleep(1))
-            winid = None
+            try:
+                self._handle_editor(winid)
+                break
+            except KeyError:
+                winid = None
         if winid is None:
             self.fail('Timeout waiting for editor window')
 
-        time.sleep(0.5)
-        self._handle_editor(winid)
         self.loop.run_until_complete(p.communicate())
         (test_txt_content, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("cat /home/user/test.txt"))
@@ -400,26 +391,17 @@ class TC_20_DispVMMixin(object):
             winid = self.wait_for_window('disp[0-9]*', search_class=True,
                                          include_tray=False,
                                          timeout=60)
-            # get window title
-            (window_title, _) = subprocess.Popen(
-                ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
-                communicate()
-            window_title = window_title.decode().strip()
-            # ignore LibreOffice splash screen and window with no title
-            # set yet
-            if window_title and not window_title.startswith("LibreOffice")\
-                    and not window_title == 'VMapp command' \
-                    and 'whonixcheck' not in window_title \
-                    and not window_title == 'NetworkManager Applet':
-                break
+            # let the application initialize
             self.loop.run_until_complete(asyncio.sleep(1))
-            winid = None
+            try:
+                # copy, not modify - attachment is set as read-only
+                self._handle_editor(winid, copy=True)
+                break
+            except KeyError:
+                winid = None
         if winid is None:
             self.fail('Timeout waiting for editor window')
 
-        time.sleep(0.5)
-        # copy, not modify - attachment is set as read-only
-        self._handle_editor(winid, copy=True)
         with open('/var/run/qubes/qubes-clipboard.bin', 'rb') as f:
             test_txt_content = f.read()
         self.assertEqual(test_txt_content.strip(), b"test1")
