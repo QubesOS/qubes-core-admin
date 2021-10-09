@@ -214,6 +214,7 @@ endif
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
+	cp -r tests-data "$(DESTDIR)$(FILESDIR)/tests-data"
 	rm -f "$(DESTDIR)$(FILESDIR)/templates/README"
 
 	mkdir -p "$(DESTDIR)$(DOCDIR)"
