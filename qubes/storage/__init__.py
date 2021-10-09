@@ -84,7 +84,7 @@ class Volume:
 
     def __init__(self, name, pool, vid,
             revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
-            snap_on_start=False, source=None, **kwargs):
+            snap_on_start=False, source=None, ephemeral=None, **kwargs):
         ''' Initialize a volume.
 
             :param str name: The name of the volume inside owning domain
@@ -98,6 +98,7 @@ class Volume:
                 vm.stop(), otherwise - discard
             :param Volume source: other volume in same pool to make snapshot
                 from, required if *snap_on_start*=`True`
+            :param ephemeral: encrypt volume with an ephemeral key
             :param str/int size: Size of the volume
 
         '''
@@ -129,6 +130,9 @@ class Volume:
         #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
+        #: Should the volume be encrypted with an ephemeral key;
+        #  None means the default value
+        self._ephemeral = ephemeral
         #: Should the volume state be initialized with a snapshot of
         #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
@@ -162,10 +166,25 @@ class Volume:
 
     @property
     def ephemeral(self):
-        """Should this volume be encrypted with an ephemeral key in dom0?
+        """Should this volume be encrypted with an ephemeral key in dom0
+        (if enabled with encrypted_volatile property)?
         """
-        return not self.snap_on_start and not self.save_on_stop and \
-                self.domain is None and self.rw
+        if self._ephemeral is not None:
+            return self._ephemeral
+        # default value
+        return False
+
+    @ephemeral.setter
+    def ephemeral(self, value):
+        if not value:
+            self._ephemeral = False
+            return
+        if self.snap_on_start or self.save_on_stop or \
+                self.domain is not None or not self.rw:
+            raise qubes.exc.QubesValueError(
+                'Cannot enable ephemeral on snap_on_start or save_on_stop or '
+                'non-dom0 or not writable volume')
+        self._ephemeral = bool(value)
 
     async def start_encrypted(self, name):
         """
@@ -448,6 +467,9 @@ class Volume:
             'save_on_stop': self.save_on_stop,
             'snap_on_start': self.snap_on_start,
         }
+
+        if self._ephemeral is not None:
+            result['ephemeral'] = self.ephemeral
 
         if self.size:
             result['size'] = self.size

@@ -31,6 +31,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.volume.ListSnapshots \
 	admin.pool.volume.Resize \
 	admin.pool.volume.Revert \
+	admin.pool.volume.Set.ephemeral \
 	admin.pool.volume.Set.revisions_to_keep \
 	admin.pool.volume.Set.rw \
 	admin.pool.volume.Snapshot \
@@ -106,6 +107,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.ListSnapshots \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
+	admin.vm.volume.Set.ephemeral \
 	admin.vm.volume.Set.revisions_to_keep \
 	admin.vm.volume.Set.rw \
 	admin.vm.Stats \

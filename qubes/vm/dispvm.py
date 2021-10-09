@@ -116,12 +116,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     self.volume_config[name] = config.copy()
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
-                # copy pool setting from base AppVM; root and private would be
-                # in the same pool anyway (because of snap_on_start),
-                # but not volatile, which could be surprising
-                elif 'pool' not in self.volume_config[name] \
-                        and 'pool' in config:
-                    self.volume_config[name]['pool'] = config['pool']
+                else:
+                    # if volume exists, use its live config, since some settings
+                    # can be changed and volume_config isn't updated
+                    config = template.volumes[name].config
+                    # copy pool setting from base AppVM; root and private would
+                    # be in the same pool anyway (because of snap_on_start),
+                    # but not volatile, which could be surprising
+                    if 'pool' not in self.volume_config[name] \
+                            and 'pool' in config:
+                        self.volume_config[name]['pool'] = config['pool']
+                    # copy rw setting from the base AppVM too
+                    if 'rw' in config:
+                        self.volume_config[name]['rw'] = config['rw']
+                    # copy ephemeral setting from the base AppVM too, but only
+                    # if non-default value is used
+                    if 'ephemeral' not in self.volume_config[name] \
+                            and 'ephemeral' in config:
+                        self.volume_config[name]['ephemeral'] = \
+                            config['ephemeral']
 
         super().__init__(app, xml, *args, **kwargs)
 

@@ -66,6 +66,12 @@ properties:
  - :py:attr:`~qubes.storage.Volume.name` - name of the volume inside owning
    domain (like `root`, or `private`)
  - :py:attr:`~qubes.storage.Volume.size` - size of the volume, in bytes
+ - :py:attr:`~qubes.storage.Volume.ephemeral` - whether volume is automatically
+   encrypted with an ephemeral key. This can be set only on volumes that have
+   both :py:attr:`~qubes.storage.Volume.snap_on_start` and
+   :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False` - namely,
+   `volatile` volume. This property for DispVM's volatile volume is inherited
+   from the template (but not for other types of VMs).
 
 Storage pool driver may define additional properties.
 
