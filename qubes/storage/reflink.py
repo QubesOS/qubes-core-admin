@@ -68,8 +68,9 @@ class ReflinkPool(qubes.storage.Pool):
     _known_dir_path_prefixes = ['appvms', 'vm-templates']
 
     def __init__(self, *, name, revisions_to_keep=1,
-                 dir_path, setup_check=True):
-        super().__init__(name=name, revisions_to_keep=revisions_to_keep)
+                 dir_path, setup_check=True, ephemeral_volatile=False):
+        super().__init__(name=name, revisions_to_keep=revisions_to_keep,
+                         ephemeral_volatile=ephemeral_volatile)
         self._setup_check = qubes.property.bool(None, None, setup_check)
         self._volumes = {}
         self.dir_path = os.path.abspath(dir_path)
@@ -119,7 +120,8 @@ class ReflinkPool(qubes.storage.Pool):
             'name': self.name,
             'dir_path': self.dir_path,
             'driver': ReflinkPool.driver,
-            'revisions_to_keep': self.revisions_to_keep
+            'revisions_to_keep': self.revisions_to_keep,
+            'ephemeral_volatile': self.ephemeral_volatile,
         }
 
     @property

@@ -25,6 +25,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.List \
 	admin.pool.ListDrivers \
 	admin.pool.Remove \
+	admin.pool.Set.ephemeral_volatile \
 	admin.pool.Set.revisions_to_keep \
 	admin.pool.volume.Info \
 	admin.pool.volume.List \

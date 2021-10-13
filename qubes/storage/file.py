@@ -68,8 +68,10 @@ class FilePool(qubes.storage.Pool):
     '''  # pylint: disable=protected-access
     driver = 'file'
 
-    def __init__(self, *, name, revisions_to_keep=1, dir_path):
-        super().__init__(name=name, revisions_to_keep=revisions_to_keep)
+    def __init__(self, *, name, revisions_to_keep=1, dir_path,
+                 ephemeral_volatile=False):
+        super().__init__(name=name, revisions_to_keep=revisions_to_keep,
+                         ephemeral_volatile=ephemeral_volatile)
         self.dir_path = os.path.normpath(dir_path)
         self._volumes = []
 
@@ -79,7 +81,8 @@ class FilePool(qubes.storage.Pool):
             'name': self.name,
             'dir_path': self.dir_path,
             'driver': FilePool.driver,
-            'revisions_to_keep': self.revisions_to_keep
+            'revisions_to_keep': self.revisions_to_keep,
+            'ephemeral_volatile': self.ephemeral_volatile,
         }
 
     def init_volume(self, vm, volume_config):

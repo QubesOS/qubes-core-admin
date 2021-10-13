@@ -760,6 +760,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         pool.revisions_to_keep = newvalue
         self.app.save()
 
+    @qubes.api.method('admin.pool.Set.ephemeral_volatile',
+        scope='global', write=True)
+    async def pool_set_ephemeral(self, untrusted_payload):
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.arg in self.app.pools.keys())
+        pool = self.app.pools[self.arg]
+        try:
+            newvalue = qubes.property.bool(None, None,
+                untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        pool.ephemeral_volatile = newvalue
+        self.app.save()
+
     @qubes.api.method('admin.label.List', no_payload=True,
         scope='global', read=True)
     async def label_list(self):

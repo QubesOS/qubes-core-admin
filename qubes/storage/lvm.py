@@ -68,8 +68,10 @@ class ThinPool(qubes.storage.Pool):
 
     driver = 'lvm_thin'
 
-    def __init__(self, *, name, revisions_to_keep=1, volume_group, thin_pool):
-        super().__init__(name=name, revisions_to_keep=revisions_to_keep)
+    def __init__(self, *, name, revisions_to_keep=1, volume_group, thin_pool,
+                 ephemeral_volatile=False):
+        super().__init__(name=name, revisions_to_keep=revisions_to_keep,
+                         ephemeral_volatile=ephemeral_volatile)
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
@@ -91,6 +93,7 @@ class ThinPool(qubes.storage.Pool):
             'thin_pool': self.thin_pool,
             'driver': ThinPool.driver,
             'revisions_to_keep': self.revisions_to_keep,
+            'ephemeral_volatile': self.ephemeral_volatile,
         }
 
     async def destroy(self):

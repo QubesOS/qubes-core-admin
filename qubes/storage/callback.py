@@ -232,7 +232,9 @@ class CallbackPool(qubes.storage.Pool):
         bdriver_args = self._cb_conf.get('bdriver_args', {})
         self._cb_impl = cls(name=name, **bdriver_args) #: Instance of the backend pool driver.
 
-        super().__init__(name=name, revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)))
+        super().__init__(name=name,
+                         revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)),
+                         ephemeral_volatile=bool(bdriver_args.get('ephemeral_volatile', False)))
         self._cb_ctor_done = True
 
     def _check_init(self):

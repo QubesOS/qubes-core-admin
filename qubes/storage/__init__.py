@@ -172,7 +172,10 @@ class Volume:
         if self._ephemeral is not None:
             return self._ephemeral
         # default value
-        return False
+        if self.snap_on_start or self.save_on_stop or \
+                self.domain is not None or not self.rw:
+            return False
+        return self.pool.ephemeral_volatile
 
     @ephemeral.setter
     def ephemeral(self, value):
@@ -864,10 +867,11 @@ class Pool:
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
-    def __init__(self, *, name, revisions_to_keep=1):
+    def __init__(self, *, name, revisions_to_keep=1, ephemeral_volatile=False):
         self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
+        self.ephemeral_volatile = ephemeral_volatile
 
     def __eq__(self, other):
         if isinstance(other, Pool):
