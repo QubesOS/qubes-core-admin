@@ -2693,6 +2693,23 @@ netvm default=True type=vm \n'''
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
         self.assertFalse(self.app.save.called)
 
+    def test_663_pool_set_ephemeral(self):
+        self.app.pools['test-pool'] = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.pool.Set.ephemeral_volatile',
+            b'dom0', b'test-pool', b'true')
+        self.assertIsNone(value)
+        self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
+        self.assertEqual(self.app.pools['test-pool'].ephemeral_volatile, True)
+        self.app.save.assert_called_once_with()
+
+    def test_664_pool_set_ephemeral_not_a_boolean(self):
+        self.app.pools['test-pool'] = unittest.mock.Mock()
+        with self.assertRaises(qubes.api.ProtocolError):
+            self.call_mgmt_func(b'admin.pool.Set.ephemeral_volatile',
+                b'dom0', b'test-pool', b'abc')
+        self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
     def test_670_vm_volume_set_revisions_to_keep(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
