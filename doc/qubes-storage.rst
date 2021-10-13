@@ -57,7 +57,7 @@ properties:
    revisions to keep. If greater than zero, at each domain stop (and if
    :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`) new revision is saved
    and old ones exceeding :py:attr:`~qubes.storage.Volume.revisions_to_keep` limit
-   are removed.
+   are removed. This defaults to :py:attr:`~qubes.storage.Pool.revisions_to_keep`.
  - :py:attr:`~qubes.storage.Volume.source` - source volume for
    :py:attr:`~qubes.storage.Volume.snap_on_start` volumes
  - :py:attr:`~qubes.storage.Volume.vid` - pool specific volume identifier, must
@@ -71,7 +71,8 @@ properties:
    both :py:attr:`~qubes.storage.Volume.snap_on_start` and
    :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False` - namely,
    `volatile` volume. This property for DispVM's volatile volume is inherited
-   from the template (but not for other types of VMs).
+   from the template (but not for other types of VMs). For `volatile` volumes,
+   this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
 
 Storage pool driver may define additional properties.
 
