@@ -1135,6 +1135,35 @@ class TC_00_ThinPool(ThinPoolBase):
         pool_usage = float(pool_usage)
         self.assertEqual(metadata_usage, int(pool_size * pool_usage / 100))
 
+    def test_120_only_certain_volumes_ephemeral(self):
+        ''' Test that only volumes that can be ephemeral are '''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        self.assertFalse(volume.pool.ephemeral_volatile)
+        self.assertFalse(volume.ephemeral)
+        volume.pool.ephemeral_volatile = True
+        self.assertFalse(volume.ephemeral,
+                         'ephemeral_volatile flag must be ignored for save_on_stop volumes')
+        volume.save_on_stop = False
+        self.assertTrue(volume.ephemeral,
+                        'ephemeral_volatile flag honored for volumes that meet the criteria')
+        volume.snap_on_start = True
+        self.assertFalse(volume.ephemeral,
+                         'ephemeral_volatile flag must be ignored for snap_on_start volumes')
+        volume.snap_on_start = False
+        self.assertTrue(volume.ephemeral,
+                        'ephemeral_volatile flag honored for volumes that meet the criteria')
+        volume.rw = False
+        self.assertFalse(volume.ephemeral,
+                         'ephemeral_volatile flag must be ignored for read-only volumes')
+
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
