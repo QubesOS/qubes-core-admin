@@ -929,6 +929,11 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertFalse(volume.save_on_stop, 'volume is save_on_stop?')
         self.assertFalse(volume.snap_on_start, 'volume is snap_on_start?')
         self.assertFalse(volume.ephemeral, 'volume is ephemeral by default?')
+        self.assertFalse(volume.pool.ephemeral_volatile, 'pool enabled ephemeral volatile volumes?')
+        volume.pool.ephemeral_volatile = True
+        self.assertTrue(volume.ephemeral, 'pool changes should be reflected in the volume')
+        volume.pool.ephemeral_volatile = False
+        self.assertFalse(volume.ephemeral, 'volume is ephemeral by default?')
         path = volume.path
         self.assertEqual(path, '/dev/' + volume.vid)
         self.assertFalse(os.path.exists(path), 'volume path %r exists but should not!' % path)
