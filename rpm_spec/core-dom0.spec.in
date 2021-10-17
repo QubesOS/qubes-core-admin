@@ -46,8 +46,8 @@ BuildArch: noarch
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 BuildRequires:  systemd
-
 BuildRequires:  python3-devel
+BuildRequires:  make
 
 # for building documentation
 BuildRequires:	python3-sphinx
