@@ -59,14 +59,16 @@ class TestVMsCollection(dict):
         return iter(set(self.values()))
 
 class TestVolume(object):
-    def __init__(self, pool):
+    def __init__(self, pool, **kwargs):
         self.pool = pool
-        self.size = 0
-        self.source = None
+        self.size = int(kwargs.get('size', 0))
+        self.source = kwargs.get('source')
+        self.config = kwargs
 
 class TestPool(object):
     def init_volume(self, *args, **kwargs):
-        return TestVolume(self)
+        kwargs['pool'] = self
+        return TestVolume(**kwargs)
 
 class TestApp(qubes.tests.TestEmitter):
     labels = {1: qubes.Label(1, '0xcc0000', 'red'),

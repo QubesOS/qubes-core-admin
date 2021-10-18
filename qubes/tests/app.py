@@ -564,6 +564,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         super(TC_90_Qubes, self).setUp()
         self.app = qubes.Qubes('/tmp/qubestest.xml', load=False,
                                offline_mode=True)
+        self.app.default_kernel = 'dummy'
         self.addCleanup(self.cleanup_qubes)
         self.app.load_initial_values()
         self.template = self.app.add_new_vm('TemplateVM', name='test-template',

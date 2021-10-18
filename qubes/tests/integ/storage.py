@@ -92,15 +92,21 @@ class StorageTestMixin(object):
 
         # volatile image not clean
         await (self.vm1.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
+            'cmp -n 16K /dev/xvde /dev/zero',
             user='root'))
-        # volatile image not volatile
+        # volatile image not volatile; check two markers: at the very beginning,
+        # and at a later offset
         await (
             self.vm1.run_for_stdio('echo test123 > /dev/xvde', user='root'))
+        await (self.vm1.run_for_stdio(
+            'echo test123 | dd of=/dev/xvde seek=1M bs=1', user='root'))
         await (self.vm1.shutdown(wait=True))
         await (self.vm1.start())
         await (self.vm1.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
+            'cmp -n 16K /dev/xvde /dev/zero',
+            user='root'))
+        await (self.vm1.run_for_stdio(
+            '! dd if=/dev/xvde bs=1 skip=1M count=7 | grep test123',
             user='root'))
 
     def test_001_non_volatile(self):

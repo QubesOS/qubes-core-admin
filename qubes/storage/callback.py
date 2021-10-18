@@ -314,7 +314,6 @@ class CallbackPool(qubes.storage.Pool):
             'conf_id': self._cb_conf_id,
         }
 
-    # pylint: disable=invalid-overridden-method
     async def destroy(self):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.destroy())
@@ -326,7 +325,6 @@ class CallbackPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ret
 
-    # pylint: disable=invalid-overridden-method
     async def setup(self):
         await self._assert_initialized(callback=False) #setup is assumed to include storage initialization
         await self._callback('pre_setup')
@@ -441,7 +439,6 @@ class CallbackVolume(qubes.storage.Volume):
             return self._cb_impl.backend_class
         return self._cb_impl.__class__
 
-    # pylint: disable=invalid-overridden-method
     async def create(self):
         await self._assert_initialized()
         await self._callback('pre_volume_create')
@@ -527,7 +524,6 @@ class CallbackVolume(qubes.storage.Volume):
             return None
         return self._cb_impl.block_device()
 
-    # pylint: disable=invalid-overridden-method
     async def export(self):
         await self._assert_initialized()
         await self._callback('pre_volume_export')
@@ -574,14 +570,6 @@ class CallbackVolume(qubes.storage.Volume):
         self._cb_impl.path = path
 
     @property
-    def script(self):
-        return self._cb_impl.script
-
-    @script.setter
-    def script(self, script):
-        self._cb_impl.script = script
-
-    @property
     def usage(self):
         return self._cb_impl.usage
 
@@ -604,3 +592,6 @@ class CallbackVolume(qubes.storage.Volume):
             super().__delattr__(name)
         else:
             delattr(self._cb_impl, name)
+
+    def encrypted_volume_path(self, qube_name, device_name):
+        return self._cb_impl.encrypted_volume_path(qube_name, device_name)

@@ -44,7 +44,6 @@ import tempfile
 import time
 import traceback
 import unittest
-import warnings
 from distutils import spawn
 
 import gc
@@ -62,6 +61,7 @@ import qubes.devices
 import qubes.events
 import qubes.exc
 import qubes.ext.pci
+import qubes.tests.never_awaited
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
@@ -387,6 +387,11 @@ class substitute_entry_points(object):
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests.
     """
+
+    _callSetUp      = never_awaited.detect()(unittest.TestCase._callSetUp)
+    _callTestMethod = never_awaited.detect()(unittest.TestCase._callTestMethod)
+    _callTearDown   = never_awaited.detect()(unittest.TestCase._callTearDown)
+    _callCleanup    = never_awaited.detect()(unittest.TestCase._callCleanup)
 
     def __init__(self, *args, **kwargs):
         super(QubesTestCase, self).__init__(*args, **kwargs)
@@ -1067,8 +1072,8 @@ class SystemTestCase(QubesTestCase):
                           "disappear".format(title, winid))
             await asyncio.sleep(0.1)
 
-    async def wait_for_window_coro(self, title, search_class=False, timeout=30,
-                             show=True):
+    async def wait_for_window_coro(self, title, search_class=False,
+                                   include_tray=True, timeout=30, show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
         it will wait for either window to show or to disappear.
@@ -1078,6 +1083,7 @@ class SystemTestCase(QubesTestCase):
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
         :param search_class: search based on window class instead of title
+        :param include_tray: include windows docked in tray
         :return: window id of found window, if show=True
         """
 
@@ -1086,6 +1092,8 @@ class SystemTestCase(QubesTestCase):
             xdotool_search.append('--class')
         else:
             xdotool_search.append('--name')
+        if not include_tray:
+            xdotool_search.extend(('--maxdepth', '2'))
         if show:
             xdotool_search.append('--sync')
         if not show:
@@ -1126,6 +1134,7 @@ class SystemTestCase(QubesTestCase):
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
         :param search_class: search based on window class instead of title
+        :param include_tray: include windows docked in tray
         :return: window id of found window, if show=True
         """
         return self.loop.run_until_complete(
@@ -1395,6 +1404,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
 
     for modname in (
             # unit tests
+            'qubes.tests.selftest',
             'qubes.tests.events',
             'qubes.tests.devices',
             'qubes.tests.devices_block',

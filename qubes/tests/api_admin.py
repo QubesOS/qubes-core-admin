@@ -43,7 +43,7 @@ import qubes.storage
 # properties defined in API
 volume_properties = [
     'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
-    'save_on_stop', 'snap_on_start', 'revisions_to_keep']
+    'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'ephemeral']
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
@@ -2755,8 +2755,36 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         with self.assertRaises(qubes.api.ProtocolError):
-            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+            self.call_mgmt_func(b'admin.vm.volume.Set.rw',
                 b'test-vm1', b'private', b'abc')
+        self.assertFalse(self.app.save.called)
+
+    def test_685_vm_volume_set_ephemeral(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.volume.Set.ephemeral',
+            b'test-vm1', b'volatile', b'True')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            ('__getitem__', ('volatile',), {})])
+        self.assertEqual(self.vm.volumes['volatile'].ephemeral, True)
+        self.app.save.assert_called_once_with()
+
+    def test_686_vm_volume_set_ephemeral_invalid(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(qubes.api.ProtocolError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.ephemeral',
+                b'test-vm1', b'volatile', b'abc')
         self.assertFalse(self.app.save.called)
 
     def test_690_vm_console(self):

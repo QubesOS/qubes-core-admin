@@ -39,7 +39,10 @@ import qubes.exc
 import qubes.utils
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
+_am_root = os.getuid() == 0
 
+BYTES_TO_ZERO = 1 << 16
+_big_buffer = b'\0' * BYTES_TO_ZERO
 
 class StoragePoolException(qubes.exc.QubesException):
     ''' A general storage exception '''
@@ -52,10 +55,10 @@ class BlockDevice:
                  devtype='disk'):
         assert name, 'Missing device name'
         assert path, 'Missing device path'
+        assert script is None, 'block scripts are obsolete'
         self.path = path
         self.name = name
         self.rw = rw
-        self.script = script
         self.domain = domain
         self.devtype = devtype
 
@@ -75,14 +78,13 @@ class Volume:
     devtype = 'disk'
     domain = None
     path = None
-    script = None
     #: disk space used by this volume, can be smaller than :py:attr:`size`
     #: for sparse volumes
     usage = 0
 
     def __init__(self, name, pool, vid,
             revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
-            snap_on_start=False, source=None, **kwargs):
+            snap_on_start=False, source=None, ephemeral=None, **kwargs):
         ''' Initialize a volume.
 
             :param str name: The name of the volume inside owning domain
@@ -96,6 +98,7 @@ class Volume:
                 vm.stop(), otherwise - discard
             :param Volume source: other volume in same pool to make snapshot
                 from, required if *snap_on_start*=`True`
+            :param ephemeral: encrypt volume with an ephemeral key
             :param str/int size: Size of the volume
 
         '''
@@ -127,6 +130,9 @@ class Volume:
         #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
+        #: Should the volume be encrypted with an ephemeral key;
+        #  None means the default value
+        self._ephemeral = ephemeral
         #: Should the volume state be initialized with a snapshot of
         #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
@@ -158,6 +164,85 @@ class Volume:
         config = _sanitize_config(self.config)
         return lxml.etree.Element('volume', **config)
 
+    @property
+    def ephemeral(self):
+        """Should this volume be encrypted with an ephemeral key in dom0
+        (if enabled with encrypted_volatile property)?
+        """
+        if self._ephemeral is not None:
+            return self._ephemeral
+        # default value
+        return False
+
+    @ephemeral.setter
+    def ephemeral(self, value):
+        if not value:
+            self._ephemeral = False
+            return
+        if self.snap_on_start or self.save_on_stop or \
+                self.domain is not None or not self.rw:
+            raise qubes.exc.QubesValueError(
+                'Cannot enable ephemeral on snap_on_start or save_on_stop or '
+                'non-dom0 or not writable volume')
+        self._ephemeral = bool(value)
+
+    async def start_encrypted(self, name):
+        """
+        Start a volume encrypted with an ephemeral key.
+        This can be implemented as a coroutine.
+
+        The default implementation of this method uses ``cryptsetup(8)`` with a
+        key taken from ``/dev/urandom``.  This is highly secure and works with
+        any storage pool implementation.  Volume implementations should override
+        this method if they can provide a secure and more efficient
+        implementation.
+        """
+        assert name.startswith('/dev/mapper/'), \
+            'Invalid path %r passed to cryptsetup' % name
+        must_stop = os.path.exists(name)
+        path = name
+        name = name[12:]
+        assert '/' not in name, 'Invalid name passed to cryptsetup'
+        if must_stop:
+            await qubes.utils.cryptsetup('--', 'close', name)
+        await qubes.utils.coro_maybe(self.start())
+        await qubes.utils.cryptsetup(
+            '--key-file=/dev/urandom',
+            '--cipher=aes-xts-plain64',
+            '--type=plain',
+            '--',
+            'open',
+            self.block_device().path,
+            name,
+        )
+        if _am_root:
+            with open(path, 'wb+') as clearer:
+                clearer.write(_big_buffer)
+        else:
+            await qubes.utils.run_program(
+                'dd',
+                'if=/dev/zero',
+                'of=' + path,
+                'count=1',
+                'bs=' + str(BYTES_TO_ZERO),
+                sudo=True,
+            )
+
+    async def stop_encrypted(self, name):
+        """
+        Stop an encrypted, ephemeral volume.
+        This can be implemented as a coroutine.
+
+        The default implementation of this method uses ``cryptsetup(8)``.
+        Volume implementations that override :py:meth:`start_encrypted` MUST
+        override this method as well.
+        """
+        assert name.startswith('/dev/mapper/'), \
+            'invalid encrypted volume path %r' % name
+        if os.path.exists(name):
+            await qubes.utils.cryptsetup('--', 'close', name)
+        await qubes.utils.coro_maybe(self.stop())
+
     @staticmethod
     def locked(method):
         '''Decorator running given Volume's coroutine under a lock.
@@ -168,7 +253,7 @@ class Volume:
                 return await method(self, *args, **kwargs)
         return wrapper
 
-    def create(self):
+    async def create(self):
         ''' Create the given volume on disk.
 
             This method is called only once in the volume lifetime. Before
@@ -185,7 +270,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("remove")
 
-    def export(self):
+    async def export(self):
         ''' Returns a path to read the volume data from.
 
             Reading from this path when domain owning this volume is
@@ -306,7 +391,7 @@ class Volume:
         This can be implemented as a coroutine.'''
         raise self._not_implemented("stop")
 
-    def verify(self):
+    async def verify(self):
         ''' Verifies the volume.
 
         This function is supposed to either return :py:obj:`True`, or raise
@@ -319,7 +404,7 @@ class Volume:
         ''' Return :py:class:`BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        return BlockDevice(self.path, self.name, self.script,
+        return BlockDevice(self.path, self.name, None,
                                          self.rw, self.domain, self.devtype)
 
     @property
@@ -339,6 +424,36 @@ class Volume:
         # pylint: disable=attribute-defined-outside-init
         self._size = int(size)
 
+    # pylint: disable=no-self-use
+    def encrypted_volume_path(self, qube_name, device_name):
+        """Find the name of the encrypted volatile volume"""
+        # We need to ensure we don’t collide with any name used by LVM or LUKS,
+        # and that different qubes have different encrypted volume names.
+        # LUKS volumes have a name starting with ‘luks-’ followed by a UUID.
+        # LVM volumes always have at most one dash that is not doubled.
+        # And there is a one-to-one relationship between escaped and original
+        # names: replace ‘_d’ with ‘-’, then replace ‘_u’ with ‘_’.
+        # So we are in the clear here.
+        escaped_qube_name = qube_name.replace('_', '_u').replace('-', '_d')
+        return '/dev/mapper/vm-volatile-' + escaped_qube_name + \
+                '-crypt@' + device_name
+
+    def make_encrypted_device(self, device, qube_name):
+        """ Takes :py:class:`BlockDevice` and returns its encrypted version for
+            serialization in the libvirt XML template as <disk>.  The qube name
+            is available to help construct the device path.
+        """
+        assert device.domain is None, "Volatile volume must be in dom0"
+        assert device.devtype == 'disk'
+        assert device.rw, 'Encrypting read-only volumes makes no sense'
+        path = self.encrypted_volume_path(qube_name, device.name)
+        return qubes.storage.BlockDevice(
+            path=path,
+            name=device.name,
+            rw=device.rw,
+            domain=None,
+            devtype='disk',
+        )
 
     @property
     def config(self):
@@ -352,6 +467,9 @@ class Volume:
             'save_on_stop': self.save_on_stop,
             'snap_on_start': self.snap_on_start,
         }
+
+        if self._ephemeral is not None:
+            result['ephemeral'] = self.ephemeral
 
         if self.size:
             result['size'] = self.size
@@ -435,6 +553,13 @@ class Storage:
         self.vm.volumes[name] = volume
         return volume
 
+    def get_volume(self, volume_or_name):
+        if isinstance(volume_or_name, Volume):
+            return volume_or_name
+        if isinstance(volume_or_name, str):
+            return self.vm.volumes[volume_or_name]
+        raise TypeError("You need to pass a Volume object or name")
+
     def attach(self, volume, rw=False):
         ''' Attach a volume to the domain '''
         assert self.vm.is_running()
@@ -514,8 +639,7 @@ class Storage:
 
     async def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
-        if isinstance(volume, str):
-            volume = self.vm.volumes[volume]
+        volume = self.get_volume(volume)
         await qubes.utils.coro_maybe(volume.resize(size))
         if self.vm.is_running():
             try:
@@ -565,16 +689,9 @@ class Storage:
     @property
     def outdated_volumes(self):
         ''' Returns a list of outdated volumes '''
-        result = []
         if self.vm.is_halted():
-            return result
-
-        volumes = self.vm.volumes
-        for volume in volumes.values():
-            if volume.is_outdated():
-                result += [volume]
-
-        return result
+            return []
+        return [vol for vol in self.vm.volumes.values() if vol.is_outdated()]
 
     async def verify(self):
         '''Verify that the storage is sane.
@@ -596,6 +713,11 @@ class Storage:
             Errors on removal are catched and logged.
         '''
         results = []
+        try:
+            await self.stop()
+        except (IOError, OSError, subprocess.SubprocessError) as e:
+            self.vm.log.exception(
+                "Failed to stop some volume, continuing anyway", e)
         for vol in self.vm.volumes.values():
             self.log.info('Removing volume %s: %s' % (vol.name, vol.vid))
             try:
@@ -607,15 +729,33 @@ class Storage:
         except (IOError, OSError) as e:
             self.vm.log.exception("Failed to remove some volume", e)
 
+    def block_devices(self):
+        """ Return all :py:class:`qubes.storage.BlockDevice` for current domain
+        for serialization in the libvirt XML template as <disk>.
+        """
+        for v in self.vm.volumes.values():
+            block_dev = v.block_device()
+            if block_dev is not None:
+                if v.ephemeral:
+                    yield v.make_encrypted_device(block_dev, self.vm.name)
+                else:
+                    yield block_dev
+
     async def start(self):
         ''' Execute the start method on each volume '''
         await qubes.utils.void_coros_maybe(
-            vol.start() for vol in self.vm.volumes.values())
+            # pylint: disable=line-too-long
+            (vol.start_encrypted(vol.encrypted_volume_path(self.vm.name, name))
+             if vol.ephemeral else vol.start())
+            for name, vol in self.vm.volumes.items())
 
     async def stop(self):
         ''' Execute the stop method on each volume '''
         await qubes.utils.void_coros_maybe(
-            vol.stop() for vol in self.vm.volumes.values())
+            # pylint: disable=line-too-long
+            (vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
+             if vol.ephemeral else vol.stop())
+            for name, vol in self.vm.volumes.items())
 
     def unused_frontend(self):
         ''' Find an unused device name '''
@@ -633,12 +773,8 @@ class Storage:
                         "//domain/devices/disk/target")}
 
     async def export(self, volume):
-        ''' Helper function to export volume (pool.export(volume))'''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if not isinstance(volume, Volume):
-            volume = self.vm.volumes[volume]
-        return await qubes.utils.coro_maybe(volume.export())
+        ''' Helper function to export volume '''
+        return await qubes.utils.coro_maybe(self.get_volume(volume).export())
 
     async def export_end(self, volume, export_path):
         """ Cleanup after exporting data from the volume
@@ -646,40 +782,25 @@ class Storage:
         :param volume: volume that was exported
         :param export_path: path returned by the export() call
         """
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if not isinstance(volume, Volume):
-            volume = self.vm.volumes[volume]
-        await qubes.utils.coro_maybe(volume.export_end(export_path))
+        await qubes.utils.coro_maybe(
+            self.get_volume(volume).export_end(export_path))
 
     async def import_data(self, volume, size):
         '''
-        Helper function to import volume data (pool.import_data(volume)).
+        Helper function to import volume data.
 
         :size: new size in bytes, or None if using old size
         '''
 
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, str):
-            volume = self.vm.volumes[volume]
-
+        volume = self.get_volume(volume)
         if size is None:
             size = volume.size
-
-        ret = volume.import_data(size)
-        return await qubes.utils.coro_maybe(ret)
+        return await qubes.utils.coro_maybe(volume.import_data(size))
 
     async def import_data_end(self, volume, success):
-        ''' Helper function to finish/cleanup data import
-        (pool.import_data_end(volume))'''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            ret = volume.import_data_end(success=success)
-        else:
-            ret = self.vm.volumes[volume].import_data_end(success=success)
-        return await qubes.utils.coro_maybe(ret)
+        ''' Helper function to finish/cleanup data import '''
+        return await qubes.utils.coro_maybe(
+            self.get_volume(volume).import_data_end(success=success))
 
 
 class VolumesCollection:
@@ -773,7 +894,7 @@ class Pool:
         ''' Returns the pool config to be written to qubes.xml '''
         raise self._not_implemented("config")
 
-    def destroy(self):
+    async def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
             clean up.
 
@@ -786,7 +907,7 @@ class Pool:
         '''
         raise self._not_implemented("init_volume")
 
-    def setup(self):
+    async def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
 

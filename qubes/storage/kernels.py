@@ -92,16 +92,17 @@ class LinuxModules(Volume):
         raise StoragePoolException('clone of LinuxModules volume from '
                                   'different volume type is not supported')
 
-    def create(self):
+    async def create(self):
         return self
+
+    @property
+    def ephemeral(self):
+        return False
 
     async def remove(self):
         pass
 
-    def commit(self):
-        return self
-
-    def export(self):
+    async def export(self):
         return self.path
 
     def is_outdated(self):
@@ -129,15 +130,13 @@ class LinuxModules(Volume):
             raise qubes.exc.QubesValueError(
                 'LinuxModules supports only read-only volumes')
 
-    # pylint: disable=invalid-overridden-method
-    def start(self):
+    async def start(self):
         return self
 
-    # pylint: disable=invalid-overridden-method
-    def stop(self):
+    async def stop(self):
         pass
 
-    def verify(self):
+    def verify(self):  # pylint: disable=invalid-overridden-method
         if self.vid:
             _check_path(self.vmlinuz)
             _check_path(self.initramfs)
@@ -184,13 +183,13 @@ class LinuxKernel(Pool):
             'driver': LinuxKernel.driver,
         }
 
-    def destroy(self):
+    async def destroy(self):
         pass
 
     async def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
 
-    def setup(self):
+    async def setup(self):
         pass
 
     @property

@@ -11,13 +11,14 @@
 ## Note that policy parsing stops at the first match.
 
 # policy.RegisterArgument should be allowed only for specific arguments.
+policy.RegisterArgument *           @anyvm          @anyvm      deny
 policy.RegisterArgument *           @anyvm          dom0        deny
 
 # WARNING: The qubes.ConnectTCP service is dangerous and allows any
 # qube to access any other qube TCP port. It should be restricted
 # only to restricted qubes. This is why the default policy is 'deny'
 
-# Example of policy: qubes.ConnectTCP +22 mytcp-client @default allow,target=mytcp-server
+# Example of policy: qubes.ConnectTCP +22 mytcp-client @default allow target=mytcp-server
 qubes.ConnectTCP        *           @anyvm          @anyvm      deny
 
 # VM advertise its supported features
@@ -60,7 +61,7 @@ qubes.StartApp          *           @anyvm          @anyvm      ask
 
 # HTTP proxy for downloading updates
 # Upgrade all TemplateVMs through sys-whonix.
-#qubes.UpdatesProxy * @type:TemplateVM @default allow,target=sys-whonix
+#qubes.UpdatesProxy     *    @type:TemplateVM        @default    allow target=sys-whonix
 # Upgrade Whonix TemplateVMs through sys-whonix.
 qubes.UpdatesProxy      *   @tag:whonix-updatevm    @default    allow target=sys-whonix
 # Deny Whonix TemplateVMs using UpdatesProxy of any other VM.

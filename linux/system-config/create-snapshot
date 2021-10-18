@@ -1,0 +1,81 @@
+#!/bin/bash
+
+SNAPSHOT_CHUNKSIZE=256  # same as in file.py
+
+set -euo pipefail
+shopt -s nullglob
+
+fatal () {
+  printf %s\\n "$@" >&2
+  exit 1
+}
+
+get_dev() {
+  dev=$1
+
+  if [[ -L "$dev" ]]; then
+    dev=$(readlink -f "$dev") || fatal "$dev link does not exist."
+  fi
+
+  if [[ -f "$dev" ]]; then
+    file=$dev
+
+    # assign new loop device
+    loopdev=$(losetup --find --nooverlap --show -- "$file" 2>/dev/null)
+    if [[ $? -ne 0 ]] || [[ ! "$loopdev" =~ ^/dev/loop[0-9]+$ ]]
+    then
+      fatal 'Failed to find an unused loop device'
+    fi
+
+    printf %s\\n "$loopdev"
+  else
+    [[ -e "$dev" ]] || fatal "$dev does not exist."
+    [[ -b "$dev" ]] || fatal "$dev is not a block device nor file."
+    printf %s\\n "$dev"
+  fi
+}
+
+create_dm_snapshot() {
+  local base_dev cow_dev base_sz dm_devname
+  dm_devname=$1 base_dev=$2 cow_dev=$3
+
+  if [[ ! -e "/dev/mapper/$dm_devname" ]]; then
+    # prepare new snapshot device
+    base_sz=$(blockdev --getsz "$base_dev")
+    3< "$base_dev" 4< "$cow_dev" dmsetup create "$dm_devname" \
+      --table "0 $base_sz snapshot /dev/fd/3 /dev/fd/4 P $SNAPSHOT_CHUNKSIZE" ||
+      fatal 'could not create snapshot'
+  fi
+}
+
+setup_block_dev () {
+  local base cow cow2 dm_devname_full final dm_devname
+  final=$1 base=$2 cow=$3
+
+  # first ensure that snapshot device exists (to write somewhere changes from snapshot-origin)
+  dm_devname=snapshot$(exec stat '--printf=-%D:%i' -- "$base" "$cow")
+  base=$(get_dev "$base")
+  cow=$(get_dev "$cow")
+
+  # prepare snapshot device
+  create_dm_snapshot "$dm_devname" "$base" "$cow"
+
+  if [[ -n "${4+a}" ]]; then
+    cow2=$(get_dev "$4")
+    create_dm_snapshot "$final" "/dev/mapper/$dm_devname" "$cow2"
+  elif ! [[ -b "/dev/mapper/$final" ]]; then
+    # for origin - prepare snapshot-origin device and store its name
+    base_sz=$(blockdev --getsz "$base")
+    3< "$base" dmsetup create "$final" \
+      --table "0 $base_sz snapshot-origin /dev/fd/3" ||
+      fatal 'cound not create origin'
+  fi
+}
+
+if [[ "$#" -eq 3 ]] || [[ "$#" -eq 4 ]]; then
+  setup_block_dev "$@"
+else
+  fatal "Wrong number of arguments (expected 3 or 4): $#"
+fi
+
+# vim:sw=2:et:

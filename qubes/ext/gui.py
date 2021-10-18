@@ -119,7 +119,7 @@ class GUI(qubes.ext.Extension):
                                             str(vm.xid))
         if vm.features.get('input-dom0-proxy', None):
             await asyncio.create_subprocess_exec(
-                '/usr/bin/qubes-input-trigger --all --dom0')
+                '/usr/bin/qubes-input-trigger', '--all', '--dom0')
 
     @qubes.ext.handler('property-reset:keyboard_layout')
     def on_keyboard_reset(self, vm, event, name, oldvalue=None):

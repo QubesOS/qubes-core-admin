@@ -168,7 +168,20 @@ def systemd_notify():
         nofity_socket = '\0' + nofity_socket[1:]
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     sock.connect(nofity_socket)
-    sock.sendall(b'READY=1')
+    sock.sendall(b'READY=1\nSTATUS=qubesd online and operational\n')
+    sock.close()
+
+def systemd_extend_timeout():
+    """Extend systemd startup timeout by 60s"""
+    notify_socket = os.getenv('NOTIFY_SOCKET')
+    if not notify_socket:
+        return
+    if notify_socket.startswith('@'):
+        notify_socket = '\0' + notify_socket[1:]
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.connect(notify_socket)
+    sock.sendall(b'EXTEND_TIMEOUT_USEC=60000000\n'
+                 b'STATUS=Cleaning up storage for stopped qubes\n')
     sock.close()
 
 def match_vm_name_with_special(vm, name):
@@ -235,6 +248,21 @@ def fsync_path(path):
 async def coro_maybe(value):
     return (await value) if asyncio.iscoroutine(value) else value
 
+_am_root = os.getuid() == 0
+
+# pylint: disable=redefined-builtin
+async def run_program(*args, check=True, input=None, sudo=False, **kwargs):
+    """Async version of subprocess.run()
+    """
+    if not _am_root and sudo:
+        args = ['sudo'] + list(args)
+    p = await asyncio.create_subprocess_exec(*args, **kwargs)
+    stdouterr = await p.communicate(input=input)
+    if check and p.returncode:
+        raise subprocess.CalledProcessError(p.returncode,
+                                                args[0], *stdouterr)
+    return p
+
 async def void_coros_maybe(values):
     ''' Ignore elements of the iterable values that are not coroutine
         objects. Run all coroutine objects to completion, concurrent
@@ -246,3 +274,18 @@ async def void_coros_maybe(values):
         done, _ = await asyncio.wait(coros)
         for task in done:
             task.result()  # re-raises exception if task failed
+
+def cryptsetup(*args):
+    """
+    Run cryptsetup with the given arguments.  This method returns a future.
+    """
+    prog = ('/usr/sbin/cryptsetup', *args)
+    return run_program(
+        *prog,
+        # otherwise cryptsetup tries to mlock() the entire locale archive :(
+        env={'LC_ALL':'C', **os.environ},
+        cwd='/',
+        stdin=subprocess.DEVNULL,
+        check=True,
+        sudo=True,
+    )

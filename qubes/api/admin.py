@@ -354,7 +354,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # properties defined in API
         volume_properties = [
             'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
-            'save_on_stop', 'snap_on_start', 'revisions_to_keep']
+            'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'ephemeral']
 
         def _serialize(value):
             if callable(value):
@@ -524,6 +524,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         self.dest.volumes[self.arg].rw = newvalue
+        self.app.save()
+
+    @qubes.api.method('admin.vm.volume.Set.ephemeral',
+        scope='local', write=True)
+    async def vm_volume_set_ephemeral(self, untrusted_payload):
+        self.enforce(self.arg in self.dest.volumes.keys())
+        try:
+            newvalue = qubes.property.bool(None, None,
+                untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        self.dest.volumes[self.arg].ephemeral = newvalue
         self.app.save()
 
     @qubes.api.method('admin.vm.tag.List', no_payload=True,

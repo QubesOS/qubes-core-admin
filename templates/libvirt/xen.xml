@@ -76,7 +76,7 @@
 
     {% block clock %}
         {% if vm.virt_mode == 'hvm' %}
-            {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
+            {% set timezone = vm.features.check_with_template('timezone', '').lower() %}
             {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
             {% elif timezone.isdigit() %}
@@ -135,10 +135,6 @@
 
                     {% if device.domain %}
                         <backenddomain name="{{ device.domain }}" />
-                    {% endif %}
-
-                    {% if device.script %}
-                        <script path="{{ device.script }}" />
                     {% endif %}
                 </disk>
             {% endfor %}
@@ -214,4 +210,4 @@
     </devices>
 </domain>
 
-<!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80 : -->
+<!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80: -->

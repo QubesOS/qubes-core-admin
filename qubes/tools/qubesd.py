@@ -7,6 +7,7 @@ import signal
 import libvirtaio
 
 import qubes
+import qubes.app
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
@@ -14,6 +15,10 @@ import qubes.api.misc
 import qubes.log
 import qubes.utils
 import qubes.vm.qubesvm
+
+# Wait for the system entropy pool to fill, so we can use “/dev/urandom” with
+# confidence.
+os.getrandom(1)
 
 def sighandler(loop, signame, servers):
     print('caught {}, exiting'.format(signame))
@@ -36,6 +41,9 @@ def main(args=None):
         raise
 
     args.app.register_event_handlers()
+
+    # Stop storage for domains not currently running
+    loop.run_until_complete(args.app.stop_storage())
 
     if args.debug:
         qubes.log.enable_debug()

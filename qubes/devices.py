@@ -21,7 +21,7 @@
 
 '''API for various types of devices.
 
-Main concept is that some domain main
+Main concept is that some domain may
 expose (potentially multiple) devices, which can be attached to other domains.
 Devices can be of different buses (like 'pci', 'usb', etc). Each device
 bus is implemented by an extension.
@@ -29,25 +29,25 @@ bus is implemented by an extension.
 Devices are identified by pair of (backend domain, `ident`), where `ident` is
 :py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
 
-Such extension should provide:
- - `qubes.devices` endpoint - a class descendant from
- :py:class:`qubes.devices.DeviceInfo`, designed to hold device description (
- including bus-specific properties)
+Such extension should:
+ - provide `qubes.devices` endpoint - a class descendant from
+   :py:class:`qubes.devices.DeviceInfo`, designed to hold device description
+   (including bus-specific properties)
  - handle `device-attach:bus` and `device-detach:bus` events for
- performing the attach/detach action; events are fired even when domain isn't
- running and extension should be prepared for this; handlers for those events
- can be coroutines
+   performing the attach/detach action; events are fired even when domain isn't
+   running and extension should be prepared for this; handlers for those events
+   can be coroutines
  - handle `device-list:bus` event - list devices exposed by particular
- domain; it should return list of appropriate DeviceInfo objects
+   domain; it should return a list of appropriate DeviceInfo objects
  - handle `device-get:bus` event - get one device object exposed by this
- domain of given identifier
- - handle `device-list-attached:class` event - list currently attached
- devices to this domain
- - fire `device-list-change:class` event when device list change is detected
- (new/removed device)
+   domain of given identifier
+ - handle `device-list-attached:class` event - list devices currently attached
+   to this domain
+ - fire `device-list-change:class` event when a device list change is detected
+   (new/removed device)
 
-Note that device-listing event handlers can not be asynchronous. This for
-example means you can not call qrexec service there. This is intentional to
+Note that device-listing event handlers cannot be asynchronous. This for
+example means you cannot call qrexec service there. This is intentional to
 keep device listing operation cheap. You need to design the extension to take
 this into account (for example by using QubesDB).
 
@@ -401,7 +401,7 @@ class DeviceCollection:
 
 
 class DeviceManager(dict):
-    '''Device manager that hold all devices by their classess.
+    '''Device manager that hold all devices by their classes.
 
     :param vm: VM for which we manage devices
     '''

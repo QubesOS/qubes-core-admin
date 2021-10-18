@@ -73,7 +73,8 @@ Requires:       python3-xen
 Requires:       libvirt-python3
 
 Requires:       pciutils
-Requires:       qubes-core-dom0-linux >= 4.0.11
+# udev rules for encrypted volatile volumes
+Requires:       qubes-core-dom0-linux >= 4.1.13
 # policy (daemon) using changed qubesd socket protocol
 Requires:       qubes-core-qrexec-dom0 >= 4.1.8
 Requires:       qubes-db-dom0
@@ -449,7 +450,9 @@ done
 %{python3_sitelib}/qubes/tests/ext.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
+%{python3_sitelib}/qubes/tests/never_awaited.py
 %{python3_sitelib}/qubes/tests/rpc_import.py
+%{python3_sitelib}/qubes/tests/selftest.py
 %{python3_sitelib}/qubes/tests/storage.py
 %{python3_sitelib}/qubes/tests/storage_file.py
 %{python3_sitelib}/qubes/tests/storage_reflink.py
@@ -531,9 +534,10 @@ done
 /usr/share/qubes/templates/libvirt/devices/block.xml
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
+/usr/share/qubes/tests-data/dispvm-open-thunderbird-attachment
 /usr/lib/tmpfiles.d/qubes.conf
-/etc/xen/scripts/block-snapshot
-/etc/xen/scripts/block-origin
+%attr(0755,root,root) /usr/lib/qubes/create-snapshot
+%attr(0755,root,root) /usr/lib/qubes/destroy-snapshot
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/85-admin-backup-restore.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-admin-default.policy

@@ -75,7 +75,7 @@ class ReflinkPool(qubes.storage.Pool):
         self.dir_path = os.path.abspath(dir_path)
 
     @_coroutinized
-    def setup(self):
+    def setup(self):  # pylint: disable=invalid-overridden-method
         created = _make_dir(self.dir_path)
         if self._setup_check and not is_supported(self.dir_path):
             if created:
@@ -98,8 +98,8 @@ class ReflinkPool(qubes.storage.Pool):
         if 'revisions_to_keep' not in volume_config:
             volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config:
-            volume_config['vid'] = os.path.join(vm.dir_path_prefix, vm.name,
-                                                volume_config['name'])
+            volume_config['vid'] = os.path.join(
+                vm.dir_path_prefix, vm.name, volume_config['name'])
         volume = ReflinkVolume(**volume_config)
         self._volumes[volume_config['vid']] = volume
         return volume
@@ -110,7 +110,7 @@ class ReflinkPool(qubes.storage.Pool):
     def get_volume(self, vid):
         return self._volumes[vid]
 
-    def destroy(self):
+    async def destroy(self):
         pass
 
     @property
@@ -151,15 +151,14 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def create(self):
+    def create(self):  # pylint: disable=invalid-overridden-method
         self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
             _create_sparse_file(self._path_clean, self._size)
         return self
 
-    # pylint: disable=invalid-overridden-method
     @_coroutinized
-    def verify(self):
+    def verify(self):  # pylint: disable=invalid-overridden-method
         if self.snap_on_start:
             img = self.source._path_clean  # pylint: disable=protected-access
         elif self.save_on_stop:
@@ -172,10 +171,9 @@ class ReflinkVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             'Missing image file {!r} for volume {}'.format(img, self.vid))
 
-    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
-    def remove(self):
+    def remove(self):  # pylint: disable=invalid-overridden-method
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
         self._remove_all_images()
         _remove_empty_dir(os.path.dirname(self._path_vid))
@@ -205,7 +203,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def start(self):
+    def start(self):  # pylint: disable=invalid-overridden-method
         self._remove_incomplete_images()
         if not self.is_dirty():
             if self.snap_on_start:
@@ -222,9 +220,10 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def stop(self):
+    def stop(self):  # pylint: disable=invalid-overridden-method
         if self.save_on_stop:
-            self._commit(self._path_dirty)
+            if os.path.exists(self._path_dirty):
+                self._commit(self._path_dirty)
         else:
             if not self.snap_on_start:
                 self._size = self.size  # preserve manual resize of image
@@ -255,7 +254,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def revert(self, revision=None):
+    def revert(self, revision=None):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
                 'Cannot revert: {} is not cleanly stopped'.format(self.vid))
@@ -270,7 +269,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def resize(self, size):
+    def resize(self, size):  # pylint: disable=invalid-overridden-method
         ''' Resize a read-write volume; notify any corresponding loop
             devices of the size change.
         '''
@@ -286,45 +285,42 @@ class ReflinkVolume(qubes.storage.Volume):
             _update_loopdev_sizes(self._path_dirty)
         return self
 
-    def export(self):
+    async def export(self):
         if not self.save_on_stop:
             raise NotImplementedError(
                 'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
-    # pylint: disable=invalid-overridden-method
     @qubes.storage.Volume.locked
     @_coroutinized
-    def import_data(self, size):
+    def import_data(self, size):  # pylint: disable=invalid-overridden-method
         if not self.save_on_stop:
             raise NotImplementedError(
                 'Cannot import_data: {} is not save_on_stop'.format(self.vid))
         _create_sparse_file(self._path_import, size)
         return self._path_import
 
-    # pylint: disable=invalid-overridden-method
-    @qubes.storage.Volume.locked
     @_coroutinized
-    def import_data_end(self, success):
+    def _import_data_end_unlocked(self, success):
         (self._commit if success else _remove_file)(self._path_import)
         return self
+
+    import_data_end = qubes.storage.Volume.locked(_import_data_end_unlocked)
 
     @qubes.storage.Volume.locked
     async def import_volume(self, src_volume):
         if self.save_on_stop:
             try:
                 success = False
-                src_path = await qubes.utils.coro_maybe(
-                    src_volume.export())
+                src_path = await qubes.utils.coro_maybe(src_volume.export())
                 try:
-                    await _coroutinized(_copy_file)(
-                        src_path, self._path_import)
+                    await _coroutinized(_copy_file)(src_path, self._path_import)
                 finally:
                     await qubes.utils.coro_maybe(
                         src_volume.export_end(src_path))
                 success = True
             finally:
-                await _coroutinized(self.import_data_end)(success)
+                await self._import_data_end_unlocked(success)
         return self
 
     def _path_revision(self, number, timestamp=None):
@@ -335,17 +331,15 @@ class ReflinkVolume(qubes.storage.Volume):
     @property
     def _next_revision_number(self):
         numbers = self.revisions.keys()
-        if numbers:
-            return str(int(list(numbers)[-1]) + 1)
-        return '1'
+        return str(int(list(numbers)[-1]) + 1) if numbers else '1'
 
     @property
     def revisions(self):
         prefix = self._path_clean + '.'
         paths = glob.iglob(glob.escape(prefix) + '*@*Z')
         items = (path[len(prefix):-1].split('@') for path in paths)
-        return collections.OrderedDict(sorted(items,
-                                              key=lambda item: int(item[0])))
+        return collections.OrderedDict(
+            sorted(items, key=lambda item: int(item[0])))
 
     @property
     def size(self):
@@ -412,14 +406,12 @@ def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
     needle = os.fsencode(os.path.realpath(img)) + b'\n'
     for sys_path in glob.iglob('/sys/block/loop[0-9]*/loop/backing_file'):
-        try:
-            with open(sys_path, 'rb') as sys_io:
-                if sys_io.read() != needle:
-                    continue
-        except FileNotFoundError:
-            continue
-        with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
-            fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
+        matched = False
+        with suppress(FileNotFoundError), open(sys_path, 'rb') as sys_io:
+            matched = sys_io.read() == needle
+        if matched:
+            with open('/dev/' + sys_path.split('/')[3], 'rb') as dev_io:
+                fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
 def _attempt_ficlone(src_io, dst_io):
     try:
@@ -435,16 +427,17 @@ def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
     with _replace_file(dst) as tmp_io:
         with open(src, 'rb') as src_io:
-            if _attempt_ficlone(src_io, tmp_io):
-                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
-                return True
-        LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
-        cmd = 'cp', '--sparse=always', src, tmp_io.name
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           check=False)
-        if p.returncode != 0:
-            raise qubes.storage.StoragePoolException(str(p))
-        return False
+            reflinked = _attempt_ficlone(src_io, tmp_io)
+        if reflinked:
+            LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+        else:
+            LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
+            result = subprocess.run(
+                ['cp', '--sparse=always', '--', src, tmp_io.name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            if result.returncode != 0:
+                raise qubes.storage.StoragePoolException(str(result))
+    return reflinked
 
 def is_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies

@@ -810,10 +810,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -848,7 +848,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -904,7 +904,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -969,7 +969,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1066,10 +1066,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1135,10 +1135,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1176,7 +1176,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <e820_host state="on"/>
             </xen>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1252,7 +1252,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1332,7 +1332,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1387,10 +1387,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
             'block_device.return_value.path': '/tmp/kernel/modules.img',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.name': 'kernel',
+            'ephemeral': False,
         })
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
@@ -1431,7 +1431,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1503,7 +1503,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <apic/>
             <viridian/>
         </features>
-        <clock offset="variable" adjustment="0" basis="localtime" />
+        <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
@@ -1513,7 +1513,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/dev/loop0" />
                 <target dev="xvda" />
                 <backenddomain name="dom0" />
-                <script path="/tmp/script" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
@@ -1573,21 +1572,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             'block_device.return_value.path': '/dev/loop0',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': '/tmp/script',
+            'ephemeral': False,
         })
         vm.volumes['other'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop1',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
+            'ephemeral': False,
         })
         vm.volumes['other2'] = unittest.mock.Mock(**{
             'block_device.return_value.name': 'other',
             'block_device.return_value.path': '/dev/loop2',
             'block_device.return_value.devtype': 'disk',
             'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.script': None,
+            'ephemeral': False,
         })
         assignments = [
             unittest.mock.Mock(**{
@@ -1838,6 +1837,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.is_running = lambda: True
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
+        guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1886,6 +1886,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.audiovm = audiovm
         vm.is_running = lambda: True
         audiovm.is_running = lambda: True
+        audiovm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
@@ -1959,6 +1960,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.is_running = lambda: True
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
+        guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
