@@ -36,10 +36,6 @@ from qubes.config import defaults
 import qubes.storage.file
 import os.path
 _dir = os.path.dirname(__file__)
-qubes.storage.file.CREATE_SCRIPT = \
-    os.path.join(_dir, '../../linux/system-config/create-snapshot')
-qubes.storage.file.DESTROY_SCRIPT = \
-    os.path.join(_dir, '../../linux/system-config/destroy-snapshot')
 
 class TestApp(qubes.Qubes):
     ''' A Mock App object '''
@@ -124,6 +120,14 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_01_FileVolumes, self).setUp()
+        self.patches = []
+        if qubes.tests.in_git:
+            self.patches.append(unittest.mock.patch('qubes.storage.file.CREATE_SCRIPT',
+                os.path.join(_dir, '../../linux/system-config/create-snapshot')))
+            self.patches.append(unittest.mock.patch('qubes.storage.file.DESTROY_SCRIPT',
+                os.path.join(_dir, '../../linux/system-config/destroy-snapshot')))
+        for patch in self.patches:
+            patch.start()
         self.app = TestApp()
         self.loop.run_until_complete(self.app.add_pool(**self.POOL_CONF))
         self.app.default_pool = self.app.get_pool(self.POOL_NAME)
@@ -141,6 +145,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.app.cleanup()
         self.app.close()
         del self.app
+        for patch in self.patches:
+            patch.stop()
         super(TC_01_FileVolumes, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
