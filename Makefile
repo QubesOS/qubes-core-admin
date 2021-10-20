@@ -2,7 +2,7 @@ RPMS_DIR=rpm/
 
 VERSION := $(shell cat version)
 
-DIST_DOM0 ?= fc18
+DIST_DOM0 ?= fc32
 
 OS ?= Linux
 PYTHON ?= python3
