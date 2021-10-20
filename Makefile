@@ -1,6 +1,6 @@
 RPMS_DIR=rpm/
 
-VERSION := $(shell cat version)
+VERSION := $(file <version)
 
 DIST_DOM0 ?= fc18
 
