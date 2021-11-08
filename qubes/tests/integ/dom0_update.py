@@ -180,13 +180,13 @@ Test package
                 input=f_pkg.read()))
         try:
             self.loop.run_until_complete(
-                self.updatevm.run_for_stdio('cd /tmp/repo; createrepo .'))
+                self.updatevm.run_for_stdio('cd /tmp/repo; createrepo_c .'))
         except subprocess.CalledProcessError as e:
             if e.returncode == 127:
-                self.skipTest('createrepo not installed in template {}'.format(
+                self.skipTest('createrepo_c not installed in template {}'.format(
                     self.template))
             else:
-                self.skipTest('createrepo failed with code {}, '
+                self.skipTest('createrepo_c failed with code {}, '
                     'cannot perform the test'.format(e.returncode))
         self.start_repo()
 
