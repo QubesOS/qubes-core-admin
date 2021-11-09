@@ -505,6 +505,15 @@ class QubesTestCase(unittest.TestCase):
 
         del self.loop
 
+    def success(self):
+        """Check if test was successful during tearDown """
+
+        result = self.defaultTestResult()
+        self._feedErrorsToResult(result, self._outcome.errors)
+
+        unsuccessful_tests = [test for (test,_) in (result.errors + result.failures)]
+        return self not in unsuccessful_tests
+
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
            by callableObj when invoked with arguments args and keyword
