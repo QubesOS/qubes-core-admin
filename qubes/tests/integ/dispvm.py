@@ -56,6 +56,14 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.app.default_dispvm = None
         super(TC_04_DispVM, self).tearDown()
 
+    def wait_for_dispvm_destroy(self, dispvm_name):
+        timeout = 20
+        while dispvm_name in self.app.domains:
+            self.loop.run_until_complete(asyncio.sleep(1))
+            timeout -= 1
+            if timeout <= 0:
+                break
+
     def test_002_cleanup(self):
         self.loop.run_until_complete(self.testvm.start())
 
@@ -70,7 +78,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
-        self.loop.run_until_complete(asyncio.sleep(5))
+        self.wait_for_dispvm_destroy(dispvm_name)
         self.assertNotIn(dispvm_name, self.app.domains)
 
     def test_003_cleanup_destroyed(self):
