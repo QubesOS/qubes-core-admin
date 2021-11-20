@@ -60,10 +60,10 @@ else
   exit 2
 fi
 
-#OLD_TIME="$(date)"
-#OLD_TIME_NANOSECONDS="$(date +%s.%N)"
+#OLD_TIME="$(date --utc)"
+#OLD_TIME_NANOSECONDS="$(date --utc +%s.%N)"
 
-OLD_UNIXTIME="$(date +%s)"
+OLD_UNIXTIME="$(date --utc +%s)"
 
 NEW_TIME="$(( $OLD_UNIXTIME $PLUS_OR_MINUS $DELAY ))"
 
@@ -72,5 +72,5 @@ NEW_TIME_NANOSECONDS="$NEW_TIME.$NANOSECONDS"
 echo "$NEW_TIME_NANOSECONDS"
 
 ## Testing the `date` syntax:
-## date --date @1396733199.112834496
-## date --date "@$NEW_TIME_NANOSECONDS"
+## date --utc --date @1396733199.112834496
+## date --utc --date "@$NEW_TIME_NANOSECONDS"
