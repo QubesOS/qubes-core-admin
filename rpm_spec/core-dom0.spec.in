@@ -56,7 +56,7 @@ BuildRequires:	libvirt-python3
 BuildRequires:	python3-dbus
 BuildRequires:	python3-PyYAML
 
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 BuildRequires:  python3-xen
 %endif
 
@@ -74,7 +74,7 @@ Requires:       python3-setuptools
 Requires:       python3-PyYAML
 Requires:       libvirt-python3
 
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 Requires:       python3-xen
 %endif
 
@@ -86,14 +86,14 @@ Requires:       qubes-core-qrexec-dom0 >= 4.1.8
 Requires:       qubes-db-dom0
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
-%if "x%{?backend_vmm}" == "xxen"
+%if "%{?backend_vmm}" == "xen"
 Requires:       xen-runtime
 Requires:       xen-hvm
 Requires:       xen-hvm-stubdom-linux >= 1.0.13
 Requires:       xen-hvm-stubdom-linux-full >= 1.0.13
 Requires:       libvirt-daemon-xen >= 3.3.0-7
 %endif
-%if x%{?backend_vmm} == xkvm
+%if "%{?backend_vmm}" == "kvm"
 Requires:       libvirt-daemon-kvm >= 3.3.0-7
 %endif
 Requires:       cronie
@@ -148,13 +148,13 @@ mkdir -p $RPM_BUILD_ROOT/etc/qubes/backup
 %post
 %systemd_post qubes-core.service
 ## Xen only
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 %systemd_post qubes-qmemman.service
 %endif
 ########
 %systemd_post qubesd.service
 
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
 echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
@@ -183,7 +183,7 @@ if ! grep -q ^qubes: /etc/group ; then
 		groupadd qubes
 fi
 
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 %triggerin -- xen-runtime
 /usr/lib/qubes/fix-dir-perms.sh
 %endif
@@ -191,7 +191,7 @@ fi
 %preun
 %systemd_preun qubes-core.service
 ## Xen only
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 %systemd_preun qubes-qmemman.service
 %endif
 ########
@@ -206,7 +206,7 @@ fi
 %postun
 %systemd_postun qubes-core.service
 ## Xen only
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 %systemd_postun_with_restart qubes-qmemman.service
 %endif
 ########
@@ -364,7 +364,7 @@ done
 %files
 %defattr(-,root,root,-)
 ## Xen only
-%if x%{?backend_vmm} == xxen
+%if "%{?backend_vmm}" == "xen"
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 %endif
 ########
@@ -373,7 +373,7 @@ done
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 ## Xen only - XXX:  TEMP:  Package since it installed.  Need to prevent install
-#%%if x%{?backend_vmm} == xxen
+#%%if "%{?backend_vmm}" == "xen"
 /usr/bin/qmemmand
 #%%endif
 ########
@@ -573,7 +573,7 @@ done
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(2770,root,qubes) %dir /var/lib/qubes/backup
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
-%if x%{?backend_vmm} == xkvm
+%if "%{?backend_vmm}" == "kvm"
 /usr/share/qubes/templates/libvirt/kvm.xml
 %endif
 /usr/share/qubes/templates/libvirt/xen.xml
