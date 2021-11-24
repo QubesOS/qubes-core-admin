@@ -97,7 +97,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         p.stdin.write(b"sudo poweroff\n")
         # do not close p.stdin on purpose - wait to automatic disconnect when
         #  domain is destroyed
-        timeout = 70
+        timeout = 80
         lines_task = asyncio.ensure_future(p.stdout.read())
         self.loop.run_until_complete(asyncio.wait_for(p.wait(), timeout))
         self.loop.run_until_complete(lines_task)
