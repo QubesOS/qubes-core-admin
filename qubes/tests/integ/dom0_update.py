@@ -398,6 +398,8 @@ class TC_10_QvmTemplateMixin(object):
             self.skipTest(
                 'Template \'{}\' is already installed, '
                 'choose a different one with QUBES_INSTALL_TEST_TEMPLATE variable')
+        if self.template.startswith('whonix-ws'):
+            self.skipTest('Test not supported for this template')
         self.tmpdir = tempfile.mkdtemp()
         self.init_default_template(self.template)
         self.updatevm = self.app.add_new_vm(
@@ -408,7 +410,11 @@ class TC_10_QvmTemplateMixin(object):
         self.loop.run_until_complete(self.updatevm.create_on_disk())
         self.app.updatevm = self.updatevm
         self.app.save()
-        self.loop.run_until_complete(self.updatevm.start())
+        if self.template.startswith('whonix-gw'):
+            self.loop.run_until_complete(
+                self.whonix_gw_setup_async(self.updatevm))
+        else:
+            self.loop.run_until_complete(self.updatevm.start())
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)

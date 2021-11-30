@@ -823,6 +823,33 @@ class SystemTestCase(QubesTestCase):
 
         self.app.default_netvm = str(default_netvm)
 
+    async def whonix_gw_setup_async(self, vm):
+        """Complete whonix-gw initial setup, to enable networking there.
+        The should not be running yet, but will be started in the process.
+        """
+        vm.provides_network = True
+        await vm.start()
+        try:
+            await vm.run_for_stdio(
+                'systemctl is-system-running --wait', user='root')
+        except subprocess.CalledProcessError:
+            # don't fail the whole test if some service fails to start,
+            # we have separate tests for detecting this
+            pass
+        await vm.run_for_stdio(
+            'cat > {0}'.format('/usr/local/etc/torrc.d/40_tor_control_panel.conf'),
+            user='root', input=b'DisableNetwork 0\n')
+        await vm.run_for_stdio(
+            'systemctl restart tor@default.service', user='root')
+        try:
+            await vm.run_for_stdio(
+                'pkill -f setup-wizard-dist', user='root')
+        except subprocess.CalledProcessError:
+            pass
+        await vm.run_for_stdio(
+            'systemcheck --cli')
+
+
     def _find_pool(self, volume_group, thin_pool):
         """ Returns the pool matching the specified ``volume_group`` &
             ``thin_pool``, or None.
