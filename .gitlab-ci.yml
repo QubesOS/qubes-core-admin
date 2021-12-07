@@ -13,15 +13,17 @@ checks:pylint:
     - PYTHONPATH=test-packages:~/qubes-core-qrexec pylint-3 qubes
 
 checks:tests:
+  image: fedora:32
   stage: checks
   tags:
     - short-living-job
-    - vm-runner
+    - docker
   before_script:
     # vim-common for xxd
-    - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils python3-gobject gtk3 xorg-x11-server-Xvfb
+    - dnf update -y vim-minimal
+    - dnf install -y lvm2 vim-common python3-lxml python3-docutils python3-gobject gtk3 xorg-x11-server-Xvfb git python3-pip btrfs-progs diffutils python3-codecov e2fsprogs
     - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
-    - pip3 install --user --quiet -r ci/requirements.txt
+    - pip3 install --user -r ci/requirements.txt
   script:
     - PYTHONPATH=test-packages:~/qubes-core-qrexec xvfb-run ./run-tests
   after_script:
