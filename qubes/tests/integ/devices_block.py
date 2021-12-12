@@ -18,11 +18,13 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
+import asyncio
 import os
 
 import sys
 
 import qubes
+import qubes.devices
 import qubes.tests
 import subprocess
 
@@ -281,9 +283,85 @@ class TC_00_List(qubes.tests.SystemTestCase):
                     .format(dev, self.img_path))
 
 
+class AttachMixin:
+    template = None
+
+    def setUp(self):
+        super().setUp()
+        self.img_path = '/tmp/test.img'
+        self.backend = self.app.add_new_vm(
+            "AppVM",
+            label='red',
+            name=self.make_vm_name("back"))
+        self.loop.run_until_complete(
+            self.backend.create_on_disk())
+        self.frontend = self.app.add_new_vm(
+            "AppVM",
+            label='red',
+            name=self.make_vm_name("front"))
+        self.loop.run_until_complete(
+            self.frontend.create_on_disk())
+        self.app.save()
+        exc = self.loop.run_until_complete(asyncio.gather(
+            self.backend.start(),
+            self.frontend.start(),
+            return_exceptions=True
+        ))
+        if any(isinstance(e, Exception) for e in exc):
+            self.fail('Failed to start some VM: {!r}'.format(exc))
+        self.loop.run_until_complete(self.backend.run_for_stdio(
+            "set -e;"
+            "truncate -s 128M {path}; "
+            "losetup -f {path}; "
+            "udevadm settle".format(path=self.img_path), user="root"))
+        dev_list = list(self.backend.devices['block'])
+        for dev in dev_list:
+            if dev.description == self.img_path:
+                self.device = dev
+                self.device_ident = dev.ident
+                break
+        else:
+            self.fail('Device for {} in {} not found'.format(
+                self.img_path, self.backend.name))
+
+    def test_000_attach_reattach(self):
+        ass = qubes.devices.DeviceAssignment(self.backend, self.device_ident)
+        with self.subTest('attach'):
+            self.loop.run_until_complete(
+                self.frontend.devices['block'].attach(ass))
+            self.loop.run_until_complete(asyncio.sleep(2))
+
+            # may raise CalledProcessError
+            self.loop.run_until_complete(
+                self.frontend.run_for_stdio('ls /dev/xvdi'))
+
+        with self.subTest('detach'):
+            self.loop.run_until_complete(
+                self.frontend.devices['block'].detach(ass))
+            self.loop.run_until_complete(asyncio.sleep(2))
+
+            # may raise CalledProcessError
+            self.loop.run_until_complete(
+                self.frontend.run_for_stdio('! ls /dev/xvdi'))
+
+            self.assertIsNone(self.device.frontend_domain)
+
+        with self.subTest('reattach'):
+            self.loop.run_until_complete(
+                self.frontend.devices['block'].attach(ass))
+            self.loop.run_until_complete(asyncio.sleep(2))
+
+            # may raise CalledProcessError
+            self.loop.run_until_complete(
+                self.frontend.run_for_stdio('ls /dev/xvdi'))
+
+
 def create_testcases_for_templates():
-    return qubes.tests.create_testcases_for_templates('TC_00_List',
+    yield from qubes.tests.create_testcases_for_templates('TC_00_List',
         TC_00_List,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_10_Attach',
+        AttachMixin, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):

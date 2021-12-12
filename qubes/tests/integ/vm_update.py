@@ -292,7 +292,7 @@ SHA256:
 
         # createrepo is installed by default in Fedora template
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio(
-            'createrepo /tmp/yum-repo'))
+            'createrepo_c /tmp/yum-repo'))
 
     def create_repo_and_serve(self):
         '''
