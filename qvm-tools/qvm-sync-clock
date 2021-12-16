@@ -70,11 +70,16 @@ def main():
         sys.stderr.write('Received a date older than this program, aborting!\n')
         sys.exit(1)
     date_out = untrusted_date_out
-    subprocess.check_call([b'date', b'-u', b'-I' + precision, b'-s',
-                           date_out[:-1]],
-        stdout=subprocess.DEVNULL)
-    subprocess.check_call([b'/sbin/hwclock', b'--systohc'],
-        stdout=subprocess.DEVNULL)
+    try:
+        subprocess.check_call([b'date', b'-u', b'-I' + precision, b'-s',
+                               date_out[:-1]],
+            stdout=subprocess.DEVNULL)
+        subprocess.check_call([b'/sbin/hwclock', b'--systohc'],
+            stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        # input is trusted here, so it can be safely printed
+        sys.stderr.write('Unable to set the date: process {!r} failed.\n'.format(e.cmd))
+        sys.exit(e.returncode)
 
 if __name__ == '__main__':
     main()
