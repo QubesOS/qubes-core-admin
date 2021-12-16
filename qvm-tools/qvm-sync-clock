@@ -41,8 +41,8 @@ def main():
             clockvm.name))
         sys.exit(0)
 
-    p = clockvm.run_service('qubes.GetDate+nanoseconds')
-    untrusted_date_out = p.stdout.read(36)
+    with clockvm.run_service('qubes.GetDate+nanoseconds') as p:
+        untrusted_date_out = p.stdout.read(36)
     try:
         untrusted_date_out.decode('ascii', 'strict')
     except UnicodeDecodeError:
