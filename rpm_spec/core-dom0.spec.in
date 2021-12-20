@@ -412,7 +412,6 @@ fi
 /usr/lib/tmpfiles.d/qubes.conf
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
-/etc/xen/scripts/vif-route-qubes
 %attr(2775,root,qubes) %dir /etc/qubes-rpc/policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-ro
