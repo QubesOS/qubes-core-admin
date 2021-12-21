@@ -79,7 +79,7 @@
             {% set timezone = vm.features.check_with_template('timezone', '').lower() %}
             {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
-            {% elif timezone.isdigit() %}
+            {% elif timezone.strip('-').isdigit() %}
                 <clock offset="variable" adjustment="{{ timezone }}" basis="utc" />
             {% else %}
                 <clock offset="variable" adjustment="0" basis="utc" />
