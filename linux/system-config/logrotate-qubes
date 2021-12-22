@@ -1,7 +1,0 @@
-/var/log/qubes/qmemman.log {
-    create 0640 root qubes
-    su root qubes
-    postrotate
-        /bin/systemctl restart qubes-qmemman.service >/dev/null 2>/dev/null || true
-    endscript
-}
