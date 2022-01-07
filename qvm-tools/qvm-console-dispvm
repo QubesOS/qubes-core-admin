@@ -10,7 +10,7 @@ USAGE
 
 do_start=false
 if [[ $# -ge 2 ]] && [[ "$1" = '--autostart' ]]; then
-    do_start=:
+    do_start=true
     shift
 fi
 if [[ $# -eq 2 ]] && [[ "$1" = '--' ]]; then
@@ -24,7 +24,7 @@ QREXEC_REQUESTED_TARGET="$1"
 
 [[ "$QREXEC_REQUESTED_TARGET" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || { printf 'Invalid qube name %q\n' "$QREXEC_REQUESTED_TARGET">&2; exit 1; }
 
-if "$do_start"; then
+if [[ "$do_start" = 'true' ]]; then
     msg='cannot be started'
     qvm-start --skip-if-running -- "$QREXEC_REQUESTED_TARGET"
 else
@@ -36,4 +36,4 @@ DISPVM="$(qvm-prefs -- "$QREXEC_REQUESTED_TARGET" management_dispvm)"
 
 [[ "x$DISPVM" == "x" ]] && { echo "Error: cannot determine management DispVM of domain '$QREXEC_REQUESTED_TARGET'">&2; exit 1; }
 
-sudo qvm-run -p --localcmd="QREXEC_REQUESTED_TARGET=$QREXEC_REQUESTED_TARGET QREXEC_REMOTE_DOMAIN=dom0 /etc/qubes-rpc/admin.vm.Console" --service --dispvm="$DISPVM" -- qubes.ShowInTerminal
+sudo 2>/dev/null qvm-run -p --localcmd="QREXEC_REQUESTED_TARGET=$QREXEC_REQUESTED_TARGET QREXEC_REMOTE_DOMAIN=dom0 /etc/qubes-rpc/admin.vm.Console" --service --dispvm="$DISPVM" -- qubes.ShowInTerminal
