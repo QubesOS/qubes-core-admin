@@ -27,6 +27,10 @@
 '''Constants which can be configured in one place'''
 
 import os.path
+#### KVM:
+from .hypervisor import hypervisor_name
+########
+
 
 qubes_base_dir = "/var/lib/qubes"
 system_path = {
@@ -49,7 +53,10 @@ system_path = {
 }
 
 defaults = {
-    'libvirt_uri': 'xen:///',
+    #### KVM:
+    ##'libvirt_uri': 'xen:///',
+    'libvirt_uri': 'xen:///' if hypervisor_name() == 'xen' else 'qemu:///system',
+    ########
     'memory': 400,
     'hvm_memory': 400,
     'kernelopts': "",

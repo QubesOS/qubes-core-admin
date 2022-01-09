@@ -1,0 +1,569 @@
+
+
+{# machine: q35 | i440 #}
+{% set machine = 'i440' %}
+
+<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
+    {% block basic %}
+        <name>{{ vm.name }}</name>
+        <uuid>{{ vm.uuid }}</uuid>
+        {# PLACEHOLDER
+        <metadata>
+            <libosinfo:libosinfo xmlns:libosinfo='http://libosinfo.org/xmlns/libvirt/domain/1.0'>
+                <libosinfo:os id='http://fedoraproject.org/fedora/32'/>
+            </libosinfo:libosinfo>
+        </metadata>
+        #}
+        {% if ((vm.virt_mode == 'hvm' and vm.devices['pci'].persistent() | list)
+            or vm.maxmem == 0) -%}
+            <memory unit='MiB'>{{ vm.memory }}</memory>
+        {% else -%}
+            <memory unit='MiB'>{{ vm.maxmem }}</memory>
+        {% endif -%}
+        <currentMemory unit='MiB'>{{ vm.memory }}</currentMemory>
+        <vcpu placement='static'>{{ vm.vcpus }}</vcpu>
+    {% endblock %}
+
+    {% block cpu %}
+        <cpu mode='host-passthrough' check='none'/>
+    {% endblock %}
+
+    <os>
+        {% block os %}
+            <!--
+            For the libxl backend libvirt switches between OVMF (UEFI) and
+            SeaBIOS based on the loader type. This has nothing to do with the
+            hvmloader binary.
+            -->
+            {% if machine == 'i440' %}
+            <type arch='x86_64' machine='pc-i440fx-4.2'>hvm</type>
+            {% else %}
+            <type arch='x86_64' machine='pc-q35-4.2'>hvm</type>
+            {% endif %}
+
+            <!--
+            <loader type='{{ 'pflash' if vm.features.check_with_template('uefi', False) else 'rom' }}'>hvmloader</loader>
+            -->
+            <loader readonly='yes' type='pflash'>/usr/share/edk2/ovmf/OVMF_CODE.fd</loader>
+            <nvram>/var/lib/libvirt/qemu/nvram/fedora-32_VARS.fd</nvram>
+            <boot dev='hd'/>
+
+
+            {# PLACEHOLDER
+            {% if vm.kernel %}
+                {% if vm.features.check_with_template('no-default-kernelopts', False) -%}
+                <cmdline>{{ vm.kernelopts }}</cmdline>
+                {% else -%}
+                <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }}</cmdline>
+                {% endif -%}
+            {% endif %}
+            #}
+        {% endblock %}
+    </os>
+
+    <features>
+        {% block features %}
+            <acpi/>
+            <apic/>
+            <vmport state='off'/>
+        {% endblock %}
+    </features>
+
+    {% block clock %}
+        {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
+        {% if timezone == 'localtime' %}
+            <clock offset='variable' adjustment='0' basis='localtime'>
+        {% elif timezone.isdigit() %}
+            <clock offset='variable' adjustment='{{ timezone }}' basis='utc'>
+        {% else %}
+            <clock offset='variable' adjustment='0' basis='utc'>
+        {% endif %}
+                <timer name='rtc' tickpolicy='catchup'/>
+                <timer name='pit' tickpolicy='delay'/>
+                <timer name='hpet' present='no'/>
+            </clock>
+    {% endblock %}
+
+    {% block on %}
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+    {% endblock %}
+
+    {# NOT IMPLEMENTED #}
+    {% block pm %}
+        <pm>
+            <suspend-to-mem enabled='no'/>
+            <suspend-to-disk enabled='no'/>
+        </pm>
+    {% endblock %}
+
+    <devices>
+        <!--
+        Q35 CONTROLLER CONFIG (bus)
+            DEFAULT CONTROLLERS:
+                00:00.0 Host bridge: Intel Corporation 82G33/G31/P35/P31 Express DRAM Controller
+                00:01.0 VGA compatible controller: Device 1234:1111 (rev 02)
+                00:02.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 03)
+                00:1f.0 ISA bridge: Intel Corporation 82801IB (ICH9) LPC Interface Controller (rev 02)
+                00:1f.2 SATA controller: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode] (rev 02)
+                00:1f.3 SMBus: Intel Corporation 82801I (ICH9 Family) SMBus Controller (rev 02)
+
+            pcie.0          00:00.0 Host bridge: Intel Corporation 82G33/G31/P35/P31 Express DRAM Controller
+            video0          00:01.0 VGA compatible controller: Red Hat, Inc. QXL paravirtual graphic card (rev 04)
+            pci.1           00:02.0 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.3           00:03.0 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.4           00:03.1 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.5           00:03.2 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.6           00:03.3 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.7           00:03.4 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.8           00:03.5 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.9           00:03.6 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            pci.10          00:03.7 PCI bridge: Red Hat, Inc. QEMU PCIe Root port
+            sound0          00:1b.0 Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio Controller (rev 03)
+            XXXXX           00:1f.0 ISA bridge: Intel Corporation 82801IB (ICH9) LPC Interface Controller (rev 02)
+            XXXXX           00:1f.2 SATA controller: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode] (rev 02)
+            XXXXX           00:1f.3 SMBus: Intel Corporation 82801I (ICH9 Family) SMBus Controller (rev 02)
+
+            pci.2           01:00.0 PCI bridge: Red Hat, Inc. Device 000e
+        3   virtio-disk0    04:00.0 SCSI storage controller: Red Hat, Inc. Virtio block device (rev 01)
+        4   serial0         06:00.0 Communication controller: Red Hat, Inc. Virtio console (rev 01)
+        5   rng0            07:00.0 Unclassified device [00ff]: Red Hat, Inc. Virtio RNG (rev 01)
+        6   net0            03:00.0 Ethernet controller: Red Hat, Inc. Virtio network device (rev 01)
+        7   usb             05:00.0 USB controller: Red Hat, Inc. QEMU XHCI Host Controller (rev 01)
+            baloon0         08:00.0 Unclassified device [00ff]: Red Hat, Inc. Virtio memory balloon (rev 01)
+            fs0             09:00.0 Unclassified device [0002]: Red Hat, Inc. Virtio filesystem (rev 01)
+
+        I440FX CONTROLLER CONFIG (bus/slot)
+            DEFAULT CONTROLLERS:
+                00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+                00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+                00:01.1 IDE interface: Intel Corporation 82371SB PIIX3 IDE [Natoma/Triton II]
+                00:01.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 03)
+                00:01.0 VGA compatible controller: Device 1234:1111 (rev 02)
+                00:03.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 03)
+
+            pci.0           00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+                            00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+                            00:01.1 IDE interface: Intel Corporation 82371SB PIIX3 IDE [Natoma/Triton II]
+                            00:01.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 03)
+        2   pci.1           00:02.0 PCI bridge: Red Hat, Inc. QEMU PCI-PCI bridge
+        3   pci.2           00:03.0 PCI bridge: Red Hat, Inc. QEMU PCI-PCI bridge
+
+        4   serial0         00:04.0 Communication controller: Red Hat, Inc. Virtio console
+        5   usb             00:05.0 USB controller: Red Hat, Inc. QEMU XHCI Host Controller (rev 01)
+        6   rng0            00:06.0 Unclassified device [00ff]: Red Hat, Inc. Virtio RNG
+        7   video0          00:07.0 VGA compatible controller: Red Hat, Inc. QXL paravirtual graphic card (rev 04)
+        8   sound0          00:08.0 Audio device: Intel Corporation 82801I (ICH9 Family) HD Audio Controller (rev 03)
+
+        9   net0            00:09.0 Ethernet controller: Red Hat, Inc. Virtio network device
+        a   baloon0         00:0a.0 Unclassified device [00ff]: Red Hat, Inc. Virtio memory balloon
+
+        b   sata0           00:0b.0 SATA controller: Intel Corporation 82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode] (rev 02)
+        c   fs0             00:0c.0 Unclassified device [0002]: Red Hat, Inc. Virtio filesystem
+        d   fs1             00:0d.0 Unclassified device [0002]: Red Hat, Inc. Virtio filesystem
+            virtio-disk0    00:0e.0 SCSI storage controller: Red Hat, Inc. Virtio block device
+                            02:01.0 RAM memory: Red Hat, Inc. Inter-VM shared memory (rev 01)
+
+
+                VIDEO                 bus=00, slot=01, func=0, id=video0
+                FILESYSTEM-SHARE      bus=00, slot=0b, func=0, id=fs0
+                SOUND                 bus=00, slot=1b, func=0, id=sound0
+                SATA                  bus=00, slot=1f, func=2
+          00:01.0: pcie-root-port     bus=00, slot=02, func=0, id=pci.1
+                NETWORK               bus=01, slot=00, func=0, id=net0
+          00:02.0: pcie-root-port     bus=00, slot=02, func=1, id=pci.2
+                USB                   bus=02, slot=00, func=0, id=usb
+          00:03.0: pcie-root-port     bus=00, slot=02, func=2, id=pci.3
+                VIRTIO-SERIAL         bus=03, slot=00, func=0, id=virtio-serial0
+          00:04.0: pcie-root-port     bus=00, slot=02, func=3, id=pci.4
+                DISK                  bus=04, slot=00, func=0, id=virtio-disk0
+          00:05.0: pcie-root-port     bus=00, slot=02, func=4, id=pci.5
+                MEMBALOON             bus=05, slot=00, func=0, id=baloon0
+          00:06.0: pcie-root-port     bus=00, slot=02, func=5, id=pci.6
+                RANDOM                bus=06, slot=00, func=0, id=rng0
+          00:07.0: pcie-root-port     bus=00, slot=02, func=6, id=pci.7
+          00:08.0: pcie-pci-bridge    bus=07, slot=00, func=0, id=pci.8
+        -->
+        {#- NOT IMPLEMENTED -#}
+        {%- block device_controllers %}
+        <!-- === BUS 00 ==================================================== -->
+        {% if machine == 'i440' %}
+        <controller type='pci' index='0' model='pci-root'/>
+            <controller type='pci' index='1' model='pci-bridge'>
+            <model name='pci-bridge'/>
+            <target chassisNr='1'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+        </controller>
+        <controller type='pci' index='2' model='pci-bridge'>
+            <model name='pci-bridge'/>
+            <target chassisNr='2'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+        </controller>
+
+        {% else %}
+        <controller type='pci' index='0' model='pcie-root'/>
+        <controller type='pci' index='1' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='1' port='0x10'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0' multifunction='on'/>
+        </controller>
+        <controller type='pci' index='2' model='pcie-to-pci-bridge'>
+            <model name='pcie-pci-bridge'/>
+            <driver iommu='on' ats='on'/>
+            <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+        </controller>
+        <controller type='pci' index='3' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='3' port='0x18'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0' multifunction='on'/>
+        </controller>
+        <controller type='pci' index='4' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='4' port='0x19'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x1'/>
+        </controller>
+        <controller type='pci' index='5' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='5' port='0x1a'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x2'/>
+        </controller>
+        <controller type='pci' index='6' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='6' port='0x1b'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x3'/>
+        </controller>
+        <controller type='pci' index='7' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='7' port='0x1c'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x4'/>
+        </controller>
+        <controller type='pci' index='8' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='8' port='0x1d'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x5'/>
+        </controller>
+        <controller type='pci' index='9' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='9' port='0x1e'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x6'/>
+        </controller>
+        <controller type='pci' index='10' model='pcie-root-port'>
+            <model name='pcie-root-port'/>
+            <target chassis='10' port='0x1f'/>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x7'/>
+        </controller>
+        {% endif %}
+
+        <!-- SATA (Reserved Address) -->
+        <!--
+        <controller type='sata' index='0'>
+            <address type='pci' domain='0x0000' bus='0x00' slot='0x1f' function='0x2'/>
+        </controller>
+        -->
+
+        <!-- === BUS 01 ==================================================== -->
+        <!-- PCIE-PCI-BRIDGE -->
+        <!--
+        <controller type='pci' index='9' model='pcie-to-pci-bridge'>
+            <model name='pcie-pci-bridge'/>
+            <alias name='pci.0'/>
+            <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+        </controller>
+        -->
+
+        <!--
+        <controller type='pci' model='pcie-root'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-root-port'/>
+        <controller type='pci' model='pcie-to-pci-bridge'/>
+        -->
+
+        <!-- === BUS 03 ==================================================== -->
+        <!-- USB -->
+        <controller type='usb' index='0' model='qemu-xhci' ports='15'>
+            <!--
+            <address type='pci' domain='0x0000' bus='0x03' slot='0x00' function='0x0'/>
+            -->
+        </controller>
+
+        <!-- === BUS 04 ==================================================== -->
+        <!-- VIRTIO-SERIAL -->
+        <controller type='virtio-serial' index='0'>
+            <!--
+            <address type='pci' domain='0x0000' bus='0x04' slot='0x00' function='0x0'/>
+            -->
+        </controller>
+        {%- endblock %}
+
+        <!--
+        <interface type='network'>
+            <mac address='52:54:00:b5:03:6d'/>
+            <source network='default'/>
+            <model type='virtio'/>
+            <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+            <mac address='{{ vm.mac }}' />
+            <ip address='{{ vm.get_ip_for_vm(vm) }}' />
+        </interface>
+        -->
+
+        <!-- === BUS 02 ==================================================== -->
+        <interface type='network'>
+            <model type='virtio'/>
+            <source network='default'/>
+            <!--
+            <address type='pci' domain='0x0000' bus='0x02' slot='0x00' function='0x0'/>
+            -->
+        </interface>
+
+        {%- block devices %}
+        {#-
+            HACK: The letter counter is implemented in this way because
+            Jinja does not allow you to increment variables in a loop
+            anymore. As of Jinja 2.10, we will be able to replace this
+            with:
+            {% set counter = namespace(i=0) %}
+            {% set counter.i = counter.i + 1 %}
+        #}
+        {%- set counter = {'i': 0} %}
+        {# TODO Allow more volumes out of the box #}
+        {%- set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+            'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
+        %}
+
+        {#-
+        DISK.TYPE:
+            Valid values are 'file', 'block', 'dir', 'network', 'volume', or
+            'nvme'.
+
+        DRIVER:
+            xen supports a name of 'tap', 'tap2', 'phy', or 'file', with a type
+            of 'aio'.
+
+            qemu only supports a name of 'qemu', but multiple types including
+            'raw', 'bochs', 'qcow2', and 'qed'.
+        #}
+        <!-- === BUS 05 ==================================================== -->
+        {%- for device in vm.block_devices %}
+        <disk type='file' device='{{ device.devtype }}'>
+            <driver name='qemu' type='raw' />
+            <source file='{{ device.path }}' />
+
+            {%- if device.name == 'root' %}
+            <target dev='vda' bus='virtio' />
+            <!--
+            <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x0'/>
+            -->
+
+            {%- elif device.name == 'private' %}
+            <target dev='vdb' bus='virtio' />
+            <!--
+            <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x1'/>
+            -->
+
+            {%- elif device.name == 'volatile' %}
+            <target dev='vdc' bus='virtio' />
+            <!--
+            <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x2'/>
+            -->
+
+            {%- elif device.name == 'kernel' %}
+            <target dev='vdd' bus='virtio' />
+            <!--
+            <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x3'/>
+            -->
+
+            {%- else %}
+            {# XXX:  FIX:  Only allows up to 8 devices total #}
+            <target dev='vd{{dd[counter.i]}}' bus='virto' />
+            <!--
+            <address type='pci' domain='0x0000' bus='0x05' slot='0x00' function='0x{{dd[counter.i+4]}}'/>
+            -->
+            {% if counter.update({'i': counter.i + 1}) %}{% endif %}
+            {%-endif %}
+
+            {%- if not device.rw %}
+            <readonly />
+            {%- endif %}
+
+            {%- if device.domain %}
+            <backenddomain name='{{ device.domain }}' />
+            {%- endif %}
+        </disk>
+        {%- endfor -%}
+
+            {# start external devices from xvdi #}
+            {% set counter = {'i': 4} %}
+            {% for assignment in vm.devices.block.assignments(True) %}
+                {% set device = assignment.device %}
+                {% set options = assignment.options %}
+                {% include 'libvirt/devices/block.xml' %}
+            {% endfor %}
+
+            {% if vm.netvm %}
+                {# TODO: #}
+                {# include 'libvirt/devices/net.xml' with context #}
+                <interface type='network'>
+                    <mac address='{{ vm.mac }}' />
+                    <ip address='{{ vm.ip }}' />
+                    <backenddomain name='{{ vm.netvm.name }}' />
+                    <!--script path='vif-route-qubes' /-->
+                    <source network='default'/>
+                    <model type='virtio'/>
+                    <!--
+                    <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+                    -->
+                </interface>
+            {% endif %}
+
+            {% for assignment in vm.devices.pci.assignments(True) %}
+                {% set device = assignment.device %}
+                {% set options = assignment.options %}
+                {% include 'libvirt/devices/pci.xml' %}
+            {% endfor %}
+
+            <channel type='unix'>
+                <target type='virtio' name='org.qemu.guest_agent.0'/>
+                <!--
+                <address type='virtio-serial' controller='0' bus='0' port='1'/>
+                -->
+            </channel>
+            <channel type='spicevmc'>
+                <target type='virtio' name='com.redhat.spice.0'/>
+                <!--
+                <address type='virtio-serial' controller='0' bus='0' port='2'/>
+                -->
+            </channel>
+
+            {% if vm.virt_mode == 'hvm' %}
+                <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+                {# TODO:
+                <emulator
+                    {% if vm.features.check_with_template('linux-stubdom', True) %}
+                        type='stubdom-linux'
+                    {% else %}
+                        type='stubdom'
+                    {% endif %}
+                    {% if vm.netvm %}
+                      {% if vm.features.check_with_template('linux-stubdom', True) %}
+                        cmdline='-qubes-net:client_ip={{ vm.ip -}}
+                            ,dns_0={{ vm.dns[0] -}}
+                            ,dns_1={{ vm.dns[1] -}}
+                            ,gw={{ vm.netvm.gateway -}}
+                            ,netmask={{ vm.netmask }}'
+                      {% else %}
+                        cmdline='-net lwip,client_ip={{ vm.ip -}}
+                            ,server_ip={{ vm.dns[1] -}}
+                            ,dns={{ vm.dns[0] -}}
+                            ,gw={{ vm.netvm.gateway -}}
+                            ,netmask={{ vm.netmask }}'
+                      {% endif %}
+                    {% endif %}
+                    {% if vm.stubdom_mem %}
+                        memory='{{ vm.stubdom_mem * 1024 -}}'
+                    {% endif %}
+                />
+                #}
+                <emulator>/usr/bin/qemu-system-x86_64</emulator>
+
+                <input type='tablet' bus='usb'>
+                    <address type='usb' bus='0' port='1'/>
+                </input>
+                <input type='mouse' bus='ps2'/>
+                <input type='keyboard' bus='ps2'/>
+
+                {% if vm.features.check_with_template('audio-model', False) %}
+                    <sound model='{{ vm.features.check_with_template('audio-model', False) }}'>
+                        <address type='pci' domain='0x0000' bus='0x00' slot='0x1b' function='0x0'/>
+                    </sound>
+                {% endif %}
+
+                {% if vm.features.check_with_template('video-model', 'vga') != 'none' %}
+                    <graphics type='spice' autoport='yes'>
+                        <listen type='address'/>
+                        <image compression='off'/>
+                    </graphics>
+                    <video>
+                        <!-- TODO:
+                        <model type='{{ vm.features.check_with_template('video-model', 'vga') }}'/>
+                        -->
+                        <model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/>
+                        <!--
+                        <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x0'/>
+                        -->
+                    </video>
+                    {% if vm.features.check_with_template('linux-stubdom', True) %}
+                        {# TODO only add qubes gui if gui-agent is not installed in HVM #}
+                        <!--
+                        <graphics type='qubes'/>
+                        -->
+                    {% endif %}
+                    #}
+                {% endif %}
+            {% endif %}
+
+            <serial type='pty'>
+                <target type='isa-serial' port='0'>
+                    <model name='isa-serial'/>
+                </target>
+            </serial>
+            <console type='pty'>
+                <target type='serial' port='0'/>
+            </console>
+
+            <memballoon model='virtio'>
+                <!--
+                <address type='pci' domain='0x0000' bus='0x06' slot='0x00' function='0x0'/>
+                -->
+            </memballoon>
+
+            <rng model='virtio'>
+                <backend model='random'>/dev/urandom</backend>
+                <!--
+                <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+                -->
+            </rng>
+
+        <filesystem type='mount' accessmode='squash'>
+            <source dir='/home/kvm/share'/>
+            <target dir='/share'/>
+        </filesystem>
+        <filesystem type='mount' accessmode='squash'>
+            <source dir='/home/kvm/qubes/qubes-packages-mirror-repo/vm-fc32/rpm'/>
+            <target dir='/rpm'/>
+        </filesystem>
+        {% endblock %}
+    </devices>
+
+    <!--
+    <qemu:commandline>
+    <qemu:arg value=’-device’/>
+    <qemu:arg value=‘ivshmem-doorbell,chardev=ivshmem,vectors=1’/>
+    <qemu:arg value=’-chardev’/>
+    <qemu:arg value=‘socket,path=/tmp/ivshmem_socket,id=ivshmem’/>
+    -->
+
+    <!--
+    # === DEVICE ===============================================================
+    <qemu:commandline>
+    <qemu:arg value='-device'/>
+    <qemu:arg value='ivshmem-doorbell,chardev=charshmem0,vectors=2,id=shmem0'/>
+    </qemu:commandline>
+    -->
+
+    <!--
+    # === CHARDEV ==============================================================
+    <qemu:commandline>
+    <qemu:arg value='-chardev'/>
+    <qemu:arg value='socket,path=/tmp/kvmchand/ivshmem_socket,id=charshmem0'/>
+    </qemu:commandline>
+    -->
+</domain>
+
+<!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80 : -->

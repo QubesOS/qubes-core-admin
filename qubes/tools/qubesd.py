@@ -14,6 +14,7 @@ import qubes.api.internal
 import qubes.api.misc
 import qubes.log
 import qubes.utils
+import qubes.tools
 import qubes.vm.qubesvm
 
 # Wait for the system entropy pool to fill, so we can use “/dev/urandom” with

@@ -1,6 +1,6 @@
 [Unit]
 Description=Qubes Dom0 startup setup
-After=qubes-db-dom0.service libvirtd.service xenconsoled.service qubesd.service qubes-qmemman.service
+After=qubes-db-dom0.service libvirtd.service xenconsoled.service qubesd.service
 # Cover legacy init.d script
 
 [Service]
@@ -17,5 +17,4 @@ ExecStop=-/usr/bin/killall qubesdb-daemon
 
 [Install]
 WantedBy=multi-user.target
-Also=qubes-meminfo-writer-dom0.service qubes-qmemman.service
 Alias=qubes_core.service

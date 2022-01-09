@@ -194,10 +194,23 @@ class VMMConnection:
             raise qubes.exc.QubesException(
                 'VMM operations disabled in offline mode')
 
+        #### KVM:
+        ##if 'xen.lowlevel.xs' in sys.modules:
+        ##    self._xs = xen.lowlevel.xs.xs()
+        ##if 'xen.lowlevel.xc' in sys.modules:
+        ##    self._xc = xen.lowlevel.xc.xc()
         if 'xen.lowlevel.xs' in sys.modules:
-            self._xs = xen.lowlevel.xs.xs()
+            try:
+                self._xs = xen.lowlevel.xs.xs()
+            except xen.lowlevel.xs.Error:
+                pass
         if 'xen.lowlevel.xc' in sys.modules:
-            self._xc = xen.lowlevel.xc.xc()
+            try:
+                self._xc = xen.lowlevel.xc.xc()
+            except xen.lowlevel.xc.Error:
+                pass
+        ########
+
         self._libvirt_conn = VirConnectWrapper(
             qubes.config.defaults['libvirt_uri'],
             reconnect_cb=self._libvirt_reconnect_cb)
@@ -213,7 +226,7 @@ class VMMConnection:
     def xs(self):
         """Connection to Xen Store
 
-        This property in available only when running on Xen.
+        This property is available only when running on Xen.
         """
 
         # XXX what about the case when we run under KVM,
@@ -229,7 +242,7 @@ class VMMConnection:
     def xc(self):
         """Connection to Xen
 
-        This property in available only when running on Xen.
+        This property is available only when running on Xen.
         """
 
         # XXX what about the case when we run under KVM,
@@ -279,9 +292,12 @@ class QubesHost:
 
         self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(
             self.no_cpus, self.memory_total))
-        with suppress(NotImplementedError):
-            self.app.log.debug('QubesHost: xen_free_memory={}'.format(
-                self.get_free_xen_memory()))
+        #### KVM:
+        #### XXX:  TEMP:  Commented out
+        ##with suppress(NotImplementedError):
+        ##    self.app.log.debug('QubesHost: xen_free_memory={}'.format(
+        ##        self.get_free_xen_memory()))
+        ########
 
     @property
     def memory_total(self):
@@ -323,26 +339,33 @@ class QubesHost:
             self._cpu_model = model
         return self._cpu_family, self._cpu_model
 
-    def get_free_xen_memory(self):
-        """Get free memory from Xen's physinfo.
-
-        :raises NotImplementedError: when not under Xen
-        """
-        try:
-            self._physinfo = self.app.vmm.xc.physinfo()
-        except AttributeError:
-            raise NotImplementedError('This function requires Xen hypervisor')
-        return int(self._physinfo['free_memory'])
+    #### KVM:
+    #### XXX:  TEMP:  Commented out
+    ## def get_free_xen_memory(self):
+    ##    """Get free memory from Xen's physinfo.
+    ##
+    ##    :raises NotImplementedError: when not under Xen
+    ##    """
+    ##    try:
+    ##        self._physinfo = self.app.vmm.xc.physinfo()
+    ##    except AttributeError:
+    ##        raise NotImplementedError('This function requires Xen hypervisor')
+    ##    return int(self._physinfo['free_memory'])
+    ########
 
     def is_iommu_supported(self):
         """Check if IOMMU is supported on this platform"""
-        if self._physinfo is None:
-            try:
-                self._physinfo = self.app.vmm.xc.physinfo()
-            except AttributeError:
-                raise NotImplementedError(
-                    'This function requires Xen hypervisor')
-        return 'hvm_directio' in self._physinfo['virt_caps']
+        #### KVM:
+        #### XXX:  TEMP:  Commented out
+        ## if self._physinfo is None:
+        ##    try:
+        ##        self._physinfo = self.app.vmm.xc.physinfo()
+        ##    except AttributeError:
+        ##        raise NotImplementedError(
+        ##            'This function requires Xen hypervisor')
+        ## return 'hvm_directio' in self._physinfo['virt_caps']
+        return True
+        ########
 
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
         """Measure cpu usage for all domains at once.
@@ -381,15 +404,19 @@ class QubesHost:
         current_time = time.time()
         current = {}
         try:
-            if only_vm:
-                xid = only_vm.xid
-                if xid < 0:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-                info = self.app.vmm.xc.domain_getinfo(xid, 1)
-                if info[0]['domid'] != xid:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-            else:
-                info = self.app.vmm.xc.domain_getinfo(0, 1024)
+            #### KVM:
+            #### XXX:  TEMP:  Commented out
+            ##if only_vm:
+            ##    xid = only_vm.xid
+            ##    if xid < 0:
+            ##        raise qubes.exc.QubesVMNotRunningError(only_vm)
+            ##    info = self.app.vmm.xc.domain_getinfo(xid, 1)
+            ##    if info[0]['domid'] != xid:
+            ##        raise qubes.exc.QubesVMNotRunningError(only_vm)
+            ##else:
+            ##    ##info = self.app.vmm.xc.domain_getinfo(0, 1024)
+            info = []
+            ########
         except AttributeError:
             raise NotImplementedError(
                 'This function requires Xen hypervisor')

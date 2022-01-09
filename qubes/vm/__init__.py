@@ -36,6 +36,10 @@ import qubes.events
 import qubes.features
 import qubes.log
 
+#### KVM:
+from qubes.hypervisor import hypervisor_name
+########
+
 VM_ENTRY_POINT = 'qubes.vm'
 
 def validate_name(holder, prop, value):
@@ -368,12 +372,21 @@ class BaseVM(qubes.PropertyHolder):
         '''Create libvirt's XML domain config file
 
         '''
+        #### KVM:
+        ##domain_config = self.app.env.select_template([
+        ##        'libvirt/xen/by-name/{}.xml'.format(self.name),
+        ##        'libvirt/xen-user.xml',
+        ##        'libvirt/xen-dist.xml',
+        ##        'libvirt/xen.xml',
+        ##    ]).render(vm=self)
+        hypervisor = hypervisor_name()
         domain_config = self.app.env.select_template([
-                'libvirt/xen/by-name/{}.xml'.format(self.name),
-                'libvirt/xen-user.xml',
-                'libvirt/xen-dist.xml',
-                'libvirt/xen.xml',
+                f'libvirt/{hypervisor}/by-name/{self.name}.xml',
+                f'libvirt/{hypervisor}-user.xml',
+                f'libvirt/{hypervisor}-dist.xml',
+                f'libvirt/{hypervisor}.xml',
             ]).render(vm=self)
+        ########
         return domain_config
 
     def watch_qdb_path(self, path):
