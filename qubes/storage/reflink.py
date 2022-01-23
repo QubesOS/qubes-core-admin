@@ -256,11 +256,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
                 'Cannot revert: {} is not cleanly stopped'.format(self.vid))
-        if revision is None:
-            revision, timestamp = list(self.revisions.items())[-1]
-        else:
-            timestamp = None
-        path_revision = self._path_revision(revision, timestamp)
+        path_revision = self._path_revision(revision)
         self._add_revision()
         _rename_file(path_revision, self._path_clean)
         return self
@@ -321,9 +317,12 @@ class ReflinkVolume(qubes.storage.Volume):
                 await self._import_data_end_unlocked(success)
         return self
 
-    def _path_revision(self, revision, timestamp=None):
+    def _path_revision(self, revision=None, timestamp=None):
         if timestamp is None:
-            timestamp = self.revisions[revision]
+            if revision is None:
+                revision, timestamp = list(self.revisions.items())[-1]
+            else:
+                timestamp = self.revisions[revision]
         return self._path_clean + '.' + revision + '@' + timestamp + 'Z'
 
     @property
