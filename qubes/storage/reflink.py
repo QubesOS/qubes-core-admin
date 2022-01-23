@@ -369,15 +369,17 @@ _remove_file = functools.partial(
     qubes.utils.remove_file, log_level=logging.INFO)
 
 def _make_dir(path):
-    ''' mkdir path, ignoring FileExistsError; return whether we
-        created it.
-    '''
-    with suppress(FileExistsError):
+    try:
+        created = False
         os.mkdir(path)
+        created = True
+    except FileExistsError:
+        if not os.path.isdir(path):
+            raise
+    if created:
         qubes.utils.fsync_path(os.path.dirname(path))
         LOGGER.info('Created directory: %r', path)
-        return True
-    return False
+    return created
 
 def _remove_empty_dir(path):
     try:
