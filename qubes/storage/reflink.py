@@ -77,7 +77,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     @_coroutinized
     def setup(self):  # pylint: disable=invalid-overridden-method
-        created = _make_dir(self.dir_path)
+        created = _create_dir(self.dir_path)
         if self._setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
@@ -86,7 +86,7 @@ class ReflinkPool(qubes.storage.Pool):
                 ' can live with VM startup delays and wasted disk space, pass'
                 ' the "setup_check=False" option.'.format(self.dir_path))
         for dir_path_prefix in self._known_dir_path_prefixes:
-            _make_dir(os.path.join(self.dir_path, dir_path_prefix))
+            _create_dir(os.path.join(self.dir_path, dir_path_prefix))
         return self
 
     def init_volume(self, vm, volume_config):
@@ -358,7 +358,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
 
 def _replace_file(dst):
-    _make_dir(os.path.dirname(dst))
+    _create_dir(os.path.dirname(dst))
     return qubes.utils.replace_file(
         dst, permissions=0o600, log_level=logging.INFO)
 
@@ -368,7 +368,7 @@ _rename_file = functools.partial(
 _remove_file = functools.partial(
     qubes.utils.remove_file, log_level=logging.INFO)
 
-def _make_dir(path):
+def _create_dir(path):
     try:
         created = False
         os.mkdir(path)
