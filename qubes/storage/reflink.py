@@ -241,14 +241,14 @@ class ReflinkVolume(qubes.storage.Volume):
         ctime = os.path.getctime(self._path_clean)
         timestamp = qubes.storage.isodate(int(ctime))
         _copy_file(self._path_clean,
-                   self._path_revision(self._next_revision_number, timestamp))
+                   self._path_revision(self._next_revision, timestamp))
 
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
         # pylint: disable=invalid-unary-operand-type
-        for number, timestamp in list(self.revisions.items())[:-keep or None]:
-            _remove_file(self._path_revision(number, timestamp))
+        for revision, timestamp in list(self.revisions.items())[:-keep or None]:
+            _remove_file(self._path_revision(revision, timestamp))
 
     @qubes.storage.Volume.locked
     @_coroutinized
@@ -257,10 +257,10 @@ class ReflinkVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(
                 'Cannot revert: {} is not cleanly stopped'.format(self.vid))
         if revision is None:
-            number, timestamp = list(self.revisions.items())[-1]
+            revision, timestamp = list(self.revisions.items())[-1]
         else:
-            number, timestamp = revision, None
-        path_revision = self._path_revision(number, timestamp)
+            timestamp = None
+        path_revision = self._path_revision(revision, timestamp)
         self._add_revision()
         _rename_file(path_revision, self._path_clean)
         return self
@@ -321,15 +321,15 @@ class ReflinkVolume(qubes.storage.Volume):
                 await self._import_data_end_unlocked(success)
         return self
 
-    def _path_revision(self, number, timestamp=None):
+    def _path_revision(self, revision, timestamp=None):
         if timestamp is None:
-            timestamp = self.revisions[number]
-        return self._path_clean + '.' + number + '@' + timestamp + 'Z'
+            timestamp = self.revisions[revision]
+        return self._path_clean + '.' + revision + '@' + timestamp + 'Z'
 
     @property
-    def _next_revision_number(self):
-        numbers = self.revisions.keys()
-        return str(int(list(numbers)[-1]) + 1) if numbers else '1'
+    def _next_revision(self):
+        revisions = self.revisions.keys()
+        return str(int(list(revisions)[-1]) + 1) if revisions else '1'
 
     @property
     def revisions(self):
