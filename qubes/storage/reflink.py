@@ -333,7 +333,7 @@ class ReflinkVolume(qubes.storage.Volume):
     @property
     def revisions(self):
         prefix = self._path_clean + '.'
-        paths = glob.iglob(glob.escape(prefix) + '*@*Z')
+        paths = glob.iglob(glob.escape(prefix) + '*?@????-??-??T??:??:??Z')
         items = (path[len(prefix):-1].split('@') for path in paths)
         return collections.OrderedDict(
             sorted(items, key=lambda item: int(item[0])))
