@@ -209,8 +209,9 @@ class ReflinkVolume(qubes.storage.Volume):
         self._remove_incomplete_images()
         if not self.is_dirty():
             if self.snap_on_start:
+                _remove_file(self._path_clean)
                 # pylint: disable=protected-access
-                _copy_file(self.source._path_clean, self._path_clean)
+                _hardlink_file(self.source._path_clean, self._path_clean)
             if self.snap_on_start or self.save_on_stop:
                 _copy_file(self._path_clean, self._path_dirty)
             else:
@@ -365,6 +366,13 @@ _rename_file = functools.partial(
 
 _remove_file = functools.partial(
     qubes.utils.remove_file, log_level=logging.INFO)
+
+def _hardlink_file(src, dst):
+    dst_dir = os.path.dirname(dst)
+    _create_dir(dst_dir)
+    os.link(src, dst)
+    qubes.utils.fsync_path(dst_dir)
+    LOGGER.info('Hardlinked file: %r -> %r', src, dst)
 
 def _create_dir(path):
     try:
