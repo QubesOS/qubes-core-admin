@@ -238,10 +238,11 @@ class ReflinkVolume(qubes.storage.Volume):
     def _add_revision(self):
         if self.revisions_to_keep == 0:
             return
-        ctime = os.path.getctime(self._path_clean)
-        timestamp = qubes.storage.isodate(int(ctime))
-        _copy_file(self._path_clean,
-                   self._path_revision(self._next_revision, timestamp))
+        timestamp = qubes.storage.isodate(
+            int(os.path.getctime(self._path_clean)))
+        _copy_file(
+            self._path_clean,
+            self._path_revision(self._next_revision, timestamp))
 
     def _prune_revisions(self, keep=None):
         if keep is None:
@@ -382,12 +383,16 @@ def _create_dir(path):
 
 def _remove_empty_dir(path):
     try:
+        removed = False
         os.rmdir(path)
-        qubes.utils.fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed empty directory: %r', path)
+        removed = True
     except OSError as ex:
         if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
             raise
+    if removed:
+        qubes.utils.fsync_path(os.path.dirname(path))
+        LOGGER.info('Removed empty directory: %r', path)
+    return removed
 
 def _resize_file(path, size):
     ''' Resize an existing file. '''
@@ -414,13 +419,14 @@ def _update_loopdev_sizes(img):
 
 def _attempt_ficlone(src_io, dst_io):
     try:
+        ficloned = False
         fcntl.ioctl(dst_io.fileno(), FICLONE, src_io.fileno())
-        return True
+        ficloned = True
     except OSError as ex:
         if ex.errno not in (errno.EBADF, errno.EINVAL,
                             errno.EOPNOTSUPP, errno.EXDEV):
             raise
-        return False
+    return ficloned
 
 def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
@@ -445,7 +451,7 @@ def is_supported(dst_dir, *, src_dir=None):
     '''
     if src_dir is None:
         src_dir = dst_dir
-    with tempfile.TemporaryFile(dir=src_dir) as src, \
-         tempfile.TemporaryFile(dir=dst_dir) as dst:
-        src.write(b'foo')  # don't let any fs get clever with empty files
-        return _attempt_ficlone(src, dst)
+    with tempfile.TemporaryFile(dir=src_dir) as src_io, \
+         tempfile.TemporaryFile(dir=dst_dir) as dst_io:
+        src_io.write(b'foo')  # don't let any fs get clever with empty files
+        return _attempt_ficlone(src_io, dst_io)
