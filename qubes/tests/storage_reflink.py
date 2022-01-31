@@ -93,6 +93,18 @@ class ReflinkMixin:
             self.assertEqual(get_blockdev_size(dev), size_resized)
 
 
+class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
+    def setUp(self):  # pylint: disable=arguments-differ
+        super().setUp('btrfs')
+        self.ficlone_supported = True
+
+
+class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
+    def setUp(self):  # pylint: disable=arguments-differ
+        super().setUp('ext4')
+        self.ficlone_supported = False
+
+
 class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
@@ -140,17 +152,6 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         with open(volume_exported) as volume_file:
             volume_data = volume_file.read().strip('\0')
         self.assertNotEqual(volume_data, 'test data')
-
-
-class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('btrfs')
-        self.ficlone_supported = True
-
-class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('ext4')
-        self.ficlone_supported = False
 
 
 def setup_loopdev(img, cleanup_via=None):
