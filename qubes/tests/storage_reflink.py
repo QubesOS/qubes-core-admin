@@ -34,8 +34,8 @@ from qubes.storage import reflink
 class TestApp(qubes.Qubes):
     ''' A Mock App object '''
     def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
-        super(TestApp, self).__init__('/tmp/qubes-test.xml', load=False,
-                                      offline_mode=True, **kwargs)
+        super().__init__('/tmp/qubes-test.xml', load=False,
+                         offline_mode=True, **kwargs)
         self.load_initial_values()
 
 
@@ -113,7 +113,7 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         del self.pool
         self.app.close()
         del self.app
-        super(TC_10_ReflinkPool, self).tearDown()
+        super().tearDown()
 
     def test_012_import_data_empty(self):
         config = {
@@ -129,7 +129,8 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         volume_exported = self.loop.run_until_complete(volume.export())
         with open(volume_exported, 'w') as volume_file:
             volume_file.write('test data')
-        import_path = self.loop.run_until_complete(volume.import_data(volume.size))
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+'):
             pass
@@ -207,7 +208,8 @@ def reflink_update_loopdev_sizes(img):
     cmd('sudo', '-E', 'env', *env, sys.executable, '-c', code)
 
 def cmd(*argv):
-    p = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run(
+        argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if p.returncode != 0:
         raise Exception(str(p))  # this will show stdout and stderr
     return p.stdout
