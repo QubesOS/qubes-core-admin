@@ -271,13 +271,14 @@ class ReflinkVolume(qubes.storage.Volume):
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
-        for path in (self._path_dirty, self._path_clean):
-            with suppress(FileNotFoundError):
-                _resize_file(path, size)
-                break
-        self._size = size
-        if path == self._path_dirty:
+        try:
+            _resize_file(self._path_dirty, size)
+        except FileNotFoundError:
+            if self.save_on_stop and not self.snap_on_start:
+                _copy_file(self._path_clean, self._path_clean, dst_size=size)
+        else:
             _update_loopdev_sizes(self._path_dirty)
+        self._size = size
         return self
 
     async def export(self):
