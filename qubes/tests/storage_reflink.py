@@ -40,10 +40,23 @@ class TestApp(qubes.Qubes):
 
 
 class ReflinkMixin:
-    def setUp(self, fs_type='btrfs'):  # pylint: disable=arguments-differ
+    @classmethod
+    def setUpClass(cls, *, fs_type, ficlone_supported):
+        super().setUpClass()
+        cls.ficlone_supported = ficlone_supported
+        cls.fs_dir = '/var/tmp/test-reflink-units-on-' + fs_type
+        mkdir_fs(cls.fs_dir, fs_type)
+
+    @classmethod
+    def tearDownClass(cls):
+        rmtree_fs(cls.fs_dir)
+        super().tearDownClass()
+
+    def setUp(self):
         super().setUp()
-        self.test_dir = '/var/tmp/test-reflink-units-on-' + fs_type
-        mkdir_fs(self.test_dir, fs_type, cleanup_via=self.addCleanup)
+        self.test_dir = os.path.join(self.fs_dir, 'test')
+        os.mkdir(self.test_dir)
+        self.addCleanup(shutil.rmtree, self.test_dir)
 
     def test_000_copy_file(self):
         source = os.path.join(self.test_dir, 'source-file')
@@ -94,15 +107,15 @@ class ReflinkMixin:
 
 
 class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('btrfs')
-        self.ficlone_supported = True
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='btrfs', ficlone_supported=True)
 
 
 class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('ext4')
-        self.ficlone_supported = False
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='ext4', ficlone_supported=False)
 
 
 class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
