@@ -26,6 +26,7 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import nullcontext
 
 import qubes.tests
 import qubes.tests.storage
@@ -280,6 +281,63 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         with open(volume_exported) as volume_file:
             volume_data = volume_file.read().strip('\0')
         self.assertNotEqual(volume_data, 'test data')
+
+    def _test_remove_stale_precache(self, *, stale, orphan):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.pool.init_volume(vm, config)
+        data0 = b'\x00'
+        data1 = b'\x01'
+
+        self.loop.run_until_complete(volume.create())
+        with open(volume._path_clean, 'rb') as clean_io:
+            self.assertEqual(clean_io.read(), data0)
+        with open(volume._path_precache, 'rb') as precache_io:
+            self.assertEqual(precache_io.read(), data0)
+
+        if stale:
+            # simulate an intermittent Qubes downgrade
+            volume._update_precache = nullcontext
+
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
+        with open(import_path, 'wb') as import_io:
+            import_io.write(data1)
+        self.loop.run_until_complete(volume.import_data_end(True))
+        with open(volume._path_clean, 'rb') as clean_io:
+            self.assertEqual(clean_io.read(), data1)
+        with open(volume._path_precache, 'rb') as precache_io:
+            self.assertEqual(precache_io.read(), data0 if stale else data1)
+
+        if orphan:
+            # simulate a broken volume whose _path_clean image is missing
+            os.remove(volume._path_clean)
+            cm = self.assertRaises(FileNotFoundError)
+        else:
+            cm = nullcontext()
+
+        with cm:
+            volume._remove_stale_precache()
+        self.assertEqual(
+            os.path.exists(volume._path_precache), (not stale) or orphan)
+
+    def test_100_remove_stale_precache_ok(self):
+        self._test_remove_stale_precache(stale=False, orphan=False)
+
+    def test_101_remove_stale_precache_orphan(self):
+        self._test_remove_stale_precache(stale=False, orphan=True)
+
+    def test_110_remove_stale_precache_stale(self):
+        self._test_remove_stale_precache(stale=True, orphan=False)
+
+    def test_111_remove_stale_precache_stale_orphan(self):
+        self._test_remove_stale_precache(stale=True, orphan=True)
 
 
 def setup_loopdev(img, cleanup_via=None):

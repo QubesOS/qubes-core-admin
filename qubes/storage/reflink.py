@@ -33,7 +33,7 @@ import os
 import platform
 import subprocess
 import tempfile
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 
 import qubes.storage
 import qubes.utils
@@ -147,16 +147,38 @@ class ReflinkVolume(qubes.storage.Volume):
         super().__init__(*args, **kwargs)
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)
         self._path_clean = self._path_vid + '.img'
+        self._path_precache = self._path_vid + '-precache.img'
         self._path_dirty = self._path_vid + '-dirty.img'
         self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
+
+    @contextmanager
+    def _update_precache(self):
+        _remove_file(self._path_precache)
+        yield
+        _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
+
+    def _remove_stale_precache(self):
+        ''' Defuse the following situation: We created a precache.
+            After that, the pool was used on an older Qubes version
+            without precache support - causing staleness. Now the
+            pool is here again on new Qubes.
+        '''
+        stat_clean = os.stat(self._path_clean)
+        with suppress(FileNotFoundError):
+            if not _eq_files(stat_clean, os.stat(self._path_precache),
+                             by_attrs=['st_mtime_ns', 'st_size']):
+                # pylint: disable=redundant-keyword-arg
+                _remove_file(self._path_precache, log_level=logging.DEBUG)
+                LOGGER.warning('Removed stale file: %r', self._path_precache)
 
     @qubes.storage.Volume.locked
     @_coroutinized
     def create(self):  # pylint: disable=invalid-overridden-method
         self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
-            _create_sparse_file(self._path_clean, self._size)
+            with self._update_precache():
+                _create_sparse_file(self._path_clean, self._size)
         return self
 
     @_coroutinized
@@ -185,6 +207,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self._remove_incomplete_images()
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
+        _remove_file(self._path_precache)
         _remove_file(self._path_dirty)
 
     def _remove_incomplete_images(self):
@@ -213,8 +236,13 @@ class ReflinkVolume(qubes.storage.Volume):
                 _remove_file(self._path_clean)
                 # pylint: disable=protected-access
                 _hardlink_file(self.source._path_clean, self._path_clean)
-            if self.snap_on_start or self.save_on_stop:
                 _copy_file(self._path_clean, self._path_dirty)
+            elif self.save_on_stop:
+                self._remove_stale_precache()
+                try:
+                    _rename_file(self._path_precache, self._path_dirty)
+                except FileNotFoundError:
+                    _copy_file(self._path_clean, self._path_dirty)
             else:
                 _create_sparse_file(self._path_dirty, self._size)
         return self
@@ -235,7 +263,8 @@ class ReflinkVolume(qubes.storage.Volume):
         self._add_revision()
         self._prune_revisions()
         qubes.utils.fsync_path(path_from)
-        _rename_file(path_from, self._path_clean)
+        with self._update_precache():
+            _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
         if self.revisions_to_keep == 0:
@@ -261,7 +290,8 @@ class ReflinkVolume(qubes.storage.Volume):
                 'Cannot revert: {} is not cleanly stopped'.format(self.vid))
         path_revision = self._path_revision(revision)
         self._add_revision()
-        _rename_file(path_revision, self._path_clean)
+        with self._update_precache():
+            _rename_file(path_revision, self._path_clean)
         return self
 
     @qubes.storage.Volume.locked
@@ -277,7 +307,9 @@ class ReflinkVolume(qubes.storage.Volume):
             _resize_file(self._path_dirty, size)
         except FileNotFoundError:
             if self.save_on_stop and not self.snap_on_start:
-                _copy_file(self._path_clean, self._path_clean, dst_size=size)
+                with self._update_precache():
+                    _copy_file(
+                        self._path_clean, self._path_clean, dst_size=size)
         else:
             _update_loopdev_sizes(self._path_dirty)
         self._size = size
