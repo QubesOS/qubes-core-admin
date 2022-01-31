@@ -425,20 +425,32 @@ def _attempt_ficlone(src_io, dst_io):
             raise
     return ficloned
 
-def _copy_file(src, dst):
-    ''' Copy src to dst as a reflink if possible, sparse if not. '''
-    with _replace_file(dst) as tmp_io:
-        with open(src, 'rb') as src_io:
-            reflinked = _attempt_ficlone(src_io, tmp_io)
-        if reflinked:
-            LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+def _copy_file(src, dst, *, dst_size=None, copy_mtime=False):
+    ''' Transfer the data at src (and optionally its modification
+        time) to a new inode at dst, using a reflink if possible or a
+        sparsifying copy if not. Optionally, the new dst will have
+        been resized to dst_size bytes.
+    '''
+    with open(src, 'rb') as src_io, _replace_file(dst) as tmp_io:
+        if dst_size == 0:
+            reflinked = None
         else:
-            LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
-            result = subprocess.run(
-                ['cp', '--sparse=always', '--', src, tmp_io.name],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-            if result.returncode != 0:
-                raise qubes.storage.StoragePoolException(str(result))
+            reflinked = _attempt_ficlone(src_io, tmp_io)
+            if reflinked:
+                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+            else:
+                LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
+                result = subprocess.run(
+                    ['cp', '--sparse=always', '--', src, tmp_io.name],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+                if result.returncode != 0:
+                    raise qubes.storage.StoragePoolException(str(result))
+            if dst_size is not None:
+                tmp_io.truncate(dst_size)
+        if copy_mtime:
+            mtime_ns = os.stat(src_io.fileno()).st_mtime_ns
+            atime_ns = mtime_ns  # Python doesn't support UTIME_OMIT
+            os.utime(tmp_io.fileno(), ns=(atime_ns, mtime_ns))
     return reflinked
 
 def is_supported(dst_dir, *, src_dir=None):

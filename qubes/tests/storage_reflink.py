@@ -58,24 +58,69 @@ class ReflinkMixin:
         os.mkdir(self.test_dir)
         self.addCleanup(shutil.rmtree, self.test_dir)
 
+    def _test_copy_file(self, *, src_size, **kwargs_for_func):
+        src = os.path.join(self.test_dir, 'src-file')
+        dst = os.path.join(self.test_dir, 'new-directory', 'dst-file')
+        src_content = os.urandom(src_size)
+        dst_size = kwargs_for_func.get('dst_size', None)
+        copy_mtime = kwargs_for_func.get('copy_mtime', None)
+
+        with open(src, 'wb') as src_io:
+            src_io.write(src_content)
+
+        ficlone_succeeded = reflink._copy_file(src, dst, **kwargs_for_func)
+        if dst_size == 0:
+            self.assertIsNone(ficlone_succeeded)
+        else:
+            self.assertEqual(ficlone_succeeded, self.ficlone_supported)
+
+        src_stat = os.stat(src)
+        dst_stat = os.stat(dst)
+        self.assertNotEqual(
+            (src_stat.st_ino, src_stat.st_dev),
+            (dst_stat.st_ino, dst_stat.st_dev))
+        (self.assertEqual if copy_mtime else self.assertNotEqual)(
+            src_stat.st_mtime_ns,
+            dst_stat.st_mtime_ns)
+
+        with open(src, 'rb') as src_io:
+            self.assertEqual(src_io.read(), src_content)
+        with open(dst, 'rb') as dst_io:
+            if dst_size in (None, src_size):
+                self.assertEqual(dst_io.read(), src_content)
+            elif dst_size == 0:
+                self.assertEqual(dst_io.read(), b'')
+            elif dst_size < src_size:
+                self.assertEqual(dst_io.read(), src_content[:dst_size])
+            elif dst_size > src_size:
+                self.assertEqual(dst_io.read(src_size), src_content)
+                self.assertEqual(dst_io.read(), bytes(dst_size - src_size))
+
     def test_000_copy_file(self):
-        source = os.path.join(self.test_dir, 'source-file')
-        dest = os.path.join(self.test_dir, 'new-directory', 'dest-file')
-        content = os.urandom(1024**2)
+        self._test_copy_file(src_size=222222)
 
-        with open(source, 'wb') as source_io:
-            source_io.write(content)
+    def test_001_copy_file_extend(self):
+        self._test_copy_file(src_size=222222, dst_size=333333)
 
-        ficlone_succeeded = reflink._copy_file(source, dest)
-        self.assertEqual(ficlone_succeeded, self.ficlone_supported)
+    def test_002_copy_file_shrink(self):
+        self._test_copy_file(src_size=222222, dst_size=111111)
 
-        self.assertNotEqual(os.stat(source).st_ino, os.stat(dest).st_ino)
-        with open(source, 'rb') as source_io:
-            self.assertEqual(source_io.read(), content)
-        with open(dest, 'rb') as dest_io:
-            self.assertEqual(dest_io.read(), content)
+    def test_003_copy_file_shrink0(self):
+        self._test_copy_file(src_size=222222, dst_size=0)
 
-    def test_001_create_and_resize_files_and_update_loopdevs(self):
+    def test_010_copy_file_mtime(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True)
+
+    def test_011_copy_file_mtime_extend(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=333333)
+
+    def test_012_copy_file_mtime_shrink(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=111111)
+
+    def test_013_copy_file_mtime_shrink0(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=0)
+
+    def test_100_create_and_resize_files_and_update_loopdevs(self):
         img_real = os.path.join(self.test_dir, 'img-real')
         img_sym = os.path.join(self.test_dir, 'img-sym')
         size_initial = 111 * 1024**2
