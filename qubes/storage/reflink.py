@@ -195,9 +195,10 @@ class ReflinkVolume(qubes.storage.Volume):
     def is_outdated(self):
         if self.snap_on_start:
             with suppress(FileNotFoundError):
-                # pylint: disable=protected-access
-                return (os.path.getmtime(self.source._path_clean) >
-                        os.path.getmtime(self._path_clean))
+                return not _eq_files(
+                    # pylint: disable=protected-access
+                    os.stat(self.source._path_clean),
+                    os.stat(self._path_clean))
         return False
 
     def is_dirty(self):
@@ -411,6 +412,12 @@ def _create_sparse_file(path, size):
     with _replace_file(path) as tmp_io:
         tmp_io.truncate(size)
         LOGGER.info('Created sparse file: %r', tmp_io.name)
+
+def _eq_files(stat1, stat2, *, by_attrs=('st_ino', 'st_dev')):
+    for attr in by_attrs:
+        if getattr(stat1, attr) != getattr(stat2, attr):
+            return False
+    return True
 
 def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''

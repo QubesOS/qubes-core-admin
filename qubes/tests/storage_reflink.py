@@ -150,6 +150,70 @@ class ReflinkMixin:
         for dev in (dev_from_real, dev_from_sym):
             self.assertEqual(get_blockdev_size(dev), size_resized)
 
+    def test_200_eq_files_true(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb'):
+            pass
+        os.link(file1, file2)
+
+        stat1 = os.stat(file1)
+        stat2 = os.stat(file2)
+        self.assertTrue(reflink._eq_files(stat1, stat2))
+        self.assertTrue(reflink._eq_files(stat1, stat1))
+        self.assertTrue(reflink._eq_files(stat2, stat2))
+
+    def test_201_eq_files_false(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb'), open(file2, 'wb'):
+            pass
+
+        stat1 = os.stat(file1)
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(stat1, stat2))
+        os.utime(file2, ns=(stat1.st_atime_ns, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertEqual(stat1.st_mtime_ns, stat2.st_mtime_ns)
+        self.assertEqual(stat1.st_size, stat2.st_size)
+        self.assertFalse(reflink._eq_files(stat1, stat2))
+
+    def test_210_eq_files_by_attrs(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb') as file1_io:
+            file1_io.write(b'foo')
+        with open(file2, 'wb') as file2_io:
+            file2_io.write(b'bar')
+
+        stat1 = os.stat(file1)
+        os.utime(file2, ns=(0, 0))
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2))
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=[]))
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_size']))
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
+        stat1 = os.stat(file1)
+        os.utime(file2, ns=(0, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
+        stat1 = os.stat(file1)
+        os.truncate(file2, 222)
+        os.utime(file2, ns=(0, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
 
 class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
     @classmethod
