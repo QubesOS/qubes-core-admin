@@ -118,6 +118,12 @@ class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
         super().setUpClass(fs_type='ext4', ficlone_supported=False)
 
 
+class TC_02_ReflinkOnXfs(ReflinkMixin, qubes.tests.QubesTestCase):
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='xfs', ficlone_supported=True)
+
+
 class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
