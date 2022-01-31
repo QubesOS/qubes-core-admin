@@ -438,7 +438,7 @@ def _copy_file(src, dst):
                 raise qubes.storage.StoragePoolException(str(result))
     return reflinked
 
-def is_supported(dst_dir, src_dir=None):
+def is_supported(dst_dir, *, src_dir=None):
     ''' Return whether destination directory supports reflink copies
         from source directory. (A temporary file is created in each
         directory, using O_TMPFILE if possible.)
