@@ -348,9 +348,6 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @property
     def usage(self):
-        ''' Return volume disk usage from the VM's perspective. It is
-            usually much lower from the host's perspective due to CoW.
-        '''
         for path in (self._path_dirty, self._path_clean):
             with suppress(FileNotFoundError):
                 return os.stat(path).st_blocks * 512
