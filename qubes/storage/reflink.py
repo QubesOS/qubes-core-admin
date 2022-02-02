@@ -239,7 +239,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.revisions_to_keep == 0:
             return
         timestamp = qubes.storage.isodate(
-            int(os.path.getctime(self._path_clean)))
+            int(os.path.getmtime(self._path_clean)))
         _copy_file(
             self._path_clean,
             self._path_revision(self._next_revision, timestamp))
