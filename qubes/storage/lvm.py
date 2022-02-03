@@ -752,19 +752,22 @@ def _get_lvm_cmdline(cmd):
     action = cmd[0]
     if action == 'remove':
         assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
-        lvm_cmd = ['lvremove', '-f', cmd[1]]
+        lvm_cmd = ['lvremove', '--force', '--', cmd[1]]
     elif action == 'clone':
-        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
+        lvm_cmd = ['lvcreate', '--setactivationskip=n', '--activate=y',
+                   '--snapshot', '--type=thin', '--name=' + cmd[2],
+                   '--', cmd[1]]
     elif action == 'create':
-        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
-           str(cmd[3]) + 'B']
+        lvm_cmd = ['lvcreate', '--thin', '--setactivationskip=n',
+                   '--activate=y', '--name=' + cmd[2],
+                   '--virtualsize=' + str(cmd[3]) + 'B', '--', cmd[1]]
     elif action == 'extend':
         size = int(cmd[2]) / (1024 * 1024)
-        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+        lvm_cmd = ["lvextend", "--size" + str(size), '--', cmd[1]]
     elif action == 'activate':
-        lvm_cmd = ['lvchange', '-ay', cmd[1]]
+        lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
     elif action == 'rename':
-        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
+        lvm_cmd = ['lvrename', '--', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if os.getuid() != 0:
