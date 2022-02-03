@@ -762,8 +762,7 @@ def _get_lvm_cmdline(cmd):
                    '--activate=y', '--name=' + cmd[2],
                    '--virtualsize=' + str(cmd[3]) + 'B', '--', cmd[1]]
     elif action == 'extend':
-        size = int(cmd[2]) / (1024 * 1024)
-        lvm_cmd = ["lvextend", "--size" + str(size), '--', cmd[1]]
+        lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
     elif action == 'activate':
         lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
     elif action == 'rename':
