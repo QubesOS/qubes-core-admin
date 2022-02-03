@@ -763,7 +763,7 @@ def _get_lvm_cmdline(cmd):
         assert len(cmd) == 4, 'wrong number of arguments for create'
         lvm_cmd = ['lvcreate', '--thin', '--setactivationskip=n',
                    '--activate=y', '--name=' + cmd[2],
-                   '--virtualsize=' + str(cmd[3]) + 'B', '--', cmd[1]]
+                   '--virtualsize=' + cmd[3] + 'B', '--', cmd[1]]
     elif action == 'extend':
         assert len(cmd) == 3, 'wrong number of arguments for extend'
         lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
