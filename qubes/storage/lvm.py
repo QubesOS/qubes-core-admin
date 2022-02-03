@@ -751,21 +751,27 @@ def _get_lvm_cmdline(cmd):
     '''
     action = cmd[0]
     if action == 'remove':
+        assert len(cmd) == 2, 'wrong number of arguments for remove'
         assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
         lvm_cmd = ['lvremove', '--force', '--', cmd[1]]
     elif action == 'clone':
+        assert len(cmd) == 3, 'wrong number of arguments for clone'
         lvm_cmd = ['lvcreate', '--setactivationskip=n', '--activate=y',
                    '--snapshot', '--type=thin', '--name=' + cmd[2],
                    '--', cmd[1]]
     elif action == 'create':
+        assert len(cmd) == 4, 'wrong number of arguments for create'
         lvm_cmd = ['lvcreate', '--thin', '--setactivationskip=n',
                    '--activate=y', '--name=' + cmd[2],
                    '--virtualsize=' + str(cmd[3]) + 'B', '--', cmd[1]]
     elif action == 'extend':
+        assert len(cmd) == 3, 'wrong number of arguments for extend'
         lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
     elif action == 'activate':
+        assert len(cmd) == 2, 'wrong number of arguments for activate'
         lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
     elif action == 'rename':
+        assert len(cmd) == 3, 'wrong number of arguments for rename'
         lvm_cmd = ['lvrename', '--', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
