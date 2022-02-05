@@ -51,6 +51,8 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         )
         self.loop.run_until_complete(self.testvm.create_on_disk())
         self.app.save()
+        # used in test_01x
+        self.startup_counter = 0
 
     def tearDown(self):
         self.app.default_dispvm = None
@@ -107,6 +109,54 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertNotEquals(dispvm_name, b"ERROR")
 
         self.assertNotIn(dispvm_name, self.app.domains)
+
+    def _count_dispvms(self, *args, **kwargs):
+        self.startup_counter += 1
+
+    def test_010_failed_start(self):
+        """
+        Check if DispVM doesn't (attempt to) start twice.
+        :return:
+        """
+        self.app.add_handler('domain-add', self._count_dispvms)
+        self.addCleanup(
+            self.app.remove_handler, 'domain-add', self._count_dispvms)
+
+        # make it fail to start
+        self.app.default_dispvm.memory = self.app.host.memory_total * 2
+
+        self.loop.run_until_complete(self.testvm.start())
+
+        p = self.loop.run_until_complete(
+            self.testvm.run("qvm-run-vm --dispvm true",
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE))
+        timeout = 120
+        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
+        self.assertEqual(p.returncode, 126)
+        self.assertEqual(self.startup_counter, 1)
+
+    def test_011_failed_start_timeout(self):
+        """
+        Check if DispVM doesn't (attempt to) start twice.
+        :return:
+        """
+        self.app.add_handler('domain-add', self._count_dispvms)
+        self.addCleanup(
+            self.app.remove_handler, 'domain-add', self._count_dispvms)
+
+        # make it fail to start (timeout)
+        self.app.default_dispvm.qrexec_timeout = 3
+
+        self.loop.run_until_complete(self.testvm.start())
+
+        p = self.loop.run_until_complete(
+            self.testvm.run("qvm-run-vm --dispvm true",
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE))
+        timeout = 120
+        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
+        self.assertEqual(p.returncode, 126)
+        self.assertEqual(self.startup_counter, 1)
+
 
 class TC_20_DispVMMixin(object):
 
