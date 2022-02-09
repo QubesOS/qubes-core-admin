@@ -77,6 +77,8 @@ def open_attachment(tb, name):
     msg.button(name).click()
     confirm = tb.child(name='Opening ' + name, roleName='frame')
     time.sleep(3)
+    confirm.child(name='Open with', roleName='radio button')\
+        .doActionNamed('select')
     confirm.button('OK').doActionNamed('press')
 
 
