@@ -751,20 +751,28 @@ def _get_lvm_cmdline(cmd):
     '''
     action = cmd[0]
     if action == 'remove':
+        assert len(cmd) == 2, 'wrong number of arguments for remove'
         assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
-        lvm_cmd = ['lvremove', '-f', cmd[1]]
+        lvm_cmd = ['lvremove', '--force', '--', cmd[1]]
     elif action == 'clone':
-        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
+        assert len(cmd) == 3, 'wrong number of arguments for clone'
+        lvm_cmd = ['lvcreate', '--setactivationskip=n', '--activate=y',
+                   '--snapshot', '--type=thin', '--name=' + cmd[2],
+                   '--', cmd[1]]
     elif action == 'create':
-        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
-           str(cmd[3]) + 'B']
+        assert len(cmd) == 4, 'wrong number of arguments for create'
+        lvm_cmd = ['lvcreate', '--thin', '--setactivationskip=n',
+                   '--activate=y', '--name=' + cmd[2],
+                   '--virtualsize=' + cmd[3] + 'B', '--', cmd[1]]
     elif action == 'extend':
-        size = int(cmd[2]) / (1024 * 1024)
-        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+        assert len(cmd) == 3, 'wrong number of arguments for extend'
+        lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
     elif action == 'activate':
-        lvm_cmd = ['lvchange', '-ay', cmd[1]]
+        assert len(cmd) == 2, 'wrong number of arguments for activate'
+        lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
     elif action == 'rename':
-        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
+        assert len(cmd) == 3, 'wrong number of arguments for rename'
+        lvm_cmd = ['lvrename', '--', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if os.getuid() != 0:
