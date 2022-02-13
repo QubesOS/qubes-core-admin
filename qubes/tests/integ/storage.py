@@ -246,7 +246,7 @@ class StorageTestMixin(object):
             self.fail('origin changes propagated to snapshot too early2')
 
         await self.vm2.shutdown(wait=True)
-        await self.vm2.start()
+        await self.start_vm(self.vm2)
 
         # only after target VM restart changes should be visible
 
@@ -256,6 +256,30 @@ class StorageTestMixin(object):
                 'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(
                     size),
                 user='root')
+
+        await self.vm2.shutdown(wait=True)
+
+        # change origin again ...
+
+        await self.start_vm(self.vm1)
+        try:
+            await self.vm1.run_for_stdio(
+                'echo test456 > /dev/xvde && sync',
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('Write to read-write volume failed2')
+        await self.vm1.shutdown(wait=True)
+
+        # ... and check that the snapshot is not stuck
+
+        await self.start_vm(self.vm2)
+        try:
+            await self.vm2.run_for_stdio(
+                'echo test456 | cat - /dev/zero |'
+                ' head -c {} | diff -q /dev/xvde - 2>&1'.format(size),
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('origin changes did not refresh snapshot')
 
     def test_004_snapshot_non_persistent(self):
         '''Test snapshot volume non-persistence'''
