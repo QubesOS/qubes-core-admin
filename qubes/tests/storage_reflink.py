@@ -26,6 +26,7 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import nullcontext
 
 import qubes.tests
 import qubes.tests.storage
@@ -34,35 +35,93 @@ from qubes.storage import reflink
 class TestApp(qubes.Qubes):
     ''' A Mock App object '''
     def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
-        super(TestApp, self).__init__('/tmp/qubes-test.xml', load=False,
-                                      offline_mode=True, **kwargs)
+        super().__init__('/tmp/qubes-test.xml', load=False,
+                         offline_mode=True, **kwargs)
         self.load_initial_values()
 
 
 class ReflinkMixin:
-    def setUp(self, fs_type='btrfs'):  # pylint: disable=arguments-differ
+    @classmethod
+    def setUpClass(cls, *, fs_type, ficlone_supported):
+        super().setUpClass()
+        cls.ficlone_supported = ficlone_supported
+        cls.fs_dir = '/var/tmp/test-reflink-units-on-' + fs_type
+        mkdir_fs(cls.fs_dir, fs_type)
+
+    @classmethod
+    def tearDownClass(cls):
+        rmtree_fs(cls.fs_dir)
+        super().tearDownClass()
+
+    def setUp(self):
         super().setUp()
-        self.test_dir = '/var/tmp/test-reflink-units-on-' + fs_type
-        mkdir_fs(self.test_dir, fs_type, cleanup_via=self.addCleanup)
+        self.test_dir = os.path.join(self.fs_dir, 'test')
+        os.mkdir(self.test_dir)
+        self.addCleanup(shutil.rmtree, self.test_dir)
+
+    def _test_copy_file(self, *, src_size, **kwargs_for_func):
+        src = os.path.join(self.test_dir, 'src-file')
+        dst = os.path.join(self.test_dir, 'new-directory', 'dst-file')
+        src_content = os.urandom(src_size)
+        dst_size = kwargs_for_func.get('dst_size', None)
+        copy_mtime = kwargs_for_func.get('copy_mtime', None)
+
+        with open(src, 'wb') as src_io:
+            src_io.write(src_content)
+
+        ficlone_succeeded = reflink._copy_file(src, dst, **kwargs_for_func)
+        if dst_size == 0:
+            self.assertIsNone(ficlone_succeeded)
+        else:
+            self.assertEqual(ficlone_succeeded, self.ficlone_supported)
+
+        src_stat = os.stat(src)
+        dst_stat = os.stat(dst)
+        self.assertNotEqual(
+            (src_stat.st_ino, src_stat.st_dev),
+            (dst_stat.st_ino, dst_stat.st_dev))
+        (self.assertEqual if copy_mtime else self.assertNotEqual)(
+            src_stat.st_mtime_ns,
+            dst_stat.st_mtime_ns)
+
+        with open(src, 'rb') as src_io:
+            self.assertEqual(src_io.read(), src_content)
+        with open(dst, 'rb') as dst_io:
+            if dst_size in (None, src_size):
+                self.assertEqual(dst_io.read(), src_content)
+            elif dst_size == 0:
+                self.assertEqual(dst_io.read(), b'')
+            elif dst_size < src_size:
+                self.assertEqual(dst_io.read(), src_content[:dst_size])
+            elif dst_size > src_size:
+                self.assertEqual(dst_io.read(src_size), src_content)
+                self.assertEqual(dst_io.read(), bytes(dst_size - src_size))
 
     def test_000_copy_file(self):
-        source = os.path.join(self.test_dir, 'source-file')
-        dest = os.path.join(self.test_dir, 'new-directory', 'dest-file')
-        content = os.urandom(1024**2)
+        self._test_copy_file(src_size=222222)
 
-        with open(source, 'wb') as source_io:
-            source_io.write(content)
+    def test_001_copy_file_extend(self):
+        self._test_copy_file(src_size=222222, dst_size=333333)
 
-        ficlone_succeeded = reflink._copy_file(source, dest)
-        self.assertEqual(ficlone_succeeded, self.ficlone_supported)
+    def test_002_copy_file_shrink(self):
+        self._test_copy_file(src_size=222222, dst_size=111111)
 
-        self.assertNotEqual(os.stat(source).st_ino, os.stat(dest).st_ino)
-        with open(source, 'rb') as source_io:
-            self.assertEqual(source_io.read(), content)
-        with open(dest, 'rb') as dest_io:
-            self.assertEqual(dest_io.read(), content)
+    def test_003_copy_file_shrink0(self):
+        self._test_copy_file(src_size=222222, dst_size=0)
 
-    def test_001_create_and_resize_files_and_update_loopdevs(self):
+    def test_010_copy_file_mtime(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True)
+
+    def test_011_copy_file_mtime_extend(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=333333)
+
+    def test_012_copy_file_mtime_shrink(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=111111)
+
+    def test_013_copy_file_mtime_shrink0(self):
+        self._test_copy_file(src_size=222222, copy_mtime=True, dst_size=0)
+
+    def test_100_create_and_resize_files_and_update_loopdevs(self):
         img_real = os.path.join(self.test_dir, 'img-real')
         img_sym = os.path.join(self.test_dir, 'img-sym')
         size_initial = 111 * 1024**2
@@ -92,6 +151,88 @@ class ReflinkMixin:
         for dev in (dev_from_real, dev_from_sym):
             self.assertEqual(get_blockdev_size(dev), size_resized)
 
+    def test_200_eq_files_true(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb'):
+            pass
+        os.link(file1, file2)
+
+        stat1 = os.stat(file1)
+        stat2 = os.stat(file2)
+        self.assertTrue(reflink._eq_files(stat1, stat2))
+        self.assertTrue(reflink._eq_files(stat1, stat1))
+        self.assertTrue(reflink._eq_files(stat2, stat2))
+
+    def test_201_eq_files_false(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb'), open(file2, 'wb'):
+            pass
+
+        stat1 = os.stat(file1)
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(stat1, stat2))
+        os.utime(file2, ns=(stat1.st_atime_ns, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertEqual(stat1.st_mtime_ns, stat2.st_mtime_ns)
+        self.assertEqual(stat1.st_size, stat2.st_size)
+        self.assertFalse(reflink._eq_files(stat1, stat2))
+
+    def test_210_eq_files_by_attrs(self):
+        file1 = os.path.join(self.test_dir, 'file1')
+        file2 = os.path.join(self.test_dir, 'file2')
+
+        with open(file1, 'wb') as file1_io:
+            file1_io.write(b'foo')
+        with open(file2, 'wb') as file2_io:
+            file2_io.write(b'bar')
+
+        stat1 = os.stat(file1)
+        os.utime(file2, ns=(0, 0))
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2))
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=[]))
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_size']))
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
+        stat1 = os.stat(file1)
+        os.utime(file2, ns=(0, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertTrue(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
+        stat1 = os.stat(file1)
+        os.truncate(file2, 222)
+        os.utime(file2, ns=(0, stat1.st_mtime_ns))
+        stat2 = os.stat(file2)
+        self.assertFalse(reflink._eq_files(
+            stat1, stat2, by_attrs=['st_mtime_ns', 'st_size']))
+
+
+class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='btrfs', ficlone_supported=True)
+
+
+class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='ext4', ficlone_supported=False)
+
+
+class TC_02_ReflinkOnXfs(ReflinkMixin, qubes.tests.QubesTestCase):
+    @classmethod
+    def setUpClass(cls):  # pylint: disable=arguments-differ
+        super().setUpClass(fs_type='xfs', ficlone_supported=True)
+
 
 class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -113,7 +254,7 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         del self.pool
         self.app.close()
         del self.app
-        super(TC_10_ReflinkPool, self).tearDown()
+        super().tearDown()
 
     def test_012_import_data_empty(self):
         config = {
@@ -129,7 +270,8 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         volume_exported = self.loop.run_until_complete(volume.export())
         with open(volume_exported, 'w') as volume_file:
             volume_file.write('test data')
-        import_path = self.loop.run_until_complete(volume.import_data(volume.size))
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
         self.assertNotEqual(volume.path, import_path)
         with open(import_path, 'w+'):
             pass
@@ -140,16 +282,62 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
             volume_data = volume_file.read().strip('\0')
         self.assertNotEqual(volume_data, 'test data')
 
+    def _test_remove_stale_precache(self, *, stale, orphan):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.pool.init_volume(vm, config)
+        data0 = b'\x00'
+        data1 = b'\x01'
 
-class TC_00_ReflinkOnBtrfs(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('btrfs')
-        self.ficlone_supported = True
+        self.loop.run_until_complete(volume.create())
+        with open(volume._path_clean, 'rb') as clean_io:
+            self.assertEqual(clean_io.read(), data0)
+        with open(volume._path_precache, 'rb') as precache_io:
+            self.assertEqual(precache_io.read(), data0)
 
-class TC_01_ReflinkOnExt4(ReflinkMixin, qubes.tests.QubesTestCase):
-    def setUp(self):  # pylint: disable=arguments-differ
-        super().setUp('ext4')
-        self.ficlone_supported = False
+        if stale:
+            # simulate an intermittent Qubes downgrade
+            volume._update_precache = nullcontext
+
+        import_path = self.loop.run_until_complete(
+            volume.import_data(volume.size))
+        with open(import_path, 'wb') as import_io:
+            import_io.write(data1)
+        self.loop.run_until_complete(volume.import_data_end(True))
+        with open(volume._path_clean, 'rb') as clean_io:
+            self.assertEqual(clean_io.read(), data1)
+        with open(volume._path_precache, 'rb') as precache_io:
+            self.assertEqual(precache_io.read(), data0 if stale else data1)
+
+        if orphan:
+            # simulate a broken volume whose _path_clean image is missing
+            os.remove(volume._path_clean)
+            cm = self.assertRaises(FileNotFoundError)
+        else:
+            cm = nullcontext()
+
+        with cm:
+            volume._remove_stale_precache()
+        self.assertEqual(
+            os.path.exists(volume._path_precache), (not stale) or orphan)
+
+    def test_100_remove_stale_precache_ok(self):
+        self._test_remove_stale_precache(stale=False, orphan=False)
+
+    def test_101_remove_stale_precache_orphan(self):
+        self._test_remove_stale_precache(stale=False, orphan=True)
+
+    def test_110_remove_stale_precache_stale(self):
+        self._test_remove_stale_precache(stale=True, orphan=False)
+
+    def test_111_remove_stale_precache_stale_orphan(self):
+        self._test_remove_stale_precache(stale=True, orphan=True)
 
 
 def setup_loopdev(img, cleanup_via=None):
@@ -207,7 +395,8 @@ def reflink_update_loopdev_sizes(img):
     cmd('sudo', '-E', 'env', *env, sys.executable, '-c', code)
 
 def cmd(*argv):
-    p = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run(
+        argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if p.returncode != 0:
         raise Exception(str(p))  # this will show stdout and stderr
     return p.stdout

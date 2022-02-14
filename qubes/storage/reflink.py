@@ -33,7 +33,7 @@ import os
 import platform
 import subprocess
 import tempfile
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 
 import qubes.storage
 import qubes.utils
@@ -77,7 +77,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     @_coroutinized
     def setup(self):  # pylint: disable=invalid-overridden-method
-        created = _make_dir(self.dir_path)
+        created = _create_dir(self.dir_path)
         if self._setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
@@ -86,7 +86,7 @@ class ReflinkPool(qubes.storage.Pool):
                 ' can live with VM startup delays and wasted disk space, pass'
                 ' the "setup_check=False" option.'.format(self.dir_path))
         for dir_path_prefix in self._known_dir_path_prefixes:
-            _make_dir(os.path.join(self.dir_path, dir_path_prefix))
+            _create_dir(os.path.join(self.dir_path, dir_path_prefix))
         return self
 
     def init_volume(self, vm, volume_config):
@@ -147,16 +147,38 @@ class ReflinkVolume(qubes.storage.Volume):
         super().__init__(*args, **kwargs)
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)
         self._path_clean = self._path_vid + '.img'
+        self._path_precache = self._path_vid + '-precache.img'
         self._path_dirty = self._path_vid + '-dirty.img'
         self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
+
+    @contextmanager
+    def _update_precache(self):
+        _remove_file(self._path_precache)
+        yield
+        _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
+
+    def _remove_stale_precache(self):
+        ''' Defuse the following situation: We created a precache.
+            After that, the pool was used on an older Qubes version
+            without precache support - causing staleness. Now the
+            pool is here again on new Qubes.
+        '''
+        stat_clean = os.stat(self._path_clean)
+        with suppress(FileNotFoundError):
+            if not _eq_files(stat_clean, os.stat(self._path_precache),
+                             by_attrs=['st_mtime_ns', 'st_size']):
+                # pylint: disable=redundant-keyword-arg
+                _remove_file(self._path_precache, log_level=logging.DEBUG)
+                LOGGER.warning('Removed stale file: %r', self._path_precache)
 
     @qubes.storage.Volume.locked
     @_coroutinized
     def create(self):  # pylint: disable=invalid-overridden-method
         self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
-            _create_sparse_file(self._path_clean, self._size)
+            with self._update_precache():
+                _create_sparse_file(self._path_clean, self._size)
         return self
 
     @_coroutinized
@@ -185,6 +207,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self._remove_incomplete_images()
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
+        _remove_file(self._path_precache)
         _remove_file(self._path_dirty)
 
     def _remove_incomplete_images(self):
@@ -195,9 +218,10 @@ class ReflinkVolume(qubes.storage.Volume):
     def is_outdated(self):
         if self.snap_on_start:
             with suppress(FileNotFoundError):
-                # pylint: disable=protected-access
-                return (os.path.getmtime(self.source._path_clean) >
-                        os.path.getmtime(self._path_clean))
+                return not _eq_files(
+                    # pylint: disable=protected-access
+                    os.stat(self.source._path_clean),
+                    os.stat(self._path_clean))
         return False
 
     def is_dirty(self):
@@ -209,24 +233,26 @@ class ReflinkVolume(qubes.storage.Volume):
         self._remove_incomplete_images()
         if not self.is_dirty():
             if self.snap_on_start:
+                _remove_file(self._path_clean)
                 # pylint: disable=protected-access
-                _copy_file(self.source._path_clean, self._path_clean)
-            if self.snap_on_start or self.save_on_stop:
+                _hardlink_file(self.source._path_clean, self._path_clean)
                 _copy_file(self._path_clean, self._path_dirty)
+            elif self.save_on_stop:
+                self._remove_stale_precache()
+                try:
+                    _rename_file(self._path_precache, self._path_dirty)
+                except FileNotFoundError:
+                    _copy_file(self._path_clean, self._path_dirty)
             else:
-                # Preferably use the size of a leftover image, in case
-                # the volume was previously resized - but then a crash
-                # prevented qubes.xml serialization of the new size.
-                _create_sparse_file(self._path_dirty, self.size)
+                _create_sparse_file(self._path_dirty, self._size)
         return self
 
     @qubes.storage.Volume.locked
     @_coroutinized
     def stop(self):  # pylint: disable=invalid-overridden-method
-        if self.save_on_stop:
-            if os.path.exists(self._path_dirty):
-                self._commit(self._path_dirty)
-        else:
+        if self.is_dirty():
+            self._commit(self._path_dirty)
+        elif not self.save_on_stop:
             if not self.snap_on_start:
                 self._size = self.size  # preserve manual resize of image
             _remove_file(self._path_dirty)
@@ -237,22 +263,24 @@ class ReflinkVolume(qubes.storage.Volume):
         self._add_revision()
         self._prune_revisions()
         qubes.utils.fsync_path(path_from)
-        _rename_file(path_from, self._path_clean)
+        with self._update_precache():
+            _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
         if self.revisions_to_keep == 0:
             return
-        ctime = os.path.getctime(self._path_clean)
-        timestamp = qubes.storage.isodate(int(ctime))
-        _copy_file(self._path_clean,
-                   self._path_revision(self._next_revision_number, timestamp))
+        timestamp = qubes.storage.isodate(
+            int(os.path.getmtime(self._path_clean)))
+        _copy_file(
+            self._path_clean,
+            self._path_revision(self._next_revision, timestamp))
 
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
         # pylint: disable=invalid-unary-operand-type
-        for number, timestamp in list(self.revisions.items())[:-keep or None]:
-            _remove_file(self._path_revision(number, timestamp))
+        for revision, timestamp in list(self.revisions.items())[:-keep or None]:
+            _remove_file(self._path_revision(revision, timestamp))
 
     @qubes.storage.Volume.locked
     @_coroutinized
@@ -260,13 +288,10 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
                 'Cannot revert: {} is not cleanly stopped'.format(self.vid))
-        if revision is None:
-            number, timestamp = list(self.revisions.items())[-1]
-        else:
-            number, timestamp = revision, None
-        path_revision = self._path_revision(number, timestamp)
+        path_revision = self._path_revision(revision)
         self._add_revision()
-        _rename_file(path_revision, self._path_clean)
+        with self._update_precache():
+            _rename_file(path_revision, self._path_clean)
         return self
 
     @qubes.storage.Volume.locked
@@ -278,13 +303,16 @@ class ReflinkVolume(qubes.storage.Volume):
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
-        for path in (self._path_dirty, self._path_clean):
-            with suppress(FileNotFoundError):
-                _resize_file(path, size)
-                break
-        self._size = size
-        if path == self._path_dirty:
+        try:
+            _resize_file(self._path_dirty, size)
+        except FileNotFoundError:
+            if self.save_on_stop and not self.snap_on_start:
+                with self._update_precache():
+                    _copy_file(
+                        self._path_clean, self._path_clean, dst_size=size)
+        else:
             _update_loopdev_sizes(self._path_dirty)
+        self._size = size
         return self
 
     async def export(self):
@@ -325,20 +353,23 @@ class ReflinkVolume(qubes.storage.Volume):
                 await self._import_data_end_unlocked(success)
         return self
 
-    def _path_revision(self, number, timestamp=None):
+    def _path_revision(self, revision=None, timestamp=None):
         if timestamp is None:
-            timestamp = self.revisions[number]
-        return self._path_clean + '.' + number + '@' + timestamp + 'Z'
+            if revision is None:
+                revision, timestamp = list(self.revisions.items())[-1]
+            else:
+                timestamp = self.revisions[revision]
+        return self._path_clean + '.' + revision + '@' + timestamp + 'Z'
 
     @property
-    def _next_revision_number(self):
-        numbers = self.revisions.keys()
-        return str(int(list(numbers)[-1]) + 1) if numbers else '1'
+    def _next_revision(self):
+        revisions = self.revisions.keys()
+        return str(int(list(revisions)[-1]) + 1) if revisions else '1'
 
     @property
     def revisions(self):
         prefix = self._path_clean + '.'
-        paths = glob.iglob(glob.escape(prefix) + '*@*Z')
+        paths = glob.iglob(glob.escape(prefix) + '*?@????-??-??T??:??:??Z')
         items = (path[len(prefix):-1].split('@') for path in paths)
         return collections.OrderedDict(
             sorted(items, key=lambda item: int(item[0])))
@@ -352,9 +383,6 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @property
     def usage(self):
-        ''' Return volume disk usage from the VM's perspective. It is
-            usually much lower from the host's perspective due to CoW.
-        '''
         for path in (self._path_dirty, self._path_clean):
             with suppress(FileNotFoundError):
                 return os.stat(path).st_blocks * 512
@@ -362,7 +390,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
 
 def _replace_file(dst):
-    _make_dir(os.path.dirname(dst))
+    _create_dir(os.path.dirname(dst))
     return qubes.utils.replace_file(
         dst, permissions=0o600, log_level=logging.INFO)
 
@@ -372,25 +400,38 @@ _rename_file = functools.partial(
 _remove_file = functools.partial(
     qubes.utils.remove_file, log_level=logging.INFO)
 
-def _make_dir(path):
-    ''' mkdir path, ignoring FileExistsError; return whether we
-        created it.
-    '''
-    with suppress(FileExistsError):
+def _hardlink_file(src, dst):
+    dst_dir = os.path.dirname(dst)
+    _create_dir(dst_dir)
+    os.link(src, dst)
+    qubes.utils.fsync_path(dst_dir)
+    LOGGER.info('Hardlinked file: %r -> %r', src, dst)
+
+def _create_dir(path):
+    try:
+        created = False
         os.mkdir(path)
+        created = True
+    except FileExistsError:
+        if not os.path.isdir(path):
+            raise
+    if created:
         qubes.utils.fsync_path(os.path.dirname(path))
         LOGGER.info('Created directory: %r', path)
-        return True
-    return False
+    return created
 
 def _remove_empty_dir(path):
     try:
+        removed = False
         os.rmdir(path)
-        qubes.utils.fsync_path(os.path.dirname(path))
-        LOGGER.info('Removed empty directory: %r', path)
+        removed = True
     except OSError as ex:
         if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
             raise
+    if removed:
+        qubes.utils.fsync_path(os.path.dirname(path))
+        LOGGER.info('Removed empty directory: %r', path)
+    return removed
 
 def _resize_file(path, size):
     ''' Resize an existing file. '''
@@ -403,6 +444,12 @@ def _create_sparse_file(path, size):
     with _replace_file(path) as tmp_io:
         tmp_io.truncate(size)
         LOGGER.info('Created sparse file: %r', tmp_io.name)
+
+def _eq_files(stat1, stat2, *, by_attrs=('st_ino', 'st_dev')):
+    for attr in by_attrs:
+        if getattr(stat1, attr) != getattr(stat2, attr):
+            return False
+    return True
 
 def _update_loopdev_sizes(img):
     ''' Resolve img; update the size of loop devices backed by it. '''
@@ -417,38 +464,51 @@ def _update_loopdev_sizes(img):
 
 def _attempt_ficlone(src_io, dst_io):
     try:
+        ficloned = False
         fcntl.ioctl(dst_io.fileno(), FICLONE, src_io.fileno())
-        return True
+        ficloned = True
     except OSError as ex:
         if ex.errno not in (errno.EBADF, errno.EINVAL,
                             errno.EOPNOTSUPP, errno.EXDEV):
             raise
-        return False
+    return ficloned
 
-def _copy_file(src, dst):
-    ''' Copy src to dst as a reflink if possible, sparse if not. '''
-    with _replace_file(dst) as tmp_io:
-        with open(src, 'rb') as src_io:
-            reflinked = _attempt_ficlone(src_io, tmp_io)
-        if reflinked:
-            LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+def _copy_file(src, dst, *, dst_size=None, copy_mtime=False):
+    ''' Transfer the data at src (and optionally its modification
+        time) to a new inode at dst, using a reflink if possible or a
+        sparsifying copy if not. Optionally, the new dst will have
+        been resized to dst_size bytes.
+    '''
+    with open(src, 'rb') as src_io, _replace_file(dst) as tmp_io:
+        if dst_size == 0:
+            reflinked = None
         else:
-            LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
-            result = subprocess.run(
-                ['cp', '--sparse=always', '--', src, tmp_io.name],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-            if result.returncode != 0:
-                raise qubes.storage.StoragePoolException(str(result))
+            reflinked = _attempt_ficlone(src_io, tmp_io)
+            if reflinked:
+                LOGGER.info('Reflinked file: %r -> %r', src, tmp_io.name)
+            else:
+                LOGGER.info('Copying file: %r -> %r', src, tmp_io.name)
+                result = subprocess.run(
+                    ['cp', '--sparse=always', '--', src, tmp_io.name],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+                if result.returncode != 0:
+                    raise qubes.storage.StoragePoolException(str(result))
+            if dst_size is not None:
+                tmp_io.truncate(dst_size)
+        if copy_mtime:
+            mtime_ns = os.stat(src_io.fileno()).st_mtime_ns
+            atime_ns = mtime_ns  # Python doesn't support UTIME_OMIT
+            os.utime(tmp_io.fileno(), ns=(atime_ns, mtime_ns))
     return reflinked
 
-def is_supported(dst_dir, src_dir=None):
+def is_supported(dst_dir, *, src_dir=None):
     ''' Return whether destination directory supports reflink copies
         from source directory. (A temporary file is created in each
         directory, using O_TMPFILE if possible.)
     '''
     if src_dir is None:
         src_dir = dst_dir
-    with tempfile.TemporaryFile(dir=src_dir) as src, \
-         tempfile.TemporaryFile(dir=dst_dir) as dst:
-        src.write(b'foo')  # don't let any fs get clever with empty files
-        return _attempt_ficlone(src, dst)
+    with tempfile.TemporaryFile(dir=src_dir) as src_io, \
+         tempfile.TemporaryFile(dir=dst_dir) as dst_io:
+        src_io.write(b'foo')  # don't let any fs get clever with empty files
+        return _attempt_ficlone(src_io, dst_io)
