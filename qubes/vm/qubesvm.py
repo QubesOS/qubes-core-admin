@@ -1245,7 +1245,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """Forcefully shutdown (destroy) domain.
 
         This function needs to be called with self.startup_lock held."""
-        self.__waiter = asyncio.get_running_loop().create_future()
+        self.__waiter = asyncio.get_event_loop().create_future()
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
