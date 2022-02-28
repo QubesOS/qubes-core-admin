@@ -1222,6 +1222,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self.log.info('Setting Qubes DB info for the VM')
                 await self.start_qubesdb()
+                if self.untrusted_qdb is None:
+                    # this can happen if vm.is_running() is False
+                    raise qubes.exc.QubesException(
+                        'qubesdb not connected, VM was killed in the meantime')
                 self.create_qdb_entries()
                 self.start_qdb_watch()
 
