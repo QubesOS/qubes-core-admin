@@ -979,7 +979,7 @@ class SystemTestCase(QubesTestCase):
             try:
                 # XXX .is_running() may throw libvirtError if undefined
                 if vm.is_running():
-                    self.loop.run_until_complete(vm._kill_locked())
+                    self.loop.run_until_complete(vm.kill())
             except:  # pylint: disable=bare-except
                 pass
         # break dependencies

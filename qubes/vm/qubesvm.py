@@ -1095,8 +1095,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # twice if an exception gets thrown.
                 self._domain_stopped_event_handled = True
 
-                await self.fire_event_async('domain-stopped')
-                await self.fire_event_async('domain-shutdown')
+                try:
+                    await self.fire_event_async('domain-stopped')
+                    await self.fire_event_async('domain-shutdown')
+
+                    if self.__waiter is not None:
+                        self.__waiter.set_result(None)
+                        self.__waiter = None
+                except Exception as e:
+                    if self.__waiter is not None:
+                        self.__waiter.set_exception(e)
+                        self.__waiter = None
+                    raise
 
     async def start(self, start_guid=True, notify_function=None,
               mem_required=None):
@@ -1229,10 +1239,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except Exception as exc:  # pylint: disable=bare-except
                 self.log.error('Start failed: %s', str(exc))
                 # This avoids losing the exception if an exception is
-                # raised in self._kill_locked(), because the vm is not
+                # raised in self.kill(), because the vm is not
                 # running or paused
                 try:
-                    await self._kill_locked()
+                    await self.kill()
                 except qubes.exc.QubesVMNotStartedError:
                     pass
 
@@ -1258,13 +1268,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return
 
         if self._domain_stopped_event_received:
-            # ignore this event - already triggered by shutdown(), kill(),
-            # or subsequent start()
+            # ignore this event - already triggered by subsequent start()
+            # or libvirt reconnect
             return
-
-        if self.__waiter is not None:
-            self.__waiter.set_result(None)
-            self.__waiter = None
 
         self._domain_stopped_event_received = True
         self._domain_stopped_future = \
@@ -1280,8 +1286,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             while self.get_power_state() == 'Dying':
                 await asyncio.sleep(0.25)
-            await self.fire_event_async('domain-stopped')
-            await self.fire_event_async('domain-shutdown')
+            try:
+                await self.fire_event_async('domain-stopped')
+                await self.fire_event_async('domain-shutdown')
+
+                if self.__waiter is not None:
+                    self.__waiter.set_result(None)
+                    self.__waiter = None
+            except Exception as e:
+                if self.__waiter is not None:
+                    self.__waiter.set_exception(e)
+                    self.__waiter = None
+                raise
 
     @qubes.events.handler('domain-stopped')
     async def on_domain_stopped(self, _event, **_kwargs):
@@ -1313,20 +1329,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             await self.fire_event_async('domain-pre-shutdown',
                                         pre_event=True, force=force)
 
+            if self.__waiter is None:
+                self.__waiter = asyncio.get_running_loop().create_future()
+            waiter = self.__waiter
             self.libvirt_domain.shutdown()
 
             if wait:
                 if timeout is None:
                     timeout = self.shutdown_timeout
-                while timeout > 0 and not self.is_halted():
-                    await asyncio.sleep(0.25)
-                    timeout -= 0.25
-                async with self.startup_lock:
-                    if self.is_halted():
-                        # make sure all shutdown tasks are completed
-                        await self._ensure_shutdown_handled()
-                    else:
-                        raise qubes.exc.QubesVMShutdownTimeoutError(self)
+                try:
+                    await asyncio.wait_for(waiter, timeout=timeout)
+                except asyncio.TimeoutError:
+                    raise qubes.exc.QubesVMShutdownTimeoutError(self)
         except Exception as ex:
             await self.fire_event_async('domain-shutdown-failed',
                                         reason=str(ex))
@@ -1344,16 +1358,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        async with self.startup_lock:
-            await self._kill_locked()
+        if self.__waiter is None:
+            self.__waiter = asyncio.get_running_loop().create_future()
+        waiter = self.__waiter
 
-        return self
-
-    async def _kill_locked(self):
-        """Forcefully shutdown (destroy) domain.
-
-        This function needs to be called with self.startup_lock held."""
-        self.__waiter = asyncio.get_running_loop().create_future()
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
@@ -1361,12 +1369,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesVMNotStartedError(self)
             raise
 
-        # make sure all shutdown tasks are completed
-        try:
-            await asyncio.wait_for(self.__waiter, timeout=10)
-        except asyncio.TimeoutError:
-            pass
-        await self._ensure_shutdown_handled()
+        await waiter
 
     async def suspend(self):
         """Suspend (pause) domain.

@@ -1443,6 +1443,13 @@ class Qubes(qubes.PropertyHolder):
                 libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
                 self._domain_event_callback,
                 None))
+        if old_connection:
+            # If this is libvirt restart, check if ensure no shutdown events
+            # were missed. on_libvirt_domain_stopped() can deal with duplicated
+            # events.
+            for vm in self.domains.values():
+                if not vm.is_running():
+                    vm.on_libvirt_domain_stopped()
 
     def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),
