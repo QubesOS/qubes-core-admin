@@ -501,6 +501,8 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
                                'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
                                'Escape'])
 
+        self.wait_for_window(window_title, show=False)
+
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
         self.assertEqual(clipboard_content, test_string,

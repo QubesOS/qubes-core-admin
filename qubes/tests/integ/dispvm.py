@@ -460,6 +460,9 @@ class TC_20_DispVMMixin(object):
         if winid is None:
             self.fail('Timeout waiting for editor window')
 
+        self.loop.run_until_complete(
+            self.wait_for_window_hide_coro("editor", winid))
+
         with open('/var/run/qubes/qubes-clipboard.bin', 'rb') as f:
             test_txt_content = f.read()
         self.assertEqual(test_txt_content.strip(), b"test1")
