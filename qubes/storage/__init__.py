@@ -718,19 +718,19 @@ class Storage:
         results = []
         try:
             await self.stop()
-        except (IOError, OSError, subprocess.SubprocessError) as e:
+        except (IOError, OSError, subprocess.SubprocessError):
             self.vm.log.exception(
-                "Failed to stop some volume, continuing anyway", e)
+                "Failed to stop some volume, continuing anyway")
         for vol in self.vm.volumes.values():
             self.log.info('Removing volume %s: %s' % (vol.name, vol.vid))
             try:
                 results.append(vol.remove())
-            except (IOError, OSError) as e:
-                self.vm.log.exception("Failed to remove volume %s", vol.name, e)
+            except (IOError, OSError):
+                self.vm.log.exception("Failed to remove volume %s", vol.name)
         try:
             await qubes.utils.void_coros_maybe(results)
-        except (IOError, OSError) as e:
-            self.vm.log.exception("Failed to remove some volume", e)
+        except (IOError, OSError):
+            self.vm.log.exception("Failed to remove some volume")
 
     def block_devices(self):
         """ Return all :py:class:`qubes.storage.BlockDevice` for current domain
