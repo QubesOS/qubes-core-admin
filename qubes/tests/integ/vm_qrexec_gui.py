@@ -347,11 +347,6 @@ class TC_00_AppVMMixin(object):
                 'qvm-move-to-vm {} /tmp/testfile'.format(
                     self.testvm2.name)))
 
-            # Close GUI error message
-            try:
-                self.enter_keys_in_window('Error', ['Return'])
-            except subprocess.CalledProcessError:
-                pass
             self.loop.run_until_complete(p.wait())
             self.assertNotEqual(p.returncode, 0)
 
