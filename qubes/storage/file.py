@@ -22,6 +22,7 @@
 
 ''' This module contains pool implementations backed by file images'''
 import asyncio
+import errno
 import os
 import os.path
 import re
@@ -48,6 +49,34 @@ def _dev_path(file):
     return '%x:%d' % (res.st_dev, res.st_ino)
 
 _lock = asyncio.Lock()
+
+
+def bytes_used(fobject):
+    """Return bytes used by a file, taking sparseness into account.
+
+    Non-zero byte size is not synonymous with presence of data.
+    """
+    return os.fstat(fobject.fileno()).st_blocks * BLKSIZE
+
+
+def has_any_data(fobject):
+    """Return True if the file has any non-hole data, False if it has no data."""
+    pos = fobject.tell()
+    try:
+        # Move file pointer to the beginning of the next data byte.
+        fobject.seek(0, os.SEEK_DATA)
+        # There was a data byte -> the file is non-empty.
+        return True
+    except OSError as e:
+        if e.errno == errno.ENXIO:
+            # The file was completely empty (zero bytes or 100% sparse).
+            return False
+        # Oh noes!
+        raise
+    finally:
+        # Restore the position of the file to preserve the invariant.
+        fobject.seek(pos, 0)
+
 
 class FilePool(qubes.storage.Pool):
     ''' File based 'original' disk implementation
@@ -259,8 +288,14 @@ class FileVolume(qubes.storage.Volume):
     def is_dirty(self):
         if self.save_on_stop:
             with suppress(FileNotFoundError), open(self.path_cow, 'rb') as cow:
-                cow_used = os.fstat(cow.fileno()).st_blocks * BLKSIZE
-                return (cow_used > 0 and
+                # The bytes used on disk does not determine whether a
+                # file actually has any data.  In ZFS, for example,
+                # a completely empty file (textbook 100% sparse, or even
+                # zero-byte-length) will still occupy at least one block.
+                # Thus, below, the function has_any_data() is used to
+                # determine if the copy-on-write file has any data.
+                cow_used = bytes_used(cow)
+                return (has_any_data(cow) and
                         (cow_used > len(EMPTY_SNAPSHOT) or
                          cow.read(len(EMPTY_SNAPSHOT)) != EMPTY_SNAPSHOT or
                          cow_used > cow.seek(0, os.SEEK_HOLE)))
