@@ -60,7 +60,7 @@ def bytes_used(fobject):
 
 
 def has_any_data(fobject):
-    """Return True if the file has any non-hole data, False if it has no data."""
+    """Return True if the file has any non-hole data, False otherwise."""
     pos = fobject.tell()
     try:
         # Move file pointer to the beginning of the next data byte.
