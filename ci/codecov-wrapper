@@ -6,6 +6,12 @@ set -x
 
 if [[ "$CI_COMMIT_BRANCH" =~ ^pr- ]]; then
     PR=${CI_COMMIT_BRANCH#pr-}
-    exec codecov --pr "$PR" "$@"
+    parents=$(git show -s --format='%P %ae')
+    if [ $(wc -w <<<"$parents") -eq 3 ] && [ "${parents##* }" = "fepitre-bot@qubes-os.org" ]; then
+        commit_sha=$(cut -f 2 -d ' ' <<<"${parents}")
+    else
+        commit_sha=$(git show -s --format='%H')
+    fi
+    exec codecov --pr "$PR" --commit "$commit_sha" "$@"
 fi
 exec codecov "$@"
