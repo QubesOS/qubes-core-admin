@@ -576,10 +576,9 @@ class PropertyHolder(qubes.events.Emitter):
             props = dict()
             if load_stage is None:
                 for class_ in cls.__mro__:
-                    for name in class_.__dict__:
+                    for name, prop in class_.__dict__.items():
                         # don't overwrite props with those from base classes
                         if name not in props:
-                            prop = class_.__dict__[name]
                             if isinstance(prop, property):
                                 assert name == prop.__name__
                                 props[name] = prop

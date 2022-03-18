@@ -241,7 +241,8 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport = None
         self.connections.remove(self)
 
-    def data_received(self, untrusted_data):  # pylint: disable=arguments-differ
+    # pylint: disable=arguments-differ,arguments-renamed
+    def data_received(self, untrusted_data):
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
             self.app.log.warning('request too long')
             self.transport.abort()
@@ -250,6 +251,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
         self.len_untrusted_buffer += \
             self.untrusted_buffer.write(untrusted_data)
+    # pylint: enable=arguments-differ,arguments-renamed
 
     def eof_received(self):
         try:

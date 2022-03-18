@@ -22,6 +22,8 @@ import qubes.events
 
 class DVMTemplateMixin(qubes.events.Emitter):
     '''VM class capable of being DVM template'''
+    # pylint doesn't see event handlers being registered via decorator
+    # pylint: disable=unused-private-member
 
     template_for_dispvms = qubes.property('template_for_dispvms',
         type=bool,

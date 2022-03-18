@@ -112,8 +112,8 @@ class Features(dict):
                 for key, value in other:
                     self[key] = value
 
-        for key in kwargs:
-            self[key] = kwargs[key]
+        for key, value in kwargs.items():
+            self[key] = value
 
     #
     # end of overriding
