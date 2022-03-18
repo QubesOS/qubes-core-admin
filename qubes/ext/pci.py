@@ -258,9 +258,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
 
         device = _cache_get(device.backend_domain, device.ident)
-        p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
-                stdout=subprocess.PIPE)
-        result = p.communicate()[0].decode()
+        with subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
+                stdout=subprocess.PIPE) as p:
+            result = p.communicate()[0].decode()
         m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device.ident.replace(
             '_', ':')),
             result,

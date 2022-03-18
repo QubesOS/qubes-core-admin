@@ -70,12 +70,12 @@ def fetch_ticket_info(app, number):
     :raises: urllib.error.HTTPError
     """
 
-    response = urllib.request.urlopen(urllib.request.Request(
-        app.config.ticket_base_uri.format(number=number),
-        headers={
-            'Accept': 'application/vnd.github.v3+json',
-            'User-agent': __name__}))
-    return GithubTicket(json.load(response))
+    with urllib.request.urlopen(urllib.request.Request(
+            app.config.ticket_base_uri.format(number=number),
+            headers={
+                'Accept': 'application/vnd.github.v3+json',
+                'User-agent': __name__})) as response:
+        return GithubTicket(json.load(response))
 
 
 def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):

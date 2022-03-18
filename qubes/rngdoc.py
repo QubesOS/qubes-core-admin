@@ -192,7 +192,8 @@ def write_rst_table(stream, itr, heads):
 
 
 def main(filename, example):
-    schema = Schema(lxml.etree.parse(open(filename, 'rb')))
+    with open(filename, 'rb') as schema_f:
+        schema = Schema(lxml.etree.parse(schema_f))
 
     sys.stdout.write(make_rst_section('Qubes XML specification', '='))
     sys.stdout.write('''

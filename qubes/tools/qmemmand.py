@@ -94,6 +94,7 @@ class XSWatcher:
         got_lock = False
         if not refresh_only:
             self.log.debug('acquiring global_lock')
+            # pylint: disable=consider-using-with
             global_lock.acquire()
             got_lock = True
             self.log.debug('global_lock acquired')
@@ -148,23 +149,21 @@ class XSWatcher:
             return
 
         self.log.debug('acquiring global_lock')
-        global_lock.acquire()
-        self.log.debug('global_lock acquired')
-        try:
-            global force_refresh_domain_list
-            if force_refresh_domain_list:
-                self.domain_list_changed(refresh_only=True)
-                force_refresh_domain_list = False
-            if domain_id not in self.watch_token_dict:
-                # domain just destroyed
-                return
+        with global_lock:
+            self.log.debug('global_lock acquired')
+            try:
+                global force_refresh_domain_list
+                if force_refresh_domain_list:
+                    self.domain_list_changed(refresh_only=True)
+                    force_refresh_domain_list = False
+                if domain_id not in self.watch_token_dict:
+                    # domain just destroyed
+                    return
 
-            system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
-        except:  # pylint: disable=bare-except
-            self.log.exception('Updating meminfo for %d failed', domain_id)
-        finally:
-            global_lock.release()
-            self.log.debug('global_lock released')
+                system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
+            except:  # pylint: disable=bare-except
+                self.log.exception('Updating meminfo for %d failed', domain_id)
+        self.log.debug('global_lock released')
 
     def watch_loop(self):
         self.log.debug('watch_loop()')
@@ -206,6 +205,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                     return
 
                 self.log.debug('acquiring global_lock')
+                # pylint: disable=consider-using-with
                 global_lock.acquire()
                 self.log.debug('global_lock acquired')
 

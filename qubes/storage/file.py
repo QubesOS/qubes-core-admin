@@ -315,9 +315,9 @@ class FileVolume(qubes.storage.Volume):
         with open(self.path, 'a+b') as fd:
             fd.truncate(size)
 
-        p = subprocess.Popen(['losetup', '--associated', self.path],
-                             stdout=subprocess.PIPE)
-        result = p.communicate()
+        with subprocess.Popen(['losetup', '--associated', self.path],
+                              stdout=subprocess.PIPE) as p:
+            result = p.communicate()
 
         m = re.match(r'^(/dev/loop\d+):\s', result[0].decode())
         if m is not None:

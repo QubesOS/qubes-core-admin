@@ -149,28 +149,27 @@ def main(args=None):
     parser.add_argument('output_file', default='-', nargs='?',
         help='output file name')
     args = parser.parse_args(args)
-    input_file = io.open(args.input_file, 'rb')
-    sparse_map = list(get_sparse_map(input_file))
-    header_name = args.input_file
-    if args.override_name:
-        header_name = args.override_name
-    tar_info = TarSparseInfo(header_name, sparse_map)
-    if args.output_file == '-':
-        output = io.open('/dev/stdout', 'wb')
-    else:
-        output = io.open(args.output_file, 'wb')
-    if args.use_compress_program:
-        compress = subprocess.Popen([args.use_compress_program],
-            stdin=subprocess.PIPE, stdout=output)
-        output = compress.stdin
-    else:
-        compress = None
-    output.write(tar_info.tobuf(tarfile.PAX_FORMAT))
-    copy_sparse_data(input_file, output, sparse_map)
-    finalize(output)
-    input_file.close()
-    output.close()
+    with io.open(args.input_file, 'rb') as input_file:
+        sparse_map = list(get_sparse_map(input_file))
+        header_name = args.input_file
+        if args.override_name:
+            header_name = args.override_name
+        tar_info = TarSparseInfo(header_name, sparse_map)
+        with io.open(('/dev/stdout' if args.output_file == '-'
+                      else args.output_file),
+                     'wb') as output:
+            if args.use_compress_program:
+                # pylint: disable=consider-using-with
+                compress = subprocess.Popen([args.use_compress_program],
+                    stdin=subprocess.PIPE, stdout=output)
+                output = compress.stdin
+            else:
+                compress = None
+            output.write(tar_info.tobuf(tarfile.PAX_FORMAT))
+            copy_sparse_data(input_file, output, sparse_map)
+            finalize(output)
     if compress is not None:
+        compress.stdin.close()
         compress.wait()
         return compress.returncode
     return 0

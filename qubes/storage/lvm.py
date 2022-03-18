@@ -236,9 +236,9 @@ def _parse_lvm_cache(lvm_output):
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
     environ={'LC_ALL': 'C.UTF-8', **os.environ}
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True, env=environ)
-    out, err = p.communicate()
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            close_fds=True, env=environ) as p:
+        out, err = p.communicate()
     return_code = p.returncode
     if return_code == 0 and err:
         log.warning(err)

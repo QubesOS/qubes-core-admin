@@ -52,10 +52,10 @@ def get_timezone():
     if not tz_info:
         return None
     if tz_info.st_nlink > 1:
-        p = subprocess.Popen(['find', '/usr/share/zoneinfo',
-            '-inum', str(tz_info.st_ino), '-print', '-quit'],
-            stdout=subprocess.PIPE)
-        tz_path = p.communicate()[0].strip()
+        with subprocess.Popen(['find', '/usr/share/zoneinfo',
+                '-inum', str(tz_info.st_ino), '-print', '-quit'],
+                stdout=subprocess.PIPE) as p:
+            tz_path = p.communicate()[0].strip()
         return tz_path.replace(b'/usr/share/zoneinfo/', b'')
     return None
 

@@ -187,6 +187,7 @@ async def launch_proc_with_pty(args, stdin=None, stdout=None,
         stderr=stderr,
         preexec_fn=lambda: set_ctty(pty_slave, pty_master))
     os.close(pty_slave)
+    # pylint: disable=consider-using-with
     return p, open(pty_master, 'wb+', buffering=0)
 
 
