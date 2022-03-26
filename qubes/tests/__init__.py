@@ -481,7 +481,7 @@ class QubesTestCase(unittest.TestCase):
         if libvirt_event_impl is not None:
             try:
                 self.loop.run_until_complete(asyncio.wait_for(
-                    libvirt_event_impl.drain(), timeout=4))
+                    libvirt_event_impl.drain(), timeout=30))
             except asyncio.TimeoutError:
                 raise AssertionError('libvirt event impl drain timeout')
 
