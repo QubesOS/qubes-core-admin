@@ -630,40 +630,44 @@ class Backup:
                 path = file_info.path
                 if callable(path):
                     path = await qubes.utils.coro_maybe(path())
-                subdir = file_info.subdir
-                assert re.fullmatch('(?:dom0-home|vm[1-9][0-9]*)/', subdir), \
-                        f'bad subdir {subdir!r}'
-                tar_cmdline = (["tar", "-Pc", '--sparse',
-                                '-C', os.path.dirname(path)] +
-                               (['--dereference'] if
-                               subdir != "dom0-home/" else []) +
-                               ['--xform=s:^%s:%s\\0:' % (
-                                   os.path.basename(path),
-                                   subdir),
-                                   os.path.basename(path)
-                               ])
-                file_stat = os.stat(path)
-                if stat.S_ISBLK(file_stat.st_mode) or \
-                        file_info.name != os.path.basename(path):
-                    # tar doesn't handle content of block device, use our
-                    # writer
-                    # also use our tar writer when renaming file
-                    assert not stat.S_ISDIR(file_stat.st_mode), \
-                        "Renaming directories not supported"
-                    tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
-                        '--override-name=%s' % (
-                            os.path.join(subdir, os.path.basename(
-                                file_info.name))),
-                        path]
-                if self.compressed:
-                    tar_cmdline.insert(-2,
-                        "--use-compress-program=%s" % self.compression_filter)
 
-                # Pipe: tar-sparse | scrypt | tar | backup_target
-                # TODO: log handle stderr
-                # pylint: disable=not-an-iterable
-                tar_sparse = await asyncio.create_subprocess_exec(
-                    *tar_cmdline, stdout=subprocess.PIPE)
+                fd = (path if isinstance(path, int) else
+                      os.open(path, os.O_RDONLY|os.O_NOCTTY|os.O_CLOEXEC))
+                try:
+                    subdir = file_info.subdir
+                    assert re.fullmatch('(?:dom0-home|vm[1-9][0-9]*)/', subdir), \
+                            f'bad subdir {subdir!r}'
+                    fd_path = '/proc/self/fd/0'
+                    tar_cmdline = (
+                        ["tar", "-Pc", '--sparse', '-C' + fd_path] +
+                        (['--dereference'] if
+                         subdir != "dom0-home/" else []) +
+                        [f'--xform=s:^{fd_path}:{subdir}\\0:', '.'])
+                    file_stat = os.stat(path)
+                    if stat.S_ISBLK(file_stat.st_mode) or \
+                            file_info.name != os.path.basename(path):
+                        # tar doesn't handle content of block device, use our
+                        # writer
+                        # also use our tar writer when renaming file
+                        assert not stat.S_ISDIR(file_stat.st_mode), \
+                            "Renaming directories not supported"
+                        tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
+                            '--override-name=%s' % (
+                                os.path.join(file_info.subdir, os.path.basename(
+                                    file_info.name))),
+                            fd_path]
+                    if self.compressed:
+                        tar_cmdline.insert(-2,
+                            "--use-compress-program=" + self.compression_filter)
+
+                    self.log.debug(" ".join(tar_cmdline))
+
+                    # Pipe: tar-sparse | scrypt | tar | backup_target
+                    # TODO: log handle stderr
+                    tar_sparse = await asyncio.create_subprocess_exec(
+                        *tar_cmdline, stdout=subprocess.PIPE, stdin=fd)
+                finally:
+                    os.close(fd)
 
                 try:
                     await self._split_and_send(
