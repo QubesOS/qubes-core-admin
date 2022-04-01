@@ -156,7 +156,8 @@ class ThinPool(qubes.storage.Pool):
                 continue
             if vol_info['pool_lv'] != self.thin_pool:
                 continue
-            if vid.endswith('-snap') or vid.endswith('-import'):
+            if vid.endswith('-snap') or vid.endswith('-import') or \
+                    vid.endswith('+export'):
                 # implementation detail volume
                 continue
             if vid.endswith('-back'):
@@ -292,6 +293,7 @@ class ThinVolume(qubes.storage.Volume):
             self._vid_snap = self.vid + '-snap'
         if self.save_on_stop:
             self._vid_import = self.vid + '-import'
+        self._is_exporting = False
 
     @property
     def path(self):
@@ -470,13 +472,31 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=protected-access
         self.pool._volume_objects_cache.pop(self.vid, None)
 
-    async def export(self):
+    @property
+    def _vid_export(self) -> str:
+        return self.vid + '+export'
+
+    @property
+    def _path_export(self) -> str:
+        return '/dev/' + self._vid_export
+
+    async def export(self) -> str:
         ''' Returns an object that can be `open()`. '''
         # make sure the device node is available
-        cmd = ['activate', self.path]
-        await qubes_lvm_coro(cmd, self.log)
-        devpath = self.path
-        return devpath
+        vid_export = self._vid_export
+        export_path = self._path_export
+        if not os.path.exists(export_path):
+            cmd = ['clone', self._vid_current, vid_export]
+            await qubes_lvm_coro(cmd, self.log)
+        self._is_exporting = True
+        return export_path
+
+    async def export_end(self, path: str) -> None:
+        assert path == self._path_export, \
+                f'Refusing to remove incorrect path {path!r} ' \
+                f'(expected {self._path_export!r})'
+        await self._remove_if_exists(self._vid_export)
+        self._is_exporting = False
 
     @qubes.storage.Volume.locked
     async def import_volume(self, src_volume):
@@ -681,6 +701,8 @@ class ThinVolume(qubes.storage.Volume):
                 changed = await self._remove_if_exists(self._vid_snap)
             else:
                 changed = await self._remove_if_exists(self.vid)
+            if not self._is_exporting:
+                await self._remove_if_exists(self._vid_export)
         finally:
             if changed:
                 await reset_cache_coro()
