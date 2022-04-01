@@ -788,9 +788,6 @@ def _get_lvm_cmdline(cmd):
     elif action == 'extend':
         assert len(cmd) == 3, 'wrong number of arguments for extend'
         lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
-    elif action == 'activate':
-        assert len(cmd) == 2, 'wrong number of arguments for activate'
-        lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
     elif action == 'rename':
         assert len(cmd) == 3, 'wrong number of arguments for rename'
         lvm_cmd = ['lvrename', '--', cmd[1], cmd[2]]
