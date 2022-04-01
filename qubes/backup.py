@@ -630,13 +630,16 @@ class Backup:
                 path = file_info.path
                 if callable(path):
                     path = await qubes.utils.coro_maybe(path())
+                subdir = file_info.subdir
+                assert re.fullmatch('(?:dom0-home|vm[1-9][0-9]*)/', subdir), \
+                        f'bad subdir {subdir!r}'
                 tar_cmdline = (["tar", "-Pc", '--sparse',
                                 '-C', os.path.dirname(path)] +
                                (['--dereference'] if
-                               file_info.subdir != "dom0-home/" else []) +
+                               subdir != "dom0-home/" else []) +
                                ['--xform=s:^%s:%s\\0:' % (
                                    os.path.basename(path),
-                                   file_info.subdir),
+                                   subdir),
                                    os.path.basename(path)
                                ])
                 file_stat = os.stat(path)
@@ -649,14 +652,12 @@ class Backup:
                         "Renaming directories not supported"
                     tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
                         '--override-name=%s' % (
-                            os.path.join(file_info.subdir, os.path.basename(
+                            os.path.join(subdir, os.path.basename(
                                 file_info.name))),
                         path]
                 if self.compressed:
                     tar_cmdline.insert(-2,
                         "--use-compress-program=%s" % self.compression_filter)
-
-                self.log.debug(" ".join(tar_cmdline))
 
                 # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
