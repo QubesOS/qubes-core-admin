@@ -235,7 +235,7 @@ def _parse_lvm_cache(lvm_output):
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    environ={'LC_ALL': 'C.UTF-8', **os.environ}
+    environ={'LC_ALL': 'C.UTF-8', 'DM_DISABLE_UDEV': '1', **os.environ}
     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             close_fds=True, env=environ) as p:
         out, err = p.communicate()
@@ -249,7 +249,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
 
 async def init_cache_coro(log=logging.getLogger('qubes.storage.lvm')):
     cmd = _init_cache_cmd
-    environ={'LC_ALL': 'C.UTF-8', **os.environ}
+    environ={'LC_ALL': 'C.UTF-8', 'DM_DISABLE_UDEV': '1', **os.environ}
     p = await asyncio.create_subprocess_exec(*cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -776,11 +776,11 @@ def _get_lvm_cmdline(cmd):
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if os.getuid() != 0:
-        cmd = [_sudo, _lvm] + lvm_cmd
+        prefix = [_sudo, 'LC_ALL=C.UTF-8', 'DM_DISABLE_UDEV=1', '--', _lvm]
     else:
-        cmd = [_lvm] + lvm_cmd
+        prefix = [_lvm]
 
-    return cmd
+    return prefix + lvm_cmd
 
 def _process_lvm_output(returncode, stdout, stderr, log):
     '''Process output of LVM, determine if the call was successful and
