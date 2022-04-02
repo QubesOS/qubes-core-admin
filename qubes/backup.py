@@ -144,7 +144,6 @@ class SendWorker:
             # verified before untaring.
             tar_final_cmd = ["tar", "-cO", "--posix",
                              "-C", self.base_dir, filename]
-            # pylint: disable=not-an-iterable
             final_proc = await asyncio.create_subprocess_exec(
                 *tar_final_cmd,
                 stdout=self.backup_stdout)
@@ -180,7 +179,6 @@ async def launch_proc_with_pty(args, stdin=None, stdout=None,
             termios_p[3] &= ~termios.ECHO
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
     (pty_master, pty_slave) = os.openpty()
-    # pylint: disable=not-an-iterable
     p = await asyncio.create_subprocess_exec(*args,
         stdin=stdin,
         stdout=stdout,
@@ -660,7 +658,6 @@ class Backup:
 
                 # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
-                # pylint: disable=not-an-iterable
                 tar_sparse = await asyncio.create_subprocess_exec(
                     *tar_cmdline, stdout=subprocess.PIPE)
 

@@ -1413,7 +1413,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :raises qubes.exc.QubesVMError: when machine is suspended
         """
 
-        # pylint: disable=not-an-iterable
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
             if self.features.check_with_template('qrexec', False):

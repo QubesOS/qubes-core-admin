@@ -231,7 +231,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This method modifies :file:`qubes.xml` file.
         '''
         try:
-            # pylint: disable=not-an-iterable
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
             pass
