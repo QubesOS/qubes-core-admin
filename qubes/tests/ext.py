@@ -220,6 +220,12 @@ class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.mock_calls, [
             ('features.__setitem__', ('os', 'Windows'), {}),
             ('features.__setitem__', ('rpc-clipboard', True), {}),
+            ('maxmem.__setitem__', 0, {}),
+            ('qrexec_timeout.__setitem__', 6000, {}),
+            ('features.__setitem__', ('stubdom-qrexec', True), {}),
+            ('features.__setitem__', ('audio-model', 'ich6'), {}),
+            ('features.__setitem__', ('timezone', 'localtime'), {}),
+            ('features.__setitem__', ('no-monitor-layout', True), {}),
         ])
 
     def test_001_notify_tools_no_qrexec(self):
