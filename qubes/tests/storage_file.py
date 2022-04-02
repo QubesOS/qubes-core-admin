@@ -21,6 +21,7 @@
 
 import os
 import shutil
+import tempfile
 
 import unittest.mock
 
@@ -109,6 +110,21 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
                                    template=self.app.default_template,
                                    label='red')
 
+    def test010_has_any_data(self):
+        with tempfile.NamedTemporaryFile() as f:
+            f.truncate(1000000)
+            self.assertFalse(qubes.storage.file.has_any_data(f))
+            f.seek(10000)
+            f.write(b'a')
+            f.flush()
+            self.assertGreater(qubes.storage.file.bytes_used(f), 0)
+            self.assertTrue(qubes.storage.file.has_any_data(f))
+            f.truncate(0)
+            f.seek(0)
+            f.write(b'a')
+            self.assertTrue(qubes.storage.file.has_any_data(f))
+            self.assertGreater(qubes.storage.file.bytes_used(f), 0)
+
 
 class TC_01_FileVolumes(qubes.tests.QubesTestCase):
     ''' Test correct handling of different types of volumes '''
@@ -166,6 +182,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        self.assertFalse(volume.is_dirty())
         base=self.POOL_DIR + '/appvms/' + vm.name + '/root'
         os.mkdir(os.path.dirname(base))
         with open(base + '.img', 'wb'), open(base + '-cow.img', 'wb'): pass
@@ -208,9 +225,14 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.rw)
         self.assertEqual(volume.usage, 0)
         self.loop.run_until_complete(qubes.utils.coro_maybe(source.create()))
+        self.assertFalse(source.is_dirty())
         self.loop.run_until_complete(qubes.utils.coro_maybe(source.start()))
+        self.assertTrue(source.is_dirty())
         self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
+        self.assertFalse(volume.is_dirty())
         self.loop.run_until_complete(qubes.utils.coro_maybe(volume.start()))
+        # save_on_stop=False cannot be dirty
+        self.assertFalse(volume.is_dirty())
         base = self.POOL_DIR + '/vm-templates/' + template_vm.name + '/root'
         app = self.POOL_DIR + '/appvms/' + vm.name + '/root-cow.img'
         self.assertTrue(os.path.exists(base + '.img'))
