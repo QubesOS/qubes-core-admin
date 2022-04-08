@@ -411,7 +411,6 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['rename', self.vid,
                    '{}-{}-back'.format(self.vid, int(time.time()))]
             await qubes_lvm_coro(cmd, self.log)
-            await reset_cache_coro()
 
         cmd = ['clone' if keep else 'rename',
                vid_to_commit,
