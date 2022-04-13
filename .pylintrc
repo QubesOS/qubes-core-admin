@@ -21,7 +21,8 @@ disable=
   missing-docstring,
   raise-missing-from,
   star-args,
-  wrong-import-order
+  wrong-import-order,
+  consider-using-f-string
 
 [REPORTS]
 
