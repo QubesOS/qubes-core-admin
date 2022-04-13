@@ -239,6 +239,27 @@ Test package
             self.app.domains[0].features.get('updates-available', False),
             "'updates pending' flag not cleared")
 
+    def test_001_update_check(self):
+        """ Check if dom0 updates check works
+        """
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
+        subprocess.check_call(['rpm', '-i', filename])
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '2.0')
+        self.send_pkg(filename)
+        # check if disabling updates check is respected
+        self.app.domains[0].features['service.qubes-update-check'] = False
+        proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            '/etc/cron.daily/qubes-dom0-updates.cron'))
+        self.loop.run_until_complete(proc.communicate())
+        self.assertFalse(self.app.domains[0].features.get('updates-available', False))
+
+        # re-enable updates check and try again
+        del self.app.domains[0].features['service.qubes-update-check']
+        proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            '/etc/cron.daily/qubes-dom0-updates.cron'))
+        self.loop.run_until_complete(proc.communicate())
+        self.assertTrue(self.app.domains[0].features.get('updates-available', False))
+
     def test_005_update_flag_clear(self):
         """Check if 'updates pending' flag is cleared"""
 
