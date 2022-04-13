@@ -1419,7 +1419,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         profile_path = os.path.join(
             qubes.config.backup_profile_dir, profile_name + '.conf')
 
-        with open(profile_path) as profile_file:
+        with open(profile_path, encoding='utf-8') as profile_file:
             profile_data = yaml.safe_load(profile_file)
 
         try:

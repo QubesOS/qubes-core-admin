@@ -340,8 +340,8 @@ class ReflinkVolume(qubes.storage.Volume):
     @qubes.storage.Volume.locked
     async def import_volume(self, src_volume):
         if self.save_on_stop:
+            success = False
             try:
-                success = False
                 src_path = await qubes.utils.coro_maybe(src_volume.export())
                 try:
                     await _coroutinized(_copy_file)(src_path, self._path_import)

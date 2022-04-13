@@ -1079,7 +1079,8 @@ class DirectoryThinPool:
                 if target_type == "thin":
                     thin_pool_devnum, _thin_pool_id = target_args.split(" ")
                     with open("/sys/dev/block/{}/dm/name"
-                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                            .format(thin_pool_devnum), "r", encoding='ascii') \
+                            as thin_pool_tpool_f:
                         thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
                     if thin_pool_tpool.endswith("-tpool"):
                         # LVM replaces '-' by '--' if name contains

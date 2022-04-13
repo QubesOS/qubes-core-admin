@@ -308,7 +308,7 @@ class QubesHost:
         if self._cpu_family is None or self._cpu_model is None:
             family = None
             model = None
-            with open('/proc/cpuinfo') as cpuinfo:
+            with open('/proc/cpuinfo', encoding='ascii') as cpuinfo:
                 for line in cpuinfo.readlines():
                     line = line.strip()
                     if not line:
@@ -426,7 +426,7 @@ class VMCollection:
 
     def __init__(self, app):
         self.app = app
-        self._dict = dict()
+        self._dict = {}
 
     def close(self):
         del self.app
@@ -1338,7 +1338,7 @@ class Qubes(qubes.PropertyHolder):
     async def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""
 
-        if name in self.pools.keys():
+        if name in self.pools:
             raise qubes.exc.QubesException('pool named %s already exists \n' %
                                            name)
 

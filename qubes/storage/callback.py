@@ -201,7 +201,7 @@ class CallbackPool(qubes.storage.Pool):
         self._cb_conf_id = conf_id #: Configuration ID as passed to `__init__()`.
 
         config_path = '/etc/qubes_callback.json'
-        with open(config_path) as json_file:
+        with open(config_path, encoding='utf-8') as json_file:
             conf_all = json.load(json_file)
         if not isinstance(conf_all, dict):
             raise qubes.storage.StoragePoolException('The file %s is supposed to define a dict.' % config_path)

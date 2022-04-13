@@ -110,7 +110,7 @@ class BackupHeader:
         self.backup_id = backup_id
 
     def save(self, filename):
-        with open(filename, "w") as f_header:
+        with open(filename, "w", encoding='ascii') as f_header:
             # make sure 'version' is the first key
             f_header.write('version={}\n'.format(self.version))
             for key, attr in self.header_keys.items():

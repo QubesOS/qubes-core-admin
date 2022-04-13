@@ -573,7 +573,7 @@ class PropertyHolder(qubes.events.Emitter):
         memo = cls._property_dict
 
         if load_stage not in memo:
-            props = dict()
+            props = {}
             if load_stage is None:
                 for class_ in cls.__mro__:
                     for name, prop in class_.__dict__.items():

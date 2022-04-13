@@ -227,7 +227,7 @@ def _default_kernelopts(self):
             pass
         path = os.path.join(kernels_dir, 'default-kernelopts-nopci.txt')
     if os.path.exists(path):
-        with open(path) as f_kernelopts:
+        with open(path, encoding='ascii') as f_kernelopts:
             return f_kernelopts.read().strip()
     else:
         return (qubes.config.defaults['kernelopts_pcidevs'] if pci else
@@ -1780,6 +1780,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.storage = qubes.storage.Storage(self)
         await self.storage.clone(src)
         await self.storage.verify()
+        # pylint: disable=use-implicit-booleaness-not-comparison
         assert self.volumes != {}
 
         # fire hooks
@@ -2151,7 +2152,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         kernelopts_path = os.path.join(kernels_dir,
                                        'default-kernelopts-common.txt')
         if os.path.exists(kernelopts_path):
-            with open(kernelopts_path) as f_kernelopts:
+            with open(kernelopts_path, encoding='ascii') as f_kernelopts:
                 return f_kernelopts.read().rstrip('\n\r')
         else:
             return qubes.config.defaults['kernelopts_common']

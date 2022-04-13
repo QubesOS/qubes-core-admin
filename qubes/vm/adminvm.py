@@ -154,7 +154,7 @@ class AdminVM(qubes.vm.BaseVM):
         '''
 
         # return psutil.virtual_memory().total/1024
-        with open('/proc/meminfo') as file:
+        with open('/proc/meminfo', encoding='ascii') as file:
             for line in file:
                 if line.startswith('MemTotal:'):
                     return int(line.split(':')[1].strip().split()[0])

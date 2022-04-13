@@ -446,6 +446,7 @@ def parse_event(env, sig, signode):
 def break_to_pdb(app, *_dummy):
     if not app.config.break_to_pdb:
         return
+    # pylint: disable=forgotten-debug-statement
     import pdb
     pdb.set_trace()
 
