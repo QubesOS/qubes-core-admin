@@ -521,7 +521,7 @@ admin.vm.Shutdown * {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.Kill * {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.volume.List + {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.volume.Info +root {vm} @tag:created-by-{vm} allow target=dom0
-admin.vm.volume.Import +root {vm} @tag:created-by-{vm} allow target=dom0
+admin.vm.volume.ImportWithSize +root {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.volume.Resize +root {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.volume.Clear +private {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.List + {vm} @adminvm allow
