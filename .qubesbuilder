@@ -1,0 +1,4 @@
+host:
+  rpm:
+    spec:
+    - rpm_spec/core-dom0.spec
