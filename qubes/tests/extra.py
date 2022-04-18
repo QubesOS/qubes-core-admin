@@ -179,20 +179,26 @@ class ExtraTestCase(qubes.tests.SystemTestCase):
         """
         self.init_networking()
 
-    def qrexec_policy(self, service, source, destination, allow=True):
+    def qrexec_policy(self, service, source, destination, allow=True,
+                      target=None):
         """
         Allow qrexec calls for duration of the test
         :param service: service name
         :param source: source VM name
         :param destination: destination VM name
+        :param allow: whether allow the call
+        :param target: redirect call to this target
         :return:
         """
 
         def add_remove_rule(add=True):
             with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
                 policy_rules = policy.readlines()
-                rule = "{} {} {}\n".format(source, destination,
-                                              'allow' if allow else 'deny')
+                rule = "{} {} {}{}\n".format(
+                    source, destination,
+                    'allow' if allow else 'deny',
+                    ' target={}'.format(target) if target else ''
+                )
                 if add:
                     policy_rules.insert(0, rule)
                 else:
