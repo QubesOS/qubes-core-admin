@@ -485,7 +485,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             'zenity --text-info --editable --title={}'.format(window_title)))
 
         self.wait_for_window(window_title)
-        time.sleep(0.5)
+        time.sleep(1.5)
         test_string = "test{}".format(testvm1.xid)
 
         # Type and copy some text
