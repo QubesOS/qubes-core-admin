@@ -830,6 +830,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -885,6 +887,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -950,6 +954,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1018,6 +1024,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
@@ -1086,6 +1094,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
@@ -1155,6 +1165,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1234,6 +1246,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1313,6 +1327,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1413,6 +1429,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
@@ -1485,6 +1503,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
             <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
