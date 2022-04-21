@@ -269,7 +269,7 @@ class BaseVM(qubes.PropertyHolder):
             for node in parent.xpath('./device'):
                 options = {}
                 for option in node.xpath('./option'):
-                    options[option.get('name')] = option.text
+                    options[option.get('name')] = str(option.text)
 
                 try:
                     device_assignment = qubes.devices.DeviceAssignment(
