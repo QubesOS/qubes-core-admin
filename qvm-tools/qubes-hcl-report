@@ -157,6 +157,7 @@ if [[ $PCRS ]]
   then
     # try tu run tcsd and: grep the logs, try get version info.
     TPM="Device present"
+    TPM_s="Device Present but unidentified"
   else
     TPM="Device not found"
     TPM_s="unknown"
