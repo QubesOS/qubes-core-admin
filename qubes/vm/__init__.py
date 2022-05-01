@@ -485,10 +485,11 @@ class VMProperty(qubes.property):
             raise qubes.exc.QubesVMNotFoundError(value)
 
         if not isinstance(vm, self.vmclass):
-            raise TypeError('wrong VM class: domains[{!r}] is of type {!s} '
-                'and not {!s}'.format(value,
-                    vm.__class__.__name__,
-                    self.vmclass.__name__))
+            raise qubes.exc.QubesPropertyValueError(instance, self, value,
+                    'wrong VM class: domains[{!r}] is of type {!s} '
+                    'and not {!s}'.format(value,
+                        vm.__class__.__name__,
+                        self.vmclass.__name__))
 
         super().__set__(instance, vm)
 
