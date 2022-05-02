@@ -391,6 +391,8 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
 
     def setUp(self):
         super(TC_03_QvmRevertTemplateChanges, self).setUp()
+        if self.app.default_pool.driver == 'file':
+            self.skipTest('file pool does not support reverting')
         self.init_default_template()
 
     def cleanup_template(self):
