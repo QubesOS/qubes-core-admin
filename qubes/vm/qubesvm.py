@@ -1385,14 +1385,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
 
-        if list(self.devices['pci'].attached()):
-            if self.features.check_with_template('qrexec', False):
-                await self.run_service_for_stdio('qubes.SuspendPre',
-                                                      user='root')
-            self.libvirt_domain.pMSuspendForDuration(
-                libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
-        else:
-            self.libvirt_domain.suspend()
+        if self.features.check_with_template('qrexec', False):
+            await self.run_service_for_stdio('qubes.SuspendPre',
+                                                  user='root')
+        self.libvirt_domain.pMSuspendForDuration(
+            libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
 
         return self
 
