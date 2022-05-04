@@ -51,13 +51,14 @@ class WindowsFeatures(qubes.ext.Extension):
             vm.features['rpc-clipboard'] = True
             setattr(vm, 'maxmem', 0)
             setattr(vm, 'qrexec_timeout', 6000)
-            if not vm.features.check_with_template('stubdom-qrexec', False):
+            if vm.features.check_with_template('stubdom-qrexec', None) is None:
                 vm.features['stubdom-qrexec'] = True
-            if not vm.features.check_with_template('audio-model', False):
+            if vm.features.check_with_template('audio-model', None) is None:
                 vm.features['audio-model'] = 'ich6'
-            if not vm.features.check_with_template('timezone', False):
+            if vm.features.check_with_template('timezone', None) is None:
                 vm.features['timezone'] = 'localtime'
-            if not vm.features.check_with_template('no-monitor-layout', False):
+            if vm.features.check_with_template('no-monitor-layout',
+                                               None) is None:
                 vm.features['no-monitor-layout'] = True
 
     @qubes.ext.handler('domain-create-on-disk')
