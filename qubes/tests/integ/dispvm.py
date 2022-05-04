@@ -414,6 +414,7 @@ class TC_20_DispVMMixin(object):
 
         self.testvm1.features['service.app-dispvm.' + app_id] = '1'
         self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
 
@@ -430,6 +431,8 @@ class TC_20_DispVMMixin(object):
 
         app = self.loop.run_until_complete(
             self.testvm1.run_service("qubes.StartApp+" + app_id))
+        # give application a bit of time to start
+        self.loop.run_until_complete(asyncio.sleep(3))
 
         try:
             click_to_open = self.loop.run_until_complete(

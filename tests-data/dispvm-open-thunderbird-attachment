@@ -62,10 +62,18 @@ def skip_autoconf(tb):
 
 def skip_autoconf2(tb):
     try:
-        wizard = tb.dialog('Account Wizard')
+        # depending on TB/GTK version, it can be either 'frame' or 'dialog'
+        wizard = tb.child(name='Account Wizard')
         time.sleep(3)
         wizard.button('Cancel').doActionNamed('press')
-        confirm = tb.child(name='Account Wizard', roleName='frame')
+        # wait for the confirmation prompt to appear - cannot do just search,
+        # because there might be 'Account Wizard' frame already (see above)
+        time.sleep(3)
+        # if previous dialog was 'frame', then we have two 'frame' widgets with
+        # the same name now, choose the newer one
+        confirm = tb.findChildren(
+            lambda w: w.name == 'Account Wizard' and w.roleName == 'frame',
+            recursive=False)[-1]
         confirm.button('Exit').doActionNamed('press')
     except tree.SearchError:
         pass
