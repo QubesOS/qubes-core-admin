@@ -70,6 +70,11 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.block.Detach \
 	admin.vm.device.block.List \
 	admin.vm.device.block.Set.persistent \
+	admin.vm.device.usb.Attach \
+	admin.vm.device.usb.Available \
+	admin.vm.device.usb.Detach \
+	admin.vm.device.usb.List \
+	admin.vm.device.usb.Set.persistent \
 	admin.vm.device.mic.Attach \
 	admin.vm.device.mic.Available \
 	admin.vm.device.mic.Detach \
