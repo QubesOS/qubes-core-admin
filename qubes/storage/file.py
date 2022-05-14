@@ -340,13 +340,6 @@ class FileVolume(qubes.storage.Volume):
                   'the template instead'
             raise qubes.storage.StoragePoolException(msg)
 
-        if size < self.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of %s is'
-                ' disabled. If you really know what you'
-                ' are doing, use `truncate` on %s manually.' %
-                (self.name, self.vid))
-
         with open(self.path, 'a+b') as fd:
             fd.truncate(size)
 
