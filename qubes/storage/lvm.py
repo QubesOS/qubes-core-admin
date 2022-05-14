@@ -607,25 +607,18 @@ class ThinVolume(qubes.storage.Volume):
             msg = 'Can not resize reađonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)
 
-        if size < self.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of %s is'
-                ' disabled (%d < %d). If you really know what you'
-                ' are doing, use `lvresize` on %s manually.' %
-                (self.name, size, self.size, self.vid))
-
         if size == self.size:
             return
 
         if self.is_dirty() or self.snap_on_start:
-            cmd = ['extend', self._vid_snap, str(size)]
+            cmd = ['resize', self._vid_snap, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, '_vid_import') and \
                 os.path.exists('/dev/' + self._vid_import):
-            cmd = ['extend', self._vid_import, str(size)]
+            cmd = ['resize', self._vid_import, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif self.save_on_stop and not self.snap_on_start:
-            cmd = ['extend', self._vid_current, str(size)]
+            cmd = ['resize', self._vid_current, str(size)]
             await qubes_lvm_coro(cmd, self.log)
 
         self._size = size
@@ -764,9 +757,9 @@ def _get_lvm_cmdline(cmd):
         lvm_cmd = ['lvcreate', '--thin', '--setactivationskip=n',
                    '--activate=y', '--name=' + cmd[2],
                    '--virtualsize=' + cmd[3] + 'B', '--', cmd[1]]
-    elif action == 'extend':
+    elif action == 'resize':
         assert len(cmd) == 3, 'wrong number of arguments for extend'
-        lvm_cmd = ["lvextend", "--size=" + cmd[2] + 'B', '--', cmd[1]]
+        lvm_cmd = ["lvresize", "--force", "--size=" + cmd[2] + 'B', '--', cmd[1]]
     elif action == 'activate':
         assert len(cmd) == 2, 'wrong number of arguments for activate'
         lvm_cmd = ['lvchange', '--activate=y', '--', cmd[1]]
