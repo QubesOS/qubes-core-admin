@@ -29,6 +29,7 @@ import asyncio
 import qubes
 import qubes.storage
 import qubes.utils
+import json
 
 _sudo, _dd, _lvm = 'sudo', 'dd', 'lvm'
 
@@ -206,19 +207,24 @@ class ThinPool(qubes.storage.Pool):
 
 _init_cache_cmd = [_lvm, 'lvs', '--noheadings', '-o',
    'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,'
-   'metadata_percent', '--units', 'b', '--separator', ';']
+   'metadata_percent', '--units', 'b', '--reportformat=json']
 if os.getuid() != 0:
     _init_cache_cmd.insert(0, _sudo)
 
 def _parse_lvm_cache(lvm_output):
+    # Assume that LVM produces correct JSON.
+    out_list = json.loads(lvm_output)["report"][0]["lv"]
     result = {}
-
-    for line in lvm_output.splitlines():
-        line = line.decode().strip()
-        pool_name, pool_lv, name, size, usage_percent, attr, \
-            origin, metadata_size, metadata_percent = line.split(';', 8)
+    for row in out_list:
+        try:
+            pool_name, name = row['vg_name'], row['lv_name']
+            size, usage_percent = row['lv_size'], row['data_percent']
+        except KeyError:
+            continue
         if '' in [pool_name, name, size, usage_percent]:
             continue
+        pool_lv, attr, origin = row['pool_lv'], row['lv_attr'], row['origin']
+        metadata_size, metadata_percent = row['lv_metadata_size'], row['metadata_percent']
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
         usage = int(size / 100 * float(usage_percent))
