@@ -224,7 +224,8 @@ def _parse_lvm_cache(lvm_output):
         if '' in [pool_name, name, size, usage_percent]:
             continue
         pool_lv, attr, origin = row['pool_lv'], row['lv_attr'], row['origin']
-        metadata_size, metadata_percent = row['lv_metadata_size'], row['metadata_percent']
+        metadata_size = row['lv_metadata_size']
+        metadata_percent = row['metadata_percent']
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
         usage = int(size / 100 * float(usage_percent))
