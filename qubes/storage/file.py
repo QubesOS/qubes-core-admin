@@ -324,10 +324,21 @@ class FileVolume(qubes.storage.Volume):
         # and make it active
         subprocess.check_call(['dmsetup', 'resume', path])
 
-    def resize(self, size):  # pylint: disable=invalid-overridden-method
-        ''' Expands volume, throws
+    def extnd(self, size):  # pylint: disable=invalid-overridden-method
+        ''' Extends volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
             given size is less than current_size
+        '''  # pylint: disable=no-self-use
+        if size < self.size:
+            raise qubes.storage.StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled (%d < %d). If you really know what you'
+                ' are doing, use `lvresize` on %s manually.' %
+                (self.name, size, self.size, self.vid))
+        self.resize(size)
+
+    def resize(self, size):  # pylint: disable=invalid-overridden-method
+        ''' Resizes volume
         '''  # pylint: disable=no-self-use
         if not self.rw:
             msg = 'Can not resize reađonly volume {!s}'.format(self)

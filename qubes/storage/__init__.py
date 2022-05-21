@@ -355,10 +355,20 @@ class Volume:
         '''
         raise self._not_implemented("is_outdated")
 
-    async def resize(self, size):
-        ''' Expands volume, throws
+    async def extend(self, size):
+        ''' Extends volume, throws
             :py:class:`qubes.storage.StoragePoolException` if
             given size is less than current_size
+
+            This can be implemented as a coroutine.
+
+            :param int size: new size in bytes
+        '''
+        # pylint: disable=unused-argument
+        raise self._not_implemented("extend")
+
+    async def resize(self, size):
+        ''' Resizes volume
 
             This can be implemented as a coroutine.
 
