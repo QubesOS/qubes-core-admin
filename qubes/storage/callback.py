@@ -454,10 +454,10 @@ class CallbackVolume(qubes.storage.Volume):
         await self._callback('post_volume_remove')
         return ret
 
-    async def resize(self, size):
+    async def resize(self, size, allow_shrink=False):
         await self._assert_initialized()
         await self._callback('pre_volume_resize', cb_args=[size])
-        return await coro_maybe(self._cb_impl.resize(size))
+        return await coro_maybe(self._cb_impl.resize(size, allow_shrink))
 
     async def start(self):
         await self._assert_initialized()
