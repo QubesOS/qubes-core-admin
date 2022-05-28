@@ -296,10 +296,20 @@ class ReflinkVolume(qubes.storage.Volume):
 
     @qubes.storage.Volume.locked
     @_coroutinized
-    def resize(self, size):  # pylint: disable=invalid-overridden-method
+    def resize(self, size, allow_shrink=False):  \
+        # pylint: disable=invalid-overridden-method
         ''' Resize a read-write volume; notify any corresponding loop
-            devices of the size change.
+            devices of the size change; throw
+            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
+            given size is less than current size and allow_shrink is not True
         '''
+        if size < self._size and not allow_shrink:
+            raise qubes.storage.StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled. If you really know what you'
+                ' are doing, use `truncate` on %s manually.' %
+                (self.name, self.vid))
+
         if not self.rw:
             raise qubes.storage.StoragePoolException(
                 'Cannot resize: {} is read-only'.format(self.vid))
