@@ -16,7 +16,7 @@ loading from XML file.
 
 The loading from XML is done in stages, because Qubes domains are dependent on
 each other in what can be even a circular dependency. Therefore some properties
-(especcialy those that refer to another domains) are loaded later.
+(especialy those that refer to another domains) are loaded later.
 
 .. image:: loading.svg
 
