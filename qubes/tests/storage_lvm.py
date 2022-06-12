@@ -255,6 +255,12 @@ class TC_00_ThinPool(ThinPoolBase):
         self.loop.run_until_complete(volume.resize(new_size))
         self.assertEqual(self._get_size(path), new_size)
         self.assertEqual(volume.size, new_size)
+        self.loop.run_until_complete(volume.resize(new_size/4))
+        self.assertEqual(self._get_size(path), new_size)
+        self.assertEqual(volume.size, new_size)
+        self.loop.run_until_complete(volume.resize(new_size/4, True))
+        self.assertEqual(self._get_size(path), new_size/4)
+        self.assertEqual(volume.size, new_size/4)
 
     def test_007_resize_running(self):
         old_size = 32 * 1024**2

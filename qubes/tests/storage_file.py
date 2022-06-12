@@ -462,6 +462,14 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
             qubes.utils.coro_maybe(volume.resize(new_size)))
         self.assertEqual(os.path.getsize(volume.path), new_size)
         self.assertEqual(volume.size, new_size)
+        self.loop.run_until_complete(
+            qubes.utils.coro_maybe(volume.resize(new_size)))
+        self.assertEqual(os.path.getsize(volume.path), new_size/4)
+        self.assertEqual(volume.size, new_size)
+        self.loop.run_until_complete(
+            qubes.utils.coro_maybe(volume.resize(new_size/4, True)))
+        self.assertEqual(os.path.getsize(volume.path), new_size/4)
+        self.assertEqual(volume.size, new_size)
 
     def test_024_import_data_with_new_size(self):
         config = {

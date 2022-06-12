@@ -355,14 +355,17 @@ class Volume:
         '''
         raise self._not_implemented("is_outdated")
 
-    async def resize(self, size):
-        ''' Expands volume, throws
+    async def resize(self, size, allow_shrink=False):
+        ''' Resizes volume, throws
             :py:class:`qubes.storage.StoragePoolException` if
-            given size is less than current_size
+            given size is less than current_size and allow_shrink
+            is not True
 
             This can be implemented as a coroutine.
 
             :param int size: new size in bytes
+            :param bool allow_shrink: if shrinking volume is allowed. \
+                False by default.
         '''
         # pylint: disable=unused-argument
         raise self._not_implemented("resize")
