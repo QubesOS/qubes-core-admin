@@ -25,7 +25,7 @@ class CoreFeatures(qubes.ext.Extension):
     @qubes.ext.handler('features-request')
     async def qubes_features_request(self, vm, event, untrusted_features):
         '''Handle features provided by qubes-core-agent and qubes-gui-agent'''
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
         if getattr(vm, 'template', None):
             vm.log.warning(
                 'Ignoring qubes.NotifyTools for template-based VM')
@@ -61,7 +61,6 @@ class CoreFeatures(qubes.ext.Extension):
             #  template setup
             await vm.fire_event_async('template-postinstall')
 
-    # pylint: disable=no-self-use
     def set_servicevm_feature(self, subject):
         if getattr(subject, 'provides_network', False):
             subject.features['servicevm'] = 1

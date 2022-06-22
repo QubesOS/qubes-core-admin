@@ -114,7 +114,6 @@ class LinuxModules(Volume):
 
     @revisions_to_keep.setter
     def revisions_to_keep(self, value):
-        # pylint: disable=no-self-use
         if value:
             raise qubes.exc.QubesValueError(
                 'LinuxModules supports only revisions_to_keep=0')
@@ -125,7 +124,6 @@ class LinuxModules(Volume):
 
     @rw.setter
     def rw(self, value):
-        # pylint: disable=no-self-use
         if value:
             raise qubes.exc.QubesValueError(
                 'LinuxModules supports only read-only volumes')
@@ -198,7 +196,6 @@ class LinuxKernel(Pool):
 
     @revisions_to_keep.setter
     def revisions_to_keep(self, value):
-        # pylint: disable=no-self-use
         if value:
             raise qubes.exc.QubesValueError(
                 'LinuxKernel supports only revisions_to_keep=0')

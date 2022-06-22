@@ -1528,7 +1528,7 @@ class Qubes(qubes.PropertyHolder):
 
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if newvalue is None:
             return
         if 'service.clocksync' not in newvalue.features:
@@ -1536,7 +1536,7 @@ class Qubes(qubes.PropertyHolder):
 
     @qubes.events.handler('property-set:clockvm')
     def on_property_set_clockvm(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if oldvalue == newvalue:
             return
         if oldvalue and oldvalue.features.get('service.clocksync', False):

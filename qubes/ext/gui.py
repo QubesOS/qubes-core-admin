@@ -28,7 +28,7 @@ import qubes.exc
 
 
 class GUI(qubes.ext.Extension):
-    # pylint: disable=too-few-public-methods,unused-argument,no-self-use
+    # pylint: disable=too-few-public-methods,unused-argument
     @staticmethod
     def attached_vms(vm):
         for domain in vm.app.domains:
@@ -145,7 +145,7 @@ class GUI(qubes.ext.Extension):
         '''Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
            features
         '''
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         created_by = vm.app.domains[tag.partition('created-by-')[2]]
         if created_by.features.get('set-created-guivm', None):
             guivm = vm.app.domains[created_by.features['set-created-guivm']]

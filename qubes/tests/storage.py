@@ -60,11 +60,9 @@ class TestVM(object):
             self.template = template
 
     def is_template(self):
-        # :pylint: disable=no-self-use
         return False
 
     def is_disposablevm(self):
-        # :pylint: disable=no-self-use
         return False
 
 

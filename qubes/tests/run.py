@@ -50,7 +50,7 @@ class CursesColor(dict):
 
 
     def __missing__(self, key):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not self.has_colors:
             return ''
 
@@ -233,7 +233,6 @@ class QubesTestResult(unittest.TestResult):
 def demo(verbosity=2):
     class TC_00_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
-        # pylint: disable=no-self-use
         def test_0_success(self):
             '''Demo test (success)'''
             pass

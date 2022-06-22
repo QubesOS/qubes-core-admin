@@ -26,7 +26,7 @@ class WindowsFeatures(qubes.ext.Extension):
     @qubes.ext.handler('features-request')
     def qubes_features_request(self, vm, event, untrusted_features):
         '''Handle features provided requested by Qubes Windows Tools'''
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
         if getattr(vm, 'template', None):
             vm.log.warning(
                 'Ignoring qubes.NotifyTools for template-based VM')
@@ -63,7 +63,7 @@ class WindowsFeatures(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-create-on-disk')
     async def on_domain_create_on_disk(self, vm, _event, **kwargs):
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
         if getattr(vm, 'template', None) is None:
             # handle only template-based vms
             return

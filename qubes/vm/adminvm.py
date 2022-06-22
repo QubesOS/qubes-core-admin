@@ -100,7 +100,7 @@ class AdminVM(qubes.vm.BaseVM):
         return 0
 
     @qubes.stateless_property
-    def icon(self): # pylint: disable=no-self-use
+    def icon(self):
         """freedesktop icon name, suitable for use in
         :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
         return 'adminvm-black'
@@ -192,7 +192,7 @@ class AdminVM(qubes.vm.BaseVM):
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.verify_files`
-        '''  # pylint: disable=no-self-use
+        '''
         return True
 
     def start(self, start_guid=True, notify_function=None,

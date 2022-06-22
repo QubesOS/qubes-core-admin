@@ -33,7 +33,7 @@ class BackupRestoreExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-pre-start')
     def on_domain_pre_start(self, vm, event, **kwargs):
         """Prevent starting a VM during restore"""
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if 'backup-restore-in-progress' in vm.tags:
             raise qubes.exc.QubesVMError(
                 vm, 'Restore of this domain in progress, cannot start')

@@ -33,7 +33,7 @@ class SupportedFeaturesExtension(qubes.ext.Extension):
     @qubes.ext.handler('features-request')
     def supported_features(self, vm, event, untrusted_features):
         """Handle advertisement of supported features"""
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
 
         if getattr(vm, 'template', None):
             vm.log.warning(

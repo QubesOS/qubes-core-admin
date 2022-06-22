@@ -54,7 +54,6 @@ class ServicesExtension(qubes.ext.Extension):
             vm.log.warning("Cannot write to {}".format(
                 qubes.config.system_path['dom0_services_dir']))
 
-    # pylint: disable=no-self-use
     @qubes.ext.handler('domain-qdb-create')
     def on_domain_qdb_create(self, vm, event):
         """Actually export features"""
@@ -124,7 +123,7 @@ class ServicesExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-load')
     def on_domain_load(self, vm, event):
         """Migrate meminfo-writer service into maxmem"""
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
         if 'service.meminfo-writer' in vm.features:
             # if was set to false, force maxmem=0
             # otherwise, simply ignore as the default is fine
@@ -145,7 +144,7 @@ class ServicesExtension(qubes.ext.Extension):
     @qubes.ext.handler('features-request')
     def supported_services(self, vm, event, untrusted_features):
         """Handle advertisement of supported services"""
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
 
         if getattr(vm, 'template', None):
             vm.log.warning(

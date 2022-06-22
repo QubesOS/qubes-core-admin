@@ -177,7 +177,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-list:pci')
     def on_device_list_pci(self, vm, event):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         # only dom0 expose PCI devices
         if vm.qid != 0:
             return
@@ -192,13 +192,13 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-get:pci')
     def on_device_get_pci(self, vm, event, ident):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.app.vmm.offline_mode:
             yield _cache_get(vm, ident)
 
     @qubes.ext.handler('device-list-attached:pci')
     def on_device_list_attached(self, vm, event, **kwargs):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.is_running() or isinstance(vm, qubes.vm.adminvm.AdminVM):
             return
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
@@ -249,7 +249,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-pre-detach:pci')
     def on_device_pre_detached_pci(self, vm, event, device):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.is_running():
             return
 
@@ -318,7 +318,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('qubes-close', system=True)
     def on_app_close(self, app, event):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         _cache_get.cache_clear()
 
 

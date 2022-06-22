@@ -512,21 +512,21 @@ class NetVMMixin(qubes.events.Emitter):
     @qubes.events.handler('feature-pre-set:net.fake-ip')
     def on_feature_pre_set_net_fake_ip(self, event, name, newvalue,
                                        oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         # format validation
         ipaddress.IPv4Address(newvalue)
 
     @qubes.events.handler('feature-pre-set:net.fake-gateway')
     def on_feature_pre_set_net_fake_gw(self, event, name, newvalue,
                                        oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         # format validation
         ipaddress.IPv4Address(newvalue)
 
     @qubes.events.handler('feature-pre-set:net.fake-netmask')
     def on_feature_pre_set_net_fake_nm(self, event, name, newvalue,
                                        oldvalue=None):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         # format validation
         if not newvalue.isdigit():
             ipaddress.IPv4Address(newvalue)

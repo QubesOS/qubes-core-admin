@@ -49,7 +49,7 @@ class AdminExtension(qubes.ext.Extension):
         'admin-permission:admin.vm.tag.Remove')
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
         '''Forbid changing specific tags'''
-        # pylint: disable=no-self-use,unused-argument
+        # pylint: disable=unused-argument
         if arg.startswith('created-by-') and \
                 not isinstance(vm, qubes.vm.adminvm.AdminVM):
             raise qubes.api.PermissionDenied(
@@ -146,7 +146,7 @@ class AdminExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-tag-add:created-by-*')
     def on_tag_add(self, vm, event, tag, **kwargs):
         '''Add extra tags based on creators 'tag-created-vm-with' feature'''
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         created_by = vm.app.domains[tag.partition('created-by-')[2]]
         tag_with = created_by.features.get('tag-created-vm-with', '')
         for tag_with_single in tag_with.split():

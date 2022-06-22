@@ -236,7 +236,6 @@ class OptionsCheckVisitor(docutils.nodes.SparseNodeVisitor):
 
     def visit_desc(self, node):
         """ Skips all but 'option' elements """
-        # pylint: disable=no-self-use
         if not node.get('desctype', None) == 'option':
             raise docutils.nodes.SkipChildren
 
@@ -287,7 +286,6 @@ class CommandCheckVisitor(docutils.nodes.SparseNodeVisitor):
             Uses :py:class:`OptionsCheckVisitor` for checking
             sub-commands options
         """
-        # pylint: disable=no-self-use
         title = str(node[0][0])
         if title.upper() == SUBCOMMANDS_TITLE:
             return

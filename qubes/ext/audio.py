@@ -21,7 +21,7 @@ import qubes.config
 import qubes.ext
 
 class AUDIO(qubes.ext.Extension):
-    # pylint: disable=unused-argument,no-self-use
+    # pylint: disable=unused-argument
     @staticmethod
     def attached_vms(vm):
         for domain in vm.app.domains:

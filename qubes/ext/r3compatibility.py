@@ -79,7 +79,6 @@ class R3Compatibility(qubes.ext.Extension):
             self.write_iptables_qubesdb_entry(vm.netvm)
 
     def write_iptables_qubesdb_entry(self, firewallvm):
-        # pylint: disable=no-self-use
         # skip compatibility rules if new format support is advertised
         if firewallvm.features.check_with_template('qubes-firewall', False):
             return

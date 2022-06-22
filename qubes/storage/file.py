@@ -328,7 +328,7 @@ class FileVolume(qubes.storage.Volume):
         ''' Expands volume, throws
             :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
             given size is less than current_size
-        '''  # pylint: disable=no-self-use
+        '''
         if not self.rw:
             msg = 'Can not resize reađonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)

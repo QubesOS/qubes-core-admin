@@ -113,17 +113,16 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         '''Initialize watching for changes'''
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         vm.watch_qdb_path('/qubes-block-devices')
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
         '''A change in QubesDB means a change in device list'''
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         vm.fire_event('device-list-change:block')
 
     def device_get(self, vm, ident):
-        # pylint: disable=no-self-use
         '''Read information about device from QubesDB
 
         :param vm: backend VM object
@@ -138,7 +137,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-list:block')
     def on_device_list_block(self, vm, event):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
 
         if not vm.is_running():
             return
@@ -160,7 +159,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-get:block')
     def on_device_get_block(self, vm, event, ident):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.is_running():
             return
         if not vm.app.vmm.offline_mode:
@@ -170,7 +169,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-list-attached:block')
     def on_device_list_attached(self, vm, event, **kwargs):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.is_running():
             return
 
@@ -223,7 +222,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
             yield (BlockDevice(backend_domain, ident), options)
 
     def find_unused_frontend(self, vm, devtype='disk'):
-        # pylint: disable=no-self-use
         '''Find unused block frontend device node for <target dev=.../>
         parameter'''
         assert vm.is_running()
@@ -287,7 +285,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('device-pre-detach:block')
     def on_device_pre_detached_block(self, vm, event, device):
-        # pylint: disable=unused-argument,no-self-use
+        # pylint: disable=unused-argument
         if not vm.is_running():
             return
 
