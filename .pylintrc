@@ -7,8 +7,6 @@ ignore=tests
 # deprecated-method:
 #   enable again after disabling py-3.4.3 asyncio.ensure_future compat hack
 disable=
-  abstract-class-little-used,
-  bad-continuation,
   cyclic-import,
   deprecated-method,
   duplicate-code,
@@ -16,11 +14,9 @@ disable=
   fixme,
   import-outside-toplevel,
   locally-disabled,
-  locally-enabled,
   logging-format-interpolation,
   missing-docstring,
   raise-missing-from,
-  star-args,
   wrong-import-order,
   consider-using-f-string
 
