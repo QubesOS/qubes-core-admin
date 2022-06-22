@@ -48,6 +48,7 @@ generated-members=
 [BASIC]
 
 # List of builtins function names that should not be used, separated by a comma
+load-plugins=pylint.extensions.bad_builtin
 bad-functions=apply,input
 
 # Regular expression which should only match correct module names
