@@ -255,7 +255,7 @@ def main():
 
     log = logging.getLogger('qmemman.daemon')
 
-    config = configparser.SafeConfigParser({
+    config = configparser.ConfigParser({
             'vm-min-mem': str(qubes.qmemman.algo.MIN_PREFMEM),
             'dom0-mem-boost': str(qubes.qmemman.algo.DOM0_MEM_BOOST),
             'cache-margin-factor': str(qubes.qmemman.algo.CACHE_FACTOR)
