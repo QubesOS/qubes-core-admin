@@ -252,7 +252,8 @@ class TC_20_DispVMMixin(object):
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
         if "gedit" in window_title or 'KWrite' in window_title or \
-                'Mousepad' in window_title or 'Geany' in window_title:
+                'Mousepad' in window_title or 'Geany' in window_title or \
+                'Text Editor' in window_title:
             subprocess.check_call(
                 ['xdotool', 'windowactivate', '--sync', winid])
             if copy:
