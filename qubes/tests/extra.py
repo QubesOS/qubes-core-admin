@@ -133,6 +133,7 @@ class ExtraTestCase(qubes.tests.SystemTestCase):
 
     def setUp(self):
         super(ExtraTestCase, self).setUp()
+        self.test_policy_created = False
         self.init_default_template(self.template)
         if self.template is not None:
             # also use this template for DispVMs
@@ -191,23 +192,21 @@ class ExtraTestCase(qubes.tests.SystemTestCase):
         :return:
         """
 
-        def add_remove_rule(add=True):
-            with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
-                policy_rules = policy.readlines()
-                rule = "{} {} {}{}\n".format(
-                    source, destination,
-                    'allow' if allow else 'deny',
-                    ' target={}'.format(target) if target else ''
-                )
-                if add:
-                    policy_rules.insert(0, rule)
-                else:
-                    policy_rules.remove(rule)
-                policy.truncate(0)
-                policy.seek(0)
-                policy.write(''.join(policy_rules))
-        add_remove_rule(add=True)
-        self.addCleanup(add_remove_rule, add=False)
+        # create policy file at the first function call, and then append rules
+        # to the same file
+        # abort if policy exists before the test starts
+        if not self.test_policy_created:
+            open_mode = 'x'
+        else:
+            open_mode = 'a'
+        with open('/etc/qubes/policy.d/10-test.policy', open_mode) as policy:
+            rule = f"{service} * {source} {destination} " \
+                    f"{'allow' if allow else 'deny'}" \
+                    f"{' target=' + target if target else ''}\n"
+            policy.write(rule)
+        if not self.test_policy_created:
+            self.test_policy_created = True
+            self.addCleanup(os.unlink, '/etc/qubes/policy.d/10-test.policy')
 
 
 def load_tests(loader, tests, pattern):
