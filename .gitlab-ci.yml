@@ -1,29 +1,30 @@
-include:
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-base.yml'
-  - project: 'QubesOS/qubes-continuous-integration'
-    file: '/r4.1/gitlab-dom0.yml'
-
 checks:pylint:
-  stage: checks
   before_script:
-    - sudo dnf install -y python3-pip
-    - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
-    - pip3 install --quiet -r ci/requirements.txt
+  - sudo dnf install -y python3-pip
+  - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
+  - pip3 install --quiet -r ci/requirements.txt
   script:
-    - PYTHONPATH=test-packages:~/qubes-core-qrexec python3 -m pylint qubes
-
+  - PYTHONPATH=test-packages:~/qubes-core-qrexec python3 -m pylint qubes
+  stage: checks
 checks:tests:
+  after_script:
+  - ci/codecov-wrapper -F unittests
+  before_script:
+  - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils
+  - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
+  - pip3 install --user --quiet -r ci/requirements.txt
+  script:
+  - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   stage: checks
   tags:
-    - short-living-job
-    - vm-runner
-  before_script:
-    # vim-common for xxd
-    - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils
-    - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
-    - pip3 install --user --quiet -r ci/requirements.txt
-  script:
-    - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
-  after_script:
-    - ci/codecov-wrapper -F unittests
+  - short-living-job
+  - vm-runner
+include:
+- file: /r4.1/gitlab-base.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.1/gitlab-dom0.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-base.yml
+  project: QubesOS/qubes-continuous-integration
+- file: /r4.2/gitlab-host.yml
+  project: QubesOS/qubes-continuous-integration
