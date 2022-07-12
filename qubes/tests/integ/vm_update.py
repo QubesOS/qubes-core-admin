@@ -1,6 +1,7 @@
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
+# Copyright (C) 2022 Piotr Bartman <prbartman@invisiblethingslab.com>
 # Copyright (C) 2015-2020
 #                   Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 # Copyright (C) 2015  Wojtek Porczyk <woju@invisiblethingslab.com>
@@ -18,9 +19,15 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
+import asyncio
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
+
 import qubes.vm
+
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
 class VmUpdatesMixin(object):
@@ -144,15 +151,25 @@ class VmUpdatesMixin(object):
         b"C5nyBG9qjr08E59KY1vUTGRg7mRsCGBimFa+3sTPg7WYCSTBGRgEAzEOeH04EAAA="
     )]
 
+    @classmethod
+    def setUpClass(cls):
+        super(VmUpdatesMixin, cls).setUpClass()
+        cls.tmpdir = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmpdir)
+
     def run_cmd(self, vm, cmd, user="root"):
-        '''Run a command *cmd* in a *vm* as *user*. Return its exit code.
+        """
+        Run a command *cmd* in a *vm* as *user*. Return its exit code.
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         :param qubes.vm.qubesvm.QubesVM vm: VM object to run command in
         :param str cmd: command to execute
         :param std user: user to execute command as
         :return int: command exit code
-        '''
+        """
         try:
             self.loop.run_until_complete(vm.run_for_stdio(cmd))
         except subprocess.CalledProcessError as e:
@@ -160,18 +177,17 @@ class VmUpdatesMixin(object):
         return 0
 
     def assertRunCommandReturnCode(self, vm, cmd, expected_returncode):
-        p = self.loop.run_until_complete(
-            vm.run(cmd, user='root',
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+        p = self.loop.run_until_complete(vm.run(
+            cmd, user='root', stdout=subprocess.PIPE, stderr=subprocess.PIPE))
         (stdout, stderr) = self.loop.run_until_complete(p.communicate())
         self.assertIn(
             self.loop.run_until_complete(p.wait()), expected_returncode,
             '{}: {}\n{}'.format(cmd, stdout, stderr))
 
     def setUp(self):
-        '''
+        """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
+        """
         if not self.template.count('debian') and \
                 not self.template.count('fedora'):
             self.skipTest("Template {} not supported by this test".format(
@@ -181,7 +197,7 @@ class VmUpdatesMixin(object):
         self.update_cmd = None
         if self.template.count("debian"):
             self.update_cmd = "set -o pipefail; apt-get update 2>&1 | " \
-                              "{ ! grep '^W:\|^E:'; }"
+                              r"{ ! grep '^W:\|^E:'; }"
             self.upgrade_cmd = "apt-get -V dist-upgrade -y"
             self.install_cmd = "apt-get install -y {}"
             self.install_test_cmd = "dpkg -l {}"
@@ -210,19 +226,19 @@ class VmUpdatesMixin(object):
         self.loop.run_until_complete(self.testvm1.create_on_disk())
 
     def test_000_simple_update(self):
-        '''
+        """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
+        """
         self.app.save()
         self.testvm1 = self.app.domains[self.testvm1.qid]
         self.loop.run_until_complete(self.testvm1.start())
-        self.assertRunCommandReturnCode(self.testvm1,
-            self.update_cmd, self.exit_code_ok)
+        self.assertRunCommandReturnCode(
+            self.testvm1, self.update_cmd, self.exit_code_ok)
 
     def create_repo_apt(self, version=0):
-        '''
+        """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
+        """
         pkg_file_name = "test-pkg_1.{}-1_amd64.deb".format(version)
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
             mkdir -p /tmp/apt-repo \
@@ -279,9 +295,9 @@ SHA256:
 '''))
 
     def create_repo_yum(self, version=0):
-        '''
+        """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
+        """
         pkg_file_name = "test-pkg-1.{}-1.fc21.x86_64.rpm".format(version)
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
             mkdir -p /tmp/yum-repo \
@@ -295,9 +311,9 @@ SHA256:
             'createrepo_c /tmp/yum-repo'))
 
     def create_repo_and_serve(self):
-        '''
+        """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
+        """
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
             self.loop.run_until_complete(self.netvm_repo.run(
@@ -350,17 +366,7 @@ SHA256:
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
 
-    def test_010_update_via_proxy(self):
-        '''
-        Test both whether updates proxy works and whether is actually used
-        by the VM
-
-        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        '''
-        if self.template.count("minimal"):
-            self.skipTest("Template {} not supported by this test".format(
-                self.template))
-
+    def start_vm_with_proxy_repo(self):
         self.netvm_repo = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('net'),
@@ -381,22 +387,7 @@ SHA256:
         self.loop.run_until_complete(self.testvm1.start())
         self.configure_test_repo()
 
-        with self.qrexec_policy('qubes.UpdatesProxy', self.testvm1,
-                '$default', action='allow,target=' + self.netvm_repo.name):
-            # update repository metadata
-            self.assertRunCommandReturnCode(self.testvm1,
-                self.update_cmd, self.exit_code_ok)
-
-            # install test package
-            self.assertRunCommandReturnCode(self.testvm1,
-                self.install_cmd.format('test-pkg'), self.exit_code_ok)
-
-            # verify if it was really installed
-            self.assertRunCommandReturnCode(self.testvm1,
-                self.install_test_cmd.format('test-pkg'), self.exit_code_ok)
-
-    def test_020_updates_available_notification(self):
-        # override with StandaloneVM
+    def start_standalone_vm_with_repo(self):
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.standalonevm.StandaloneVM,
             name=self.make_vm_name('vm2'),
@@ -412,20 +403,69 @@ SHA256:
         self.create_repo_and_serve()
         self.configure_test_repo()
 
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio(
-                '/usr/lib/qubes/upgrades-status-notify',
-                user='root',
-            ))
-        self.assertFalse(self.testvm1.features.get('updates-available', False))
+    def test_010_update_via_proxy(self):
+        """
+        Test both whether updates proxy works and whether is actually used
+        by the VM
 
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
+        if self.template.count("minimal"):
+            self.skipTest("Template {} not supported by this test".format(
+                self.template))
+
+        self.configure_test_repo()
+
+        with self.qrexec_policy(
+                'qubes.UpdatesProxy', self.testvm1, '$default',
+                action='allow,target=' + self.netvm_repo.name
+        ):
+            # update repository metadata
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.update_cmd,
+                self.exit_code_ok
+            )
+
+            # install test package
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.install_cmd.format('test-pkg'),
+                self.exit_code_ok
+            )
+
+            # verify if it was really installed
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.install_test_cmd.format('test-pkg'),
+                self.exit_code_ok
+            )
+
+    def install_test_package(self):
         # update repository metadata
         self.assertRunCommandReturnCode(
             self.testvm1, self.update_cmd, self.exit_code_ok)
 
         # install test package
         self.assertRunCommandReturnCode(
-            self.testvm1, self.install_cmd.format('test-pkg'), self.exit_code_ok)
+            self.testvm1, self.install_cmd.format('test-pkg'),
+            self.exit_code_ok)
+
+    def upgrade_status_notify(self):
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio(
+                '/usr/lib/qubes/upgrades-status-notify',
+                user='root',
+            ))
+
+    def test_020_updates_available_notification(self):
+        # override with StandaloneVM
+        self.start_standalone_vm_with_repo()
+
+        self.upgrade_status_notify()
+        self.assertFalse(self.testvm1.features.get('updates-available', False))
+
+        self.install_test_package()
 
         self.assertFalse(self.testvm1.features.get('updates-available', False))
 
@@ -434,11 +474,7 @@ SHA256:
         self.assertRunCommandReturnCode(
             self.testvm1, self.update_cmd, self.exit_code_ok)
 
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio(
-                '/usr/lib/qubes/upgrades-status-notify',
-                user='root',
-            ))
+        self.upgrade_status_notify()
         self.assertTrue(self.testvm1.features.get('updates-available', False))
 
         # install updates
@@ -447,14 +483,82 @@ SHA256:
 
         self.assertFalse(self.testvm1.features.get('updates-available', False))
 
+    def run_qubes_vm_update_and_assert(self, *, expected_exit_code):
+        logpath = os.path.join(self.tmpdir, 'vm-update-output.txt')
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-vm-update', "--targets", self.testvm1.name,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode != expected_exit_code:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-vm-update failed: " + f_log.read())
+        del proc
+
+    def test_110_qubes_vm_update(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
+        if self.template.count("minimal"):
+            self.skipTest("Template {} not supported by this test".format(
+                self.template))
+
+        self.configure_test_repo()
+
+        with self.qrexec_policy(
+                'qubes.UpdatesProxy', self.testvm1, '$default',
+                action='allow,target=' + self.netvm_repo.name):
+            self.install_test_package()
+            self.add_update_to_repo()
+            self.run_qubes_vm_update_and_assert(expected_exit_code=0)
+
+    def test_120_updates_available_notification(self):
+        self.start_standalone_vm_with_repo()
+
+        self.upgrade_status_notify()
+        self.assertFalse(self.testvm1.features.get('updates-available', False))
+
+        self.install_test_package()
+        self.assertFalse(self.testvm1.features.get('updates-available', False))
+
+        self.add_update_to_repo()
+        # update repository metadata
+        self.assertRunCommandReturnCode(
+            self.testvm1, self.update_cmd, self.exit_code_ok)
+
+        self.upgrade_status_notify()
+        self.assertTrue(self.testvm1.features.get('updates-available', False))
+
+        self.run_qubes_vm_update_and_assert(expected_exit_code=0)
+
+        self.assertFalse(self.testvm1.features.get('updates-available', False))
+
+    def detach_netvm(self):
+        self.loop.run_until_complete(self.testvm1.shutdown())
+        self.testvm1.netvm = None
+        self.loop.run_until_complete(self.testvm1.start())
+
+    def test_130_qubes_vm_update_no_network(self):
+        self.start_standalone_vm_with_repo()
+        self.install_test_package()
+        self.detach_netvm()
+        self.run_qubes_vm_update_and_assert(expected_exit_code=1)
+
+
 def create_testcases_for_templates():
-    yield from qubes.tests.create_testcases_for_templates('VmUpdates',
+    yield from qubes.tests.create_testcases_for_templates(
+        'VmUpdates',
         VmUpdatesMixin, qubes.tests.SystemTestCase,
-        module=sys.modules[__name__])
+        module=sys.modules[__name__]
+    )
+
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         create_testcases_for_templates()))
     return tests
+
 
 qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
