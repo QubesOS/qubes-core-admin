@@ -233,7 +233,6 @@ class Backup:
     >>> vms = [app.domains[name] for name in ['my-vm1', 'my-vm2', 'my-vm3']]
     >>> exclude_vms = []
     >>> options = {
-    >>>     'encrypted': True,
     >>>     'compressed': True,
     >>>     'passphrase': 'This is very weak backup passphrase',
     >>>     'target_vm': app.domains['sys-usb'],
