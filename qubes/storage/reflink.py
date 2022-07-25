@@ -91,7 +91,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     def init_volume(self, vm, volume_config):
         # Fail closed on any strange VM dir_path_prefix, just in case
-        # /etc/udev/rules.d/00-qubes-ignore-devices.rules needs update
+        # /usr/lib/udev/rules.d/00-qubes-ignore-devices.rules needs update
         assert vm.dir_path_prefix in self._known_dir_path_prefixes, \
                'Unknown dir_path_prefix {!r}'.format(vm.dir_path_prefix)
 
