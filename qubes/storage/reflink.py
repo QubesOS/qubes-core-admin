@@ -95,14 +95,14 @@ class ReflinkPool(qubes.storage.Pool):
         assert vm.dir_path_prefix in self._known_dir_path_prefixes, \
                'Unknown dir_path_prefix {!r}'.format(vm.dir_path_prefix)
 
-        volume_config['pool'] = self
         if 'revisions_to_keep' not in volume_config:
             volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config:
             volume_config['vid'] = os.path.join(
                 vm.dir_path_prefix, vm.name, volume_config['name'])
+        volume_config['pool'] = self
         volume = ReflinkVolume(**volume_config)
-        self._volumes[volume_config['vid']] = volume
+        self._volumes[volume.vid] = volume
         return volume
 
     def list_volumes(self):
