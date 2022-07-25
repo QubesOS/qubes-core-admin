@@ -275,6 +275,8 @@ class FileVolume(qubes.storage.Volume):
                         path, sudo=True)
 
     async def remove(self):
+        with suppress(ValueError):
+            self.pool._volumes.remove(self)  # pylint: disable=protected-access
         await self.stop()
         if not self.snap_on_start:
             _remove_if_exists(self.path)
