@@ -227,6 +227,8 @@ class VmUpdatesMixin(object):
 
     def test_000_simple_update(self):
         """
+        Just update repo.
+
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
         self.app.save()
@@ -238,6 +240,7 @@ class VmUpdatesMixin(object):
     def create_repo_apt(self, version=0):
         """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type version: int
         """
         pkg_file_name = "test-pkg_1.{}-1_amd64.deb".format(version)
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
@@ -283,7 +286,7 @@ Description: Test package'''.format(pkg=pkg_file_name, version=version).encode(
             && echo '' $(sha256sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}\
                 >> Release
             '''.format(p='main/binary-amd64/Packages',
-                    z='main/binary-amd64/Packages.gz'),
+                       z='main/binary-amd64/Packages.gz'),
             input=b'''\
 Label: Test repo
 Suite: test
@@ -297,6 +300,7 @@ SHA256:
     def create_repo_yum(self, version=0):
         """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type version: int
         """
         pkg_file_name = "test-pkg-1.{}-1.fc21.x86_64.rpm".format(version)
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
@@ -330,6 +334,9 @@ SHA256:
                 self.template))
 
     def add_update_to_repo(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt(1)
         elif self.template.count("fedora"):
@@ -367,6 +374,11 @@ SHA256:
                 self.template))
 
     def start_vm_with_proxy_repo(self):
+        """
+        Create proxy VM and start test and proxy VMs with configured repo.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.netvm_repo = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('net'),
@@ -388,6 +400,11 @@ SHA256:
         self.configure_test_repo()
 
     def start_standalone_vm_with_repo(self):
+        """
+        Override test VM with StandaloneVM and start it with configured repo.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.standalonevm.StandaloneVM,
             name=self.make_vm_name('vm2'),
@@ -414,7 +431,7 @@ SHA256:
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
 
-        self.configure_test_repo()
+        self.start_vm_with_proxy_repo()
 
         with self.qrexec_policy(
                 'qubes.UpdatesProxy', self.testvm1, '$default',
@@ -442,6 +459,11 @@ SHA256:
             )
 
     def install_test_package(self):
+        """
+        Update repo and install test package.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         # update repository metadata
         self.assertRunCommandReturnCode(
             self.testvm1, self.update_cmd, self.exit_code_ok)
@@ -452,6 +474,11 @@ SHA256:
             self.exit_code_ok)
 
     def upgrade_status_notify(self):
+        """
+        Run upgrades-status-notify at test vm.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio(
                 '/usr/lib/qubes/upgrades-status-notify',
@@ -459,7 +486,11 @@ SHA256:
             ))
 
     def test_020_updates_available_notification(self):
-        # override with StandaloneVM
+        """
+        Test if updates-available flags is updated.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.start_standalone_vm_with_repo()
 
         self.upgrade_status_notify()
@@ -484,6 +515,12 @@ SHA256:
         self.assertFalse(self.testvm1.features.get('updates-available', False))
 
     def run_qubes_vm_update_and_assert(self, *, expected_exit_code):
+        """
+        Run qubes-vm-update at dom0 and assert that return code as expected.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type expected_exit_code: int
+        """
         logpath = os.path.join(self.tmpdir, 'vm-update-output.txt')
         with open(logpath, 'w') as f_log:
             proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
@@ -497,15 +534,18 @@ SHA256:
                 self.fail("qubes-vm-update failed: " + f_log.read())
         del proc
 
-    def test_110_qubes_vm_update(self):
+    def test_110_update_via_proxy_qubes_vm_update(self):
         """
+        Test both whether updates proxy works and whether is actually used
+        by the qubes-vm-update
+
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
         if self.template.count("minimal"):
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
 
-        self.configure_test_repo()
+        self.start_vm_with_proxy_repo()
 
         with self.qrexec_policy(
                 'qubes.UpdatesProxy', self.testvm1, '$default',
@@ -514,7 +554,12 @@ SHA256:
             self.add_update_to_repo()
             self.run_qubes_vm_update_and_assert(expected_exit_code=0)
 
-    def test_120_updates_available_notification(self):
+    def test_120_updates_available_notification_qubes_vm_update(self):
+        """
+        Test if updates-available flags is updated.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.start_standalone_vm_with_repo()
 
         self.upgrade_status_notify()
@@ -536,11 +581,21 @@ SHA256:
         self.assertFalse(self.testvm1.features.get('updates-available', False))
 
     def detach_netvm(self):
+        """
+        Detach net vm to enforce connection error.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.loop.run_until_complete(self.testvm1.shutdown())
         self.testvm1.netvm = None
         self.loop.run_until_complete(self.testvm1.start())
 
-    def test_130_qubes_vm_update_no_network(self):
+    def test_130_no_network_qubes_vm_update(self):
+        """
+        Test if update errors are detected.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
         self.start_standalone_vm_with_repo()
         self.install_test_package()
         self.detach_netvm()
