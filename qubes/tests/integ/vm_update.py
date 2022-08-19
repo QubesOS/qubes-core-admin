@@ -201,6 +201,7 @@ class VmUpdatesMixin(object):
             self.upgrade_cmd = "apt-get -V dist-upgrade -y"
             self.install_cmd = "apt-get install -y {}"
             self.install_test_cmd = "dpkg -l {}"
+            self.update_test_cmd = "dpkg -l {} | grep 1.1"
             self.exit_code_ok = [0]
         elif self.template.count("fedora"):
             cmd = "yum"
@@ -215,6 +216,7 @@ class VmUpdatesMixin(object):
             self.upgrade_cmd = "{cmd} upgrade -y".format(cmd=cmd)
             self.install_cmd = cmd + " install -y {}"
             self.install_test_cmd = "rpm -q {}"
+            self.update_test_cmd = "rpm -q {} | grep 1.1"
             self.exit_code_ok = [0, 100]
 
         self.init_default_template(self.template)
@@ -420,6 +422,26 @@ SHA256:
         self.create_repo_and_serve()
         self.configure_test_repo()
 
+    def install_test_package(self):
+        """
+        Update repo and install test package.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
+        # update repository metadata
+        self.assertRunCommandReturnCode(
+            self.testvm1,
+            self.update_cmd,
+            self.exit_code_ok
+        )
+
+        # install test package
+        self.assertRunCommandReturnCode(
+            self.testvm1,
+            self.install_cmd.format('test-pkg'),
+            self.exit_code_ok
+        )
+
     def test_010_update_via_proxy(self):
         """
         Test both whether updates proxy works and whether is actually used
@@ -437,19 +459,7 @@ SHA256:
                 'qubes.UpdatesProxy', self.testvm1, '$default',
                 action='allow,target=' + self.netvm_repo.name
         ):
-            # update repository metadata
-            self.assertRunCommandReturnCode(
-                self.testvm1,
-                self.update_cmd,
-                self.exit_code_ok
-            )
-
-            # install test package
-            self.assertRunCommandReturnCode(
-                self.testvm1,
-                self.install_cmd.format('test-pkg'),
-                self.exit_code_ok
-            )
+            self.install_test_package()
 
             # verify if it was really installed
             self.assertRunCommandReturnCode(
@@ -457,21 +467,6 @@ SHA256:
                 self.install_test_cmd.format('test-pkg'),
                 self.exit_code_ok
             )
-
-    def install_test_package(self):
-        """
-        Update repo and install test package.
-
-        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        """
-        # update repository metadata
-        self.assertRunCommandReturnCode(
-            self.testvm1, self.update_cmd, self.exit_code_ok)
-
-        # install test package
-        self.assertRunCommandReturnCode(
-            self.testvm1, self.install_cmd.format('test-pkg'),
-            self.exit_code_ok)
 
     def upgrade_status_notify(self):
         """
@@ -514,19 +509,32 @@ SHA256:
 
         self.assertFalse(self.testvm1.features.get('updates-available', False))
 
-    def run_qubes_vm_update_and_assert(self, *, expected_exit_code):
+        # verify if it was really updated
+        self.assertRunCommandReturnCode(
+            self.testvm1,
+            self.update_test_cmd.format('test-pkg'),
+            self.exit_code_ok
+        )
+
+    def run_qubes_vm_update_and_assert(self, *, expected_exit_code, options):
         """
         Run qubes-vm-update at dom0 and assert that return code as expected.
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         :type expected_exit_code: int
+        :type options: tuple
         """
         logpath = os.path.join(self.tmpdir, 'vm-update-output.txt')
         with open(logpath, 'w') as f_log:
-            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-                'qubes-vm-update', "--targets", self.testvm1.name,
-                stdout=f_log,
-                stderr=subprocess.STDOUT))
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    'qubes-vm-update',
+                    "--targets", self.testvm1.name,
+                    *options,
+                    stdout=f_log,
+                    stderr=subprocess.STDOUT
+                )
+            )
         self.loop.run_until_complete(proc.wait())
         if proc.returncode != expected_exit_code:
             del proc
@@ -534,16 +542,112 @@ SHA256:
                 self.fail("qubes-vm-update failed: " + f_log.read())
         del proc
 
-    def test_110_update_via_proxy_qubes_vm_update(self):
+    def update_via_proxy_qubes_vm_update_impl(self, options):
         """
         Test both whether updates proxy works and whether is actually used
         by the qubes-vm-update
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type options: tuple
         """
         if self.template.count("minimal"):
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
+
+        self.start_vm_with_proxy_repo()
+        # self.detach_netvm()
+
+        with self.qrexec_policy(
+                'qubes.UpdatesProxy', self.testvm1, '$default',
+                action='allow,target=' + self.netvm_repo.name):
+            self.install_test_package()
+            self.add_update_to_repo()
+
+            # update repository metadata
+            self.assertRunCommandReturnCode(
+                self.testvm1, self.update_cmd, self.exit_code_ok)
+
+            self.run_qubes_vm_update_and_assert(
+                expected_exit_code=0, options=options)
+
+            # verify if it was really updated
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.update_test_cmd.format('test-pkg'),
+                self.exit_code_ok
+            )
+
+    def test_110_update_via_proxy_qubes_vm_update(self):
+        self.update_via_proxy_qubes_vm_update_impl(options=())
+
+    def test_111_update_via_proxy_qubes_vm_update_cli(self):
+        self.update_via_proxy_qubes_vm_update_impl(options=("--no-progress",))
+
+    def updates_available_notification_qubes_vm_update_impl(self, options):
+        """
+        Test if updates-available flags is updated.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type options: tuple
+        """
+        self.start_standalone_vm_with_repo()
+
+        self.upgrade_status_notify()
+        self.assertFalse(self.testvm1.features.get(
+            'updates-available', False))
+
+        self.install_test_package()
+        self.assertFalse(self.testvm1.features.get(
+            'updates-available', False))
+
+        self.add_update_to_repo()
+        # update repository metadata
+        self.assertRunCommandReturnCode(
+            self.testvm1, self.update_cmd, self.exit_code_ok)
+
+        self.upgrade_status_notify()
+        self.assertTrue(self.testvm1.features.get(
+            'updates-available', False))
+
+        self.run_qubes_vm_update_and_assert(
+            expected_exit_code=0, options=options)
+
+        self.assertFalse(self.testvm1.features.get(
+            'updates-available', False))
+
+        # verify if it was really updated
+        self.assertRunCommandReturnCode(
+            self.testvm1,
+            self.update_test_cmd.format('test-pkg'),
+            self.exit_code_ok
+        )
+
+    def test_120_updates_available_notification_qubes_vm_update(self):
+        self.updates_available_notification_qubes_vm_update_impl(options=())
+
+    def test_121_updates_available_notification_qubes_vm_update_cli(self):
+        self.updates_available_notification_qubes_vm_update_impl(
+            options=("--no-progress",))
+
+    def detach_netvm(self):
+        """
+        Detach net vm to enforce connection error.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
+        self.testvm1.netvm = None
+
+    def no_network_qubes_vm_update_impl(self, options):
+        """
+        Test if update errors are detected.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type options: tuple
+        """
+        if self.template.count("minimal"):
+            self.skipTest(
+                "Template {} not supported by this test".format(
+                    self.template))
 
         self.start_vm_with_proxy_repo()
 
@@ -552,54 +656,15 @@ SHA256:
                 action='allow,target=' + self.netvm_repo.name):
             self.install_test_package()
             self.add_update_to_repo()
-            self.run_qubes_vm_update_and_assert(expected_exit_code=0)
-
-    def test_120_updates_available_notification_qubes_vm_update(self):
-        """
-        Test if updates-available flags is updated.
-
-        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        """
-        self.start_standalone_vm_with_repo()
-
-        self.upgrade_status_notify()
-        self.assertFalse(self.testvm1.features.get('updates-available', False))
-
-        self.install_test_package()
-        self.assertFalse(self.testvm1.features.get('updates-available', False))
-
-        self.add_update_to_repo()
-        # update repository metadata
-        self.assertRunCommandReturnCode(
-            self.testvm1, self.update_cmd, self.exit_code_ok)
-
-        self.upgrade_status_notify()
-        self.assertTrue(self.testvm1.features.get('updates-available', False))
-
-        self.run_qubes_vm_update_and_assert(expected_exit_code=0)
-
-        self.assertFalse(self.testvm1.features.get('updates-available', False))
-
-    def detach_netvm(self):
-        """
-        Detach net vm to enforce connection error.
-
-        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        """
-        self.loop.run_until_complete(self.testvm1.shutdown())
-        self.testvm1.netvm = None
-        self.loop.run_until_complete(self.testvm1.start())
+            self.detach_netvm()
+            self.run_qubes_vm_update_and_assert(
+                expected_exit_code=1, options=options)
 
     def test_130_no_network_qubes_vm_update(self):
-        """
-        Test if update errors are detected.
+        self.no_network_qubes_vm_update_impl(options=())
 
-        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
-        """
-        self.start_standalone_vm_with_repo()
-        self.install_test_package()
-        self.detach_netvm()
-        self.run_qubes_vm_update_and_assert(expected_exit_code=1)
+    def test_131_no_network_qubes_vm_update_cli(self):
+        self.no_network_qubes_vm_update_impl(options=("--no-progress",))
 
 
 def create_testcases_for_templates():
