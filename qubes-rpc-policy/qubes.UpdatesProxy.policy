@@ -1,18 +1,2 @@
-## Note that policy parsing stops at the first match,
-## so adding anything below "$anyvm $anyvm action" line will have no effect
-
-## Please use a single # to start your custom comments
-
-# Upgrade all Templates through sys-whonix.
-#$type:TemplateVM $default allow,target=sys-whonix
-
-# Upgrade Whonix Templates through sys-whonix.
-$tag:whonix-updatevm $default allow,target=sys-whonix
-
-# Deny Whonix Templates using UpdatesProxy of any other VM.
-$tag:whonix-updatevm $anyvm deny
-
-# Default rule for all Templates - direct the connection to sys-net
-$type:TemplateVM $default allow,target=sys-net
-
-$anyvm $anyvm deny
+# Legacy. This file does nothing and will be removed in a future release. See:
+# /etc/qubes/policy.d/90-default.policy
