@@ -278,6 +278,7 @@ class SaltVMTestMixin(SaltTestMixin):
             template_for_dispvms=True, name=dispvm_tpl_name)
         self.loop.run_until_complete(dispvm_tpl.create_on_disk())
         self.app.default_dispvm = dispvm_tpl
+        self.app.management_dispvm = dispvm_tpl
 
     def tearDown(self):
         self.app.default_dispvm = None
