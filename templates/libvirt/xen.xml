@@ -64,7 +64,6 @@
                 <pae/>
                 <acpi/>
                 <apic/>
-                <viridian/>
             {% endif %}
 
             {% if vm.devices['pci'].persistent() | list
