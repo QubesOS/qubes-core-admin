@@ -2251,3 +2251,28 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             fully_usable = vm.is_fully_usable()
             mock_os_path_exists.assert_not_called()
             self.assertEqual(fully_usable, True)
+
+    def test_800_reset_icon_event(self):
+        class TestVM2(qubes.vm.qubesvm.QubesVM):
+            event_fired = False
+            @qubes.events.handler('property-reset:icon')
+            def on_reset_icon(self, *_args, **_kwargs):
+                self.__class__.event_fired = True
+
+        def property_change(vm, property_name, new_value):
+            initial_icon = vm.icon
+            setattr(vm, property_name, new_value)
+            if vm.icon != initial_icon:
+                self.assertTrue(TestVM2.event_fired)
+                TestVM2.event_fired = False
+            else:
+                self.assertFalse(TestVM2.event_fired)
+
+        test_vm = TestVM2(
+            self.app, None, qid=100, name=qubes.tests.VMPREFIX + 'test',
+            label="blue")
+        property_change(test_vm, "label", "red")
+        property_change(test_vm, "label", "blue")
+
+        property_change(test_vm, "template_for_dispvms", False)
+        property_change(test_vm, "template_for_dispvms", True)
