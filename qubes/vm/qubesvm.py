@@ -998,6 +998,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # icon is calculated based on label
         self.fire_event('property-reset:icon', name='icon')
 
+    @qubes.events.handler('property-set:template_for_dispvms')
+    def on_property_set_tmpl_for_dvms(self, event, name,
+                                             newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        # icon is calculated based on being a template for dispvms
+        self.fire_event('property-reset:icon', name='icon')
+
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
