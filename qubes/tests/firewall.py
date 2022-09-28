@@ -350,13 +350,16 @@ class TC_08_Rule(qubes.tests.QubesTestCase):
 
     def test_001_expire(self):
         with self.assertNotRaises(ValueError):
+            # date in the past
             rule = qubes.firewall.Rule(None, action='accept', proto='icmp',
                 expire='1463292452')
         self.assertIsNone(rule.rule)
 
         with self.assertNotRaises(ValueError):
+            date_in_future = int(datetime.datetime.timestamp(
+                datetime.datetime.now())) + 10 ** 6
             rule = qubes.firewall.Rule(None, action='accept', proto='icmp',
-                expire='1663292452')
+                expire=str(date_in_future))
         self.assertIsNotNone(rule.rule)
 
 
