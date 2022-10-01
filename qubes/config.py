@@ -75,7 +75,7 @@ defaults = {
     },
 }
 
-max_qid = 254
+max_qid = 10000
 max_dispid = 10000
 
 #: built-in standard labels, if creating new one, allocate them above this
