@@ -27,6 +27,8 @@ import qubes.vm.qubesvm
 
 import qubes.tests
 import qubes.tests.vm.qubesvm
+from qubes.vm.mix.net import vmid_to_ipv4
+
 
 class TC_00_NetVMMixin(
         qubes.tests.vm.qubesvm.QubesVMTestsMixin, qubes.tests.QubesTestCase):
@@ -154,3 +156,23 @@ class TC_00_NetVMMixin(
         self.assertPropertyValue(vm2, 'netvm', None, None, '')
         self.assertPropertyValue(vm2, 'netvm', '', None, '')
         self.assertPropertyValue(vm, 'provides_network', False, False, 'False')
+
+    def test_200_vmid_to_ipv4(self):
+        testcases = (
+            (1,   '0.1'),
+            (2,   '0.2'),
+            (254, '0.254'),
+            (255, '1.1'),
+            (256, '1.2'),
+            (257, '1.3'),
+            (508, '1.254'),
+            (509, '2.1'),
+            (510, '2.2'),
+            (511, '2.3'),
+            (512, '2.4'),
+            (513, '2.5'),
+        )
+        for vmid, ip in testcases:
+            with self.subTest(str(vmid)):
+                self.assertEqual(ipaddress.IPv4Address('1.1.' + ip),
+                                 vmid_to_ipv4('1.1', vmid))

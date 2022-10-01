@@ -101,6 +101,19 @@ class StrSerializableTuple(tuple):
         return ' '.join(self)
 
 
+def vmid_to_ipv4(prefix, vmid):
+    # avoid .0 and .255 addresses, it may trip some heuristics
+    # if OS assumes /24 netmask
+    # preserve unchanged IPs for low vmid
+    if vmid < 255:
+        return ipaddress.IPv4Address('{}.{}.{}'.format(
+            prefix, (vmid >> 8) & 0xff, vmid & 0xff))
+    # don't reserve first .1 for vmid 0, as it is invalid
+    vmid -= 1
+    return ipaddress.IPv4Address('{}.{}.{}'.format(
+        prefix, vmid // 254, (vmid % 254) + 1))
+
+
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
@@ -180,13 +193,9 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
-            return ipaddress.IPv4Address('10.138.{}.{}'.format(
-                (vm.dispid >> 8) & 0xff, vm.dispid & 0xff))
+            return vmid_to_ipv4('10.138', vm.dispid)
 
-        # VM technically can get address which ends in '.0'. This currently
-        # does not happen, because qid < 253, but may happen in the future.
-        return ipaddress.IPv4Address('10.137.{}.{}'.format(
-            (vm.qid >> 8) & 0xff, vm.qid & 0xff))
+        return vmid_to_ipv4('10.137', vm.qid)
 
     @staticmethod
     def get_ip6_for_vm(vm):
