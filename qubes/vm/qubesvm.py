@@ -1388,8 +1388,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.features.check_with_template('qrexec', False):
             await self.run_service_for_stdio('qubes.SuspendPre',
                                                   user='root')
-        self.libvirt_domain.pMSuspendForDuration(
-            libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
+        try:
+            self.libvirt_domain.pMSuspendForDuration(
+                libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_UNSUPPORTED:
+                # OS inside doesn't support full suspend, just pause it
+                self.libvirt_domain.suspend()
+            else:
+                raise
 
         return self
 
