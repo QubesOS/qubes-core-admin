@@ -1386,8 +1386,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotRunningError(self)
 
         if self.features.check_with_template('qrexec', False):
-            await self.run_service_for_stdio('qubes.SuspendPre',
-                                                  user='root')
+            try:
+                await self.run_service_for_stdio('qubes.SuspendPre',
+                                                 user='root')
+            except subprocess.CalledProcessError as e:
+                self.log.warning(
+                    "qubes.SuspendPre for %s failed with %d (stderr: %s), "
+                    "suspending anyway",
+                    self.name,
+                    e.returncode,
+                    qubes.utils.sanitize_stderr_for_log(e.stderr))
         try:
             self.libvirt_domain.pMSuspendForDuration(
                 libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
@@ -1396,6 +1404,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # OS inside doesn't support full suspend, just pause it
                 self.libvirt_domain.suspend()
             else:
+                self.log.warning("Failed to suspend '%s'", self.name)
                 raise
 
         return self
