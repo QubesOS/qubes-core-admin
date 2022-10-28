@@ -187,7 +187,16 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             if vm.is_running():
                 coros.append(vm.suspend())
         if coros:
-            await asyncio.wait(coros)
+            done, _ = await asyncio.wait(coros)
+            failed = ""
+            for coro in done:
+                try:
+                    coro.result()
+                except Exception as e:  # pylint: disable=broad-except
+                    failed += f'\n{e!s}'
+            if failed:
+                raise qubes.exc.QubesException(
+                    "Failed to suspend some qubes: {}".format(failed))
 
     @qubes.api.method('internal.SuspendPost', no_payload=True)
     async def suspend_post(self):
