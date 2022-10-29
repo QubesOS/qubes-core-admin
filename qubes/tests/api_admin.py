@@ -1343,10 +1343,31 @@ netvm default=True type=vm \n'''
         self.assertEqual(self.vm.features['test-feature'], '')
         self.assertTrue(self.app.save.called)
 
-    def test_320_feature_set_invalid(self):
+    def test_322_feature_set_invalid(self):
         with self.assertRaises(UnicodeDecodeError):
             self.call_mgmt_func(b'admin.vm.feature.Set',
                 b'test-vm1', b'test-feature', b'\x02\x03\xffsome-value')
+        self.assertNotIn('test-feature', self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+    def test_323_feature_set_service_too_long(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'admin.vm.feature.Set',
+                b'test-vm1', b'service.' + b'a' * 49, b'1')
+        self.assertNotIn('test-feature', self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+    def test_324_feature_set_service_bad_name(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'admin.vm.feature.Set',
+                b'test-vm1', b'service.0')
+        self.assertNotIn('test-feature', self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+    def test_325_feature_set_service_empty_name(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'admin.vm.feature.Set',
+                b'test-vm1', b'service.')
         self.assertNotIn('test-feature', self.vm.features)
         self.assertFalse(self.app.save.called)
 
