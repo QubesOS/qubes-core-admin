@@ -311,7 +311,13 @@ class SaltVMTestMixin(SaltTestMixin):
             'Full output: ' + state_output)
         state_id = 'file_|-/home/user/testfile_|-/home/user/testfile_|-managed'
         # drop the header
-        state_output_json = json.loads(state_output[len(expected_output):])
+        json_data = state_output[len(expected_output):]
+        try:
+            state_output_json = json.loads(json_data)
+        except json.decoder.JSONDecodeError as e:
+            self.fail("JSON output decoding error: {}\n{}".format(
+                e, json_data
+            ))
         state_output_json = state_output_json[vmname][state_id]
         try:
             del state_output_json['duration']
