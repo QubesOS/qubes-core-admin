@@ -312,6 +312,12 @@ class SaltVMTestMixin(SaltTestMixin):
         state_id = 'file_|-/home/user/testfile_|-/home/user/testfile_|-managed'
         # drop the header
         json_data = state_output[len(expected_output):]
+        # workaround for https://github.com/saltstack/salt/issues/60476
+        # (fixed upstream, but hasen't flowed into Fedora yet)
+        if "Setuptools is replacing distutils" in json_data:
+            json_data = "\n".join(
+                l for l in json_data.splitlines()
+                if "Setuptools is replacing distutils" not in l)
         try:
             state_output_json = json.loads(json_data)
         except json.decoder.JSONDecodeError as e:
@@ -405,10 +411,17 @@ class SaltVMTestMixin(SaltTestMixin):
         expected_output = vmname + ':\n'
         self.assertTrue(state_output.startswith(expected_output),
             'Full output: ' + state_output)
+        json_data = state_output[len(expected_output):]
+        # workaround for https://github.com/saltstack/salt/issues/60476
+        # (fixed upstream, but hasen't flowed into Fedora yet)
+        if "Setuptools is replacing distutils" in json_data:
+            json_data = "\n".join(
+                l for l in json_data.splitlines()
+                if "Setuptools is replacing distutils" not in l)
         try:
-            state_output_json = json.loads(state_output[len(expected_output):])
+            state_output_json = json.loads(json_data)
         except json.decoder.JSONDecodeError as e:
-            self.fail('{}: {}'.format(e, state_output[len(expected_output):]))
+            self.fail('{}: {}'.format(e, json_data))
         states = states + ('jinja',)
         for state in states:
             state_id = \
@@ -475,6 +488,12 @@ class SaltVMTestMixin(SaltTestMixin):
         tpl_output = tpl_output[len(tplname + ':\n'):]
 
         for name, output in ((tplname, tpl_output), (vmname, appvm_output)):
+            # workaround for https://github.com/saltstack/salt/issues/60476
+            # (fixed upstream, but hasen't flowed into Fedora yet)
+            if "Setuptools is replacing distutils" in output:
+                output = "\n".join(
+                    l for l in output.splitlines()
+                    if "Setuptools is replacing distutils" not in l)
             try:
                 state_output_json = json.loads(output)
             except json.decoder.JSONDecodeError as e:
