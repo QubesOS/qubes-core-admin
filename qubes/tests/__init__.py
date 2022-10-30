@@ -695,12 +695,9 @@ class SystemTestCase(QubesTestCase):
     defined in this file.
     Every VM created by test, must use :py:meth:`SystemTestCase.make_vm_name`
     for VM name.
-    By default self.app represents empty collection, if anything is needed
-    there from the real collection it can be imported from self.host_app in
-    :py:meth:`SystemTestCase.setUp`. But *can not be modified* in any way -
-    this include both changing attributes in
-    :py:attr:`SystemTestCase.host_app` and modifying files of such imported
-    VM. If test need to make some modification, it must clone the VM first.
+    By default, self.app represents copied host collection. Any preexisting
+    domains should not be modified in any way (including started/stopped).
+    If test need to make some modification, it must clone the VM first.
 
     If some group of tests needs class-wide initialization, first of all the
     author should consider if it is really needed. But if so, setUpClass can
