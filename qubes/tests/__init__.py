@@ -708,6 +708,12 @@ class SystemTestCase(QubesTestCase):
     :py:meth:`TestCase.tearDownClass` implementation itself.
     """
 
+    def __init__(self, methodName='runTest'):
+        if os.environ.get('QUBES_TEST_WAIT_ON_FAIL', None) == '1':
+            setattr(self, methodName,
+                lambda: wait_on_fail(getattr(self.__class__, methodName))(self))
+        super().__init__(methodName=methodName)
+
     # noinspection PyAttributeOutsideInit
     def setUp(self):
         if not in_dom0:

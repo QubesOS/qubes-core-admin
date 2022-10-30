@@ -78,6 +78,13 @@ methods with circular dependencies. For example containers may check if added
 item is already in container, but you can't test ``__contains__`` method without
 something already inside. Don't forget to test the other method later.
 
+When developing tests, it may be useful to pause the test on failure and inspect
+running VMs manually. To do that, set ``QUBES_TEST_WAIT_ON_FAIL=1`` environment
+variable. This will wait on keypress before cleaning up after a failed tests.
+It's recommended to use this feature together with
+:py:attr:`unittest.TestResult.failfast` feature (``-f`` option to unittest
+runner).
+
 Special Qubes-specific considerations
 -------------------------------------
 
