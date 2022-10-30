@@ -986,12 +986,15 @@ class SystemTestCase(QubesTestCase):
         for vm in vms:
             vm.default_dispvm = None
             vm.netvm = None
+            vm.management_dispvm = None
         # take app instance from any VM to be removed
         app = vms[0].app
         if app.default_dispvm in vms:
             app.default_dispvm = None
         if app.default_netvm in vms:
             app.default_netvm = None
+        if app.management_dispvm in vms:
+            app.management_dispvm = None
         del app
         # then remove in reverse topological order (wrt template), using naive
         # algorithm
