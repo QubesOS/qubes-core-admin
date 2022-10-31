@@ -87,3 +87,5 @@ backup_profile_dir = '/etc/qubes/backup'
 
 #: site-local prefix for all VMs
 qubes_ipv6_prefix = 'fd09:24ef:4179:0000'
+
+suspend_timeout = 60
