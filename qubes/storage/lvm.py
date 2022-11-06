@@ -408,7 +408,7 @@ class ThinVolume(qubes.storage.Volume):
             vid_to_commit = self._vid_snap
 
         assert self._lock.locked()
-        if not os.path.exists('/dev/' + vid_to_commit):
+        if vid_to_commit not in size_cache:
             # nothing to commit
             return False
 
