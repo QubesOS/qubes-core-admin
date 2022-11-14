@@ -22,6 +22,7 @@
 qubesd. '''
 
 import string
+from datetime import datetime
 
 import qubes.api
 import qubes.api.admin
@@ -112,7 +113,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
         if self.src.updateable:
             # Just trust information from VM itself
-            self.src.features['updates-available'] = bool(update_count)
+            self._feature_of_update(self.src, bool(update_count))
             self.app.save()
         elif updateable_template is not None:
             # Hint about updates availability in template
@@ -125,6 +126,14 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 # in the template - ignore info
                 if self.src.storage.outdated_volumes:
                     return
-                updateable_template.features['updates-available'] = bool(
-                    update_count)
+                self._feature_of_update(updateable_template, bool(update_count))
                 self.app.save()
+
+    @staticmethod
+    def _feature_of_update(qube, new_updates_available):
+        current_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        old_updates_available = qube.features['updates-available']
+        if old_updates_available and not new_updates_available:
+            qube.features['last-update'] = current_date
+        qube.features['updates-available'] = new_updates_available
+        qube.features['last-updates-check'] = current_date
