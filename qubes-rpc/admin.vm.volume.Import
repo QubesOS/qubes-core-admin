@@ -51,7 +51,7 @@ echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
     "$1" >"$tmpfile"
 
 # exit if qubesd returned an error (not '0\0')
-if [ "$(head -c 2 "$tmpfile" | xxd -p)" != "3000" ]; then
+if [ "$(head -c 2 "$tmpfile" | hexdump -e '/1 "%02x"')" != "3000" ]; then
     cat "$tmpfile"
     exit 1
 fi
