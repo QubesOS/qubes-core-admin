@@ -507,6 +507,37 @@ class SaltVMTestMixin(SaltTestMixin):
             self.assertTrue(state_output_single['result'])
             self.assertNotEqual(state_output_single['changes'], {})
 
+    def test_003_update(self):
+        vmname = self.make_vm_name('target')
+        self.vm = self.app.add_new_vm('AppVM', name=vmname, label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        # start the VM manually, so it stays running after applying salt state
+        self.loop.run_until_complete(self.vm.start())
+        state_output = self.salt_call(
+            ['--skip-dom0', '--show-output', '--targets=' + vmname,
+             'state.sls', 'update.qubes-vm'])
+        expected_output = vmname + ':\n'
+        self.assertTrue(state_output.startswith(expected_output),
+            'Full output: ' + state_output)
+        json_data = state_output[len(expected_output):]
+        # workaround for https://github.com/saltstack/salt/issues/60476
+        # (fixed upstream, but hasen't flowed into Fedora yet)
+        if "Setuptools is replacing distutils" in json_data:
+            json_data = "\n".join(
+                l for l in json_data.splitlines()
+                if "Setuptools is replacing distutils" not in l)
+        try:
+            state_output_json = json.loads(json_data)
+        except json.decoder.JSONDecodeError as e:
+            self.fail('{}: {}'.format(e, json_data))
+        self.assertIn(vmname, state_output_json)
+        self.assertNotEqual(state_output_json[vmname], {})
+        for state, result in state_output_json[vmname].items():
+            self.assertTrue(
+                result['result'],
+                "State {} failed: {!r}".format(state, result))
+
+
 def create_testcases_for_templates():
     return qubes.tests.create_testcases_for_templates('TC_10_VMSalt',
         SaltVMTestMixin, qubes.tests.SystemTestCase,
