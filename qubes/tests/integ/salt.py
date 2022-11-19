@@ -413,7 +413,7 @@ class SaltVMTestMixin(SaltTestMixin):
             'Full output: ' + state_output)
         json_data = state_output[len(expected_output):]
         # workaround for https://github.com/saltstack/salt/issues/60476
-        # (fixed upstream, but hasen't flowed into Fedora yet)
+        # (fixed upstream, but hasn't flowed into Fedora yet)
         if "Setuptools is replacing distutils" in json_data:
             json_data = "\n".join(
                 l for l in json_data.splitlines()
@@ -489,7 +489,7 @@ class SaltVMTestMixin(SaltTestMixin):
 
         for name, output in ((tplname, tpl_output), (vmname, appvm_output)):
             # workaround for https://github.com/saltstack/salt/issues/60476
-            # (fixed upstream, but hasen't flowed into Fedora yet)
+            # (fixed upstream, but hasn't flowed into Fedora yet)
             if "Setuptools is replacing distutils" in output:
                 output = "\n".join(
                     l for l in output.splitlines()
@@ -521,7 +521,7 @@ class SaltVMTestMixin(SaltTestMixin):
             'Full output: ' + state_output)
         json_data = state_output[len(expected_output):]
         # workaround for https://github.com/saltstack/salt/issues/60476
-        # (fixed upstream, but hasen't flowed into Fedora yet)
+        # (fixed upstream, but hasn't flowed into Fedora yet)
         if "Setuptools is replacing distutils" in json_data:
             json_data = "\n".join(
                 l for l in json_data.splitlines()
