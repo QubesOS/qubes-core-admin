@@ -132,7 +132,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
     @staticmethod
     def _feature_of_update(qube, new_updates_available):
         current_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        old_updates_available = qube.features['updates-available']
+        old_updates_available = qube.features.get('updates-available', False)
         if old_updates_available and not new_updates_available:
             qube.features['last-update'] = current_date
         qube.features['updates-available'] = new_updates_available

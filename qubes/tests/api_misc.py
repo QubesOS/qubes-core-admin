@@ -204,45 +204,38 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/qubes-tools/gui'),
         ])
 
-    def test_020_notify_updates_standalone(self):
-        del self.src.template
-        with DatetimeMock() as mock_date:
+    def notify_update(self, new_updates: bool, timestamp: int = 2038):
+        payload = b'1\n' if new_updates else b'0\n'
+        with DatetimeMock(year=timestamp) as mock_date:
             response = self.call_mgmt_func(
-                b'qubes.NotifyUpdates', payload=b'1\n')
+                b'qubes.NotifyUpdates', payload=payload)
             self.assertIsNone(response)
             expected = [
                 mock.call.updateable.__bool__(),
-                mock.call.features.__getitem__('updates-available'),
-                mock.call.features.__getitem__().__bool__(),
-                mock.call.features.__setitem__('updates-available', True),
+                mock.call.features.get('updates-available', False),
                 mock.call.features.__setitem__(
-                    'last-updates-check', mock_date.str
-                ),
+                    'updates-available', new_updates),
+                mock.call.features.__setitem__(
+                    'last-updates-check', mock_date.str),
             ]
+        return expected
+
+    def test_020_notify_updates_standalone(self):
+        del self.src.template
+        self.src.features.get.return_value = False
+        expected = self.notify_update(new_updates=True)
         self.assertEqual(self.src.mock_calls, expected,
                          "\nActual:\n" + str(self.src.mock_calls) +
-                         "\nExpected\n" + str(expected))
+                         "\nExpected:\n" + str(expected).replace(",", ",\n"))
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_021_notify_updates_standalone2(self):
         del self.src.template
-        with DatetimeMock() as mock_date:
-            response = self.call_mgmt_func(
-                b'qubes.NotifyUpdates', payload=b'0\n')
-            self.assertIsNone(response)
-            expected = [
-                mock.call.updateable.__bool__(),
-                mock.call.features.__getitem__('updates-available'),
-                mock.call.features.__getitem__().__bool__(),
-                mock.call.features.__setitem__('last-update', mock_date.str),
-                mock.call.features.__setitem__('updates-available', False),
-                mock.call.features.__setitem__(
-                    'last-updates-check', mock_date.str
-                ),
-            ]
+        self.src.features.get.return_value = False
+        expected = self.notify_update(new_updates=False)
         self.assertEqual(self.src.mock_calls, expected,
                          "\nActual:\n" + str(self.src.mock_calls) +
-                         "\nExpected\n" + str(expected))
+                         "\nExpected:\n" + str(expected).replace(",", ",\n"))
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
         ])
@@ -264,7 +257,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.app.mock_calls, [])
 
     def test_024_notify_updates_template_based_no_updates(self):
-        '''No updates on template-based VM, should not reset state'''
+        """No updates on template-based VM, should not reset state"""
         self.src.updateable = False
         self.src.template.is_running.return_value = False
         response = self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'0\n')
@@ -276,9 +269,10 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.app.mock_calls, [])
 
     def test_025_notify_updates_template_based(self):
-        '''Some updates on template-based VM, should save flag'''
+        """Some updates on template-based VM, should save flag"""
         self.src.updateable = False
         self.tpl.is_running.return_value = False
+        self.src.features.get.return_value = False
         self.src.storage.outdated_volumes = []
         with DatetimeMock() as mock_date:
             response = self.call_mgmt_func(
@@ -287,8 +281,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             expected = [
                 mock.call.updateable.__bool__(),
                 mock.call.is_running(),
-                mock.call.features.__getitem__('updates-available'),
-                mock.call.features.__getitem__().__bool__(),
+                mock.call.features.get('updates-available', False),
+                mock.call.features.get().__bool__(),
                 mock.call.features.__setitem__('updates-available', True),
                 mock.call.features.__setitem__(
                     'last-updates-check', mock_date.str
@@ -298,7 +292,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, expected,
                          "\nActual:\n" + str(self.tpl.mock_calls) +
-                         "\nExpected\n" + str(expected))
+                         "\nExpected:\n" + str(expected).replace(",", ",\n"))
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
         ])
@@ -336,6 +330,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.dvm.updateable = False
         self.srv = mock.NonCallableMagicMock(template=self.dvm)
         self.src.updateable = False
+        self.src.features.get.return_value = False
         self.src.template.is_running.return_value = False
         self.src.storage.outdated_volumes = []
         with DatetimeMock() as mock_date:
@@ -345,8 +340,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             expected = [
                 mock.call.updateable.__bool__(),
                 mock.call.is_running(),
-                mock.call.features.__getitem__('updates-available'),
-                mock.call.features.__getitem__().__bool__(),
+                mock.call.features.get('updates-available', False),
+                mock.call.features.get().__bool__(),
                 mock.call.features.__setitem__('updates-available', True),
                 mock.call.features.__setitem__(
                     'last-updates-check', mock_date.str
@@ -355,12 +350,46 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, expected,
                          "\nActual:\n" + str(self.tpl.mock_calls) +
-                         "\nExpected\n" + str(expected))
+                         "\nExpected:\n" + str(expected).replace(",", ",\n"))
         self.assertEqual(self.dvm.mock_calls, [])
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
         ])
+
+    def test_030_notify_updates_standalone(self):
+        del self.src.template
+
+        self.src.features.get.return_value = False
+        expected = self.notify_update(timestamp=1, new_updates=False)
+
+        self.src.features.get.return_value = False
+        expected.extend(self.notify_update(timestamp=2, new_updates=True))
+
+        self.src.features.get.return_value = True
+        expected.extend(self.notify_update(timestamp=3, new_updates=True))
+
+        self.src.features.get.return_value = True
+        with DatetimeMock(year=4) as mock_date:
+            response = self.call_mgmt_func(
+                b'qubes.NotifyUpdates', payload=b'0\n')
+            self.assertIsNone(response)
+            expected.extend([
+                mock.call.updateable.__bool__(),
+                mock.call.features.get('updates-available', False),
+                mock.call.features.__setitem__(
+                    'last-update', mock_date.str
+                ),
+                mock.call.features.__setitem__('updates-available', False),
+                mock.call.features.__setitem__(
+                    'last-updates-check', mock_date.str
+                ),
+            ])
+
+        self.assertEqual(self.src.mock_calls, expected,
+                         "\nActual:\n" + str(self.src.mock_calls) +
+                         "\nExpected:\n" + str(expected))
+        self.assertEqual(self.app.mock_calls, 4 * [mock.call.save()])
 
 
 class DatetimeMock:
