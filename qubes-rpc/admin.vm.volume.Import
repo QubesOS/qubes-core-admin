@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash --
 #
 # This Admin API call is implemented as a custom script, instead of dumb
 # passthrough to qubesd because it may get huge amount of data (whole root.img
