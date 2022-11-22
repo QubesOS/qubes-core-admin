@@ -26,6 +26,7 @@ import subprocess
 from qubesadmin import Qubes
 
 def main():
+    os.environ['LC_ALL'] = 'C'
     if os.geteuid() != 0:
         sys.stderr.write('This program must be run as root to set the date, aborting!\n')
         sys.exit(1)
@@ -36,22 +37,49 @@ def main():
         sys.exit(0)
 
     if not clockvm.is_running():
-        sys.stderr.write('ClockVM {} is not running, aborting.\n'.format(
+        sys.stderr.write('ClockVM {} is not running, aborting!\n'.format(
             clockvm.name))
         sys.exit(0)
 
-    p = clockvm.run_service('qubes.GetDate')
-    untrusted_date_out = p.stdout.read(25).decode('ascii', errors='strict')
-    untrusted_date_out = untrusted_date_out.strip()
-
-    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', untrusted_date_out):
+    with clockvm.run_service('qubes.GetDate+nanoseconds') as p:
+        untrusted_date_out = p.stdout.read(36)
+    try:
+        untrusted_date_out.decode('ascii', 'strict')
+    except UnicodeDecodeError:
+        sys.stderr.write('Received non-ASCII date, aborting!\n')
+        sys.exit(1)
+    untrusted_date_len = len(untrusted_date_out)
+    if untrusted_date_len == 36: # new format, nanosecond precision
+        regexp = rb'\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2},[0-9]{9}\+00:00\n\Z'
+        precision = b'ns'
+    elif untrusted_date_len == 26: # old format, second precision
+        regexp = rb'\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00\n\Z'
+        precision = b'seconds'
+    else:
+        sys.stderr.write('Invalid date length (expected 26 or 36 bytes, got {})'
+                         ', aborting!\n'.format(untrusted_date_len))
+        sys.exit(1)
+    if untrusted_date_out[-7:] != b'+00:00\n':
+        sys.stderr.write('Date not in UTC, aborting!\n')
+        sys.exit(1)
+    if not re.match(regexp, untrusted_date_out):
         sys.stderr.write('Invalid date received, aborting!\n')
         sys.exit(1)
+    # this time is arbitrary, something better should be used instead
+    if untrusted_date_out[:19] <= b'2022-07-10T17:08:31':
+        sys.stderr.write('Received a date older than this program, aborting!\n')
+        sys.exit(1)
     date_out = untrusted_date_out
-    subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
-        stdout=subprocess.DEVNULL)
-    subprocess.check_call(['/sbin/hwclock', '--systohc'],
-        stdout=subprocess.DEVNULL)
+    try:
+        subprocess.check_call([b'date', b'-u', b'-I' + precision, b'-s',
+                               date_out[:-1]],
+            stdout=subprocess.DEVNULL)
+        subprocess.check_call([b'/sbin/hwclock', b'--systohc'],
+            stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        # input is trusted here, so it can be safely printed
+        sys.stderr.write('Unable to set the date: process {!r} failed.\n'.format(e.cmd))
+        sys.exit(e.returncode)
 
 if __name__ == '__main__':
     main()
