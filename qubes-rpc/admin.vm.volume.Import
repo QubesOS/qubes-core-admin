@@ -30,7 +30,7 @@
 # data size in bytes. This is so that we can already notify qubesd to create a
 # volume with the new size.
 
-set -e
+set -euo pipefail
 
 # make dd output consistent
 export LC_ALL=C
