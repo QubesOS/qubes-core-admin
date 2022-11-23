@@ -39,11 +39,8 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
         return None
 
     # new syntax - just one int
-    try:
-        if int(untrusted_meminfo) >= 0:
-            return int(untrusted_meminfo) * 1024
-    except ValueError:
-        pass
+    if untrusted_meminfo.isdigit():
+        return int(untrusted_meminfo) * 1024
 
     untrusted_meminfo = untrusted_meminfo.decode('ascii', errors='strict')
     # not new syntax - try the old one
@@ -69,18 +66,20 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
 
 
 def is_meminfo_suspicious(untrusted_meminfo):
-    log.debug('is_meminfo_suspicious('
-              'untrusted_meminfo={!r})'.format(untrusted_meminfo))
+    log.debug('is_meminfo_suspicious(untrusted_meminfo=%r)', untrusted_meminfo)
     ret = False
 
     # check whether the required keys exist and are not negative
     try:
         for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached',
         'SwapTotal', 'SwapFree'):
-            val = int(untrusted_meminfo[i])
-            if val < 0:
+            if not untrusted_meminfo[i].isdigit():
                 ret = True
-            untrusted_meminfo[i] = val
+            else:
+                val = int(untrusted_meminfo[i])
+                if val < 0:
+                    ret = True
+                untrusted_meminfo[i] = val
     except:
         ret = True
 

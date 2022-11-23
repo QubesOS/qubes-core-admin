@@ -73,6 +73,8 @@ async def qubesd_client(socket, payload, *args):
 
     try:
         header_data = await reader.read(1)
+        if not header_data.isdigit():
+            return 1
         returncode = int(header_data)
         sys.stdout.buffer.write(header_data)  # pylint: disable=no-member
         while not reader.at_eof():

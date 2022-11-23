@@ -2700,7 +2700,7 @@ netvm default=True type=vm \n'''
 
     def test_661_pool_set_revisions_to_keep_negative(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
                 b'dom0', b'test-pool', b'-2')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2754,7 +2754,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'-2')
 

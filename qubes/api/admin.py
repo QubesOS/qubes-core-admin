@@ -493,8 +493,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_volume_set_revisions_to_keep(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
+        untrusted_payload = untrusted_payload.strip()
+        if not untrusted_payload.isdigit():
+            raise qubes.api.ProtocolError('Invalid value')
         try:
-            untrusted_value = int(untrusted_payload.decode('ascii'))
+            untrusted_value = int(untrusted_payload.decode('ascii', 'strict'))
         except (UnicodeDecodeError, ValueError):
             raise qubes.api.ProtocolError('Invalid value')
         del untrusted_payload
@@ -746,10 +749,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == 'dom0')
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
-        try:
-            untrusted_value = int(untrusted_payload.decode('ascii'))
-        except (UnicodeDecodeError, ValueError):
+        untrusted_payload = untrusted_payload.strip()
+        if not untrusted_payload.isdigit() or len(untrusted_payload) > 20:
             raise qubes.api.ProtocolError('Invalid value')
+        untrusted_value = int(untrusted_payload)
         del untrusted_payload
         self.enforce(untrusted_value >= 0)
         newvalue = untrusted_value
@@ -768,7 +771,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         pool = self.app.pools[self.arg]
         try:
             newvalue = qubes.property.bool(None, None,
-                untrusted_payload.decode('ascii'))
+                untrusted_payload.decode('ascii', 'strict'))
         except (UnicodeDecodeError, ValueError):
             raise qubes.api.ProtocolError('Invalid value')
         del untrusted_payload
@@ -833,7 +836,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         else:
             raise qubes.exc.QubesValueError('label already exists')
 
-        untrusted_payload = untrusted_payload.decode('ascii').strip()
+        untrusted_payload = untrusted_payload.decode('ascii', 'strict').strip()
         self.enforce(len(untrusted_payload) == 8)
         self.enforce(untrusted_payload.startswith('0x'))
         # besides prefix, only hex digits are allowed
@@ -1285,7 +1288,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devclass = endpoint
         options = {}
         persistent = False
-        for untrusted_option in untrusted_payload.decode('ascii').split():
+        for untrusted_option in untrusted_payload.decode('ascii',
+                                                         'strict').split():
             try:
                 untrusted_key, untrusted_value = untrusted_option.split('=', 1)
             except ValueError:

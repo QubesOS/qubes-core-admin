@@ -93,11 +93,10 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         requested_size = None
         if untrusted_payload:
-            try:
-                untrusted_value = int(untrusted_payload.decode('ascii'))
-            except (UnicodeDecodeError, ValueError):
+            if not untrusted_payload.isdigit() or len(untrusted_payload) >= 21:
                 raise qubes.api.ProtocolError('Invalid value')
-            self.enforce(untrusted_value > 0)
+            untrusted_value = int(untrusted_payload)
+            self.enforce(0 < untrusted_value < (1 << 64))
             requested_size = untrusted_value
             del untrusted_value
         del untrusted_payload
