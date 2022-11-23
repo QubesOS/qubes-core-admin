@@ -48,19 +48,29 @@ if [[ "${0##*/}" == admin.vm.volume.ImportWithSize ]]; then
     fi
 fi
 
-echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
-    "$QREXEC_REMOTE_DOMAIN" \
-    "internal.vm.volume.ImportBegin" \
-    "$QREXEC_REQUESTED_TARGET" \
-    "$1" >"$tmpfile"
+{
+    echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
+        "$QREXEC_REMOTE_DOMAIN" \
+        "internal.vm.volume.ImportBegin" \
+        "$QREXEC_REQUESTED_TARGET" \
+        "$1"
+    printf \\0
+} >"$tmpfile"
 
-# exit if qubesd returned an error (not '0\0')
-if [ "$(head -c 2 "$tmpfile" | hexdump -e '/1 "%02x"')" != "3000" ]; then
-    cat "$tmpfile"
-    exit 1
-fi
-size=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 1)
-path=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 2)
+{
+    # Read response from qubesd
+    read -r -d '' first
+
+    # exit if qubesd returned an error (not '0\0')
+    if [[ "$first" != '0' ]]; then
+        head -c-1 -- "$tmpfile"
+        exit 1
+    fi
+
+    # Finish reading response
+    read -r -d ' ' size
+    read -r -d '' path
+} < "$tmpfile"
 
 error=""
 
