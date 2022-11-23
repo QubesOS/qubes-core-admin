@@ -224,6 +224,8 @@ Remapping:\t$REMAP
 YAML_OUTPUT="---
 layout:
   'hcl'
+qubes:
+  '$QUBES_VER'
 type:
   '$TYPE'
 hvm:
