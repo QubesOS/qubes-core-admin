@@ -100,7 +100,10 @@ if cat $TEMP_DIR/xl-dmesg | grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' > /dev/n
     XL_DMESG_INCOMPLETE=no
 else
     XL_DMESG_INCOMPLETE=yes
-    echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+    if ! [[ "$YAML_ONLY" ]]
+      then
+        echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+    fi
 fi
 
 
@@ -221,7 +224,7 @@ TPM:\t\t$TPM
 Remapping:\t$REMAP
 "
 
-YAML_OUTPUT="---
+YAML_OUTPUT="
 layout:
   'hcl'
 qubes:
@@ -280,8 +283,6 @@ versions:
     FIXAUTHOR
   link: |
     FIXLINK
-
----
 "
 if [[ "$YAML_ONLY" == 1 ]]
   then
