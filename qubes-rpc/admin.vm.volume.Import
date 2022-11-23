@@ -41,7 +41,11 @@ trap 'rm -f $tmpfile' EXIT
 
 requested_size=""
 if [[ "${0##*/}" == admin.vm.volume.ImportWithSize ]]; then
-    read -r requested_size
+    read -r -n 22 requested_size
+    if [[ "${#requested_size}" -gt 20 ]]; then
+        echo "Size provided is too long: expected no more than 20 bytes, but got ${#requested_size}" >&2
+        exit 1
+    fi
 fi
 
 echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
