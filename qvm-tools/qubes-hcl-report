@@ -268,8 +268,7 @@ $SCSI
 usb: |
   $USB
 versions:
-
-- works:
+  works:
     'FIXME:yes|no|partial'
   qubes: |
     $QUBES
