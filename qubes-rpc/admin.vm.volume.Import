@@ -37,7 +37,7 @@ export LC_ALL=C
 
 # use temporary file, because env variables deal poorly with \0 inside
 tmpfile=$(mktemp)
-trap 'rm -f $tmpfile' EXIT
+trap 'rm -f -- "$tmpfile"' EXIT
 
 requested_size=""
 if [[ "${0##*/}" == admin.vm.volume.ImportWithSize ]]; then
