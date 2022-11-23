@@ -30,6 +30,20 @@ Options
    will exit with 0 when request is successfully delivered to qubesd, regardless
    of response.
 
+.. option:: --single-line
+
+   Read a single line from standard input and send it to qubesd.  The line must
+   only consist of bytes between 0x20 and 0x7E inclusive, and is terminated by
+   an ASCII newline (0x10).  Input is read one byte at a time to ensure that
+   too many bytes are not read.  There is a limit of 1024 bytes in this mode.
+
+.. option:: --max-bytes
+
+   To prevent excessive memory use, qubesd-query imposes a limit on the amount
+   of bytes it will read.  This limit defaults to 65536 if ``--single-line``
+   is not passed, and 1024 otherwise.  This option can be used to lower this
+   value, though not raise it.
+
 Description
 -----------
 
@@ -42,7 +56,8 @@ Authors
 
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
-| Marek Marczykowski <marmarek at invisiblethingslab dot com>
+| Marek Marczykowski-Górecki <marmarek at invisiblethingslab dot com>
 | Wojtek Porczyk <woju at invisiblethingslab dot com>
+| Demi Marie Obenour <demi@invisiblethingslab.com>
 
 .. vim: ts=3 sw=3 et tw=80

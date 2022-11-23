@@ -39,17 +39,14 @@ export LC_ALL=C
 tmpfile=$(mktemp)
 trap 'rm -f -- "$tmpfile"' EXIT
 
-requested_size=""
-if [[ "${0##*/}" == admin.vm.volume.ImportWithSize ]]; then
-    read -r -n 22 requested_size
-    if [[ "${#requested_size}" -gt 20 ]]; then
-        echo "Size provided is too long: expected no more than 20 bytes, but got ${#requested_size}" >&2
-        exit 1
-    fi
-fi
+case "${0##*/}" in
+admin.vm.volume.ImportWithSize) flags=(--single-line --max-bytes=21);;
+admin.vm.volume.Import) flags=(--empty);;
+*) printf 'Invoked with unknown basename %q, cannot continue\n' "${0##*/}" >&2; exit 1;;
+esac
 
 {
-    echo -n "$requested_size" | qubesd-query -c /var/run/qubesd.internal.sock \
+    qubesd-query "${flags[@]}" -c /var/run/qubesd.internal.sock \
         "$QREXEC_REMOTE_DOMAIN" \
         "internal.vm.volume.ImportBegin" \
         "$QREXEC_REQUESTED_TARGET" \

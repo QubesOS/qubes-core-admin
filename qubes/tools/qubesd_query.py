@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
 
@@ -35,6 +36,15 @@ parser.add_argument('dest', metavar='DEST',
 parser.add_argument('arg', metavar='ARGUMENT',
     nargs='?', default='',
     help='argument to method')
+parser.add_argument('--max-bytes',
+    dest='max_bytes',
+    type=int,
+    help='Maximum number of bytes to read from stdin')
+parser.add_argument('--single-line',
+    dest='single_line',
+    action='store_true',
+    default=False,
+    help='Only read a single line of input')
 
 def sighandler(loop, signame, coro):
     print('caught {}, exiting'.format(signame))
@@ -75,20 +85,57 @@ async def qubesd_client(socket, payload, *args):
     finally:
         writer.close()
 
+# pylint: disable=too-many-return-statements
 def main(args=None):
     args = parser.parse_args(args)
     loop = asyncio.get_event_loop()
+    max_payload_size = 1024 if args.single_line else MAX_PAYLOAD_SIZE
+
+    if args.max_bytes is not None:
+        if args.max_bytes > MAX_PAYLOAD_SIZE:
+            parser.error('Maximum payload too large (max {})'
+                         .format(max_payload_size))
+            return 1
+        max_payload_size = args.max_bytes
 
     # pylint: disable=no-member
     if args.payload:
-        # read one byte more to check for too long payload,
-        # instead of silently truncating
-        payload = sys.stdin.buffer.read(MAX_PAYLOAD_SIZE + 1)
-        if len(payload) > MAX_PAYLOAD_SIZE:
-            parser.error('Payload too long (max {})'.format(MAX_PAYLOAD_SIZE))
-            # make sure to terminate, even if parser.error() would return
-            # for some reason
-            return 1
+        if args.single_line:
+            # Read until newline, but error out on non-ASCII inputs
+            untrusted_v = []
+            for _ in range(0, max_payload_size):
+                untrusted_c = os.read(0, 1)
+                if not untrusted_c:
+                    parser.error('End of input without a newline')
+                    return 1
+                untrusted_c, = untrusted_c
+                if untrusted_c == 10:
+                    break
+                if 0x20 <= untrusted_c <= 0x7E:
+                    untrusted_v.append(untrusted_c)
+                else:
+                    parser.error('Invalid byte {} in input'.format(untrusted_c))
+                    # make sure to terminate, even if parser.error() would
+                    # return for some reason
+                    return 1
+            else:
+                parser.error('No newline found in first {} bytes'
+                             .format(max_payload_size))
+                # make sure to terminate, even if parser.error() would return
+                # for some reason
+                return 1
+            payload = bytes(untrusted_v)
+            del untrusted_c, untrusted_v
+        else:
+            # read one byte more to check for too long payload,
+            # instead of silently truncating
+            payload = sys.stdin.buffer.read(MAX_PAYLOAD_SIZE + 1)
+            if len(payload) > max_payload_size:
+                parser.error('Payload too long (max {})'
+                             .format(max_payload_size))
+                # make sure to terminate, even if parser.error() would return
+                # for some reason
+                return 1
     else:
         payload = b''
     # pylint: enable=no-member
