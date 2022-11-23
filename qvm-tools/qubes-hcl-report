@@ -224,7 +224,7 @@ TPM:\t\t$TPM
 Remapping:\t$REMAP
 "
 
-YAML_OUTPUT="
+YAML_OUTPUT="---
 layout:
   'hcl'
 qubes:
@@ -281,8 +281,8 @@ versions:
   credit: |
     FIXAUTHOR
   link: |
-    FIXLINK
-"
+    FIXLINK"
+
 if [[ "$YAML_ONLY" == 1 ]]
   then
     echo -e "$YAML_OUTPUT"
