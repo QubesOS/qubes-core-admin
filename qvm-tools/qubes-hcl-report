@@ -30,6 +30,10 @@ while [ $# -gt 0 ]; do
       SUPPORT_FILES=1
       ;;
 
+    -y |--yaml)
+      YAML_ONLY=1
+      ;;
+
     -* | -h | --help)
       echo -e "qubes-hcl-report v$VERSION"
       echo ""
@@ -43,6 +47,7 @@ while [ $# -gt 0 ]; do
       echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers." 
       echo -e "\t\t\tIf, for privacy or security reasons, you do not wish to make this information public, "
       echo -e "\t\t\tplease do not send the .cpio.gz file to the public mailing list."
+      echo -e "\t-y, --yaml-only\tDo not write any files, only output data to STDOUT in yaml format."
       echo ""
       echo -e "\t<AppVM Name>\tCopy the results to the given AppVM. The default is to keep it in dom0"
       echo ""
@@ -63,6 +68,20 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+if [[ "$YAML_ONLY" == 1 ]]
+  then
+    if [[ "$SUPPORT_FILES" == 1 ]]
+      then
+        echo -e "ERROR: --yaml-only is mutually exclusive with --support"
+        exit 1
+    fi
+    if [[ "$1" ]]
+      then
+        echo -e "ERROR: --yaml-only is mutually exclusive with providing a VM name"
+        exit 1
+    fi
+fi
 
 
 DATE=`date +%Y%m%d-%H%M%S`
@@ -95,6 +114,7 @@ if [[ $BRAND =~ "O.E.M" ]]
     PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3-`
 fi
 
+QUBES_VER=`cat /etc/qubes-release|cut -d ' ' -f3-`
 KERNEL=`uname -r |cut -d '.' -f-3`
 CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /"`
 CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /"`
@@ -169,28 +189,39 @@ if [[ $XL_REMAP ]]
     REMAP="no"
 fi
 
+READABLE_OUTPUT="
+Qubes release $QUBES_VER
 
-cat /etc/qubes-release
-echo
-echo -e "Brand:\t\t$BRAND"
-echo -e "Model:\t\t$PRODUCT"
-echo -e "BIOS:\t\t$BIOS\n"
-echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA"
-echo -e "Kernel:\t\t$KERNEL\n"
-echo -e "RAM:\t\t$RAM Mb\n"
-echo -e "CPU:\n$CPU"
-echo -e "Chipset:\n$CHIPSET"
-echo -e "VGA:\n${VGA}\n"
-echo -e "Net:\n$NET\n"
-echo -e "SCSI:\n$SCSI\n"
-echo -e "HVM:\t\t$VTX"
-echo -e "I/O MMU:\t$VTD"
-echo -e "HAP/SLAT:\t$HAP_VERBOSE"
-echo -e "TPM:\t\t$TPM"
-echo -e "Remapping:\t$REMAP"
-echo
+Brand:\t\t$BRAND
+Model:\t\t$PRODUCT
+BIOS:\t\t$BIOS
 
-echo -e "---
+Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
+Kernel:\t\t$KERNEL
+
+RAM:\t\t$RAM Mb
+
+CPU:
+$CPU
+Chipset:
+$CHIPSET
+VGA:
+${VGA}
+
+Net:
+$NET
+
+SCSI:
+$SCSI
+
+HVM:\t\t$VTX
+I/O MMU:\t$VTD
+HAP/SLAT:\t$HAP_VERBOSE
+TPM:\t\t$TPM
+Remapping:\t$REMAP
+"
+
+YAML_OUTPUT="---
 layout:
   'hcl'
 type:
@@ -249,7 +280,16 @@ versions:
     FIXLINK
 
 ---
-" >> "$HOME/$FILENAME.yml"
+"
+if [[ "$YAML_ONLY" == 1 ]]
+  then
+    echo -e "$YAML_OUTPUT"
+    exit
+fi
+
+echo -e "$READABLE_OUTPUT"
+
+echo -e "$YAML_OUTPUT" >> "$HOME/$FILENAME.yml"
 
 
 if [[ "$SUPPORT_FILES" == 1 ]]
