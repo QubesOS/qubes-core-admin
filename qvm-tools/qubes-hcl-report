@@ -134,7 +134,6 @@ QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
-PCRS=`find /sys/devices/ -name pcrs`
 XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)'`
 
 
@@ -176,14 +175,19 @@ else
     HAP_VERBOSE="No"
 fi
 
-if [[ $PCRS ]]
+if [[ -f "/sys/class/tpm/tpm0/tpm_version_major" ]]
   then
-    # try tu run tcsd and: grep the logs, try get version info.
-    TPM="Device present"
-    TPM_s="yes"
+    TPM="Device present (TPM 2.0)"
+    TPM_s="2.0"
   else
-    TPM="Device not found"
-    TPM_s="unknown"
+    if [[ -f "/sys/class/tpm/tpm0/pcrs" ]]
+      then
+        TPM="Device present (TPM 1.2)"
+        TPM_s="1.2"
+      else
+        TPM="Device not found"
+        TPM_s="unknown"
+    fi
 fi
 
 if [[ $XL_REMAP ]]
