@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
       echo -e "Options are:"
       echo -e "\t-h, --help\tDisplay this help text and exit."
       echo -e "\t-s, --support\tGenerate more detailed HCL Support Files"
-      echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers." 
+      echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers."
       echo -e "\t\t\tIf, for privacy or security reasons, you do not wish to make this information public, "
       echo -e "\t\t\tplease do not send the .cpio.gz file to the public mailing list."
       echo -e "\t-y, --yaml-only\tDo not write any files, only output data to STDOUT in yaml format."
@@ -117,7 +117,7 @@ if [[ $BRAND =~ "O.E.M" ]]
     PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3-`
 fi
 
-QUBES_VER=`cat /etc/qubes-release|cut -d ' ' -f3-`
+QUBES_VER=`cat $TEMP_DIR/qubes-release|cut -d ' ' -f3`
 KERNEL=`uname -r |cut -d '.' -f-3`
 CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /"`
 CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /"`
@@ -130,7 +130,6 @@ BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut 
 XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
 XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
 XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
-QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
@@ -140,7 +139,7 @@ XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Int
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
 if [[ $XL_VTX ]]
- then 
+ then
     VTX="Active"
     HVM="yes"
 
@@ -232,8 +231,6 @@ Remapping:\t$REMAP
 YAML_OUTPUT="---
 layout:
   'hcl'
-qubes:
-  '$QUBES_VER'
 type:
   '$TYPE'
 hvm:
@@ -273,20 +270,20 @@ $SCSI
 usb: |
   $USB
 versions:
-  works:
-    'FIXME:yes|no|partial'
-  qubes: |
-    $QUBES
-  xen: |
-    $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
-  kernel: |
-    $KERNEL
-  remark: |
-    FIXME
-  credit: |
-    FIXAUTHOR
-  link: |
-    FIXLINK"
+  - works:
+      'FIXME:yes|no|partial'
+    qubes: |
+      $QUBES_VER
+    xen: |
+      $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
+    kernel: |
+      $KERNEL
+    remark: |
+      FIXME
+    credit: |
+      FIXAUTHOR
+    link: |
+      FIXLINK"
 
 if [[ "$YAML_ONLY" == 1 ]]
   then
