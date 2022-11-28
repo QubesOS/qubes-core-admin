@@ -510,7 +510,7 @@ class ThinVolume(qubes.storage.Volume):
             src_path = await qubes.utils.coro_maybe(src_volume.export())
             try:
                 cmd = [_dd, 'if=' + src_path, 'of=/dev/' + self._vid_import,
-                    'conv=sparse', 'status=none', 'bs=128K']
+                       'conv=sparse,nocreat,fsync', 'status=none', 'bs=128K']
                 if not os.access('/dev/' + self._vid_import, os.W_OK) or \
                         not os.access(src_path, os.R_OK):
                     cmd.insert(0, _sudo)
