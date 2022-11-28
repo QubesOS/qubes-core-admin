@@ -760,6 +760,7 @@ def _get_lvm_cmdline(cmd):
     if action == 'remove':
         assert len(cmd) == 2, 'wrong number of arguments for remove'
         assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
+        assert '/' in cmd[1], 'refusing to delete entire volume group'
         lvm_cmd = ['lvremove', '--force', '--', cmd[1]]
     elif action == 'clone':
         assert len(cmd) == 3, 'wrong number of arguments for clone'
