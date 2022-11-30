@@ -210,6 +210,15 @@ class AbstractQubesAPI:
         if not predicate:
             raise PermissionDenied()
 
+    def validate_size(self, untrusted_size: bytes) -> int:
+        self.enforce(isinstance(untrusted_size, bytes))
+        if not untrusted_size.isdigit():
+            raise qubes.api.ProtocolError('Size must be ASCII digits (only)')
+        if len(untrusted_size) >= 20:
+            raise qubes.api.ProtocolError('Sizes limited to 19 decimal digits')
+        if untrusted_size[0] == 48 and untrusted_size != b'0':
+            raise qubes.api.ProtocolError('Spurious leading zeros not allowed')
+        return int(untrusted_size)
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536

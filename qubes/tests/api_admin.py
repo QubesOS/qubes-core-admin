@@ -606,6 +606,22 @@ netvm default=True type=vm \n'''
         self.assertEqual(self.vm.storage.mock_calls,
             [unittest.mock.call.resize('private', 1024000000)])
 
+    def test_120_vm_volume_resize_zero(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
+        value = self.call_mgmt_func(b'admin.vm.volume.Resize',
+            b'test-vm1', b'private', b'0')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertEqual(self.vm.storage.mock_calls,
+            [unittest.mock.call.resize('private', 0)])
+
     def test_120_vm_volume_resize_invalid_size1(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
@@ -614,7 +630,7 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'no-int-size')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -629,9 +645,39 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'-1')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertFalse(self.vm.storage.called)
+
+    def test_120_vm_volume_resize_invalid_size3(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.api.ProtocolError):
+            self.call_mgmt_func(b'admin.vm.volume.Resize',
+                b'test-vm1', b'private', b'10000000000000000000')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertFalse(self.vm.storage.called)
+
+    def test_120_vm_volume_resize_invalid_size4(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.api.ProtocolError):
+            self.call_mgmt_func(b'admin.vm.volume.Resize',
+                b'test-vm1', b'private', b'01')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
         self.assertFalse(self.vm.storage.called)

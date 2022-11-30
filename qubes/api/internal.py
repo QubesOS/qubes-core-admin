@@ -91,14 +91,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        requested_size = None
-        if untrusted_payload:
-            if not untrusted_payload.isdigit() or len(untrusted_payload) >= 21:
-                raise qubes.api.ProtocolError('Invalid value')
-            untrusted_value = int(untrusted_payload)
-            self.enforce(0 < untrusted_value < (1 << 64))
-            requested_size = untrusted_value
-            del untrusted_value
+        requested_size = (self.validate_size(untrusted_payload)
+                          if untrusted_payload else None)
         del untrusted_payload
 
         path = await self.dest.storage.import_data(

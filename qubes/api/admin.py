@@ -450,15 +450,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_volume_resize(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
-        untrusted_size = untrusted_payload.decode('ascii').strip()
-        del untrusted_payload
-        self.enforce(untrusted_size.isdigit())   # only digits, forbid '-' too
-        self.enforce(len(untrusted_size) <= 20)  # limit to about 2^64
-
-        size = int(untrusted_size)
-
+        size = self.validate_size(untrusted_payload.strip())
         self.fire_event_for_permission(size=size)
-
         try:
             await self.dest.storage.resize(self.arg, size)
         finally:  # even if calling qubes.ResizeDisk inside the VM failed
@@ -493,17 +486,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_volume_set_revisions_to_keep(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
-        untrusted_payload = untrusted_payload.strip()
-        if not untrusted_payload.isdigit():
-            raise qubes.api.ProtocolError('Invalid value')
-        try:
-            untrusted_value = int(untrusted_payload.decode('ascii', 'strict'))
-        except (UnicodeDecodeError, ValueError):
-            raise qubes.api.ProtocolError('Invalid value')
-        del untrusted_payload
-        self.enforce(untrusted_value >= 0)
-        newvalue = untrusted_value
-        del untrusted_value
+        newvalue = self.validate_size(untrusted_payload)
 
         self.fire_event_for_permission(newvalue=newvalue)
 
@@ -749,14 +732,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == 'dom0')
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
-        untrusted_payload = untrusted_payload.strip()
-        if not untrusted_payload.isdigit() or len(untrusted_payload) > 20:
-            raise qubes.api.ProtocolError('Invalid value')
-        untrusted_value = int(untrusted_payload)
-        del untrusted_payload
-        self.enforce(untrusted_value >= 0)
-        newvalue = untrusted_value
-        del untrusted_value
+        newvalue = self.validate_size(untrusted_payload)
 
         self.fire_event_for_permission(newvalue=newvalue)
 
