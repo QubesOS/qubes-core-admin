@@ -185,7 +185,7 @@ class TC_50_MimeHandlers:
 
     def prepare_pdf(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert text:/tmp/source.txt {}".format(filename)
+        cmd = "gm convert text:/tmp/source.txt {}".format(filename)
         try:
             self.loop.run_until_complete(
                 self.source_vm.run_for_stdio(cmd))
@@ -218,25 +218,25 @@ class TC_50_MimeHandlers:
 
     def prepare_png(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert text:/tmp/source.txt {}".format(filename)
+        cmd = "gm convert text:/tmp/source.txt {}".format(filename)
         try:
             self.loop.run_until_complete(
                 self.source_vm.run_for_stdio(cmd))
         except subprocess.CalledProcessError as e:
             if e.returncode == 127:
-                self.skipTest("convert not installed".format(cmd))
+                self.skipTest("GraphicsMagick not installed".format(cmd))
             self.skipTest("Failed to run '{}': {}".format(cmd,
                 e.stderr.decode()))
 
     def prepare_jpg(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert text:/tmp/source.txt {}".format(filename)
+        cmd = "gm convert text:/tmp/source.txt {}".format(filename)
         try:
             self.loop.run_until_complete(
                 self.source_vm.run_for_stdio(cmd))
         except subprocess.CalledProcessError as e:
             if e.returncode == 127:
-                self.skipTest("convert not installed".format(cmd))
+                self.skipTest("GraphicsMagick not installed".format(cmd))
             self.skipTest("Failed to run '{}': {}".format(cmd,
                 e.stderr.decode()))
 

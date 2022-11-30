@@ -43,7 +43,7 @@ AutoReq:	no
 
 BuildArch: noarch
 
-BuildRequires:  ImageMagick
+BuildRequires:  GraphicsMagick
 BuildRequires:	systemd-units
 BuildRequires:  systemd
 BuildRequires:  python3-devel
