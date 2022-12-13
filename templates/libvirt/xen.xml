@@ -192,7 +192,9 @@
                     {% endif %}
                     />
                 <input type="tablet" bus="usb"/>
-                {% if vm.features.check_with_template('audio-model', False) %}
+                {% if vm.features.check_with_template('audio-model', False) == 'ich6' %}
+                    <sound model="hda"/>
+                {% elif vm.features.check_with_template('audio-model', False) %}
                     <sound model="{{ vm.features.check_with_template('audio-model', False) }}"/>
                 {% endif %}
                 {% if vm.features.check_with_template('video-model', 'vga') != 'none' %}
