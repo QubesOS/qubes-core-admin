@@ -1392,14 +1392,35 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
 
-        if list(self.devices['pci'].attached()):
-            if self.features.check_with_template('qrexec', False):
-                await self.run_service_for_stdio('qubes.SuspendPre',
-                                                      user='root')
+        if self.features.check_with_template('qrexec', False):
+            try:
+                await asyncio.wait_for(
+                    self.run_service_for_stdio('qubes.SuspendPre',
+                                               user='root'),
+                    qubes.config.suspend_timeout)
+            except subprocess.CalledProcessError as e:
+                self.log.warning(
+                    "qubes.SuspendPre for %s failed with %d (stderr: %s), "
+                    "suspending anyway",
+                    self.name,
+                    e.returncode,
+                    qubes.utils.sanitize_stderr_for_log(e.stderr))
+            except asyncio.TimeoutError:
+                self.log.warning(
+                    "qubes.SuspendPre for %s timed out after %d seconds, "
+                    "suspending anyway",
+                    self.name,
+                    qubes.config.suspend_timeout)
+        try:
             self.libvirt_domain.pMSuspendForDuration(
                 libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
-        else:
-            self.libvirt_domain.suspend()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_UNSUPPORTED:
+                # OS inside doesn't support full suspend, just pause it
+                self.libvirt_domain.suspend()
+            else:
+                self.log.warning("Failed to suspend '%s'", self.name)
+                raise
 
         return self
 
@@ -1423,8 +1444,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
             if self.features.check_with_template('qrexec', False):
-                await self.run_service_for_stdio('qubes.SuspendPost',
-                                                      user='root')
+                try:
+                    await asyncio.wait_for(
+                        self.run_service_for_stdio('qubes.SuspendPost',
+                                                   user='root'),
+                        qubes.config.suspend_timeout)
+                except subprocess.CalledProcessError as e:
+                    self.log.warning(
+                        "qubes.SuspendPost for %s failed with %d (stderr: %s)",
+                        self.name,
+                        e.returncode,
+                        qubes.utils.sanitize_stderr_for_log(e.stderr))
+                except asyncio.TimeoutError:
+                    self.log.warning(
+                        "qubes.SuspendPost for %s timed out after %d seconds",
+                        self.name,
+                        qubes.config.suspend_timeout)
         else:
             await self.unpause()
 
