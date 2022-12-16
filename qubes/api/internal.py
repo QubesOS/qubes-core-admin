@@ -179,9 +179,9 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             done, _ = await asyncio.wait(
                 [asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
                  for p in processes])
-            for c in done:
+            for task in done:
                 try:
-                    c.result()
+                    task.result()
                 except asyncio.TimeoutError:
                     self.app.log.warning(
                         "some qube timed out after %d seconds on %s call",
@@ -249,9 +249,9 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             done, _ = await asyncio.wait(
                 [asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
                  for p in processes])
-            for c in done:
+            for task in done:
                 try:
-                    c.result()
+                    task.result()
                 except asyncio.TimeoutError:
                     self.app.log.warning(
                         "some qube timed out after %d seconds on %s call",
