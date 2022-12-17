@@ -446,8 +446,8 @@ async def create_servers(*args, force=False, loop=None, **kwargs):
                     pass
             server.close()
         if servers:
-            await asyncio.wait([
-                server.wait_closed() for server in servers])
+            await asyncio.wait([asyncio.create_task(server.wait_closed())
+                                for server in servers])
         raise
     finally:
         os.umask(old_umask)

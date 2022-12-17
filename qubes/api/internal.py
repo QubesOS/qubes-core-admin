@@ -176,9 +176,11 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 vm.log.warning('Failed to run qubes.SuspendPreAll: %s', str(e))
 
         if processes:
-            done, _ = await asyncio.wait(
-                [asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
-                 for p in processes])
+            done, _ = await asyncio.wait([
+                    asyncio.create_task(
+                        asyncio.wait_for(p.wait(),
+                                         qubes.config.suspend_timeout))
+                    for p in processes])
             for task in done:
                 try:
                     task.result()
@@ -195,7 +197,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
             if vm.is_running():
-                coros.append(vm.suspend())
+                coros.append(asyncio.create_task(vm.suspend()))
         if coros:
             done, _ = await asyncio.wait(coros)
             failed = ""
@@ -222,7 +224,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
             if vm.get_power_state() in ["Paused", "Suspended"]:
-                coros.append(vm.resume())
+                coros.append(asyncio.create_task(vm.resume()))
         if coros:
             await asyncio.wait(coros)
 
@@ -247,8 +249,9 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         if processes:
             done, _ = await asyncio.wait(
-                [asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
-                 for p in processes])
+                    [asyncio.create_task(asyncio.wait_for(p.wait(),
+                                         qubes.config.suspend_timeout))
+                     for p in processes])
             for task in done:
                 try:
                     task.result()
