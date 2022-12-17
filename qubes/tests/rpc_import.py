@@ -39,6 +39,13 @@ class TestRpcImport(qubes.tests.QubesTestCase):
 
     QUBESD_QUERY = '''\
 #!/bin/sh -e
+unset null
+null=false
+
+if [ "$1" = --null ]; then
+   shift
+   null=true
+fi
 
 if [ "$1" = --single-line ] && [ "$2" = --max-bytes=21 ]; then
     shift 2
@@ -54,6 +61,7 @@ else
 fi
 echo "$@" > "command-$method"
 cat -- "response-$method"
+if [ "$null" = true ]; then printf '\\0'; fi
 '''
 
     RPC_FILE_PATH = os.path.abspath(os.path.join(

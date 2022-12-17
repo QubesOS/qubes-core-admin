@@ -45,14 +45,11 @@ admin.vm.volume.Import) flags=(--empty);;
 *) printf 'Invoked with unknown basename %q, cannot continue\n' "${0##*/}" >&2; exit 1;;
 esac
 
-{
-    qubesd-query "${flags[@]}" -c /var/run/qubesd.internal.sock \
-        "$QREXEC_REMOTE_DOMAIN" \
-        "internal.vm.volume.ImportBegin" \
-        "$QREXEC_REQUESTED_TARGET" \
-        "$1"
-    printf \\0
-} >"$tmpfile"
+qubesd-query --null "${flags[@]}" -c /var/run/qubesd.internal.sock \
+    "$QREXEC_REMOTE_DOMAIN" \
+    "internal.vm.volume.ImportBegin" \
+    "$QREXEC_REQUESTED_TARGET" \
+    "$1" >"$tmpfile"
 
 {
     # Read response from qubesd

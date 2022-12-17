@@ -45,6 +45,11 @@ parser.add_argument('--single-line',
     action='store_true',
     default=False,
     help='Only read a single line of input')
+parser.add_argument('--null',
+    dest='null',
+    action='store_true',
+    default=False,
+    help="Print an extra NUL byte; useful for shell scripts")
 
 def sighandler(loop, signame, coro):
     print('caught {}, exiting'.format(signame))
@@ -157,6 +162,8 @@ def main(args=None):
 
     if args.fail:
         return returncode
+    if args.null:
+        sys.stdout.buffer.write(b'\0')
     return 0
 
 if __name__ == '__main__':

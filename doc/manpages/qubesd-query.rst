@@ -44,6 +44,11 @@ Options
    is not passed, and 1024 otherwise.  This option can be used to lower this
    value, though not raise it.
 
+.. option:: --null
+
+   bash's ``read -r -d ''`` expects that the string being read is terminated by
+   NUL byte.  This option causes qubesd-query to add one to qubesd's response.
+
 Description
 -----------
 
