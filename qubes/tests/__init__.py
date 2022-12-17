@@ -383,6 +383,41 @@ class substitute_entry_points(object):
         pkg_resources.iter_entry_points = self._orig_iter_entry_points
         self._orig_iter_entry_points = None
 
+def _clear_ex_info_single(ex):
+    while ex is not None:
+        if isinstance(ex, qubes.exc.QubesVMError):
+            ex.vm = None
+        traceback.clear_frames(ex.__traceback__)
+        ex = ex.__context__
+
+def _clear_ex_info(exc_infos):
+    for exc_info in exc_infos:
+        if exc_info is not None:
+            _clear_ex_info_single(exc_info[1])
+
+class QubesTestResult(unittest.TestResult):
+    """Base class for Qubes unit test results.
+
+    Removes local variables reference from tracebacks to allow garbage
+    collector to clean all Qubes*() objects.  Otherwise, file descriptors
+    held by them will leak.
+    """
+    def addError(self, test, err):
+        _clear_ex_info(err)
+        super().addError(test, err)
+
+    def addFailure(self, test, err):
+        _clear_ex_info(err)
+        super().addFailure(test, err)
+
+    def addExpectedFailure(self, test, err):
+        _clear_ex_info(err)
+        super().addExpectedFailure(test, err)
+
+    def addSubTest(self, test, subtest, outcome):
+        if outcome is not None:
+            _clear_ex_info_single(outcome[2])
+        super().addSubTest(test, subtest, outcome)
 
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests.
@@ -394,7 +429,7 @@ class QubesTestCase(unittest.TestCase):
     _callCleanup    = never_awaited.detect()(unittest.TestCase._callCleanup)
 
     def __init__(self, *args, **kwargs):
-        super(QubesTestCase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.longMessage = True
         self.log = logging.getLogger('{}.{}.{}'.format(
             self.__class__.__module__,
@@ -422,25 +457,9 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
-        self.addCleanup(self.cleanup_traceback)
 
-    def cleanup_traceback(self):
-        """Remove local variables reference from tracebacks to allow garbage
-        collector to clean all Qubes*() objects, otherwise file descriptors
-        held by them will leak"""
-        exc_infos = [e for test_case, e in self._outcome.errors
-                     if test_case is self]
-        if self._outcome.expectedFailure:
-            exc_infos.append(self._outcome.expectedFailure)
-        for exc_info in exc_infos:
-            if exc_info is None:
-                continue
-            ex = exc_info[1]
-            while ex is not None:
-                if isinstance(ex, qubes.exc.QubesVMError):
-                    ex.vm = None
-                traceback.clear_frames(ex.__traceback__)
-                ex = ex.__context__
+    def defaultTestResult():
+        return QubesTestResult()
 
     def cleanup_gc(self):
         gc.collect()
