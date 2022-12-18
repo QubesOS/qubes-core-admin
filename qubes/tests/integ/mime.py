@@ -243,8 +243,9 @@ class TC_50_MimeHandlers:
     def test_000_txt(self):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
-        self.open_file_and_check_viewer(filename, ["vim", "user@"],
-                                        ["gedit", "emacs", "libreoffice"])
+        self.open_file_and_check_viewer(
+            filename, ["vim", "user@"],
+            ["gedit", "emacs", "libreoffice", "gnome-text-editor"])
 
     def test_001_pdf(self):
         filename = "/home/user/test_file.pdf"
@@ -289,9 +290,10 @@ class TC_50_MimeHandlers:
     def test_100_txt_dispvm(self):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
-        self.open_file_and_check_viewer(filename, ["vim", "user@"],
-                                        ["gedit", "emacs", "libreoffice"],
-                                        dispvm=True)
+        self.open_file_and_check_viewer(
+            filename, ["vim", "user@"],
+            ["gedit", "emacs", "libreoffice", "gnome-text-editor"],
+            dispvm=True)
 
     def test_101_pdf_dispvm(self):
         filename = "/home/user/test_file.pdf"
