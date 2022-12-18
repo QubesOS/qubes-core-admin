@@ -809,10 +809,10 @@ int main(int argc, char **argv) {
         # choose pnm format, as it doesn't have any useless metadata - easy
         # to compare
         vm_image, _ = await self.testvm1.run_for_stdio(
-            'import -window {} rgba:-'.format(vm_winid))
+            'gm import -window {} rgba:-'.format(vm_winid))
 
         dom0_image = await asyncio.get_event_loop().run_in_executor(None,
-            subprocess.check_output, ['import', '-window', winid, 'rgba:-'])
+            subprocess.check_output, ['gm', 'import', '-window', winid, 'rgba:-'])
 
         if vm_image != dom0_image:
             self.fail("Dom0 window doesn't match VM window content")
