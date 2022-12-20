@@ -30,6 +30,10 @@ while [ $# -gt 0 ]; do
       SUPPORT_FILES=1
       ;;
 
+    -y |--yaml)
+      YAML_ONLY=1
+      ;;
+
     -* | -h | --help)
       echo -e "qubes-hcl-report v$VERSION"
       echo ""
@@ -40,9 +44,10 @@ while [ $# -gt 0 ]; do
       echo -e "Options are:"
       echo -e "\t-h, --help\tDisplay this help text and exit."
       echo -e "\t-s, --support\tGenerate more detailed HCL Support Files"
-      echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers." 
+      echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers."
       echo -e "\t\t\tIf, for privacy or security reasons, you do not wish to make this information public, "
       echo -e "\t\t\tplease do not send the .cpio.gz file to the public mailing list."
+      echo -e "\t-y, --yaml-only\tDo not write any files, only output data to STDOUT in yaml format."
       echo ""
       echo -e "\t<AppVM Name>\tCopy the results to the given AppVM. The default is to keep it in dom0"
       echo ""
@@ -64,6 +69,20 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+if [[ "$YAML_ONLY" == 1 ]]
+  then
+    if [[ "$SUPPORT_FILES" == 1 ]]
+      then
+        echo -e "ERROR: --yaml-only is mutually exclusive with --support"
+        exit 1
+    fi
+    if [[ "$1" ]]
+      then
+        echo -e "ERROR: --yaml-only is mutually exclusive with providing a VM name"
+        exit 1
+    fi
+fi
+
 
 DATE=`date +%Y%m%d-%H%M%S`
 
@@ -81,7 +100,10 @@ if cat $TEMP_DIR/xl-dmesg | grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' > /dev/n
     XL_DMESG_INCOMPLETE=no
 else
     XL_DMESG_INCOMPLETE=yes
-    echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+    if ! [[ "$YAML_ONLY" ]]
+      then
+        echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+    fi
 fi
 
 
@@ -95,6 +117,7 @@ if [[ $BRAND =~ "O.E.M" ]]
     PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3-`
 fi
 
+QUBES_VER=`cat $TEMP_DIR/qubes-release|cut -d ' ' -f3`
 KERNEL=`uname -r |cut -d '.' -f-3`
 CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /"`
 CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /"`
@@ -107,18 +130,16 @@ BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut 
 XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
 XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
 XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
-QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
-PCRS=`find /sys/devices/ -name pcrs`
 XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)'`
 
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
 if [[ $XL_VTX ]]
- then 
+ then
     VTX="Active"
     HVM="yes"
 
@@ -153,13 +174,19 @@ else
     HAP_VERBOSE="No"
 fi
 
-if [[ $PCRS ]]
+if [[ -f "/sys/class/tpm/tpm0/tpm_version_major" ]]
   then
-    # try tu run tcsd and: grep the logs, try get version info.
-    TPM="Device present"
+    TPM="Device present (TPM 2.0)"
+    TPM_s="2.0"
   else
-    TPM="Device not found"
-    TPM_s="unknown"
+    if [[ -f "/sys/class/tpm/tpm0/pcrs" ]]
+      then
+        TPM="Device present (TPM 1.2)"
+        TPM_s="1.2"
+      else
+        TPM="Device not found"
+        TPM_s="unknown"
+    fi
 fi
 
 if [[ $XL_REMAP ]]
@@ -169,28 +196,39 @@ if [[ $XL_REMAP ]]
     REMAP="no"
 fi
 
+READABLE_OUTPUT="
+Qubes release $QUBES_VER
 
-cat /etc/qubes-release
-echo
-echo -e "Brand:\t\t$BRAND"
-echo -e "Model:\t\t$PRODUCT"
-echo -e "BIOS:\t\t$BIOS\n"
-echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA"
-echo -e "Kernel:\t\t$KERNEL\n"
-echo -e "RAM:\t\t$RAM Mb\n"
-echo -e "CPU:\n$CPU"
-echo -e "Chipset:\n$CHIPSET"
-echo -e "VGA:\n${VGA}\n"
-echo -e "Net:\n$NET\n"
-echo -e "SCSI:\n$SCSI\n"
-echo -e "HVM:\t\t$VTX"
-echo -e "I/O MMU:\t$VTD"
-echo -e "HAP/SLAT:\t$HAP_VERBOSE"
-echo -e "TPM:\t\t$TPM"
-echo -e "Remapping:\t$REMAP"
-echo
+Brand:\t\t$BRAND
+Model:\t\t$PRODUCT
+BIOS:\t\t$BIOS
 
-echo -e "---
+Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
+Kernel:\t\t$KERNEL
+
+RAM:\t\t$RAM Mb
+
+CPU:
+$CPU
+Chipset:
+$CHIPSET
+VGA:
+${VGA}
+
+Net:
+$NET
+
+SCSI:
+$SCSI
+
+HVM:\t\t$VTX
+I/O MMU:\t$VTD
+HAP/SLAT:\t$HAP_VERBOSE
+TPM:\t\t$TPM
+Remapping:\t$REMAP
+"
+
+YAML_OUTPUT="---
 layout:
   'hcl'
 type:
@@ -232,24 +270,30 @@ $SCSI
 usb: |
   $USB
 versions:
+  - works:
+      'FIXME:yes|no|partial'
+    qubes: |
+      $QUBES_VER
+    xen: |
+      $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
+    kernel: |
+      $KERNEL
+    remark: |
+      FIXME
+    credit: |
+      FIXAUTHOR
+    link: |
+      FIXLINK"
 
-- works:
-    'FIXME:yes|no|partial'
-  qubes: |
-    $QUBES
-  xen: |
-    $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
-  kernel: |
-    $KERNEL
-  remark: |
-    FIXME
-  credit: |
-    FIXAUTHOR
-  link: |
-    FIXLINK
+if [[ "$YAML_ONLY" == 1 ]]
+  then
+    echo -e "$YAML_OUTPUT"
+    exit
+fi
 
----
-" >> "$HOME/$FILENAME.yml"
+echo -e "$READABLE_OUTPUT"
+
+echo -e "$YAML_OUTPUT" >> "$HOME/$FILENAME.yml"
 
 
 if [[ "$SUPPORT_FILES" == 1 ]]
