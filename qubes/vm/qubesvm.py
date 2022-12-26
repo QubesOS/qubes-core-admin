@@ -38,6 +38,8 @@ import lxml
 import qubes
 import qubes.config
 import qubes.exc
+import qubes.qmemman.algo
+import qubes.qmemman.domainstate
 import qubes.storage
 import qubes.utils
 import qubes.vm
@@ -2348,7 +2350,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
             return 0
 
-        domain = qubes.qmemman.DomainState(self.xid)
+        domain = qubes.qmemman.domainstate.DomainState(self.xid)
         qubes.qmemman.algo.refresh_meminfo_for_domain(
             domain, untrusted_meminfo_key)
         if domain.mem_used is None:

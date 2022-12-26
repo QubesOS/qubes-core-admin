@@ -460,6 +460,7 @@ done
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
 %{python3_sitelib}/qubes/tests/never_awaited.py
+%{python3_sitelib}/qubes/tests/qmemman.py
 %{python3_sitelib}/qubes/tests/rpc_import.py
 %{python3_sitelib}/qubes/tests/selftest.py
 %{python3_sitelib}/qubes/tests/storage.py
@@ -526,6 +527,8 @@ done
 %{python3_sitelib}/qubes/qmemman/__init__.py
 %{python3_sitelib}/qubes/qmemman/algo.py
 %{python3_sitelib}/qubes/qmemman/client.py
+%{python3_sitelib}/qubes/qmemman/domainstate.py
+%{python3_sitelib}/qubes/qmemman/systemstate.py
 
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh

@@ -34,11 +34,12 @@ import xen.lowlevel.xs  # pylint: disable=import-error
 
 import qubes.qmemman
 import qubes.qmemman.algo
+import qubes.qmemman.systemstate
 import qubes.utils
 
 SOCK_PATH = '/var/run/qubes/qmemman.sock'
 
-system_state = qubes.qmemman.SystemState()
+system_state = qubes.qmemman.systemstate.SystemState()
 global_lock = threading.Lock()
 # If XSWatcher will
 # handle meminfo event before @introduceDomain, it will use
