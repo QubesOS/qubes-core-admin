@@ -93,7 +93,7 @@ def balloon(memsize, domain_dictionary):
     log.info('req={} avail={} donors={!r}'.format(memsize, available, donors))
 
     if available < memsize:
-        return ()
+        return []
     scale = 1.0 * memsize / available
     for donors_iter in donors:
         dom_id, mem = donors_iter
