@@ -2235,10 +2235,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
-        if qmemman_present:
+        if qmemman_present and self.maxmem:
+            xs_basedir = f"/local/domain/{self.xid}"
+            self.app.vmm.xs.write('',
+                                  f"{xs_basedir}/memory/meminfo", "")
             self.app.vmm.xs.set_permissions('',
-                                            '/local/domain/{}/memory'.format(
-                                                self.xid),
+                                            f"{xs_basedir}/memory/meminfo",
                                             [{'dom': self.xid}])
 
         self.fire_event('domain-qdb-create')
