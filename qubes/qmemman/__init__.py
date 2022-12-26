@@ -44,6 +44,7 @@ class DomainState:
         self.mem_used = None		# used memory, computed based on meminfo
         self.id = id			    # domain id
         self.last_target = 0		# the last memset target
+        self.use_hoplug = False     # use memory hotplug for mem-set
         self.no_progress = False    # no react to memset
         self.slow_memset_react = False  # slow react to memset (after few
                                         # tries still above target)
@@ -96,7 +97,7 @@ class SystemState(object):
         # used - do not count it as "free", because domain is free to use it
         # at any time
         # assumption: self.refresh_memactual was called before
-        # (so domdict[id].memory_actual is up to date)
+        # (so domdict[id].memory_actual is up-to-date)
         assigned_but_unused = functools.reduce(
             lambda acc, dom: acc + max(0, dom.last_target-dom.memory_current),
             self.domdict.values(),
@@ -127,9 +128,16 @@ class SystemState(object):
                     self.domdict[id].memory_current,
                     self.domdict[id].last_target
                 )
-                self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
-                if self.domdict[id].memory_maximum:
-                    self.domdict[id].memory_maximum = int(self.domdict[id].memory_maximum)*1024
+                hotplug_max = self.xs.read(
+                    '', '/local/domain/%s/memory/hotplug-max' % str(id))
+                static_max = self.xs.read(
+                    '', '/local/domain/%s/memory/static-max' % str(id))
+                if hotplug_max:
+                    self.domdict[id].memory_maximum = int(hotplug_max)*1024
+                    self.domdict[id].use_hotplug = True
+                elif static_max:
+                    self.domdict[id].memory_maximum = int(static_max)*1024
+                    self.domdict[id].use_hotplug = False
                 else:
                     self.domdict[id].memory_maximum = self.ALL_PHYS_MEM
                     # the previous line used to be
@@ -174,6 +182,9 @@ class SystemState(object):
         #  handle Xen view of memory
         self.xs.write('', '/local/domain/' + id + '/memory/target',
             str(int(val/1024 - 16 * 1024)))
+        if self.domdict[id].use_hotplug:
+            self.xs.write('', '/local/domain/' + id + '/memory/static-max',
+                          str(int(val / 1024)))
 
     # this is called at the end of ballooning, when we have Xen free mem already
     # make sure that past mem_set will not decrease Xen free mem

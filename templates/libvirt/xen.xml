@@ -5,6 +5,9 @@
         {% if ((vm.virt_mode == 'hvm' and vm.devices['pci'].persistent() | list)
             or vm.maxmem == 0) -%}
             <memory unit="MiB">{{ vm.memory }}</memory>
+        {% elif vm.use_memory_hotplug %}
+            <memory unit="MiB">{{ vm.memory }}</memory>
+            <maxMemory unit="MiB" slots="1">{{ vm.maxmem }}</maxMemory>
         {% else -%}
             <memory unit="MiB">{{ vm.maxmem }}</memory>
         {% endif -%}
