@@ -324,15 +324,16 @@ class BackupTestsMixin(object):
             restored_vm = self.app.domains[vm_name]
             for prop in vm_info['properties']:
                 self.assertEqual(
-                    vm_info['properties'][prop],
-                    str(getattr(restored_vm, prop)),
-                    "VM {} - property {} not properly restored".format(
-                        vm_name, prop))
-                self.assertEqual(
                     vm_info['default'][prop],
                     restored_vm.property_is_default(prop),
                     "VM {} - property {} differs in being default".format(
                         vm_name, prop))
+                if not vm_info['default'][prop]:
+                    self.assertEqual(
+                        vm_info['properties'][prop],
+                        str(getattr(restored_vm, prop)),
+                        "VM {} - property {} not properly restored".format(
+                            vm_name, prop))
             for dev_class in vm_info['devices']:
                 for dev in vm_info['devices'][dev_class]:
                     found = False

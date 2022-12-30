@@ -97,6 +97,7 @@ class GrubBase(object):
             label='red')
         self.testvm1.virt_mode = self.virt_mode
         self.testvm1.features.update(self.app.domains[self.template].features)
+        self.testvm1.clone_properties(self.app.domains[self.template])
         self.loop.run_until_complete(
             self.testvm1.clone_disk_files(self.app.domains[self.template]))
         self.loop.run_until_complete(self.testvm1.start())
@@ -117,6 +118,7 @@ class GrubBase(object):
             name=self.make_vm_name('template'), label='red')
         self.test_template.virt_mode = self.virt_mode
         self.test_template.features.update(self.app.domains[self.template].features)
+        self.test_template.clone_properties(self.app.domains[self.template])
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.domains[self.template]))
 
