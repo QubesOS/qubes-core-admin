@@ -2,20 +2,25 @@
     <driver name="phy" />
     <source dev="{{ device.device_node }}" />
     {%- if 'frontend-dev' in options %}
-        <target dev="{{ options.get('frontend-dev') }}" />
+    <target dev="{{ options.get('frontend-dev') }}" />
     {%- elif options.get('devtype', 'disk') == 'cdrom' and not vm.kernel %}
-        <!-- prefer xvdd for CDROM -->
-        <target dev="xvdd" />
+    <!-- prefer xvdd for CDROM -->
+    <target dev="xvdd" />
     {%- else %}
-        <target dev="xvd{{dd[counter.i]}}" />
+    <target dev="xvd{{dd[counter.i]}}" />
         {% if counter.update({'i': counter.i + 1}) %}{% endif %}
     {%- endif %}
 
     {%- if options.get('read-only', 'no') == 'yes' %}
-        <readonly />
+    <readonly />
     {%- endif %}
 
     {%- if device.backend_domain.name != 'dom0' %}
     <backenddomain name="{{ device.backend_domain.name }}" />
+    {%- if device.backend_domain.features.check_with_template('qubes-agent-version', '4.1') >= '4.2' %}
+    <script path="/etc/xen/scripts/qubes-block" />
+    {%- endif %}
+    {%- else %}
+    <script path="/etc/xen/scripts/qubes-block" />
     {%- endif %}
 </disk>

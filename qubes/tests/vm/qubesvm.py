@@ -791,6 +791,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/tmp/kernel/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <console type="pty">
                 <target type="xen" port="0"/>
@@ -1055,6 +1056,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/tmp/kernel/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <console type="pty">
                 <target type="xen" port="0"/>
@@ -1125,6 +1127,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/tmp/kernel/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <console type="pty">
                 <target type="xen" port="0"/>
@@ -1281,6 +1284,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <!-- prefer xvdd for CDROM -->
                 <target dev="xvdd" />
                 <readonly/>
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             <emulator type="stubdom-linux" />
@@ -1362,12 +1366,14 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/tmp/kernel/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="cdrom">
                 <driver name="phy" />
                 <source dev="/dev/sda" />
                 <target dev="xvdi" />
                 <readonly/>
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             <emulator type="stubdom-linux" />
@@ -1537,42 +1543,49 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source dev="/dev/loop0" />
                 <target dev="xvda" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop1" />
                 <target dev="xvde" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop2" />
                 <target dev="xvdf" />
                 <backenddomain name="dom0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
 
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/sdb" />
                 <target dev="xvdl" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="cdrom">
                 <driver name="phy" />
                 <source dev="/dev/sda" />
                 <!-- prefer xvdd for CDROM -->
                 <target dev="xvdd" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop0" />
                 <target dev="xvdi" />
                 <backenddomain name="backend0" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop0" />
                 <target dev="xvdj" />
                 <backenddomain name="backend1" />
+                <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             <emulator type="stubdom-linux" />

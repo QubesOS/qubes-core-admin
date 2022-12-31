@@ -166,13 +166,13 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/system-config
 endif
 	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-block
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
+	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-block
+	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-pci
+	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-usb
 	install -d $(DESTDIR)/usr/share/man/man1
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
+	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
+	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
+	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes
 ifeq ($(BACKEND_VMM),xen)
@@ -197,11 +197,11 @@ endif
 	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
 	install -m 0755 qvm-tools/qvm-console-dispvm $(DESTDIR)/usr/bin/qvm-console-dispvm
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
-		ln -s ../../var/run/qubesd.sock \
+		ln -sf ../../var/run/qubesd.sock \
 			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
-	ln -s admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/admin.vm.volume.ImportWithSize
+	ln -sf admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/admin.vm.volume.ImportWithSize
 	install qubes-rpc/admin.vm.Console $(DESTDIR)/etc/qubes-rpc/
 	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
 		--dest=$(DESTDIR)/etc/qubes/policy.d/90-admin-default.policy \

@@ -140,6 +140,7 @@
                     {% if device.domain %}
                         <backenddomain name="{{ device.domain }}" />
                     {% endif %}
+                    <script path="/etc/xen/scripts/qubes-block" />
                 </disk>
             {% endfor %}
 
