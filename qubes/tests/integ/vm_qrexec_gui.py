@@ -796,7 +796,7 @@ int main(int argc, char **argv) {
         # some memory
         alloc2 = await self.testvm1.run(
             'ulimit -l unlimited; /home/user/allocator {}'.format(memory_pages),
-            user='root', stdout=subprocess.PIPE)
+            user='root', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         await alloc2.stdout.read(len('Stage1\n'))
 
         # wait for damage notify - top updates every 3 sec by default
@@ -813,6 +813,11 @@ int main(int argc, char **argv) {
 
         dom0_image = await asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output, ['gm', 'import', '-window', winid, 'rgba:-'])
+
+        alloc2.terminate()
+        await alloc2.wait()
+        proc.terminate()
+        await proc.wait()
 
         if vm_image != dom0_image:
             self.fail("Dom0 window doesn't match VM window content")
