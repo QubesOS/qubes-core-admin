@@ -227,6 +227,11 @@ class TC_00_ThinPool(ThinPoolBase):
         pool_usage = float(pool_usage)
         self.assertEqual(usage, int(pool_size * pool_usage / 100))
 
+    def __assertPathMatch(self, path1, path2):
+        self.assertEqual(path1[:12], '/dev/mapper/')
+        self.assertEqual(path2[:5], '/dev/')
+        self.assertEqual(path1[12:], path2[5:].replace('-', '--').replace('/', '-'))
+
     def _get_size(self, path):
         if os.getuid() != 0:
             return int(
@@ -312,7 +317,7 @@ class TC_00_ThinPool(ThinPoolBase):
         snap_uuid = self._get_lv_uuid(path_snap)
         self.assertNotEqual(origin_uuid, snap_uuid)
         path = volume.path
-        self.assertTrue(path.startswith('/dev/' + volume.vid),
+        self.assertTrue(path.startswith('/dev/mapper/' + volume.vid.replace('-', '--').replace('/', '-')),
                         '{} does not start with /dev/{}'.format(path, volume.vid))
         self.assertTrue(os.path.exists(path), path)
         self.loop.run_until_complete(volume.remove())
@@ -343,7 +348,7 @@ class TC_00_ThinPool(ThinPoolBase):
         qubes.storage.lvm.reset_cache()
         path_snap = '/dev/' + volume._vid_snap
         self.assertTrue(volume.is_dirty())
-        self.assertEqual(volume.path,
+        self.__assertPathMatch(volume.path,
                          '/dev/' + volume.vid + revisions[1])
         expected_revisions = {
             revisions[0].lstrip('-'): '2018-03-14T22:18:24',
@@ -355,7 +360,7 @@ class TC_00_ThinPool(ThinPoolBase):
         snap_uuid = self._get_lv_uuid(path_snap)
         self.assertEqual(orig_uuids['-snap'], snap_uuid)
         self.assertTrue(volume.is_dirty())
-        self.assertEqual(volume.path,
+        self.__assertPathMatch(volume.path,
                          '/dev/' + volume.vid + revisions[1])
         with unittest.mock.patch('time.time') as mock_time:
             mock_time.side_effect = [521065906]
@@ -366,7 +371,7 @@ class TC_00_ThinPool(ThinPoolBase):
         }
         self.assertFalse(volume.is_dirty())
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         self.assertEqual(snap_uuid, self._get_lv_uuid(volume.path))
         self.assertFalse(os.path.exists(path_snap), path_snap)
 
@@ -402,7 +407,7 @@ class TC_00_ThinPool(ThinPoolBase):
             revisions[2].lstrip('-'): '2018-03-14T22:18:25',
         }
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
 
         self.loop.run_until_complete(volume.start())
         snap_uuid = self._get_lv_uuid(path_snap)
@@ -410,7 +415,7 @@ class TC_00_ThinPool(ThinPoolBase):
         snap_origin_uuid = self._get_lv_origin_uuid(path_snap)
         self.assertEqual(orig_uuids[''], snap_origin_uuid)
         path = volume.path
-        self.assertEqual(path, '/dev/' + volume.vid)
+        self.__assertPathMatch(path, '/dev/' + volume.vid)
         self.assertTrue(os.path.exists(path), path)
 
         with unittest.mock.patch('time.time') as mock_time:
@@ -422,11 +427,11 @@ class TC_00_ThinPool(ThinPoolBase):
             revisions[3].lstrip('-'): '2018-03-14T22:18:26',
         }
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         path_snap = '/dev/' + volume._vid_snap
         self.assertFalse(os.path.exists(path_snap), path_snap)
         self.assertTrue(os.path.exists('/dev/' + volume.vid))
-        self.assertEqual(self._get_lv_uuid(volume.path), snap_uuid)
+        self.assertEqual(self._get_lv_uuid(volume._vid_current), snap_uuid)
         prev_path = '/dev/' + volume.vid + revisions[3]
         self.assertEqual(self._get_lv_uuid(prev_path), orig_uuids[''])
 
@@ -462,11 +467,11 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(os.path.exists(path_snap), path_snap)
         expected_revisions = {}
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         self.assertTrue(volume.is_dirty())
 
         path = volume.path
-        self.assertEqual(path, '/dev/' + volume.vid)
+        self.__assertPathMatch(path, '/dev/' + volume.vid)
         self.assertTrue(os.path.exists(path), path)
 
         with unittest.mock.patch('time.time') as mock_time:
@@ -477,11 +482,11 @@ class TC_00_ThinPool(ThinPoolBase):
             revisions[2].lstrip('-'): '2018-03-14T22:18:26',
         }
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         path_snap = '/dev/' + volume._vid_snap
         self.assertFalse(os.path.exists(path_snap), path_snap)
         self.assertTrue(os.path.exists('/dev/' + volume.vid))
-        self.assertEqual(self._get_lv_uuid(volume.path), orig_uuids['-snap'])
+        self.assertEqual(self._get_lv_uuid(volume._vid_current), orig_uuids['-snap'])
         prev_path = '/dev/' + volume.vid + revisions[2]
         self.assertEqual(self._get_lv_uuid(prev_path), orig_uuids[''])
 
@@ -517,12 +522,12 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(os.path.exists(path_snap), path_snap)
         expected_revisions = {}
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertTrue(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         self.assertTrue(volume.is_dirty())
 
         self.loop.run_until_complete(volume.start())
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         # -snap LV should be unchanged
         self.assertEqual(self._get_lv_uuid(volume._vid_snap),
                          orig_uuids['-snap'])
@@ -559,7 +564,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(os.path.exists(path_snap), path_snap)
         expected_revisions = {}
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         self.assertTrue(volume.is_dirty())
 
         with unittest.mock.patch('time.time') as mock_time:
@@ -567,7 +572,7 @@ class TC_00_ThinPool(ThinPoolBase):
             self.loop.run_until_complete(volume.stop())
         expected_revisions = {}
         self.assertEqual(volume.revisions, expected_revisions)
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
 
         self.loop.run_until_complete(volume.remove())
         for rev in revisions:
@@ -606,7 +611,7 @@ class TC_00_ThinPool(ThinPoolBase):
             self.loop.run_until_complete(volume.stop())
         self.assertFalse(volume.is_dirty())
         self.assertEqual(volume.revisions, {})
-        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.__assertPathMatch(volume.path, '/dev/' + volume.vid)
         self.assertEqual(snap_uuid, self._get_lv_uuid(volume.path))
         self.assertFalse(os.path.exists(path_snap), path_snap)
 
@@ -935,7 +940,7 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.pool.ephemeral_volatile = False
         self.assertFalse(volume.ephemeral, 'volume is ephemeral by default?')
         path = volume.path
-        self.assertEqual(path, '/dev/' + volume.vid)
+        self.__assertPathMatch(path, '/dev/' + volume.vid)
         self.assertFalse(os.path.exists(path), 'volume path %r exists but should not!' % path)
         encrypted_path = volume.encrypted_volume_path(vm.name, config['name'])
         self.loop.run_until_complete(volume.start_encrypted(encrypted_path))
@@ -982,7 +987,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertFalse(volume.snap_on_start, 'volume is snap_on_start?')
         self.assertTrue(volume.ephemeral, 'volume is not ephemeral?')
         path = volume.path
-        self.assertEqual(path, '/dev/' + volume.vid)
+        self.__assertPathMatch(path, '/dev/' + volume.vid)
         self.assertFalse(os.path.exists(path), 'volume path %r exists but should not!' % path)
         encrypted_path = volume.encrypted_volume_path(vm.name, config['name'])
         self.loop.run_until_complete(volume.start_encrypted(encrypted_path))
@@ -1042,7 +1047,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(self.loop.run_until_complete(volume.verify()))
         self.loop.run_until_complete(volume.create())
         path = volume.path
-        self.assertEqual(path, '/dev/' + volume.vid)
+        self.__assertPathMatch(path, '/dev/' + volume.vid)
         self.assertFalse(os.path.exists(path), path)
         self.loop.run_until_complete(volume.start())
         # snapshot volume isn't considered dirty at any time
@@ -1185,7 +1190,7 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
             if volume.save_on_stop:
                 expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
-                self.assertEqual(volume.path, expected)
+                self.__assertPathMatch(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             self.loop.run_until_complete(vm.start())
 
@@ -1197,7 +1202,7 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
             if volume.save_on_stop:
                 expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
-                self.assertEqual(volume.path, expected)
+                self.__assertPathMatch(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             self.loop.run_until_complete(vm.start())
 

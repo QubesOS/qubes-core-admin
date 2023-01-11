@@ -289,7 +289,6 @@ class ThinVolume(qubes.storage.Volume):
     ''' Default LVM thin volume implementation
     '''  # pylint: disable=too-few-public-methods
 
-
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
         super().__init__(**kwargs)
@@ -302,7 +301,7 @@ class ThinVolume(qubes.storage.Volume):
 
     @property
     def path(self):
-        return '/dev/' + self._vid_current
+        return '/dev/mapper/' + self._vid_current.replace('-', '--').replace('/', '-')
 
     @property
     def _vid_current(self):
@@ -350,9 +349,7 @@ class ThinVolume(qubes.storage.Volume):
             "Not a volatile volume"
         self.log.debug('Resetting volatile %s', self.vid)
         try:
-            assert self.path.startswith('/dev/'), \
-                'bad value for self.path: %r' % self.path
-            cmd = ['remove', self.path[5:]]
+            cmd = ['remove', self._vid_current]
             await qubes_lvm_coro(cmd, self.log)
         except qubes.storage.StoragePoolException:
             pass
@@ -437,7 +434,7 @@ class ThinVolume(qubes.storage.Volume):
         assert self.size
         if self.save_on_stop:
             if self.source:
-                cmd = ['clone', self.source.path, self.vid]
+                cmd = ['clone', self.source._vid_current, self.vid]
             else:
                 cmd = [
                     'create',
@@ -469,9 +466,7 @@ class ThinVolume(qubes.storage.Volume):
         await self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
-        assert self.path.startswith('/dev/'), \
-            'bad value for self.path: %r' % self.path
-        cmd = ['remove', self.path[5:]]
+        cmd = ['remove', self._vid_current]
         await qubes_lvm_coro(cmd, self.log)
         await reset_cache_coro()
         # pylint: disable=protected-access
@@ -480,10 +475,9 @@ class ThinVolume(qubes.storage.Volume):
     async def export(self):
         ''' Returns an object that can be `open()`. '''
         # make sure the device node is available
-        cmd = ['activate', self.path]
+        cmd = ['activate', '/dev/' + self._vid_current]
         await qubes_lvm_coro(cmd, self.log)
-        devpath = self.path
-        return devpath
+        return self.path
 
     @qubes.storage.Volume.locked
     async def import_volume(self, src_volume):
@@ -500,7 +494,7 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=line-too-long
         if hasattr(src_volume.pool, 'thin_pool') and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
-            await self._commit(src_volume.path[len('/dev/'):], keep=True)
+            await self._commit(src_volume._vid_current, keep=True)
         else:
             cmd = ['create',
                    self.pool._pool_id,  # pylint: disable=protected-access
@@ -579,7 +573,7 @@ class ThinVolume(qubes.storage.Volume):
         if self._vid_snap not in size_cache:
             return False
         return (size_cache[self._vid_snap]['origin'] !=
-               self.source.path.split('/')[-1])
+               self.source._vid_current.split('/')[-1])
 
     @qubes.storage.Volume.locked
     async def revert(self, revision=None):
@@ -650,7 +644,7 @@ class ThinVolume(qubes.storage.Volume):
         if self.source is None:
             cmd = ['clone', self._vid_current, self._vid_snap]
         else:
-            cmd = ['clone', self.source.path, self._vid_snap]
+            cmd = ['clone', self.source._vid_current, self._vid_snap]
         await qubes_lvm_coro(cmd, self.log)
 
     async def _remove_if_exists(self, vid):
@@ -699,7 +693,7 @@ class ThinVolume(qubes.storage.Volume):
             # volatile volumes don't need any files
             return True
         if self.source is not None:
-            vid = self.source.path[len('/dev/'):]
+            vid = self.source._vid_current
         else:
             vid = self._vid_current
         try:
@@ -718,8 +712,10 @@ class ThinVolume(qubes.storage.Volume):
             the libvirt XML template as <disk>.
         '''
         if self.snap_on_start or self.save_on_stop:
+            snap_path = ('/dev/mapper/' +
+                         self._vid_snap.replace('-', '--').replace('/', '-'))
             return qubes.storage.BlockDevice(
-                '/dev/' + self._vid_snap, self.name, None,
+                snap_path, self.name, None,
                 self.rw, self.domain, self.devtype)
 
         return super().block_device()
