@@ -47,6 +47,7 @@ BuildRequires:  GraphicsMagick
 BuildRequires:	systemd-units
 BuildRequires:  systemd
 BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
 BuildRequires:  make
 
 # for building documentation
