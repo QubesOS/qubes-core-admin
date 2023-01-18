@@ -52,7 +52,7 @@ defaults = {
     'libvirt_uri': 'xen:///',
     'memory': 400,
     'hvm_memory': 400,
-    'kernelopts': "",
+    'kernelopts': "swiotlb=2048",
     'kernelopts_pcidevs': "",
     'kernelopts_common': ('root=/dev/mapper/dmroot ro nomodeset console=hvc0 '
              'rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 '),
