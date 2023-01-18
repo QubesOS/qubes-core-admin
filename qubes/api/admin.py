@@ -667,8 +667,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='global', write=True)
     async def pool_add(self, untrusted_payload):
         self.enforce(self.dest.name == 'dom0')
-        drivers = qubes.storage.pool_drivers()
-        self.enforce(self.arg in drivers)
+        if self.arg not in qubes.storage.pool_drivers():
+            raise qubes.exc.QubesException(
+                'unexpected driver name: ' + self.arg)
+
         untrusted_pool_config = untrusted_payload.decode('ascii').splitlines()
         del untrusted_payload
         self.enforce(all(('=' in line) for line in untrusted_pool_config))
