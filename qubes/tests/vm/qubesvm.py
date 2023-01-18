@@ -771,7 +771,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpv">linux</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
         </features>
@@ -900,7 +900,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -967,7 +967,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>kernel &lt;text&gt;&#39;&#34;&amp; specific options</cmdline>
+            <cmdline>kernel &lt;text&gt;&#39;&#34;&amp; specific options swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1031,7 +1031,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1101,7 +1101,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1340,7 +1340,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0</cmdline>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1710,6 +1710,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # pretend the VM is running...
         vm._qubesprop_xid = 3
         netvm.kernel = None
+        netvm._qubesprop_xid = 4
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
         mock_qubesdb.rm.side_effect = test_qubesdb.rm
@@ -1855,6 +1856,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.netvm = None
         vm.guivm = guivm
         vm.is_running = lambda: True
+        vm._qubesprop_xid = 2
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
         guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
@@ -1905,6 +1907,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.netvm = None
         vm.audiovm = audiovm
         vm.is_running = lambda: True
+        vm._qubesprop_xid = 2
         audiovm.is_running = lambda: True
         audiovm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
         vm.events_enabled = True
@@ -1978,6 +1981,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.netvm = None
         vm.guivm = guivm
         vm.is_running = lambda: True
+        vm._qubesprop_xid = 2
         guivm.keyboard_layout = 'fr++'
         guivm.is_running = lambda: True
         guivm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})

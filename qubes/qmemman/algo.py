@@ -42,63 +42,7 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
     if untrusted_meminfo.isdigit():
         return int(untrusted_meminfo) * 1024
 
-    untrusted_meminfo = untrusted_meminfo.decode('ascii', errors='strict')
-    # not new syntax - try the old one
-    untrusted_dict = {}
-    # split meminfo contents into lines
-    untrusted_lines = untrusted_meminfo.split("\n")
-    for untrusted_lines_iterator in untrusted_lines:
-        # split a single meminfo line into words
-        untrusted_words = untrusted_lines_iterator.split()
-        if len(untrusted_words) >= 2:
-            untrusted_dict[untrusted_words[0].rstrip(":")] = \
-                untrusted_words[1]
-
-    # sanitize start
-    if not is_meminfo_suspicious(untrusted_dict):
-        # sanitize end
-        meminfo = untrusted_dict
-        return (meminfo['MemTotal'] -
-                meminfo['MemFree'] - meminfo['Cached'] - meminfo['Buffers'] +
-                meminfo['SwapTotal'] - meminfo['SwapFree']) * 1024
-
     return None
-
-
-def is_meminfo_suspicious(untrusted_meminfo):
-    log.debug('is_meminfo_suspicious(untrusted_meminfo=%r)', untrusted_meminfo)
-    ret = False
-
-    # check whether the required keys exist and are not negative
-    try:
-        for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached',
-        'SwapTotal', 'SwapFree'):
-            if not untrusted_meminfo[i].isdigit():
-                ret = True
-            else:
-                val = int(untrusted_meminfo[i])
-                if val < 0:
-                    ret = True
-                untrusted_meminfo[i] = val
-    except:
-        ret = True
-
-    if untrusted_meminfo['SwapTotal'] < untrusted_meminfo['SwapFree']:
-        ret = True
-    if untrusted_meminfo['MemTotal'] < \
-                            untrusted_meminfo['MemFree'] + \
-                            untrusted_meminfo['Cached'] + untrusted_meminfo[
-                'Buffers']:
-        ret = True
-    # we could also impose some limits on all the above values
-    # but it has little purpose - all the domain can gain by passing e.g.
-    # very large SwapTotal is that it will be assigned all free Xen memory
-    # it can be achieved with legal values, too, and it will not allow to
-    # starve existing domains, by design
-    if ret:
-        log.warning('suspicious meminfo untrusted_meminfo={!r}'.format(
-            untrusted_meminfo))
-    return ret
 
 
 # called when a domain updates its 'meminfo' xenstore key
