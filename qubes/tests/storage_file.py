@@ -37,6 +37,7 @@ from qubes.config import defaults
 import qubes.storage.file
 import os.path
 _dir = os.path.dirname(__file__)
+sudo = [] if os.getuid() == 0 else ['sudo']
 
 class TestApp(qubes.Qubes):
     ''' A Mock App object '''
@@ -488,7 +489,6 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertEqual(len(volume_data), new_size)
 
     def _get_loop_size(self, path):
-        sudo = [] if os.getuid() == 0 else ['sudo']
         try:
             loop_name = subprocess.check_output(
                 sudo + ['losetup', '--associated', path]).decode().split(':')[0]
@@ -505,7 +505,6 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
             return None
 
     def _setup_loop(self, path):
-        sudo = [] if os.getuid() == 0 else ['sudo']
         loop_name = subprocess.check_output(
             sudo + ['losetup', '--show', '--find', path]).decode().strip()
         self.addCleanup(subprocess.call, sudo + ['losetup', '-d', loop_name])
@@ -528,7 +527,6 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         orig_check_output = subprocess.check_output
         with unittest.mock.patch('subprocess.check_call') as mock_subprocess, \
                 unittest.mock.patch('subprocess.check_output') as mock_check_output:
-            sudo = [] if os.getuid() == 0 else ['sudo']
             mock_subprocess.side_effect = (lambda *args, **kwargs:
                 orig_check_call(sudo + args[0], *args[1:], **kwargs))
             mock_check_output.side_effect = (lambda *args, **kwargs:
