@@ -228,7 +228,8 @@ class Emitter(metaclass=EmitterMeta):
             kwargs, pre_event=pre_event)
         effects = sync_effects
         if async_effects:
-            async_tasks, _ = await asyncio.wait(async_effects)
+            async_tasks, _ = await asyncio.wait(map(asyncio.create_task,
+                                                    async_effects))
             for task in async_tasks:
                 effect = task.result()
                 if effect is not None:
