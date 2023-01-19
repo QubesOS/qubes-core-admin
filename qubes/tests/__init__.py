@@ -32,6 +32,7 @@
 
 import asyncio
 import collections
+import contextlib
 import functools
 import logging
 import os
@@ -384,6 +385,24 @@ class substitute_entry_points(object):
         self._orig_iter_entry_points = None
 
 
+class _clear_ex_info(contextlib.ContextDecorator):
+    """Remove local variables reference from tracebacks to allow garbage
+    collector to clean all Qubes*() objects, otherwise file descriptors
+    held by them will leak"""
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_val is None:
+            return
+        ex = exc_val
+        while ex is not None:
+            if isinstance(ex, qubes.exc.QubesVMError):
+                ex.vm = None
+            traceback.clear_frames(ex.__traceback__)
+            ex = ex.__context__
+
+
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests.
     """
@@ -393,8 +412,13 @@ class QubesTestCase(unittest.TestCase):
     _callTearDown   = never_awaited.detect()(unittest.TestCase._callTearDown)
     _callCleanup    = never_awaited.detect()(unittest.TestCase._callCleanup)
 
-    def __init__(self, *args, **kwargs):
-        super(QubesTestCase, self).__init__(*args, **kwargs)
+    def __init__(self, methodName='runTest'):
+        try:
+            test_method = getattr(self, methodName)
+            setattr(self, methodName, _clear_ex_info()(test_method))
+        except AttributeError:
+            pass
+        super(QubesTestCase, self).__init__(methodName)
         self.longMessage = True
         self.log = logging.getLogger('{}.{}.{}'.format(
             self.__class__.__module__,
@@ -402,6 +426,10 @@ class QubesTestCase(unittest.TestCase):
             self._testMethodName))
         self.addTypeEqualityFunc(qubes.devices.DeviceManager,
                                  self.assertDevicesEqual)
+
+        # decorate methods here, to catch also any overriden methods in subclasses
+        self.setUp = _clear_ex_info()(self.setUp)
+        self.tearDown = _clear_ex_info()(self.tearDown)
 
         self.loop = None
 
@@ -422,25 +450,6 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
-        self.addCleanup(self.cleanup_traceback)
-
-    def cleanup_traceback(self):
-        """Remove local variables reference from tracebacks to allow garbage
-        collector to clean all Qubes*() objects, otherwise file descriptors
-        held by them will leak"""
-        exc_infos = [e for test_case, e in self._outcome.errors
-                     if test_case is self]
-        if self._outcome.expectedFailure:
-            exc_infos.append(self._outcome.expectedFailure)
-        for exc_info in exc_infos:
-            if exc_info is None:
-                continue
-            ex = exc_info[1]
-            while ex is not None:
-                if isinstance(ex, qubes.exc.QubesVMError):
-                    ex.vm = None
-                traceback.clear_frames(ex.__traceback__)
-                ex = ex.__context__
 
     def cleanup_gc(self):
         gc.collect()
