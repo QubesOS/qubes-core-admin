@@ -228,6 +228,11 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.loop.run_until_complete(qubes.utils.coro_maybe(source.create()))
         self.assertFalse(source.is_dirty())
         self.loop.run_until_complete(qubes.utils.coro_maybe(source.start()))
+        # just starting shouldn't report dirty yet, only when it gets modified
+        p = subprocess.Popen(
+            sudo + ["dd", "of=" + source.block_device().path, "status=none"],
+            stdin=subprocess.PIPE)
+        p.communicate(b"test")
         self.assertTrue(source.is_dirty())
         self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
         self.assertFalse(volume.is_dirty())
