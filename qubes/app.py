@@ -1412,7 +1412,8 @@ class Qubes(qubes.PropertyHolder):
             async with i.startup_lock:
                 if not i.is_running():
                     await i.storage.stop()
-        future = tuple(stop(i) for i in self.domains if i.klass != 'AdminVM')
+        future = tuple(asyncio.create_task(stop(i)) for i in self.domains
+                       if i.klass != 'AdminVM')
         finished = ()
         while future:
             qubes.utils.systemd_extend_timeout()
