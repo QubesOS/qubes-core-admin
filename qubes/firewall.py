@@ -357,7 +357,7 @@ class Rule(qubes.PropertyHolder):
             return None
         # put comment at the end
         for prop in sorted(self.property_list(),
-                key=(lambda p: p.__name__ == 'comment')):
+                key=lambda p: p.__name__ == 'comment'):
             value = getattr(self, prop.__name__)
             if value is None:
                 continue
@@ -514,7 +514,7 @@ class Firewall:
         '''Load old (Qubes < 4.0) firewall XML format'''
         policy_v1 = xml_root.get('policy')
         assert policy_v1 in ('allow', 'deny')
-        default_policy_is_accept = (policy_v1 == 'allow')
+        default_policy_is_accept = policy_v1 == 'allow'
 
         def _translate_action(key):
             if xml_root.get(key, policy_v1) == 'allow':

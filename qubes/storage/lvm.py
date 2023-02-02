@@ -578,6 +578,7 @@ class ThinVolume(qubes.storage.Volume):
             return False
         if self._vid_snap not in size_cache:
             return False
+        # pylint: disable=protected-access
         return (size_cache[self._vid_snap]['origin'] !=
                self.source.path.split('/')[-1])
 

@@ -130,7 +130,7 @@ def copy_sparse_data(input_stream, output_stream, sparse_map):
                 output_stream.write(buf_trailer)
             left -= read
             if not read:
-                raise Exception('premature EOF')
+                raise EOFError('premature EOF')
 
 def finalize(output):
     '''Write EOF blocks'''

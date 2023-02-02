@@ -696,7 +696,7 @@ class Backup:
 
         if proc.returncode:
             if proc.stderr is not None:
-                proc_stderr = (await proc.stderr.read())
+                proc_stderr = await proc.stderr.read()
                 proc_stderr = proc_stderr.decode('ascii', errors='ignore')
                 proc_stderr = ''.join(
                     c for c in proc_stderr if c in string.printable and

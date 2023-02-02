@@ -148,9 +148,8 @@ class FilePool(qubes.storage.Pool):
             stat_result = os.stat(path)
         except FileNotFoundError:
             return False
-        else:
-            assert stat.S_ISBLK(stat_result.st_mode), "not a block device?"
-            return True
+        assert stat.S_ISBLK(stat_result.st_mode), "not a block device?"
+        return True
 
     @property
     def revisions_to_keep(self):

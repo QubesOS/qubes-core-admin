@@ -185,11 +185,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             value = getattr(dest, str(prop))
         except AttributeError:
             return 'default=True type={} '.format(property_type)
-        else:
-            return 'default={} type={} {}'.format(
-                str(dest.property_is_default(prop)),
-                property_type,
-                str(value) if value is not None else '')
+        return 'default={} type={} {}'.format(
+            str(dest.property_is_default(prop)),
+            property_type,
+            str(value) if value is not None else '')
 
     @qubes.api.method('admin.vm.property.GetAll', no_payload=True,
         scope='local', read=True)
@@ -255,10 +254,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             value = property_def.get_default(dest)
         except AttributeError:
             return None
-        else:
-            return 'type={} {}'.format(
-                property_type,
-                str(value) if value is not None else '')
+        return 'type={} {}'.format(
+            property_type,
+            str(value) if value is not None else '')
 
     @qubes.api.method('admin.vm.property.Set',
         scope='local', write=True)
@@ -897,8 +895,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         else:
             args = []
         self.enforce(all(arg in ('force', 'wait') for arg in args))
-        force = ('force' in args)
-        wait = ('wait' in args)
+        force = 'force' in args
+        wait = 'wait' in args
         self.fire_event_for_permission(force=force, wait=wait)
         await self.dest.shutdown(force=force, wait=wait)
 
