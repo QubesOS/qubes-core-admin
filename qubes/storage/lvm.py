@@ -301,7 +301,8 @@ class ThinVolume(qubes.storage.Volume):
 
     @property
     def path(self):
-        return '/dev/mapper/' + self._vid_current.replace('-', '--').replace('/', '-')
+        return '/dev/mapper/' + (self._vid_current.replace('-', '--')
+                                                   .replace('/', '-'))
 
     @property
     def _vid_current(self):
@@ -434,6 +435,7 @@ class ThinVolume(qubes.storage.Volume):
         assert self.size
         if self.save_on_stop:
             if self.source:
+                # pylint: disable=protected-access
                 cmd = ['clone', self.source._vid_current, self.vid]
             else:
                 cmd = [
@@ -494,6 +496,7 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=line-too-long
         if hasattr(src_volume.pool, 'thin_pool') and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
+            # pylint: disable=protected-access
             await self._commit(src_volume._vid_current, keep=True)
         else:
             cmd = ['create',
@@ -572,6 +575,7 @@ class ThinVolume(qubes.storage.Volume):
             return False
         if self._vid_snap not in size_cache:
             return False
+        # pylint: disable=protected-access
         return (size_cache[self._vid_snap]['origin'] !=
                self.source._vid_current.split('/')[-1])
 
@@ -644,6 +648,7 @@ class ThinVolume(qubes.storage.Volume):
         if self.source is None:
             cmd = ['clone', self._vid_current, self._vid_snap]
         else:
+            # pylint: disable=protected-access
             cmd = ['clone', self.source._vid_current, self._vid_snap]
         await qubes_lvm_coro(cmd, self.log)
 
@@ -693,6 +698,7 @@ class ThinVolume(qubes.storage.Volume):
             # volatile volumes don't need any files
             return True
         if self.source is not None:
+            # pylint: disable=protected-access
             vid = self.source._vid_current
         else:
             vid = self._vid_current
