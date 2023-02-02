@@ -59,6 +59,10 @@ qubes.OpenURL           *           @anyvm          @anyvm      ask
 qubes.StartApp          *           @anyvm          @dispvm     allow
 qubes.StartApp          *           @anyvm          @anyvm      ask
 
+# Sends list of available applications - relevant for GUI being in dom0;
+# otherwise earlier policy will redirect it
+qubes.SyncAppMenus      *           @anyvm          dom0        allow
+
 # HTTP proxy for downloading updates
 # Upgrade all TemplateVMs through sys-whonix.
 #qubes.UpdatesProxy     *    @type:TemplateVM        @default    allow target=sys-whonix
