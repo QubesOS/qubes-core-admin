@@ -648,8 +648,10 @@ class ThinVolume(qubes.storage.Volume):
         if self.source is None:
             cmd = ['clone', self._vid_current, self._vid_snap]
         else:
-            # pylint: disable=protected-access
-            cmd = ['clone', self.source._vid_current, self._vid_snap]
+            cmd = ['clone',
+                   # pylint: disable=protected-access
+                   self.source._vid_current,
+                   self._vid_snap]
         await qubes_lvm_coro(cmd, self.log)
 
     async def _remove_if_exists(self, vid):
