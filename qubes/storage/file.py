@@ -331,7 +331,7 @@ class FileVolume(qubes.storage.Volume):
             given size is less than current_size
         '''
         if not self.rw:
-            msg = 'Can not resize reađonly volume {!s}'.format(self)
+            msg = 'Can not resize readonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)
 
         if self.snap_on_start:

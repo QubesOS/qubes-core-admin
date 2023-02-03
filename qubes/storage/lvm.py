@@ -609,7 +609,7 @@ class ThinVolume(qubes.storage.Volume):
             given size is less than current_size
         '''
         if not self.rw:
-            msg = 'Can not resize reađonly volume {!s}'.format(self)
+            msg = 'Can not resize readonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)
 
         if size < self.size:
@@ -761,7 +761,7 @@ def _get_lvm_cmdline(cmd):
     action = cmd[0]
     if action == 'remove':
         assert len(cmd) == 2, 'wrong number of arguments for remove'
-        assert not cmd[1].startswith('/'), 'absolute path to ‘remove’???'
+        assert not cmd[1].startswith('/'), 'absolute path to \'remove\'???'
         assert '/' in cmd[1], 'refusing to delete entire volume group'
         lvm_cmd = ['lvremove', '--force', '--', cmd[1]]
     elif action == 'clone':
