@@ -368,12 +368,14 @@ class BaseVM(qubes.PropertyHolder):
         '''Create libvirt's XML domain config file
 
         '''
+        def bug(msg, *args):
+            raise AssertionError(msg % args if args else msg)
         domain_config = self.app.env.select_template([
                 'libvirt/xen/by-name/{}.xml'.format(self.name),
                 'libvirt/xen-user.xml',
                 'libvirt/xen-dist.xml',
                 'libvirt/xen.xml',
-            ]).render(vm=self)
+            ]).render(vm=self, bug=bug)
         return domain_config
 
     def watch_qdb_path(self, path):
