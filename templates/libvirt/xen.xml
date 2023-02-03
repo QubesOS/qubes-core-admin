@@ -51,6 +51,8 @@
                 <cmdline>{{ vm.kernelopts }}</cmdline>
                 {% elif vm.features.check_with_template('apparmor', '0') == '1' -%}
                 <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }} apparmor=1 security=apparmor</cmdline>
+                {% elif vm.features.check_with_template('selinux', '0') == '1' -%}
+                <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }} selinux=1 security=selinux</cmdline>
                 {% else -%}
                 <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }}</cmdline>
                 {% endif -%}
