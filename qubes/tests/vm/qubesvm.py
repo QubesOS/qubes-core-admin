@@ -425,6 +425,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         templatevm.label = "blue"
         self.assertEqual(templatevm.icon, "templatevm-blue")
 
+        standalonevm = self.get_vm(cls=qubes.vm.standalonevm.StandaloneVM)
+        standalonevm.label = "blue"
+        self.assertEqual(standalonevm.icon, "standalonevm-blue")
+
         vm.template_for_dispvms = True
         dispvm = self.get_vm(cls=qubes.vm.dispvm.DispVM, template=vm,
                              dispid=10)
