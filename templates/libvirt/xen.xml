@@ -40,9 +40,9 @@
             {% else %}
                 {% if vm.virt_mode == 'pvh' %}
                     <type arch="x86_64" machine="xenpvh">xenpvh</type>
-                {% else %}
+                {% elif vm.virt_mode == 'pv' %}
                     <type arch="x86_64" machine="xenpv">linux</type>
-                {% endif %}
+                {% elif bug("Bad virt mode %r", vm.virt_mode) %}{% endif %}
                 <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
                 <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
             {% endif %}
@@ -51,6 +51,8 @@
                 <cmdline>{{ vm.kernelopts }}</cmdline>
                 {% elif vm.features.check_with_template('apparmor', '0') == '1' -%}
                 <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }} apparmor=1 security=apparmor</cmdline>
+                {% elif vm.features.check_with_template('selinux', '0') == '1' -%}
+                <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }} selinux=1 security=selinux</cmdline>
                 {% else -%}
                 <cmdline>{{ vm.kernelopts_common }}{{ vm.kernelopts }}</cmdline>
                 {% endif -%}
