@@ -2178,6 +2178,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return 'servicevm-' + raw_icon_name
         if self.klass == 'DispVM':
             return 'dispvm-' + raw_icon_name
+        if self.klass == 'StandaloneVM':
+            return 'standalonevm-' + raw_icon_name
         return 'appvm-' + raw_icon_name
 
     @property
