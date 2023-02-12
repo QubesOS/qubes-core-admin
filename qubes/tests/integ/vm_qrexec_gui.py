@@ -436,15 +436,32 @@ class TC_00_AppVMMixin(object):
         # and some more...
         self.loop.run_until_complete(asyncio.sleep(1))
 
-    def prepare_audio_vm(self):
+    def prepare_audio_vm(self, backend):
         if 'whonix-gw' in self.template:
             self.skipTest('whonix-gw have no audio')
         self.loop.run_until_complete(self.testvm1.start())
+        pulseaudio_units = 'pulseaudio.socket pulseaudio.service'
+        pipewire_units = 'pipewire.socket wireplumber.service pipewire.service'
+        if backend == 'pulseaudio':
+            stop_units = pipewire_units
+            start_units = pulseaudio_units
+            manage_cmd = 'rm -f'
+        elif backend == 'pipewire':
+            start_units = pipewire_units
+            stop_units = pulseaudio_units
+            manage_cmd = 'touch'
+        else:
+            self.fail('bad audio backend')
         try:
-            self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('which parecord'))
+            self.loop.run_until_complete("which parecord")
         except subprocess.CalledProcessError:
             self.skipTest('pulseaudio-utils not installed in VM')
+        try:
+            self.testvm1.run_for_stdio(f"""sudo {manage_cmd} /run/qubes-service/pipewire &&
+systemctl --user stop {stop_units} &&
+systemctl --user start {start_units}""")
+        except subprocess.CalledProcessError:
+            self.fail(f'could not configure VM for specified audio backend {backend}')
         self.wait_for_pulseaudio_startup(self.testvm1)
 
     def check_audio_sample(self, sample, sfreq):
@@ -577,27 +594,33 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_220_audio_play(self):
-        self.prepare_audio_vm()
-        self.common_audio_playback()
+        for audio_backend in ('pulseaudio', 'pipewire'):
+            with self.subTest(audio_backend=audio_backend):
+                self.prepare_audio_vm(audio_backend)
+                self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_221_audio_rec_muted(self):
-        self.prepare_audio_vm()
-        self.common_audio_record_muted()
+        for audio_backend in ('pulseaudio', 'pipewire'):
+            with self.subTest(audio_backend=audio_backend):
+                self.prepare_audio_vm(audio_backend)
+                self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_222_audio_rec_unmuted(self):
-        self.prepare_audio_vm()
-        self.common_audio_record_unmuted()
+        for audio_backend in ('pulseaudio', 'pipewire'):
+            with self.subTest(audio_backend=audio_backend):
+                self.prepare_audio_vm(audio_backend)
+                self.common_audio_record_unmuted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_223_audio_play_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
+        self.prepare_audio_vm('pulseaudio')
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
         self.common_audio_playback()
@@ -607,7 +630,7 @@ class TC_00_AppVMMixin(object):
     def test_224_audio_rec_muted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
+        self.prepare_audio_vm('pulseaudio')
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
         self.common_audio_record_muted()
@@ -617,7 +640,7 @@ class TC_00_AppVMMixin(object):
     def test_225_audio_rec_unmuted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm()
+        self.prepare_audio_vm('pulseaudio')
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
         self.loop.run_until_complete(
