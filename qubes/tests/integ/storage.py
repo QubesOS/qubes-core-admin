@@ -202,8 +202,8 @@ class StorageTestMixin(object):
         await self.vm1.start()
         await self.vm2.start()
         await asyncio.wait(
-            [self.wait_for_session(self.vm1), self.wait_for_session(self.vm2)])
-
+            [asyncio.create_task(self.wait_for_session(self.vm1)),
+             asyncio.create_task(self.wait_for_session(self.vm2))])
 
         try:
             await self.vm1.run_for_stdio(

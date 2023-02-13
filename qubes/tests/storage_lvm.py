@@ -1208,8 +1208,8 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
         vm2 = self.app.add_new_vm(cls=qubes.vm.appvm.AppVM,
             name=self.make_vm_name('appvm-root'), label='red')
         self.loop.run_until_complete(asyncio.wait([
-            vm1.create_on_disk(pool=self.pool.name),
-            vm2.create_on_disk(pool=self.pool.name)]))
+            self.loop.create_task(vm1.create_on_disk(pool=self.pool.name)),
+            self.loop.create_task(vm2.create_on_disk(pool=self.pool.name))]))
         self.loop.run_until_complete(vm2.start())
         self.loop.run_until_complete(vm2.shutdown(wait=True))
         with self.assertNotRaises(ValueError):
