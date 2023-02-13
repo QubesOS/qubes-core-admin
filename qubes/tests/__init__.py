@@ -389,10 +389,17 @@ class _clear_ex_info(contextlib.ContextDecorator):
     """Remove local variables reference from tracebacks to allow garbage
     collector to clean all Qubes*() objects, otherwise file descriptors
     held by them will leak"""
+    def __init__(self, result_callback=None):
+        self._result_callback = result_callback
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._result_callback:
+            self._result_callback(
+                not exc_type or isinstance(exc_type, unittest.SkipTest)
+            )
         if exc_val is None:
             return
         ex = exc_val
@@ -415,7 +422,7 @@ class QubesTestCase(unittest.TestCase):
     def __init__(self, methodName='runTest'):
         try:
             test_method = getattr(self, methodName)
-            setattr(self, methodName, _clear_ex_info()(test_method))
+            setattr(self, methodName, _clear_ex_info(self.set_result)(test_method))
         except AttributeError:
             pass
         super(QubesTestCase, self).__init__(methodName)
@@ -433,10 +440,15 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = None
 
+        self._success = True
+
         global libvirt_event_impl
 
         if in_dom0 and not libvirt_event_impl:
             libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+
+    def set_result(self, success):
+        self._success = success
 
     def __str__(self):
         return '{}/{}/{}'.format(
@@ -517,11 +529,7 @@ class QubesTestCase(unittest.TestCase):
     def success(self):
         """Check if test was successful during tearDown """
 
-        result = self.defaultTestResult()
-        self._feedErrorsToResult(result, self._outcome.errors)
-
-        unsuccessful_tests = [test for (test,_) in (result.errors + result.failures)]
-        return self not in unsuccessful_tests
+        return self._success
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
