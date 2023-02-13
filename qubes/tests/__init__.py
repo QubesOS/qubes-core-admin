@@ -800,7 +800,7 @@ class SystemTestCase(QubesTestCase):
         del conn
 
         self.loop.run_until_complete(asyncio.wait([
-            server.wait_closed() for server in self.qubesd]))
+            self.loop.create_task(server.wait_closed()) for server in self.qubesd]))
         del self.qubesd
 
         # remove all references to any complex qubes objects, to release
