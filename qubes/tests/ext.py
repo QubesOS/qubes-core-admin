@@ -186,6 +186,58 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('gui',), {}),
         ])
 
+    def test_20_version(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qubes-agent-version': '4.1'
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('qubes-agent-version', '4.1'), {}),
+            ('features.get', ('qrexec', False), {}),
+        ])
+
+    def test_21_version_invalid(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qubes-agent-version': '4'
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+        self.vm.mock_calls.clear()
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qubes-agent-version': '4.1.1'
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+        self.vm.mock_calls.clear()
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qubes-agent-version': 'notnumeric'
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+        self.vm.mock_calls.clear()
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'qubes-agent-version': '40000000'
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+
     def test_100_servicevm_feature(self):
         self.vm.provides_network = True
         self.ext.set_servicevm_feature(self.vm)

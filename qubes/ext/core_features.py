@@ -17,8 +17,11 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+import re
 
 import qubes.ext
+
+_version_re = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}")
 
 class CoreFeatures(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
@@ -37,6 +40,11 @@ class CoreFeatures(qubes.ext.Extension):
             untrusted_value = untrusted_features.get(feature, None)
             if untrusted_value in ('1', '0'):
                 requested_features[feature] = bool(int(untrusted_value))
+
+        if 'qubes-agent-version' in untrusted_features:
+            untrusted_value = untrusted_features['qubes-agent-version']
+            if _version_re.fullmatch(untrusted_value):
+                vm.features['qubes-agent-version'] = untrusted_value
         del untrusted_features
 
         # default user for qvm-run etc
