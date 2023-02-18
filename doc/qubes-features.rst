@@ -207,6 +207,27 @@ the VM side, so they will work without matching ``supported-feature.`` entry.
 Whether a feature requires VM-side support, is documented on case-by-case basis
 in `qvm-features` tool manual page.
 
+Announcing supported RPC services
+----------------------------------
+
+Each VM (including templates) can also announce supported RPC services. This is
+done similar to features and qvm-services as explained above, but with
+``supported-rpc.`` prefix. Template-based VM announce only services installed
+in its private image (so ``/usr/local/etc/qubes-rpc`` in Linux). To get all RPC
+services supported by a given template-based VM, one needs to look at both its
+template and the VM itself.
+
+Supported RPC services can be inspected from dom0 using :program:`qvm-features`
+tool, for example:
+
+.. code-block:: shell
+
+   $ qvm-features my-template
+   ...
+   supported-rpc.qubes.Gpg  1
+   ...
+
+
 Module contents
 ---------------
 

@@ -492,3 +492,38 @@ class TC_30_SupportedFeatures(qubes.tests.QubesTestCase):
         self.assertEqual(self.features, {
             'supported-feature.test2': True,
         })
+
+    def test_020_supported_rpc(self):
+        self.ext.supported_rpc(self.vm, 'features-request',
+            untrusted_features={
+                'supported-rpc.qubes.SomeService': '1',  # ok
+                'supported-rpc.test2': '0',  # ignored
+                'supported-rpc.test3': 'some text',  # ignored
+                'no-feature': '1',  # ignored
+            })
+        self.assertEqual(self.features, {
+            'supported-rpc.qubes.SomeService': True,
+        })
+
+    def test_021_supported_rpc_add(self):
+        self.features['supported-rpc.qubes.SomeService'] = '1'
+        self.ext.supported_rpc(self.vm, 'features-request',
+            untrusted_features={
+                'supported-rpc.qubes.SomeService': '1',  # ok
+                'supported-rpc.test2': '1',  # ok
+            })
+        # also check if existing one is untouched
+        self.assertEqual(self.features, {
+            'supported-rpc.qubes.SomeService': '1',
+            'supported-rpc.test2': True,
+        })
+
+    def test_022_supported_rpc_remove(self):
+        self.features['supported-rpc.qubes.SomeService'] = '1'
+        self.ext.supported_rpc(self.vm, 'features-request',
+            untrusted_features={
+                'supported-rpc.test2': '1',  # ok
+            })
+        self.assertEqual(self.features, {
+            'supported-rpc.test2': True,
+        })
