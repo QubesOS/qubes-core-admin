@@ -442,12 +442,16 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(self.testvm1.start())
         pulseaudio_units = 'pulseaudio.socket pulseaudio.service'
         pipewire_units = 'pipewire.socket wireplumber.service pipewire.service'
+        is_fedora = 'fedora' in self.template:
+        comment = '' if is_fedora else '#'
         if backend == 'pulseaudio':
             stop_units = pipewire_units
             start_units = pulseaudio_units
             manage_cmd = 'rm -f'
             packages = 'pulseaudio'
         elif backend == 'pipewire':
+            if not is_fedora:
+                self.skipTest('PipeWire tests only supported on Fedora')
             start_units = pipewire_units
             stop_units = pulseaudio_units
             manage_cmd = 'touch'
@@ -460,7 +464,7 @@ class TC_00_AppVMMixin(object):
             self.skipTest('pulseaudio-utils not installed in VM')
         try:
             self.testvm1.run_for_stdio(f"""sudo {manage_cmd} /run/qubes-service/pipewire &&
-dnf -y --allowerasing install {packages} pulseaudio-utils &&
+{comment}dnf -y --allowerasing install {packages} pulseaudio-utils &&
 systemctl --user stop {stop_units} &&
 systemctl --user start {start_units}""")
         except subprocess.CalledProcessError:
