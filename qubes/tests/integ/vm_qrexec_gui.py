@@ -446,10 +446,12 @@ class TC_00_AppVMMixin(object):
             stop_units = pipewire_units
             start_units = pulseaudio_units
             manage_cmd = 'rm -f'
+            packages = 'pulseaudio'
         elif backend == 'pipewire':
             start_units = pipewire_units
             stop_units = pulseaudio_units
             manage_cmd = 'touch'
+            packages = 'wireplumber pipewire-pulseaudio'
         else:
             self.fail('bad audio backend')
         try:
@@ -458,6 +460,7 @@ class TC_00_AppVMMixin(object):
             self.skipTest('pulseaudio-utils not installed in VM')
         try:
             self.testvm1.run_for_stdio(f"""sudo {manage_cmd} /run/qubes-service/pipewire &&
+dnf -y --allowerasing install {packages} pulseaudio-utils &&
 systemctl --user stop {stop_units} &&
 systemctl --user start {start_units}""")
         except subprocess.CalledProcessError:
