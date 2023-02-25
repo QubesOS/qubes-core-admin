@@ -65,6 +65,260 @@ class TC_00_AppVMMixin(object):
             self.testvm2.provides_network = True
         self.app.save()
 
+class TC_00_AudioMixin(TC_00_AppVMMixin):
+    def wait_for_pulseaudio_startup(self, vm):
+        self.loop.run_until_complete(
+            self.wait_for_session(self.testvm1))
+        try:
+            self.loop.run_until_complete(vm.run_for_stdio(
+                "timeout 30s sh -c 'while ! pactl info; do sleep 1; done'"
+            ))
+        except subprocess.CalledProcessError as e:
+            self.fail('Timeout waiting for pulseaudio start in {}: {}{}'.format(
+                vm.name, e.stdout, e.stderr))
+        # then wait for the stream to appear in dom0
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        p = self.loop.run_until_complete(asyncio.create_subprocess_shell(
+            "sudo -E -u {} timeout 60s sh -c '"
+            "while ! pactl list sink-inputs | grep -q :{}; do sleep 1; done'"
+            .format(local_user, vm.name)))
+        self.loop.run_until_complete(p.wait())
+        # and some more...
+        self.loop.run_until_complete(asyncio.sleep(1))
+
+    def prepare_audio_vm(self, backend):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
+        self.loop.run_until_complete(self.testvm1.start())
+        pulseaudio_units = 'pulseaudio.socket pulseaudio.service'
+        pipewire_units = 'pipewire.socket wireplumber.service pipewire.service'
+        is_fedora = 'fedora' in self.template
+        comment = '' if is_fedora else '#'
+        if backend == 'pulseaudio':
+            stop_units = pipewire_units
+            start_units = pulseaudio_units
+            manage_cmd = 'rm -f'
+            packages = 'pulseaudio'
+        elif backend == 'pipewire':
+            if not is_fedora:
+                self.skipTest('PipeWire tests only supported on Fedora')
+            start_units = pipewire_units
+            stop_units = pulseaudio_units
+            manage_cmd = 'touch'
+            packages = 'wireplumber pipewire-pulseaudio'
+        else:
+            self.fail('bad audio backend')
+        try:
+            self.loop.run_until_complete("which parecord")
+        except subprocess.CalledProcessError:
+            self.skipTest('pulseaudio-utils not installed in VM')
+        try:
+            self.testvm1.run_for_stdio(f"""sudo {manage_cmd} /run/qubes-service/pipewire &&
+{comment}dnf -y --allowerasing install {packages} pulseaudio-utils &&
+systemctl --user stop {stop_units} &&
+systemctl --user start {start_units}""")
+        except subprocess.CalledProcessError:
+            self.fail(f'could not configure VM for specified audio backend {backend}')
+        self.wait_for_pulseaudio_startup(self.testvm1)
+
+    def check_audio_sample(self, sample, sfreq):
+        rec = np.fromstring(sample, dtype=np.float32)
+        # determine sample size using silence threshold
+        threshold = 10**-3
+        rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
+        if not rec_size:
+            self.fail('only silence detected, no useful audio data')
+        # find zero crossings
+        crossings = np.nonzero((rec[1:] > threshold) &
+                            (rec[:-1] < -threshold))[0]
+        np.seterr('raise')
+        # compare against sine wave frequency
+        rec_freq = 44100/np.mean(np.diff(crossings))
+        if not sfreq*0.8 < rec_freq < sfreq*1.2:
+            self.fail('frequency {} not in specified range'
+                    .format(rec_freq))
+
+    def common_audio_playback(self):
+        # sine frequency
+        sfreq = 4400
+        # generate signal
+        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat > audio_in.raw',
+            input=audio_in.astype(np.float32).tobytes()))
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        with tempfile.NamedTemporaryFile() as recorded_audio:
+            os.chmod(recorded_audio.name, 0o666)
+            # FIXME: -d 0 assumes only one audio device
+            p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+                'parecord', '-d', '0', '--raw',
+                '--format=float32le', '--rate=44100', '--channels=1',
+                recorded_audio.name], stdout=subprocess.PIPE)
+            try:
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                    'paplay --format=float32le --rate=44100 \
+                            --channels=1 --raw audio_in.raw'))
+            except subprocess.CalledProcessError as err:
+                self.fail('{} stderr: {}'.format(str(err), err.stderr))
+            # wait for possible parecord buffering
+            self.loop.run_until_complete(asyncio.sleep(1))
+            p.terminate()
+            p.wait()
+            self.check_audio_sample(recorded_audio.file.read(), sfreq)
+
+    def _configure_audio_recording(self, vm):
+        '''Connect VM's output-source to sink monitor instead of mic'''
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        sudo = ['sudo', '-E', '-u', local_user]
+        source_outputs = subprocess.check_output(
+            sudo + ['pacmd', 'list-source-outputs']).decode()
+
+        last_index = None
+        found = False
+        for line in source_outputs.splitlines():
+            if line.startswith('    index: '):
+                last_index = line.split(':')[1].strip()
+            elif line.startswith('\t\tapplication.name = '):
+                app_name = line.split('=')[1].strip('" ')
+                if vm.name == app_name:
+                    found = True
+                    break
+        if not found:
+            self.fail('source-output for VM {} not found'.format(vm.name))
+
+        subprocess.check_call(sudo +
+            ['pacmd', 'move-source-output', last_index, '0'])
+
+    def common_audio_record_muted(self):
+        # connect VM's recording source output monitor (instead of mic)
+        self._configure_audio_recording(self.testvm1)
+
+        # generate some "audio" data
+        audio_in = b'\x20' * 44100
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        record = self.loop.run_until_complete(
+            self.testvm1.run('parecord --raw audio_rec.raw'))
+        # give it time to start recording
+        self.loop.run_until_complete(asyncio.sleep(0.5))
+        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+            'paplay', '--raw'],
+            stdin=subprocess.PIPE)
+        p.communicate(audio_in)
+        # wait for possible parecord buffering
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pkill parecord'))
+        self.loop.run_until_complete(record.wait())
+        recorded_audio, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat audio_rec.raw'))
+        # should be empty or silence, so check just a little fragment
+        if audio_in[:32] in recorded_audio:
+            self.fail('VM recorded something, even though mic disabled')
+
+    def common_audio_record_unmuted(self):
+        deva = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
+        self.loop.run_until_complete(
+            self.testvm1.devices['mic'].attach(deva))
+        # connect VM's recording source output monitor (instead of mic)
+        self._configure_audio_recording(self.testvm1)
+        sfreq = 4400
+        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        record = self.loop.run_until_complete(self.testvm1.run(
+                'parecord --raw --format=float32le --rate=44100 \
+                            --channels=1 audio_rec.raw'))
+        # give it time to start recording
+        self.loop.run_until_complete(asyncio.sleep(0.5))
+        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
+            'paplay', '--raw', '--format=float32le',
+                    '--rate=44100', '--channels=1'],
+            stdin=subprocess.PIPE)
+        p.communicate(audio_in.astype(np.float32).tobytes())
+        # wait for possible parecord buffering
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pkill parecord || :'))
+        _, record_stderr = self.loop.run_until_complete(record.communicate())
+        if record_stderr:
+            self.fail('parecord printed something on stderr: {}'.format(
+                record_stderr))
+
+        recorded_audio, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('cat audio_rec.raw'))
+        self.check_audio_sample(recorded_audio, sfreq)
+
+class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_220_audio_play_pulseaudio(self):
+        self.prepare_audio_vm('pulseaudio')
+        self.common_audio_playback()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_221_audio_rec_muted_pulseaudio(self):
+        self.prepare_audio_vm('pulseaudio')
+        self.common_audio_record_muted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_222_audio_rec_unmuted_pulseaudio(self):
+        self.prepare_audio_vm('pulseaudio')
+        self.common_audio_record_unmuted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_223_audio_play_hvm(self):
+        self.testvm1.virt_mode = 'hvm'
+        self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm('pulseaudio')
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        self.common_audio_playback()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_224_audio_rec_muted_hvm(self):
+        self.testvm1.virt_mode = 'hvm'
+        self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm('pulseaudio')
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        self.common_audio_record_muted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_225_audio_rec_unmuted_hvm(self):
+        self.testvm1.virt_mode = 'hvm'
+        self.testvm1.features['audio-model'] = 'ich6'
+        self.prepare_audio_vm('pulseaudio')
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        self.common_audio_record_unmuted()
+
+class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_226_audio_playback_pipewire(self):
+        self.prepare_audio_vm('pipewire')
+        self.common_audio_playback()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_227_audio_rec_muted_pipewire(self):
+        self.prepare_audio_vm('pipewire')
+        self.common_audio_record_muted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_228_audio_rec_unmuted_pipewire(self):
+        self.prepare_audio_vm('pipewire')
+        self.common_audio_record_unmuted()
+
+class TC_20_NonAudio(TC_00_AppVMMixin):
     def test_000_start_shutdown(self):
         # TODO: wait_for, timeout
         self.loop.run_until_complete(self.testvm1.start())
@@ -415,244 +669,6 @@ class TC_00_AppVMMixin(object):
             raise
         finally:
             self.app.clockvm = None
-
-    def wait_for_pulseaudio_startup(self, vm):
-        self.loop.run_until_complete(
-            self.wait_for_session(self.testvm1))
-        try:
-            self.loop.run_until_complete(vm.run_for_stdio(
-                "timeout 30s sh -c 'while ! pactl info; do sleep 1; done'"
-            ))
-        except subprocess.CalledProcessError as e:
-            self.fail('Timeout waiting for pulseaudio start in {}: {}{}'.format(
-                vm.name, e.stdout, e.stderr))
-        # then wait for the stream to appear in dom0
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        p = self.loop.run_until_complete(asyncio.create_subprocess_shell(
-            "sudo -E -u {} timeout 60s sh -c '"
-            "while ! pactl list sink-inputs | grep -q :{}; do sleep 1; done'"
-            .format(local_user, vm.name)))
-        self.loop.run_until_complete(p.wait())
-        # and some more...
-        self.loop.run_until_complete(asyncio.sleep(1))
-
-    def prepare_audio_vm(self, backend):
-        if 'whonix-gw' in self.template:
-            self.skipTest('whonix-gw have no audio')
-        self.loop.run_until_complete(self.testvm1.start())
-        pulseaudio_units = 'pulseaudio.socket pulseaudio.service'
-        pipewire_units = 'pipewire.socket wireplumber.service pipewire.service'
-        is_fedora = 'fedora' in self.template:
-        comment = '' if is_fedora else '#'
-        if backend == 'pulseaudio':
-            stop_units = pipewire_units
-            start_units = pulseaudio_units
-            manage_cmd = 'rm -f'
-            packages = 'pulseaudio'
-        elif backend == 'pipewire':
-            if not is_fedora:
-                self.skipTest('PipeWire tests only supported on Fedora')
-            start_units = pipewire_units
-            stop_units = pulseaudio_units
-            manage_cmd = 'touch'
-            packages = 'wireplumber pipewire-pulseaudio'
-        else:
-            self.fail('bad audio backend')
-        try:
-            self.loop.run_until_complete("which parecord")
-        except subprocess.CalledProcessError:
-            self.skipTest('pulseaudio-utils not installed in VM')
-        try:
-            self.testvm1.run_for_stdio(f"""sudo {manage_cmd} /run/qubes-service/pipewire &&
-{comment}dnf -y --allowerasing install {packages} pulseaudio-utils &&
-systemctl --user stop {stop_units} &&
-systemctl --user start {start_units}""")
-        except subprocess.CalledProcessError:
-            self.fail(f'could not configure VM for specified audio backend {backend}')
-        self.wait_for_pulseaudio_startup(self.testvm1)
-
-    def check_audio_sample(self, sample, sfreq):
-        rec = np.fromstring(sample, dtype=np.float32)
-        # determine sample size using silence threshold
-        threshold = 10**-3
-        rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
-        if not rec_size:
-            self.fail('only silence detected, no useful audio data')
-        # find zero crossings
-        crossings = np.nonzero((rec[1:] > threshold) &
-                            (rec[:-1] < -threshold))[0]
-        np.seterr('raise')
-        # compare against sine wave frequency
-        rec_freq = 44100/np.mean(np.diff(crossings))
-        if not sfreq*0.8 < rec_freq < sfreq*1.2:
-            self.fail('frequency {} not in specified range'
-                    .format(rec_freq))
-
-    def common_audio_playback(self):
-        # sine frequency
-        sfreq = 4400
-        # generate signal
-        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('cat > audio_in.raw',
-            input=audio_in.astype(np.float32).tobytes()))
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        with tempfile.NamedTemporaryFile() as recorded_audio:
-            os.chmod(recorded_audio.name, 0o666)
-            # FIXME: -d 0 assumes only one audio device
-            p = subprocess.Popen(['sudo', '-E', '-u', local_user,
-                'parecord', '-d', '0', '--raw',
-                '--format=float32le', '--rate=44100', '--channels=1',
-                recorded_audio.name], stdout=subprocess.PIPE)
-            try:
-                self.loop.run_until_complete(
-                    self.testvm1.run_for_stdio(
-                    'paplay --format=float32le --rate=44100 \
-                            --channels=1 --raw audio_in.raw'))
-            except subprocess.CalledProcessError as err:
-                self.fail('{} stderr: {}'.format(str(err), err.stderr))
-            # wait for possible parecord buffering
-            self.loop.run_until_complete(asyncio.sleep(1))
-            p.terminate()
-            p.wait()
-            self.check_audio_sample(recorded_audio.file.read(), sfreq)
-
-    def _configure_audio_recording(self, vm):
-        '''Connect VM's output-source to sink monitor instead of mic'''
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        sudo = ['sudo', '-E', '-u', local_user]
-        source_outputs = subprocess.check_output(
-            sudo + ['pacmd', 'list-source-outputs']).decode()
-
-        last_index = None
-        found = False
-        for line in source_outputs.splitlines():
-            if line.startswith('    index: '):
-                last_index = line.split(':')[1].strip()
-            elif line.startswith('\t\tapplication.name = '):
-                app_name = line.split('=')[1].strip('" ')
-                if vm.name == app_name:
-                    found = True
-                    break
-        if not found:
-            self.fail('source-output for VM {} not found'.format(vm.name))
-
-        subprocess.check_call(sudo +
-            ['pacmd', 'move-source-output', last_index, '0'])
-
-    def common_audio_record_muted(self):
-        # connect VM's recording source output monitor (instead of mic)
-        self._configure_audio_recording(self.testvm1)
-
-        # generate some "audio" data
-        audio_in = b'\x20' * 44100
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        record = self.loop.run_until_complete(
-            self.testvm1.run('parecord --raw audio_rec.raw'))
-        # give it time to start recording
-        self.loop.run_until_complete(asyncio.sleep(0.5))
-        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
-            'paplay', '--raw'],
-            stdin=subprocess.PIPE)
-        p.communicate(audio_in)
-        # wait for possible parecord buffering
-        self.loop.run_until_complete(asyncio.sleep(1))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pkill parecord'))
-        self.loop.run_until_complete(record.wait())
-        recorded_audio, _ = self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('cat audio_rec.raw'))
-        # should be empty or silence, so check just a little fragment
-        if audio_in[:32] in recorded_audio:
-            self.fail('VM recorded something, even though mic disabled')
-
-    def common_audio_record_unmuted(self):
-        deva = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
-        self.loop.run_until_complete(
-            self.testvm1.devices['mic'].attach(deva))
-        # connect VM's recording source output monitor (instead of mic)
-        self._configure_audio_recording(self.testvm1)
-        sfreq = 4400
-        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        record = self.loop.run_until_complete(self.testvm1.run(
-                'parecord --raw --format=float32le --rate=44100 \
-                            --channels=1 audio_rec.raw'))
-        # give it time to start recording
-        self.loop.run_until_complete(asyncio.sleep(0.5))
-        p = subprocess.Popen(['sudo', '-E', '-u', local_user,
-            'paplay', '--raw', '--format=float32le',
-                    '--rate=44100', '--channels=1'],
-            stdin=subprocess.PIPE)
-        p.communicate(audio_in.astype(np.float32).tobytes())
-        # wait for possible parecord buffering
-        self.loop.run_until_complete(asyncio.sleep(1))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pkill parecord || :'))
-        _, record_stderr = self.loop.run_until_complete(record.communicate())
-        if record_stderr:
-            self.fail('parecord printed something on stderr: {}'.format(
-                record_stderr))
-
-        recorded_audio, _ = self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('cat audio_rec.raw'))
-        self.check_audio_sample(recorded_audio, sfreq)
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_220_audio_play(self):
-        for audio_backend in ('pulseaudio', 'pipewire'):
-            with self.subTest(audio_backend=audio_backend):
-                self.prepare_audio_vm(audio_backend)
-                self.common_audio_playback()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_221_audio_rec_muted(self):
-        for audio_backend in ('pulseaudio', 'pipewire'):
-            with self.subTest(audio_backend=audio_backend):
-                self.prepare_audio_vm(audio_backend)
-                self.common_audio_record_muted()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_222_audio_rec_unmuted(self):
-        for audio_backend in ('pulseaudio', 'pipewire'):
-            with self.subTest(audio_backend=audio_backend):
-                self.prepare_audio_vm(audio_backend)
-                self.common_audio_record_unmuted()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_223_audio_play_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_playback()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_224_audio_rec_muted_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_record_muted()
-
-    @unittest.skipUnless(spawn.find_executable('parecord'),
-                         "pulseaudio-utils not installed in dom0")
-    def test_225_audio_rec_unmuted_hvm(self):
-        self.testvm1.virt_mode = 'hvm'
-        self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
-        self.common_audio_record_unmuted()
 
     def test_250_resize_private_img(self):
         """
