@@ -28,6 +28,7 @@ import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
 import qubes.tests.storage_reflink
+import qubes.tests.storage_zfs
 import qubes.utils
 import qubes.vm.appvm
 
@@ -423,3 +424,31 @@ class StorageLVM(StorageTestMixin, qubes.tests.SystemTestCase):
                     and pool.thin_pool == thin_pool:
                 return pool
         return None
+
+
+class StorageZFSMixin(StorageTestMixin):
+    def init_pool(self, **kwargs):
+        name = "test-reflink-integration-on-zfs"
+        setup = qubes.tests.storage_zfs.setup_test_zfs_pool
+        self.pool_backing_file, self.pool_test_dataset = setup(name)
+        self.pool = self.loop.run_until_complete(
+            self.app.add_pool(
+                name=name,
+                container=self.pool_test_dataset,
+                driver="zfs",
+                **kwargs,
+            )
+        )
+
+    def cleanup_pool(self):
+        pool_name = self.pool.name
+        self.loop.run_until_complete(self.app.remove_pool(pool_name))
+        qubes.tests.storage_zfs.teardown_test_zfs_pool(
+            self.pool_backing_file,
+            pool_name,
+        )
+
+
+@qubes.tests.storage_zfs.skip_unless_zfs_available
+class StorageZFS(StorageZFSMixin, qubes.tests.SystemTestCase):
+    pass
