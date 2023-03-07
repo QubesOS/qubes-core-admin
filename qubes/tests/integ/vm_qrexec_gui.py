@@ -490,8 +490,6 @@ class TC_00_AppVMMixin(object):
             # wait for possible parecord buffering
             self.loop.run_until_complete(asyncio.sleep(1))
             p.terminate()
-            # for some reason sudo do not relay SIGTERM sent above
-            subprocess.check_call(['pkill', 'parecord'])
             p.wait()
             self.check_audio_sample(recorded_audio.file.read(), sfreq)
 
