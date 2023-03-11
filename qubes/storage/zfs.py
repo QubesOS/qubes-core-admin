@@ -2366,15 +2366,11 @@ class ZFSVolume(qubes.storage.Volume):
             # God help me if the user specify a source volume here.
             # That should never have happened.
             assert not self.source, "volatiles should not have sources"
-            if not await self.pool.accessor.volume_exists_async(
+            self.log.debug(
+                "Creating volatile %s empty",
                 self.volume,
-                log=self.log,
-            ):
-                self.log.debug(
-                    "Creating volatile %s empty",
-                    self.volume,
-                )
-                await self._wipe_and_create_empty()
+            )
+            await self._wipe_and_create_empty()
 
         elif save_on_stop:
             # Private / persistent.  Dataset already created.
