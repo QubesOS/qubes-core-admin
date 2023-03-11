@@ -1835,15 +1835,8 @@ class ZFSVolume(qubes.storage.Volume):
             err = "ZFSVolume %s cannot be snap_on_start && save_on_stop" % vid
             raise qubes.storage.StoragePoolException(err)
         # Intify.
-        revisions_to_keep = int(revisions_to_keep)
-        if snap_on_start or save_on_stop:
-            # Non-volatile.  This type of dataset requires
-            # >= 1 revisions to keep if revert is to work
-            # meaningfully at all.  The semantics are now
-            # the same as the other drivers'.
-            if revisions_to_keep < 1:
-                err = "ZFSVolume %s needs >= 1 revisions to keep" % vid
-                raise qubes.storage.StoragePoolException(err)
+        # The code is now designed to work with zero
+        # revisions_to_keep.
         super().__init__(  # type: ignore
             name=name,
             pool=pool,
@@ -1923,16 +1916,17 @@ class ZFSVolume(qubes.storage.Volume):
 
     async def _create_revision(self, cause: str) -> None:
         """Convenience function to create a snapshot timestamped now()."""
-        await self.pool.accessor.snapshot_volume_async(
-            VolumeSnapshot.make(
-                self.volume,
-                timestamp_to_revision(
-                    time.time(),
-                    cause,
+        if self.revisions_to_keep > 0:
+            await self.pool.accessor.snapshot_volume_async(
+                VolumeSnapshot.make(
+                    self.volume,
+                    timestamp_to_revision(
+                        time.time(),
+                        cause,
+                    ),
                 ),
-            ),
-            log=self.log,
-        )
+                log=self.log,
+            )
         await self._purge_old_revisions()
 
     async def _remove_volume_export_if_exists(
