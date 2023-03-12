@@ -909,8 +909,14 @@ class TC_10_Generic(qubes.tests.SystemTestCase):
             ' qrexec-client-vm output: {} {}'.format(stdout, stderr))
 
 def create_testcases_for_templates():
-    return qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-        TC_00_AppVMMixin, qubes.tests.SystemTestCase,
+    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
+        TC_20_AudioVM_Pulse, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
+        TC_20_AudioVM_PipeWire, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
+        TC_20_NonAudio, qubes.tests.SystemTestCase,
         module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
