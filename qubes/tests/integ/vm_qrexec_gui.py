@@ -909,15 +909,15 @@ class TC_10_Generic(qubes.tests.SystemTestCase):
             ' qrexec-client-vm output: {} {}'.format(stdout, stderr))
 
 def create_testcases_for_templates():
-    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-        TC_20_AudioVM_Pulse, qubes.tests.SystemTestCase,
-        module=sys.modules[__name__])
-    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-        TC_20_AudioVM_PipeWire, qubes.tests.SystemTestCase,
-        module=sys.modules[__name__])
-    yield from qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-        TC_20_NonAudio, qubes.tests.SystemTestCase,
-        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates(
+        'TC_20_AudioVM_Pulse', TC_20_AudioVM_Pulse,
+        qubes.tests.SystemTestCase, module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates(
+        'TC_20_AudioVM_PipeWire', TC_20_AudioVM_PipeWire,
+        qubes.tests.SystemTestCase, module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates(
+        'TC_20_NonAudio', TC_20_NonAudio,
+        qubes.tests.SystemTestCase, module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
