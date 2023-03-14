@@ -93,7 +93,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         pulseaudio_units = 'pulseaudio.socket pulseaudio.service'
         pipewire_units = 'pipewire.socket wireplumber.service pipewire.service'
         if backend == 'pipewire':
-            if not self.template.features.get('supported-service.pipewire'):
+            if not self.testvm1.features.check_with_template('supported-service.pipewire', False):
                 self.skipTest('PipeWire not supported in VM')
             self.testvm1.features['service.pipewire'] = True
         elif backend == 'pulseaudio':
@@ -206,7 +206,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             self.testvm1.run_for_stdio(kill_cmd))
         self.loop.run_until_complete(record.wait())
         recorded_audio, _ = self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('cat audio_rec.raw'))
+            self.testvm1.run_for_stdio('cat audio_rec.snd'))
         # should be empty or silence, so check just a little fragment
         if audio_in[:32] in recorded_audio:
             self.fail('VM recorded something, even though mic disabled')
