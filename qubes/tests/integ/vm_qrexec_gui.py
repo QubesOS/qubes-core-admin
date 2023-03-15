@@ -95,6 +95,8 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         if backend == 'pipewire':
             if not self.testvm1.features.check_with_template('supported-service.pipewire', False):
                 self.skipTest('PipeWire not supported in VM')
+            if 'debian' in self.template or 'whonix' in self.template:
+                self.skipTest('PipeWire audio not supported in Debian')
             self.testvm1.features['service.pipewire'] = True
         elif backend == 'pulseaudio':
             # Use PulseAudio if it is installed.  If it is not installed,
