@@ -275,8 +275,11 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        except subprocess.CalledProcessError:
+            self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -285,8 +288,11 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        except subprocess.CalledProcessError:
+            self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -295,10 +301,13 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+        except subprocess.CalledProcessError:
+            self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_record_unmuted()
 
 class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
