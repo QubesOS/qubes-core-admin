@@ -74,6 +74,13 @@ Requires:       python3-xen
 Requires:       libvirt-python3
 
 Requires:       pciutils
+# ionice, for low-disk-impact dd during volume duplication.
+%if 0%{?fedora} == 32
+# FC32 / Q4.1 builds don't have util-linux-core.
+Requires:       util-linux
+%else
+Requires:       util-linux-core
+%endif
 # udev rules for encrypted volatile volumes
 Requires:       qubes-core-dom0-linux >= 4.1.13
 # policy (daemon) using changed qubesd socket protocol
@@ -404,6 +411,7 @@ done
 %{python3_sitelib}/qubes/storage/reflink.py
 %{python3_sitelib}/qubes/storage/kernels.py
 %{python3_sitelib}/qubes/storage/lvm.py
+%{python3_sitelib}/qubes/storage/zfs.py
 %{python3_sitelib}/qubes/storage/callback.py
 %doc /usr/share/doc/qubes/qubes_callback.json.example
 
@@ -458,6 +466,7 @@ done
 %{python3_sitelib}/qubes/tests/storage_reflink.py
 %{python3_sitelib}/qubes/tests/storage_kernels.py
 %{python3_sitelib}/qubes/tests/storage_lvm.py
+%{python3_sitelib}/qubes/tests/storage_zfs.py
 %{python3_sitelib}/qubes/tests/storage_callback.py
 %{python3_sitelib}/qubes/tests/tarwriter.py
 

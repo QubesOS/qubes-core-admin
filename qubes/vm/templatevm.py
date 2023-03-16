@@ -68,7 +68,11 @@ class TemplateVM(QubesVM):
                 'rw': True,
                 'source': None,
                 'size': defaults['private_img_size'],
-                'revisions_to_keep': 0,
+                # For historic reasons, the private VM volume needed to have
+                # this value set to
+                # 'revisions_to_keep': 0,
+                # but now it is fine to simply use whatever the pool driver
+                # uses as default.
             },
             'volatile': {
                 'name': 'volatile',

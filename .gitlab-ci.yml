@@ -13,6 +13,22 @@ checks:tests:
   - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils
   - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
   - pip3 install --user --quiet -r ci/requirements.txt
+  - |
+      set -e
+      # Installing ZFS after the CI requirements so after_script codecov-wrapper does not explode if ZFS install fails.
+      kver=$(uname -r)
+      echo $kver is the running kernel >&2
+      sudo dnf install -y https://zfsonlinux.org/fedora/zfs-release-2-2$(rpm --eval "%{dist}").noarch.rpm
+      # We are now going to force the installation of the specific kernel-devel version
+      # that matches the current kernel.  If unavailable, the test should fail now.
+      # Ideally the VM image ships with a kernel-devel package that matches the
+      # booted kernel.
+      sudo dnf install -y zfs kernel-core-$kver kernel-devel-$kver
+      # Proactively load the kernel module with the right size ARC to prevent memory
+      # starvation during integration tests.  Otherwise the ARC will not reduce
+      # itself unless there's memory pressure, and the system will fail to request
+      # memory from qmemman since qmemman will not see enough memory to run.
+      sudo modprobe zfs zfs_arc_max=67108864
   script:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   stage: checks

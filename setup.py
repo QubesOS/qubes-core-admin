@@ -84,6 +84,7 @@ if __name__ == '__main__':
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
                 'callback = qubes.storage.callback:CallbackPool',
+                'zfs = qubes.storage.zfs:ZFSPool',
             ],
             'qubes.tests.storage': [
                 'test = qubes.tests.storage:TestPool',
@@ -92,5 +93,6 @@ if __name__ == '__main__':
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
                 'callback = qubes.storage.callback:CallbackPool',
+                'zfs = qubes.storage.zfs:ZFSPool',
             ],
         })

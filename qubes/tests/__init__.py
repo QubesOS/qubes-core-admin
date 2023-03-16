@@ -34,7 +34,7 @@ import asyncio
 import collections
 import contextlib
 import functools
-import logging
+import logging.handlers
 import os
 import pathlib
 import shlex
@@ -1462,33 +1462,34 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
     tests = unittest.TestSuite()
 
     for modname in (
-            # unit tests
-            'qubes.tests.selftest',
-            'qubes.tests.events',
-            'qubes.tests.devices',
-            'qubes.tests.devices_block',
-            'qubes.tests.firewall',
-            'qubes.tests.init',
-            'qubes.tests.vm.init',
-            'qubes.tests.storage',
-            'qubes.tests.storage_file',
-            'qubes.tests.storage_reflink',
-            'qubes.tests.storage_lvm',
-            'qubes.tests.storage_callback',
-            'qubes.tests.storage_kernels',
-            'qubes.tests.ext',
-            'qubes.tests.vm.qubesvm',
-            'qubes.tests.vm.mix.net',
-            'qubes.tests.vm.adminvm',
-            'qubes.tests.vm.appvm',
-            'qubes.tests.vm.dispvm',
-            'qubes.tests.app',
-            'qubes.tests.tarwriter',
-            'qubes.tests.api',
-            'qubes.tests.api_admin',
-            'qubes.tests.api_misc',
-            'qubes.tests.api_internal',
-            'qubes.tests.rpc_import',
+        # unit tests
+        "qubes.tests.selftest",
+        "qubes.tests.events",
+        "qubes.tests.devices",
+        "qubes.tests.devices_block",
+        "qubes.tests.firewall",
+        "qubes.tests.init",
+        "qubes.tests.vm.init",
+        "qubes.tests.storage",
+        "qubes.tests.storage_file",
+        "qubes.tests.storage_reflink",
+        "qubes.tests.storage_lvm",
+        "qubes.tests.storage_callback",
+        "qubes.tests.storage_kernels",
+        "qubes.tests.storage_zfs",
+        "qubes.tests.ext",
+        "qubes.tests.vm.qubesvm",
+        "qubes.tests.vm.mix.net",
+        "qubes.tests.vm.adminvm",
+        "qubes.tests.vm.appvm",
+        "qubes.tests.vm.dispvm",
+        "qubes.tests.app",
+        "qubes.tests.tarwriter",
+        "qubes.tests.api",
+        "qubes.tests.api_admin",
+        "qubes.tests.api_misc",
+        "qubes.tests.api_internal",
+        "qubes.tests.rpc_import",
     ):
         tests.addTests(loader.loadTestsFromName(modname))
 
