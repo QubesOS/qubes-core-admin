@@ -81,8 +81,8 @@ Requires:       util-linux
 %else
 Requires:       util-linux-core
 %endif
-# udev rules for encrypted volatile volumes
-Requires:       qubes-core-dom0-linux >= 4.1.13
+# udev rules for encrypted volatile volumes and zfs
+Requires:       qubes-core-dom0-linux >= 4.2.6
 # policy (daemon) using changed qubesd socket protocol
 Requires:       qubes-core-qrexec-dom0 >= 4.1.8
 Requires:       qubes-db-dom0
