@@ -26,11 +26,11 @@ import lxml.etree
 import qubes.devices
 import qubes.ext
 
-name_re = re.compile(r"^[a-z0-9-]{1,12}$")
-device_re = re.compile(r"^[a-z0-9/-]{1,64}$")
+name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
+device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
 # FIXME: any better idea of desc_re?
-desc_re = re.compile(r"^.{1,255}$")
-mode_re = re.compile(r"^[rw]$")
+desc_re = re.compile(r"\A.{1,255}\Z")
+mode_re = re.compile(r"\A[rw]\Z")
 
 # all frontends, prefer xvdi
 # TODO: get this from libvirt driver?
