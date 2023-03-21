@@ -355,7 +355,7 @@ class FileVolume(qubes.storage.Volume):
                               stdout=subprocess.PIPE) as p:
             result = p.communicate()
 
-        m = re.match(r'^(/dev/loop\d+):\s', result[0].decode())
+        m = re.match(r'\A(/dev/loop\d+):\s', result[0].decode())
         if m is not None:
             loop_dev = m.group(1)
 
