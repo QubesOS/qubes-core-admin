@@ -64,8 +64,6 @@ HMAC_MAX_SIZE = 4096
 
 BLKSIZE = 512
 
-_re_alphanum = re.compile(r'^[A-Za-z0-9-]*$')
-
 
 class BackupCanceledError(qubes.exc.QubesException):
     def __init__(self, msg, tmpdir=None):
