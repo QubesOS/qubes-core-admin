@@ -29,7 +29,6 @@ import itertools
 import logging
 import os
 import pwd
-import re
 import shutil
 import stat
 import string
