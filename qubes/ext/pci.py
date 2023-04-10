@@ -129,7 +129,8 @@ def _device_desc(hostdev_xml):
 class PCIDevice(qubes.devices.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
-        r'\A(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)\Z')
+        r'\A(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\.'
+        r'(?P<function>[0-9a-f]+)\Z')
     _libvirt_regex = re.compile(
         r'\Apci_0000_(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)_'
         r'(?P<function>[0-9a-f]+)\Z')
