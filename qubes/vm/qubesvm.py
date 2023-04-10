@@ -132,6 +132,9 @@ def _setter_virt_mode(self, prop, value):
 
 
 def _setter_kbd_layout(self, prop, value):
+    if not value.isascii():
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "Keyboard layouts must be ASCII")
     untrusted_xkb_layout = value.split('+')
     if len(untrusted_xkb_layout) != 3:
         raise qubes.exc.QubesPropertyValueError(
@@ -141,8 +144,8 @@ def _setter_kbd_layout(self, prop, value):
     untrusted_variant = untrusted_xkb_layout[1]
     untrusted_options = untrusted_xkb_layout[2]
 
-    re_variant = r'^[a-zA-Z0-9-_]*$'
-    re_options = r'^[a-zA-Z0-9-_:,]*$'
+    re_variant = r'\A[a-zA-Z0-9-_]*\Z'
+    re_options = r'\A[a-zA-Z0-9-_:,]*\Z'
 
     if not untrusted_layout.isalpha():
         raise qubes.exc.QubesPropertyValueError(
