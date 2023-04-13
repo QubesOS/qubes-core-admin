@@ -1,7 +1,6 @@
 # WARNING: those requirements are used only for travis-ci.org
 # they SHOULD NOT be used under normal conditions; use system package manager
 coverage
-codecov
 docutils
 jinja2
 lxml

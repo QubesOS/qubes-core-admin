@@ -1,8 +1,19 @@
 #!/bin/bash
 
-PATH="$PATH:$HOME/.local/bin"
+set -xe
 
-set -x
+gpg --no-default-keyring --keyring trustedkeys.gpg --import ci/codecov-keys.asc
+
+curl -Os https://uploader.codecov.io/latest/linux/codecov
+curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+
+gpgv codecov.SHA256SUM.sig codecov.SHA256SUM
+shasum -a 256 -c codecov.SHA256SUM
+
+chmod +x codecov
+
+python3 -m coverage xml || :
 
 if [[ "$CI_COMMIT_BRANCH" =~ ^pr- ]]; then
     PR=${CI_COMMIT_BRANCH#pr-}
@@ -12,6 +23,6 @@ if [[ "$CI_COMMIT_BRANCH" =~ ^pr- ]]; then
     else
         commit_sha=$(git show -s --format='%H')
     fi
-    exec codecov --pr "$PR" --commit "$commit_sha" "$@"
+    exec ./codecov --pr "$PR" --sha "$commit_sha" "$@"
 fi
-exec codecov "$@"
+exec ./codecov "$@"
