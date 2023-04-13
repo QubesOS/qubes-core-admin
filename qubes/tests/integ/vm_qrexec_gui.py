@@ -820,7 +820,12 @@ int main(int argc, char **argv) {
         await proc.wait()
 
         if vm_image != dom0_image:
-            self.fail("Dom0 window doesn't match VM window content")
+            file_basename = f"/tmp/window-dump-{self.id()}-"
+            with open(file_basename + "vm", "wb") as f:
+                f.write(vm_image)
+            with open(file_basename + "dom0", "wb") as f:
+                f.write(dom0_image)
+            self.fail(f"Dom0 window doesn't match VM window content, saved to {file_basename}*")
 
 class TC_10_Generic(qubes.tests.SystemTestCase):
     def setUp(self):
