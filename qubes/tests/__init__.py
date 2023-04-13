@@ -1344,10 +1344,17 @@ class SystemTestCase(QubesTestCase):
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
             timeout = 120
-        await asyncio.wait_for(
-            vm.run_service_for_stdio(
-                'qubes.WaitForSession', input=vm.default_user.encode()),
-            timeout=timeout)
+        try:
+            await asyncio.wait_for(
+                vm.run_service_for_stdio(
+                    'qubes.WaitForSession', input=vm.default_user.encode()),
+                timeout=timeout)
+        except asyncio.TimeoutError:
+            # collect some more info
+            stdout, _ = await vm.run_for_stdio('cat .xsession-errors')
+            self.log.error("VM {} xsession-errors on timeout: {}".format(
+                           vm.name, stdout.decode()))
+            raise
 
     async def start_vm(self, vm):
         """Start a VM and wait for it to be fully up"""
