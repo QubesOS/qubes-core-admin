@@ -18,5 +18,6 @@ Extensions defined here
 .. autoclass:: qubes.ext.pci.PCIDeviceExtension
 .. autoclass:: qubes.ext.r3compatibility.R3Compatibility
 .. autoclass:: qubes.ext.services.ServicesExtension
+.. autoclass:: qubes.ext.vm_config.VMConfig
 
 .. vim: ts=3 sw=3 et

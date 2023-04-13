@@ -23,6 +23,7 @@ import qubes.ext.core_features
 import qubes.ext.services
 import qubes.ext.windows
 import qubes.ext.supported_features
+import qubes.ext.vm_config
 import qubes.tests
 import qubes.vm.qubesvm
 
@@ -483,6 +484,66 @@ class TC_20_Services(qubes.tests.QubesTestCase):
             'service.guivm-gui-agent', '')
 
         self.assertEqual(os.path.exists(service_path), False)
+
+
+class TC_20_VmConfig(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.vm_config.VMConfig()
+        self.features = {}
+        specs = {
+            'features.get.side_effect': self.features.get,
+            'features.items.side_effect': self.features.items,
+            'features.__iter__.side_effect': self.features.__iter__,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            'features.__delitem__.side_effect': self.features.__delitem__,
+        }
+
+        vmspecs = {**specs, **{
+            'template': None,
+            }}
+        self.vm = mock.MagicMock()
+        self.vm.configure_mock(**vmspecs)
+
+    def test_000_write_to_qdb(self):
+        self.features['vm-config.test1'] = '1'
+        self.features['vm-config.test2'] = 'teststring'
+
+        self.ext.on_domain_qdb_create(self.vm, 'domain-qdb-create')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('write', ('/vm-config/test1', '1'), {}),
+            ('write', ('/vm-config/test2', 'teststring'), {}),
+        ])
+
+    def test_001_feature_set(self):
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:vm-config.test_no_oldvalue',
+            'vm-config.test_no_oldvalue', 'testvalue')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:vm-config.test_oldvalue',
+            'vm-config.test_oldvalue', 'newvalue', '')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:vm-config.test_disable',
+            'vm-config.test_disable', '', 'oldvalue')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:vm-config.test_disable_no_oldvalue',
+            'vm-config.test_disable_no_oldvalue', '')
+
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), sorted([
+            ('write', ('/vm-config/test_no_oldvalue', 'testvalue'), {}),
+            ('write', ('/vm-config/test_oldvalue', 'newvalue'), {}),
+            ('write', ('/vm-config/test_disable', ''), {}),
+            ('write', ('/vm-config/test_disable_no_oldvalue', ''), {}),
+        ]))
+
+    def test_002_feature_delete(self):
+        self.ext.on_domain_feature_delete(self.vm,
+            'feature-delete:vm-config.test3', 'vm-config.test3')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('rm', ('/vm-config/test3',), {}),
+        ])
+
 
 class TC_30_SupportedFeatures(qubes.tests.QubesTestCase):
     def setUp(self):
