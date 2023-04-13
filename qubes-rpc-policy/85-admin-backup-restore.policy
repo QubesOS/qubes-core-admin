@@ -17,6 +17,7 @@ admin.vm.firewall.Set           *   @tag:backup-restore-mgmt @tag:backup-restore
 admin.vm.property.Set           *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
 admin.vm.tag.Set                *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
 admin.vm.volume.Import          *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
+admin.vm.volume.ImportWithSize  *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
 admin.vm.volume.Info            *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
 admin.vm.volume.List            *   @tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
 admin.vm.volume.Set.revisions_to_keep   *	@tag:backup-restore-mgmt @tag:backup-restore-in-progress allow target=dom0
