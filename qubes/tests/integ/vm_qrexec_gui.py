@@ -772,7 +772,7 @@ int main(int argc, char **argv) {
         # it is important to have some changing content there, to generate
         # content update events (aka damage notify)
         proc = await self.testvm1.run(
-            'xterm -maximized -e top')
+            'xterm -maximized -e top -d 5')
 
         if proc.returncode is not None:
             self.fail('xterm failed to start')
@@ -799,7 +799,7 @@ int main(int argc, char **argv) {
             user='root', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         await alloc2.stdout.read(len('Stage1\n'))
 
-        # wait for damage notify - top updates every 3 sec by default
+        # wait for damage notify - top updates every 5 sec
         await asyncio.sleep(6)
 
         # stop changing the window content
