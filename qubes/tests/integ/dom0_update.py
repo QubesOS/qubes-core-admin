@@ -51,7 +51,7 @@ class TC_00_Dom0UpgradeMixin(object):
                              stderr=open(os.devnull, 'w'))
         p.stdin.write('''
 Key-Type: RSA
-Key-Length: 1024
+Key-Length: 4096
 Key-Usage: sign
 Name-Real: Qubes test
 Expire-Date: 0
