@@ -121,8 +121,11 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         # compare against sine wave frequency
         rec_freq = 44100/np.mean(np.diff(crossings))
         if not sfreq*0.8 < rec_freq < sfreq*1.2:
-            self.fail('frequency {} not in specified range'
-                    .format(rec_freq))
+            fname = f"/tmp/audio-sample-{self.id()}.raw"
+            with open(fname, "wb") as f:
+                f.write(sample)
+            self.fail('frequency {} not in specified range, saved to {}'
+                    .format(rec_freq, fname))
 
     def common_audio_playback(self):
         # sine frequency
