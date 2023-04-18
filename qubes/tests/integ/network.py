@@ -148,8 +148,9 @@ class VmNetworkingMixin(object):
         self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
-        run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(
+        run_netvm_cmd("rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
             self.test_ip))
+        run_netvm_cmd("systemctl try-restart systemd-resolved || :")
         run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns")
 
 
