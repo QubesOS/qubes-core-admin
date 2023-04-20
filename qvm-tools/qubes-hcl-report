@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/bash --
 
-# The Qubes OS Project, http://www.qubes-os.org
+# The Qubes OS Project, https://www.qubes-os.org
 #
 # Copyright (C) 2013  Laszlo Zrubecz <mail@zrubi.hu>
 #
@@ -17,10 +17,11 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
+set -uo pipefail
 VERSION=2.5
 COPY2VM="dom0"
 SUPPORT_FILES=0
-
+YAML_ONLY=0
 XL_DMESG_PREFIX_REGEX='^(XEN) \(\[[^]]*\] \)\?'
 
 while [ $# -gt 0 ]; do
@@ -34,7 +35,27 @@ while [ $# -gt 0 ]; do
       YAML_ONLY=1
       ;;
 
-    -* | -h | --help)
+    ''|--|[!-]*)
+      if [ "$1" = '--' ]; then shift; fi
+      case $# in
+      (0) :;;
+      (1)
+        /usr/bin/qvm-check -q -- "$1"
+        if [[ $? -eq 0 ]]
+        then
+          COPY2VM="$1"
+        else
+          echo -e "ERROR:\tAppVM with the name '$1' does not exist in the system!"
+          exit 1
+        fi
+        ;;
+      (*)
+        echo -e "ERROR:\\tToo many non-option arguments (expected 0 or 1, got $#)"
+        ;;
+      esac
+      ;;
+
+    *)
       echo -e "qubes-hcl-report v$VERSION"
       echo ""
       echo "This tool is used to gather basic hardware information for the Qubes HCL (Hardware Compatibility List)"
@@ -51,32 +72,21 @@ while [ $# -gt 0 ]; do
       echo ""
       echo -e "\t<AppVM Name>\tCopy the results to the given AppVM. The default is to keep it in dom0"
       echo ""
-      exit
-      ;;
-
-    *)
-      /usr/bin/qvm-check -q $1
-      if [[ $? -eq 0 ]]
-        then
-          COPY2VM="$1"
-        else
-          echo -e "ERROR:\tAppVM with the name '$1' does not exist in the system!"
-          exit 1
-      fi
+      case $1 in (-h|--help) exit 0;; (*) exit 1;; esac
       ;;
 
   esac
   shift
 done
 
-if [[ "$YAML_ONLY" == 1 ]]
+if [[ "$YAML_ONLY" = 1 ]]
   then
-    if [[ "$SUPPORT_FILES" == 1 ]]
+    if [[ "$SUPPORT_FILES" = 1 ]]
       then
         echo -e "ERROR: --yaml-only is mutually exclusive with --support"
         exit 1
     fi
-    if [[ "$1" ]]
+    if [[ "$#" -gt 0 ]]
       then
         echo -e "ERROR: --yaml-only is mutually exclusive with providing a VM name"
         exit 1
@@ -84,19 +94,93 @@ if [[ "$YAML_ONLY" == 1 ]]
 fi
 
 
-DATE=`date +%Y%m%d-%H%M%S`
+DATE=$(date +%Y%m%d-%H%M%S) || exit
 
 
-TEMP_DIR=`mktemp --tmpdir -d HCL.XXXXXXXXXX`
-cat /etc/qubes-release > $TEMP_DIR/qubes-release
-cat /proc/cpuinfo > $TEMP_DIR/cpuinfo
-sudo lspci -nnvk > $TEMP_DIR/lspci
-cat /proc/scsi/scsi > $TEMP_DIR/scsi
-sudo dmidecode > $TEMP_DIR/dmidecode
-xl info > $TEMP_DIR/xl-info
-xl dmesg > $TEMP_DIR/xl-dmesg
+TEMP_DIR=$(mktemp --tmpdir -d HCL.XXXXXXXXXX) || exit
+case $TEMP_DIR in (/*) :;; (*) TEMP_DIR=./$TEMP_DIR;; esac
+cat /etc/qubes-release > "$TEMP_DIR/qubes-release" || exit
+cat /proc/cpuinfo > "$TEMP_DIR/cpuinfo" || exit
+sudo lspci -nnvk > "$TEMP_DIR/lspci"
+cat /proc/scsi/scsi > "$TEMP_DIR/scsi"
+sudo dmidecode > "$TEMP_DIR/dmidecode"
+xl info > "$TEMP_DIR/xl-info" || exit
+xl dmesg > "$TEMP_DIR/xl-dmesg" || exit
+unset decoded_dmi
+decoded_dmi=$(awk -- 'BEGIN {
+  FS = " "
+  in_system_info = 0;
+  in_chassis_info = 0;
+  in_base_board_info = 0;
+  in_bios_info = 0;
+}
 
-if cat $TEMP_DIR/xl-dmesg | grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' > /dev/null; then
+function fail(msg) {
+  failure = 1
+  print msg > "/dev/stderr";
+  close("/dev/stderr");
+  exit(failure);
+}
+
+function check_duplicate(k) {
+  if (k in seen_headers)
+    fail("Duplicate header " k);
+  seen_headers[k] = 1;
+}
+
+function shellquote(s) {
+  gsub(/'\''/, "&\\\\&&", s);
+  return ("'\''" s "'\''");
+}
+
+in_system_info == 1 && /^\tManufacturer:/ { brand = $2; }
+in_system_info == 1 && /^\tProduct Name:/ { product = $3; }
+in_base_board_info == 1 && /^\tManufacturer:/ { alt_brand = $2; }
+in_base_board_info == 1 && /^\tProduct Name:/ { alt_product = $3; }
+in_chassis_info == 1 && /^\tType: / { type = substr($0, 8); }
+in_bios_info == 1 && /^\tVersion: / { bios_version = $2; }
+
+!/^\t/ {
+  in_system_info = 0;
+  in_chassis_info = 0;
+  in_base_board_info = 0;
+  in_bios_info = 0;
+}
+
+/^System Information$/ {
+  check_duplicate($0);
+  in_system_info = 1;
+}
+
+/^Chassis Information$/ {
+  check_duplicate($0);
+  in_chassis_info = 1;
+}
+
+/^Base Board Information$/ {
+  check_duplicate($0);
+  in_base_board_info = 1;
+}
+
+/^BIOS Information$/ {
+  check_duplicate($0);
+  in_bios_info = 1;
+}
+
+END {
+  if (failure)
+    exit(failure);
+  if (brand == "O.E.M") {
+    brand = alt_brand;
+    product = alt_product;
+  }
+  print("BRAND=" shellquote(brand));
+  print("PRODUCT=" shellquote(product));
+  print("BIOS=" shellquote(bios_version));
+  print("TYPE=" shellquote(type));
+}' "$TEMP_DIR/dmidecode") || exit
+eval "$decoded_dmi"
+if grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' "$TEMP_DIR/xl-dmesg" > /dev/null; then
     XL_DMESG_INCOMPLETE=no
 else
     XL_DMESG_INCOMPLETE=yes
@@ -107,33 +191,22 @@ else
 fi
 
 
-BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
-PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3-`
-TYPE=`cat $TEMP_DIR/dmidecode |grep -A9 "Chassis Information" |grep Type |cut -d ' ' -f2- |tr '[:upper:]' '[:lower:]'`
-
-if [[ $BRAND =~ "O.E.M" ]]
- then
-    BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
-    PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3-`
-fi
-
-QUBES_VER=`cat $TEMP_DIR/qubes-release|cut -d ' ' -f3`
-KERNEL=`uname -r |cut -d '.' -f-3`
-CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /"`
-CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /"`
-VGA=`cat $TEMP_DIR/lspci |grep "VGA\|Display" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /"`
-NET=`cat $TEMP_DIR/lspci |lspci |grep "Network\|Ethernet" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /"`
-SCSI=`cat $TEMP_DIR/scsi |grep Model |cut -d ':' -f3-|sed -e "s/^[[:space:]]*/\  /"`
-RAM=`cat $TEMP_DIR/xl-info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
-USB=`lspci|grep USB|wc -l`
-BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
-XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
-XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
-XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
-XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
-XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
-XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
-XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)'`
+QUBES_VER=$(cut -d ' ' -f3 "$TEMP_DIR/qubes-release")
+KERNEL=$(uname -r |cut -d '.' -f-3)
+CPU=$(grep "model name" "$TEMP_DIR/cpuinfo" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /")
+CHIPSET=$(grep "00:00.0.*Host bridge" "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /")
+VGA=$(grep -E 'VGA|Display' "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /")
+NET=$(grep -E 'Network|Ethernet' "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /")
+SCSI=$(grep Model "$TEMP_DIR/scsi"|cut -d ':' -f3-|sed -e "s/^[[:space:]]*/\  /")
+RAM=$(grep total_memory "$TEMP_DIR/xl-info"|cut -d ':' -f2 |tr -d ' ')
+USB=$(grep -c USB "$TEMP_DIR/lspci")
+XEN_MAJOR=$(grep xen_major "$TEMP_DIR/xl-info"|cut -d: -f2 |tr -d ' ')
+XEN_MINOR=$(grep xen_minor "$TEMP_DIR/xl-info"|cut -d: -f2 |tr -d ' ')
+XEN_EXTRA=$(grep xen_extra "$TEMP_DIR/xl-info"|cut -d: -f2 |tr -d ' ')
+XL_VTX=$(grep xen_caps "$TEMP_DIR/xl-info"| grep hvm)
+XL_VTD=$(grep virt_caps "$TEMP_DIR/xl-info"|grep hvm_directio)
+XL_HAP=$(grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$' "$TEMP_DIR/xl-dmesg")
+XL_REMAP=$(grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)' "$TEMP_DIR/xl-dmesg")
 
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
@@ -300,7 +373,7 @@ if [[ "$SUPPORT_FILES" == 1 ]]
   then
 
     # cpio
-    cd $TEMP_DIR
+    cd -- "$TEMP_DIR"
     find -print0 | cpio --quiet -o -H crc --null | gzip  > "$HOME/$FILENAME.cpio.gz"
     cd
 fi
@@ -308,17 +381,17 @@ fi
 # Destination VM check
 if [[ "$COPY2VM" != "dom0" ]]
  then
+    escaped_filename=\'${FILENAME//\'/\'\\\'\'}\'
     # Copy to VM
-    qvm-start -q $COPY2VM 2> /dev/null
 
-    if [[ -f "$HOME/$FILENAME.cpio.gz" ]]
+    if [[ -f ~/"$FILENAME.cpio.gz" ]]
       then
-        cat "$HOME/$FILENAME.cpio.gz" | qvm-run -a -q --pass-io -- "$COPY2VM" "cat > \"/home/user/$FILENAME.cpio.gz\""
+        qvm-run -a -q --pass-io --filter-escape-chars -- "$COPY2VM" "cat > ~/$escaped_filename.cpio.gz" < ~/"$FILENAME.cpio.gz"
     fi
 
-    if [[ -f "$HOME/$FILENAME.yml" ]]
+    if [[ -f ~/"$FILENAME.yml" ]]
       then
-        cat "$HOME/$FILENAME.yml" | qvm-run -a -q --pass-io -- "$COPY2VM" "cat > \"/home/user/$FILENAME.yml\""
+        qvm-run -a -q --pass-io --filter-escape-chars -- "$COPY2VM" "cat > ~/$escaped_filename.yml" < ~/"$FILENAME.yml"
     fi
 
 fi
@@ -337,6 +410,5 @@ echo
 # cleanup
 if [[ -d $TEMP_DIR ]]
  then
-   rm -rf $TEMP_DIR
+   rm -rf -- "$TEMP_DIR"
 fi
-
