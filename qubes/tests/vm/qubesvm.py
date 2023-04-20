@@ -2284,3 +2284,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         property_change(test_vm, "template_for_dispvms", False)
         property_change(test_vm, "template_for_dispvms", True)
+
+    def test_801_ordering(self):
+        assert qubes.vm.qubesvm.QubesVM(self.app, None, qid=1, name="bogus") > qubes.vm.adminvm.AdminVM(self.app, None)

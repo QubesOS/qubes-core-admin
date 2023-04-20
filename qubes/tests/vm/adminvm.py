@@ -180,3 +180,6 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             self.assertEqual(exc.exception.returncode, 1)
             self.assertEqual(exc.exception.output, b'stdout')
             self.assertEqual(exc.exception.stderr, b'stderr')
+
+    def test_711_adminvm_ordering(self):
+        assert(self.vm < qubes.vm.qubesvm.QubesVM(self.app, None, qid=1, name="dom0"))
