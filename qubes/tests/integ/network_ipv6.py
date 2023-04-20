@@ -73,7 +73,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
         run_netvm_cmd("ip addr add {}/128 dev test0".format(self.test_ip6))
         run_netvm_cmd(
-            "ip6tables -I INPUT -d {} -j ACCEPT".format(self.test_ip6))
+            "nft add ip6 qubes custom-input ip6 daddr {} accept".format(self.test_ip6))
         # ignore failure
         self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd(
