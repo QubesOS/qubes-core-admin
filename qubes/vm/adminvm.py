@@ -29,9 +29,10 @@ import qubes
 import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_kbd_layout
+from qubes.vm import BaseVM
 
 
-class AdminVM(qubes.vm.BaseVM):
+class AdminVM(BaseVM):
     '''Dom0'''
 
     dir_path = None
@@ -82,16 +83,21 @@ class AdminVM(qubes.vm.BaseVM):
     def __str__(self):
         return self.name
 
-    def __lt__(self, other):
+    def __lt__(self, other: object):
+        if not isinstance(other, BaseVM):
+            return NotImplemented
         # order dom0 before anything
-        return self.name != other.name
+        if not isinstance(other, AdminVM):
+            return True
+        assert self is other, "multiple instances of AdminVM?"
+        return False
 
     @property
     def attached_volumes(self):
         return []
 
     @property
-    def xid(self):
+    def xid(self) -> int:
         '''Always ``0``.
 
         .. seealso:

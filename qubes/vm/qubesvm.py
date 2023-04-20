@@ -40,6 +40,7 @@ import qubes.exc
 import qubes.storage
 import qubes.utils
 import qubes.vm
+import qubes.vm.adminvm
 import qubes.vm.mix.net
 
 qmemman_present = False
@@ -959,6 +960,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return self.qid
 
     def __lt__(self, other):
+        if not isinstance(other, qubes.vm.BaseVM):
+            return NotImplemented
+        if isinstance(other, qubes.vm.adminvm.AdminVM):
+            return False
         return self.name < other.name
 
     def __xml__(self):
