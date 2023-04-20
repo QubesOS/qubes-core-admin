@@ -139,7 +139,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             input=audio_in.astype(np.float32).tobytes()))
         local_user = grp.getgrnam('qubes').gr_mem[0]
         if self.testvm1.features['service.pipewire']:
-            cmd = 'pw-play --format=f32 --rate=44100 --channels=1 audio_in.snd'
+            cmd = 'pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd'
         else:
             cmd = ('paplay --format=float32le --rate=44100 --channels=1 '
                    '--raw audio_in.snd')
