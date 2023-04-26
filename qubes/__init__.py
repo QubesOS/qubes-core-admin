@@ -245,8 +245,11 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
             return
 
         try:
-            oldvalue = getattr(instance, self.__name__)
-            has_oldvalue = True
+            if instance.events_enabled:
+                oldvalue = getattr(instance, self.__name__)
+                has_oldvalue = True
+            else:
+                has_oldvalue = False
         except AttributeError:
             has_oldvalue = False
 
