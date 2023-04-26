@@ -169,6 +169,7 @@ class TestEmitter(qubes.events.Emitter):
 
         #: :py:class:`collections.Counter` instance
         self.fired_events = collections.Counter()
+        self.events_enabled = True
 
     def fire_event(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event(event, **kwargs)
