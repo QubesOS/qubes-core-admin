@@ -72,6 +72,7 @@ if __name__ == '__main__':
                 'qubes.ext.services = qubes.ext.services:ServicesExtension',
                 'qubes.ext.supported_features = qubes.ext.supported_features:SupportedFeaturesExtension',
                 'qubes.ext.windows = qubes.ext.windows:WindowsFeatures',
+                'qubes.ext.vm_config = qubes.ext.vm_config:VMConfig',
             ],
             'qubes.devices': [
                 'pci = qubes.ext.pci:PCIDevice',

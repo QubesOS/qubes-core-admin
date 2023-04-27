@@ -439,6 +439,7 @@ done
 %{python3_sitelib}/qubes/ext/services.py
 %{python3_sitelib}/qubes/ext/supported_features.py
 %{python3_sitelib}/qubes/ext/windows.py
+%{python3_sitelib}/qubes/ext/vm_config.py
 
 %dir %{python3_sitelib}/qubes/tests
 %dir %{python3_sitelib}/qubes/tests/__pycache__
