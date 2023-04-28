@@ -120,6 +120,11 @@ class TestVM(object):
         self.name = name
         self.untrusted_qdb = TestQubesDB(qdb)
         self.libvirt_domain = mock.Mock()
+        self.features = mock.Mock()
+        self.features.check_with_template.side_effect = (
+                lambda name, default:
+                    '4.2' if name == 'qubes-agent-version'
+                    else None)
         self.is_running = lambda: running
         self.log = mock.Mock()
         self.app = TestApp()

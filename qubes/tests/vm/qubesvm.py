@@ -1640,11 +1640,13 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 'options': {'read-only': True},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend0',
+                'device.backend_domain.features.check_with_template.return_value': '4.2',
             }),
             unittest.mock.Mock(**{
                 'options': {},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend1',
+                'device.backend_domain.features.check_with_template.return_value': '4.2',
             }),
         ]
         vm.devices['block'].assignments = lambda persistent: assignments
