@@ -430,7 +430,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.testnetvm
         # wait for it to settle down
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'udevadm settle'))
+            'systemctl start qubes-network-uplink@eth0.service'))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_111_dynamic_detach_attach(self):
@@ -442,7 +442,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.testnetvm
         # wait for it to settle down
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'udevadm settle'))
+            'systemctl start qubes-network-uplink@eth0.service'))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_112_reattach_after_provider_shutdown(self):
