@@ -25,12 +25,12 @@ from qrexec.policy import utils, parser
 
 
 class JustEvaluateAskResolution(parser.AskResolution):
-    async def execute(self, caller_ident):
+    async def execute(self):
         pass
 
 
 class JustEvaluateAllowResolution(parser.AllowResolution):
-    async def execute(self, caller_ident):
+    async def execute(self):
         pass
 
 
