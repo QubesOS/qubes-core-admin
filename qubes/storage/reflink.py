@@ -125,14 +125,22 @@ class ReflinkPool(qubes.storage.Pool):
         }
 
     @property
+    def usage_details(self):
+        with suppress(FileNotFoundError):
+            stat = os.statvfs(self.dir_path)
+            return {
+                'data_size': stat.f_frsize * stat.f_blocks,
+                'data_usage': stat.f_frsize * (stat.f_blocks - stat.f_bfree),
+            }
+        return {}
+
+    @property
     def size(self):
-        statvfs = os.statvfs(self.dir_path)
-        return statvfs.f_frsize * statvfs.f_blocks
+        return self.usage_details.get('data_size')
 
     @property
     def usage(self):
-        statvfs = os.statvfs(self.dir_path)
-        return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
+        return self.usage_details.get('data_usage')
 
     def included_in(self, app):
         ''' Check if there is pool containing this one - either as a
