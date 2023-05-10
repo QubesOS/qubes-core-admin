@@ -110,6 +110,7 @@ class VmNetworkingMixin(object):
                 self._run_cmd_and_log_output(vm, 'iptables -vnL')
                 self._run_cmd_and_log_output(vm, 'iptables -vnL -t nat')
                 self._run_cmd_and_log_output(vm, 'nft list table qubes-firewall')
+                self._run_cmd_and_log_output(vm, 'nft list ruleset')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-firewall')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status qubes-iptables')
                 self._run_cmd_and_log_output(vm, 'systemctl --no-pager status xendriverdomain')
@@ -142,14 +143,15 @@ class VmNetworkingMixin(object):
         run_netvm_cmd("ip link add test0 type dummy")
         run_netvm_cmd("ip link set test0 up")
         run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
-        run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT --wait".format(
+        run_netvm_cmd("nft add ip qubes custom-input ip daddr {} accept".format(
             self.test_ip))
         # ignore failure
         self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
-        run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(
+        run_netvm_cmd("rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
             self.test_ip))
+        run_netvm_cmd("systemctl try-restart systemd-resolved || :")
         run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns")
 
 
@@ -626,7 +628,7 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.loop.run_until_complete(self.start_vm(self.testvm2))
 
-        cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+        cmd = 'nft add ip qubes custom-forward ip saddr {} ip daddr {} accept'.format(
             self.testvm2.ip, self.testvm1.ip)
         try:
             self.loop.run_until_complete(self.proxy.run_for_stdio(
@@ -636,7 +638,8 @@ class VmNetworkingMixin(object):
                 '{} failed with: {}'.format(cmd, e.returncode)) from None
 
         try:
-            cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(self.testvm2.ip)
+            cmd = "nft add ip qubes custom-input ip saddr {} counter accept".format(
+                self.testvm2.ip)
             self.loop.run_until_complete(self.testvm1.run_for_stdio(
                 cmd, user='root'))
         except subprocess.CalledProcessError as e:
@@ -647,13 +650,13 @@ class VmNetworkingMixin(object):
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
         try:
-            cmd = 'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip)
+            cmd = 'nft list chain ip qubes custom-input | grep {}'.format(self.testvm2.ip)
             (stdout, _) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(cmd, user='root'))
         except subprocess.CalledProcessError as e:
             raise AssertionError(
                 '{} failed with {}'.format(cmd, e.returncode)) from None
-        self.assertNotEqual(stdout.decode().split()[0], '0',
+        self.assertNotEqual(stdout.decode().split()[-2], '0',
             'Packets didn\'t managed to the VM')
 
     def test_204_fake_ip_proxy(self):
