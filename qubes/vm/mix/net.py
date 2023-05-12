@@ -462,7 +462,7 @@ class NetVMMixin(qubes.events.Emitter):
 
         # don't check oldvalue, because it's missing if it was default
         if self.netvm is not None:
-            if self.is_running():
+            if self.is_running() and self.netvm.is_running():
                 self.detach_network()
 
     @qubes.events.handler('property-set:netvm')
