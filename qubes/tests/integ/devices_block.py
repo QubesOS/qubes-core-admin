@@ -37,6 +37,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         self.img_path = '/tmp/test.img'
         self.mount_point = '/tmp/test-dir'
         if self.template is not None:
+            self.init_default_template(self.template)
             self.vm = self.app.add_new_vm(
                 "AppVM",
                 label='red',
@@ -288,6 +289,7 @@ class AttachMixin:
 
     def setUp(self):
         super().setUp()
+        self.init_default_template(self.template)
         self.img_path = '/tmp/test.img'
         self.backend = self.app.add_new_vm(
             "AppVM",
