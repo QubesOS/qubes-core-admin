@@ -45,7 +45,7 @@ class VmNetworkingMixin(object):
     # filled by load_tests
     template = None
 
-    def run_cmd(self, vm, cmd, user="root"):
+    def run_cmd(self, vm, cmd, user="root", timeout=1 << 62):
         '''Run a command *cmd* in a *vm* as *user*. Return its exit code.
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         :param qubes.vm.qubesvm.QubesVM vm: VM object to run command in
@@ -54,7 +54,7 @@ class VmNetworkingMixin(object):
         :return int: command exit code
         '''
         try:
-            self.loop.run_until_complete(vm.run_for_stdio(cmd, user=user))
+            self.loop.run_until_complete(asyncio.wait_for(vm.run_for_stdio(cmd, user=user), timeout))
         except subprocess.CalledProcessError as e:
             return e.returncode
         return 0
@@ -431,9 +431,8 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.testvm1.netvm = self.testnetvm
         # wait for it to settle down
-        self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'udevadm settle'))
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        ping_cmd = f'until ping -W 1 -n -c 1 {self.test_ip}; do sleep 1; done'
+        self.assertEqual(self.run_cmd(self.testvm1, ping_cmd, timeout=10), 0)
 
     def test_111_dynamic_detach_attach(self):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
@@ -442,10 +441,8 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'udevadm settle'))
         self.testvm1.netvm = self.testnetvm
-        # wait for it to settle down
-        self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'udevadm settle'))
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        ping_cmd = f'until ping -W 1 -n -c 1 {self.test_ip}; do sleep 1; done'
+        self.assertEqual(self.run_cmd(self.testvm1, ping_cmd, timeout=10), 0)
 
     def test_112_reattach_after_provider_shutdown(self):
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
