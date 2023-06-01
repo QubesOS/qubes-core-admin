@@ -137,8 +137,10 @@ function shellquote(s) {
 
 in_system_info == 1 && /^\tManufacturer:/ { brand = $2; }
 in_system_info == 1 && /^\tProduct Name:/ { product = $2; }
+in_system_info == 1 && /^\tVersion:/ { product_version = $2; }
 in_base_board_info == 1 && /^\tManufacturer:/ { alt_brand = $2; }
 in_base_board_info == 1 && /^\tProduct Name:/ { alt_product = $2; }
+in_base_board_info == 1 && /^\tVersion:/ { alt_product_version = $2; }
 in_chassis_info == 1 && /^\tType: / { type = substr($0, 8); }
 in_bios_info == 1 && /^\tVersion: / { bios_version = $2; }
 
@@ -175,9 +177,11 @@ END {
   if (brand == "O.E.M") {
     brand = alt_brand;
     product = alt_product;
+    protuct_version = alt_product_version;
   }
   print("BRAND=" shellquote(brand));
   print("PRODUCT=" shellquote(product));
+  print("PRODUCT_VERSION=" shellquote(product_version));
   print("BIOS=" shellquote(bios_version));
   print("TYPE=" shellquote(type));
 }' "$TEMP_DIR/dmidecode") || exit
