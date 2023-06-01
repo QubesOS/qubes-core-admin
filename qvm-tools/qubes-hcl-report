@@ -214,6 +214,25 @@ XL_VTD=$(grep virt_caps "$TEMP_DIR/xl-info"|grep hvm_directio)
 XL_HAP=$(grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$' "$TEMP_DIR/xl-dmesg")
 XL_REMAP=$(grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)' "$TEMP_DIR/xl-dmesg")
 
+CERTIFIED=no
+if [ "$BRAND" = "Micro-Star International Co., Ltd." ] && [ "$PRODUCT" = "MS-7D25" ] && [[ "$BIOS" = "Dasharo"* ]]; then
+    # only intel GPU configuration is certified
+    if ! grep -qv "Intel\|^ *$" <<<"$VGA"; then
+        CERTIFIED=yes
+    fi
+elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT" = "NV4xPZ" ] && [[ "$BIOS" = "Dasharo"* ]]; then
+    # NovaCustom NV41PZ
+    CERTIFIED=yes
+elif [ "$BRAND" = "LENOVO" ] && [ "$PRODUCT_VERSION" = "ThinkPad X230" ] && [[ "$BIOS" = "Heads"* ]]; then
+    # PrivacyBeast X230
+    CERTIFIED=yes
+elif [ "$BRAND" = "LENOVO" ] && [ "$PRODUCT_VERSION" = "ThinkPad X230" ] && [[ "$BIOS" = "CBET4000"* ]]; then
+    # NitroPad X230
+    CERTIFIED=yes
+elif [ "$BRAND" = "LENOVO" ] && [ "$PRODUCT_VERSION" = "ThinkPad X230" ] && [[ "$BIOS" = "CBET4000"* ]]; then
+    # NitroPad T430
+    CERTIFIED=yes
+fi
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
@@ -305,6 +324,7 @@ I/O MMU:\t$VTD
 HAP/SLAT:\t$HAP_VERBOSE
 TPM:\t\t$TPM
 Remapping:\t$REMAP
+Certified:\t$CERTIFIED
 "
 
 YAML_OUTPUT="---
@@ -348,6 +368,8 @@ scsi: |
 $SCSI
 usb: |
   $USB
+certified:
+  '$CERTIFIED'
 versions:
   - works:
       'FIXME:yes|no|partial'
