@@ -108,7 +108,7 @@ xl info > "$TEMP_DIR/xl-info" || exit
 xl dmesg > "$TEMP_DIR/xl-dmesg" || exit
 unset decoded_dmi
 decoded_dmi=$(awk -- 'BEGIN {
-  FS = " "
+  FS = ":"
   in_system_info = 0;
   in_chassis_info = 0;
   in_base_board_info = 0;
@@ -129,14 +129,16 @@ function check_duplicate(k) {
 }
 
 function shellquote(s) {
+  gsub(/^ */, "", s);
+  gsub(/ *$/, "", s);
   gsub(/'\''/, "&\\\\&&", s);
   return ("'\''" s "'\''");
 }
 
 in_system_info == 1 && /^\tManufacturer:/ { brand = $2; }
-in_system_info == 1 && /^\tProduct Name:/ { product = $3; }
+in_system_info == 1 && /^\tProduct Name:/ { product = $2; }
 in_base_board_info == 1 && /^\tManufacturer:/ { alt_brand = $2; }
-in_base_board_info == 1 && /^\tProduct Name:/ { alt_product = $3; }
+in_base_board_info == 1 && /^\tProduct Name:/ { alt_product = $2; }
 in_chassis_info == 1 && /^\tType: / { type = substr($0, 8); }
 in_bios_info == 1 && /^\tVersion: / { bios_version = $2; }
 
