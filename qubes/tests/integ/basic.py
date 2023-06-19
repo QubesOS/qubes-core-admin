@@ -523,7 +523,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
-                               'ctrl+shift+v', 'ctrl+v', 'Return'])
+                               'ctrl+shift+v', 'ctrl+v', 'alt+o'])
         self.loop.run_until_complete(p.wait())
 
         # And compare the result
