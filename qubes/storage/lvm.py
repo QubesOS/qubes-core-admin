@@ -769,7 +769,7 @@ def _get_lvm_cmdline(cmd):
     elif action == 'clone':
         assert len(cmd) == 3, 'wrong number of arguments for clone'
         lvm_cmd = ['lvcreate', '--setactivationskip=n', '--activate=y',
-                   '--snapshot', '--type=thin', '--name=' + cmd[2],
+                   '--thin', '--type=thin', '--name=' + cmd[2],
                    '--', cmd[1]]
     elif action == 'create':
         assert len(cmd) == 4, 'wrong number of arguments for create'
