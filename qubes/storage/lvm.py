@@ -338,7 +338,8 @@ class ThinVolume(qubes.storage.Volume):
     @property
     def size(self):
         try:
-            if self.is_dirty():
+            if (self.snap_on_start or self.save_on_stop) \
+               and os.path.exists('/dev/' + self._vid_snap):
                 return qubes.storage.lvm.size_cache[self._vid_snap]['size']
             return qubes.storage.lvm.size_cache[self._vid_current]['size']
         except KeyError:
