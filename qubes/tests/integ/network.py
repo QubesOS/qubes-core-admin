@@ -336,6 +336,83 @@ class VmNetworkingMixin(object):
             server.terminate()
             self.loop.run_until_complete(server.wait())
 
+    def test_031_firewall_dynamic_block(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        """
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.loop.run_until_complete(self.proxy.create_on_disk())
+        self.proxy.netvm = self.testnetvm
+        self.testvm1.netvm = self.proxy
+        self.app.save()
+
+        # start with default (allow all)
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.assertTrue(self.proxy.is_running())
+
+        server1 = self.loop.run_until_complete(self.testnetvm.run(
+            'socat -u TCP-LISTEN:1234 -', stdout=subprocess.PIPE))
+        server2 = self.loop.run_until_complete(self.testnetvm.run(
+            'socat -u TCP-LISTEN:4321 -', stdout=subprocess.PIPE))
+
+        try:
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                            "Ping by IP failed")
+
+            client_cmd = "socat -u - TCP:{}:1234".format(self.test_ip)
+            client1 = self.loop.run_until_complete(self.testvm1.run(client_cmd,
+                stdin=subprocess.PIPE))
+            client1.stdin.write(b"should-allow\n")
+            self.loop.run_until_complete(client1.stdin.drain())
+            client_cmd = "socat -u - TCP:{}:4321".format(self.test_ip)
+            client2 = self.loop.run_until_complete(self.testvm1.run(client_cmd,
+                stdin=subprocess.PIPE))
+            client2.stdin.write(b"should-allow\n")
+            self.loop.run_until_complete(client2.stdin.drain())
+
+            # check if that worked
+            stdout = self.loop.run_until_complete(asyncio.wait_for(
+                server1.stdout.read(len(b"should-allow\n")), 10))
+            self.assertEqual(stdout, b"should-allow\n")
+            stdout = self.loop.run_until_complete(asyncio.wait_for(
+                server2.stdout.read(len(b"should-allow\n")), 10))
+            self.assertEqual(stdout, b"should-allow\n")
+
+            # block the port 1234
+            self.testvm1.firewall.rules = [
+                qubes.firewall.Rule(action='drop', proto='tcp', dstports=1234),
+                qubes.firewall.Rule(action='accept'),
+            ]
+            self.testvm1.firewall.save()
+            # Ugly hack b/c there is no feedback when the rules are actually
+            # applied
+            self.loop.run_until_complete(asyncio.sleep(3))
+
+            # now should be blocked
+            client1.stdin.write(b"should-block\n")
+            with contextlib.suppress(ConnectionResetError):
+                self.loop.run_until_complete(client1.stdin.drain())
+
+            # other should be allowed
+            self.loop.run_until_complete(client2.communicate(b"should-allow\n"))
+
+            # it won't terminate on its own, as FIN is firewalled-off
+            server1.terminate()
+            stdout, _ = self.loop.run_until_complete(server1.communicate())
+            self.assertEqual(stdout, b"")
+
+            stdout, _ = self.loop.run_until_complete(server2.communicate())
+            self.assertEqual(stdout, b"should-allow\n")
+        finally:
+            if server1.returncode is None:
+                server1.terminate()
+                self.loop.run_until_complete(server1.wait())
+            if server2.returncode is None:
+                server2.terminate()
+                self.loop.run_until_complete(server2.wait())
 
     def test_040_inter_vm(self):
         '''
