@@ -20,8 +20,6 @@
             {% if vm.app.host.cpu_family_model in [(6, 58), (6, 62)] -%}
                 <feature name='rdrand' policy='disable'/>
             {% endif -%}
-            <!-- let the guest know the TSC is safe to use (no migration) -->
-            <feature name='invtsc' policy='require'/>
         </cpu>
     {% endif %}
     {% endblock %}
