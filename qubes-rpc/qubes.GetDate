@@ -30,8 +30,8 @@ def main():
     if clockvm is None:
         return
 
-    if not clockvm.is_running():
-        # print dom0 time if clockvm is not running
+    if clockvm.klass == 'AdminVM' or not clockvm.is_running():
+        # print dom0 time if clockvm is dom0 or is not running
         print(datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00'))
     else:
         # passthrough request to the clockvm
