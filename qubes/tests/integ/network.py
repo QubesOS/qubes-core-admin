@@ -462,9 +462,19 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
-        self.assertEqual(self.run_cmd(self.testnetvm,
-            'iptables -I INPUT -i vif+ ! -s {} -p icmp -j LOG'.format(
-                self.testvm1.ip)), 0)
+
+        iptables = False
+        cmd = "nft add ip qubes custom-input ip saddr {} counter".format(
+            self.testvm1.ip)
+        retcode = self.run_cmd(self.testnetvm, cmd)
+        if retcode == 127:
+            self.assertEqual(self.run_cmd(self.testnetvm,
+                'iptables -I INPUT -i vif+ ! -s {} -p icmp -j LOG'.format(
+                    self.testvm1.ip)), 0)
+            iptables = True
+        elif retcode != 0:
+            raise AssertionError(
+                '{} failed with: {}'.format(cmd, retcode))
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'ip addr flush dev eth0 && '
             'ip addr add 10.137.1.128/24 dev eth0 && '
@@ -472,15 +482,28 @@ class VmNetworkingMixin(object):
             user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
-        try:
-            (output, _) = self.loop.run_until_complete(
-                self.testnetvm.run_for_stdio('iptables -nxvL INPUT',
-                    user='root'))
-        except subprocess.CalledProcessError:
-            self.fail('iptables -nxvL INPUT failed')
+        if iptables:
+            try:
+                (output, _) = self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio('iptables -nxvL INPUT',
+                        user='root'))
+            except subprocess.CalledProcessError:
+                self.fail('iptables -nxvL INPUT failed')
+            index = 0
+            line = 2
+        else:
+            try:
+                (output, _) = self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio('nft list chain qubes custom-input',
+                        user='root'))
+            except subprocess.CalledProcessError:
+                self.fail('nft list chain qubes custom-input')
+            # ... packets 0 bytes 0
+            line = 3
+            index = -3
 
         output = output.decode().splitlines()
-        packets = output[2].lstrip().split()[0]
+        packets = output[line].lstrip().split()[index]
         self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_100_late_xldevd_startup(self):
