@@ -339,9 +339,18 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         # add a simple rule counting packets
-        self.assertEqual(self.run_cmd(self.testnetvm,
-            'ip6tables -I INPUT -i vif+ ! -s {} -p icmpv6 -j LOG'.format(
-                self.testvm1.ip6)), 0)
+        iptables = False
+        cmd = "nft add ip6 qubes custom-input ip6 saddr {} counter".format(
+            self.testvm1.ip6)
+        retcode = self.run_cmd(self.testnetvm, cmd)
+        if retcode == 127:
+            self.assertEqual(self.run_cmd(self.testnetvm,
+                'ip6tables -I INPUT -i vif+ ! -s {} -p icmpv6 -j LOG'.format(
+                    self.testvm1.ip6)), 0)
+            iptables = True
+        elif retcode != 0:
+            raise AssertionError(
+                '{} failed with: {}'.format(cmd, retcode))
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'ip -6 addr flush dev eth0 && '
             'ip -6 addr add {}/128 dev eth0 && '
@@ -351,15 +360,27 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0,
                          "Spoofed ping should be blocked")
-        try:
-            (output, _) = self.loop.run_until_complete(
-                self.testnetvm.run_for_stdio('ip6tables -nxvL INPUT',
-                    user='root'))
-        except subprocess.CalledProcessError:
-            self.fail('ip6tables -nxvL INPUT failed')
-
+        if iptables:
+            try:
+                (output, _) = self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio('ip6tables -nxvL INPUT',
+                        user='root'))
+            except subprocess.CalledProcessError:
+                self.fail('ip6tables -nxvL INPUT failed')
+            index = 0
+            line = 2
+        else:
+            try:
+                (output, _) = self.loop.run_until_complete(
+                    self.testnetvm.run_for_stdio('nft list chain ip6 qubes custom-input',
+                        user='root'))
+            except subprocess.CalledProcessError:
+                self.fail('nft list ip6 chain qubes custom-input')
+            # ... packets 0 bytes 0
+            line = 3
+            index = -3
         output = output.decode().splitlines()
-        packets = output[2].lstrip().split()[0]
+        packets = output[line].lstrip().split()[index]
         self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_710_ipv6_custom_ip_simple(self):
