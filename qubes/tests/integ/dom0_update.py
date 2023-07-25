@@ -431,7 +431,7 @@ class TC_10_QvmTemplateMixin(object):
         self.loop.run_until_complete(self.updatevm.create_on_disk())
         self.app.updatevm = self.updatevm
         self.app.save()
-        if self.template.startswith('whonix-gw'):
+        if self.template.startswith('whonix-g'):
             self.loop.run_until_complete(
                 self.whonix_gw_setup_async(self.updatevm))
         else:
