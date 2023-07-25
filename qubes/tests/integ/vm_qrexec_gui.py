@@ -57,7 +57,7 @@ class TC_00_AppVMMixin(object):
             name=self.make_vm_name('vm2'),
             template=self.app.domains[self.template])
         self.loop.run_until_complete(self.testvm2.create_on_disk())
-        if self.template.startswith('whonix-gw'):
+        if self.template.startswith('whonix-g'):
             # Whonix Gateway loudly complains if the VM doesn't provide network,
             # which spams the screen with error messages that interfere with
             # other tests
@@ -437,8 +437,8 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(asyncio.sleep(1))
 
     def prepare_audio_vm(self):
-        if 'whonix-gw' in self.template:
-            self.skipTest('whonix-gw have no audio')
+        if 'whonix-g' in self.template:
+            self.skipTest('whonix-g have no audio')
         self.loop.run_until_complete(self.testvm1.start())
         try:
             self.loop.run_until_complete(

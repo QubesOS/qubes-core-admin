@@ -44,7 +44,7 @@ import qubes
 class TC_50_MimeHandlers:
     def setUp(self):
         super(TC_50_MimeHandlers, self).setUp()
-        if self.template.startswith('whonix-gw') or 'minimal' in self.template:
+        if self.template.startswith('whonix-g') or 'minimal' in self.template:
             raise unittest.SkipTest(
                 'Template {} not supported by this test'.format(self.template))
 
