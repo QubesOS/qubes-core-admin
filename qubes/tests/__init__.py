@@ -833,7 +833,7 @@ class SystemTestCase(QubesTestCase):
             self.skipTest('Default template required for testing networking')
         default_netvm = self.host_app.default_netvm
         # if testing Whonix Workstation based VMs, try to use sys-whonix instead
-        if self.app.default_template.name.startswith('whonix-ws'):
+        if self.app.default_template.name.startswith('whonix-w'):
             if 'sys-whonix' in self.host_app.domains:
                 default_netvm = self.host_app.domains['sys-whonix']
         if default_netvm is None:
@@ -1341,7 +1341,7 @@ class SystemTestCase(QubesTestCase):
 
     async def wait_for_session(self, vm):
         timeout = vm.qrexec_timeout
-        if getattr(vm, 'template', None) and 'whonix-ws' in vm.template.name:
+        if getattr(vm, 'template', None) and 'whonix-w' in vm.template.name:
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
             timeout = 120
