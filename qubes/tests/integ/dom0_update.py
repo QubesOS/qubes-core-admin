@@ -419,7 +419,7 @@ class TC_10_QvmTemplateMixin(object):
             self.skipTest(
                 'Template \'{}\' is already installed, '
                 'choose a different one with QUBES_INSTALL_TEST_TEMPLATE variable')
-        if self.template.startswith('whonix-ws'):
+        if self.template.startswith('whonix-w'):
             self.skipTest('Test not supported for this template')
         self.tmpdir = tempfile.mkdtemp()
         self.init_default_template(self.template)
