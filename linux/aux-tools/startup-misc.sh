@@ -11,5 +11,9 @@ cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
 /usr/lib/qubes/cleanup-dispvms
 
+if [ -e /sys/module/grant_table/parameters/free_per_iteration ]; then
+    echo 1000 > /sys/module/grant_table/parameters/free_per_iteration
+fi
+
 # Hide mounted devices from qubes-block list (at first udev run, only / is mounted)
 udevadm trigger --action=change --subsystem-match=block
