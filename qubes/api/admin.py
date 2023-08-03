@@ -1083,8 +1083,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if self.arg:
             if hasattr(vm_class, 'template'):
                 if self.arg not in self.app.domains:
-                    raise qubes.api.PermissionDenied(
-                        'Template {} does not exist'.format(self.arg))
+                    raise qubes.exc.QubesVMNotFoundError(self.arg)
                 kwargs['template'] = self.app.domains[self.arg]
             else:
                 raise qubes.exc.QubesValueError(
