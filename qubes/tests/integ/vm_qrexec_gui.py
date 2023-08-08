@@ -95,8 +95,8 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         if backend == 'pipewire':
             if not self.testvm1.features.check_with_template('supported-service.pipewire', False):
                 self.skipTest('PipeWire not supported in VM')
-            if 'debian' in self.template or 'whonix' in self.template:
-                self.skipTest('PipeWire audio not supported in Debian')
+            if 'debian-11' in self.template or 'whonix' in self.template:
+                self.skipTest('PipeWire audio not supported in Debian 11')
             self.testvm1.features['service.pipewire'] = True
         elif backend == 'pulseaudio':
             # Use PulseAudio if it is installed.  If it is not installed,
@@ -282,7 +282,9 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.prepare_audio_vm('pulseaudio')
         try:
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+                self.testvm1.run_for_stdio(
+                    'systemctl --user is-active pipewire-pulse.socket || '
+                    'pacmd unload-module module-vchan-sink'))
         except subprocess.CalledProcessError:
             self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_playback()
@@ -294,8 +296,13 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
         try:
+            # if pulseaudio is really emulated by pipewire, nothing needs to be
+            # done - pipewire-qubes won't register output before connecting to
+            # dom0, and with emulated sound active, it won't connect
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+                self.testvm1.run_for_stdio(
+                    'systemctl --user is-active pipewire-pulse.socket || '
+                    'pacmd unload-module module-vchan-sink'))
         except subprocess.CalledProcessError:
             self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_record_muted()
@@ -310,7 +317,9 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
             self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('pacmd unload-module module-vchan-sink'))
+                self.testvm1.run_for_stdio(
+                    'systemctl --user is-active pipewire-pulse.socket || '
+                    'pacmd unload-module module-vchan-sink'))
         except subprocess.CalledProcessError:
             self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_record_unmuted()
