@@ -2,11 +2,12 @@
 {% if options.get('no-strict-reset', False) %}
  nostrictreset="yes"
 {% endif %}
-{% if options.get('permissive', False) %}
- permissive="yes"
-{% endif %}
 >
-    <source>
+    <source
+{% if options.get('permissive', False) %}
+     writeFiltering="no"
+{% endif %}
+    >
         <address
             bus="0x{{ device.bus }}"
             slot="0x{{ device.device }}"
