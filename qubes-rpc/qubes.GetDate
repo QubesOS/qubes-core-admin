@@ -20,10 +20,19 @@
 #
 
 import qubesadmin
-import datetime
+import os
 import subprocess
+import sys
 
-def main():
+def main(argv):
+    args = len(sys.argv)
+    if not (1 <= args <= 2):
+        print("wrong number of arguments, must have at most 1", file=sys.stderr)
+        sys.exit(1)
+    if args >= 2:
+        arg = "+nanoseconds" if sys.argv[1] else ""
+    else:
+        arg = ""
     app = qubesadmin.Qubes()
 
     clockvm = app.clockvm
@@ -31,12 +40,14 @@ def main():
         return
 
     if clockvm.klass == 'AdminVM' or not clockvm.is_running():
+        env = {**os.environ, "LC_ALL": "C"}
         # print dom0 time if clockvm is dom0 or is not running
-        print(datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00'))
+        date_arg = "-Ins" if arg else "-Iseconds"
+        os.execve("/usr/bin/date", ("date", "-u", date_arg), env)
     else:
         # passthrough request to the clockvm
-        p = clockvm.run_service('qubes.GetDate', stdout=None, stdin=subprocess.DEVNULL)
+        p = clockvm.run_service("qubes.GetDate" + arg, stdout=None, stdin=subprocess.DEVNULL)
         p.wait()
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
