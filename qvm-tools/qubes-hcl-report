@@ -374,7 +374,7 @@ versions:
   - works:
       'FIXME:yes|no|partial'
     qubes: |
-      $QUBES_VER
+      R$QUBES_VER
     xen: |
       $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
     kernel: |
