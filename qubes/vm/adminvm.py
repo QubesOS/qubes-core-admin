@@ -22,6 +22,7 @@
 
 ''' This module contains the AdminVM implementation '''
 import asyncio
+import grp
 import subprocess
 import libvirt
 
@@ -270,7 +271,12 @@ class AdminVM(BaseVM):
                 'filter_esc=True not supported on calls to dom0')
 
         if user is None:
-            user = 'root'
+            try:
+                qubes_group = grp.getgrnam('qubes')
+                user = qubes_group.gr_mem[0]
+            except KeyError as e:
+                self.log.warning('Default user not found: %s', str(e))
+                user = 'root'
 
         await self.fire_event_async('domain-cmd-pre-run', pre_event=True,
             start_guid=gui)
