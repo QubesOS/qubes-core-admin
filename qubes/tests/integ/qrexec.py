@@ -836,6 +836,19 @@ class TC_00_QrexecMixin(object):
         self.assertEqual(service_stdout, service_descriptor + b'test1test2',
             'Received data differs from what was expected')
 
+    def test_100_qrexec_service_force_user(self):
+        self.loop.run_until_complete(self.testvm1.start())
+
+        self.create_remote_file(self.testvm1, '/etc/qubes-rpc/test.User',
+            '#!/bin/sh\n/usr/bin/id -u\n')
+        self.create_remote_file(self.testvm1, '/etc/qubes/rpc-config/test.User',
+            'force-user=\'root\'\n')
+
+        stdout, stderr = self.loop.run_until_complete(
+            self.testvm1.run_service_for_stdio('test.User'))
+        self.assertEqual(stdout.strip(), b'0')
+        self.assertEqual(stderr.strip(), b'')
+
 
 def create_testcases_for_templates():
     return qubes.tests.create_testcases_for_templates('TC_00_Qrexec',
