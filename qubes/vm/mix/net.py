@@ -247,10 +247,16 @@ class NetVMMixin(qubes.events.Emitter):
     def dns(self):
         '''DNS servers set up for this domain.'''
         if self.netvm is not None or self.provides_network:
-            return StrSerializableTuple((
-                '10.139.1.1',
-                '10.139.1.2',
-            ))
+            if self.features.check_with_netvm('ipv6', False):
+                return StrSerializableTuple((
+                    'fd09:24ef:4179::a8b:1',
+                    '10.139.1.1',
+                ))
+            else:
+                return StrSerializableTuple((
+                    '10.139.1.1',
+                    '10.139.1.2',
+                ))
 
         return None
 
