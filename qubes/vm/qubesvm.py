@@ -2252,7 +2252,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.untrusted_qdb.write('/qubes-netvm-netmask', str(self.netmask))
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
-                self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
+                self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), \
+                                         str(addr))
+            if self.dns6:  # pylint: disable=using-constant-test
+                for i, addr in zip(('primary', 'secondary'), self.dns6):
+                    self.untrusted_qdb.write('/qubes-netvm-{}-dns6'.format(i), \
+                                             str(addr))
 
         if self.netvm is not None:
             self.untrusted_qdb.write('/qubes-mac', str(self.mac))
@@ -2270,6 +2275,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.visible_gateway6:  # pylint: disable=using-constant-test
                 self.untrusted_qdb.write('/qubes-gateway6',
                                          str(self.visible_gateway6))
+            if self.dns6 and self.netvm.features.check_with_netvm('ipv6', \
+                             False):  # pylint: disable=using-constant-test
+                for i, addr in zip(('primary', 'secondary'), self.dns6):
+                    self.untrusted_qdb.write('/qubes-{}-dns6'.format(i), \
+                                             str(addr))
 
         tzname = qubes.utils.get_timezone()
         if tzname:
