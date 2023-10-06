@@ -2251,8 +2251,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                          str(self.gateway6))
             self.untrusted_qdb.write('/qubes-netvm-netmask', str(self.netmask))
 
-            for i, addr in zip(('primary', 'secondary'), self.dns):
-                self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
+            if self.netvm is not None:
+                for i, addr in zip(('primary', 'secondary'), self.dns):
+                    self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
             self.untrusted_qdb.write('/qubes-mac', str(self.mac))
