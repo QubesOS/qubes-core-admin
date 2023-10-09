@@ -333,7 +333,7 @@ class DeviceCollection:
         '''
         return [a.device for a in self._set]
 
-    def assignments(self, persistent=None):
+    def assignments(self, persistent: Optional[bool]=None):
         '''List assignments for devices which are (or may be) attached to the
            vm.
 
