@@ -129,7 +129,7 @@ class TC_00_NetVMMixin(
         vm = self.get_vm()
         self.setup_netvms(vm)
         self.assertPropertyDefaultValue(vm, 'ip6', None)
-        vm.template.features['supported-feature.ipv6'] = '1'
+        vm.features['supported-feature.ipv6'] = '1'
         vm.netvm.features['ipv6'] = True
         self.assertPropertyDefaultValue(vm, 'ip6',
             ipaddress.IPv6Address('{}::a89:{:x}'.format(
@@ -140,7 +140,7 @@ class TC_00_NetVMMixin(
     def test_161_ip6_invalid(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
-        vm.template.features['supported-feature.ipv6'] = '1'
+        vm.features['supported-feature.ipv6'] = '1'
         vm.netvm.features['ipv6'] = True
         self.assertPropertyInvalidValue(vm, 'ip', 'zzzz')
         self.assertPropertyInvalidValue(vm, 'ip',

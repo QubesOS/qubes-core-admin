@@ -243,14 +243,14 @@ netvm default=True type=vm \n'''
         self.assertEqual(value, expected)
 
     def test_028_vm_property_get_list(self):
+        self.vm.features['supported-feature.ipv6'] = '1'
+        self.vm.features['ipv6'] = '1'
         self.vm.provides_network = True
         value = self.call_mgmt_func(
             b'admin.vm.property.Get',
             b'test-vm1',
             b'dns')
         self.assertEqual(value, 'default=True type=str 10.139.1.1 10.139.1.2')
-        self.template.features['supported-feature.ipv6'] = '1'
-        self.netvm.features['ipv6'] = '1'
         value = self.call_mgmt_func(
             b'admin.vm.property.Get',
             b'test-vm1',
@@ -258,13 +258,13 @@ netvm default=True type=vm \n'''
         self.assertEqual(value, 'default=True type=str fd09:24ef:4179::a8b:1 fd09:24ef:4179::a8b:2')
 
     def test_029_vm_property_get_list_none(self):
+        self.vm.features['supported-feature.ipv6'] = '1'
+        self.vm.features['ipv6'] = '1'
         value = self.call_mgmt_func(
             b'admin.vm.property.Get',
             b'test-vm1',
             b'dns')
         self.assertEqual(value, 'default=True type=str ')
-        self.template.features['supported-feature.ipv6'] = '1'
-        self.netvm.features['ipv6'] = '1'
         value = self.call_mgmt_func(
             b'admin.vm.property.Get',
             b'test-vm1',
@@ -272,14 +272,14 @@ netvm default=True type=vm \n'''
         self.assertEqual(value, 'default=True type=str ')
 
     def test_029_vm_property_get_list_default(self):
+        self.vm.features['supported-feature.ipv6'] = '1'
+        self.vm.features['ipv6'] = '1'
         self.vm.provides_network = True
         value = self.call_mgmt_func(
             b'admin.vm.property.GetDefault',
             b'test-vm1',
             b'dns')
         self.assertEqual(value, 'type=str 10.139.1.1 10.139.1.2')
-        self.template.features['supported-feature.ipv6'] = '1'
-        self.netvm.features['ipv6'] = '1'
         value = self.call_mgmt_func(
             b'admin.vm.property.GetDefault',
             b'test-vm1',

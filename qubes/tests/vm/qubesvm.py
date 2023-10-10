@@ -1495,7 +1495,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
                 lxml.etree.XML(expected.format(extra_ip='')))
         with self.subTest('ipv6'):
-            vm.template.features['supported-feature.ipv6'] = '1'
+            vm.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             libvirt_xml = vm.create_config_file()
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1790,7 +1790,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('ipv6'):
-            vm.template.features['supported-feature.ipv6'] = '1'
+            template.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             expected['/qubes-ip6'] = \
                 qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
@@ -1803,7 +1803,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('ipv6_just_appvm'):
-            vm.template.features['supported-feature.ipv6'] = '1'
+            template.features['supported-feature.ipv6'] = '1'
             del netvm.features['ipv6']
             vm.features['ipv6'] = True
             expected['/qubes-ip6'] = \
@@ -1817,7 +1817,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('proxy_ipv4'):
-            del vm.template.features['supported-feature.ipv6']
+            del template.features['supported-feature.ipv6']
             del vm.features['ipv6']
             expected['/name'] = 'test-inst-netvm'
             expected['/qubes-vm-type'] = 'NetVM'
@@ -1852,7 +1852,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('proxy_ipv6'):
-            vm.template.features['supported-feature.ipv6'] = '1'
+            template.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             ip6 = qubes.config.qubes_ipv6_prefix.replace(
                 ':0000', '') + '::a89:3'
