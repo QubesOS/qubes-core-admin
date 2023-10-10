@@ -1794,6 +1794,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
                 '::a89:3'
             expected['/qubes-gateway6'] = expected['/qubes-ip6'][:-1] + '2'
+            expected['/qubes-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
+            expected['/qubes-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
             vm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)
 
@@ -1805,6 +1807,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
                 '::a89:3'
             del expected['/qubes-gateway6']
+            del expected['/qubes-primary-dns6']
+            del expected['/qubes-secondary-dns6']
             vm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)
 
@@ -1847,6 +1851,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             netvm.features['ipv6'] = True
             ip6 = qubes.config.qubes_ipv6_prefix.replace(
                 ':0000', '') + '::a89:3'
+            expected['/qubes-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
+            expected['/qubes-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
+            expected['/qubes-netvm-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
+            expected['/qubes-netvm-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
             expected['/qubes-netvm-gateway6'] = ip6[:-1] + '2'
             expected['/qubes-firewall/' + ip6] = ''
             expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
