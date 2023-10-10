@@ -60,7 +60,6 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         '''
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
         '''
-        self.testnetvm.template.features['supported-feature.ipv6'] = '1'
         self.testnetvm.features['ipv6'] = True
         super(VmIPv6NetworkingMixin, self).configure_netvm()
 

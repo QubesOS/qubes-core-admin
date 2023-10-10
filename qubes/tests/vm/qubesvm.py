@@ -1495,7 +1495,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
                 lxml.etree.XML(expected.format(extra_ip='')))
         with self.subTest('ipv6'):
-            vm.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             libvirt_xml = vm.create_config_file()
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1790,12 +1789,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('ipv6'):
-            template.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             expected['/qubes-ip6'] = \
                 qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
                 '::a89:3'
             expected['/qubes-gateway6'] = expected['/qubes-ip6'][:-1] + '2'
+            vm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('ipv6_dns'):
+            template.features['supported-feature.ipv6dns'] = '1'
+            netvm.features['ipv6'] = True
             expected['/qubes-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
             expected['/qubes-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
             vm.create_qdb_entries()
@@ -1803,7 +1808,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('ipv6_just_appvm'):
-            template.features['supported-feature.ipv6'] = '1'
+            template.features['supported-feature.ipv6dns'] = '1'
             del netvm.features['ipv6']
             vm.features['ipv6'] = True
             expected['/qubes-ip6'] = \
@@ -1817,7 +1822,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('proxy_ipv4'):
-            del template.features['supported-feature.ipv6']
+            del template.features['supported-feature.ipv6dns']
             del vm.features['ipv6']
             expected['/name'] = 'test-inst-netvm'
             expected['/qubes-vm-type'] = 'NetVM'
@@ -1852,17 +1857,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
         test_qubesdb.data.clear()
         with self.subTest('proxy_ipv6'):
-            template.features['supported-feature.ipv6'] = '1'
             netvm.features['ipv6'] = True
             ip6 = qubes.config.qubes_ipv6_prefix.replace(
                 ':0000', '') + '::a89:3'
-            expected['/qubes-netvm-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
-            expected['/qubes-netvm-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
             expected['/qubes-netvm-gateway6'] = ip6[:-1] + '2'
             expected['/qubes-firewall/' + ip6] = ''
             expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
             expected['/qubes-firewall/' + ip6 + '/policy'] = 'drop'
             expected['/connected-ips6'] = ip6
+
+            with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
+                    lambda _: True):
+                netvm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('proxy_ipv6_dns'):
+            template.features['supported-feature.ipv6dns'] = '1'
+            netvm.features['ipv6'] = True
+            expected['/qubes-netvm-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
+            expected['/qubes-netvm-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
 
             with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
                     lambda _: True):
