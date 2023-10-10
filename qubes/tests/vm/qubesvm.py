@@ -1856,8 +1856,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             netvm.features['ipv6'] = True
             ip6 = qubes.config.qubes_ipv6_prefix.replace(
                 ':0000', '') + '::a89:3'
-            del expected['/qubes-primary-dns6']
-            del expected['/qubes-secondary-dns6']
             expected['/qubes-netvm-primary-dns6'] = 'fd09:24ef:4179::a8b:1'
             expected['/qubes-netvm-secondary-dns6'] = 'fd09:24ef:4179::a8b:2'
             expected['/qubes-netvm-gateway6'] = ip6[:-1] + '2'
