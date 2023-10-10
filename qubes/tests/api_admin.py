@@ -293,13 +293,13 @@ netvm default=True type=vm \n'''
             b'admin.vm.property.GetDefault',
             b'test-vm1',
             b'dns6')
-        self.assertEqual(value, 'default=True type=str ')
+        self.assertEqual(value, 'type=str ')
         self.vm.features['supported-feature.ipv6dns'] = '1'
         value = self.call_mgmt_func(
-            b'admin.vm.property.Get',
+            b'admin.vm.property.GetDefault',
             b'test-vm1',
             b'dns6')
-        self.assertEqual(value, 'default=True type=str fd09:24ef:4179::a8b:1 fd09:24ef:4179::a8b:2')
+        self.assertEqual(value, 'type=str fd09:24ef:4179::a8b:1 fd09:24ef:4179::a8b:2')
 
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
