@@ -1687,6 +1687,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             mem_required_with_overhead = mem_required + MEM_OVERHEAD_BASE \
                                          + self.vcpus * MEM_OVERHEAD_PER_VCPU
+            if self.use_memory_hotplug:
+                # extra overhead to account future hotplug memory
+                # 1 page per 1MB of RAM, see libxl__get_required_paging_memory()
+                mem_required_with_overhead += self.maxmem * 4096
             got_memory = qmemman_client.request_memory(
                 mem_required_with_overhead)
 
