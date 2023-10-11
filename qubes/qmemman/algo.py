@@ -54,10 +54,10 @@ def prefmem(domain):
     # dom0 is special, as it must have large cache, for vbds. Thus, give it
     # a special boost
     if domain.id == '0':
-        return min(domain.mem_used * CACHE_FACTOR + DOM0_MEM_BOOST,
-            domain.memory_maximum)
-    return max(min(domain.mem_used * CACHE_FACTOR, domain.memory_maximum),
-        MIN_PREFMEM)
+        return int(min(domain.mem_used * CACHE_FACTOR + DOM0_MEM_BOOST,
+            domain.memory_maximum))
+    return int(max(min(domain.mem_used * CACHE_FACTOR, domain.memory_maximum),
+        MIN_PREFMEM))
 
 
 def memory_needed(domain):
@@ -93,7 +93,7 @@ def balloon(memsize, domain_dictionary):
     log.info('req={} avail={} donors={!r}'.format(memsize, available, donors))
 
     if available < memsize:
-        return ()
+        return []
     scale = 1.0 * memsize / available
     for donors_iter in donors:
         dom_id, mem = donors_iter

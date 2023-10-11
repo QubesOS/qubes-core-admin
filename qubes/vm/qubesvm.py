@@ -23,6 +23,7 @@
 import asyncio
 import base64
 import grp
+import pathlib
 import re
 import os
 import os.path
@@ -37,6 +38,8 @@ import lxml
 import qubes
 import qubes.config
 import qubes.exc
+import qubes.qmemman.algo
+import qubes.qmemman.domainstate
 import qubes.storage
 import qubes.utils
 import qubes.vm
@@ -1635,6 +1638,31 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 return False
         return True
 
+    @property
+    def use_memory_hotplug(self):
+        """Use memory hotplug for memory balancing.
+        This is preferred if supported, because it has less initial overhead
+        and reduces Xen's attack surface.
+        This needs to be supported by the VM's kernel.
+        """
+        feature = self.features.check_with_template('memory-hotplug', None)
+        if feature is not None:
+            return bool(feature)
+        # if not explicitly set, check if support is advertised
+        # for dom0-provided kernel - check there
+        # Do not enable automatically for HVM, as qemu isn't happy about that -
+        # emulated devices wont work (DMA issues?); but still allow enabling
+        # manually in that case.
+        if self.kernel and self.virt_mode != 'hvm':
+            return (pathlib.Path(self.storage.kernels_dir) /
+                    'memory-hotplug-supported').exists()
+        # otherwise - check advertised VM's features
+        feature = self.features.check_with_template(
+            'supported-feature.memory-hotplug', None)
+        if feature is not None:
+            return bool(feature)
+        return False
+
     def request_memory(self, mem_required=None):
         if not qmemman_present:
             return None
@@ -1659,6 +1687,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             mem_required_with_overhead = mem_required + MEM_OVERHEAD_BASE \
                                          + self.vcpus * MEM_OVERHEAD_PER_VCPU
+            if self.use_memory_hotplug:
+                # extra overhead to account future hotplug memory
+                # 1 page per 1MB of RAM, see libxl__get_required_paging_memory()
+                mem_required_with_overhead += self.maxmem * 4096
             got_memory = qmemman_client.request_memory(
                 mem_required_with_overhead)
 
@@ -2287,6 +2319,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.app.vmm.xs.set_permissions('',
                                             f"{xs_basedir}/memory/meminfo",
                                             [{'dom': self.xid}])
+            if self.use_memory_hotplug:
+                self.app.vmm.xs.write('',
+                                      f"{xs_basedir}/memory/hotplug-max",
+                                      str(self.maxmem * 1024))
 
         self.fire_event('domain-qdb-create')
 
@@ -2318,7 +2354,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
             return 0
 
-        domain = qubes.qmemman.DomainState(self.xid)
+        domain = qubes.qmemman.domainstate.DomainState(self.xid)
         qubes.qmemman.algo.refresh_meminfo_for_domain(
             domain, untrusted_meminfo_key)
         if domain.mem_used is None:
