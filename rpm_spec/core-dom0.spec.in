@@ -455,6 +455,7 @@ done
 %{python3_sitelib}/qubes/tests/app.py
 %{python3_sitelib}/qubes/tests/devices.py
 %{python3_sitelib}/qubes/tests/devices_block.py
+%{python3_sitelib}/qubes/tests/devices_pci.py
 %{python3_sitelib}/qubes/tests/events.py
 %{python3_sitelib}/qubes/tests/ext.py
 %{python3_sitelib}/qubes/tests/firewall.py

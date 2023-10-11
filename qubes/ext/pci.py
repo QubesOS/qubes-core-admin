@@ -35,6 +35,14 @@ import qubes.ext
 pci_classes = None
 
 
+#: emit warning on unspported device only once
+unsupported_devices_warned = set()
+
+
+class UnsupportedDevice(Exception):
+    pass
+
+
 def load_pci_classes():
     ''' List of known device classes, subclasses and programming interfaces. '''
     # Syntax:
@@ -138,7 +146,8 @@ class PCIDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident, libvirt_name=None):
         if libvirt_name:
             dev_match = self._libvirt_regex.match(libvirt_name)
-            assert dev_match
+            if not dev_match:
+                raise UnsupportedDevice(libvirt_name)
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
         super().__init__(backend_domain, ident, None)
@@ -170,6 +179,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
         return all_attached.get(self.ident, None)
 
 
+
 class PCIDeviceExtension(qubes.ext.Extension):
     def __init__(self):
         super().__init__()
@@ -189,7 +199,12 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
             xml_desc = lxml.etree.fromstring(dev.XMLDesc())
             libvirt_name = xml_desc.findtext('name')
-            yield PCIDevice(vm, None, libvirt_name=libvirt_name)
+            try:
+                yield PCIDevice(vm, None, libvirt_name=libvirt_name)
+            except UnsupportedDevice:
+                if libvirt_name not in unsupported_devices_warned:
+                    vm.log.warning("Unsupported device: %s", libvirt_name)
+                    unsupported_devices_warned.add(libvirt_name)
 
     @qubes.ext.handler('device-get:pci')
     def on_device_get_pci(self, vm, event, ident):
