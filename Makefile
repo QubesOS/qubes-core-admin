@@ -106,6 +106,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.tag.List \
 	admin.vm.tag.Remove \
 	admin.vm.tag.Set \
+	admin.vm.volume.Clear \
 	admin.vm.volume.CloneFrom \
 	admin.vm.volume.CloneTo \
 	admin.vm.volume.Info \

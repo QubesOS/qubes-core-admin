@@ -548,9 +548,9 @@ done
 /usr/lib/tmpfiles.d/qubes.conf
 %attr(0755,root,root) /usr/lib/qubes/create-snapshot
 %attr(0755,root,root) /usr/lib/qubes/destroy-snapshot
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/85-admin-backup-restore.policy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-admin-default.policy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/90-default.policy
+%attr(0664,root,qubes) %config /etc/qubes/policy.d/85-admin-backup-restore.policy
+%attr(0664,root,qubes) %config /etc/qubes/policy.d/90-admin-default.policy
+%attr(0664,root,qubes) %config /etc/qubes/policy.d/90-default.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-ro
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-rwx
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-local-ro
