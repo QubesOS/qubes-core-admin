@@ -77,7 +77,7 @@ class CoreFeatures(qubes.ext.Extension):
         self.set_servicevm_feature(subject)
 
     @qubes.ext.handler('property-reset:provides_network')
-    def on_property_reset(self, subject, event, name):
+    def on_property_reset(self, subject, event, name, oldvalue=None):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
 
