@@ -22,6 +22,7 @@
 import asyncio
 import os
 import subprocess
+import signal
 import sys
 import tempfile
 import unittest
@@ -154,14 +155,17 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             p = subprocess.Popen(['sudo', '-E', '-u', local_user,
                 'parecord', '-d', '0', '--raw',
                 '--format=float32le', '--rate=44100', '--channels=1',
-                recorded_audio.name], stdout=subprocess.PIPE)
+                recorded_audio.name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
                 self.loop.run_until_complete(self.testvm1.run_for_stdio(cmd))
             except subprocess.CalledProcessError as err:
                 self.fail('{} stderr: {}'.format(str(err), err.stderr))
             # wait for possible parecord buffering
-            self.loop.run_until_complete(asyncio.sleep(1))
-            p.terminate()
+            self.loop.run_until_complete(asyncio.sleep(2))
+            if p.returncode is not None:
+                self.fail("Recording process ended prematurely: exit code {}, stderr: {}".format(
+                          p.returncode, p.stderr.read()))
+            p.send_signal(signal.SIGINT)
             p.wait()
             self.check_audio_sample(recorded_audio.file.read(), sfreq)
 
@@ -199,10 +203,10 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         # recognizes the file as raw audio.
         if self.testvm1.features['service.pipewire']:
             cmd = 'pw-record --format=f32 --rate=44100 --channels=1 audio_rec.snd'
-            kill_cmd = 'pkill pw-record'
+            kill_cmd = 'pkill --signal SIGINT pw-record'
         else:
             cmd = 'parecord --raw audio_rec.snd'
-            kill_cmd = 'pkill parecord'
+            kill_cmd = 'pkill --signal SIGINT parecord'
         record = self.loop.run_until_complete(self.testvm1.run(cmd))
         # give it time to start recording
         self.loop.run_until_complete(asyncio.sleep(0.5))
@@ -211,9 +215,15 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             stdin=subprocess.PIPE)
         p.communicate(audio_in)
         # wait for possible parecord buffering
-        self.loop.run_until_complete(asyncio.sleep(1))
-        self.loop.run_until_complete(
-            self.testvm1.run_for_stdio(kill_cmd))
+        self.loop.run_until_complete(asyncio.sleep(2))
+        if record.returncode is not None:
+            self.fail("Recording process ended prematurely: exit code {}, stderr: {}".format(
+                      record.returncode, record.stderr.read()))
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(kill_cmd))
+        except subprocess.CalledProcessError:
+            pass
         self.loop.run_until_complete(record.wait())
         recorded_audio, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('cat audio_rec.snd'))
@@ -235,11 +245,11 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         if self.testvm1.features['service.pipewire']:
             record_cmd = ('pw-record --format=f32 --rate=44100 --channels=1 '
                           'audio_rec.snd')
-            kill_cmd = 'pkill pw-record'
+            kill_cmd = 'pkill --signal SIGINT pw-record'
         else:
             record_cmd = ('parecord --raw --format=float32le --rate=44100 '
                           '--channels=1 audio_rec.snd')
-            kill_cmd = 'pkill parecord'
+            kill_cmd = 'pkill --signal SIGINT parecord'
         record = self.loop.run_until_complete(self.testvm1.run(record_cmd))
         # give it time to start recording
         self.loop.run_until_complete(asyncio.sleep(0.5))
@@ -249,8 +259,14 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             stdin=subprocess.PIPE)
         p.communicate(audio_in.astype(np.float32).tobytes())
         # wait for possible parecord buffering
-        self.loop.run_until_complete(asyncio.sleep(1))
-        self.loop.run_until_complete(self.testvm1.run_for_stdio(kill_cmd))
+        self.loop.run_until_complete(asyncio.sleep(2))
+        if record.returncode is not None:
+            self.fail("Recording process ended prematurely: exit code {}, stderr: {}".format(
+                      record.returncode, record.stderr.read()))
+        try:
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(kill_cmd))
+        except subprocess.CalledProcessError:
+            pass
         _, record_stderr = self.loop.run_until_complete(record.communicate())
         if record_stderr:
             self.fail('parecord printed something on stderr: {}'.format(
