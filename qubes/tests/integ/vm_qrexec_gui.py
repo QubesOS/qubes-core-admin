@@ -114,6 +114,11 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
         if not rec_size:
             self.fail('only silence detected, no useful audio data')
+        if rec_size < 0.95*441000:
+            fname = f"/tmp/audio-sample-{self.id()}.raw"
+            with open(fname, "wb") as f:
+                f.write(sample)
+            self.fail(f'too short audio, expected 10s, got {rec_size/44100}, saved to {fname}')
         # find zero crossings
         crossings = np.nonzero((rec[1:] > threshold) &
                             (rec[:-1] < -threshold))[0]
@@ -131,7 +136,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         # sine frequency
         sfreq = 4400
         # generate signal
-        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
+        audio_in = np.sin(2*np.pi*np.arange(441000)*sfreq/44100)
         # Need to use .snd extension so that pw-play (really libsndfile)
         # recognizes the file as raw audio.
         self.loop.run_until_complete(
@@ -188,7 +193,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         self._configure_audio_recording(self.testvm1)
 
         # generate some "audio" data
-        audio_in = b'\x20' * 44100
+        audio_in = b'\x20' * 4 * 44100
         local_user = grp.getgrnam('qubes').gr_mem[0]
         # Need to use .snd extension so that pw-play (really libsndfile)
         # recognizes the file as raw audio.
@@ -223,7 +228,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         # connect VM's recording source output monitor (instead of mic)
         self._configure_audio_recording(self.testvm1)
         sfreq = 4400
-        audio_in = np.sin(2*np.pi*np.arange(44100)*sfreq/44100)
+        audio_in = np.sin(2*np.pi*np.arange(441000)*sfreq/44100)
         local_user = grp.getgrnam('qubes').gr_mem[0]
         # Need to use .snd extension so that pw-play (really libsndfile)
         # recognizes the file as raw audio.
