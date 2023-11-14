@@ -1,85 +1,84 @@
 :py:mod:`qubes.storage` -- Qubes data storage
 =============================================
 
-Qubes provide extensible API for domains data storage. Each domain have
-multiple storage volumes, for different purposes. Each volume is provided by
-some storage pool. Qubes support different storage pool drivers, and it's
+Qubes OS provides extensible API for domains data storage. Each domain has
+multiple storage volumes for different purposes. Each volume is provided by
+some storage pool. Qubes OS supports different storage pool drivers, and it's
 possible to register additional 3rd-party drivers.
 
 Domain's storage volumes:
 
- - `root` - this is where operating system is installed. The volume is
-   available read-write to all domain classes. It could be made read-only for
-   :py:class:`~qubes.vm.appvm.AppVM` and :py:class:`~qubes.vm.dispvm.DispVM` to
-   implement an untrusted storage domain in the future, but doing so will cause
-   such VMs to set up a device-mapper based copy-on-write layer that redirects
-   writes to the `volatile` volume. Whose storage driver may already do CoW,
-   leading to an inefficient CoW-on-CoW setup. For this reason, `root` is
-   currently read-write in all cases.
- - `private` - this is where domain's data live. The volume is available
-   read-write to all domain classes (including :py:class:`~qubes.vm.dispvm.DispVM`,
-   but data written there is discarded on domain shutdown).
- - `volatile` - this is used for any data that do not to persist. This include
-   swap, copy-on-write layer for a future read-only `root` volume etc.
+ - `root` - this is where the operating system is installed. The volume is
+   available in read-write mode to all domain classes. In order to implement an
+   untrusted storage domain, in the future, it could be made read-only for
+   :py:class:`~qubes.vm.appvm.AppVM` and :py:class:`~qubes.vm.dispvm.DispVM`.
+   Doing so, however, will cause such VMs to set up a device-mapper based
+   copy-on-write layer redirecting writes to the `volatile` volume, whose storage
+   driver may already be doing CoW, leading to an inefficient CoW-on-CoW setup.
+   For this reason, `root` is currently read-write in all cases.
+ - `private` - this is where domain's data is located. The volume is available
+   in read-write mode to all domain classes (including :py:class:`~qubes.vm.dispvm.DispVM`,
+   but the data written there is discarded on domain shutdown).
+ - `volatile` - this is used for any non-persistent data. This includes swap,
+   copy-on-write layer for a future read-only `root` volume, etc.
  - `kernel` - domain boot files - operating system kernel, initial ramdisk,
-   kernel modules etc. This volume is provided read-only and should be provided by
-   a storage pool respecting :py:attr:`qubes.vm.qubesvm.QubesVM.kernel` property.
+   kernel modules etc. This volume is in read-only mode and should be provided
+   by a storage pool respecting :py:attr:`qubes.vm.qubesvm.QubesVM.kernel` property.
 
 Storage pool concept
 --------------------
 
-Storage pool is responsible for managing its volumes. Qubes have defined
+The storage pool is responsible for managing its volumes. Qubes OS has a
 storage pool driver API, allowing to put domains storage in various places. By
-default three drivers are provided: :py:class:`qubes.storage.file.FilePool`
+default, three drivers are provided: :py:class:`qubes.storage.file.FilePool`
 (named `file`), :py:class:`qubes.storage.reflink.ReflinkPool` (named
 `file-reflink`), and :py:class:`qubes.storage.lvm.ThinPool` (named `lvm_thin`).
-But the API allow to implement variety of other drivers (like additionally
+But the API allows to implement a variety of other drivers (like additionally
 encrypted storage, external disk, drivers using special features of some
-filesystems, etc).
+filesystems, etc.)
 
-Most of storage API focus on storage volumes. Each volume have at least those
-properties:
- - :py:attr:`~qubes.storage.Volume.rw` - should the volume be available
-   read-only or read-write to the domain
+Most of the storage API is focused on storage volumes. Each volume has at least
+those properties:
+ - :py:attr:`~qubes.storage.Volume.rw` - should the volume be available in
+   read-only or read-write mode to the domain
  - :py:attr:`~qubes.storage.Volume.snap_on_start` - should the domain start
-   with its own state of the volume, or rather a snapshot of its template volume
+   with its own state of the volume, or rather with a snapshot of its template volume
    (pointed by a :py:attr:`~qubes.storage.Volume.source` property). This can be
-   set to `True` only if a domain do have `template` property (AppVM and DispVM).
-   If the domain's template is running already, the snapshot should be made out of
+   set to `True` only if a domain has a `template` property (AppVM and DispVM).
+   If the domain's template is already running, the snapshot should be made out of
    the template's before its startup.
- - :py:attr:`~qubes.storage.Volume.save_on_stop` - should the volume state be
-   saved or discarded on domain
-   stop. In either case, while the domain is running, volume's current state
-   should not be committed immediately. This is to allow creating snapshots of the
-   volume's state from before domain start (see
+ - :py:attr:`~qubes.storage.Volume.save_on_stop` - should the volume's state be
+   saved or discarded on domain's stop. In either case, while the domain is running,
+   volume's current state should not be committed immediately. This allows to
+   create snapshots of the volume's state from before domain's start (see
    :py:attr:`~qubes.storage.Volume.snap_on_start`).
- - :py:attr:`~qubes.storage.Volume.revisions_to_keep` - number of volume
+ - :py:attr:`~qubes.storage.Volume.revisions_to_keep` - the number of volume
    revisions to keep. If greater than zero, at each domain stop (and if
-   :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`) new revision is saved
-   and old ones exceeding :py:attr:`~qubes.storage.Volume.revisions_to_keep` limit
-   are removed. This defaults to :py:attr:`~qubes.storage.Pool.revisions_to_keep`.
+   :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`) a new revision is saved
+   and old ones exceeding the :py:attr:`~qubes.storage.Volume.revisions_to_keep`
+   limit are removed. This defaults to :py:attr:`~qubes.storage.Pool.revisions_to_keep`.
  - :py:attr:`~qubes.storage.Volume.source` - source volume for
    :py:attr:`~qubes.storage.Volume.snap_on_start` volumes
  - :py:attr:`~qubes.storage.Volume.vid` - pool specific volume identifier, must
-   be unique inside given pool
+   be unique inside a given pool
  - :py:attr:`~qubes.storage.Volume.pool` - storage pool object owning this volume
  - :py:attr:`~qubes.storage.Volume.name` - name of the volume inside owning
    domain (like `root`, or `private`)
  - :py:attr:`~qubes.storage.Volume.size` - size of the volume, in bytes
- - :py:attr:`~qubes.storage.Volume.ephemeral` - whether volume is automatically
-   encrypted with an ephemeral key. This can be set only on volumes that have
+ - :py:attr:`~qubes.storage.Volume.ephemeral` - whether the volume is automatically
+   encrypted with an ephemeral key. This can be set only on volumes which have
    both :py:attr:`~qubes.storage.Volume.snap_on_start` and
-   :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False` - namely,
-   `volatile` volume. This property for DispVM's volatile volume is inherited
+   :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False`, namely -
+   `volatile` volume. This property of DispVM's volatile volume is inherited
    from the template (but not for other types of VMs). For `volatile` volumes,
    this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
 
-Storage pool driver may define additional properties.
+The storage pool driver may define additional properties.
 
 Storage pool driver API
 -----------------------
 
-Storage pool driver need to implement two classes:
+The storage pool driver needs to implement two classes:
  - pool class - inheriting from :py:class:`qubes.storage.Pool`
  - volume class - inheriting from :py:class:`qubes.storage.Volume`
 
