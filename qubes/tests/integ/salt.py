@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+import warnings
 
 import qubes.tests
 
@@ -311,15 +312,14 @@ class SaltVMTestMixin(SaltTestMixin):
             'Full output: ' + state_output)
         state_id = 'file_|-/home/user/testfile_|-/home/user/testfile_|-managed'
         # drop the header
-        json_data = state_output[len(expected_output):]
-        # workaround for https://github.com/saltstack/salt/issues/60476
-        # (fixed upstream, but hasen't flowed into Fedora yet)
-        if "Setuptools is replacing distutils" in json_data:
-            json_data = "\n".join(
-                l for l in json_data.splitlines()
-                if "Setuptools is replacing distutils" not in l)
+        json_data = state_output[len(expected_output):].strip()
+        # skip trailing junk to workaround
+        # https://github.com/saltstack/salt/issues/65604 and similar
         try:
-            state_output_json = json.loads(json_data)
+            decoder = json.JSONDecoder()
+            state_output_json, end = decoder.raw_decode(json_data)
+            if end != len(json_data):
+                warnings.warn(f"Trailing junk in json output: {json_data[end:]}")
         except json.decoder.JSONDecodeError as e:
             self.fail("JSON output decoding error: {}\n{}".format(
                 e, json_data
@@ -411,17 +411,18 @@ class SaltVMTestMixin(SaltTestMixin):
         expected_output = vmname + ':\n'
         self.assertTrue(state_output.startswith(expected_output),
             'Full output: ' + state_output)
-        json_data = state_output[len(expected_output):]
-        # workaround for https://github.com/saltstack/salt/issues/60476
-        # (fixed upstream, but hasn't flowed into Fedora yet)
-        if "Setuptools is replacing distutils" in json_data:
-            json_data = "\n".join(
-                l for l in json_data.splitlines()
-                if "Setuptools is replacing distutils" not in l)
+        json_data = state_output[len(expected_output):].strip()
+        # skip trailing junk to workaround
+        # https://github.com/saltstack/salt/issues/65604 and similar
         try:
-            state_output_json = json.loads(json_data)
+            decoder = json.JSONDecoder()
+            state_output_json, end = decoder.raw_decode(json_data)
+            if end != len(json_data):
+                warnings.warn(f"Trailing junk in json output: {json_data[end:]}")
         except json.decoder.JSONDecodeError as e:
-            self.fail('{}: {}'.format(e, json_data))
+            self.fail("JSON output decoding error: {}\n{}".format(
+                e, json_data
+            ))
         states = states + ('jinja',)
         for state in states:
             state_id = \
@@ -450,7 +451,7 @@ class SaltVMTestMixin(SaltTestMixin):
         self.assertEqual(stderr, b'')
 
     @unittest.expectedFailure
-    def test_002_grans_id(self):
+    def test_002_granns_id(self):
         vmname = self.make_vm_name('target')
         tplname = self.make_vm_name('tpl')
         self.test_template = self.app.add_new_vm('TemplateVM',
@@ -485,19 +486,20 @@ class SaltVMTestMixin(SaltTestMixin):
         tpl_output, _, appvm_output = state_output.partition(vmname + ':\n')
         self.assertTrue(tpl_output.startswith(tplname + ':\n'),
             'Full output: ' + state_output)
-        tpl_output = tpl_output[len(tplname + ':\n'):]
+        tpl_output = tpl_output[len(tplname + ':\n'):].strip()
 
         for name, output in ((tplname, tpl_output), (vmname, appvm_output)):
-            # workaround for https://github.com/saltstack/salt/issues/60476
-            # (fixed upstream, but hasn't flowed into Fedora yet)
-            if "Setuptools is replacing distutils" in output:
-                output = "\n".join(
-                    l for l in output.splitlines()
-                    if "Setuptools is replacing distutils" not in l)
+            # skip trailing junk to workaround
+            # https://github.com/saltstack/salt/issues/65604 and similar
             try:
-                state_output_json = json.loads(output)
+                decoder = json.JSONDecoder()
+                state_output_json, end = decoder.raw_decode(output)
+                if end != len(output):
+                    warnings.warn(f"Trailing junk in json output: {output[end:]}")
             except json.decoder.JSONDecodeError as e:
-                self.fail('{}: {}'.format(e, output))
+                self.fail("JSON output decoding error: {}\n{}".format(
+                    e, output
+                ))
             state_id = \
                 'file_|-/home/user/test2-{0}_|-/home/user/test2-{0}_|-managed'.format(name)
             # drop the header
@@ -519,17 +521,18 @@ class SaltVMTestMixin(SaltTestMixin):
         expected_output = vmname + ':\n'
         self.assertTrue(state_output.startswith(expected_output),
             'Full output: ' + state_output)
-        json_data = state_output[len(expected_output):]
-        # workaround for https://github.com/saltstack/salt/issues/60476
-        # (fixed upstream, but hasn't flowed into Fedora yet)
-        if "Setuptools is replacing distutils" in json_data:
-            json_data = "\n".join(
-                l for l in json_data.splitlines()
-                if "Setuptools is replacing distutils" not in l)
+        json_data = state_output[len(expected_output):].strip()
+        # skip trailing junk to workaround
+        # https://github.com/saltstack/salt/issues/65604 and similar
         try:
-            state_output_json = json.loads(json_data)
+            decoder = json.JSONDecoder()
+            state_output_json, end = decoder.raw_decode(json_data)
+            if end != len(json_data):
+                warnings.warn(f"Trailing junk in json output: {json_data[end:]}")
         except json.decoder.JSONDecodeError as e:
-            self.fail('{}: {}'.format(e, json_data))
+            self.fail("JSON output decoding error: {}\n{}".format(
+                e, json_data
+            ))
         self.assertIn(vmname, state_output_json)
         self.assertNotEqual(state_output_json[vmname], {})
         for state, result in state_output_json[vmname].items():
