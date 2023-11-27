@@ -30,8 +30,8 @@ import qubes.events
 
 
 class Extension:
-    '''Base class for all extensions
-    '''  # pylint: disable=too-few-public-methods
+    '''Base class for all extensions'''
+    # pylint: disable=too-few-public-methods
 
     def __new__(cls):
         if '_instance' not in cls.__dict__:

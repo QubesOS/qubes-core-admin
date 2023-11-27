@@ -127,8 +127,8 @@ class AbstractQubesAPI:
             #: destination qube
             self.dest = self.app.domains[vm]
         except KeyError:
-            # normally this should filtered out by qrexec policy, but there are
-            # two cases it might not be:
+            # normally this should be filtered out by qrexec policy, but there
+            # are two cases it might not be:
             # 1. The call comes from dom0, which bypasses qrexec policy
             # 2. Domain was removed between checking the policy and here
             # we inform the client accordingly

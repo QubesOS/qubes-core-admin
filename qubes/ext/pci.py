@@ -18,7 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-''' Qubes PCI Extensions '''
+""" Qubes PCI Extensions """
 
 import functools
 import os
@@ -35,7 +35,7 @@ import qubes.ext
 pci_classes = None
 
 
-#: emit warning on unspported device only once
+#: emit warning on unsupported device only once
 unsupported_devices_warned = set()
 
 
@@ -44,14 +44,14 @@ class UnsupportedDevice(Exception):
 
 
 def load_pci_classes():
-    ''' List of known device classes, subclasses and programming interfaces. '''
+    """ List of known device classes, subclasses and programming interfaces. """
     # Syntax:
     # C class       class_name
     #       subclass        subclass_name           <-- single tab
     #               prog-if  prog-if_name   <-- two tabs
     result = {}
     with open('/usr/share/hwdata/pci.ids',
-            encoding='utf-8', errors='ignore') as pciids:
+              encoding='utf-8', errors='ignore') as pciids:
         class_id = None
         subclass_id = None
         for line in pciids.readlines():
@@ -150,7 +150,18 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 raise UnsupportedDevice(libvirt_name)
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
-        super().__init__(backend_domain, ident, None)
+        super().__init__(
+            backend_domain=backend_domain, ident=ident, devclass="pci")
+
+        if hasattr(self, 'regex'):
+            # pylint: disable=no-member
+            dev_match = self.regex.match(ident)
+            if not dev_match:
+                raise ValueError('Invalid device identifier: {!r}'.format(
+                    ident))
+
+            for group in self.regex.groupindex:
+                setattr(self, group, dev_match.group(group))
 
         # lazy loading
         self._description = None
@@ -172,12 +183,11 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 hostdev_details.XMLDesc()))
         return self._description
 
-    @property
-    def frontend_domain(self):
-        # TODO: cache this
-        all_attached = attached_devices(self.backend_domain.app)
-        return all_attached.get(self.ident, None)
-
+    # @property
+    # def frontend_domain(self):  # TODO: possibly could be removed
+    #     # TODO: cache this
+    #     all_attached = attached_devices(self.backend_domain.app)
+    #     return all_attached.get(self.ident, None)
 
 
 class PCIDeviceExtension(qubes.ext.Extension):

@@ -279,7 +279,8 @@ class BaseVM(qubes.PropertyHolder):
                         self.app.domains[node.get('backend-domain')],
                         node.get('id'),
                         options,
-                        persistent=True
+                        persistent=True,
+                        # TODO: required=node.get('required')
                     )
                     self.devices[devclass].load_persistent(device_assignment)
                 except KeyError:
@@ -333,6 +334,7 @@ class BaseVM(qubes.PropertyHolder):
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
+                # TODO: node.set('required', device.required)
                 for key, val in device.options.items():
                     option_node = lxml.etree.Element('option')
                     option_node.set('name', key)

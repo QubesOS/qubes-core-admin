@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-''' Interface for methods not being part of Admin API, but still handled by
-qubesd. '''
+""" Interface for methods not being part of Admin API, but still handled by
+qubesd. """
 
 import string
 from datetime import datetime
@@ -34,7 +34,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('qubes.FeaturesRequest', no_payload=True)
     async def qubes_features_request(self):
-        ''' qubes.FeaturesRequest handler
+        """ qubes.FeaturesRequest handler
 
         VM (mostly templates) can request some features from dom0 for itself.
         Then dom0 (qubesd extension) may respect this request or ignore it.
@@ -44,7 +44,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         dispatch 'features-request' event, which may be handled by
         appropriate extensions. Requests not explicitly handled by some
         extension are ignored.
-        '''
+        """
         self.enforce(self.dest.name == 'dom0')
         self.enforce(not self.arg)
 
@@ -66,9 +66,9 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('qubes.NotifyTools', no_payload=True)
     async def qubes_notify_tools(self):
-        '''
+        """
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
-        '''
+        """
         self.enforce(self.dest.name == 'dom0')
         self.enforce(not self.arg)
 
@@ -92,12 +92,12 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method('qubes.NotifyUpdates')
     async def qubes_notify_updates(self, untrusted_payload):
-        '''
+        """
         Receive VM notification about updates availability
 
         Payload contains a single integer - either 0 (no updates) or some
         positive value (some updates).
-        '''
+        """
 
         untrusted_update_count = untrusted_payload.strip()
         self.enforce(untrusted_update_count.isdigit())

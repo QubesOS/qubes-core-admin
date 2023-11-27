@@ -1200,26 +1200,31 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devices = self.dest.devices[devclass].available()
         if self.arg:
             devices = [dev for dev in devices if dev.ident == self.arg]
-            # no duplicated devices, but device may not exists, in which case
+            # no duplicated devices, but device may not exist, in which case
             #  the list is empty
             self.enforce(len(devices) <= 1)
         devices = self.fire_event_for_filter(devices, devclass=devclass)
 
+        # dev_info = {dev.ident: dev.serialize() for dev in devices}
         dev_info = {}
         for dev in devices:
-            non_default_attrs = set(attr for attr in dir(dev) if
-                not attr.startswith('_')).difference((
+            # TODO:
+            if hasattr(dev, "serialize"):
+                properties_txt = dev.serialize().decode()
+            else:
+                non_default_attrs = set(attr for attr in dir(dev) if
+                                        not attr.startswith('_')).difference((
                     'backend_domain', 'ident', 'frontend_domain',
                     'description', 'options', 'regex'))
-            properties_txt = ' '.join(
-                '{}={!s}'.format(prop, value) for prop, value
-                in itertools.chain(
-                    ((key, getattr(dev, key)) for key in non_default_attrs),
-                    # keep description as the last one, according to API
-                    # specification
-                    (('description', dev.description),)
-                ))
-            self.enforce('\n' not in properties_txt)
+                properties_txt = ' '.join(
+                    '{}={!s}'.format(prop, value) for prop, value
+                    in itertools.chain(
+                        ((key, getattr(dev, key)) for key in non_default_attrs),
+                        # keep description as the last one, according to API
+                        # specification
+                        (('description', dev.description),)
+                    ))
+                self.enforce('\n' not in properties_txt)
             dev_info[dev.ident] = properties_txt
 
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
@@ -1237,7 +1242,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             device_assignments = [dev for dev in device_assignments
                 if (str(dev.backend_domain), dev.ident)
                    == (select_backend, select_ident)]
-            # no duplicated devices, but device may not exists, in which case
+            # no duplicated devices, but device may not exist, in which case
             #  the list is empty
             self.enforce(len(device_assignments) <= 1)
         device_assignments = self.fire_event_for_filter(device_assignments,

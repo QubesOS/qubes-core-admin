@@ -18,9 +18,12 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-''' Qubes block devices extensions '''
+""" Qubes block devices extensions """
+import collections
 import re
 import string
+from typing import Optional
+
 import lxml.etree
 
 import qubes.devices
@@ -44,15 +47,15 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 class BlockDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident):
-        super().__init__(backend_domain=backend_domain,
-            ident=ident)
-        self._description = None
+        super().__init__(
+            backend_domain=backend_domain, ident=ident, devclass="block")
+
         self._mode = None
         self._size = None
 
     @property
     def description(self):
-        '''Human readable device description'''
+        """Human readable device description"""
         if self._description is None:
             if not self.backend_domain.is_running():
                 return self.ident
@@ -69,7 +72,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def mode(self):
-        '''Device mode, either 'w' for read-write, or 'r' for read-only'''
+        """Device mode, either 'w' for read-write, or 'r' for read-only"""
         if self._mode is None:
             if not self.backend_domain.is_running():
                 return 'w'
@@ -87,7 +90,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def size(self):
-        '''Device size in bytes'''
+        """Device size in bytes"""
         if self._size is None:
             if not self.backend_domain.is_running():
                 return None
@@ -105,22 +108,91 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def device_node(self):
-        '''Device node in backend domain'''
+        """Device node in backend domain"""
         return '/dev/' + self.ident.replace('_', '/')
+
+    @property
+    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+        """
+        The parent device if any.
+
+        If the device is part of another device (e.g. it's a single
+        partition of an usb stick), the parent device id should be here.
+        """
+        if self._parent is None:
+            if not self.backend_domain.is_running():
+                return None
+            untrusted_parent: bytes = self.backend_domain.untrusted_qdb.read(
+                f'/qubes-block-devices/{self.ident}/parent')
+            if untrusted_parent is None:
+                return None
+            else:
+                parent_ident = self._sanitize(untrusted_parent)
+                self._parent = qubes.devices.Device(
+                    self.backend_domain, parent_ident)
+        return self.backend_domain.devices.get(
+            self._parent.devclass, {}).get(
+            self._parent.ident, qubes.devices.UnknownDevice(
+                backend_domain=self._parent.backend_domain,
+                ident=self._parent.ident
+            )
+        )
+
+    @staticmethod
+    def _sanitize(
+            untrusted_parent: bytes,
+            safe_chars: str =
+            string.ascii_letters + string.digits + string.punctuation
+    ) -> str:
+        untrusted_device_desc = untrusted_parent.decode(
+            'ascii', errors='ignore')
+        return ''.join(
+            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
+        )
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
+    def __init__(self):
+        super().__init__()
+        self.devices_cache = collections.defaultdict(dict)
+
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
-        '''Initialize watching for changes'''
+        """Initialize watching for changes"""
         # pylint: disable=unused-argument
         vm.watch_qdb_path('/qubes-block-devices')
+        if event == 'domain-load':
+            # avoid building a cache on domain-init, as it isn't fully set yet,
+            # and definitely isn't running yet
+            current_devices = {
+                dev.ident: dev.frontend_domain
+                for dev in self.on_device_list_block(vm, None)
+            }
+            self.devices_cache[vm.name] = current_devices
+        else:
+            self.devices_cache[vm.name] = {}
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
-        '''A change in QubesDB means a change in device list'''
+        """A change in QubesDB means a change in device list."""
         # pylint: disable=unused-argument
         vm.fire_event('device-list-change:block')
+        current_devices = dict((dev.ident, dev.frontend_domain)
+           for dev in self.on_device_list_block(vm, None))
+
+        devices_cache_for_vm = self.devices_cache[vm.name]
+        for dev_id, connected_to in current_devices.items():
+            if dev_id not in devices_cache_for_vm:
+                device = BlockDevice(vm, dev_id)
+                vm.fire_event('device-added:block', device=device)
+        for dev_id, connected_to in devices_cache_for_vm.items():
+            if dev_id not in current_devices:
+                device = BlockDevice(vm, dev_id)
+                vm.fire_event('device-removed:block', device=device)
+
+        # TODO: if not removed and not added
+        # TODO attach/detach
+        self.devices_cache[vm.name] = current_devices
 
     def device_get(self, vm, ident):
         '''Read information about device from QubesDB
