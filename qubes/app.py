@@ -1052,7 +1052,7 @@ class Qubes(qubes.PropertyHolder):
             vm.fire_event('domain-load')
 
         # get a file timestamp (before closing it - still holding the lock!),
-        #  to detect whether anyone else have modified it in the meantime
+        # to detect whether anyone else has modified it in the meantime
         self.__load_timestamp = os.path.getmtime(self._store)
 
         if not lock:
@@ -1509,7 +1509,7 @@ class Qubes(qubes.PropertyHolder):
                 assignment.ident for assignment in assignments)
             raise qubes.exc.QubesVMInUseError(
                 vm,
-                'VM has devices attached persistently to other VMs: ' +
+                'VM has devices attached persistently to other VMs: ' +  # TODO
                 desc)
 
     @qubes.events.handler('domain-delete')
@@ -1564,7 +1564,7 @@ class Qubes(qubes.PropertyHolder):
             if hasattr(vm, 'provides_network') and not vm.provides_network and \
                     hasattr(vm, 'netvm') and vm.property_is_default('netvm'):
                 # fire property-reset:netvm as it is responsible for resetting
-                # netvm to it's default value
+                # netvm to its default value
                 vm.fire_event('property-reset:netvm',
                               name='netvm', oldvalue=oldvalue)
 
@@ -1576,6 +1576,6 @@ class Qubes(qubes.PropertyHolder):
             if hasattr(vm, 'default_dispvm') and \
                     vm.property_is_default('default_dispvm'):
                 # fire property-reset:default_dispvm as it is responsible for
-                # resetting dispvm to it's default value
+                # resetting dispvm to its default value
                 vm.fire_event('property-reset:default_dispvm',
                               name='default_dispvm', oldvalue=oldvalue)

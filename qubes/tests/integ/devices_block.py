@@ -346,7 +346,8 @@ class AttachMixin:
             self.loop.run_until_complete(
                 self.frontend.run_for_stdio('! ls /dev/xvdi'))
 
-            self.assertIsNone(self.device.frontend_domain)
+            self.assertIsNone(
+                self.device.data.get('test_frontend_domain', None))
 
         with self.subTest('reattach'):
             self.loop.run_until_complete(

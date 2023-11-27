@@ -159,7 +159,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info._description, 'Test device')
         self.assertEqual(device_info.size, 1024000)
         self.assertEqual(device_info.mode, 'w')
-        self.assertEqual(device_info.frontend_domain, None)
+        self.assertEqual(
+            device_info.data.get('test_frontend_domain', None), None)
         self.assertEqual(device_info.device_node, '/dev/sda')
 
     def test_001_device_get_other_node(self):
@@ -177,7 +178,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info._description, 'Test device')
         self.assertEqual(device_info.size, 1024000)
         self.assertEqual(device_info.mode, 'w')
-        self.assertEqual(device_info.frontend_domain, None)
+        self.assertEqual(
+            device_info.data.get('test_frontend_domain', None), None)
         self.assertEqual(device_info.device_node, '/dev/mapper/dmroot')
 
     def test_002_device_get_invalid_desc(self):
@@ -583,3 +585,27 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
         self.ext.on_device_pre_detached_block(vm, '', dev)
         self.assertFalse(vm.libvirt_domain.detachDevice.called)
+
+    def test_060_devices_added(self):
+        vm = TestVM({
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sdb': b'',
+            '/qubes-block-devices/sdb/desc': b'Test device2',
+            '/qubes-block-devices/sdb/size': b'2048000',
+            '/qubes-block-devices/sdb/mode': b'r',
+        })
+        devices = sorted(list(self.ext.on_qdb_change(vm, '')))
+        self.assertEqual(len(devices), 2)
+        self.assertEqual(devices[0].backend_domain, vm)
+        self.assertEqual(devices[0].ident, 'sda')
+        self.assertEqual(devices[0].description, 'Test device')
+        self.assertEqual(devices[0].size, 1024000)
+        self.assertEqual(devices[0].mode, 'w')
+        self.assertEqual(devices[1].backend_domain, vm)
+        self.assertEqual(devices[1].ident, 'sdb')
+        self.assertEqual(devices[1].description, 'Test device2')
+        self.assertEqual(devices[1].size, 2048000)
+        self.assertEqual(devices[1].mode, 'r')

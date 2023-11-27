@@ -44,15 +44,15 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 class BlockDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident):
-        super().__init__(backend_domain=backend_domain,
-            ident=ident)
+        super().__init__(
+            backend_domain=backend_domain, ident=ident, devclass="block")
         self._description = None
         self._mode = None
         self._size = None
 
     @property
     def description(self):
-        '''Human readable device description'''
+        """Human readable device description"""
         if self._description is None:
             if not self.backend_domain.is_running():
                 return self.ident
@@ -69,7 +69,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def mode(self):
-        '''Device mode, either 'w' for read-write, or 'r' for read-only'''
+        """Device mode, either 'w' for read-write, or 'r' for read-only"""
         if self._mode is None:
             if not self.backend_domain.is_running():
                 return 'w'
@@ -87,7 +87,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def size(self):
-        '''Device size in bytes'''
+        """Device size in bytes"""
         if self._size is None:
             if not self.backend_domain.is_running():
                 return None
@@ -105,11 +105,14 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def device_node(self):
-        '''Device node in backend domain'''
+        """Device node in backend domain"""
         return '/dev/' + self.ident.replace('_', '/')
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
+    def __init__(self):
+        self._exposed_devices = set()
+
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
         '''Initialize watching for changes'''
@@ -118,9 +121,21 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
-        '''A change in QubesDB means a change in device list'''
+        """ A change in QubesDB means a change in device list. """
         # pylint: disable=unused-argument
-        vm.fire_event('device-list-change:block')
+        # vm.fire_event('device-list-change:block') TODO: test
+        curr = {dv_info
+                for dv_info in self.on_device_list_block(vm, None)}
+        removed = self._exposed_devices - curr
+        added = curr - self._exposed_devices
+        for dv in removed:
+            vm.fire_event('device-removed:block', removed=dv)
+        for dv in added:
+            vm.fire_event('device-added:block', added=dv)
+
+        # TODO: if not removed and not added:
+
+        self._exposed_devices = curr
 
     def device_get(self, vm, ident):
         '''Read information about device from QubesDB

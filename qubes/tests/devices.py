@@ -21,6 +21,7 @@
 #
 
 import qubes.devices
+from qubes.devices import DeviceInfo, DeviceInterface
 
 import qubes.tests
 
@@ -60,7 +61,7 @@ class TestVM(qubes.tests.TestEmitter):
     @qubes.events.handler('device-list-attached:testclass')
     def dev_testclass_list_attached(self, event, persistent = False):
         for vm in self.app.domains:
-            if vm.device.frontend_domain == self:
+            if vm.device.data.get('test_frontend_domain', None) == self:
                 yield (vm.device, {})
 
     @qubes.events.handler('device-list:testclass')
@@ -73,6 +74,10 @@ class TestVM(qubes.tests.TestEmitter):
     def is_running(self):
         return self.running
 
+    class log:
+        @staticmethod
+        def exception(message):
+            pass
 
 
 class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
@@ -140,7 +145,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.emitter.running = True
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
-        self.device.frontend_domain = self.emitter
+        self.device.data['test_frontend_domain'] = self.emitter
         self.assertEqual({self.device},
             set(self.collection.attached()))
         self.assertEqual(set([]),
@@ -158,7 +163,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEqual(set([]), set(self.collection.persistent()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
-        self.device.frontend_domain = self.emitter
+        self.device.data['test_frontend_domain'] = self.emitter
         self.assertEqual({self.device}, set(self.collection.persistent()))
         self.assertEqual({self.device}, set(self.collection.attached()))
         self.assertEqual({self.device}, set(self.collection.persistent()))
@@ -173,7 +178,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEqual(set([]), set(self.collection.persistent()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
-        self.device.frontend_domain = self.emitter
+        self.device.data['test_frontend_domain'] = self.emitter
         self.assertEqual(set(), set(self.collection.persistent()))
         self.assertEqual({self.device}, set(self.collection.attached()))
         self.assertEqual(set(), set(self.collection.persistent()))
@@ -219,4 +224,72 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
         self.loop.run_until_complete(
             self.manager['testclass'].attach(assignment))
         self.assertEventFired(self.emitter, 'device-attach:testclass')
+
+
+class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.app = TestApp()
+        self.vm = TestVM(self.app, 'vm')
+
+    def test_001_init(self):
+        pass  # TODO
+
+    def test_010_serialize(self):
+        device = DeviceInfo(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            vendor="ITL",
+            product="Qubes",
+            manufacturer="",
+            name="Some untrusted garbage",
+            serial=None,
+            interfaces=[DeviceInterface.Other, DeviceInterface.USB_HID],
+            # additional_info="",  # TODO
+            # date="06.12.23",  # TODO
+        )
+        actual = sorted(device.serialize().split(b' '))
+        expected = [
+            b'YmFja2VuZF9kb21haW49dm0=', b'ZGV2Y2xhc3M9YnVz',
+            b'aW50ZXJmYWNlcz0qKioqKiowMyoqKio=', b'aWRlbnQ9MS0xLjEuMQ==',
+            b'bWFudWZhY3R1cmVyPXVua25vd24=',
+            b'bmFtZT1Tb21lIHVudHJ1c3RlZCBnYXJiYWdl',
+            b'c2VyaWFsPXVua25vd24=', b'cHJvZHVjdD1RdWJlcw==',
+            b'dmVuZG9yPUlUTA==']
+        self.assertEqual(actual, expected)
+
+    def test_020_deserialize(self):
+        expected = [
+            b'YmFja2VuZF9kb21haW49dm0=', b'ZGV2Y2xhc3M9YnVz',
+            b'aW50ZXJmYWNlcz0qKioqKiowMyoqKio=', b'aWRlbnQ9MS0xLjEuMQ==',
+            b'bWFudWZhY3R1cmVyPXVua25vd24=',
+            b'bmFtZT1Tb21lIHVudHJ1c3RlZCBnYXJiYWdl',
+            b'c2VyaWFsPXVua25vd24=', b'cHJvZHVjdD1RdWJlcw==',
+            b'dmVuZG9yPUlUTA==']
+        actual = DeviceInfo.deserialize(b' '.join(expected), self.vm)
+        expected = DeviceInfo(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            vendor="ITL",
+            product="Qubes",
+            manufacturer="",
+            name="Some untrusted garbage",
+            serial=None,
+            interfaces=[DeviceInterface.Other, DeviceInterface.USB_HID],
+            # additional_info="",  # TODO
+            # date="06.12.23",  # TODO
+        )
+
+        self.assertEqual(actual.backend_domain, expected.backend_domain)
+        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.devclass, expected.devclass)
+        self.assertEqual(actual.vendor, expected.vendor)
+        self.assertEqual(actual.product, expected.product)
+        self.assertEqual(actual.manufacturer, expected.manufacturer)
+        self.assertEqual(actual.name, expected.name)
+        self.assertEqual(actual.serial, expected.serial)
+        self.assertEqual(actual.interfaces, expected.interfaces)
+        # self.assertEqual(actual.data, expected.data)  # TODO
 
