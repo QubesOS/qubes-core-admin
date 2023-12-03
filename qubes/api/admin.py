@@ -221,13 +221,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method('admin.vm.property.GetDefault', no_payload=True,
         scope='local', read=True)
     async def vm_property_get_default(self):
-        """Get a value of one property"""
+        """Get default value of a property (what value will be set if
+        this property is set to default)."""
         return self._property_get_default(self.dest)
 
     @qubes.api.method('admin.property.GetDefault', no_payload=True,
         scope='global', read=True)
     async def property_get_default(self):
-        """Get a value of one global property"""
+        """Get default value of a global property (what value will be set if
+        this property is set to default)."""
         self.enforce(self.dest.name == 'dom0')
         return self._property_get_default(self.app)
 
