@@ -115,6 +115,14 @@ Provides:	qubes-core-dom0-doc
 Obsoletes:	preupgrade < 2.0
 Provides:	preupgrade = 2.0
 
+# Ensure that systemd-resolved, systemd-networkd, and NetworkManager are not installed
+Conflicts:      systemd-networkd
+Obsoletes:      systemd-networkd
+Conflicts:      systemd-resolved
+Obsoletes:      systemd-resolved
+Conflicts:      NetworkManager
+Obsoletes:      NetworkManager
+
 Source0: %{name}-%{version}.tar.gz
 
 %description
