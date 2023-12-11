@@ -487,7 +487,10 @@ class VMProperty(qubes.property):
         try:
             vm = app.domains[value]
         except KeyError:
-            raise qubes.exc.QubesVMNotFoundError(value)
+            raise qubes.exc.QubesPropertyValueError(instance, self, value,
+                    "Can't set {!s} to non-existing qube {!s}".format(
+                        self,
+                        value))
 
         if not isinstance(vm, self.vmclass):
             raise qubes.exc.QubesPropertyValueError(instance, self, value,
