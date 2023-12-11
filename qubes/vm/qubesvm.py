@@ -93,7 +93,9 @@ def _setter_positive_int(self, prop, value):
     # pylint: disable=unused-argument
     value = int(value)
     if value <= 0:
-        raise ValueError('Value must be positive')
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value,
+            '{!s} must be positive'.format(prop))
     return value
 
 
@@ -102,7 +104,9 @@ def _setter_non_negative_int(self, prop, value):
     # pylint: disable=unused-argument
     value = int(value)
     if value < 0:
-        raise ValueError('Value must be positive or zero')
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value,
+            '{!s} must be positive or zero'.format(prop))
     return value
 
 
