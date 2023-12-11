@@ -358,27 +358,25 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         :return: sanitized value
         :raises: qubes.exc.QubesValueError
         '''
+        try:
+            untrusted_newvalue = untrusted_newvalue.decode('ascii',
+                errors='strict')
+        except UnicodeDecodeError:
+            raise qubes.exc.QubesValueError(
+                'Non-ASCII bytes in property value')
         # do not treat type='str' as sufficient validation
         if self.type is not None and self.type is not str:
             # assume specific type will preform enough validation
-            try:
-                untrusted_newvalue = untrusted_newvalue.decode('ascii',
-                    errors='strict')
-            except UnicodeDecodeError:
-                raise qubes.exc.QubesValueError
             if self.type is bool:
                 return self.bool(None, None, untrusted_newvalue)
             try:
                 return self.type(untrusted_newvalue)
             except ValueError:
-                raise qubes.exc.QubesValueError
+                raise qubes.exc.QubesValueError(
+                    'Failed to parse property value as {}'.format(
+                        self.type.__name__))
         else:
             # 'str' or not specified type
-            try:
-                untrusted_newvalue = untrusted_newvalue.decode('ascii',
-                    errors='strict')
-            except UnicodeDecodeError:
-                raise qubes.exc.QubesValueError
             allowed_set = string.printable
             if not all(x in allowed_set for x in untrusted_newvalue):
                 raise qubes.exc.QubesValueError(
