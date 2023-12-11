@@ -448,7 +448,7 @@ class NetVMMixin(qubes.events.Emitter):
             if not self.app.vmm.offline_mode \
                     and self.is_running() and not newvalue.is_running():
                 raise qubes.exc.QubesVMNotStartedError(newvalue,
-                    'Cannot dynamically attach to stopped NetVM: {!r}'.format(
+                    'Cannot dynamically attach to stopped qube {!s}'.format(
                         newvalue))
 
         # don't check oldvalue, because it's missing if it was default
