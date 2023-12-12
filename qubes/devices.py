@@ -197,12 +197,11 @@ class DeviceInfo(Device):
     ):
         super().__init__(backend_domain, ident, devclass)
 
-        # it's always better to print "unknown" than "None" or empty string.
-        self._vendor = vendor or "unknown"
-        self._product = product or "unknown"
-        self._manufacturer = manufacturer or "unknown"
-        self._name = name or "unknown"
-        self._serial = serial or "unknown"
+        self._vendor = vendor
+        self._product = product
+        self._manufacturer = manufacturer
+        self._name = name
+        self._serial = serial
         self._interfaces = interfaces or [DeviceInterface.Other]
 
         self.data = kwargs
@@ -212,10 +211,12 @@ class DeviceInfo(Device):
         """
         Device vendor name from local database.
 
-        Could be empty string or "unknown".
+        If value is not set or empty "unknown" is returned.
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
+        if not self._vendor:
+            return "unknown"
         return self._vendor
 
     @property
@@ -223,10 +224,12 @@ class DeviceInfo(Device):
         """
         Device name from local database.
 
-        Could be empty string or "unknown".
+        If value is not set or empty "unknown" is returned.
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
+        if not self._product:
+            return "unknown"
         return self._product
 
     @property
@@ -234,10 +237,12 @@ class DeviceInfo(Device):
         """
         The name of the manufacturer of the device introduced by device itself.
 
-        Could be empty string or "unknown".
+        If value is not set or empty "unknown" is returned.
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._manufacturer:
+            return "unknown"
         return self._manufacturer
 
     @property
@@ -245,10 +250,12 @@ class DeviceInfo(Device):
         """
         The name of the device it introduced itself with.
 
-        Could be empty string or "unknown".
+        If value is not set or empty "unknown" is returned.
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._name:
+            return "unknown"
         return self._name
 
     @property
@@ -256,10 +263,12 @@ class DeviceInfo(Device):
         """
         The serial number of the device it introduced itself with.
 
-        Could be empty string or "unknown".
+        If value is not set or empty "unknown" is returned.
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._serial:
+            return "unknown"
         return self._serial
 
     @property
@@ -267,26 +276,26 @@ class DeviceInfo(Device):
         """
         Short human-readable description.
 
-        For unknown device returns `unknown device (no data)`.
-        For unknown USB device returns `unknown usb device (no data)`.
+        For unknown device returns `unknown device (unknown vendor)`.
+        For unknown USB device returns `unknown usb device (unknown vendor)`.
         For unknown USB device with known serial number returns
-            `unknown usb device (<serial>)`.
+            `<serial> (unknown vendor)`.
         """
         if self.product and self.product != "unknown":
             prod = self.product
         elif self.name and self.name != "unknown":
             prod = self.name
+        elif self.serial and self.serial != "unknown":
+            prod = self.serial
         else:
-            prod = f"unknown device {self.devclass if self.devclass else ''}"
+            prod = f"unknown {self.devclass if self.devclass else ''} device"
 
         if self.vendor and self.vendor != "unknown":
             vendor = self.vendor
         elif self.manufacturer and self.manufacturer != "unknown":
             vendor = self.manufacturer
-        elif self.serial and self.vendor != "unknown":
-            vendor = self.serial
         else:
-            vendor = "no data"
+            vendor = "unknown vendor"
 
         return f"{prod} ({vendor})"
 
