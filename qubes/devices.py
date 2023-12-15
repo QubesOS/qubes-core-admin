@@ -58,7 +58,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 import itertools
 import base64
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Type
 
 import qubes.utils
 from qubes.api import PermissionDenied
@@ -197,11 +197,12 @@ class DeviceInfo(Device):
     ):
         super().__init__(backend_domain, ident, devclass)
 
-        self._vendor = vendor
-        self._product = product
-        self._manufacturer = manufacturer
-        self._name = name
-        self._serial = serial
+        # it's always better to print "unknown" than "None" or empty string.
+        self._vendor = vendor or "unknown"
+        self._product = product or "unknown"
+        self._manufacturer = manufacturer or "unknown"
+        self._name = name or "unknown"
+        self._serial = serial or "unknown"
         self._interfaces = interfaces or [DeviceInterface.Other]
 
         self.data = kwargs
@@ -211,12 +212,10 @@ class DeviceInfo(Device):
         """
         Device vendor name from local database.
 
-        If value is not set or empty "unknown" is returned.
+        Could be empty string or "unknown".
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
-        if not self._vendor:
-            return "unknown"
         return self._vendor
 
     @property
@@ -224,12 +223,10 @@ class DeviceInfo(Device):
         """
         Device name from local database.
 
-        If value is not set or empty "unknown" is returned.
+        Could be empty string or "unknown".
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
-        if not self._product:
-            return "unknown"
         return self._product
 
     @property
@@ -237,12 +234,10 @@ class DeviceInfo(Device):
         """
         The name of the manufacturer of the device introduced by device itself.
 
-        If value is not set or empty "unknown" is returned.
+        Could be empty string or "unknown".
 
         Override this method to return proper name directly from device itself.
         """
-        if not self._manufacturer:
-            return "unknown"
         return self._manufacturer
 
     @property
@@ -250,12 +245,10 @@ class DeviceInfo(Device):
         """
         The name of the device it introduced itself with.
 
-        If value is not set or empty "unknown" is returned.
+        Could be empty string or "unknown".
 
         Override this method to return proper name directly from device itself.
         """
-        if not self._name:
-            return "unknown"
         return self._name
 
     @property
@@ -263,12 +256,10 @@ class DeviceInfo(Device):
         """
         The serial number of the device it introduced itself with.
 
-        If value is not set or empty "unknown" is returned.
+        Could be empty string or "unknown".
 
         Override this method to return proper name directly from device itself.
         """
-        if not self._serial:
-            return "unknown"
         return self._serial
 
     @property
@@ -347,7 +338,7 @@ class DeviceInfo(Device):
         """
         Serialize object to be transmitted via Qubes API.
         """
-        # 'backend_domain' and 'interfaces' are not string so they need
+        # 'backend_domain' and 'interfaces' are not string, so they need
         # special treatment
         default_attrs = {
             'ident', 'devclass', 'vendor', 'product', 'manufacturer', 'name',
@@ -386,9 +377,30 @@ class DeviceInfo(Device):
             expected_backend_domain: 'qubes.vm.qubesvm.QubesVM',
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
+        try:
+            result = DeviceInfo._deserialize(
+                cls, serialization, expected_backend_domain, expected_devclass)
+        except Exception:
+            # TODO: logs!
+            ident = serialization.split(b' ')[0].decode(
+                'ascii', errors='ignore')
+            result = UnknownDevice(
+                backend_domain=expected_backend_domain,
+                ident=ident,
+                devclass=expected_devclass,
+            )
+        return result
+
+    @staticmethod
+    def _deserialize(
+            cls: Type,
+            serialization: bytes,
+            expected_backend_domain: 'qubes.vm.qubesvm.QubesVM',
+            expected_devclass: Optional[str] = None,
+    ) -> 'DeviceInfo':
         properties_str = [
             base64.b64decode(line).decode('ascii', errors='ignore')
-            for line in serialization.split(b' ')]
+            for line in serialization.split(b' ')[1:]]
 
         properties = dict()
         for line in properties_str:
@@ -398,20 +410,28 @@ class DeviceInfo(Device):
         if properties['backend_domain'] != expected_backend_domain.name:
             raise ValueError("TODO")  # TODO
         properties['backend_domain'] = expected_backend_domain
-        if expected_devclass and properties['devclass'] != expected_devclass:
-            raise ValueError("TODO")  # TODO
+        # if expected_devclass and properties['devclass'] != expected_devclass:
+        #     raise ValueError("TODO")  # TODO
 
         interfaces = properties['interfaces']
         interfaces = [
-            DeviceInterface.from_str(interfaces[i:i+6])
+            DeviceInterface.from_str(interfaces[i:i + 6])
             for i in range(0, len(interfaces), 6)]
         properties['interfaces'] = interfaces
+
         return cls(**properties)
 
     @property
     def frontend_domain(self):
         return self.data.get("frontend_domain", None)
 
+
+class UnknownDevice(DeviceInfo):
+    # pylint: disable=too-few-public-methods
+    """Unknown device - for example exposed by domain not running currently"""
+
+    def __init__(self, backend_domain, devclass, ident, **kwargs):
+        super().__init__(backend_domain, ident, devclass=devclass, **kwargs)
 
 class DeviceAssignment(Device):  # pylint: disable=too-few-public-methods
     """ Maps a device to a frontend_domain. """
