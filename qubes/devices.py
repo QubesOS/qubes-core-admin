@@ -197,13 +197,12 @@ class DeviceInfo(Device):
     ):
         super().__init__(backend_domain, ident, devclass)
 
-        # it's always better to print "unknown" than "None" or empty string.
-        self._vendor = vendor or "unknown"
-        self._product = product or "unknown"
-        self._manufacturer = manufacturer or "unknown"
-        self._name = name or "unknown"
-        self._serial = serial or "unknown"
-        self._interfaces = interfaces or [DeviceInterface.Other]
+        self._vendor = vendor
+        self._product = product
+        self._manufacturer = manufacturer
+        self._name = name
+        self._serial = serial
+        self._interfaces = interfaces
 
         self.data = kwargs
 
@@ -216,6 +215,8 @@ class DeviceInfo(Device):
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
+        if not self._vendor:
+            return "unknown"
         return self._vendor
 
     @property
@@ -227,6 +228,8 @@ class DeviceInfo(Device):
 
         Override this method to return proper name from `/usr/share/hwdata/*`.
         """
+        if not self._product:
+            return "unknown"
         return self._product
 
     @property
@@ -238,6 +241,8 @@ class DeviceInfo(Device):
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._manufacturer:
+            return "unknown"
         return self._manufacturer
 
     @property
@@ -249,6 +254,8 @@ class DeviceInfo(Device):
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._name:
+            return "unknown"
         return self._name
 
     @property
@@ -260,6 +267,8 @@ class DeviceInfo(Device):
 
         Override this method to return proper name directly from device itself.
         """
+        if not self._serial:
+            return "unknown"
         return self._serial
 
     @property
@@ -297,6 +306,8 @@ class DeviceInfo(Device):
 
         Every device should have at least one interface.
         """
+        if not self._interfaces:
+            return [DeviceInterface.Other]
         return self._interfaces
 
     @property
@@ -354,9 +365,6 @@ class DeviceInfo(Device):
             base64.b64encode(f'{prop}={value!s}'.encode('ascii'))
             for prop, value in itertools.chain(
                 ((key, getattr(self, key)) for key in default_attrs),
-                # # keep description as the last one, according to API
-                # # specification
-                # (('description', self.description),)
             ))
 
         backend_domain_name = self.backend_domain.name
@@ -364,7 +372,7 @@ class DeviceInfo(Device):
                                backend_domain_name.encode('ascii'))
         properties += b' ' + base64.b64encode(backend_domain_prop)
 
-        interfaces = ''.join(ifc.value for ifc in self._interfaces)
+        interfaces = ''.join(ifc.value for ifc in self.interfaces)
         interfaces_prop = b'interfaces=' + str(interfaces).encode('ascii')
 
         properties += b' ' + base64.b64encode(interfaces_prop)
@@ -400,7 +408,7 @@ class DeviceInfo(Device):
     ) -> 'DeviceInfo':
         properties_str = [
             base64.b64decode(line).decode('ascii', errors='ignore')
-            for line in serialization.split(b' ')[1:]]
+            for line in serialization.split(b' ')]
 
         properties = dict()
         for line in properties_str:
