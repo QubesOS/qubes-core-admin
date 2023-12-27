@@ -169,21 +169,26 @@ class Features(dict):
         raise KeyError(feature)
 
     def check_with_template(self, feature, default=_NO_DEFAULT):
-        '''Check if the subject's template has the specified feature.'''
+        '''Check for the specified feature; if this VM does not have it,
+         it checks with its template.'''
         return self._recursive_check('template',
             feature=feature, default=default)
 
     def check_with_netvm(self, feature, default=_NO_DEFAULT):
-        '''Check if the subject's netvm has the specified feature.'''
+        '''Check for the specified feature; if this VM does not have it,
+         it checks with its netvm.'''
         return self._recursive_check('netvm',
             feature=feature, default=default)
 
     def check_with_adminvm(self, feature, default=_NO_DEFAULT):
-        '''Check if the AdminVM has the specified feature.'''
+        '''Check for the specified feature; if this VM does not have it,
+         it checks with the AdminVM.'''
         return self._recursive_check(check_adminvm=True,
             feature=feature, default=default)
 
     def check_with_template_and_adminvm(self, feature, default=_NO_DEFAULT):
-        '''Check if the template and AdminVM has the specified feature.'''
+        '''Check for the specified feature; if this VM does not have it,
+         it checks with its template. If the template does not have it, it
+         checks with the AdminVM.'''
         return self._recursive_check('template', check_adminvm=True,
             feature=feature, default=default)
