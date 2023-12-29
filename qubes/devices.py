@@ -57,6 +57,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 """
 import itertools
 import base64
+import sys
 from enum import Enum
 from typing import Optional, List, Type
 
@@ -378,10 +379,13 @@ class DeviceInfo(Device):
             parent_prop = b'parent=' + self._parent.ident.encode('ascii')
             properties += b' ' + base64.b64encode(parent_prop)
 
-        properties += b' ' + b' '.join(
+        data = b' '.join(
             base64.b64encode(f'_{prop}={value!s}'.encode('ascii'))
             for prop, value in ((key, self.data[key]) for key in self.data)
         )
+        if data:
+            properties += b' ' + data
+
         return properties
 
     @classmethod
@@ -394,8 +398,8 @@ class DeviceInfo(Device):
         try:
             result = DeviceInfo._deserialize(
                 cls, serialization, expected_backend_domain, expected_devclass)
-        except Exception:
-            # TODO: logs!
+        except Exception as exc:
+            print(exc, file=sys.stderr)  # TODO
             ident = serialization.split(b' ')[0].decode(
                 'ascii', errors='ignore')
             result = UnknownDevice(
