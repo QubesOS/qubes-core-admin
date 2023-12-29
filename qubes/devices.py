@@ -376,7 +376,7 @@ class DeviceInfo(Device):
         properties += b' ' + base64.b64encode(interfaces_prop)
 
         if self.parent_device is not None:
-            parent_prop = b'parent=' + self._parent.ident.encode('ascii')
+            parent_prop = b'parent=' + self.parent_device.ident.encode('ascii')
             properties += b' ' + base64.b64encode(parent_prop)
 
         data = b' '.join(

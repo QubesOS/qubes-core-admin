@@ -121,17 +121,23 @@ class BlockDevice(qubes.devices.DeviceInfo):
         """
         if self._parent is None:
             if not self.backend_domain.is_running():
-                return None
+                parent_ident = "not running"
+                self._parent = qubes.devices.Device(
+                    self.backend_domain, parent_ident)
+                # return None
             untrusted_parent: bytes = self.backend_domain.untrusted_qdb.read(
                 f'/qubes-block-devices/{self.ident}/parent')
             if untrusted_parent is None:
-                return None
+                parent_ident = "empty"
+                self._parent = qubes.devices.Device(
+                    self.backend_domain, parent_ident)
+                # return None
             else:
                 parent_ident = self._sanitize(untrusted_parent)
                 self._parent = qubes.devices.Device(
                     self.backend_domain, parent_ident)
         return self.backend_domain.devices.get(
-            self._parent.devclass, {}).get(self._parent.ident, None)
+            self._parent.devclass, {}).get(self._parent.ident, qubes.devices.UnknownDevice(backend_domain=self.backend_domain, ident="not in dict"))
 
     @staticmethod
     def _sanitize(
