@@ -18,9 +18,12 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-''' Qubes block devices extensions '''
+""" Qubes block devices extensions """
+import collections
 import re
 import string
+from typing import Optional
+
 import lxml.etree
 
 import qubes.devices
@@ -46,7 +49,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident):
         super().__init__(
             backend_domain=backend_domain, ident=ident, devclass="block")
-        self._description = None
+
         self._mode = None
         self._size = None
 
@@ -108,34 +111,83 @@ class BlockDevice(qubes.devices.DeviceInfo):
         """Device node in backend domain"""
         return '/dev/' + self.ident.replace('_', '/')
 
+    @property
+    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+        """
+        The parent device if any.
+
+        If the device is part of another device (e.g. it's a single
+        partition of an usb stick), the parent device id should be here.
+        """
+        if self._parent is None:
+            if not self.backend_domain.is_running():
+                return None
+            untrusted_parent: bytes = self.backend_domain.untrusted_qdb.read(
+                f'/qubes-block-devices/{self.ident}/parent')
+            if untrusted_parent is None:
+                return None
+            else:
+                parent_ident = self._sanitize(untrusted_parent)
+                self._parent = qubes.devices.Device(
+                    self.backend_domain, parent_ident)
+        return self.backend_domain.devices.get(
+            self._parent.devclass, {}).get(self._parent.ident, None)
+
+    @staticmethod
+    def _sanitize(
+            untrusted_parent: bytes,
+            safe_chars: str =
+            string.ascii_letters + string.digits + string.punctuation
+    ) -> str:
+        untrusted_device_desc = untrusted_parent.decode(
+            'ascii', errors='ignore')
+        return ''.join(
+            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
+        )
+
 
 class BlockDeviceExtension(qubes.ext.Extension):
     def __init__(self):
-        self._exposed_devices = set()
+        super().__init__()
+        self.devices_cache = collections.defaultdict(dict)
 
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
-        '''Initialize watching for changes'''
+        """Initialize watching for changes"""
         # pylint: disable=unused-argument
         vm.watch_qdb_path('/qubes-block-devices')
+        if event == 'domain-load':
+            # avoid building a cache on domain-init, as it isn't fully set yet,
+            # and definitely isn't running yet
+            current_devices = {
+                dev.ident: dev.frontend_domain
+                for dev in self.on_device_list_block(vm, None)
+            }
+            self.devices_cache[vm.name] = current_devices
+        else:
+            self.devices_cache[vm.name] = {}
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
-        """ A change in QubesDB means a change in device list. """
+        """A change in QubesDB means a change in device list."""
         # pylint: disable=unused-argument
-        # vm.fire_event('device-list-change:block') TODO: test
-        curr = {dv_info
-                for dv_info in self.on_device_list_block(vm, None)}
-        removed = self._exposed_devices - curr
-        added = curr - self._exposed_devices
-        for dv in removed:
-            vm.fire_event('device-removed:block', removed=dv)
-        for dv in added:
-            vm.fire_event('device-added:block', added=dv)
+        vm.fire_event('device-list-change:block')
+        current_devices = dict((dev.ident, dev.frontend_domain)
+           for dev in self.on_device_list_block(vm, None))
 
-        # TODO: if not removed and not added:
+        devices_cache_for_vm = self.devices_cache[vm.name]
+        for dev_id, connected_to in current_devices.items():
+            if dev_id not in devices_cache_for_vm:
+                device = BlockDevice(vm, dev_id)
+                vm.fire_event('device-added:block', device=device)
+        for dev_id, connected_to in devices_cache_for_vm.items():
+            if dev_id not in current_devices:
+                device = BlockDevice(vm, dev_id)
+                vm.fire_event('device-removed:block', device=device)
 
-        self._exposed_devices = curr
+        # TODO: if not removed and not added
+        # TODO attach/detach
+        self.devices_cache[vm.name] = current_devices
 
     def device_get(self, vm, ident):
         '''Read information about device from QubesDB
