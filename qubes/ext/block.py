@@ -137,7 +137,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 self._parent = qubes.devices.Device(
                     self.backend_domain, parent_ident)
         return self.backend_domain.devices.get(
-            self._parent.devclass, {}).get(self._parent.ident, qubes.devices.UnknownDevice(backend_domain=self.backend_domain, ident="not in dict"))
+            self._parent.devclass, {}).get(self._parent.ident, qubes.devices.UnknownDevice(backend_domain=self.backend_domain, ident=self._parent.ident))
 
     @staticmethod
     def _sanitize(
