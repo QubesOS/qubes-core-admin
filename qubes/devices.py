@@ -290,6 +290,8 @@ class DeviceInfo(Device):
             prod = self.name
         elif self.serial and self.serial != "unknown":
             prod = self.serial
+        elif self.parent_device is not None:
+            return f"partition of {self.parent_device}"
         else:
             prod = f"unknown {self.devclass if self.devclass else ''} device"
 
