@@ -316,17 +316,14 @@ class DeviceInfo(Device):
         return self._interfaces
 
     @property
-    def parent_device(self) -> Optional['DeviceInfo']:
+    def parent_device(self) -> Optional[Device]:
         """
         The parent device if any.
 
         If the device is part of another device (e.g. it's a single
         partition of an usb stick), the parent device id should be here.
         """
-        if self._parent is None:
-            return None
-        return self.backend_domain.devices.get(
-            self._parent.devclass, {}).get(self._parent.ident, None)
+        return self._parent
 
     @property
     def subdevices(self) -> List['DeviceInfo']:

@@ -112,7 +112,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
         return '/dev/' + self.ident.replace('_', '/')
 
     @property
-    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+    def parent_device(self) -> Optional[qubes.devices.Device]:
         """
         The parent device if any.
 
@@ -130,13 +130,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 parent_ident = self._sanitize(untrusted_parent)
                 self._parent = qubes.devices.Device(
                     self.backend_domain, parent_ident)
-        return self.backend_domain.devices.get(
-            self._parent.devclass, {}).get(
-            self._parent.ident, qubes.devices.UnknownDevice(
-                backend_domain=self._parent.backend_domain,
-                ident=self._parent.ident
-            )
-        )
+        return self._parent
 
     @staticmethod
     def _sanitize(
