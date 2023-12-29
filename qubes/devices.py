@@ -418,7 +418,7 @@ class DeviceInfo(Device):
     ) -> 'DeviceInfo':
         properties_str = [
             base64.b64decode(line).decode('ascii', errors='ignore')
-            for line in serialization.split(b' ')]
+            for line in serialization.split(b' ')[1:]]
 
         properties = dict()
         for line in properties_str:
