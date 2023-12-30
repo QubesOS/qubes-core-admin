@@ -317,6 +317,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
             self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                 self.libvirt_name
             )
+        print(hostdev_details.XMLDesc(), file=sys.stderr)  # TODO
         hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
         self._vendor = result["vendor"] = hostdev_xml.findtext(
             'capability/vendor')
