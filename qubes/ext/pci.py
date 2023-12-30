@@ -24,6 +24,8 @@ import functools
 import os
 import re
 import subprocess
+from typing import Optional, List
+
 import libvirt
 import lxml
 import lxml.etree
@@ -83,7 +85,7 @@ def pcidev_class(dev_xmldesc):
         with open(sysfs_path + '/class', encoding='ascii') as f_class:
             class_id = f_class.read().strip()
     except OSError:
-        return "Unknown"
+        return "unknown"
 
     if not qubes.ext.pci.pci_classes:
         qubes.ext.pci.pci_classes = load_pci_classes()
@@ -93,7 +95,7 @@ def pcidev_class(dev_xmldesc):
         # ignore prog-if
         return qubes.ext.pci.pci_classes[class_id[0:4]]
     except KeyError:
-        return "Unknown"
+        return "unknown"
 
 
 def attached_devices(app):
@@ -167,10 +169,110 @@ class PCIDevice(qubes.devices.DeviceInfo):
         self._description = None
 
     @property
+    def vendor(self) -> str:
+        """
+        Device vendor from local database `/usr/share/hwdata/usb.ids`
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._vendor is None:
+            result = self._load_desc_from_qubesdb()["vendor"]
+        else:
+            result = self._vendor
+        return result
+
+    @property
+    def product(self) -> str:
+        """
+        Device name from local database `/usr/share/hwdata/usb.ids`
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._product is None:
+            result = self._load_desc_from_qubesdb()["product"]
+        else:
+            result = self._product
+        return result
+
+    @property
+    def manufacturer(self) -> str:
+        """
+        The name of the manufacturer of the device introduced by device itself
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._manufacturer is None:
+            result = self._load_desc_from_qubesdb()["manufacturer"]
+        else:
+            result = self._manufacturer
+        return result
+
+    @property
+    def name(self) -> str:
+        """
+        The name of the device it introduced itself with (could be empty string)
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._name is None:
+            result = self._load_desc_from_qubesdb()["name"]
+        else:
+            result = self._name
+        return result
+
+    @property
+    def serial(self) -> str:
+        """
+        The serial number of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._serial is None:
+            result = self._load_desc_from_qubesdb()["serial"]
+        else:
+            result = self._serial
+        return result
+
+    @property
+    def interfaces(self) -> List[qubes.devices.DeviceCategory]:
+        """
+        List of device interfaces.
+
+        Every device should have at least one interface.
+        """
+        if self._interfaces is None:
+            hostdev_details = \
+                self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+                    self.libvirt_name
+                )
+            self._interfaces = [pcidev_class(lxml.etree.fromstring(
+                hostdev_details.XMLDesc()))]
+        return self._interfaces
+
+    @property
+    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+        """
+        The parent device if any.
+
+        PCI device has no parents.
+        """
+        return None
+
+    @property
     def libvirt_name(self):
         # pylint: disable=no-member
         # noinspection PyUnresolvedReferences
-        return 'pci_0000_{}_{}_{}'.format(self.bus, self.device, self.function)
+        return f'pci_0000_{self.bus}_{self.device}_{self.function}'
 
     @property
     def description(self):
@@ -183,11 +285,11 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 hostdev_details.XMLDesc()))
         return self._description
 
-    # @property
-    # def frontend_domain(self):  # TODO: possibly could be removed
-    #     # TODO: cache this
-    #     all_attached = attached_devices(self.backend_domain.app)
-    #     return all_attached.get(self.ident, None)
+    @property
+    def frontend_domain(self):
+        # TODO: cache this
+        all_attached = attached_devices(self.backend_domain.app)
+        return all_attached.get(self.ident, None)
 
 
 class PCIDeviceExtension(qubes.ext.Extension):

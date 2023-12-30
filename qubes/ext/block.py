@@ -22,7 +22,7 @@
 import collections
 import re
 import string
-from typing import Optional
+from typing import Optional, List
 
 import lxml.etree
 
@@ -110,6 +110,15 @@ class BlockDevice(qubes.devices.DeviceInfo):
     def device_node(self):
         """Device node in backend domain"""
         return '/dev/' + self.ident.replace('_', '/')
+
+    @property
+    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
+        """
+        List of device interfaces.
+
+        Every device should have at least one interface.
+        """
+        return [qubes.devices.DeviceInterface("******", "block")]
 
     @property
     def parent_device(self) -> Optional[qubes.devices.Device]:
