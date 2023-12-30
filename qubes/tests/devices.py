@@ -21,7 +21,7 @@
 #
 
 import qubes.devices
-from qubes.devices import DeviceInfo, DeviceInterface
+from qubes.devices import DeviceInfo, DeviceCategory
 
 import qubes.tests
 
@@ -245,7 +245,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             manufacturer="",
             name="Some untrusted garbage",
             serial=None,
-            interfaces=[DeviceInterface.Other, DeviceInterface.USB_HID],
+            interfaces=[DeviceCategory.Other, DeviceCategory.USB_HID],
             # additional_info="",  # TODO
             # date="06.12.23",  # TODO
         )
@@ -277,7 +277,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             manufacturer="",
             name="Some untrusted garbage",
             serial=None,
-            interfaces=[DeviceInterface.Other, DeviceInterface.USB_HID],
+            interfaces=[DeviceCategory.Other, DeviceCategory.USB_HID],
             # additional_info="",  # TODO
             # date="06.12.23",  # TODO
         )

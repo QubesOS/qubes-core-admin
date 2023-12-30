@@ -118,7 +118,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
         Every device should have at least one interface.
         """
-        return [qubes.devices.DeviceInterface.Mass_Data]
+        return [qubes.devices.DeviceInterface("******", "block")]
 
     @property
     def parent_device(self) -> Optional[qubes.devices.Device]:
