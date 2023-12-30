@@ -134,47 +134,53 @@ class Device:
 
 
 class DeviceInterface(Enum):
-    # USB interfaces:
-    # https://www.usb.org/defined-class-codes#anchor_BaseClass03h
-    Other = "******"
-    USB_Audio = "01****"
-    USB_CDC = "02****"  # Communications Device Class
-    USB_HID = "03****"
-    USB_HID_Keyboard = "03**01"
-    USB_HID_Mouse = "03**02"
-    # USB_Physical = "05****"
-    # USB_Still_Imaging = "06****"  # Camera
-    USB_Printer = "07****"
-    USB_Mass_Storage = "08****"
-    USB_Hub = "09****"
-    USB_CDC_Data = "0a****"
-    USB_Smart_Card = "0b****"
-    # USB_Content_Security = "0d****"
-    USB_Video = "0e****"  # Video Camera
-    # USB_Personal_Healthcare = "0f****"
-    USB_Audio_Video = "10****"
-    # USB_Billboard = "11****"
-    # USB_C_Bridge = "12****"
-    # and more...
+    """
+    Arbitrarily selected interfaces that are important to users,
+    thus deserving special recognition such as a custom icon, etc.
+
+    """
+    Other = "*******"
+
+    Communication = ("u02****", "p07****")  # eg. modems
+    Input = ("u03****", "p09****")  # HID etc.
+    Keyboard = ("u03**01", "p0900**")
+    Mouse = ("u03**02", "p0902**")
+    Printer = ("u07****",)
+    Scanner = ("p0903**",)
+    # Multimedia = Audio, Video, Displays etc.
+    Multimedia = ("u01****", "u0e****", "u06****", "u10****", "p03****",
+                  "p04****")
+    Wireless = ("ue0****", "p0d****")
+    Bluetooth = ("ue00101", "p0d11**")
+    Mass_Data = ("b******", "u08****", "p01****")
+    Network = ("p02****",)
+    Memory = ("p05****",)
+    PCI_Bridge = ("p06****",)
+    Docking_Station = ("p0a****",)
+    Processor = ("p0b****", "p40****")
+    PCI_Serial_Bus = ("p0c****",)
+    PCI_USB = ("p0c03**",)
 
     @staticmethod
     def from_str(interface_encoding: str) -> 'DeviceInterface':
         result = DeviceInterface.Other
+        if len(interface_encoding) != len(DeviceInterface.Other.value):
+            return result
         best_score = 0
 
         for interface in DeviceInterface:
-            pattern = interface.value
-            score = 0
-            for t, p in zip(interface_encoding, pattern):
-                if t == p:
-                    score += 1
-                elif p != "*":
-                    score = -1  # inconsistent with pattern
-                    break
+            for pattern in interface.value:
+                score = 0
+                for t, p in zip(interface_encoding, pattern):
+                    if t == p:
+                        score += 1
+                    elif p != "*":
+                        score = -1  # inconsistent with pattern
+                        break
 
-            if score > best_score:
-                best_score = score
-                result = interface
+                if score > best_score:
+                    best_score = score
+                    result = interface
 
         return result
 
@@ -563,10 +569,9 @@ class DeviceCollection:
             'qubes.devices', self._bus)
 
     async def attach(self, device_assignment: DeviceAssignment):
-        '''Attach (add) device to domain.
-
-        :param DeviceInfo device: device object
-        '''
+        """
+        Attach device to domain.
+        """
 
         if device_assignment.devclass is None:
             device_assignment.devclass = self._bus
@@ -623,10 +628,9 @@ class DeviceCollection:
             self._set.discard(assignment)
 
     async def detach(self, device_assignment: DeviceAssignment):
-        '''Detach (remove) device from domain.
-
-        :param DeviceInfo device: device object
-        '''
+        """
+        Detach device from domain.
+        """
 
         if device_assignment.devclass is None:
             device_assignment.devclass = self._bus
