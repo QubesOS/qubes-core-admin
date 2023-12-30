@@ -135,9 +135,10 @@ class Device:
 
 class DeviceCategory(Enum):
     """
+    Category of peripheral device.
+
     Arbitrarily selected interfaces that are important to users,
     thus deserving special recognition such as a custom icon, etc.
-
     """
     Other = "*******"
 
@@ -186,12 +187,16 @@ class DeviceCategory(Enum):
 
 
 class DeviceInterface:
+    """
+    Peripheral device interface wrapper.
+    """
+
     def __init__(self, interface_encoding: str, devclass: Optional[str] = None):
         ifc_padded = interface_encoding.ljust(6, '*')
         if devclass:
             if len(ifc_padded) > 6:
                 print(
-                    f"interface_encoding is too long "
+                    f"{interface_encoding=} is too long "
                     f"(is {len(interface_encoding)}, expected max. 6) "
                     f"for given {devclass=}",
                     file=sys.stderr
@@ -202,7 +207,7 @@ class DeviceInterface:
             devclass = known_devclasses.get(interface_encoding[0], None)
             if len(ifc_padded) > 7:
                 print(
-                    f"interface_encoding is too long "
+                    f"{interface_encoding=} is too long "
                     f"(is {len(interface_encoding)}, expected max. 7)",
                     file=sys.stderr
                 )
@@ -226,22 +231,29 @@ class DeviceInterface:
         """ Immutable Device category such like: 'Mouse', 'Mass_Data' etc. """
         return self._category
 
-    @property
-    def unknown(self) -> 'DeviceInterface':
-        return DeviceInterface(" ******")
+    @classmethod
+    def unknown(cls) -> 'DeviceInterface':
+        """ Value for unknown device interface. """
+        return cls(" ******")
 
-    @property
     def __repr__(self):
         return self._interface_encoding
 
-    @property
     def __str__(self):
         if self.devclass == "block":
             return "Block device"
         if self.devclass in ("usb", "pci"):
-            self._load_classes(self.devclass).get(
-                self._interface_encoding[1:],
-                f"Unclassified {self.devclass} device")
+            result = self._load_classes(self.devclass).get(
+                self._interface_encoding[1:], None)
+            if result is None:
+                result = self._load_classes(self.devclass).get(
+                    self._interface_encoding[1:-2] + '**', None)
+            if result is None:
+                result = self._load_classes(self.devclass).get(
+                    self._interface_encoding[1:-4] + '****', None)
+            if result is None:
+                result = f"Unclassified {self.devclass} device"
+            return result
         return repr(self)
 
     @staticmethod
@@ -410,7 +422,7 @@ class DeviceInfo(Device):
         Every device should have at least one interface.
         """
         if not self._interfaces:
-            return [DeviceInterface.unknown]
+            return [DeviceInterface.unknown()]
         return self._interfaces
 
     @property
@@ -468,7 +480,7 @@ class DeviceInfo(Device):
                                backend_domain_name.encode('ascii'))
         properties += b' ' + base64.b64encode(backend_domain_prop)
 
-        interfaces = ''.join(ifc._interface_encoding for ifc in self.interfaces)
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
         interfaces_prop = b'interfaces=' + str(interfaces).encode('ascii')
         properties += b' ' + base64.b64encode(interfaces_prop)
 

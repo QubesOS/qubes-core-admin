@@ -23,8 +23,10 @@
 import functools
 import os
 import re
+import string
 import subprocess
-from typing import Optional, List
+import sys
+from typing import Optional, List, Dict, Tuple
 
 import libvirt
 import lxml
@@ -96,6 +98,20 @@ def pcidev_class(dev_xmldesc):
         return qubes.ext.pci.pci_classes[class_id[0:4]]
     except KeyError:
         return "unknown"
+
+
+def pcidev_interface(dev_xmldesc):
+    sysfs_path = dev_xmldesc.findtext('path')
+    assert sysfs_path
+    try:
+        with open(sysfs_path + '/class', encoding='ascii') as f_class:
+            class_id = f_class.read().strip()
+    except OSError:
+        return "000000"
+
+    if class_id.startswith('0x'):
+        class_id = class_id[2:]
+    return class_id
 
 
 def attached_devices(app):
@@ -178,7 +194,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
         Lazy loaded.
         """
         if self._vendor is None:
-            result = self._load_desc_from_qubesdb()["vendor"]
+            result = self._load_desc()["vendor"]
         else:
             result = self._vendor
         return result
@@ -193,58 +209,13 @@ class PCIDevice(qubes.devices.DeviceInfo):
         Lazy loaded.
         """
         if self._product is None:
-            result = self._load_desc_from_qubesdb()["product"]
+            result = self._load_desc()["product"]
         else:
             result = self._product
         return result
 
     @property
-    def manufacturer(self) -> str:
-        """
-        The name of the manufacturer of the device introduced by device itself
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._manufacturer is None:
-            result = self._load_desc_from_qubesdb()["manufacturer"]
-        else:
-            result = self._manufacturer
-        return result
-
-    @property
-    def name(self) -> str:
-        """
-        The name of the device it introduced itself with (could be empty string)
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._name is None:
-            result = self._load_desc_from_qubesdb()["name"]
-        else:
-            result = self._name
-        return result
-
-    @property
-    def serial(self) -> str:
-        """
-        The serial number of the device it introduced itself with.
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._serial is None:
-            result = self._load_desc_from_qubesdb()["serial"]
-        else:
-            result = self._serial
-        return result
-
-    @property
-    def interfaces(self) -> List[qubes.devices.DeviceCategory]:
+    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
         """
         List of device interfaces.
 
@@ -255,8 +226,10 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                     self.libvirt_name
                 )
-            self._interfaces = [pcidev_class(lxml.etree.fromstring(
-                hostdev_details.XMLDesc()))]
+            interface_encoding = pcidev_interface(lxml.etree.fromstring(
+                hostdev_details.XMLDesc()))
+            self._interfaces = [qubes.devices.DeviceInterface(
+                interface_encoding, devclass='pci')]
         return self._interfaces
 
     @property
@@ -284,6 +257,40 @@ class PCIDevice(qubes.devices.DeviceInfo):
             self._description = _device_desc(lxml.etree.fromstring(
                 hostdev_details.XMLDesc()))
         return self._description
+
+    def _load_desc(self) -> Dict[str, str]:
+        unknown = "unknown"
+        result = {"vendor": unknown,
+                  "product": unknown,
+                  "manufacturer": unknown,
+                  "name": unknown,
+                  "serial": unknown}
+        if not self.backend_domain.is_running():
+            # don't cache this value
+            return result
+        hostdev_details = \
+            self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+                self.libvirt_name
+            )
+        hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
+        self._vendor = result["vendor"] = hostdev_xml.findtext(
+            'capability/vendor')
+        self._product = result["product"] = hostdev_xml.findtext(
+            'capability/product')
+        return result
+
+    @staticmethod
+    def _sanitize(
+            untrusted_device_desc: bytes,
+            safe_chars: str =
+            string.ascii_letters + string.digits + string.punctuation + ' '
+    ) -> str:
+        # b'USB\\x202.0\\x20Camera' -> 'USB 2.0 Camera'
+        untrusted_device_desc = untrusted_device_desc.decode(
+            'unicode_escape', errors='ignore')
+        return ''.join(
+            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
+        )
 
     @property
     def frontend_domain(self):

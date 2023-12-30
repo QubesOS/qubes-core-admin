@@ -28,6 +28,7 @@ import os
 import string
 import subprocess
 import pathlib
+import sys
 
 import libvirt
 import lxml.etree
@@ -1204,31 +1205,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             #  the list is empty
             self.enforce(len(devices) <= 1)
         devices = self.fire_event_for_filter(devices, devclass=devclass)
-
-        # dev_info = {dev.ident: dev.serialize() for dev in devices}
-        dev_info = {}
-        for dev in devices:
-            # TODO:
-            if hasattr(dev, "serialize"):
-                properties_txt = dev.serialize().decode()
-            else:
-                non_default_attrs = set(attr for attr in dir(dev) if
-                                        not attr.startswith('_')).difference((
-                    'backend_domain', 'ident', 'frontend_domain',
-                    'description', 'options', 'regex'))
-                properties_txt = ' '.join(
-                    '{}={!s}'.format(prop, value) for prop, value
-                    in itertools.chain(
-                        ((key, getattr(dev, key)) for key in non_default_attrs),
-                        # keep description as the last one, according to API
-                        # specification
-                        (('description', dev.description),)
-                    ))
-                self.enforce('\n' not in properties_txt)
-            dev_info[dev.ident] = properties_txt
-
+        dev_info = {dev.ident: dev.serialize().decode() for dev in devices}
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
-            for ident in sorted(dev_info))
+                       for ident in sorted(dev_info))
 
     @qubes.api.method('admin.vm.device.{endpoint}.List', endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
