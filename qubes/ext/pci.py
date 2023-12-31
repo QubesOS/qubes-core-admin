@@ -215,51 +215,6 @@ class PCIDevice(qubes.devices.DeviceInfo):
         return result
 
     @property
-    def manufacturer(self) -> str:
-        """
-        The name of the manufacturer of the device introduced by device itself
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._manufacturer is None:
-            result = self._load_desc()["manufacturer"]
-        else:
-            result = self._manufacturer
-        return result
-
-    @property
-    def name(self) -> str:
-        """
-        The name of the device it introduced itself with (could be empty string)
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._name is None:
-            result = self._load_desc()["name"]
-        else:
-            result = self._name
-        return result
-
-    @property
-    def serial(self) -> str:
-        """
-        The serial number of the device it introduced itself with.
-
-        Could be empty string or "unknown".
-
-        Lazy loaded.
-        """
-        if self._serial is None:
-            result = self._load_desc()["serial"]
-        else:
-            result = self._serial
-        return result
-
-    @property
     def interfaces(self) -> List[qubes.devices.DeviceInterface]:
         """
         List of device interfaces.

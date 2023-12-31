@@ -28,6 +28,7 @@ import os
 import string
 import subprocess
 import pathlib
+import sys
 
 import libvirt
 import lxml.etree
@@ -1202,12 +1203,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self.enforce(len(devices) <= 1)
         devices = self.fire_event_for_filter(devices, devclass=devclass)
 
-        # dev_info = {dev.ident: dev.serialize() for dev in devices}
+        # dev_info = {dev.ident: dev.serialize().decode() for dev in devices}
         dev_info = {}
         for dev in devices:
             # TODO:
             if hasattr(dev, "serialize"):
                 properties_txt = dev.serialize().decode()
+                print(properties_txt, file=sys.stderr)  # TODO
             else:
                 non_default_attrs = set(attr for attr in dir(dev) if
                                         not attr.startswith('_')).difference((
@@ -1225,7 +1227,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             dev_info[dev.ident] = properties_txt
 
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
-            for ident in sorted(dev_info))
+                       for ident in sorted(dev_info))
 
     @qubes.api.method('admin.vm.device.{endpoint}.List', endpoints=(ep.name
             for ep in pkg_resources.iter_entry_points('qubes.devices')),
