@@ -265,24 +265,18 @@ class PCIDevice(qubes.devices.DeviceInfo):
                   "manufacturer": unknown,
                   "name": unknown,
                   "serial": unknown}
-        # if not self.backend_domain.is_running():
-        #     # don't cache this value
-        #     return result
+        if not self.backend_domain.is_running():
+            # don't cache this value
+            return result
         hostdev_details = \
             self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                 self.libvirt_name
             )
-        print(hostdev_details.XMLDesc(), file=sys.stderr)  # TODO
         hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
         self._vendor = result["vendor"] = hostdev_xml.findtext(
             'capability/vendor')
         self._product = result["product"] = hostdev_xml.findtext(
             'capability/product')
-
-        # self._desc_manufacturer = result["manufacturer"] = (
-        #     self._sanitize(untrusted_manufacturer))
-        # self._desc_name = result["name"] = (
-        #     self._sanitize(untrusted_name))
         return result
 
     @staticmethod

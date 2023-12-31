@@ -231,10 +231,10 @@ class DeviceInterface:
         """ Immutable Device category such like: 'Mouse', 'Mass_Data' etc. """
         return self._category
 
-    @property
-    def unknown(self) -> 'DeviceInterface':
+    @classmethod
+    def unknown(cls) -> 'DeviceInterface':
         """ Value for unknown device interface. """
-        return DeviceInterface(" ******")
+        return cls(" ******")
 
     def __repr__(self):
         return self._interface_encoding
@@ -422,7 +422,7 @@ class DeviceInfo(Device):
         Every device should have at least one interface.
         """
         if not self._interfaces:
-            return [DeviceInterface.unknown]
+            return [DeviceInterface.unknown()]
         return self._interfaces
 
     @property
@@ -480,7 +480,7 @@ class DeviceInfo(Device):
                                backend_domain_name.encode('ascii'))
         properties += b' ' + base64.b64encode(backend_domain_prop)
 
-        interfaces = ''.join(ifc._interface_encoding for ifc in self.interfaces)
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
         interfaces_prop = b'interfaces=' + str(interfaces).encode('ascii')
         properties += b' ' + base64.b64encode(interfaces_prop)
 
