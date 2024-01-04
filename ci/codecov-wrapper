@@ -2,13 +2,11 @@
 
 set -xe
 
-gpg --no-default-keyring --keyring trustedkeys.gpg --import ci/codecov-keys.asc
-
 curl -Os https://uploader.codecov.io/latest/linux/codecov
 curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
 curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
 
-gpgv codecov.SHA256SUM.sig codecov.SHA256SUM
+sqv --keyring ci/codecov-keys.asc codecov.SHA256SUM.sig codecov.SHA256SUM
 shasum -a 256 -c codecov.SHA256SUM
 
 chmod +x codecov

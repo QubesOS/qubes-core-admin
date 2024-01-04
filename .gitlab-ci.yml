@@ -10,7 +10,7 @@ checks:tests:
   after_script:
   - ci/codecov-wrapper -F unittests
   before_script:
-  - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils
+  - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils sequoia-sqv
   - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
   - pip3 install --user --quiet -r ci/requirements.txt
   - |
