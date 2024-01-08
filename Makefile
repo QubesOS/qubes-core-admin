@@ -60,26 +60,38 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.Shutdown \
 	admin.vm.Start \
 	admin.vm.Unpause \
+	admin.vm.device.pci.Assign \
+	admin.vm.device.pci.Assigned \
 	admin.vm.device.pci.Attach \
+	admin.vm.device.pci.Attached \
 	admin.vm.device.pci.Available \
 	admin.vm.device.pci.Detach \
-	admin.vm.device.pci.List \
-	admin.vm.device.pci.Set.persistent \
+	admin.vm.device.pci.Set.assignment \
+	admin.vm.device.pci.Unassign \
+	admin.vm.device.block.Assign \
+	admin.vm.device.block.Assigned \
 	admin.vm.device.block.Attach \
+	admin.vm.device.block.Attached \
 	admin.vm.device.block.Available \
 	admin.vm.device.block.Detach \
-	admin.vm.device.block.List \
-	admin.vm.device.block.Set.persistent \
+	admin.vm.device.block.Set.assignment \
+	admin.vm.device.block.Unassign \
+	admin.vm.device.usb.Assign \
+	admin.vm.device.usb.Assigned \
 	admin.vm.device.usb.Attach \
+	admin.vm.device.usb.Attached \
 	admin.vm.device.usb.Available \
 	admin.vm.device.usb.Detach \
-	admin.vm.device.usb.List \
-	admin.vm.device.usb.Set.persistent \
+	admin.vm.device.usb.Set.assignment \
+	admin.vm.device.usb.Unassign \
+	admin.vm.device.mic.Assign \
+	admin.vm.device.mic.Assigned \
 	admin.vm.device.mic.Attach \
+	admin.vm.device.mic.Attached \
 	admin.vm.device.mic.Available \
 	admin.vm.device.mic.Detach \
-	admin.vm.device.mic.List \
-	admin.vm.device.mic.Set.persistent \
+	admin.vm.device.mic.Set.assignment \
+	admin.vm.device.mic.Unassign \
 	admin.vm.feature.CheckWithNetvm \
 	admin.vm.feature.CheckWithTemplate \
 	admin.vm.feature.CheckWithAdminVM \
@@ -211,8 +223,11 @@ endif
 				  admin.vm.CreateInPool.AdminVM \
 		          admin.vm.device.testclass.Attach \
 				  admin.vm.device.testclass.Detach \
-				  admin.vm.device.testclass.List \
-				  admin.vm.device.testclass.Set.persistent \
+				  admin.vm.device.testclass.Assign \
+				  admin.vm.device.testclass.Unassign \
+				  admin.vm.device.testclass.Attached \
+				  admin.vm.device.testclass.Assigned \
+				  admin.vm.device.testclass.Set.assignment \
 				  admin.vm.device.testclass.Available
 	install -d $(DESTDIR)/etc/qubes/policy.d/include
 	install -m 0644 qubes-rpc-policy/admin-local-ro \

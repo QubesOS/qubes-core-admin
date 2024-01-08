@@ -20,14 +20,20 @@
 !include-service admin.vm.volume.Import * include/admin-local-rwx
 !include-service admin.vm.volume.ImportWithSize * include/admin-local-rwx
 
+!include-service admin.vm.device.mic.Assign * include/admin-local-rwx
+!include-service admin.vm.device.mic.Assigned * include/admin-local-ro
 !include-service admin.vm.device.mic.Attach * include/admin-local-rwx
+!include-service admin.vm.device.mic.Attached * include/admin-local-ro
 !include-service admin.vm.device.mic.Available * include/admin-local-ro
 !include-service admin.vm.device.mic.Detach * include/admin-local-rwx
-!include-service admin.vm.device.mic.List * include/admin-local-ro
-!include-service admin.vm.device.mic.Set.persistent * include/admin-local-rwx
+!include-service admin.vm.device.mic.Set.assignment * include/admin-local-rwx
+!include-service admin.vm.device.mic.Unassign * include/admin-local-rwx
+!include-service admin.vm.device.usb.Assign * include/admin-local-rwx
+!include-service admin.vm.device.usb.Assigned * include/admin-local-ro
 !include-service admin.vm.device.usb.Attach * include/admin-local-rwx
+!include-service admin.vm.device.usb.Attached * include/admin-local-ro
 !include-service admin.vm.device.usb.Available * include/admin-local-ro
 !include-service admin.vm.device.usb.Detach * include/admin-local-rwx
-!include-service admin.vm.device.usb.List * include/admin-local-ro
-!include-service admin.vm.device.usb.Set.persistent * include/admin-local-rwx
+!include-service admin.vm.device.usb.Set.assignment * include/admin-local-rwx
+!include-service admin.vm.device.usb.Unassign * include/admin-local-rwx
 

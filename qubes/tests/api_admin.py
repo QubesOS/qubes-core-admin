@@ -1810,7 +1810,7 @@ netvm default=True type=vm \n'''
         mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
             device=self.vm.devices['testclass']['1234'],
             options={})
-        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.assertEqual(len(self.vm.devices['testclass'].get_assigned_devices()), 0)
         self.app.save.assert_called_once_with()
 
     def test_481_vm_device_attach(self):
@@ -1827,7 +1827,7 @@ netvm default=True type=vm \n'''
         mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
             device=self.vm.devices['testclass']['1234'],
             options={})
-        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.assertEqual(len(self.vm.devices['testclass'].get_assigned_devices()), 0)
         self.app.save.assert_called_once_with()
 
     def test_482_vm_device_attach_not_running(self):
@@ -1839,7 +1839,7 @@ netvm default=True type=vm \n'''
             self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
                 b'test-vm1', b'test-vm1+1234')
         self.assertFalse(mock_attach.called)
-        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.assertEqual(len(self.vm.devices['testclass'].get_assigned_devices()), 0)
         self.assertFalse(self.app.save.called)
 
     def test_483_vm_device_attach_persistent(self):
@@ -1857,7 +1857,7 @@ netvm default=True type=vm \n'''
         mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
             device=dev,
             options={})
-        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.app.save.assert_called_once_with()
 
     def test_484_vm_device_attach_persistent_not_running(self):
@@ -1873,7 +1873,7 @@ netvm default=True type=vm \n'''
         mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
             device=dev,
             options={})
-        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.app.save.assert_called_once_with()
 
     def test_485_vm_device_attach_options(self):
@@ -2650,7 +2650,7 @@ netvm default=True type=vm \n'''
                 b'test-vm1', b'test-vm1+1234', b'True')
         self.assertIsNone(value)
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.app.save.assert_called_once_with()
 
     def test_651_vm_device_set_persistent_false_unchanged(self):
@@ -2665,7 +2665,7 @@ netvm default=True type=vm \n'''
                 b'test-vm1', b'test-vm1+1234', b'False')
         self.assertIsNone(value)
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.app.save.assert_called_once_with()
 
     def test_652_vm_device_set_persistent_false(self):
@@ -2678,15 +2678,15 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-list-attached:testclass',
             self.device_list_attached_testclass)
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
                 b'admin.vm.device.testclass.Set.persistent',
                 b'test-vm1', b'test-vm1+1234', b'False')
         self.assertIsNone(value)
-        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
-        self.assertIn(dev, self.vm.devices['testclass'].attached())
+        self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
+        self.assertIn(dev, self.vm.devices['testclass'].get_attached_devices())
         self.app.save.assert_called_once_with()
 
     def test_653_vm_device_set_persistent_true_unchanged(self):
@@ -2705,8 +2705,8 @@ netvm default=True type=vm \n'''
                 b'test-vm1', b'test-vm1+1234', b'True')
         self.assertIsNone(value)
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertIn(dev, self.vm.devices['testclass'].persistent())
-        self.assertIn(dev, self.vm.devices['testclass'].attached())
+        self.assertIn(dev, self.vm.devices['testclass'].get_assigned_devices())
+        self.assertIn(dev, self.vm.devices['testclass'].get_attached_devices())
         self.app.save.assert_called_once_with()
 
     def test_654_vm_device_set_persistent_not_attached(self):
@@ -2719,7 +2719,7 @@ netvm default=True type=vm \n'''
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'True')
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.assertFalse(self.app.save.called)
 
     def test_655_vm_device_set_persistent_invalid_value(self):
@@ -2732,7 +2732,7 @@ netvm default=True type=vm \n'''
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'maybe')
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
-        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.assertFalse(self.app.save.called)
 
     def test_660_pool_set_revisions_to_keep(self):

@@ -133,12 +133,12 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
                 self.collection.detach(self.assignment))
 
     def test_013_list_attached_persistent(self):
-        self.assertEqual(set([]), set(self.collection.persistent()))
+        self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         self.assertEventFired(self.emitter, 'device-list-attached:testclass')
-        self.assertEqual({self.device}, set(self.collection.persistent()))
+        self.assertEqual({self.device}, set(self.collection.get_assigned_devices()))
         self.assertEqual(set([]),
-            set(self.collection.attached()))
+                         set(self.collection.get_attached_devices()))
 
     def test_014_list_attached_non_persistent(self):
         self.assignment.persistent = False
@@ -147,11 +147,11 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         # device-attach event not implemented, so manipulate object manually
         self.device.data['test_frontend_domain'] = self.emitter
         self.assertEqual({self.device},
-            set(self.collection.attached()))
+                         set(self.collection.get_attached_devices()))
         self.assertEqual(set([]),
-            set(self.collection.persistent()))
+                         set(self.collection.get_assigned_devices()))
         self.assertEqual({self.device},
-            set(self.collection.attached()))
+                         set(self.collection.get_attached_devices()))
         self.assertEventFired(self.emitter, 'device-list-attached:testclass')
 
     def test_015_list_available(self):
@@ -160,49 +160,49 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_020_update_persistent_to_false(self):
         self.emitter.running = True
-        self.assertEqual(set([]), set(self.collection.persistent()))
+        self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
         self.device.data['test_frontend_domain'] = self.emitter
-        self.assertEqual({self.device}, set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
-        self.assertEqual({self.device}, set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
-        self.collection.update_persistent(self.device, False)
-        self.assertEqual(set(), set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
+        self.assertEqual({self.device}, set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
+        self.collection.update_assignment(self.device, False)
+        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
 
     def test_021_update_persistent_to_true(self):
         self.assignment.persistent = False
         self.emitter.running = True
-        self.assertEqual(set([]), set(self.collection.persistent()))
+        self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
         self.device.data['test_frontend_domain'] = self.emitter
-        self.assertEqual(set(), set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
-        self.assertEqual(set(), set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
-        self.collection.update_persistent(self.device, True)
-        self.assertEqual({self.device}, set(self.collection.persistent()))
-        self.assertEqual({self.device}, set(self.collection.attached()))
+        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
+        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
+        self.collection.update_assignment(self.device, True)
+        self.assertEqual({self.device}, set(self.collection.get_assigned_devices()))
+        self.assertEqual({self.device}, set(self.collection.get_attached_devices()))
 
     def test_022_update_persistent_reject_not_running(self):
-        self.assertEqual(set([]), set(self.collection.persistent()))
+        self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.attach(self.assignment))
-        self.assertEqual({self.device}, set(self.collection.persistent()))
-        self.assertEqual(set(), set(self.collection.attached()))
+        self.assertEqual({self.device}, set(self.collection.get_assigned_devices()))
+        self.assertEqual(set(), set(self.collection.get_attached_devices()))
         with self.assertRaises(qubes.exc.QubesVMNotStartedError):
-            self.collection.update_persistent(self.device, False)
+            self.collection.update_assignment(self.device, False)
 
     def test_023_update_persistent_reject_not_attached(self):
-        self.assertEqual(set(), set(self.collection.persistent()))
-        self.assertEqual(set(), set(self.collection.attached()))
+        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
+        self.assertEqual(set(), set(self.collection.get_attached_devices()))
         self.emitter.running = True
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.collection.update_persistent(self.device, True)
+            self.collection.update_assignment(self.device, True)
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.collection.update_persistent(self.device, False)
+            self.collection.update_assignment(self.device, False)
 
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
