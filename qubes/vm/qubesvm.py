@@ -132,10 +132,10 @@ def _setter_virt_mode(self, prop, value):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
             'Invalid virtualization mode, supported values: hvm, pv, pvh')
-    if value == 'pvh' and list(self.devices['pci'].persistent()):
+    if value == 'pvh' and list(self.devices['pci'].get_assigned_devices()):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
-            "pvh mode can't be set if pci devices are attached")
+            "pvh mode can't be set if pci devices are assigned")
     return value
 
 
@@ -169,7 +169,7 @@ def _setter_kbd_layout(self, prop, value):
 
 
 def _default_virt_mode(self):
-    if self.devices['pci'].persistent():
+    if self.devices['pci'].get_assigned_devices():
         return 'hvm'
     try:
         return self.template.virt_mode
@@ -215,7 +215,7 @@ def _default_maxmem(self):
 def _default_kernelopts(self):
     """
     Return default kernel options for the given kernel. If kernel directory
-    contains 'default-kernelopts-{pci,nopci}.txt' file, use that. Otherwise
+    contains 'default-kernelopts-{pci,nopci}.txt' file, use that. Otherwise,
     use built-in defaults.
     For qubes without PCI devices, kernelopts of qube's template are
     considered (for template-based qubes).
@@ -228,9 +228,9 @@ def _default_kernelopts(self):
         kernels_dir = os.path.join(
             qubes.config.system_path['qubes_kernels_base_dir'],
             self.kernel)
-    pci = bool(list(self.devices['pci'].persistent()))
+    any_pci_assigned = bool(list(self.devices['pci'].get_assigned_pci()))
     extra_opts = ""
-    if pci:
+    if any_pci_assigned:
         path = os.path.join(kernels_dir, 'default-kernelopts-pci.txt')
         if self.app.domains[0].features.get('suspend-s0ix', False):
             extra_opts = " qubes_exp_pm_use_suspend=1"
@@ -244,8 +244,9 @@ def _default_kernelopts(self):
         with open(path, encoding='ascii') as f_kernelopts:
             return f_kernelopts.read().strip() + extra_opts
     else:
-        return (qubes.config.defaults['kernelopts_pcidevs'] if pci else
-                qubes.config.defaults['kernelopts']) + extra_opts
+        return (qubes.config.defaults['kernelopts_pcidevs']
+                if any_pci_assigned else qubes.config.defaults['kernelopts']
+                )  + extra_opts
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
@@ -1169,7 +1170,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qmemman_client = None
             try:
                 for devclass in self.devices:
-                    for dev in self.devices[devclass].persistent():
+                    for dev in self.devices[devclass].get_assigned_devices():
                         if isinstance(dev, qubes.devices.UnknownDevice):
                             raise qubes.exc.QubesException(
                                 '{} device {} not available'.format(
@@ -1216,8 +1217,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except libvirt.libvirtError as exc:
                 # missing IOMMU?
                 if self.virt_mode == 'hvm' and \
-                        list(self.devices['pci'].persistent()) and \
-                        not self.app.host.is_iommu_supported():
+                        list(self.devices['pci'].get_assigned_devices(
+                            required_only=True)
+                        ) and not self.app.host.is_iommu_supported():
                     exc = qubes.exc.QubesException(
                         'Failed to start an HVM qube with PCI devices assigned '
                         '- hardware does not support IOMMU/VT-d/AMD-Vi')
@@ -1628,7 +1630,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         include balloon driver) and lack of qrexec/meminfo-writer service
         support (no qubes tools installed).
         """
-        if list(self.devices['pci'].persistent()):
+        if list(self.devices['pci'].get_assigned_devices()):
             return False
         if self.virt_mode == 'hvm':
             # if VM announce any supported service

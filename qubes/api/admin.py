@@ -28,7 +28,6 @@ import os
 import string
 import subprocess
 import pathlib
-import sys
 
 import libvirt
 import lxml.etree
@@ -1156,8 +1155,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         return dispvm.name
 
-    @qubes.api.method('admin.vm.Remove', no_payload=True,
-        scope='global', write=True)
+    @qubes.api.method(
+        'admin.vm.Remove', no_payload=True, scope='global', write=True)
     async def vm_remove(self):
         self.enforce(not self.arg)
 
@@ -1198,7 +1197,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     async def vm_device_available(self, endpoint):
         devclass = endpoint
-        devices = self.dest.devices[devclass].available()
+        devices = self.dest.devices[devclass].get_exposed_devices()
         if self.arg:
             devices = [dev for dev in devices if dev.ident == self.arg]
             # no duplicated devices, but device may not exist, in which case
@@ -1209,13 +1208,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
                        for ident in sorted(dev_info))
 
-    @qubes.api.method('admin.vm.device.{endpoint}.List', endpoints=(ep.name
+    @qubes.api.method('admin.vm.device.{endpoint}.Assigned', endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
             no_payload=True,
         scope='local', read=True)
     async def vm_device_list(self, endpoint):
         devclass = endpoint
-        device_assignments = self.dest.devices[devclass].assignments()
+        device_assignments = self.dest.devices[devclass].get_assigned_devices()
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
@@ -1224,16 +1223,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             # no duplicated devices, but device may not exist, in which case
             #  the list is empty
             self.enforce(len(device_assignments) <= 1)
-        device_assignments = self.fire_event_for_filter(device_assignments,
-            devclass=devclass)
+        device_assignments = self.fire_event_for_filter(
+            device_assignments, devclass=devclass)
 
-        dev_info = {}
+        dev_info = {}  # TODO: deviceAssignment.serialization()
         for dev in device_assignments:
             properties_txt = ' '.join(
                 '{}={!s}'.format(opt, value) for opt, value
                 in itertools.chain(
                     dev.options.items(),
-                    (('persistent', 'yes' if dev.persistent else 'no'),)
+                    (('required', 'yes' if dev.required else 'no'),
+                     ('attach_automatically',
+                      'yes' if dev.attach_automatically else 'no')),
                 ))
             self.enforce('\n' not in properties_txt)
             ident = '{!s}+{!s}'.format(dev.backend_domain, dev.ident)
@@ -1242,24 +1243,69 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
             for ident in sorted(dev_info))
 
-    # Attach/Detach action can both modify persistent state (with
-    # persistent=True) and volatile state of running VM (with persistent=False).
-    # For this reason, write=True + execute=True
-    @qubes.api.method('admin.vm.device.{endpoint}.Attach', endpoints=(ep.name
+    @qubes.api.method(
+        'admin.vm.device.{endpoint}.Attached',
+        endpoints=(
+            ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-        scope='local', write=True, execute=True)
-    async def vm_device_attach(self, endpoint, untrusted_payload):
+        no_payload=True, scope='local', read=True)
+    async def vm_device_attached(self, endpoint):
         devclass = endpoint
+        device_assignments = self.dest.devices[devclass].get_attached_devices()
+        if self.arg:
+            select_backend, select_ident = self.arg.split('+', 1)
+            device_assignments = [dev for dev in device_assignments
+                                  if (str(dev.backend_domain), dev.ident)
+                                  == (select_backend, select_ident)]
+            # no duplicated devices, but device may not exist, in which case
+            #  the list is empty
+            self.enforce(len(device_assignments) <= 1)
+        device_assignments = self.fire_event_for_filter(device_assignments,
+                                                        devclass=devclass)
+
+        dev_info = {}
+        for dev in device_assignments:
+            properties_txt = ' '.join(
+                '{}={!s}'.format(opt, value) for opt, value
+                in itertools.chain(
+                    dev.options.items(),
+                    (('required', 'yes' if dev.required else 'no'),
+                     ('attach_automatically',
+                      'yes' if dev.attach_automatically else 'no')),
+                ))
+            self.enforce('\n' not in properties_txt)
+            ident = '{!s}+{!s}'.format(dev.backend_domain, dev.ident)
+            dev_info[ident] = properties_txt
+
+        return ''.join('{} {}\n'.format(ident, dev_info[ident])
+                       for ident in sorted(dev_info))
+
+    # Assign/Unassign action can modify only persistent state of running VM.
+    # For this reason, write=True
+    @qubes.api.method('admin.vm.device.{endpoint}.Assign', endpoints=(ep.name
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
+        scope='local', write=True)
+    async def vm_device_assign(self, endpoint, untrusted_payload):
+        devclass = endpoint
+        # TODO: deserialize
         options = {}
-        persistent = False
-        for untrusted_option in untrusted_payload.decode('ascii',
-                                                         'strict').split():
+        attach_automatically = False
+        required = False
+        for untrusted_option in untrusted_payload.decode(
+                'ascii', 'strict').split():
             try:
                 untrusted_key, untrusted_value = untrusted_option.split('=', 1)
             except ValueError:
                 raise qubes.api.ProtocolError('Invalid options format')
-            if untrusted_key == 'persistent':
-                persistent = qubes.property.bool(None, None, untrusted_value)
+            if untrusted_key == 'attach_automatically':
+                attach_automatically = qubes.property.bool(
+                    None, None, untrusted_value)
+
+                self.enforce(attach_automatically)
+
+            elif untrusted_key == 'required':
+                required = qubes.property.bool(
+                    None, None, untrusted_value)
             else:
                 allowed_chars_key = string.digits + string.ascii_letters + '-_.'
                 allowed_chars_value = allowed_chars_key + ',+:'
@@ -1276,23 +1322,113 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        self.fire_event_for_permission(device=dev,
-            devclass=devclass, persistent=persistent,
-            options=options)
+        self.fire_event_for_permission(
+            device=dev, devclass=devclass,
+            required=required, attach_automatically=attach_automatically,
+            options=options
+        )
 
         assignment = qubes.devices.DeviceAssignment(
             dev.backend_domain, dev.ident,
-            options=options, persistent=persistent)
-        await self.dest.devices[devclass].attach(assignment)
+            required=required, attach_automatically=attach_automatically,
+            options=options
+        )
+        await self.dest.devices[devclass].assign(assignment)
         self.app.save()
 
-    # Attach/Detach action can both modify persistent state (with
-    # persistent=True) and volatile state of running VM (with persistent=False).
-    # For this reason, write=True + execute=True
-    @qubes.api.method('admin.vm.device.{endpoint}.Detach', endpoints=(ep.name
+    # Assign/Unassign action can modify only persistent state of running VM.
+    # For this reason, write=True
+    @qubes.api.method(
+        'admin.vm.device.{endpoint}.Unassign',
+        endpoints=(
+            ep.name 
+            for ep in importlib.metadata.entry_points(group='qubes.devices')), no_payload=True, scope='local', write=True)
+    async def vm_device_unassign(self, endpoint):
+        devclass = endpoint
+
+        # qrexec already verified that no strange characters are in self.arg
+        backend_domain, ident = self.arg.split('+', 1)
+        # may raise KeyError; if device isn't found, it will be UnknownDevice
+        #  instance - but allow it, otherwise it will be impossible to detach
+        #  already removed device
+        dev = self.app.domains[backend_domain].devices[devclass][ident]
+
+        self.fire_event_for_permission(device=dev, devclass=devclass)
+
+        assignment = qubes.devices.DeviceAssignment(
+            dev.backend_domain, dev.ident)
+        await self.dest.devices[devclass].unassign(assignment)
+        self.app.save()
+
+    # Attach/Detach action can modify only volatile state of running VM.
+    # For this reason, execute=True
+    @qubes.api.method(
+        'admin.vm.device.{endpoint}.Attach',
+        endpoints=(
+            ep.name 
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-            no_payload=True,
-        scope='local', write=True, execute=True)
+        scope='local', execute=True)
+    async def vm_device_attach(self, endpoint, untrusted_payload):
+        devclass = endpoint
+        # TODO: deserialize
+        options = {}
+        attach_automatically = False
+        required = False
+        for untrusted_option in untrusted_payload.decode(
+                'ascii', 'strict').split():
+            try:
+                untrusted_key, untrusted_value = untrusted_option.split('=',
+                                                                        1)
+            except ValueError:
+                raise qubes.api.ProtocolError('Invalid options format')
+            if untrusted_key == 'attach_automatically':
+                attach_automatically = qubes.property.bool(
+                    None, None, untrusted_value)
+
+                self.enforce(not attach_automatically)
+
+            elif untrusted_key == 'required':
+                required = qubes.property.bool(
+                    None, None, untrusted_value)
+            else:
+                allowed_chars_key = string.digits + string.ascii_letters + '-_.'
+                allowed_chars_value = allowed_chars_key + ',+:'
+                if any(x not in allowed_chars_key for x in untrusted_key):
+                    raise qubes.api.ProtocolError(
+                        'Invalid chars in option name')
+                if any(x not in allowed_chars_value for x in
+                       untrusted_value):
+                    raise qubes.api.ProtocolError(
+                        'Invalid chars in option value')
+                options[untrusted_key] = untrusted_value
+
+        # qrexec already verified that no strange characters are in self.arg
+        backend_domain, ident = self.arg.split('+', 1)
+        # may raise KeyError, either on domain or ident
+        dev = self.app.domains[backend_domain].devices[devclass][ident]
+
+        self.fire_event_for_permission(
+            device=dev, devclass=devclass,
+            required=required, attach_automatically=attach_automatically,
+            options=options
+        )
+
+        assignment = qubes.devices.DeviceAssignment(
+            dev.backend_domain, dev.ident,
+            required=required, attach_automatically=attach_automatically,
+            options=options
+        )
+        await self.dest.devices[devclass].attach(assignment)
+        self.app.save()  # not needed?
+
+    # Attach/Detach action can modify only volatile state of running VM.
+    # For this reason, execute=True
+    @qubes.api.method(
+        'admin.vm.device.{endpoint}.Detach',
+        endpoints=(
+            ep.name
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
+        no_payload=True, scope='local', execute=True)
     async def vm_device_detach(self, endpoint):
         devclass = endpoint
 
@@ -1303,41 +1439,48 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         #  already removed device
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        self.fire_event_for_permission(device=dev,
-            devclass=devclass)
+        self.fire_event_for_permission(device=dev, devclass=devclass)
 
         assignment = qubes.devices.DeviceAssignment(
             dev.backend_domain, dev.ident)
         await self.dest.devices[devclass].detach(assignment)
-        self.app.save()
+        self.app.save()  # TODO: not needed
 
     # Attach/Detach action can both modify persistent state (with
-    # persistent=True) and volatile state of running VM (with persistent=False).
-    # For this reason, write=True + execute=True
-    @qubes.api.method('admin.vm.device.{endpoint}.Set.persistent',
+    # required=True or required=False) and volatile state of running VM
+    # (with required=None). For this reason, write=True + execute=True
+    @qubes.api.method('admin.vm.device.{endpoint}.Set.assignment',
         endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', write=True, execute=True)
-    async def vm_device_set_persistent(self, endpoint, untrusted_payload):
+    async def vm_device_set_assignment(self, endpoint, untrusted_payload):
+        """
+        Update assignment of already attached device.
+
+        Payload:
+            `None` -> unassign device from qube
+            `False` -> device will be auto-attached to qube
+            `True` -> device is required to start qube
+        """
         devclass = endpoint
 
-        self.enforce(untrusted_payload in (b'True', b'False'))
-        persistent = untrusted_payload == b'True'
+        self.enforce(untrusted_payload in (b'True', b'False', b'None'))
+        # now is safe to eval, since value of untrusted_payload is trusted
+        assignment = eval(untrusted_payload)
         del untrusted_payload
 
         # qrexec already verified that no strange characters are in self.arg
         backend_domain, ident = self.arg.split('+', 1)
         # device must be already attached
         matching_devices = [dev for dev
-            in self.dest.devices[devclass].attached()
+            in self.dest.devices[devclass].get_attached_devices()
             if dev.backend_domain.name == backend_domain and dev.ident == ident]
         self.enforce(len(matching_devices) == 1)
         dev = matching_devices[0]
 
-        self.fire_event_for_permission(device=dev,
-            persistent=persistent)
+        self.fire_event_for_permission(device=dev, assignment=assignment)
 
-        self.dest.devices[devclass].update_persistent(dev, persistent)
+        self.dest.devices[devclass].update_assignment(dev, assignment)
         self.app.save()
 
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True,

@@ -1886,10 +1886,11 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 'device.backend_domain.features.check_with_template.return_value': '4.2',
             }),
         ]
-        vm.devices['block'].assignments = lambda persistent: assignments
+        vm.devices['block'].get_assigned_devices = \
+            lambda required_only: assignments
         libvirt_xml = vm.create_config_file()
-        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
-            lxml.etree.XML(expected))
+        self.assertXMLEqual(
+            lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected))
 
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')

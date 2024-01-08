@@ -40,7 +40,14 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             self.assignment = qubes.devices.DeviceAssignment(
                 backend_domain=self.dev.backend_domain,
                 ident=self.dev.ident,
-                persistent=True)
+                attach_automatically=True,
+            )
+            self.required_assignment = qubes.devices.DeviceAssignment(
+                backend_domain=self.dev.backend_domain,
+                ident=self.dev.ident,
+                attach_automatically=True,
+                required=True,
+            )
             if isinstance(self.dev, qubes.devices.UnknownDevice):
                 self.skipTest('Specified device {} does not exists'.format(pcidev))
             self.init_default_template()
@@ -73,27 +80,35 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             self.fail('Not all devices listed, missing: {}'.format(
                 actual_devices))
 
-    def assertDeviceNotInCollection(self, dev, dev_col):
-        self.assertNotIn(dev, dev_col.attached())
-        self.assertNotIn(dev, dev_col.persistent())
-        self.assertNotIn(dev, dev_col.assignments())
-        self.assertNotIn(dev, dev_col.assignments(persistent=True))
-
-    def test_010_attach_offline_persistent(self):
+    def assertDeviceIs(
+            self, device, *, attached: bool, assigned: bool, required: bool
+    ):
         dev_col = self.vm.devices['pci']
-        self.assertDeviceNotInCollection(self.dev, dev_col)
-        self.loop.run_until_complete(
-            dev_col.attach(self.assignment))
+        if required:
+            assert assigned
+        self.assertTrue(attached == device in dev_col.get_attached_devices())
+        self.assertTrue(assigned == device in dev_col.get_assigned_devices())
+        self.assertTrue(
+            required == device in dev_col.get_assigned_devices(
+                required_only=True)
+        )
+        dedicated = assigned or attached
+        self.assertTrue(dedicated == device in dev_col.get_dedicated_devices())
+
+    def test_010_assign_offline(self):  # TODO required
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
+
+        self.loop.run_until_complete(dev_col.assign(self.assignment))
         self.app.save()
-        self.assertNotIn(self.dev, dev_col.attached())
-        self.assertIn(self.dev, dev_col.persistent())
-        self.assertIn(self.dev, dev_col.assignments())
-        self.assertIn(self.dev, dev_col.assignments(persistent=True))
-        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=True, required=False)
 
         self.loop.run_until_complete(self.vm.start())
+        self.assertDeviceIs(
+            self.dev, attached=True, assigned=False, required=False)
 
-        self.assertIn(self.dev, dev_col.attached())
         (stdout, _) = self.loop.run_until_complete(
             self.vm.run_for_stdio('lspci'))
         self.assertIn(self.dev.description, stdout.decode())
@@ -101,26 +116,24 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
 
     def test_011_attach_offline_temp_fail(self):
         dev_col = self.vm.devices['pci']
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
         self.assignment.persistent = False
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.loop.run_until_complete(
                 dev_col.attach(self.assignment))
 
-
-    def test_020_attach_online_persistent(self):
+    def test_020_attach_online_persistent(self):  # TODO: required
         self.loop.run_until_complete(
             self.vm.start())
         dev_col = self.vm.devices['pci']
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
+
         self.loop.run_until_complete(
             dev_col.attach(self.assignment))
-
-        self.assertIn(self.dev, dev_col.attached())
-        self.assertIn(self.dev, dev_col.persistent())
-        self.assertIn(self.dev, dev_col.assignments())
-        self.assertIn(self.dev, dev_col.assignments(persistent=True))
-        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
+        self.assertDeviceIs(
+            self.dev, attached=True, assigned=True, required=False)
 
         # give VM kernel some time to discover new device
         time.sleep(1)
@@ -131,7 +144,8 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
 
     def test_021_persist_detach_online_fail(self):
         dev_col = self.vm.devices['pci']
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
         self.loop.run_until_complete(
             dev_col.attach(self.assignment))
         self.app.save()
@@ -141,37 +155,34 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(
                 self.vm.devices['pci'].detach(self.assignment))
 
-    def test_030_persist_attach_detach_offline(self):
+    def test_030_persist_attach_detach_offline(self):  # TODO: required
         dev_col = self.vm.devices['pci']
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
+
         self.loop.run_until_complete(
             dev_col.attach(self.assignment))
         self.app.save()
-        self.assertNotIn(self.dev, dev_col.attached())
-        self.assertIn(self.dev, dev_col.persistent())
-        self.assertIn(self.dev, dev_col.assignments())
-        self.assertIn(self.dev, dev_col.assignments(persistent=True))
-        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=True, required=False)
+
         self.loop.run_until_complete(
             dev_col.detach(self.assignment))
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
 
-    def test_031_attach_detach_online_temp(self):
+    def test_031_attach_detach_online_temp(self):  # TODO: requiured
         dev_col = self.vm.devices['pci']
         self.loop.run_until_complete(
             self.vm.start())
-        self.assignment.persistent = False
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assignment.assigned = False
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
+
         self.loop.run_until_complete(
             dev_col.attach(self.assignment))
-
-        self.assertIn(self.dev, dev_col.attached())
-        self.assertNotIn(self.dev, dev_col.persistent())
-        self.assertIn(self.dev, dev_col.assignments())
-        self.assertIn(self.dev, dev_col.assignments(persistent=False))
-        self.assertNotIn(self.dev, dev_col.assignments(persistent=True))
-        self.assertIn(self.dev, dev_col.assignments(persistent=False))
-
+        self.assertDeviceIs(
+            self.dev, attached=True, assigned=False, required=False)
 
         # give VM kernel some time to discover new device
         time.sleep(1)
@@ -181,7 +192,8 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
         self.assertIn(self.dev.description, stdout.decode())
         self.loop.run_until_complete(
             dev_col.detach(self.assignment))
-        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assertDeviceIs(
+            self.dev, attached=False, assigned=False, required=False)
 
         (stdout, _) = self.loop.run_until_complete(
             self.vm.run_for_stdio('lspci'))

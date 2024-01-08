@@ -55,22 +55,37 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 """
-import itertools
 import base64
+import itertools
 import sys
 from enum import Enum
-from typing import Optional, List, Type
+from typing import Optional, List, Type, Dict, Any, Iterable
 
 import qubes.utils
-from qubes.api import PermissionDenied
 
 
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
-    """Trying to detach not attached device"""
+    """
+    Trying to detach not attached device.
+    """
+
+
+class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
+    """
+    Trying to unassign not assigned device.
+    """
 
 
 class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
-    """Trying to attach already attached device"""
+    """
+    Trying to attach already attached device.
+    """
+
+
+class DeviceAlreadyAssigned(qubes.exc.QubesException, KeyError):
+    """
+    Trying to assign already assigned device.
+    """
 
 
 class Device:
@@ -90,8 +105,8 @@ class Device:
 
     def __lt__(self, other):
         if isinstance(other, Device):
-            return (self.backend_domain, self.ident) < \
-                   (other.backend_domain, other.ident)
+            return (self.backend_domain.name, self.ident) < \
+                   (other.backend_domain.name, other.ident)
         return NotImplemented
 
     def __repr__(self):
@@ -110,7 +125,7 @@ class Device:
         return self.__ident
 
     @property
-    def backend_domain(self) -> 'qubesadmin.vm.QubesVM':
+    def backend_domain(self) -> 'qubes.vm.BaseVM':
         """ Which domain provides this device. (immutable)"""
         return self.__backend_domain
 
@@ -149,6 +164,7 @@ class DeviceCategory(Enum):
     Printer = ("u07****",)
     Scanner = ("p0903**",)
     # Multimedia = Audio, Video, Displays etc.
+    Microphone = ("m******",)
     Multimedia = ("u01****", "u0e****", "u06****", "u10****", "p03****",
                   "p04****")
     Wireless = ("ue0****", "p0d****")
@@ -203,7 +219,8 @@ class DeviceInterface:
                 )
             ifc_full = devclass[0] + ifc_padded
         else:
-            known_devclasses = {'p': 'pci', 'u': 'usb', 'b': 'block'}
+            known_devclasses = {
+                'p': 'pci', 'u': 'usb', 'b': 'block', 'm': 'mic'}
             devclass = known_devclasses.get(interface_encoding[0], None)
             if len(ifc_padded) > 7:
                 print(
@@ -254,6 +271,8 @@ class DeviceInterface:
             if result is None:
                 result = f"Unclassified {self.devclass} device"
             return result
+        if self.devclass == 'mic':
+            return "Microphone"
         return repr(self)
 
     @staticmethod
@@ -295,7 +314,7 @@ class DeviceInfo(Device):
     # pylint: disable=too-few-public-methods
     def __init__(
             self,
-            backend_domain: 'qubes.vm.qubesvm.QubesVM',  # TODO
+            backend_domain: 'qubes.vm.BaseVM',
             ident: str,
             devclass: Optional[str] = None,
             vendor: Optional[str] = None,
@@ -446,13 +465,6 @@ class DeviceInfo(Device):
         return [dev for dev in self.backend_domain.devices[self.devclass]
                 if dev.parent_device.ident == self.ident]
 
-    # @property
-    # def port_id(self) -> str:
-    #     """
-    #     Which port the device is connected to.
-    #     """
-    #     return self.ident  # TODO: ???
-
     @property
     def attachments(self) -> List['DeviceAssignment']:
         """
@@ -501,7 +513,7 @@ class DeviceInfo(Device):
     def deserialize(
             cls,
             serialization: bytes,
-            expected_backend_domain: 'qubes.vm.qubesvm.QubesVM',
+            expected_backend_domain: 'qubes.vm.BaseVM',
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
         try:
@@ -522,7 +534,7 @@ class DeviceInfo(Device):
     def _deserialize(
             cls: Type,
             serialization: bytes,
-            expected_backend_domain: 'qubes.vm.qubesvm.QubesVM',
+            expected_backend_domain: 'qubes.vm.BaseVM',
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
         properties_str = [
@@ -570,30 +582,104 @@ class UnknownDevice(DeviceInfo):
         super().__init__(backend_domain, ident, devclass=devclass, **kwargs)
 
 
-class DeviceAssignment(Device):  # pylint: disable=too-few-public-methods
-    """ Maps a device to a frontend_domain. """
+class DeviceAssignment(Device):
+    """ Maps a device to a frontend_domain.
 
-    def __init__(
-        self, backend_domain, ident, options=None, persistent=False, bus=None
-    ):
-        super().__init__(backend_domain, ident, bus)  # TODO
-        self.options = options or {}
-        self.persistent = persistent  # TODO
+    There are 3 flags `attached`, `automatically_attached` and `required`.
+    The meaning of valid combinations is as follows:
+    1. (True, False, False) -> domain is running, device is manually attached
+                               and could be manually detach any time.
+    2. (True, True, False)  -> domain is running, device is attached
+                               and could be manually detach any time (see 4.),
+                               but in the future will be auto-attached again.
+    3. (True, True, True)   -> domain is running, device is attached
+                               and couldn't be detached.
+    4. (False, Ture, False) -> device is assigned to domain, but not attached
+                               because either domain is halted
+                               or device manually detached.
+    5. (False, True, True)  -> domain is halted, device assigned to domain
+                               and required to start domain.
+    """
+
+    def __init__(self, backend_domain, ident, options=None,
+                 frontend_domain=None, devclass=None,
+                 required=False, attach_automatically=False):
+        super().__init__(backend_domain, ident, devclass)
+        self.__options = options or {}
+        self.__required = required
+        self.__attach_automatically = attach_automatically
+        self.__frontend_domain = frontend_domain
 
     def clone(self):
         """Clone object instance"""
         return self.__class__(
-            self.backend_domain,
-            self.ident,
-            self.options,
-            self.persistent,
-            self.devclass,
+            backend_domain=self.backend_domain,
+            ident=self.ident,
+            options=self.options,
+            required=self.required,
+            attach_automatically=self.attach_automatically,
+            frontend_domain=self.frontend_domain,
+            devclass=self.devclass,
         )
 
     @property
     def device(self) -> DeviceInfo:
         """Get DeviceInfo object corresponding to this DeviceAssignment"""
         return self.backend_domain.devices[self.devclass][self.ident]
+
+    @property
+    def frontend_domain(self) -> Optional['qubes.vm.qubesvm.QubesVM']:
+        """ Which domain the device is attached to. """
+        return self.__frontend_domain
+
+    @frontend_domain.setter
+    def frontend_domain(
+            self, frontend_domain: Optional['qubes.vm.qubesvm.QubesVM']
+    ):
+        """ Which domain the device is attached to. """
+        self.__frontend_domain = frontend_domain
+
+    @property
+    def attached(self) -> bool:
+        """
+        Is the device already attached to the fronted domain?
+        """
+        return (self.frontend_domain is not None
+                and self.frontend_domain.is_running())
+
+    @property
+    def required(self) -> bool:
+        """
+        Is the presence of this device required for the domain to start? If yes,
+        it will be attached automatically.
+        """
+        return self.__required
+
+    @required.setter
+    def required(self, required: bool):
+        self.__required = required
+
+    @property
+    def attach_automatically(self) -> bool:
+        """
+        Should this device automatically connect to the frontend domain when
+        available and not connected to other qubes?
+        """
+        return self.__attach_automatically
+
+    @attach_automatically.setter
+    def attach_automatically(self, attach_automatically: bool):
+        self.__attach_automatically = attach_automatically
+
+    @property
+    def options(self) -> Dict[str, Any]:
+        """ Device options (same as in the legacy API). """
+        return self.__options
+
+    @options.setter
+    def options(self, options: Optional[Dict[str, Any]]):
+        """ Device options (same as in the legacy API). """
+        self.__options = options or {}
 
 
 class DeviceCollection:
@@ -604,7 +690,7 @@ class DeviceCollection:
     :param vm: VM for which we manage devices
     :param bus: device bus
 
-    This class emits following events on VM object:
+    This class emits following events on VM object:  # TODO pre-assign, assign, pre-unassign, unassign
 
         .. event:: device-added:<class> (device)
 
@@ -656,7 +742,7 @@ class DeviceCollection:
             :py:class:`DeviceInfo`, or :py:obj:`None`. Especially should not
             raise :py:class:`exceptions.KeyError`.
 
-        .. event:: device-list-attached:<class> (persistent)
+        .. event:: device-list-attached:<class>
 
             Fired to get list of currently attached devices to a VM. Handlers
             of this event should return list of devices actually attached to
@@ -667,7 +753,7 @@ class DeviceCollection:
     def __init__(self, vm, bus):
         self._vm = vm
         self._bus = bus
-        self._set = PersistentCollection()  # TODO
+        self._set = AssignedCollection()
 
         self.devclass = qubes.utils.get_entry_point_one(
             'qubes.devices', self._bus)
@@ -683,41 +769,78 @@ class DeviceCollection:
             raise ValueError(
                 'Trying to attach DeviceAssignment of a different device class')
 
-        if not device_assignment.persistent and self._vm.is_halted():  # TODO
-            raise qubes.exc.QubesVMNotRunningError(self._vm,
-                "VM not running, can only attach device with persistent flag")
+        if self._vm.is_halted():
+            raise qubes.exc.QubesVMNotRunningError(
+                self._vm,"VM not running, cannot attach device,"
+                " did you mean `assign`?")
         device = device_assignment.device
-        if device in self.assignments():
+        if device in self.get_attached_devices():
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
-        await self._vm.fire_event_async('device-pre-attach:' + self._bus,
-            pre_event=True,
-            device=device, options=device_assignment.options)
-        if device_assignment.persistent:
-            self._set.add(device_assignment)
-        await self._vm.fire_event_async('device-attach:' + self._bus,
+        await self._vm.fire_event_async(
+            'device-pre-attach:' + self._bus,
+            pre_event=True, device=device, options=device_assignment.options)
+
+        await self._vm.fire_event_async(
+            'device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
-    def load_persistent(self, device_assignment: DeviceAssignment):
-        '''Load DeviceAssignment retrieved from qubes.xml
+    async def assign(self, device_assignment: DeviceAssignment):
+        """
+        Assign device to domain.
+        """
+        if device_assignment.devclass is None:
+            device_assignment.devclass = self._bus
+        elif device_assignment.devclass != self._bus:
+            raise ValueError(
+                'Trying to assign DeviceAssignment of a different device class')
+
+        device = device_assignment.device
+        if device in self.get_assigned_devices():
+            raise DeviceAlreadyAssigned(
+                'device {!s} of class {} already attached to {!s}'.format(
+                    device, self._bus, self._vm))
+
+        # TODO: check if needed
+        await self._vm.fire_event_async(
+            'device-pre-assign:' + self._bus,
+            pre_event=True, device=device, options=device_assignment.options)
+
+        self._set.add(device_assignment)
+
+        await self._vm.fire_event_async(
+            'device-assign:' + self._bus,
+            device=device, options=device_assignment.options)
+
+    def load_assignment(self, device_assignment: DeviceAssignment):
+        """Load DeviceAssignment retrieved from qubes.xml
 
         This can be used only for loading qubes.xml, when VM events are not
         enabled yet.
-        '''
+        """
         assert not self._vm.events_enabled
-        assert device_assignment.persistent
+        assert device_assignment.attach_automatically
         device_assignment.devclass = self._bus
         self._set.add(device_assignment)
 
-    def update_persistent(self, device: DeviceInfo, persistent: bool):
-        '''Update `persistent` flag of already attached device.
-        '''
+    def update_assignment(self, device: DeviceInfo, required: Optional[bool]):
+        """
+        Update assignment of already attached device.
 
+        :param DeviceInfo device: device for which change required flag
+        :param bool required: new assignment:
+                              `None` -> unassign device from qube
+                              `False` -> device will be auto-attached to qube
+                              `True` -> device is required to start qube
+        """
         if self._vm.is_halted():
-            raise qubes.exc.QubesVMNotStartedError(self._vm,
-                'VM must be running to modify device persistence flag')
-        assignments = [a for a in self.assignments() if a.device == device]
+            raise qubes.exc.QubesVMNotStartedError(
+                self._vm,
+                'VM must be running to modify device assignment'
+            )
+        assignments = [a for a in self.get_assigned_devices()
+                       if a.device == device]
         if not assignments:
             raise qubes.exc.QubesValueError('Device not assigned')
         assert len(assignments) == 1
@@ -725,98 +848,106 @@ class DeviceCollection:
 
         # be careful to use already present assignment, not the provided one
         # - to not change options as a side effect
-        if persistent and device not in self._set:
-            assignment.persistent = True
+        if required is not None and device not in self._set:
+            assignment.attach_automatically = True
+            assignment.required = required
             self._set.add(assignment)
-        elif not persistent and device in self._set:
+        elif required is None and device in self._set:
             self._set.discard(assignment)
 
-    async def detach(self, device_assignment: DeviceAssignment):
+    async def detach(self, device_assignment: DeviceAssignment):  # TODO: argument should be just device
         """
         Detach device from domain.
         """
-
-        if device_assignment.devclass is None:
-            device_assignment.devclass = self._bus
+        for assignment in self.get_attached_devices():
+            if device_assignment == assignment:
+                # load all options
+                device_assignment = assignment
+                break
         else:
-            assert device_assignment.devclass == self._bus, \
-                "Trying to attach DeviceAssignment of a different device class"
+            raise DeviceNotAssigned(
+                f'device {device_assignment.ident!s} of class {self._bus} not '
+                f'assigned to {self._vm!s}')
 
-        if device_assignment in self._set and not self._vm.is_halted():
-            raise qubes.exc.QubesVMNotHaltedError(self._vm,
-                "Can not remove a persistent attachment from a non halted vm")
-        if device_assignment not in self.assignments():
-            raise DeviceNotAttached(
-                'device {!s} of class {} not attached to {!s}'.format(
-                    device_assignment.ident, self._bus, self._vm))
+        if device_assignment.required and not self._vm.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(
+                self._vm,
+                "Can not remove a required device from a non halted qube."
+                "You need to unassign device first.")
 
         device = device_assignment.device
-        await self._vm.fire_event_async('device-pre-detach:' + self._bus,
-            pre_event=True, device=device)
-        if device in self._set:
-            device_assignment.persistent = True
-            self._set.discard(device_assignment)
+        await self._vm.fire_event_async(
+            'device-pre-detach:' + self._bus, pre_event=True, device=device)
 
-        await self._vm.fire_event_async('device-detach:' + self._bus,
-            device=device)
+        await self._vm.fire_event_async(
+            'device-detach:' + self._bus, device=device)
 
-    def attached(self):
-        '''List devices which are (or may be) attached to this vm '''
-        attached = self._vm.fire_event('device-list-attached:' + self._bus,
-            persistent=None)
-        if attached:
-            return [dev for dev, _ in attached]
+    async def unassign(self, device_assignment: DeviceAssignment):
+        """
+        Unassign device from domain.
+        """
+        for assignment in self.get_assigned_devices():
+            if device_assignment == assignment:
+                # load all options
+                device_assignment = assignment
+                break
+        else:
+            raise DeviceNotAssigned(
+                f'device {device_assignment.ident!s} of class {self._bus} not '
+                f'assigned to {self._vm!s}')
 
-        return []
+        if not self._vm.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(
+                self._vm,
+                "Can not remove an assignment from a non halted qube.")
 
-    def persistent(self):
-        ''' Devices persistently attached and safe to access before libvirt
-            bootstrap.
-        '''
-        return [a.device for a in self._set]
+        device = device_assignment.device
+        # TODO: check if needed
+        await self._vm.fire_event_async(
+            'device-pre-detach:' + self._bus, pre_event=True, device=device)
 
-    def assignments(self, persistent: Optional[bool]=None):
-        '''List assignments for devices which are (or may be) attached to the
-           vm.
+        self._set.discard(device_assignment)
 
-        Devices may be attached persistently (so they are included in
-        :file:`qubes.xml`) or not. Device can also be in :file:`qubes.xml`,
-        but be temporarily detached.
+        await self._vm.fire_event_async(
+            'device-detach:' + self._bus, device=device)
 
-        :param Optional[bool] persistent: only include devices which are or are
-        not attached persistently.
-        '''
+    def get_dedicated_devices(self) -> Iterable[DeviceAssignment]:
+        """
+        List devices which are attached or assigned to this vm.
+        """
+        dedicated = {dev for dev in itertools.chain(
+            self.get_attached_devices(), self.get_assigned_devices())}
+        for dev in dedicated:
+            yield dev
 
-        try:
-            devices = self._vm.fire_event('device-list-attached:' + self._bus,
-                persistent=persistent)
-        except Exception:  # pylint: disable=broad-except
-            self._vm.log.exception('Failed to list {} devices'.format(
-                self._bus))
-            if persistent is True:
-                # don't break app.save()
-                return list(self._set)
-            raise
-        result = []
-        if persistent is not False:  # None or True
-            result.extend(self._set)
-        if not persistent:  # None or False
-            for dev, options in devices:
-                if dev not in self._set:
-                    result.append(
-                        DeviceAssignment(
-                            backend_domain=dev.backend_domain,
-                            ident=dev.ident, options=options,
-                            bus=self._bus))
-        return result
+    def get_attached_devices(self) -> Iterable[DeviceAssignment]:
+        """
+        List devices which are attached to this vm.
+        """
+        attached = self._vm.fire_event('device-list-attached:' + self._bus)
+        return [dev for dev, _ in attached]
 
-    def available(self):
-        '''List devices exposed by this vm'''
+    def get_assigned_devices(
+            self, required_only: bool = False
+    ) -> Iterable[DeviceAssignment]:
+        """
+        Devices assigned to this vm (included in :file:`qubes.xml`).
+
+        Safe to access before libvirt bootstrap.
+        """
+        for dev in self._set:
+            if required_only and not dev.required:
+                continue
+            yield dev
+
+    def get_exposed_devices(self) -> Iterable[DeviceInfo]:
+        """
+        List devices exposed by this vm.
+        """
         devices = self._vm.fire_event('device-list:' + self._bus)
         return devices
 
-    def __iter__(self):
-        return iter(self.available())
+    __iter__ = get_exposed_devices
 
     def __getitem__(self, ident):
         '''Get device object with given ident.
@@ -840,10 +971,11 @@ class DeviceCollection:
 
 
 class DeviceManager(dict):
-    '''Device manager that hold all devices by their classes.
+    """
+    Device manager that hold all devices by their classes.
 
     :param vm: VM for which we manage devices
-    '''
+    """
 
     def __init__(self, vm):
         super().__init__()
@@ -854,28 +986,17 @@ class DeviceManager(dict):
         return self[key]
 
 
-class UnknownDevice(DeviceInfo):
-    # pylint: disable=too-few-public-methods
-    '''Unknown device - for example exposed by domain not running currently'''
-
-    def __init__(self, backend_domain, ident, description=None,
-            frontend_domain=None):
-        if description is None:
-            description = "Unknown device"
-        super().__init__(backend_domain, ident, description, frontend_domain)
-
-
-class PersistentCollection:
-
-    ''' Helper object managing persistent `DeviceAssignment`s.
-    '''
+class AssignedCollection:
+    """
+    Helper object managing assigned devices.
+    """
 
     def __init__(self):
         self._dict = {}
 
     def add(self, assignment: DeviceAssignment):
-        ''' Add assignment to collection '''
-        assert assignment.persistent
+        """ Add assignment to collection """
+        assert assignment.attach_automatically
         vm = assignment.backend_domain
         ident = assignment.ident
         key = (vm, ident)
@@ -883,9 +1004,11 @@ class PersistentCollection:
 
         self._dict[key] = assignment
 
-    def discard(self, assignment):
-        ''' Discard assignment from collection '''
-        assert assignment.persistent
+    def discard(self, assignment: DeviceAssignment):
+        """
+        Discard assignment from collection.
+        """
+        assert assignment.attach_automatically
         vm = assignment.backend_domain
         ident = assignment.ident
         key = (vm, ident)
@@ -897,8 +1020,9 @@ class PersistentCollection:
         return (device.backend_domain, device.ident) in self._dict
 
     def get(self, device: DeviceInfo) -> DeviceAssignment:
-        ''' Returns the corresponding `qubes.devices.DeviceAssignment` for the
-            device. '''
+        """
+        Returns the corresponding `DeviceAssignment` for the device.
+        """
         return self._dict[(device.backend_domain, device.ident)]
 
     def __iter__(self):

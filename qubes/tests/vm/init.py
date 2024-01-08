@@ -110,13 +110,13 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         })
 
         self.assertCountEqual(vm.devices.keys(), ('pci',))
-        self.assertCountEqual(list(vm.devices['pci'].persistent()),
-            [qubes.ext.pci.PCIDevice(vm, '00_11.22')])
+        self.assertCountEqual(list(vm.devices['pci'].get_assigned_devices()),
+                              [qubes.ext.pci.PCIDevice(vm, '00_11.22')])
 
-        assignments = list(vm.devices['pci'].assignments())
+        assignments = list(vm.devices['pci'].get_assigned_devices())
         self.assertEqual(len(assignments), 1)
         self.assertEqual(assignments[0].options, {'no-strict-reset': 'True'})
-        self.assertEqual(assignments[0].persistent, True)
+        self.assertEqual(assignments[0].attach_automatically, True)
 
         self.assertXMLIsValid(vm.__xml__(), 'relaxng/domain.rng')
 

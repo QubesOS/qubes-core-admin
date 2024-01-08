@@ -7,7 +7,7 @@
     {% block basic %}
         <name>{{ vm.name }}</name>
         <uuid>{{ vm.uuid }}</uuid>
-        {% if ((vm.virt_mode == 'hvm' and vm.devices['pci'].persistent() | list)
+        {% if ((vm.virt_mode == 'hvm' and vm.devices['pci'].get_assigned_devices() | list)
             or vm.maxmem == 0) -%}
             <memory unit="MiB">{{ vm.memory }}</memory>
         {% elif vm.use_memory_hotplug %}
@@ -79,7 +79,7 @@
                 <viridian/>
             {% endif %}
 
-            {% if vm.devices['pci'].persistent() | list
+            {% if vm.devices['pci'].get_assigned_devices() | list
                     and vm.features.get('pci-e820-host', True) %}
                 <xen>
                     <e820_host state="on"/>

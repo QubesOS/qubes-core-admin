@@ -423,7 +423,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-pre-start')
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
-        for assignment in vm.devices['pci'].persistent():
+        for assignment in vm.devices['pci'].get_assigned_devices():
             device = _cache_get(assignment.backend_domain, assignment.ident)
             self.bind_pci_to_pciback(vm.app, device)
 

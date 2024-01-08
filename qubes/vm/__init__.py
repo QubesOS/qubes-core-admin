@@ -27,6 +27,7 @@ import asyncio
 import re
 import string
 import uuid
+from typing import List
 
 import lxml.etree
 
@@ -279,10 +280,10 @@ class BaseVM(qubes.PropertyHolder):
                         self.app.domains[node.get('backend-domain')],
                         node.get('id'),
                         options,
-                        persistent=True,
-                        # TODO: required=node.get('required')
+                        attach_automatically=True,
+                        required=node.get('required'),
                     )
-                    self.devices[devclass].load_persistent(device_assignment)
+                    self.devices[devclass].load_assignment(device_assignment)
                 except KeyError:
                     msg = "{}: Cannot find backend domain '{}' " \
                           "for device type {} '{}'".format(self.name, node.get(
@@ -296,15 +297,18 @@ class BaseVM(qubes.PropertyHolder):
 
         # SEE:1815 firewall, policy.
 
-    def get_provided_assignments(self):
-        '''List of persistent device assignments from this VM.'''
+    def get_provided_assignments(self, required_only: bool)\
+            -> List['qubes.devices.DeviceAssignment']:
+        """
+        List  device assignments from this VM.
+        """
 
         assignments = []
         for domain in self.app.domains:
             if domain == self:
                 continue
             for device_collection in domain.devices.values():
-                for assignment in device_collection.persistent():
+                for assignment in device_collection.get_assigned_devices():
                     if assignment.backend_domain == self:
                         assignments.append(assignment)
         return assignments
@@ -330,11 +334,12 @@ class BaseVM(qubes.PropertyHolder):
         for devclass in self.devices:
             devices = lxml.etree.Element('devices')
             devices.set('class', devclass)
-            for device in self.devices[devclass].assignments(persistent=True):
+            for device in self.devices[devclass].get_assigned_devices():
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
-                # TODO: node.set('required', device.required)
+                node.set('required', device.required)
+                # TODO: serial
                 for key, val in device.options.items():
                     option_node = lxml.etree.Element('option')
                     option_node.set('name', key)

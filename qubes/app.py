@@ -1509,8 +1509,7 @@ class Qubes(qubes.PropertyHolder):
                 assignment.ident for assignment in assignments)
             raise qubes.exc.QubesVMInUseError(
                 vm,
-                'VM has devices attached persistently to other VMs: ' +  # TODO
-                desc)
+                'VM has devices assigned to other VMs: ' + desc)
 
     @qubes.events.handler('domain-delete')
     def on_domain_deleted(self, event, vm):
