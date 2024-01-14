@@ -23,9 +23,11 @@
 import asyncio
 import operator
 import os
+import re
 import shutil
 import tempfile
 import unittest.mock
+import uuid
 
 import libvirt
 import copy
@@ -46,6 +48,8 @@ volume_properties = [
     'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
     'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'ephemeral']
 
+_uuid_regex = re.compile(
+        r"\Auuid:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -78,6 +82,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         app.save = unittest.mock.Mock()
         self.vm = app.add_new_vm('AppVM', label='red', name='test-vm1',
             template='test-template')
+        self.uuid = b"uuid:" + str(self.vm.uuid).encode("ascii", "strict")
         self.app = app
         libvirt_attrs = {
             'libvirt_conn.lookupByUUID.return_value.isActive.return_value':
@@ -130,14 +135,33 @@ class TC_00_VMs(AdminAPITestCase):
     def test_000_vm_list(self):
         value = self.call_mgmt_func(b'admin.vm.List', b'dom0')
         self.assertEqual(value,
-            'dom0 class=AdminVM state=Running\n'
-            'test-template class=TemplateVM state=Halted\n'
-            'test-vm1 class=AppVM state=Halted\n')
+            'dom0 class=AdminVM state=Running '
+            'uuid=00000000-0000-0000-0000-000000000000\n'
+            'test-template class=TemplateVM state=Halted '
+            f'uuid={self.template.uuid}\n'
+            f'test-vm1 class=AppVM state=Halted uuid={self.vm.uuid}\n')
 
     def test_001_vm_list_single(self):
         value = self.call_mgmt_func(b'admin.vm.List', b'test-vm1')
         self.assertEqual(value,
-            'test-vm1 class=AppVM state=Halted\n')
+            f"test-vm1 class=AppVM state=Halted uuid={self.vm.uuid}\n")
+
+    def test_001_vm_list_single_uuid(self):
+        value = self.call_mgmt_func(b'admin.vm.List', self.uuid)
+        self.assertEqual(value,
+            f"test-vm1 class=AppVM state=Halted uuid={self.vm.uuid}\n")
+
+    def test_001_vm_list_single_invalid_name(self):
+        with self.assertRaisesRegex(qubes.exc.QubesValueError,
+                                    r"\AVM name contains illegal characters\Z"):
+            self.call_mgmt_func(b'admin.vm.CreateDisposable', b'.test-vm1')
+        self.assertFalse(self.app.save.called)
+
+    def test_001_vm_list_single_invalid_uuid(self):
+        with self.assertRaisesRegex(qubes.exc.QubesVMInvalidUUIDError,
+                                    r"\AVM UUID is not valid: ''\Z"):
+            self.call_mgmt_func(b'admin.vm.CreateDisposable', b"uuid:")
+        self.assertFalse(self.app.save.called)
 
     def test_002_vm_list_filter(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -154,8 +178,9 @@ class TC_00_VMs(AdminAPITestCase):
                 value = loop.run_until_complete(
                     mgmt_obj.execute(untrusted_payload=b''))
                 self.assertEqual(value,
-                    'dom0 class=AdminVM state=Running\n'
-                    'test-vm1 class=AppVM state=Halted\n')
+                    'dom0 class=AdminVM state=Running '
+                    'uuid=00000000-0000-0000-0000-000000000000\n'
+                    f"test-vm1 class=AppVM state=Halted uuid={self.vm.uuid}\n")
 
     def test_010_vm_property_list(self):
         # this test is kind of stupid, but at least check if appropriate
@@ -2812,6 +2837,26 @@ netvm default=True type=vm \n'''
         self.assertTrue(retval.startswith('disp'))
         self.assertIn(retval, self.app.domains)
         dispvm = self.app.domains[retval]
+        self.assertEqual(dispvm.template, self.vm)
+        mock_storage.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_640_vm_create_disposable_uuid(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.template_for_dispvms = True
+        retval = self.call_mgmt_func(b'admin.vm.CreateDisposable',
+                b'test-vm1', payload=b'uuid')
+        self.assertRegex(retval, _uuid_regex)
+        found = False
+        for i in self.app.domains:
+            print(i.uuid)
+            if i.uuid == uuid.UUID(retval):
+                found = True
+            self.assertIsInstance(i.uuid, uuid.UUID)
+        self.assertTrue(found)
+        self.assertIn(uuid.UUID(retval), self.app.domains)
+        dispvm = self.app.domains[uuid.UUID(retval)]
         self.assertEqual(dispvm.template, self.vm)
         mock_storage.assert_called_once_with()
         self.assertTrue(self.app.save.called)

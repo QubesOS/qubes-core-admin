@@ -43,6 +43,7 @@ def get_system_info(app):
             'guivm': (domain.guivm.name if getattr(domain, 'guivm', None)
                       else None),
             'power_state': domain.get_power_state(),
+            'uuid': str(domain.uuid),
         } for domain in app.domains
     }}
     return system_info
