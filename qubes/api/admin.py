@@ -119,10 +119,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         else:
             domains = self.fire_event_for_filter([self.dest])
 
-        return ''.join('{} class={} state={}\n'.format(
+        return ''.join('{} class={} state={} uuid={}\n'.format(
                 vm.name,
                 vm.__class__.__name__,
-                vm.get_power_state())
+                vm.get_power_state(),
+                vm.uuid)
             for vm in sorted(domains))
 
     @qubes.api.method('admin.vm.property.List', no_payload=True,
@@ -1134,10 +1135,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise
         self.app.save()
 
-    @qubes.api.method('admin.vm.CreateDisposable', no_payload=True,
+    @qubes.api.method('admin.vm.CreateDisposable',
         scope='global', write=True)
-    async def create_disposable(self):
+    async def create_disposable(self, untrusted_payload):
         self.enforce(not self.arg)
+        if untrusted_payload not in (b"", b"uuid"):
+            raise qubes.exc.QubesValueError(
+                    "Invalid payload for admin.vm.CreateDisposable: "
+                    "expected the empty string or 'uuid'")
 
         if self.dest.name == 'dom0':
             dispvm_template = self.src.default_dispvm
@@ -1150,7 +1155,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # TODO: move this to extension (in race-free fashion, better than here)
         dispvm.tags.add('disp-created-by-' + str(self.src))
 
-        return dispvm.name
+        return str(dispvm.uuid) if untrusted_payload else dispvm.name
 
     @qubes.api.method('admin.vm.Remove', no_payload=True,
         scope='global', write=True)
