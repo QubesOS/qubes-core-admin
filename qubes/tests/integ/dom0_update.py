@@ -79,14 +79,17 @@ Expire-Date: 0
 
         cls.keyid = cls.generate_key(cls.tmpdir)
 
+        cls.write_repo_file()
+
+    @classmethod
+    def write_repo_file(cls, hostname='localhost'):
         with open('/etc/yum.repos.d/test.repo', 'w') as repo_file:
-            repo_file.write('''
+            repo_file.write(f'''
 [test]
 name = Test
-baseurl = http://localhost:8080/
+baseurl = http://{hostname}:8080/
 enabled = 1
 ''')
-
 
     @classmethod
     def tearDownClass(cls):
@@ -96,9 +99,8 @@ enabled = 1
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
-        if self.template.startswith('whonix-'):
-            # Whonix redirect all the traffic through tor, so repository
-            # on http://localhost:8080/ is unavailable
+        if self.template.startswith('whonix-w'):
+            # Whonix Workstation is not suitable for updatevm
             self.skipTest("Test not supported for this template")
         self.init_default_template(self.template)
         self.updatevm = self.app.add_new_vm(
@@ -106,6 +108,9 @@ enabled = 1
             name=self.make_vm_name("updatevm"),
             label='red'
         )
+        if self.template.startswith('whonix-g'):
+            # whonix gateway checks if it's set as providing network
+            self.updatevm.provides_network = True
         self.loop.run_until_complete(self.updatevm.create_on_disk())
         self.app.updatevm = self.updatevm
         self.app.save()
@@ -194,6 +199,24 @@ Test package
     def start_repo(self):
         if self.repo_running:
             return
+        if self.template.startswith('whonix-g'):
+            # plain localhost repo doesn't work via whonix due to firewall,
+            # setup onion service
+            self.loop.run_until_complete(self.updatevm.run_for_stdio(
+                'cat >> /usr/local/etc/torrc.d/50_user.conf',
+                user="root",
+                input=b"""
+HiddenServiceDir /var/lib/tor/hidden_service/
+HiddenServicePort 8080 127.0.0.1:8080
+HiddenServiceVersion 3
+"""
+            ))
+            self.loop.run_until_complete(self.whonix_gw_setup_async(self.updatevm))
+            onion_name = self.loop.run_until_complete(self.updatevm.run_for_stdio(
+                "cat /var/lib/tor/hidden_service/hostname", user="root"
+            ))[0].decode().strip()
+            self.write_repo_file(onion_name)
+
         self.repo_proc = self.loop.run_until_complete(self.updatevm.run(
             'cd /tmp/repo && python3 -m http.server 8080',
             stdout=subprocess.DEVNULL,
