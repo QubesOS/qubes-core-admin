@@ -228,7 +228,7 @@ def _default_kernelopts(self):
         kernels_dir = os.path.join(
             qubes.config.system_path['qubes_kernels_base_dir'],
             self.kernel)
-    any_pci_assigned = bool(list(self.devices['pci'].get_assigned_pci()))
+    any_pci_assigned = bool(list(self.devices['pci'].get_assigned_devices()))
     if any_pci_assigned:
         path = os.path.join(kernels_dir, 'default-kernelopts-pci.txt')
     else:
@@ -1621,7 +1621,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
          - balloon driver not present
 
         We don't have reliable way to detect the second point, but good
-        heuristic is HVM virt_mode (PV and PVH require OS support and it does
+        heuristic is HVM virt_mode (PV and PVH require OS support, and it does
         include balloon driver) and lack of qrexec/meminfo-writer service
         support (no qubes tools installed).
         """

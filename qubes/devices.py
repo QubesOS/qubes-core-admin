@@ -872,7 +872,7 @@ class DeviceCollection:
         if device_assignment.required and not self._vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self._vm,
-                "Can not remove a required device from a non halted qube."
+                "Can not remove a required device from a non halted qube. "
                 "You need to unassign device first.")
 
         device = device_assignment.device
@@ -925,7 +925,21 @@ class DeviceCollection:
         List devices which are attached to this vm.
         """
         attached = self._vm.fire_event('device-list-attached:' + self._bus)
-        return [dev for dev, _ in attached]
+        for dev, options in attached:
+            for assignment in self._set:
+                if dev == assignment:
+                    yield assignment
+                    break
+            else:
+                yield DeviceAssignment(
+                    backend_domain=dev.backend_domain,
+                    ident=dev.ident,
+                    options=options,
+                    frontend_domain=dev.frontend_domain,
+                    devclass=dev.devclass,
+                    attach_automatically=False,
+                    required=False,
+                )
 
     def get_assigned_devices(
             self, required_only: bool = False
@@ -940,12 +954,17 @@ class DeviceCollection:
                 continue
             yield dev
 
+    def persistent(self):
+        # TODO
+        return self.get_assigned_devices()
+
     def get_exposed_devices(self) -> Iterable[DeviceInfo]:
         """
         List devices exposed by this vm.
         """
         devices = self._vm.fire_event('device-list:' + self._bus)
-        return devices
+        for device in devices:
+            yield device
 
     __iter__ = get_exposed_devices
 

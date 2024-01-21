@@ -281,7 +281,7 @@ class BaseVM(qubes.PropertyHolder):
                         node.get('id'),
                         options,
                         attach_automatically=True,
-                        required=node.get('required'),
+                        required=True #node.get('required'),
                     )
                     self.devices[devclass].load_assignment(device_assignment)
                 except KeyError:
@@ -338,7 +338,7 @@ class BaseVM(qubes.PropertyHolder):
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
-                node.set('required', device.required)
+                # node.set('required', device.required)
                 # TODO: serial
                 for key, val in device.options.items():
                     option_node = lxml.etree.Element('option')
