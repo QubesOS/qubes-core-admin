@@ -578,7 +578,7 @@ class UnknownDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
     """Unknown device - for example exposed by domain not running currently"""
 
-    def __init__(self, backend_domain, devclass, ident, **kwargs):
+    def __init__(self, backend_domain, ident, *, devclass, **kwargs):
         super().__init__(backend_domain, ident, devclass=devclass, **kwargs)
 
 
@@ -954,10 +954,6 @@ class DeviceCollection:
                 continue
             yield dev
 
-    def persistent(self):
-        # TODO
-        return self.get_assigned_devices()
-
     def get_exposed_devices(self) -> Iterable[DeviceInfo]:
         """
         List devices exposed by this vm.
@@ -986,7 +982,7 @@ class DeviceCollection:
             assert len(dev) == 1
             return dev[0]
 
-        return UnknownDevice(self._vm, ident)
+        return UnknownDevice(self._vm, ident, devclass=self._bus)
 
 
 class DeviceManager(dict):

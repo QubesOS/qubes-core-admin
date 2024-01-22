@@ -1285,7 +1285,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devclass = endpoint
         # TODO: deserialize
         options = {}
-        attach_automatically = False
+        attach_automatically = True
         required = False
         for untrusted_option in untrusted_payload.decode(
                 'ascii', 'strict').split():
@@ -1293,13 +1293,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 untrusted_key, untrusted_value = untrusted_option.split('=', 1)
             except ValueError:
                 raise qubes.api.ProtocolError('Invalid options format')
-            if untrusted_key == 'attach_automatically':
-                attach_automatically = qubes.property.bool(
-                    None, None, untrusted_value)
 
-                self.enforce(attach_automatically)
-
-            elif untrusted_key == 'required':
+            if untrusted_key == 'required':
                 required = qubes.property.bool(
                     None, None, untrusted_value)
             else:
