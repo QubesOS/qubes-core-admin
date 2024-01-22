@@ -799,7 +799,7 @@ class DeviceCollection:
         device = device_assignment.device
         if device in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
-                'device {!s} of class {} already attached to {!s}'.format(
+                'device {!s} of class {} already assigned to {!s}'.format(
                     device, self._bus, self._vm))
 
         # TODO: check if needed
@@ -867,12 +867,12 @@ class DeviceCollection:
         else:
             raise DeviceNotAssigned(
                 f'device {device_assignment.ident!s} of class {self._bus} not '
-                f'assigned to {self._vm!s}')
+                f'attached to {self._vm!s}')
 
         if device_assignment.required and not self._vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self._vm,
-                "Can not remove a required device from a non halted qube. "
+                "Can not detach a required device from a non halted qube. "
                 "You need to unassign device first.")
 
         device = device_assignment.device
