@@ -230,7 +230,7 @@ class DeviceInterface:
                 )
                 ifc_full = ifc_padded
             elif len(ifc_padded) == 6:
-                ifc_full = ' ' + ifc_padded
+                ifc_full = '?' + ifc_padded
             else:
                 ifc_full = ifc_padded
 
@@ -251,7 +251,7 @@ class DeviceInterface:
     @classmethod
     def unknown(cls) -> 'DeviceInterface':
         """ Value for unknown device interface. """
-        return cls(" ******")
+        return cls("?******")
 
     def __repr__(self):
         return self._interface_encoding
@@ -482,26 +482,27 @@ class DeviceInfo(Device):
             'ident', 'devclass', 'vendor', 'product', 'manufacturer', 'name',
             'serial'}
         properties = b' '.join(
-            base64.b64encode(f'{prop}={value!s}'.encode('ascii'))
+            f'{prop}={self.serialize_str(value)}'.encode('ascii')
             for prop, value in (
                 (key, getattr(self, key)) for key in default_attrs)
         )
 
-        backend_domain_name = self.backend_domain.name
-        backend_domain_prop = (b'backend_domain=' +
-                               backend_domain_name.encode('ascii'))
-        properties += b' ' + base64.b64encode(backend_domain_prop)
+        back_name = self.serialize_str(self.backend_domain.name)
+        backend_domain_prop = (b"backend_domain=" + back_name.encode('ascii'))
+        properties += b' ' + backend_domain_prop
 
-        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
-        interfaces_prop = b'interfaces=' + str(interfaces).encode('ascii')
-        properties += b' ' + base64.b64encode(interfaces_prop)
+        interfaces = self.serialize_str(
+            ''.join(repr(ifc) for ifc in self.interfaces))
+        interfaces_prop = (b'interfaces=' + interfaces.encode('ascii'))
+        properties += b' ' + interfaces_prop
 
         if self.parent_device is not None:
-            parent_prop = b'parent=' + self.parent_device.ident.encode('ascii')
-            properties += b' ' + base64.b64encode(parent_prop)
+            parent_ident = self.serialize_str(self.parent_device.ident)
+            parent_prop = (b'parent=' + parent_ident.encode('ascii'))
+            properties += b' ' + parent_prop
 
         data = b' '.join(
-            base64.b64encode(f'_{prop}={value!s}'.encode('ascii'))
+            f'_{prop}={self.serialize_str(value)}'.encode('ascii')
             for prop, value in ((key, self.data[key]) for key in self.data)
         )
         if data:
@@ -537,17 +538,27 @@ class DeviceInfo(Device):
             expected_backend_domain: 'qubes.vm.BaseVM',
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
-        properties_str = [
-            base64.b64decode(line).decode('ascii', errors='ignore')
-            for line in serialization.split(b' ')[1:]]
+        serstr = serialization.decode('ascii', errors='ignore')
+        _ident, _, rest = serstr.partition(' ')
+        keys = []
+        values = []
+        key, _, rest = rest.partition("='")
+        keys.append(key)
+        while "='" in rest:
+            value_key, _, rest = rest.partition("='")
+            value, _, key = value_key.rpartition("' ")
+            values.append(DeviceInfo.deserialize_str(value))
+            keys.append(key)
+        value = rest[:-1]  # ending '
+        values.append(DeviceInfo.deserialize_str(value))
 
         properties = dict()
-        for line in properties_str:
-            key, _, param = line.partition("=")
+        for key, value in zip(keys, values):
             if key.startswith("_"):
-                properties[key[1:]] = param
+                # it's handled in cls.__init__
+                properties[key[1:]] = value
             else:
-                properties[key] = param
+                properties[key] = value
 
         if properties['backend_domain'] != expected_backend_domain.name:
             raise ValueError("TODO")  # TODO
@@ -568,6 +579,14 @@ class DeviceInfo(Device):
             )
 
         return cls(**properties)
+
+    @staticmethod
+    def serialize_str(string: str):
+        return repr(string)
+
+    @staticmethod
+    def deserialize_str(string: str):
+        return string.replace("\\\'", "'")
 
     @property
     def frontend_domain(self):
