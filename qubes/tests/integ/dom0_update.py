@@ -43,7 +43,7 @@ class TC_00_Dom0UpgradeMixin(object):
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test']
 
     @classmethod
-    def generate_key(cls, keydir):
+    def generate_key(cls, keydir, export_to):
         gpg_opts = ['gpg', '--quiet', '--no-default-keyring',
                     '--homedir', keydir]
         p = subprocess.Popen(gpg_opts + ['--gen-key', '--batch'],
@@ -62,7 +62,7 @@ Expire-Date: 0
         p.wait()
 
         subprocess.check_call(gpg_opts + ['-a', '--export',
-                                          '--output', os.path.join(keydir, 'pubkey.asc')])
+                                          '--output', export_to])
         p = subprocess.Popen(gpg_opts + ['--with-colons', '--list-keys'],
                              stdout=subprocess.PIPE)
         for line in p.stdout.readlines():
@@ -77,7 +77,8 @@ Expire-Date: 0
 
         cls.tmpdir = tempfile.mkdtemp()
 
-        cls.keyid = cls.generate_key(cls.tmpdir)
+        cls.pubkey_path = '/etc/pki/rpm-gpg/RPM-GPG-KEY-test'
+        cls.keyid = cls.generate_key(cls.tmpdir, cls.pubkey_path)
 
         cls.write_repo_file()
 
@@ -88,12 +89,14 @@ Expire-Date: 0
 [test]
 name = Test
 baseurl = http://{hostname}:8080/
+gpgkey = file://{cls.pubkey_path}
 enabled = 1
 ''')
 
     @classmethod
     def tearDownClass(cls):
         os.unlink('/etc/yum.repos.d/test.repo')
+        os.unlink(cls.pubkey_path)
 
         shutil.rmtree(cls.tmpdir)
 
@@ -116,8 +119,7 @@ enabled = 1
         self.app.save()
         subprocess.call(['rpm', '-e', self.pkg_name],
                         stderr=subprocess.DEVNULL)
-        subprocess.check_call(['rpm', '--import',
-                               os.path.join(self.tmpdir, 'pubkey.asc')])
+        subprocess.check_call(['rpm', '--import', self.pubkey_path])
         self.loop.run_until_complete(self.updatevm.start())
         self.repo_running = False
         self.repo_proc = None
