@@ -55,7 +55,6 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 """
-import base64
 import itertools
 import sys
 from enum import Enum
@@ -85,6 +84,12 @@ class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
 class DeviceAlreadyAssigned(qubes.exc.QubesException, KeyError):
     """
     Trying to assign already assigned device.
+    """
+
+
+class UnexpectedDeviceProperty(qubes.exc.QubesException, ValueError):
+    """
+    Device has unexpected property such as backend_domain, devclass etc.
     """
 
 
@@ -521,7 +526,7 @@ class DeviceInfo(Device):
             result = DeviceInfo._deserialize(
                 cls, serialization, expected_backend_domain, expected_devclass)
         except Exception as exc:
-            print(exc, file=sys.stderr)  # TODO
+            print(exc, file=sys.stderr)
             ident = serialization.split(b' ')[0].decode(
                 'ascii', errors='ignore')
             result = UnknownDevice(
@@ -538,8 +543,8 @@ class DeviceInfo(Device):
             expected_backend_domain: 'qubes.vm.BaseVM',
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
-        serstr = serialization.decode('ascii', errors='ignore')
-        _ident, _, rest = serstr.partition(' ')
+        decoded = serialization.decode('ascii', errors='ignore')
+        _ident, _, rest = decoded.partition(' ')
         keys = []
         values = []
         key, _, rest = rest.partition("='")
@@ -561,10 +566,14 @@ class DeviceInfo(Device):
                 properties[key] = value
 
         if properties['backend_domain'] != expected_backend_domain.name:
-            raise ValueError("TODO")  # TODO
+            raise UnexpectedDeviceProperty(
+                f"Got device exposed by {properties['backend_domain']}"
+                f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
-        # if expected_devclass and properties['devclass'] != expected_devclass:
-        #     raise ValueError("TODO")  # TODO
+        if expected_devclass and properties['devclass'] != expected_devclass:
+            raise UnexpectedDeviceProperty(
+                f"Got {properties['devclass']} device "
+                f"when expected {expected_devclass}.")
 
         interfaces = properties['interfaces']
         interfaces = [
@@ -709,7 +718,7 @@ class DeviceCollection:
     :param vm: VM for which we manage devices
     :param bus: device bus
 
-    This class emits following events on VM object:  # TODO pre-assign, assign, pre-unassign, unassign
+    This class emits following events on VM object:
 
         .. event:: device-added:<class> (device)
 
@@ -821,7 +830,6 @@ class DeviceCollection:
                 'device {!s} of class {} already assigned to {!s}'.format(
                     device, self._bus, self._vm))
 
-        # TODO: check if needed
         await self._vm.fire_event_async(
             'device-pre-assign:' + self._bus,
             pre_event=True, device=device, options=device_assignment.options)
@@ -878,27 +886,28 @@ class DeviceCollection:
         else:
             await self.detach(assignment)
 
-    async def detach(self, device_assignment: DeviceAssignment):  # TODO: argument should be just device
+    async def detach(self, device: Device):
         """
         Detach device from domain.
         """
-        for assignment in self.get_attached_devices():
-            if device_assignment == assignment:
+        for assign in self.get_attached_devices():
+            if device == assign:
                 # load all options
-                device_assignment = assignment
+                assignment = assign
                 break
         else:
             raise DeviceNotAssigned(
-                f'device {device_assignment.ident!s} of class {self._bus} not '
+                f'device {device.ident!s} of class {self._bus} not '
                 f'attached to {self._vm!s}')
 
-        if device_assignment.required and not self._vm.is_halted():
+        if assignment.required and not self._vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self._vm,
                 "Can not detach a required device from a non halted qube. "
                 "You need to unassign device first.")
 
-        device = device_assignment.device
+        # use local object
+        device = assignment.device
         await self._vm.fire_event_async(
             'device-pre-detach:' + self._bus, pre_event=True, device=device)
 
@@ -925,7 +934,6 @@ class DeviceCollection:
                 "Can not remove an assignment from a non halted qube.")
 
         device = device_assignment.device
-        # TODO: check if needed
         await self._vm.fire_event_async(
             'device-pre-unassign:' + self._bus, pre_event=True, device=device)
 
