@@ -1724,8 +1724,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # some files (like clipboard) may be created as root and cause
             # permission problems
             qubes_group = grp.getgrnam('qubes')
-            command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + \
-                      list(command)
+            command = ['runuser', '-u', qubes_group.gr_mem[0], '--', *command]
         p = await asyncio.create_subprocess_exec(*command, **kwargs)
         stdout, stderr = await p.communicate(input=input)
         if p.returncode:
@@ -1740,25 +1739,33 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.debug('Starting the qrexec daemon')
         if stubdom:
-            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', 'root']
+            unit = "qrexec-daemon@" + self.name.replace("-", "\\x2d") + "\\x2ddm"
+            qrexec_args = ["--", str(self.stubdom_xid), self.name + '-dm', 'root']
         else:
-            qrexec_args = [str(self.xid), self.name, self.default_user]
+            unit = "qrexec-daemon@" + self.name.replace("-", "\\x2d") + ".service"
+            qrexec_args = ["--", str(self.xid), self.name, self.default_user]
 
         if not self.debug:
             qrexec_args.insert(0, "-q")
 
-        qrexec_env = os.environ.copy()
         if not self.features.check_with_template('qrexec', False):
             self.log.debug(
                 'Starting the qrexec daemon in background, because of features')
-            qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
+            env_arg = "-EQREXEC_STARTUP_NOWAIT=1"
         else:
-            qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
+            env_arg = "-EQREXEC_STARTUP_TIMEOUT=" + str(self.qrexec_timeout)
 
         try:
             await self.start_daemon(
-                qubes.config.system_path['qrexec_daemon_path'], *qrexec_args,
-                env=qrexec_env, stderr=subprocess.PIPE)
+                "systemd-run",
+                "--service-type=forking",
+                "--user",
+                "--unit=" + unit,
+                env_arg,
+                "--",
+                qubes.config.system_path['qrexec_daemon_path'],
+                *qrexec_args,
+                stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as err:
             if err.returncode == 3:
                 raise qubes.exc.QubesVMError(
@@ -1782,6 +1789,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.log.info('Starting Qubes DB')
         try:
             await self.start_daemon(
+                "systemd-run",
+                "--service-type=notify",
+                "--user",
+                "--unit=qubesdb-daemon@" + self.name.replace("-", "\\x2d") + ".service"
+                "--",
                 qubes.config.system_path['qubesdb_daemon_path'],
                 str(self.xid),
                 self.name)
