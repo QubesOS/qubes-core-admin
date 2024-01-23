@@ -824,7 +824,8 @@ class DeviceCollection:
         device_assignment.devclass = self._bus
         self._set.add(device_assignment)
 
-    def update_assignment(self, device: DeviceInfo, required: Optional[bool]):
+    async def update_assignment(
+            self, device: DeviceInfo, required: Optional[bool]):
         """
         Update assignment of already attached device.
 
@@ -848,12 +849,15 @@ class DeviceCollection:
 
         # be careful to use already present assignment, not the provided one
         # - to not change options as a side effect
-        if required is not None and device not in self._set:
-            assignment.attach_automatically = True
+        if required is not None:
+            if assignment.required == required:
+                return
+
             assignment.required = required
-            self._set.add(assignment)
-        elif required is None and device in self._set:
-            self._set.discard(assignment)
+            await self._vm.fire_event_async(
+                'device-assignment-changed:' + self._bus, device=device)
+        else:
+            await self.detach(assignment)
 
     async def detach(self, device_assignment: DeviceAssignment):  # TODO: argument should be just device
         """
@@ -904,12 +908,12 @@ class DeviceCollection:
         device = device_assignment.device
         # TODO: check if needed
         await self._vm.fire_event_async(
-            'device-pre-detach:' + self._bus, pre_event=True, device=device)
+            'device-pre-unassign:' + self._bus, pre_event=True, device=device)
 
         self._set.discard(device_assignment)
 
         await self._vm.fire_event_async(
-            'device-detach:' + self._bus, device=device)
+            'device-unassign:' + self._bus, device=device)
 
     def get_dedicated_devices(self) -> Iterable[DeviceAssignment]:
         """

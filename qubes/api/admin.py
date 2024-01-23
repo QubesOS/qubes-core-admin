@@ -1466,7 +1466,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 
-        self.dest.devices[devclass].update_assignment(dev, assignment)
+        await self.dest.devices[devclass].update_assignment(dev, assignment)
         self.app.save()
 
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True,
