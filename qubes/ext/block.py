@@ -19,6 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 """ Qubes block devices extensions """
+import asyncio
 import collections
 import re
 import string
@@ -183,18 +184,56 @@ class BlockDeviceExtension(qubes.ext.Extension):
         current_devices = dict((dev.ident, dev.frontend_domain)
            for dev in self.on_device_list_block(vm, None))
 
-        devices_cache_for_vm = self.devices_cache[vm.name]
-        for dev_id, connected_to in current_devices.items():
-            if dev_id not in devices_cache_for_vm:
-                device = BlockDevice(vm, dev_id)
-                vm.fire_event('device-added:block', device=device)
-        for dev_id, connected_to in devices_cache_for_vm.items():
-            if dev_id not in current_devices:
-                device = BlockDevice(vm, dev_id)
-                vm.fire_event('device-removed:block', device=device)
+        # send events about devices detached/attached outside by themselves
+        # (like device pulled out or manual qubes.USB qrexec call)
+        # compare cached devices and current devices, collect:
+        # - newly appeared devices (ident)
+        # - devices attached from a vm to frontend vm (ident: frontend_vm)
+        # - devices detached from frontend vm (ident: frontend_vm)
+        # - disappeared devices, e.g. plugged out (ident)
+        added = set()
+        attached = dict()
+        detached = dict()
+        removed = set()
+        cache = self.devices_cache[vm.name]
+        for dev_id, front_vm in current_devices.items():
+            if dev_id not in cache:
+                added.add(dev_id)
+                if front_vm is not None:
+                    attached[dev_id] = front_vm
+            elif cache[dev_id] != front_vm:
+                cached_front = cache[dev_id]
+                if front_vm is None:
+                    detached[dev_id] = cached_front
+                elif cached_front is None:
+                    attached[dev_id] = front_vm
+                else:
+                    # front changed from one to another, so we signal it as:
+                    # detach from first one and attach to the second one.
+                    detached[dev_id] = cached_front
+                    attached[dev_id] = front_vm
 
-        # TODO: if not removed and not added
-        # TODO attach/detach
+        for dev_id, cached_front in cache.items():
+            if dev_id not in current_devices:
+                removed.add(dev_id)
+                if cached_front is not None:
+                    detached[dev_id] = cached_front
+
+        for dev_id, front_vm in detached.items():
+            dev = BlockDevice(vm, dev_id)
+            asyncio.ensure_future(front_vm.fire_event_async(
+                'device-detach:block', device=dev))
+        for dev_id in removed:
+            device = BlockDevice(vm, dev_id)
+            vm.fire_event('device-removed:block', device=device)
+        for dev_id in added:
+            device = BlockDevice(vm, dev_id)
+            vm.fire_event('device-added:block', device=device)
+        for dev_ident, front_vm in attached.items():
+            dev = BlockDevice(vm, dev_ident)
+            asyncio.ensure_future(front_vm.fire_event_async(
+                'device-attach:block', device=dev, options={}))
+
         self.devices_cache[vm.name] = current_devices
 
     def device_get(self, vm, ident):
