@@ -280,8 +280,24 @@ class SaltVMTestMixin(SaltTestMixin):
         self.loop.run_until_complete(dispvm_tpl.create_on_disk())
         self.app.default_dispvm = dispvm_tpl
         self.app.management_dispvm = dispvm_tpl
+        if self.id().endswith('user_sls'):
+            if os.path.exists('/srv/user_salt'):
+                shutil.copy('/srv/user_salt/top.sls', '/srv/user_salt/top.sls.test-bak')
+                self.user_salt_exists = True
+            else:
+                self.salt_call(["--dom0-only", "state.sls", "qubes.user-dirs"])
+                self.user_salt_exists = False
 
     def tearDown(self):
+        if hasattr(self, "user_salt_exists"):
+            if self.user_salt_exists:
+                os.unlink("/srv/user_salt/top.sls")
+                os.rename("/srv/user_salt/top.sls.test-bak", "/srv/user_salt/top.sls")
+            else:
+                shutil.rmtree("/srv/user_salt")
+                shutil.rmtree("/srv/user_pillar")
+                shutil.rmtree("/srv/user_formulas")
+
         self.app.default_dispvm = None
         super(SaltVMTestMixin, self).tearDown()
 
@@ -539,6 +555,85 @@ class SaltVMTestMixin(SaltTestMixin):
             self.assertTrue(
                 result['result'],
                 "State {} failed: {!r}".format(state, result))
+
+    def test_004_user_sls(self):
+        vmname = self.make_vm_name('target')
+        self.vm = self.app.add_new_vm('AppVM', name=vmname, label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        # start the VM manually, so it stays running after applying salt state
+        self.loop.run_until_complete(self.vm.start())
+        os.makedirs("/srv/user_salt/test_salt", exist_ok=True)
+        with open("/srv/user_salt/test_salt/something.sls", "w") as f:
+            f.write('/home/user/testfile:\n')
+            f.write('  file.managed:\n')
+            f.write('    - contents: |\n')
+            f.write('        this is test\n')
+        with open('/srv/user_salt/top.sls', 'a') as f:
+            f.write('user:\n')
+            f.write('  {}:\n'.format(vmname))
+            f.write('    - test_salt.something\n')
+
+        state_output = self.salt_call(
+            ['--skip-dom0', '--show-output', '--targets=' + vmname,
+             'state.highstate'])
+        expected_output = vmname + ':\n'
+        self.assertTrue(state_output.startswith(expected_output),
+            'Full output: ' + state_output)
+        state_id = 'file_|-/home/user/testfile_|-/home/user/testfile_|-managed'
+        # drop the header
+        json_data = state_output[len(expected_output):].strip()
+        # skip trailing junk to workaround
+        # https://github.com/saltstack/salt/issues/65604 and similar
+        try:
+            decoder = json.JSONDecoder()
+            state_output_json, end = decoder.raw_decode(json_data)
+            if end != len(json_data):
+                warnings.warn(f"Trailing junk in json output: {json_data[end:]}")
+        except json.decoder.JSONDecodeError as e:
+            self.fail("JSON output decoding error: {}\n{}".format(
+                e, json_data
+            ))
+        state_output_json = state_output_json[vmname][state_id]
+        try:
+            del state_output_json['duration']
+            del state_output_json['start_time']
+        except KeyError:
+            pass
+
+        try:
+            del state_output_json['pchanges']
+        except KeyError:
+            pass
+
+        try:
+            # older salt do not report this
+            self.assertEqual(state_output_json['__id__'], '/home/user/testfile')
+            del state_output_json['__id__']
+        except KeyError:
+            pass
+
+        try:
+            # or sls file
+            self.assertEqual(state_output_json['__sls__'],
+                'test_salt.something')
+            del state_output_json['__sls__']
+        except KeyError:
+            pass
+        # different output depending on salt version
+        expected_output = {
+            '__run_num__': 0,
+            'changes': {
+                'diff': 'New file',
+            },
+            'name': '/home/user/testfile',
+            'comment': 'File /home/user/testfile updated',
+            'result': True,
+        }
+        self.assertEqual(state_output_json, expected_output)
+        stdout, stderr = self.loop.run_until_complete(self.vm.run_for_stdio(
+            'cat /home/user/testfile'))
+        self.assertEqual(stdout, b'this is test\n')
+        self.assertEqual(stderr, b'')
 
 
 def create_testcases_for_templates():
