@@ -18,7 +18,7 @@ checks:tests:
       # Installing ZFS after the CI requirements so after_script codecov-wrapper does not explode if ZFS install fails.
       kver=$(uname -r)
       echo $kver is the running kernel >&2
-      sudo dnf install -y https://zfsonlinux.org/fedora/zfs-release-2-2$(rpm --eval "%{dist}").noarch.rpm
+      sudo dnf install -y https://zfsonlinux.org/fedora/zfs-release-2-4$(rpm --eval "%{dist}").noarch.rpm
       # We are now going to force the installation of the specific kernel-devel version
       # that matches the current kernel.  If unavailable, the test should fail now.
       # Ideally the VM image ships with a kernel-devel package that matches the
