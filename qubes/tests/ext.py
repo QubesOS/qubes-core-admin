@@ -19,6 +19,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 import os
+import unittest.mock
+
 import qubes.ext.core_features
 import qubes.ext.services
 import qubes.ext.windows
@@ -236,6 +238,78 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     'qubes-agent-version': '40000000'
                 }))
         self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+
+    def test_30_distro_meta(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'os': 'Linux',
+                    'os-distribution': 'debian',
+                    'os-version': '12',
+                    'os-eol': '2026-06-10',
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os-distribution', 'debian'), {}),
+            ('features.__setitem__', ('os-version', '12'), {}),
+            ('features.__setitem__', ('os-eol', '2026-06-10'), {}),
+            ('features.get', ('qrexec', False), {}),
+        ])
+
+    def test_031_distro_meta_ubuntu(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'os': 'Linux',
+                    'os-distribution': 'ubuntu',
+                    'os-version': '22.04',
+                    'os-eol': '2027-06-01',
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('features.__setitem__', ('os-version', '22.04'), {}),
+            ('features.__setitem__', ('os-eol', '2027-06-01'), {}),
+            ('features.get', ('qrexec', False), {}),
+        ])
+
+    def test_032_distro_meta_invalid(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'os': 'Linux',
+                    'os-distribution': 'ubuntu',
+                    'os-version': '123aaa',
+                    'os-eol': '20270601',
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('log.warning', unittest.mock.ANY, {}),
+            ('log.warning', unittest.mock.ANY, {}),
+            ('features.get', ('qrexec', False), {}),
+        ])
+
+    def test_033_distro_meta_invalid2(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'os': 'Linux',
+                    'os-distribution': 'ubuntu',
+                    'os-version': 'a123',
+                    'os-eol': '2027-06-40',
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('log.warning', unittest.mock.ANY, {}),
+            ('log.warning', unittest.mock.ANY, {}),
             ('features.get', ('qrexec', False), {}),
         ])
 

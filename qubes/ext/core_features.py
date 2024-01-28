@@ -17,7 +17,9 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+import datetime
 import re
+import string
 
 import qubes.ext
 
@@ -33,6 +35,39 @@ class CoreFeatures(qubes.ext.Extension):
             vm.log.warning(
                 'Ignoring qubes.NotifyTools for template-based VM')
             return
+
+        if "os-distribution" in untrusted_features:
+            # entry point already validates values for safe characters
+            vm.features["os-distribution"] = \
+                untrusted_features["os-distribution"]
+        if "os-version" in untrusted_features:
+            # no letters in versions please
+            safe_set = string.digits + ".-"
+            untrusted_version = untrusted_features["os-version"]
+            if all(c in safe_set for c in untrusted_version) \
+                    and untrusted_version[0].isdigit():
+                vm.features["os-version"] = untrusted_version
+            else:
+                # safe to log the value as passed preliminary filtering already
+                vm.log.warning(
+                    "Invalid 'os-version' value '%s', must start "
+                    "with a digit and only digits and _ or . are allowed",
+                    untrusted_version)
+        if "os-eol" in untrusted_features:
+            untrusted_eol = untrusted_features["os-eol"]
+            valid = False
+            if re.match(r"\A\d{4}-\d{2}-\d{2}\Z", untrusted_eol):
+                try:
+                    datetime.date.fromisoformat(untrusted_eol)
+                    valid = True
+                except ValueError:
+                    pass
+            if valid:
+                vm.features["os-eol"] = untrusted_eol
+            else:
+                vm.log.warning(
+                    "Invalid 'os-eol' value '%s', expected YYYY-MM-DD",
+                    untrusted_eol)
 
         requested_features = {}
         for feature in (
