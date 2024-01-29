@@ -435,7 +435,7 @@ class TC_10_QvmTemplateMixin(object):
     Tests for downloading dom0 updates using VMs based on different templates
     """
     template_name = os.environ.get(
-        'QUBES_INSTALL_TEST_TEMPLATE', 'debian-11-minimal')
+        'QUBES_INSTALL_TEST_TEMPLATE', 'debian-12-minimal')
     common_args = []
 
     def setUp(self):
