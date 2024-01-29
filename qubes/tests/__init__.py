@@ -868,7 +868,11 @@ class SystemTestCase(QubesTestCase):
         except subprocess.CalledProcessError:
             pass
         await vm.run_for_stdio(
-            'systemcheck --cli')
+            'timeout=120; while ! tor-circuit-established-check; do'
+            ' sleep 1;'
+            ' timeout=$(( timeout - 1 ));'
+            ' [ $timeout -gt 0 ] || exit 1; '
+            'done')
 
 
     def _find_pool(self, volume_group, thin_pool):
