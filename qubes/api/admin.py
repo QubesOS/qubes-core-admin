@@ -1223,19 +1223,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         device_assignments = self.fire_event_for_filter(
             device_assignments, devclass=devclass)
 
-        dev_info = {}  # TODO: deviceAssignment.serialization()
-        for dev in device_assignments:
-            properties_txt = ' '.join(
-                '{}={!s}'.format(opt, value) for opt, value
-                in itertools.chain(
-                    dev.options.items(),
-                    (('required', 'yes' if dev.required else 'no'),
-                     ('attach_automatically',
-                      'yes' if dev.attach_automatically else 'no')),
-                ))
-            self.enforce('\n' not in properties_txt)
-            ident = '{!s}+{!s}'.format(dev.backend_domain, dev.ident)
-            dev_info[ident] = properties_txt
+        dev_info = {
+            f'{assignment.backend_domain}+{assignment.ident}':
+                assignment.serialize().decode('ascii', errors="ignore")
+            for assignment in device_assignments}
 
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
             for ident in sorted(dev_info))
@@ -1259,19 +1250,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         device_assignments = self.fire_event_for_filter(device_assignments,
                                                         devclass=devclass)
 
-        dev_info = {}
-        for dev in device_assignments:
-            properties_txt = ' '.join(
-                '{}={!s}'.format(opt, value) for opt, value
-                in itertools.chain(
-                    dev.options.items(),
-                    (('required', 'yes' if dev.required else 'no'),
-                     ('attach_automatically',
-                      'yes' if dev.attach_automatically else 'no')),
-                ))
-            self.enforce('\n' not in properties_txt)
-            ident = '{!s}+{!s}'.format(dev.backend_domain, dev.ident)
-            dev_info[ident] = properties_txt
+        dev_info = {
+            f'{assignment.backend_domain}+{assignment.ident}':
+                assignment.serialize().decode('ascii', errors="ignore")
+            for assignment in device_assignments}
 
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
                        for ident in sorted(dev_info))
@@ -1283,47 +1265,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_device_assign(self, endpoint, untrusted_payload):
         devclass = endpoint
-        # TODO: deserialize
-        options = {}
-        attach_automatically = True
-        required = False
-        for untrusted_option in untrusted_payload.decode(
-                'ascii', 'strict').split():
-            try:
-                untrusted_key, untrusted_value = untrusted_option.split('=', 1)
-            except ValueError:
-                raise qubes.api.ProtocolError('Invalid options format')
-
-            if untrusted_key == 'required':
-                required = qubes.property.bool(
-                    None, None, untrusted_value)
-            else:
-                allowed_chars_key = string.digits + string.ascii_letters + '-_.'
-                allowed_chars_value = allowed_chars_key + ',+:'
-                if any(x not in allowed_chars_key for x in untrusted_key):
-                    raise qubes.api.ProtocolError(
-                        'Invalid chars in option name')
-                if any(x not in allowed_chars_value for x in untrusted_value):
-                    raise qubes.api.ProtocolError(
-                        'Invalid chars in option value')
-                options[untrusted_key] = untrusted_value
 
         # qrexec already verified that no strange characters are in self.arg
         backend_domain, ident = self.arg.split('+', 1)
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        self.fire_event_for_permission(
-            device=dev, devclass=devclass,
-            required=required, attach_automatically=attach_automatically,
-            options=options
+        assignment = qubes.devices.DeviceAssignment.deserialize(
+            untrusted_payload,
+            expected_backend_domain=dev.backend_domain,
+            expected_devclass=devclass
         )
 
-        assignment = qubes.devices.DeviceAssignment(
-            dev.backend_domain, dev.ident,
-            required=required, attach_automatically=attach_automatically,
-            options=options
+        self.fire_event_for_permission(
+            device=dev, devclass=devclass,
+            required=assignment.required,
+            attach_automatically=assignment.attach_automatically,
+            options=assignment.options
         )
+
         await self.dest.devices[devclass].assign(assignment)
         self.app.save()
 
@@ -1334,6 +1294,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(ep.name for ep in pkg_resources.iter_entry_points(
             'qubes.devices')), no_payload=True, scope='local', write=True)
     async def vm_device_unassign(self, endpoint):
+        # TODO DeviceAssignment.deserialize() ? Device
         devclass = endpoint
 
         # qrexec already verified that no strange characters are in self.arg
@@ -1358,54 +1319,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             'qubes.devices')), scope='local', execute=True)
     async def vm_device_attach(self, endpoint, untrusted_payload):
         devclass = endpoint
-        # TODO: deserialize
-        options = {}
-        attach_automatically = False
-        required = False
-        for untrusted_option in untrusted_payload.decode(
-                'ascii', 'strict').split():
-            try:
-                untrusted_key, untrusted_value = untrusted_option.split('=',
-                                                                        1)
-            except ValueError:
-                raise qubes.api.ProtocolError('Invalid options format')
-            if untrusted_key == 'attach_automatically':
-                attach_automatically = qubes.property.bool(
-                    None, None, untrusted_value)
-
-                self.enforce(not attach_automatically)
-
-            elif untrusted_key == 'required':
-                required = qubes.property.bool(
-                    None, None, untrusted_value)
-            else:
-                allowed_chars_key = string.digits + string.ascii_letters + '-_.'
-                allowed_chars_value = allowed_chars_key + ',+:'
-                if any(x not in allowed_chars_key for x in untrusted_key):
-                    raise qubes.api.ProtocolError(
-                        'Invalid chars in option name')
-                if any(x not in allowed_chars_value for x in
-                       untrusted_value):
-                    raise qubes.api.ProtocolError(
-                        'Invalid chars in option value')
-                options[untrusted_key] = untrusted_value
 
         # qrexec already verified that no strange characters are in self.arg
         backend_domain, ident = self.arg.split('+', 1)
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        self.fire_event_for_permission(
-            device=dev, devclass=devclass,
-            required=required, attach_automatically=attach_automatically,
-            options=options
+        assignment = qubes.devices.DeviceAssignment.deserialize(
+            untrusted_payload,
+            expected_backend_domain=dev.backend_domain,
+            expected_devclass=devclass
         )
 
-        assignment = qubes.devices.DeviceAssignment(
-            dev.backend_domain, dev.ident,
-            required=required, attach_automatically=attach_automatically,
-            options=options
+        self.fire_event_for_permission(
+            device=dev, devclass=devclass,
+            required=assignment.required,
+            attach_automatically=assignment.attach_automatically,
+            options=assignment.options
         )
+
         await self.dest.devices[devclass].attach(assignment)
         self.app.save()  # not needed?
 
@@ -1416,6 +1348,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(ep.name for ep in pkg_resources.iter_entry_points(
             'qubes.devices')), no_payload=True, scope='local', execute=True)
     async def vm_device_detach(self, endpoint):
+        # TODO DeviceAssignment.deserialize() ? Device
         devclass = endpoint
 
         # qrexec already verified that no strange characters are in self.arg
