@@ -56,11 +56,13 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `device-list-change:class` event.
 """
 import itertools
+import string
 import sys
 from enum import Enum
 from typing import Optional, List, Type, Dict, Any, Iterable
 
 import qubes.utils
+from qubes.api import ProtocolError
 
 
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
@@ -487,27 +489,27 @@ class DeviceInfo(Device):
             'ident', 'devclass', 'vendor', 'product', 'manufacturer', 'name',
             'serial'}
         properties = b' '.join(
-            f'{prop}={self.serialize_str(value)}'.encode('ascii')
+            f'{prop}={serialize_str(value)}'.encode('ascii')
             for prop, value in (
                 (key, getattr(self, key)) for key in default_attrs)
         )
 
-        back_name = self.serialize_str(self.backend_domain.name)
+        back_name = serialize_str(self.backend_domain.name)
         backend_domain_prop = (b"backend_domain=" + back_name.encode('ascii'))
         properties += b' ' + backend_domain_prop
 
-        interfaces = self.serialize_str(
+        interfaces = serialize_str(
             ''.join(repr(ifc) for ifc in self.interfaces))
         interfaces_prop = (b'interfaces=' + interfaces.encode('ascii'))
         properties += b' ' + interfaces_prop
 
         if self.parent_device is not None:
-            parent_ident = self.serialize_str(self.parent_device.ident)
+            parent_ident = serialize_str(self.parent_device.ident)
             parent_prop = (b'parent=' + parent_ident.encode('ascii'))
             properties += b' ' + parent_prop
 
         data = b' '.join(
-            f'_{prop}={self.serialize_str(value)}'.encode('ascii')
+            f'_{prop}={serialize_str(value)}'.encode('ascii')
             for prop, value in ((key, self.data[key]) for key in self.data)
         )
         if data:
@@ -544,7 +546,7 @@ class DeviceInfo(Device):
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
         decoded = serialization.decode('ascii', errors='ignore')
-        _ident, _, rest = decoded.partition(' ')
+        ident, _, rest = decoded.partition(' ')
         keys = []
         values = []
         key, _, rest = rest.partition("='")
@@ -552,10 +554,10 @@ class DeviceInfo(Device):
         while "='" in rest:
             value_key, _, rest = rest.partition("='")
             value, _, key = value_key.rpartition("' ")
-            values.append(DeviceInfo.deserialize_str(value))
+            values.append(deserialize_str(value))
             keys.append(key)
         value = rest[:-1]  # ending '
-        values.append(DeviceInfo.deserialize_str(value))
+        values.append(deserialize_str(value))
 
         properties = dict()
         for key, value in zip(keys, values):
@@ -570,10 +572,16 @@ class DeviceInfo(Device):
                 f"Got device exposed by {properties['backend_domain']}"
                 f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
+
         if expected_devclass and properties['devclass'] != expected_devclass:
             raise UnexpectedDeviceProperty(
                 f"Got {properties['devclass']} device "
                 f"when expected {expected_devclass}.")
+
+        if properties["ident"] != ident:
+            raise UnexpectedDeviceProperty(
+                f"Got device with id: {properties['ident']} "
+                f"when expected id: {ident}.")
 
         interfaces = properties['interfaces']
         interfaces = [
@@ -589,17 +597,42 @@ class DeviceInfo(Device):
 
         return cls(**properties)
 
-    @staticmethod
-    def serialize_str(string: str):
-        return repr(string)
-
-    @staticmethod
-    def deserialize_str(string: str):
-        return string.replace("\\\'", "'")
-
     @property
     def frontend_domain(self):
         return self.data.get("frontend_domain", None)
+
+
+def serialize_str(value: str):
+    return repr(str(value))
+
+
+def deserialize_str(value: str):
+    return value.replace("\\\'", "'")
+
+
+def sanitize_str(
+        untrusted_value: str,
+        allowed_chars: str,
+        replace_char: str = None,
+        error_message: str = ""
+) -> str:
+    """
+    Sanitize given untrusted string.
+
+    If `replace_char` is not None, ignore `error_message` and replace invalid
+    characters with the string.
+    """
+    if replace_char is None:
+        if any(x not in allowed_chars for x in untrusted_value):
+            raise qubes.api.ProtocolError(error_message)
+        return untrusted_value
+    result = ""
+    for char in untrusted_value:
+        if char in allowed_chars:
+            result += char
+        else:
+            result += replace_char
+    return result
 
 
 class UnknownDevice(DeviceInfo):
@@ -657,14 +690,14 @@ class DeviceAssignment(Device):
 
     @property
     def frontend_domain(self) -> Optional['qubes.vm.qubesvm.QubesVM']:
-        """ Which domain the device is attached to. """
+        """ Which domain the device is attached/assigned to. """
         return self.__frontend_domain
 
     @frontend_domain.setter
     def frontend_domain(
             self, frontend_domain: Optional['qubes.vm.qubesvm.QubesVM']
     ):
-        """ Which domain the device is attached to. """
+        """ Which domain the device is attached/assigned to. """
         self.__frontend_domain = frontend_domain
 
     @property
@@ -708,6 +741,122 @@ class DeviceAssignment(Device):
     def options(self, options: Optional[Dict[str, Any]]):
         """ Device options (same as in the legacy API). """
         self.__options = options or {}
+
+    def serialize(self) -> bytes:
+        properties = b' '.join(
+            f'{prop}={serialize_str(value)}'.encode('ascii')
+            for prop, value in (
+                ('required', 'yes' if self.required else 'no'),
+                ('attach_automatically',
+                 'yes' if self.attach_automatically else 'no'),
+                ('ident', self.ident),
+                ('devclass', self.devclass)
+            )
+        )
+
+        back_name = serialize_str(self.backend_domain.name)
+        backend_domain_prop = (b"backend_domain=" + back_name.encode('ascii'))
+        properties += b' ' + backend_domain_prop
+
+        if self.frontend_domain is not None:
+            front_name = serialize_str(self.frontend_domain.name)
+            frontend_domain_prop = (
+                    b"frontend_domain=" + front_name.encode('ascii'))
+            properties += b' ' + frontend_domain_prop
+
+        properties += b' ' + b' '.join(
+            f'_{prop}={serialize_str(value)}'.encode('ascii')
+            for prop, value in self.options.items()
+        )
+
+        return properties
+
+    @classmethod
+    def deserialize(
+            cls,
+            serialization: bytes,
+            expected_backend_domain: 'qubes.vm.BaseVM',
+            expected_ident: str,
+            expected_devclass: Optional[str] = None,
+    ) -> 'DeviceAssignment':
+        try:
+            result = DeviceAssignment._deserialize(
+                cls, serialization,
+                expected_backend_domain, expected_ident, expected_devclass
+            )
+        except Exception as exc:
+            raise ProtocolError() from exc
+        return result
+
+    @staticmethod
+    def _deserialize(
+            cls: Type,
+            untrusted_serialization: bytes,
+            expected_backend_domain: 'qubes.vm.BaseVM',
+            expected_ident: str,
+            expected_devclass: Optional[str] = None,
+    ) -> 'DeviceAssignment':
+        options = {}
+        allowed_chars_key = string.digits + string.ascii_letters + '-_.'
+        allowed_chars_value = allowed_chars_key + ',+:'
+
+        untrusted_decoded = untrusted_serialization.decode('ascii', 'strict')
+        keys = []
+        values = []
+        untrusted_key, _, untrusted_rest = untrusted_decoded.partition("='")
+
+        key = sanitize_str(
+            untrusted_key, allowed_chars_key,
+            error_message='Invalid chars in property name')
+        keys.append(key)
+        while "='" in untrusted_rest:
+            ut_value_key, _, untrusted_rest = untrusted_rest.partition("='")
+            untrusted_value, _, untrusted_key = ut_value_key.rpartition("' ")
+            value = sanitize_str(
+                deserialize_str(untrusted_value), allowed_chars_value,
+                error_message='Invalid chars in property value')
+            values.append(value)
+            key = sanitize_str(
+                untrusted_key, allowed_chars_key,
+                error_message='Invalid chars in property name')
+            keys.append(key)
+        untrusted_value = untrusted_rest[:-1]  # ending '
+        value = sanitize_str(
+            deserialize_str(untrusted_value), allowed_chars_value,
+            error_message='Invalid chars in property value')
+        values.append(value)
+
+        properties = dict()
+        for key, value in zip(keys, values):
+            if key.startswith("_"):
+                options[key[1:]] = value
+            else:
+                properties[key] = value
+
+        properties['options'] = options
+
+        if properties['backend_domain'] != expected_backend_domain.name:
+            raise UnexpectedDeviceProperty(
+                f"Got device exposed by {properties['backend_domain']}"
+                f"when expected devices from {expected_backend_domain.name}.")
+        properties['backend_domain'] = expected_backend_domain
+
+        if properties["ident"] != expected_ident:
+            raise UnexpectedDeviceProperty(
+                f"Got device with id: {properties['ident']} "
+                f"when expected id: {expected_ident}.")
+
+        if expected_devclass and properties['devclass'] != expected_devclass:
+            raise UnexpectedDeviceProperty(
+                f"Got {properties['devclass']} device "
+                f"when expected {expected_devclass}.")
+
+        properties['attach_automatically'] = qubes.property.bool(
+            None, None, properties['attach_automatically'])
+        properties['required'] = qubes.property.bool(
+            None, None, properties['required'])
+
+        return cls(**properties)
 
 
 class DeviceCollection:
