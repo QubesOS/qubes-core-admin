@@ -381,7 +381,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             index = -3
         output = output.decode().splitlines()
         packets = output[line].lstrip().split()[index]
-        self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
+        self.assertEqual(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_710_ipv6_custom_ip_simple(self):
         '''Custom AppVM IP
