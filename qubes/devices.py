@@ -601,6 +601,27 @@ class DeviceInfo(Device):
     def frontend_domain(self):
         return self.data.get("frontend_domain", None)
 
+    @property
+    def full_identity(self) -> str:
+        """
+        Get user understandable identification of device not related to ports.
+
+        In addition to the description returns presented interfaces.
+        It is used to auto-attach usb devices, so an attacking device needs to
+        mimic not only a name, but also interfaces of trusted device (and have
+        to be plugged to the same port). For a common user it is all the data
+        she uses to recognize the device.
+        """
+        allowed_chars = string.digits + string.ascii_letters + '-_.'
+        description = ""
+        for char in self.description:
+            if char in allowed_chars:
+                description += char
+            else:
+                description += "_"
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
+        return f'{description}:{interfaces}'
+
 
 def serialize_str(value: str):
     return repr(str(value))
@@ -624,6 +645,7 @@ def sanitize_str(
     """
     if replace_char is None:
         if any(x not in allowed_chars for x in untrusted_value):
+            print(untrusted_value, file=sys.stderr)  # TODO
             raise qubes.api.ProtocolError(error_message)
         return untrusted_value
     result = ""
@@ -759,15 +781,19 @@ class DeviceAssignment(Device):
         properties += b' ' + backend_domain_prop
 
         if self.frontend_domain is not None:
-            front_name = serialize_str(self.frontend_domain.name)
+            if isinstance(self.frontend_domain, str):
+                front_name = serialize_str(self.frontend_domain)  # TODO
+            else:
+                front_name = serialize_str(self.frontend_domain.name)
             frontend_domain_prop = (
                     b"frontend_domain=" + front_name.encode('ascii'))
             properties += b' ' + frontend_domain_prop
 
-        properties += b' ' + b' '.join(
-            f'_{prop}={serialize_str(value)}'.encode('ascii')
-            for prop, value in self.options.items()
-        )
+        if self.options:
+            properties += b' ' + b' '.join(
+                f'_{prop}={serialize_str(value)}'.encode('ascii')
+                for prop, value in self.options.items()
+            )
 
         return properties
 
@@ -800,7 +826,8 @@ class DeviceAssignment(Device):
         allowed_chars_key = string.digits + string.ascii_letters + '-_.'
         allowed_chars_value = allowed_chars_key + ',+:'
 
-        untrusted_decoded = untrusted_serialization.decode('ascii', 'strict')
+        untrusted_decoded = untrusted_serialization.decode(
+            'ascii', 'strict').strip()
         keys = []
         values = []
         untrusted_key, _, untrusted_rest = untrusted_decoded.partition("='")
@@ -837,7 +864,7 @@ class DeviceAssignment(Device):
 
         if properties['backend_domain'] != expected_backend_domain.name:
             raise UnexpectedDeviceProperty(
-                f"Got device exposed by {properties['backend_domain']}"
+                f"Got device exposed by {properties['backend_domain']} "
                 f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
 
@@ -963,31 +990,40 @@ class DeviceCollection:
             'device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
-    async def assign(self, device_assignment: DeviceAssignment):
+    async def assign(self, assignment: DeviceAssignment):
         """
         Assign device to domain.
         """
-        if device_assignment.devclass is None:
-            device_assignment.devclass = self._bus
-        elif device_assignment.devclass != self._bus:
+        if assignment.devclass is None:
+            assignment.devclass = self._bus
+        elif assignment.devclass != self._bus:
             raise ValueError(
                 'Trying to assign DeviceAssignment of a different device class')
 
-        device = device_assignment.device
+        device = assignment.device
         if device in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
                 'device {!s} of class {} already assigned to {!s}'.format(
                     device, self._bus, self._vm))
 
+        if (assignment.devclass not in ('pci', 'testclass')
+                and assignment.required):
+            raise qubes.exc.QubesValueError(
+                "Only pci devices can be set as required.")
+        if (assignment.devclass not in ('pci', 'testclass', 'mic', 'usb')
+                and assignment.attach_automatically):
+            raise qubes.exc.QubesValueError(
+                "Only pci, mic and usb devices can be automatically attached.")
+
         await self._vm.fire_event_async(
             'device-pre-assign:' + self._bus,
-            pre_event=True, device=device, options=device_assignment.options)
+            pre_event=True, device=device, options=assignment.options)
 
-        self._set.add(device_assignment)
+        self._set.add(assignment)
 
         await self._vm.fire_event_async(
             'device-assign:' + self._bus,
-            device=device, options=device_assignment.options)
+            device=device, options=assignment.options)
 
     def load_assignment(self, device_assignment: DeviceAssignment):
         """Load DeviceAssignment retrieved from qubes.xml

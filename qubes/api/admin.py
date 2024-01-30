@@ -23,7 +23,6 @@ Qubes OS Management API
 
 import asyncio
 import functools
-import itertools
 import os
 import string
 import subprocess
@@ -38,6 +37,7 @@ import qubes.api
 import qubes.backup
 import qubes.config
 import qubes.devices
+import qubes.ext
 import qubes.firewall
 import qubes.storage
 import qubes.utils
