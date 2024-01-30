@@ -1274,6 +1274,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = qubes.devices.DeviceAssignment.deserialize(
             untrusted_payload,
             expected_backend_domain=dev.backend_domain,
+            expected_ident=ident,
             expected_devclass=devclass
         )
 
@@ -1328,6 +1329,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = qubes.devices.DeviceAssignment.deserialize(
             untrusted_payload,
             expected_backend_domain=dev.backend_domain,
+            expected_ident=ident,
             expected_devclass=devclass
         )
 

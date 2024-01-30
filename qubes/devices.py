@@ -546,7 +546,7 @@ class DeviceInfo(Device):
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceInfo':
         decoded = serialization.decode('ascii', errors='ignore')
-        _ident, _, rest = decoded.partition(' ')
+        ident, _, rest = decoded.partition(' ')
         keys = []
         values = []
         key, _, rest = rest.partition("='")
@@ -577,6 +577,11 @@ class DeviceInfo(Device):
             raise UnexpectedDeviceProperty(
                 f"Got {properties['devclass']} device "
                 f"when expected {expected_devclass}.")
+
+        if properties["ident"] != ident:
+            raise UnexpectedDeviceProperty(
+                f"Got device with id: {properties['ident']} "
+                f"when expected id: {ident}.")
 
         interfaces = properties['interfaces']
         interfaces = [
@@ -771,11 +776,14 @@ class DeviceAssignment(Device):
             cls,
             serialization: bytes,
             expected_backend_domain: 'qubes.vm.BaseVM',
+            expected_ident: str,
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceAssignment':
         try:
             result = DeviceAssignment._deserialize(
-                cls, serialization, expected_backend_domain, expected_devclass)
+                cls, serialization,
+                expected_backend_domain, expected_ident, expected_devclass
+            )
         except Exception as exc:
             raise ProtocolError() from exc
         return result
@@ -785,6 +793,7 @@ class DeviceAssignment(Device):
             cls: Type,
             untrusted_serialization: bytes,
             expected_backend_domain: 'qubes.vm.BaseVM',
+            expected_ident: str,
             expected_devclass: Optional[str] = None,
     ) -> 'DeviceAssignment':
         options = {}
@@ -831,6 +840,11 @@ class DeviceAssignment(Device):
                 f"Got device exposed by {properties['backend_domain']}"
                 f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
+
+        if properties["ident"] != expected_ident:
+            raise UnexpectedDeviceProperty(
+                f"Got device with id: {properties['ident']} "
+                f"when expected id: {expected_ident}.")
 
         if expected_devclass and properties['devclass'] != expected_devclass:
             raise UnexpectedDeviceProperty(
