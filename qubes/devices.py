@@ -602,15 +602,15 @@ class DeviceInfo(Device):
         return self.data.get("frontend_domain", None)
 
     @property
-    def full_identity(self):
+    def full_identity(self) -> str:
         """
         Get user understandable identification of device not related to ports.
 
-        More than just description returns presented interfaces.
-        It is used to auto-attach usb devices, so attacking device needs to
-        mimic not only name, but also interfaces of trusted device (and have
-        to be plugged to the same port). For common user is all data she uses to
-        recognize device.
+        In addition to the description returns presented interfaces.
+        It is used to auto-attach usb devices, so an attacking device needs to
+        mimic not only a name, but also interfaces of trusted device (and have
+        to be plugged to the same port). For a common user it is all the data
+        she uses to recognize the device.
         """
         allowed_chars = string.digits + string.ascii_letters + '-_.'
         description = ""
@@ -620,7 +620,7 @@ class DeviceInfo(Device):
             else:
                 description += "_"
         interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
-        return {'identity': f'{description}:{interfaces}'}
+        return f'{description}:{interfaces}'
 
 
 def serialize_str(value: str):
@@ -645,6 +645,7 @@ def sanitize_str(
     """
     if replace_char is None:
         if any(x not in allowed_chars for x in untrusted_value):
+            print(untrusted_value, file=sys.stderr)  # TODO
             raise qubes.api.ProtocolError(error_message)
         return untrusted_value
     result = ""
@@ -780,15 +781,19 @@ class DeviceAssignment(Device):
         properties += b' ' + backend_domain_prop
 
         if self.frontend_domain is not None:
-            front_name = serialize_str(self.frontend_domain.name)
+            if isinstance(self.frontend_domain, str):
+                front_name = serialize_str(self.frontend_domain)  # TODO
+            else:
+                front_name = serialize_str(self.frontend_domain.name)
             frontend_domain_prop = (
                     b"frontend_domain=" + front_name.encode('ascii'))
             properties += b' ' + frontend_domain_prop
 
-        properties += b' ' + b' '.join(
-            f'_{prop}={serialize_str(value)}'.encode('ascii')
-            for prop, value in self.options.items()
-        )
+        if self.options:
+            properties += b' ' + b' '.join(
+                f'_{prop}={serialize_str(value)}'.encode('ascii')
+                for prop, value in self.options.items()
+            )
 
         return properties
 
@@ -821,7 +826,8 @@ class DeviceAssignment(Device):
         allowed_chars_key = string.digits + string.ascii_letters + '-_.'
         allowed_chars_value = allowed_chars_key + ',+:'
 
-        untrusted_decoded = untrusted_serialization.decode('ascii', 'strict')
+        untrusted_decoded = untrusted_serialization.decode(
+            'ascii', 'strict').strip()
         keys = []
         values = []
         untrusted_key, _, untrusted_rest = untrusted_decoded.partition("='")
@@ -858,7 +864,7 @@ class DeviceAssignment(Device):
 
         if properties['backend_domain'] != expected_backend_domain.name:
             raise UnexpectedDeviceProperty(
-                f"Got device exposed by {properties['backend_domain']}"
+                f"Got device exposed by {properties['backend_domain']} "
                 f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
 
