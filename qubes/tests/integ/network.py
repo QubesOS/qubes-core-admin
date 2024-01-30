@@ -403,7 +403,7 @@ class VmNetworkingMixin(object):
 
         output = output.decode().splitlines()
         packets = output[2].lstrip().split()[0]
-        self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
+        self.assertEqual(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_100_late_xldevd_startup(self):
         '''Regression test for #1990

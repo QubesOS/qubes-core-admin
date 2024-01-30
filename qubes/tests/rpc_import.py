@@ -93,7 +93,7 @@ cat response-$method
     def assertFileData(self, path, expected_data):
         with open(path, 'rb') as data_f:
             data = data_f.read()
-        self.assertEquals(data, expected_data)
+        self.assertEqual(data, expected_data)
 
     def setup_import(self, size):
         self.target = os.path.join(self.tmpdir, 'target')

@@ -1972,7 +1972,7 @@ netvm default=True type=vm \n'''
     def test_510_vm_volume_import_end_failure(self):
         import_data_end_mock, self.vm.storage.import_data_end = \
             self.coroutine_mock()
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
                 qubes.exc.QubesException, 'error message'):
             self.call_internal_mgmt_func(
                 b'internal.vm.volume.ImportEnd', b'test-vm1', b'private',
