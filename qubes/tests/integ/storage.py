@@ -343,7 +343,7 @@ class StorageTestMixin(object):
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
         await qubes.utils.coro_maybe(testvol.create())
-        self.assertEquals(testvol.size, size)
+        self.assertEqual(testvol.size, size)
         volume_config = {
             'pool': self.pool.name,
             'size': size // 2,
@@ -352,9 +352,9 @@ class StorageTestMixin(object):
         }
         testvol2 = self.vm2.storage.init_volume('testvol2', volume_config)
         await qubes.utils.coro_maybe(testvol2.create())
-        self.assertEquals(testvol2.size, size // 2)
+        self.assertEqual(testvol2.size, size // 2)
         await qubes.utils.coro_maybe(testvol2.import_volume(testvol))
-        self.assertEquals(testvol2.size, size)
+        self.assertEqual(testvol2.size, size)
 
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):

@@ -109,7 +109,7 @@ class GrubBase(object):
         self.loop.run_until_complete(self.testvm1.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('uname -r'))
-        self.assertEquals(actual_kver.strip(), kver)
+        self.assertEqual(actual_kver.strip(), kver)
 
         self.assertXenScrubPagesEnabled(self.testvm1)
 
@@ -141,7 +141,7 @@ class GrubBase(object):
             self.testvm1.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio('uname -r'))
-        self.assertEquals(actual_kver.strip(), kver)
+        self.assertEqual(actual_kver.strip(), kver)
 
         self.assertXenScrubPagesEnabled(self.testvm1)
 
@@ -149,7 +149,7 @@ class GrubBase(object):
         self.loop.run_until_complete(self.test_template.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.test_template.run_for_stdio('uname -r'))
-        self.assertEquals(actual_kver.strip(), kver)
+        self.assertEqual(actual_kver.strip(), kver)
 
         self.assertXenScrubPagesEnabled(self.test_template)
 

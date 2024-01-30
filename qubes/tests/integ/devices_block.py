@@ -89,8 +89,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         for dev in dev_list:
             if dev.description == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
-                self.assertEquals(dev.mode, 'w')
-                self.assertEquals(dev.size, 1024 * 1024 * 128)
+                self.assertEqual(dev.mode, 'w')
+                self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
 
         if not found:
@@ -137,8 +137,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
                     "device-mapper".format(dev, self.img_path)
                 )
             elif dev.description == 'test-dm':
-                self.assertEquals(dev.mode, 'w')
-                self.assertEquals(dev.size, 1024 * 1024 * 128)
+                self.assertEqual(dev.mode, 'w')
+                self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
 
         if not found:
@@ -193,8 +193,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
                     "device-mapper".format(dev, self.img_path)
                 )
             elif dev.description == 'test-dm':
-                self.assertEquals(dev.mode, 'w')
-                self.assertEquals(dev.size, 1024 * 1024 * 128)
+                self.assertEqual(dev.mode, 'w')
+                self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
 
         if not found:
@@ -220,8 +220,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         for dev in dev_list:
             if dev.description == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
-                self.assertEquals(dev.mode, 'w')
-                self.assertEquals(dev.size, 1024 * 1024 * 128)
+                self.assertEqual(dev.mode, 'w')
+                self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
 
         if not found:
@@ -244,8 +244,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         for dev in dev_list:
             if dev.description == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
-                self.assertEquals(dev.mode, 'w')
-                self.assertEquals(dev.size, 1024 * 1024 * 128)
+                self.assertEqual(dev.mode, 'w')
+                self.assertEqual(dev.size, 1024 * 1024 * 128)
                 self.assertIn(dev.ident + 'p1', [d.ident for d in dev_list])
                 found = True
 
