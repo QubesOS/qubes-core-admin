@@ -11,6 +11,8 @@ checks:tests:
   - ci/codecov-wrapper -F unittests
   before_script:
   - sudo dnf install -y lvm2 vim-common python3-lxml python3-docutils sequoia-sqv
+  # needed to run tests on Python 3.12
+  - "sudo dnf install -y python3-pyasyncore || :"
   - git clone -b release4.1 https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
   - pip3 install --user --quiet -r ci/requirements.txt
   script:
