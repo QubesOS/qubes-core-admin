@@ -341,7 +341,6 @@ class BaseVM(qubes.PropertyHolder):
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
                 node.set('required', 'yes' if device.required else 'no')
-                # TODO: serial
                 for key, val in device.options.items():
                     option_node = lxml.etree.Element('option')
                     option_node.set('name', key)

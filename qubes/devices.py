@@ -601,6 +601,27 @@ class DeviceInfo(Device):
     def frontend_domain(self):
         return self.data.get("frontend_domain", None)
 
+    @property
+    def full_identity(self):
+        """
+        Get user understandable identification of device not related to ports.
+
+        More than just description returns presented interfaces.
+        It is used to auto-attach usb devices, so attacking device needs to
+        mimic not only name, but also interfaces of trusted device (and have
+        to be plugged to the same port). For common user is all data she uses to
+        recognize device.
+        """
+        allowed_chars = string.digits + string.ascii_letters + '-_.'
+        description = ""
+        for char in self.description:
+            if char in allowed_chars:
+                description += char
+            else:
+                description += "_"
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
+        return {'identity': f'{description}:{interfaces}'}
+
 
 def serialize_str(value: str):
     return repr(str(value))
@@ -963,31 +984,40 @@ class DeviceCollection:
             'device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
-    async def assign(self, device_assignment: DeviceAssignment):
+    async def assign(self, assignment: DeviceAssignment):
         """
         Assign device to domain.
         """
-        if device_assignment.devclass is None:
-            device_assignment.devclass = self._bus
-        elif device_assignment.devclass != self._bus:
+        if assignment.devclass is None:
+            assignment.devclass = self._bus
+        elif assignment.devclass != self._bus:
             raise ValueError(
                 'Trying to assign DeviceAssignment of a different device class')
 
-        device = device_assignment.device
+        device = assignment.device
         if device in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
                 'device {!s} of class {} already assigned to {!s}'.format(
                     device, self._bus, self._vm))
 
+        if (assignment.devclass not in ('pci', 'testclass')
+                and assignment.required):
+            raise qubes.exc.QubesValueError(
+                "Only pci devices can be set as required.")
+        if (assignment.devclass not in ('pci', 'testclass', 'mic', 'usb')
+                and assignment.attach_automatically):
+            raise qubes.exc.QubesValueError(
+                "Only pci, mic and usb devices can be automatically attached.")
+
         await self._vm.fire_event_async(
             'device-pre-assign:' + self._bus,
-            pre_event=True, device=device, options=device_assignment.options)
+            pre_event=True, device=device, options=assignment.options)
 
-        self._set.add(device_assignment)
+        self._set.add(assignment)
 
         await self._vm.fire_event_async(
             'device-assign:' + self._bus,
-            device=device, options=device_assignment.options)
+            device=device, options=assignment.options)
 
     def load_assignment(self, device_assignment: DeviceAssignment):
         """Load DeviceAssignment retrieved from qubes.xml
