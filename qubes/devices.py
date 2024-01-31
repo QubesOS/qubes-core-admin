@@ -738,10 +738,6 @@ class DeviceAssignment(Device):
         """
         return self.__required
 
-    # @required.setter
-    # def required(self, required: bool):
-    #     self.__required = required
-
     @property
     def attach_automatically(self) -> bool:
         """
@@ -749,10 +745,6 @@ class DeviceAssignment(Device):
         available and not connected to other qubes?
         """
         return self.__attach_automatically
-
-    # @attach_automatically.setter
-    # def attach_automatically(self, attach_automatically: bool):
-    #     self.__attach_automatically = attach_automatically
 
     @property
     def options(self) -> Dict[str, Any]:
@@ -1114,10 +1106,11 @@ class DeviceCollection:
                 f'device {device_assignment.ident!s} of class {self._bus} not '
                 f'assigned to {self._vm!s}')
 
-        if not self._vm.is_halted():
+        if not self._vm.is_halted() and assignment.required:
             raise qubes.exc.QubesVMNotHaltedError(
                 self._vm,
-                "Can not remove an assignment from a non halted qube.")
+                "Can not remove an required assignment from "
+                "a non halted qube.")
 
         device = device_assignment.device
         await self._vm.fire_event_async(
