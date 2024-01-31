@@ -1009,11 +1009,12 @@ class DeviceCollection:
         if (assignment.devclass not in ('pci', 'testclass')
                 and assignment.required):
             raise qubes.exc.QubesValueError(
-                "Only pci devices can be set as required.")
-        if (assignment.devclass not in ('pci', 'testclass', 'mic', 'usb')
+                "Only pci devices can be assigned as required.")
+        if (assignment.devclass not in ('pci', 'testclass', 'usb')
                 and assignment.attach_automatically):
             raise qubes.exc.QubesValueError(
-                "Only pci, mic and usb devices can be automatically attached.")
+                "Only pci and usb devices can be assigned "
+                "to be automatically attached.")
 
         await self._vm.fire_event_async(
             'device-pre-assign:' + self._bus,
