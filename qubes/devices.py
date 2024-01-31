@@ -738,9 +738,9 @@ class DeviceAssignment(Device):
         """
         return self.__required
 
-    @required.setter
-    def required(self, required: bool):
-        self.__required = required
+    # @required.setter
+    # def required(self, required: bool):
+    #     self.__required = required
 
     @property
     def attach_automatically(self) -> bool:
@@ -750,9 +750,9 @@ class DeviceAssignment(Device):
         """
         return self.__attach_automatically
 
-    @attach_automatically.setter
-    def attach_automatically(self, attach_automatically: bool):
-        self.__attach_automatically = attach_automatically
+    # @attach_automatically.setter
+    # def attach_automatically(self, attach_automatically: bool):
+    #     self.__attach_automatically = attach_automatically
 
     @property
     def options(self) -> Dict[str, Any]:
