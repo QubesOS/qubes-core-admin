@@ -169,7 +169,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             # avoid building a cache on domain-init, as it isn't fully set yet,
             # and definitely isn't running yet
             current_devices = {
-                dev.ident: dev.frontend_domain
+                dev.ident: dev.attachment
                 for dev in self.on_device_list_block(vm, None)
             }
             self.devices_cache[vm.name] = current_devices
@@ -181,7 +181,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         """A change in QubesDB means a change in device list."""
         # pylint: disable=unused-argument
         vm.fire_event('device-list-change:block')
-        current_devices = dict((dev.ident, dev.frontend_domain)
+        current_devices = dict((dev.ident, dev.attachment)
            for dev in self.on_device_list_block(vm, None))
 
         # send events about devices detached/attached outside by themselves
