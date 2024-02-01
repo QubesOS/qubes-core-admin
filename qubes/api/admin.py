@@ -1300,7 +1300,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             ep.name 
             for ep in importlib.metadata.entry_points(group='qubes.devices')), no_payload=True, scope='local', write=True)
     async def vm_device_unassign(self, endpoint):
-        # TODO DeviceAssignment.deserialize() ? Device
         devclass = endpoint
 
         # qrexec already verified that no strange characters are in self.arg
@@ -1359,7 +1358,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         no_payload=True, scope='local', execute=True)
     async def vm_device_detach(self, endpoint):
-        # TODO DeviceAssignment.deserialize() ? Device
         devclass = endpoint
 
         # qrexec already verified that no strange characters are in self.arg
@@ -1374,15 +1372,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = qubes.devices.DeviceAssignment(
             dev.backend_domain, dev.ident)
         await self.dest.devices[devclass].detach(assignment)
-        self.app.save()  # TODO: not needed
 
-    # Attach/Detach action can both modify persistent state (with
-    # required=True or required=False) and volatile state of running VM
-    # (with required=None). For this reason, write=True + execute=True
+    # Assign/Unassign action can modify only persistent state of running VM.
+    # For this reason, write=True
     @qubes.api.method('admin.vm.device.{endpoint}.Set.assignment',
         endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-        scope='local', write=True, execute=True)
+        scope='local', write=True)
     async def vm_device_set_assignment(self, endpoint, untrusted_payload):
         """
         Update assignment of already attached device.

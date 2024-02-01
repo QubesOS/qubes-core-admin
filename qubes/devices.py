@@ -318,7 +318,6 @@ class DeviceInterface:
 class DeviceInfo(Device):
     """ Holds all information about a device """
 
-    # pylint: disable=too-few-public-methods
     def __init__(
             self,
             backend_domain: 'qubes.vm.BaseVM',
@@ -331,6 +330,7 @@ class DeviceInfo(Device):
             serial: Optional[str] = None,
             interfaces: Optional[List[DeviceInterface]] = None,
             parent: Optional[Device] = None,
+            attachment: Optional['qubes.vm.BaseVM'] = None,
             **kwargs
     ):
         super().__init__(backend_domain, ident, devclass)
@@ -342,6 +342,7 @@ class DeviceInfo(Device):
         self._serial = serial
         self._interfaces = interfaces
         self._parent = parent
+        self._attachment = attachment
 
         self.data = kwargs
 
@@ -473,17 +474,17 @@ class DeviceInfo(Device):
                 if dev.parent_device.ident == self.ident]
 
     @property
-    def attachments(self) -> List['DeviceAssignment']:
+    def attachment(self) -> Optional['qubes.vm.BaseVM']:
         """
-        Device attachments
+        VM to which device is attached (frontend domain).
         """
-        return []  # TODO
+        return self._attachment
 
     def serialize(self) -> bytes:
         """
         Serialize object to be transmitted via Qubes API.
         """
-        # 'backend_domain', 'interfaces', 'data', 'parent_device'
+        # 'backend_domain', 'attachment', 'interfaces', 'data', 'parent_device'
         # are not string, so they need special treatment
         default_attrs = {
             'ident', 'devclass', 'vendor', 'product', 'manufacturer', 'name',
@@ -494,9 +495,14 @@ class DeviceInfo(Device):
                 (key, getattr(self, key)) for key in default_attrs)
         )
 
-        back_name = serialize_str(self.backend_domain.name)
-        backend_domain_prop = (b"backend_domain=" + back_name.encode('ascii'))
-        properties += b' ' + backend_domain_prop
+        qname = serialize_str(self.backend_domain.name)
+        backend_prop = (b"backend_domain=" + qname.encode('ascii'))
+        properties += b' ' + backend_prop
+
+        if self.attachment:
+            qname = serialize_str(self.attachment.name)
+            attachment_prop = (b"attachment=" + qname.encode('ascii'))
+            properties += b' ' + attachment_prop
 
         interfaces = serialize_str(
             ''.join(repr(ifc) for ifc in self.interfaces))
@@ -573,6 +579,13 @@ class DeviceInfo(Device):
                 f"when expected devices from {expected_backend_domain.name}.")
         properties['backend_domain'] = expected_backend_domain
 
+        if 'attachment' not in properties or not properties['attachment']:
+            properties['attachment'] = None
+        else:
+            app = expected_backend_domain.app
+            properties['attachment'] = app.domains.get_blind(
+                properties['attachment'])
+
         if expected_devclass and properties['devclass'] != expected_devclass:
             raise UnexpectedDeviceProperty(
                 f"Got {properties['devclass']} device "
@@ -596,10 +609,6 @@ class DeviceInfo(Device):
             )
 
         return cls(**properties)
-
-    @property
-    def frontend_domain(self):
-        return self.data.get("frontend_domain", None)
 
     @property
     def full_identity(self) -> str:
@@ -645,7 +654,6 @@ def sanitize_str(
     """
     if replace_char is None:
         if any(x not in allowed_chars for x in untrusted_value):
-            print(untrusted_value, file=sys.stderr)  # TODO
             raise qubes.api.ProtocolError(error_message)
         return untrusted_value
     result = ""
@@ -678,8 +686,9 @@ class DeviceAssignment(Device):
     3. (True, True, True)   -> domain is running, device is attached
                                and couldn't be detached.
     4. (False, Ture, False) -> device is assigned to domain, but not attached
-                               because either domain is halted
-                               or device manually detached.
+                               because either (i) domain is halted,
+                               device (ii) manually detached or
+                               (iii) attach to different domain.
     5. (False, True, True)  -> domain is halted, device assigned to domain
                                and required to start domain.
     """
@@ -725,10 +734,11 @@ class DeviceAssignment(Device):
     @property
     def attached(self) -> bool:
         """
-        Is the device already attached to the fronted domain?
+        Is the device attached to the fronted domain?
+
+        Returns False if device is attached to different domain
         """
-        return (self.frontend_domain is not None
-                and self.frontend_domain.is_running())
+        return self.device.attachment == self.frontend_domain
 
     @property
     def required(self) -> bool:
@@ -738,6 +748,10 @@ class DeviceAssignment(Device):
         """
         return self.__required
 
+    @required.setter
+    def required(self, required: bool):
+        self.__required = required
+
     @property
     def attach_automatically(self) -> bool:
         """
@@ -745,6 +759,10 @@ class DeviceAssignment(Device):
         available and not connected to other qubes?
         """
         return self.__attach_automatically
+
+    @attach_automatically.setter
+    def attach_automatically(self, attach_automatically: bool):
+        self.__attach_automatically = attach_automatically
 
     @property
     def options(self) -> Dict[str, Any]:
@@ -773,10 +791,7 @@ class DeviceAssignment(Device):
         properties += b' ' + backend_domain_prop
 
         if self.frontend_domain is not None:
-            if isinstance(self.frontend_domain, str):
-                front_name = serialize_str(self.frontend_domain)  # TODO
-            else:
-                front_name = serialize_str(self.frontend_domain.name)
+            front_name = serialize_str(self.frontend_domain.name)
             frontend_domain_prop = (
                     b"frontend_domain=" + front_name.encode('ascii'))
             properties += b' ' + frontend_domain_prop
@@ -925,6 +940,23 @@ class DeviceCollection:
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
+        .. event:: device-assign:<class> (device, options)
+
+            Fired when device is assigned to a VM.
+
+            Handler for this event may be asynchronous.
+
+            :param device: :py:class:`DeviceInfo` object to be assigned
+            :param options: :py:class:`dict` of assignment options
+
+        .. event:: device-unassign:<class> (device)
+
+            Fired when device is unassigned from a VM.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param device: :py:class:`DeviceInfo` object to be unassigned
+
         .. event:: device-list:<class>
 
             Fired to get list of devices exposed by a VM. Handlers of this
@@ -1007,10 +1039,6 @@ class DeviceCollection:
             raise qubes.exc.QubesValueError(
                 "Only pci and usb devices can be assigned "
                 "to be automatically attached.")
-
-        await self._vm.fire_event_async(
-            'device-pre-assign:' + self._bus,
-            pre_event=True, device=device, options=assignment.options)
 
         self._set.add(assignment)
 
@@ -1112,12 +1140,9 @@ class DeviceCollection:
                 "Can not remove an required assignment from "
                 "a non halted qube.")
 
-        device = device_assignment.device
-        await self._vm.fire_event_async(
-            'device-pre-unassign:' + self._bus, pre_event=True, device=device)
-
         self._set.discard(device_assignment)
 
+        device = device_assignment.device
         await self._vm.fire_event_async(
             'device-unassign:' + self._bus, device=device)
 
@@ -1145,7 +1170,7 @@ class DeviceCollection:
                     backend_domain=dev.backend_domain,
                     ident=dev.ident,
                     options=options,
-                    frontend_domain=dev.frontend_domain,
+                    frontend_domain=self._vm,
                     devclass=dev.devclass,
                     attach_automatically=False,
                     required=False,
