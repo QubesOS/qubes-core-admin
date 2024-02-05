@@ -654,7 +654,6 @@ def sanitize_str(
     """
     if replace_char is None:
         if any(x not in allowed_chars for x in untrusted_value):
-            print(untrusted_value, file=sys.stderr)  # TODO
             raise qubes.api.ProtocolError(error_message)
         return untrusted_value
     result = ""
@@ -792,10 +791,7 @@ class DeviceAssignment(Device):
         properties += b' ' + backend_domain_prop
 
         if self.frontend_domain is not None:
-            if isinstance(self.frontend_domain, str):
-                front_name = serialize_str(self.frontend_domain)  # TODO
-            else:
-                front_name = serialize_str(self.frontend_domain.name)
+            front_name = serialize_str(self.frontend_domain.name)
             frontend_domain_prop = (
                     b"frontend_domain=" + front_name.encode('ascii'))
             properties += b' ' + frontend_domain_prop
@@ -907,8 +903,6 @@ class DeviceCollection:
 
     This class emits following events on VM object:
 
-    # TODO: (pre-)assign, (pre-)unassign
-
         .. event:: device-added:<class> (device)
 
             Fired when new device is discovered to a VM.
@@ -945,6 +939,23 @@ class DeviceCollection:
             Handler for this event can be asynchronous (a coroutine).
 
             :param device: :py:class:`DeviceInfo` object to be attached
+
+        .. event:: device-assign:<class> (device, options)
+
+            Fired when device is assigned to a VM.
+
+            Handler for this event may be asynchronous.
+
+            :param device: :py:class:`DeviceInfo` object to be assigned
+            :param options: :py:class:`dict` of assignment options
+
+        .. event:: device-unassign:<class> (device)
+
+            Fired when device is unassigned from a VM.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param device: :py:class:`DeviceInfo` object to be unassigned
 
         .. event:: device-list:<class>
 
@@ -1028,10 +1039,6 @@ class DeviceCollection:
             raise qubes.exc.QubesValueError(
                 "Only pci and usb devices can be assigned "
                 "to be automatically attached.")
-
-        await self._vm.fire_event_async(
-            'device-pre-assign:' + self._bus,
-            pre_event=True, device=device, options=assignment.options)
 
         self._set.add(assignment)
 
@@ -1133,12 +1140,9 @@ class DeviceCollection:
                 "Can not remove an required assignment from "
                 "a non halted qube.")
 
-        device = device_assignment.device
-        await self._vm.fire_event_async(
-            'device-pre-unassign:' + self._bus, pre_event=True, device=device)
-
         self._set.discard(device_assignment)
 
+        device = device_assignment.device
         await self._vm.fire_event_async(
             'device-unassign:' + self._bus, device=device)
 
