@@ -229,8 +229,11 @@ def _default_kernelopts(self):
             qubes.config.system_path['qubes_kernels_base_dir'],
             self.kernel)
     pci = bool(list(self.devices['pci'].persistent()))
+    extra_opts = ""
     if pci:
         path = os.path.join(kernels_dir, 'default-kernelopts-pci.txt')
+        if self.app.domains[0].features.get('suspend-s0ix', False):
+            extra_opts = " qubes_exp_pm_use_suspend=1"
     else:
         try:
             return self.template.kernelopts
@@ -239,10 +242,10 @@ def _default_kernelopts(self):
         path = os.path.join(kernels_dir, 'default-kernelopts-nopci.txt')
     if os.path.exists(path):
         with open(path, encoding='ascii') as f_kernelopts:
-            return f_kernelopts.read().strip()
+            return f_kernelopts.read().strip() + extra_opts
     else:
         return (qubes.config.defaults['kernelopts_pcidevs'] if pci else
-                qubes.config.defaults['kernelopts'])
+                qubes.config.defaults['kernelopts']) + extra_opts
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
