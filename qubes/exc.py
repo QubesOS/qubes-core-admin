@@ -37,6 +37,14 @@ class QubesVMNotFoundError(QubesException, KeyError):
         # KeyError overrides __str__ method
         return QubesException.__str__(self)
 
+class QubesVMInvalidUUIDError(QubesException):
+    """Domain UUID is invalid"""
+    # pylint: disable = super-init-not-called
+    def __init__(self, uuid: str) -> None:
+        # QubesVMNotFoundError overrides __init__ method
+        # pylint: disable = non-parent-init-called
+        QubesException.__init__(self, f"VM UUID is not valid: {uuid!r}")
+        self.vmname = uuid
 
 class QubesVMError(QubesException):
     '''Some problem with domain state.'''
