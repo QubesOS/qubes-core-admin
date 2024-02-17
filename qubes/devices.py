@@ -59,7 +59,7 @@ import itertools
 import string
 import sys
 from enum import Enum
-from typing import Optional, List, Type, Dict, Any, Iterable
+from typing import Optional, List, Type, Dict, Any, Iterable, Union
 
 import qubes.utils
 from qubes.api import ProtocolError
@@ -706,7 +706,7 @@ class DeviceAssignment(Device):
         self.__options = options or {}
         self.__required = required
         self.__attach_automatically = attach_automatically
-        self.__frontend_domain = frontend_domain
+        self.frontend_domain = frontend_domain
 
     def clone(self):
         """Clone object instance"""
@@ -732,9 +732,11 @@ class DeviceAssignment(Device):
 
     @frontend_domain.setter
     def frontend_domain(
-            self, frontend_domain: Optional['qubes.vm.qubesvm.QubesVM']
+        self, frontend_domain: Optional[Union[str, 'qubes.vm.qubesvm.QubesVM']]
     ):
         """ Which domain the device is attached/assigned to. """
+        if isinstance(frontend_domain, str):
+            frontend_domain = self.backend_domain.app.domains[frontend_domain]
         self.__frontend_domain = frontend_domain
 
     @property
