@@ -51,8 +51,11 @@ class BlockDevice(qubes.devices.DeviceInfo):
         super().__init__(
             backend_domain=backend_domain, ident=ident, devclass="block")
 
+        # lazy loading
         self._mode = None
         self._size = None
+        self._description = None
+        self._interface_num = None
 
     @property
     def description(self):
@@ -132,15 +135,27 @@ class BlockDevice(qubes.devices.DeviceInfo):
         if self._parent is None:
             if not self.backend_domain.is_running():
                 return None
-            untrusted_parent: bytes = self.backend_domain.untrusted_qdb.read(
+            untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
                 f'/qubes-block-devices/{self.ident}/parent')
-            if untrusted_parent is None:
+            if untrusted_parent_info is None:
                 return None
             else:
-                parent_ident = self._sanitize(untrusted_parent)
+                # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
+                # 'sda' -> parent_ident='sda', interface_num=''
+                parent_ident, _, interface_num = self._sanitize(
+                    untrusted_parent_info).partition(":")
                 self._parent = qubes.devices.Device(
                     self.backend_domain, parent_ident)
+                self._interface_num = interface_num
         return self._parent
+
+    @property
+    def self_identity(self) -> str:
+        """
+        Get identification of device not related to port.
+        """
+        parent_ident = self.parent_device.ident if self._parent else ''
+        return f'{parent_ident}:{self._interface_num}'
 
     @staticmethod
     def _sanitize(

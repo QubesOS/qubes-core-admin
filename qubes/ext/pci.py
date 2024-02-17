@@ -183,6 +183,8 @@ class PCIDevice(qubes.devices.DeviceInfo):
 
         # lazy loading
         self._description = None
+        self._vendor_id = None
+        self._product_id = None
 
     @property
     def vendor(self) -> str:
@@ -257,6 +259,25 @@ class PCIDevice(qubes.devices.DeviceInfo):
             self._description = _device_desc(lxml.etree.fromstring(
                 hostdev_details.XMLDesc()))
         return self._description
+
+    @property
+    def self_identity(self) -> str:
+        """
+        Get identification of device not related to port.
+        """
+        allowed_chars = string.digits + string.ascii_letters + '-_.'
+        if self._vendor_id is None:
+            vendor_id = self._load_desc()["vendor ID"]
+            self._vendor_id = ''.join(
+                c if c in set(allowed_chars) else '_' for c in vendor_id)
+        if self._product_id is None:
+            product_id = self._load_desc()["product ID"]
+            self._product_id = ''.join(
+                c if c in set(allowed_chars) else '_' for c in product_id)
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
+        serial = self._serial if self._serial else ""
+        return \
+            f'{self._vendor_id}:{self._product_id}:{serial}:{interfaces}'
 
     def _load_desc(self) -> Dict[str, str]:
         unknown = "unknown"
