@@ -282,22 +282,30 @@ class PCIDevice(qubes.devices.DeviceInfo):
     def _load_desc(self) -> Dict[str, str]:
         unknown = "unknown"
         result = {"vendor": unknown,
+                  "vendor ID": "0000",
                   "product": unknown,
+                  "product ID": "0000",
                   "manufacturer": unknown,
                   "name": unknown,
                   "serial": unknown}
         if not self.backend_domain.is_running():
-            # don't cache this value
+            # don't cache these values
             return result
         hostdev_details = \
             self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                 self.libvirt_name
             )
+
+        # Data successfully loaded, cache these values
         hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
         self._vendor = result["vendor"] = hostdev_xml.findtext(
             'capability/vendor')
+        self._vendor_id = result["vendor ID"] = hostdev_xml.xpath(
+            "//vendor/@id")
         self._product = result["product"] = hostdev_xml.findtext(
             'capability/product')
+        self._product_id = result["product ID"] = hostdev_xml.xpath(
+            "//product/@id")
         return result
 
     @staticmethod
