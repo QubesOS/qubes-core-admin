@@ -91,7 +91,8 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assignment = qubes.devices.DeviceAssignment(
             backend_domain=self.device.backend_domain,
             ident=self.device.ident,
-            persistent=True
+            attach_automatically=True,
+            required=True,
         )
 
     def test_000_init(self):

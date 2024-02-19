@@ -678,6 +678,9 @@ class UnknownDevice(DeviceInfo):
     def __init__(self, backend_domain, ident, *, devclass, **kwargs):
         super().__init__(backend_domain, ident, devclass=devclass, **kwargs)
 
+    def device_node(self):
+        return ''
+
 
 class DeviceAssignment(Device):
     """ Maps a device to a frontend_domain.
@@ -718,6 +721,18 @@ class DeviceAssignment(Device):
             attach_automatically=self.attach_automatically,
             frontend_domain=self.frontend_domain,
             devclass=self.devclass,
+        )
+
+    @classmethod
+    def from_device(cls, device: Device, **kwargs) -> 'DeviceAssignment':
+        """
+        Get assignment of the device.
+        """
+        return cls(
+            backend_domain=device.backend_domain,
+            ident=device.ident,
+            devclass=device.devclass,
+            **kwargs
         )
 
     @property
