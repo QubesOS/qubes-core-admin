@@ -155,8 +155,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
         self.assertEqual(device_info.backend_domain, vm)
         self.assertEqual(device_info.ident, 'sda')
-        self.assertEqual(device_info.description, 'Test device')
-        self.assertEqual(device_info._description, 'Test device')
+        self.assertEqual(device_info.name, 'Test device')
+        self.assertEqual(device_info._name, 'Test device')
         self.assertEqual(device_info.size, 1024000)
         self.assertEqual(device_info.mode, 'w')
         self.assertEqual(
@@ -174,8 +174,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
         self.assertEqual(device_info.backend_domain, vm)
         self.assertEqual(device_info.ident, 'mapper_dmroot')
-        self.assertEqual(device_info.description, 'Test device')
-        self.assertEqual(device_info._description, 'Test device')
+        self.assertEqual(device_info.name, 'Test device')
+        self.assertEqual(device_info._name, 'Test device')
         self.assertEqual(device_info.size, 1024000)
         self.assertEqual(device_info.mode, 'w')
         self.assertEqual(
@@ -190,7 +190,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'sda')
-        self.assertEqual(device_info.description, 'Test device__za__abc')
+        self.assertEqual(device_info.name, 'Test device__za__abc')
 
     def test_003_device_get_invalid_size(self):
         vm = TestVM({

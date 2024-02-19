@@ -23,6 +23,7 @@ import asyncio
 import collections
 import re
 import string
+import sys
 from typing import Optional, List
 
 import lxml.etree
@@ -54,25 +55,61 @@ class BlockDevice(qubes.devices.DeviceInfo):
         # lazy loading
         self._mode = None
         self._size = None
-        self._description = None
         self._interface_num = None
 
     @property
-    def description(self):
-        """Human readable device description"""
-        if self._description is None:
-            if not self.backend_domain.is_running():
-                return self.ident
-            safe_set = {ord(c) for c in
-                string.ascii_letters + string.digits + '()+,-.:=_/ '}
-            untrusted_desc = self.backend_domain.untrusted_qdb.read(
-                '/qubes-block-devices/{}/desc'.format(self.ident))
-            if not untrusted_desc:
-                return ''
-            desc = ''.join((chr(c) if c in safe_set else '_')
-                for c in untrusted_desc)
-            self._description = desc
-        return self._description
+    def name(self):
+        """
+        The name of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+        """
+        if self._name is None:
+            name, _ = self._load_lazily_name_and_serial()
+            return name
+        return self._name
+
+    @property
+    def serial(self) -> str:
+        """
+        The serial number of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+
+        Override this method to return proper name directly from device itself.
+        """
+        if self._serial is None:
+            _, serial = self._load_lazily_name_and_serial()
+            return serial
+        return self._serial
+
+    def _load_lazily_name_and_serial(self):
+        if not self.backend_domain.is_running():
+            return "unknown", "unknown"
+        untrusted_desc = self.backend_domain.untrusted_qdb.read(
+            f'/qubes-block-devices/{self.ident}/desc')
+        if not untrusted_desc:
+            return "unknown", "unknown"
+        desc = BlockDevice._sanitize(
+            untrusted_desc,
+            string.ascii_letters + string.digits + '()+,-.:=_/ ')
+        model, _, label = desc.partition(' ')
+        if model:
+            serial = self._serial = model.replace('_', ' ').strip()
+        else:
+            serial = "unknown"
+        # label: '(EXAMPLE)' or '()'
+        if label[1:-1]:
+            name = self._name = label.replace('_', ' ')[1:-1].strip()
+        else:
+            name = "unknown"
+        return name, serial
+
+    @property
+    def manufacturer(self) -> str:
+        if self.parent_device:
+            return f"sub-device of {self.parent_device}"
+        return f"hosted by {self.backend_domain!s}"
 
     @property
     def mode(self):
@@ -142,10 +179,13 @@ class BlockDevice(qubes.devices.DeviceInfo):
             else:
                 # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
                 # 'sda' -> parent_ident='sda', interface_num=''
-                parent_ident, _, interface_num = self._sanitize(
+                parent_ident, sep, interface_num = self._sanitize(
                     untrusted_parent_info).partition(":")
+                devclass = 'usb' if sep == ':' else 'block'
+                if not parent_ident:
+                    return None
                 self._parent = qubes.devices.Device(
-                    self.backend_domain, parent_ident)
+                    self.backend_domain, parent_ident, devclass=devclass)
                 self._interface_num = interface_num
         return self._parent
 
@@ -154,8 +194,29 @@ class BlockDevice(qubes.devices.DeviceInfo):
         """
         Get identification of device not related to port.
         """
-        parent_ident = self.parent_device.ident if self._parent else ''
-        return f'{parent_ident}:{self._interface_num}'
+        parent_identity = ''
+        p = self.parent_device
+        if p is not None:
+            p_info = p.backend_domain.devices[p.devclass][p.ident]
+            parent_identity = p_info.self_identity
+            if p.devclass == 'usb':
+                parent_identity = f'{p.ident}:{parent_identity}'
+        if self._interface_num:
+            # device interface number (not partition)
+            self_id = self._interface_num
+        else:
+            self_id = self._get_possible_partition_number()
+        return f'{parent_identity}:{self_id}'
+
+    def _get_possible_partition_number(self) -> Optional[int]:
+        """
+        If the device is partition return partition number.
+
+        The behavior is undefined for the rest block devices.
+        """
+        # partition number: 'xxxxx12' -> '12' (partition)
+        numbers = re.findall(r'\d+$', self.ident)
+        return int(numbers[-1]) if numbers else None
 
     @staticmethod
     def _sanitize(
@@ -250,6 +311,17 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 'device-attach:block', device=dev, options={}))
 
         self.devices_cache[vm.name] = current_devices
+
+        for front_vm in vm.app.domains:
+            if not front_vm.is_running():
+                continue
+            for assignment in front_vm.devices['block'].get_assigned_devices():
+                if (assignment.backend_domain == vm
+                        and assignment.ident in added
+                        and assignment.ident not in attached
+                ):
+                    asyncio.ensure_future(self._attach_and_notify(
+                        front_vm, assignment.device, assignment.options))
 
     def device_get(self, vm, ident):
         '''Read information about device from QubesDB
@@ -371,6 +443,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('device-pre-attach:block')
     def on_device_pre_attached_block(self, vm, event, device, options):
         # pylint: disable=unused-argument
+        if isinstance(device, qubes.devices.UnknownDevice):
+            print(f'{device.devclass.capitalize()} device {device} '
+                  'not available, skipping.', file=sys.stderr)
+            return
 
         # validate options
         for option, value in options.items():
@@ -386,6 +462,15 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     raise qubes.exc.QubesValueError(
                         'devtype option can only have '
                         '\'disk\' or \'cdrom\' value')
+            elif option == 'identity':
+                identity = value
+                if identity != 'any' and device.self_identity != identity:
+                    print("Unrecognized identity, skipping attachment of"
+                          f" {device}", file=sys.stderr)
+                    raise qubes.devices.UnrecognizedDevice(
+                        f"Device presented identity {device.self_identity} "
+                        f"does not match expected {identity}"
+                    )
             else:
                 raise qubes.exc.QubesValueError(
                     'Unsupported option {}'.format(option))
@@ -411,6 +496,23 @@ class BlockDeviceExtension(qubes.ext.Extension):
         vm.libvirt_domain.attachDevice(
             vm.app.env.get_template('libvirt/devices/block.xml').render(
                 device=device, vm=vm, options=options))
+
+    @qubes.ext.handler('domain-start')
+    async def on_domain_start(self, vm, _event, **_kwargs):
+        # pylint: disable=unused-argument
+        for assignment in vm.devices['block'].get_assigned_devices():
+            asyncio.ensure_future(self._attach_and_notify(
+                vm, assignment.device, assignment.options))
+
+    async def _attach_and_notify(self, vm, device, options):
+        # bypass DeviceCollection logic preventing double attach
+        try:
+            self.on_device_pre_attached_block(
+                vm, 'device-pre-attach:block', device, options)
+        except qubes.devices.UnrecognizedDevice:
+            return
+        await vm.fire_event_async(
+            'device-attach:block', device=device, options=options)
 
     @qubes.ext.handler('device-pre-detach:block')
     def on_device_pre_detached_block(self, vm, event, device):

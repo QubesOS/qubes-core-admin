@@ -1722,7 +1722,7 @@ netvm default=True type=vm \n'''
 
     def test_470_vm_device_list_persistent(self):
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
-            persistent=True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
@@ -1733,11 +1733,11 @@ netvm default=True type=vm \n'''
 
     def test_471_vm_device_list_persistent_options(self):
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
-            persistent=True, options={'opt1': 'value'})
+            attach_automatically=True, required=True, options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
-            persistent=True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
@@ -1766,7 +1766,7 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-list-attached:testclass',
             self.device_list_attached_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
-            persistent=True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
@@ -1780,7 +1780,7 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-list-attached:testclass',
             self.device_list_attached_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
-            persistent=True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
@@ -1944,7 +1944,7 @@ netvm default=True type=vm \n'''
     def test_502_vm_remove_attached(self, mock_rmtree, mock_remove):
         self.setup_for_clone()
         assignment = qubes.devices.DeviceAssignment(
-            self.vm, '1234', persistent=True)
+            self.vm, '1234', attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm2.devices['testclass'].attach(assignment))
 
@@ -2665,7 +2665,7 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
-            True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         self.vm.add_handler('device-list-attached:testclass',
@@ -2675,7 +2675,7 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.persistent',
+                b'admin.vm.device.testclass.Set.persistent',  # TODO
                 b'test-vm1', b'test-vm1+1234', b'False')
         self.assertIsNone(value)
         self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
@@ -2686,7 +2686,7 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
-            True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         self.vm.add_handler('device-list-attached:testclass',
@@ -2694,7 +2694,7 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.persistent',
+                b'admin.vm.device.testclass.Set.persistent',  # TODO
                 b'test-vm1', b'test-vm1+1234', b'True')
         self.assertIsNone(value)
         dev = qubes.devices.DeviceInfo(self.vm, '1234')

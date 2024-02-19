@@ -434,8 +434,6 @@ class DeviceInfo(Device):
             prod = self.name
         elif self.serial and self.serial != "unknown":
             prod = self.serial
-        elif self.parent_device is not None:
-            return f"sub-device of {self.parent_device}"
         else:
             prod = f"unknown {self.devclass if self.devclass else ''} device"
 
@@ -517,9 +515,12 @@ class DeviceInfo(Device):
         properties += b' ' + interfaces_prop
 
         if self.parent_device is not None:
-            parent_ident = serialize_str(self.parent_device.ident)
-            parent_prop = (b'parent=' + parent_ident.encode('ascii'))
-            properties += b' ' + parent_prop
+            ident = serialize_str(self.parent_device.ident)
+            ident_prop = (b'parent_ident=' + ident.encode('ascii'))
+            properties += b' ' + ident_prop
+            devclass = serialize_str(self.parent_device.devclass)
+            devclass_prop = (b'parent_devclass=' + devclass.encode('ascii'))
+            properties += b' ' + devclass_prop
 
         data = b' '.join(
             f'_{prop}={serialize_str(value)}'.encode('ascii')
@@ -609,11 +610,14 @@ class DeviceInfo(Device):
             for i in range(0, len(interfaces), 7)]
         properties['interfaces'] = interfaces
 
-        if 'parent' in properties:
+        if 'parent_ident' in properties:
             properties['parent'] = Device(
                 backend_domain=expected_backend_domain,
-                ident=properties['parent']
+                ident=properties['parent_ident'],
+                devclass=properties['parent_devclass'],
             )
+            del properties['parent_ident']
+            del properties['parent_devclass']
 
         return cls(**properties)
 
@@ -704,6 +708,8 @@ class DeviceAssignment(Device):
                  required=False, attach_automatically=False):
         super().__init__(backend_domain, ident, devclass)
         self.__options = options or {}
+        if required:
+            assert attach_automatically
         self.__required = required
         self.__attach_automatically = attach_automatically
         self.frontend_domain = frontend_domain
@@ -718,6 +724,18 @@ class DeviceAssignment(Device):
             attach_automatically=self.attach_automatically,
             frontend_domain=self.frontend_domain,
             devclass=self.devclass,
+        )
+
+    @classmethod
+    def from_device(cls, device: Device, **kwargs) -> 'DeviceAssignment':
+        """
+        Get assignment of the device.
+        """
+        return cls(
+            backend_domain=device.backend_domain,
+            ident=device.ident,
+            devclass=device.devclass,
+            **kwargs
         )
 
     @property
