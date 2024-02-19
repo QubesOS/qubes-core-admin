@@ -517,9 +517,12 @@ class DeviceInfo(Device):
         properties += b' ' + interfaces_prop
 
         if self.parent_device is not None:
-            parent_ident = serialize_str(self.parent_device.ident)
-            parent_prop = (b'parent=' + parent_ident.encode('ascii'))
-            properties += b' ' + parent_prop
+            ident = serialize_str(self.parent_device.ident)
+            ident_prop = (b'parent_ident=' + ident.encode('ascii'))
+            properties += b' ' + ident_prop
+            devclass = serialize_str(self.parent_device.devclass)
+            devclass_prop = (b'parent_devclass=' + devclass.encode('ascii'))
+            properties += b' ' + devclass_prop
 
         data = b' '.join(
             f'_{prop}={serialize_str(value)}'.encode('ascii')
@@ -609,11 +612,14 @@ class DeviceInfo(Device):
             for i in range(0, len(interfaces), 7)]
         properties['interfaces'] = interfaces
 
-        if 'parent' in properties:
+        if 'parent_ident' in properties:
             properties['parent'] = Device(
                 backend_domain=expected_backend_domain,
-                ident=properties['parent']
+                ident=properties['parent_ident'],
+                devclass=properties['parent_devclass'],
             )
+            del properties['parent_ident']
+            del properties['parent_devclass']
 
         return cls(**properties)
 

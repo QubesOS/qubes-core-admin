@@ -422,12 +422,14 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     )
             elif option == 'parent_identity':
                 identity = value
-                if device.parent.self_identity != identity:
+                p = device.parent_device
+                parent_info = p.backend_domain.devices[p.devclass][p.ident]
+                if parent_info.self_identity != identity:
                     print("Unrecognized parent identity, skipping attachment of"
                           f" {device}", file=sys.stderr)
                     raise qubes.devices.UnrecognizedDevice(
                         f"Parent device of {device} presents identity that"
-                        f" {device.parent.self_identity} "
+                        f" {parent_info.self_identity} "
                         f"does not match expected {identity}"
                     )
             else:
