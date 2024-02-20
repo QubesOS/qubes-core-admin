@@ -146,6 +146,8 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 parent_ident, sep, interface_num = self._sanitize(
                     untrusted_parent_info).partition(":")
                 devclass = 'usb' if sep == ':' else 'block'
+                if not parent_ident:
+                    return None
                 self._parent = qubes.devices.Device(
                     self.backend_domain, parent_ident, devclass=devclass)
                 self._interface_num = interface_num
