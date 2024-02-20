@@ -164,12 +164,21 @@ class BlockDevice(qubes.devices.DeviceInfo):
             if p.devclass == 'usb':
                 parent_identity = f'{p.ident}:{parent_identity}'
         if self._interface_num:
-            # device interface number
+            # device interface number (not partition)
             self_id = self._interface_num
         else:
-            # partition number: 'sda1' -> '1'
-            self_id = self.ident[3:]
+            self_id = self._get_possible_partition_number()
         return f'{parent_identity}:{self_id}'
+
+    def _get_possible_partition_number(self) -> Optional[int]:
+        """
+        If the device is partition return partition number.
+
+        The behavior is undefined for the rest block devices.
+        """
+        # partition number: 'xxxxx12' -> '12' (partition)
+        numbers = re.findall(r'\d+$', self.ident)
+        return int(numbers[-1]) if numbers else None
 
     @staticmethod
     def _sanitize(
