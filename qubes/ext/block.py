@@ -55,25 +55,61 @@ class BlockDevice(qubes.devices.DeviceInfo):
         # lazy loading
         self._mode = None
         self._size = None
-        self._description = None
         self._interface_num = None
 
     @property
-    def description(self):
-        """Human readable device description"""
-        if self._description is None:
-            if not self.backend_domain.is_running():
-                return self.ident
-            safe_set = {ord(c) for c in
-                string.ascii_letters + string.digits + '()+,-.:=_/ '}
-            untrusted_desc = self.backend_domain.untrusted_qdb.read(
-                '/qubes-block-devices/{}/desc'.format(self.ident))
-            if not untrusted_desc:
-                return ''
-            desc = ''.join((chr(c) if c in safe_set else '_')
-                for c in untrusted_desc)
-            self._description = desc
-        return self._description
+    def name(self):
+        """
+        The name of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+        """
+        if self._name is None:
+            name, _ = self._load_lazily_name_and_serial()
+            return name
+        return self._name
+
+    @property
+    def serial(self) -> str:
+        """
+        The serial number of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+
+        Override this method to return proper name directly from device itself.
+        """
+        if self._serial is None:
+            _, serial = self._load_lazily_name_and_serial()
+            return serial
+        return self._serial
+
+    def _load_lazily_name_and_serial(self):
+        if not self.backend_domain.is_running():
+            return "unknown", "unknown"
+        untrusted_desc = self.backend_domain.untrusted_qdb.read(
+            f'/qubes-block-devices/{self.ident}/desc')
+        if not untrusted_desc:
+            return "unknown", "unknown"
+        desc = BlockDevice._sanitize(
+            untrusted_desc,
+            string.ascii_letters + string.digits + '()+,-.:=_/ ')
+        model, _, label = desc.partition(' ')
+        if model:
+            serial = self._serial = model.replace('_', ' ').strip()
+        else:
+            serial = "unknown"
+        # label: '(EXAMPLE)' or '()'
+        if label[1:-1]:
+            name = self._name = label.replace('_', ' ')[1:-1].strip()
+        else:
+            name = "unknown"
+        return name, serial
+
+    @property
+    def manufacturer(self) -> str:
+        if self.parent_device:
+            return f"sub-device of {self.parent_device}"
+        return f"hosted by {self.backend_domain!s}"
 
     @property
     def mode(self):
