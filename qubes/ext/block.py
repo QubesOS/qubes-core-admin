@@ -405,6 +405,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('device-pre-attach:block')
     def on_device_pre_attached_block(self, vm, event, device, options):
         # pylint: disable=unused-argument
+        if isinstance(device, qubes.devices.UnknownDevice):
+            print(f'{device.devclass.capitalize()} device {device} '
+                  'not available, skipping.', file=sys.stderr)
+            return
 
         # validate options
         for option, value in options.items():

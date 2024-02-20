@@ -221,7 +221,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
         assignment = qubes.devices.DeviceAssignment(
             backend_domain=device.backend_domain,
             ident=device.ident,
-            persistent=True)
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.manager['testclass'].attach(assignment))
         self.assertEventFired(self.emitter, 'device-attach:testclass')

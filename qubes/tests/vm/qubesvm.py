@@ -1234,8 +1234,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm,  # this is violation of API, but for PCI the argument
             #  is unused
             '00_00.0',
-            bus='pci',
-            persistent=True)
+            devclass='pci',
+            attach_automatically=True, required=True)
         vm.devices['pci']._set.add(
             assignment)
         libvirt_xml = vm.create_config_file()
@@ -1318,7 +1318,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.app.vmm.offline_mode = False
         dev = qubes.devices.DeviceAssignment(
             dom0, 'sda',
-            {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
+            {'devtype': 'cdrom', 'read-only': 'yes'},
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(vm.devices['block'].attach(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1422,7 +1423,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.app.vmm.offline_mode = False
         dev = qubes.devices.DeviceAssignment(
             dom0, 'sda',
-            {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
+            {'devtype': 'cdrom', 'read-only': 'yes'},
+            attach_automatically=True, required=True)
         self.loop.run_until_complete(vm.devices['block'].attach(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
