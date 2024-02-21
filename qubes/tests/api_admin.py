@@ -1910,7 +1910,7 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-detach:testclass', mock_detach)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
-            with self.assertRaises(qubes.devices.DeviceNotAttached):
+            with self.assertRaises(qubes.devices.DeviceNotAssigned):
                 self.call_mgmt_func(b'admin.vm.device.testclass.Detach',
                     b'test-vm1', b'test-vm1+1234')
         self.assertFalse(mock_detach.called)

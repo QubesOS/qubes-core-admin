@@ -68,12 +68,6 @@ import qubes.utils
 from qubes.api import ProtocolError
 
 
-class DeviceNotAttached(qubes.exc.QubesException, KeyError):
-    """
-    Trying to detach not attached device.
-    """
-
-
 class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
     """
     Trying to unassign not assigned device.
@@ -1115,7 +1109,7 @@ class DeviceCollection:
             await self._vm.fire_event_async(
                 'device-assignment-changed:' + self._bus, device=device)
         else:
-            await self.detach(assignment)
+            await self.unassign(assignment)
 
     async def detach(self, device: Device):
         """
