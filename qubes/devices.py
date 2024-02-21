@@ -4,6 +4,8 @@
 # Copyright (C) 2010-2016  Joanna Rutkowska <joanna@invisiblethingslab.com>
 # Copyright (C) 2015-2016  Wojtek Porczyk <woju@invisiblethingslab.com>
 # Copyright (C) 2016       Bahtiar `kalkin-` Gadimov <bahtiar@gadimov.de>
+# Copyright (C) 2024       Piotr Bartman-Szwarc
+#                                   <prbartman@invisiblethingslab.com>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -41,9 +43,10 @@ Such extension should:
    domain; it should return a list of appropriate DeviceInfo objects
  - handle `device-get:bus` event - get one device object exposed by this
    domain of given identifier
- - handle `device-list-attached:class` event - list devices currently attached
+ - handle `device-list-attached:bus` event - list devices currently attached
    to this domain
- - fire `device-list-change:class` event when a device list change is detected
+ - fire `device-list-change:bus` and following `device-added:bus` or
+   `device-removed:bus` events when a device list change is detected
    (new/removed device)
 
 Note that device-listing event handlers cannot be asynchronous. This for
@@ -931,7 +934,11 @@ class DeviceCollection:
 
         .. event:: device-added:<class> (device)
 
-            Fired when new device is discovered to a VM.
+            Fired when new device is discovered.
+
+        .. event:: device-removed:<class> (device)
+
+            Fired when device is no longer exposed by a backend VM.
 
         .. event:: device-attach:<class> (device, options)
 
