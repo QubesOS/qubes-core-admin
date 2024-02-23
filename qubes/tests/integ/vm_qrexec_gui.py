@@ -25,6 +25,7 @@ import subprocess
 import signal
 import sys
 import tempfile
+import json
 import unittest
 
 from distutils import spawn
@@ -170,27 +171,33 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             self.check_audio_sample(recorded_audio.file.read(), sfreq)
 
     def _configure_audio_recording(self, vm):
-        '''Connect VM's output-source to sink monitor instead of mic'''
-        local_user = grp.getgrnam('qubes').gr_mem[0]
-        sudo = ['sudo', '-E', '-u', local_user]
-        source_outputs = subprocess.check_output(
-            sudo + ['pacmd', 'list-source-outputs']).decode()
+        """Connect VM's output-source to sink monitor instead of mic"""
+        local_user = grp.getgrnam("qubes").gr_mem[0]
+        sudo = ["sudo", "-E", "-u", local_user]
+        source_outputs = json.loads(subprocess.check_output(
+            sudo + ["pactl", "-f", "json", "list", "source-outputs"]))
 
-        last_index = None
-        found = False
-        for line in source_outputs.splitlines():
-            if line.startswith('    index: '):
-                last_index = line.split(':')[1].strip()
-            elif line.startswith('\t\tapplication.name = '):
-                app_name = line.split('=')[1].strip('" ')
-                if vm.name == app_name:
-                    found = True
-                    break
-        if not found:
-            self.fail('source-output for VM {} not found'.format(vm.name))
+        try:
+            output_index = [s["index"] for s in source_outputs
+                            if s["properties"].get("application.name")
+                            == vm.name][0]
+        except IndexError:
+            self.fail("source-output for VM {} not found".format(vm.name))
+            # self.fail never returns
+            assert False
+
+        sources = json.loads(subprocess.check_output(
+            sudo + ["pactl", "-f", "json", "list", "sources"]))
+        try:
+            source_index = [s["index"] for s in sources
+                            if s["name"].endswith(".monitor")][0]
+        except IndexError:
+            self.fail("monitor source not found")
+            # self.fail never returns
+            assert False
 
         subprocess.check_call(sudo +
-            ['pacmd', 'move-source-output', last_index, '0'])
+            ["pactl", "move-source-output", str(output_index), str(source_index)])
 
     def common_audio_record_muted(self):
         # connect VM's recording source output monitor (instead of mic)
@@ -335,8 +342,12 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
         try:
+            sinks = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio("pactl -f json list sinks"))[0]
+            sink_index = json.loads(sinks)[0]["index"]
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('pacmd set-sink-volume 1 0x10000'))
+                self.testvm1.run_for_stdio(
+                    f"pactl set-sink-volume {sink_index!s} 0x10000"))
             self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     'systemctl --user is-active pipewire-pulse.socket || '
