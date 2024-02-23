@@ -152,9 +152,8 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
                    '--raw audio_in.snd')
         with tempfile.NamedTemporaryFile() as recorded_audio:
             os.chmod(recorded_audio.name, 0o666)
-            # FIXME: -d 0 assumes only one audio device
             p = subprocess.Popen(['sudo', '-E', '-u', local_user,
-                'parecord', '-d', '0', '--raw',
+                'parecord', '-d', '@DEFAULT_MONITOR@', '--raw',
                 '--format=float32le', '--rate=44100', '--channels=1',
                 recorded_audio.name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
