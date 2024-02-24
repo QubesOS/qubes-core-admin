@@ -467,7 +467,7 @@ class SaltVMTestMixin(SaltTestMixin):
         self.assertEqual(stderr, b'')
 
     @unittest.expectedFailure
-    def test_002_granns_id(self):
+    def test_002_grains_id(self):
         vmname = self.make_vm_name('target')
         tplname = self.make_vm_name('tpl')
         self.test_template = self.app.add_new_vm('TemplateVM',
@@ -503,6 +503,7 @@ class SaltVMTestMixin(SaltTestMixin):
         self.assertTrue(tpl_output.startswith(tplname + ':\n'),
             'Full output: ' + state_output)
         tpl_output = tpl_output[len(tplname + ':\n'):].strip()
+        appvm_output = appvm_output.strip()
 
         for name, output in ((tplname, tpl_output), (vmname, appvm_output)):
             # skip trailing junk to workaround
