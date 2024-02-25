@@ -340,6 +340,11 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
         self.prepare_audio_vm('pulseaudio')
+        pa_info = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio("pactl info"))[0]
+        # Server Name: PulseAudio (on PipeWire 0.3.65)
+        if b"on PipeWire 0.3." in pa_info:
+            self.skipTest("Known-buggy pipewire runs inside VM")
         try:
             sinks = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("pactl -f json list sinks"))[0]
