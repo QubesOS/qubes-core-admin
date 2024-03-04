@@ -29,6 +29,15 @@ class AUDIO(qubes.ext.Extension):
             if getattr(domain, "audiovm", None) and domain.audiovm == vm:
                 yield domain
 
+    @staticmethod
+    def set_qubesdb_audiovm(vm):
+        # Add AudioVM Xen ID for gui-agent
+        if getattr(vm, "audiovm", None):
+            if vm != vm.audiovm and vm.audiovm.is_running():
+                vm.untrusted_qdb.write(
+                    "/qubes-audio-domain-xid", str(vm.audiovm.xid)
+                )
+
     @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
         attached_vms = [
@@ -66,15 +75,11 @@ class AUDIO(qubes.ext.Extension):
         if newvalue:
             audiovm = "audiovm-" + newvalue.name
             subject.tags.add(audiovm)
+            self.set_qubesdb_audiovm(subject)
 
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
-        # Add AudioVM Xen ID for gui-agent
-        if getattr(vm, "audiovm", None):
-            if vm != vm.audiovm and vm.audiovm.is_running():
-                vm.untrusted_qdb.write(
-                    "/qubes-audio-domain-xid", str(vm.audiovm.xid)
-                )
+        self.set_qubesdb_audiovm(vm)
 
     @qubes.ext.handler("property-set:default_audiovm", system=True)
     def on_property_set_default_audiovm(
