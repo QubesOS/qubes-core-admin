@@ -41,6 +41,8 @@ class AUDIO(qubes.ext.Extension):
                 vm.untrusted_qdb.write(
                     "/qubes-audio-domain-xid", str(vm.audiovm.xid)
                 )
+        else:
+            vm.untrusted_qdb.rm("/qubes-audio-domain-xid")
 
     @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
@@ -67,7 +69,7 @@ class AUDIO(qubes.ext.Extension):
         newvalue = getattr(subject, "audiovm", None)
         self.on_property_set(subject, event, name, newvalue, oldvalue)
 
-    @qubes.ext.handler("property-set:audiovm")
+    @qubes.ext.handler("property-set:audiovm", "property-del:audiovm")
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
         # Clean other 'audiovm-XXX' tags.
         # pulseaudio agent (module-vchan-sink) can connect to only one domain
