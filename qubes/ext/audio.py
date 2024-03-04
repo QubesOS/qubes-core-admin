@@ -75,6 +75,10 @@ class AUDIO(qubes.ext.Extension):
         if newvalue:
             audiovm = "audiovm-" + newvalue.name
             subject.tags.add(audiovm)
+
+        # It is needed to filter these events because
+        # vm.is_running() is not yet available.
+        if event not in ("domain-init", "domain-load"):
             self.set_qubesdb_audiovm(subject)
 
     @qubes.ext.handler("domain-qdb-create")
