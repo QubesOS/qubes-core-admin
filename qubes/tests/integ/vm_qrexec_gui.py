@@ -40,6 +40,7 @@ import qubes.vm.templatevm
 
 import numpy as np
 
+in_qemu = os.path.exists("/sys/firmware/qemu_fw_cfg")
 
 class TC_00_AppVMMixin(object):
     def setUp(self):
@@ -116,7 +117,12 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
         if not rec_size:
             self.fail('only silence detected, no useful audio data')
-        if rec_size < 0.95*441000:
+        margin = 0.95
+        if in_qemu and self.testvm1.features.get('audio-model'):
+            # be less strict on HVM tests in nested virt, the test environment
+            # has huge overhead already
+            margin = 0.80
+        if rec_size < margin*441000:
             fname = f"/tmp/audio-sample-{self.id()}.raw"
             with open(fname, "wb") as f:
                 f.write(sample)
