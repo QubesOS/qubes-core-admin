@@ -45,6 +45,23 @@ class AUDIO(qubes.ext.Extension):
         else:
             vm.untrusted_qdb.rm("/qubes-audio-domain-xid")
 
+    def set_tag_and_qubesdb_entry(self, subject, event, newvalue=None):
+        # Clean other 'audiovm-XXX' tags.
+        # pulseaudio agent (module-vchan-sink) can connect to only one domain
+        tags_list = list(subject.tags)
+        for tag in tags_list:
+            if tag.startswith("audiovm-"):
+                subject.tags.remove(tag)
+
+        if newvalue:
+            audiovm = "audiovm-" + newvalue.name
+            subject.tags.add(audiovm)
+
+        # It is needed to filter these events because
+        # vm.is_running() is not yet available.
+        if event not in ("domain-init", "domain-load"):
+            self.set_qubesdb_audiovm(subject)
+
     @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
         attached_vms = [
@@ -70,23 +87,15 @@ class AUDIO(qubes.ext.Extension):
         newvalue = getattr(subject, "audiovm", None)
         self.on_property_set(subject, event, name, newvalue, oldvalue)
 
-    @qubes.ext.handler("property-set:audiovm", "property-del:audiovm")
+    @qubes.ext.handler("property-set:audiovm")
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
-        # Clean other 'audiovm-XXX' tags.
-        # pulseaudio agent (module-vchan-sink) can connect to only one domain
-        tags_list = list(subject.tags)
-        for tag in tags_list:
-            if tag.startswith("audiovm-"):
-                subject.tags.remove(tag)
+        self.set_tag_and_qubesdb_entry(
+            subject=subject, event=event, newvalue=newvalue
+        )
 
-        if newvalue:
-            audiovm = "audiovm-" + newvalue.name
-            subject.tags.add(audiovm)
-
-        # It is needed to filter these events because
-        # vm.is_running() is not yet available.
-        if event not in ("domain-init", "domain-load"):
-            self.set_qubesdb_audiovm(subject)
+    @qubes.ext.handler("property-del:audiovm")
+    def on_property_del(self, subject, event, name, oldvalue=None):
+        self.set_tag_and_qubesdb_entry(subject=subject, event=event)
 
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
