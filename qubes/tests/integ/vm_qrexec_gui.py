@@ -224,7 +224,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         self.loop.run_until_complete(asyncio.sleep(2))
         if record.returncode is not None:
             self.fail("Recording process ended prematurely: exit code {}, stderr: {}".format(
-                      record.returncode, record.stderr.read()))
+                      record.returncode, self.loop.run_until_complete(record.stderr.read())))
         try:
             self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(kill_cmd))
@@ -268,7 +268,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         self.loop.run_until_complete(asyncio.sleep(2))
         if record.returncode is not None:
             self.fail("Recording process ended prematurely: exit code {}, stderr: {}".format(
-                      record.returncode, record.stderr.read()))
+                      record.returncode, self.loop.run_until_complete(record.stderr.read())))
         try:
             self.loop.run_until_complete(self.testvm1.run_for_stdio(kill_cmd))
         except subprocess.CalledProcessError:
