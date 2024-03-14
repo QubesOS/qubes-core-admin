@@ -1961,7 +1961,73 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
-    def test_624_qdb_guivm_invalid_keyboard_layout(self, mock_qubesdb,
+    def test_624_qdb_audiovm_change_to_new_and_none(self, mock_qubesdb, mock_urandom,
+            mock_timezone):
+        mock_urandom.return_value = b'A' * 64
+        mock_timezone.return_value = 'UTC'
+        template = self.get_vm(
+            cls=qubes.vm.templatevm.TemplateVM, name='template')
+        template.netvm = None
+        audiovm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='sys-audio', qid=2, provides_network=False)
+        audiovm_new = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='sys-audio-new', qid=3, provides_network=False)
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
+            name='appvm', qid=3)
+        vm.netvm = None
+        vm.audiovm = audiovm
+        vm.is_running = lambda: True
+        vm._qubesprop_xid = 2
+        audiovm.is_running = lambda: True
+        audiovm._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 2})
+        audiovm_new.is_running = lambda: True
+        audiovm_new._libvirt_domain = unittest.mock.Mock(**{'ID.return_value': 3})
+        vm.events_enabled = True
+        test_qubesdb = TestQubesDB()
+        mock_qubesdb.write.side_effect = test_qubesdb.write
+        mock_qubesdb.rm.side_effect = test_qubesdb.rm
+        vm.create_qdb_entries()
+        self.maxDiff = None
+        expected = {
+            '/name': 'test-inst-appvm',
+            '/type': 'AppVM',
+            '/default-user': 'user',
+            '/qubes-vm-type': 'AppVM',
+            '/qubes-audio-domain-xid': '{}'.format(audiovm.xid),
+            '/qubes-debug-mode': '0',
+            '/qubes-base-template': 'test-inst-template',
+            '/qubes-timezone': 'UTC',
+            '/qubes-random-seed': base64.b64encode(b'A' * 64),
+            '/qubes-vm-persistence': 'rw-only',
+            '/qubes-vm-updateable': 'False',
+            '/qubes-block-devices': '',
+            '/qubes-usb-devices': '',
+            '/qubes-iptables': 'reload',
+            '/qubes-iptables-error': '',
+            '/qubes-iptables-header': unittest.mock.ANY,
+            '/qubes-service/qubes-update-check': '0',
+            '/qubes-service/meminfo-writer': '1',
+            '/connected-ips': '',
+            '/connected-ips6': '',
+        }
+
+        with self.subTest('default'):
+            self.assertEqual(test_qubesdb.data, expected)
+
+        with self.subTest('value_change'):
+            vm.audiovm = None
+            del expected['/qubes-audio-domain-xid']
+            self.assertEqual(test_qubesdb.data, expected)
+
+        with self.subTest('value_change'):
+            vm.audiovm = audiovm_new
+            expected['/qubes-audio-domain-xid'] = "3"
+            self.assertEqual(test_qubesdb.data, expected)
+
+    @unittest.mock.patch('qubes.utils.get_timezone')
+    @unittest.mock.patch('qubes.utils.urandom')
+    @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
+    def test_625_qdb_guivm_invalid_keyboard_layout(self, mock_qubesdb,
                                                    mock_urandom, mock_timezone):
         mock_urandom.return_value = b'A' * 64
         mock_timezone.return_value = 'UTC'
@@ -1986,7 +2052,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
-    def test_625_qdb_keyboard_layout_change(self, mock_qubesdb, mock_urandom,
+    def test_626_qdb_keyboard_layout_change(self, mock_qubesdb, mock_urandom,
             mock_timezone):
         mock_urandom.return_value = b'A' * 64
         mock_timezone.return_value = 'UTC'
