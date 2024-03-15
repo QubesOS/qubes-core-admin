@@ -73,7 +73,7 @@ and could be manually detach any time (see 4.),
 but in the future will be auto-attached again.
 #. `(True, True, True)`   -> domain is running, device is attached
 and couldn't be detached.
-#. `(False, Ture, False)` -> device is assigned to domain, but not attached
+#. `(False, True, False)` -> device is assigned to domain, but not attached
 because either (i) domain is halted, device (ii) manually detached or
 (iii) attach to different domain.
 #. `(False, True, True)`  -> domain is halted, device assigned to domain
