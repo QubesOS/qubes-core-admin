@@ -189,7 +189,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
     @property
     def vendor(self) -> str:
         """
-        Device vendor from local database `/usr/share/hwdata/usb.ids`
+        Device vendor from local database `/usr/share/hwdata/pci.ids`
 
         Could be empty string or "unknown".
 
