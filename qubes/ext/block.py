@@ -4,6 +4,7 @@
 #
 # Copyright (C) 2017 Marek Marczykowski-Górecki
 #                               <marmarek@invisiblethingslab.com>
+# Copyright (C) 2024 Piotr Bartman-Szwarc <prbartman@invisiblethingslab.com>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -18,9 +19,14 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-''' Qubes block devices extensions '''
+""" Qubes block devices extensions """
+import asyncio
+import collections
 import re
 import string
+import sys
+from typing import Optional, List
+
 import lxml.etree
 
 import qubes.devices
@@ -44,32 +50,71 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 class BlockDevice(qubes.devices.DeviceInfo):
     def __init__(self, backend_domain, ident):
-        super().__init__(backend_domain=backend_domain,
-            ident=ident)
-        self._description = None
+        super().__init__(
+            backend_domain=backend_domain, ident=ident, devclass="block")
+
+        # lazy loading
         self._mode = None
         self._size = None
+        self._interface_num = None
 
     @property
-    def description(self):
-        '''Human readable device description'''
-        if self._description is None:
-            if not self.backend_domain.is_running():
-                return self.ident
-            safe_set = {ord(c) for c in
-                string.ascii_letters + string.digits + '()+,-.:=_/ '}
-            untrusted_desc = self.backend_domain.untrusted_qdb.read(
-                '/qubes-block-devices/{}/desc'.format(self.ident))
-            if not untrusted_desc:
-                return ''
-            desc = ''.join((chr(c) if c in safe_set else '_')
-                for c in untrusted_desc)
-            self._description = desc
-        return self._description
+    def name(self):
+        """
+        The name of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+        """
+        if self._name is None:
+            name, _ = self._load_lazily_name_and_serial()
+            return name
+        return self._name
+
+    @property
+    def serial(self) -> str:
+        """
+        The serial number of the device it introduced itself with.
+
+        Could be empty string or "unknown".
+
+        Override this method to return proper name directly from device itself.
+        """
+        if self._serial is None:
+            _, serial = self._load_lazily_name_and_serial()
+            return serial
+        return self._serial
+
+    def _load_lazily_name_and_serial(self):
+        if not self.backend_domain.is_running():
+            return "unknown", "unknown"
+        untrusted_desc = self.backend_domain.untrusted_qdb.read(
+            f'/qubes-block-devices/{self.ident}/desc')
+        if not untrusted_desc:
+            return "unknown", "unknown"
+        desc = BlockDevice._sanitize(
+            untrusted_desc,
+            string.ascii_letters + string.digits + '()+,-.:=_/ ')
+        model, _, label = desc.partition(' ')
+        if model:
+            serial = self._serial = model.replace('_', ' ').strip()
+        else:
+            serial = "unknown"
+        # label: '(EXAMPLE)' or '()'
+        if label[1:-1]:
+            name = self._name = label.replace('_', ' ')[1:-1].strip()
+        else:
+            name = "unknown"
+        return name, serial
+
+    @property
+    def manufacturer(self) -> str:
+        if self.parent_device:
+            return f"sub-device of {self.parent_device}"
+        return f"hosted by {self.backend_domain!s}"
 
     @property
     def mode(self):
-        '''Device mode, either 'w' for read-write, or 'r' for read-only'''
+        """Device mode, either 'w' for read-write, or 'r' for read-only"""
         if self._mode is None:
             if not self.backend_domain.is_running():
                 return 'w'
@@ -87,7 +132,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def size(self):
-        '''Device size in bytes'''
+        """Device size in bytes"""
         if self._size is None:
             if not self.backend_domain.is_running():
                 return None
@@ -105,29 +150,269 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
     @property
     def device_node(self):
-        '''Device node in backend domain'''
+        """Device node in backend domain"""
         return '/dev/' + self.ident.replace('_', '/')
+
+    @property
+    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
+        """
+        List of device interfaces.
+
+        Every device should have at least one interface.
+        """
+        return [qubes.devices.DeviceInterface("******", "block")]
+
+    @property
+    def parent_device(self) -> Optional[qubes.devices.Device]:
+        """
+        The parent device if any.
+
+        If the device is part of another device (e.g. it's a single
+        partition of an usb stick), the parent device id should be here.
+        """
+        if self._parent is None:
+            if not self.backend_domain.is_running():
+                return None
+            untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
+                f'/qubes-block-devices/{self.ident}/parent')
+            if untrusted_parent_info is None:
+                return None
+            else:
+                # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
+                # 'sda' -> parent_ident='sda', interface_num=''
+                parent_ident, sep, interface_num = self._sanitize(
+                    untrusted_parent_info).partition(":")
+                devclass = 'usb' if sep == ':' else 'block'
+                if not parent_ident:
+                    return None
+                self._parent = qubes.devices.Device(
+                    self.backend_domain, parent_ident, devclass=devclass)
+                self._interface_num = interface_num
+        return self._parent
+
+    @property
+    def attachment(self) -> Optional['qubes.vm.BaseVM']:
+        """
+        Warning: this property is time-consuming, do not run in loop!
+        """
+        if not self.backend_domain.is_running():
+            return None
+        for vm in self.backend_domain.app.domains:
+            if not vm.is_running():
+                continue
+            if self._is_attached_to(vm):
+                return vm
+
+        return None
+
+    def _is_attached_to(self, vm):
+        xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
+
+        for disk in xml_desc.findall('devices/disk'):
+            info = _try_get_block_device_info(vm.app, disk)
+            if not info:
+                continue
+            backend_domain, ident = info
+
+            if backend_domain.name != self.backend_domain.name:
+                continue
+
+            if self.ident == ident:
+                return True
+        return False
+
+    @property
+    def self_identity(self) -> str:
+        """
+        Get identification of a device not related to port.
+        """
+        parent_identity = ''
+        p = self.parent_device
+        if p is not None:
+            p_info = p.backend_domain.devices[p.devclass][p.ident]
+            parent_identity = p_info.self_identity
+            if p.devclass == 'usb':
+                parent_identity = f'{p.ident}:{parent_identity}'
+        if self._interface_num:
+            # device interface number (not partition)
+            self_id = self._interface_num
+        else:
+            self_id = self._get_possible_partition_number()
+        return f'{parent_identity}:{self_id}'
+
+    def _get_possible_partition_number(self) -> Optional[int]:
+        """
+        If the device is partition return partition number.
+
+        The behavior is undefined for the rest block devices.
+        """
+        # partition number: 'xxxxx12' -> '12' (partition)
+        numbers = re.findall(r'\d+$', self.ident)
+        return int(numbers[-1]) if numbers else None
+
+    @staticmethod
+    def _sanitize(
+            untrusted_parent: bytes,
+            safe_chars: str =
+            string.ascii_letters + string.digits + string.punctuation
+    ) -> str:
+        untrusted_device_desc = untrusted_parent.decode(
+            'ascii', errors='ignore')
+        return ''.join(
+            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
+        )
+
+
+def _try_get_block_device_info(app, disk):
+    if disk.get('type') != 'block':
+        return None
+    dev_path_node = disk.find('source')
+    if dev_path_node is None:
+        return None
+
+    backend_domain_node = disk.find('backenddomain')
+    if backend_domain_node is not None:
+        backend_domain = app.domains[
+            backend_domain_node.get('name')]
+    else:
+        backend_domain = app.domains[0]
+
+    dev_path = dev_path_node.get('dev')
+
+    if dev_path.startswith('/dev/'):
+        ident = dev_path[len('/dev/'):]
+    else:
+        ident = dev_path
+
+    ident = ident.replace('/', '_')
+
+    return backend_domain, ident
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
+    def __init__(self):
+        super().__init__()
+        self.devices_cache = collections.defaultdict(dict)
+
     @qubes.ext.handler('domain-init', 'domain-load')
     def on_domain_init_load(self, vm, event):
-        '''Initialize watching for changes'''
+        """Initialize watching for changes"""
         # pylint: disable=unused-argument
         vm.watch_qdb_path('/qubes-block-devices')
+        if event == 'domain-load':
+            # avoid building a cache on domain-init, as it isn't fully set yet,
+            # and definitely isn't running yet
+            current_devices = {
+                dev.ident: dev.attachment  # TODO load all attachments at once
+                for dev in self.on_device_list_block(vm, None)
+            }
+            self.devices_cache[vm.name] = current_devices.copy()
+        else:
+            self.devices_cache[vm.name] = {}.copy()
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
-        '''A change in QubesDB means a change in device list'''
+        """A change in QubesDB means a change in a device list."""
         # pylint: disable=unused-argument
-        vm.fire_event('device-list-change:block')
+        if path is not None:
+            vm.fire_event('device-list-change:block')
+        device_attachments = self.get_device_attachments(vm)
+        current_devices = dict(
+            (dev.ident, device_attachments.get(dev.ident, None))
+            for dev in self.on_device_list_block(vm, None))
+
+        added, attached, detached, removed = (
+            self._compare_cache(vm, current_devices))
+
+        # send events about devices detached/attached outside by themselves
+        for dev_id, front_vm in detached.items():
+            dev = BlockDevice(vm, dev_id)
+            asyncio.ensure_future(front_vm.fire_event_async(
+                'device-detach:block', device=dev))
+        for dev_id in removed:
+            device = BlockDevice(vm, dev_id)
+            vm.fire_event('device-removed:block', device=device)
+        for dev_id in added:
+            device = BlockDevice(vm, dev_id)
+            vm.fire_event('device-added:block', device=device)
+        for dev_ident, front_vm in attached.items():
+            dev = BlockDevice(vm, dev_ident)
+            asyncio.ensure_future(front_vm.fire_event_async(
+                'device-attach:block', device=dev, options={}))
+
+        self.devices_cache[vm.name] = current_devices.copy()
+
+        for front_vm in vm.app.domains:
+            if not front_vm.is_running():
+                continue
+            for assignment in front_vm.devices['block'].get_assigned_devices():
+                if (assignment.backend_domain == vm
+                        and assignment.ident in added
+                        and assignment.ident not in attached
+                ):
+                    asyncio.ensure_future(self._attach_and_notify(
+                        front_vm, assignment.device, assignment.options))
+
+    def _compare_cache(self, vm, current_devices):
+        # compare cached devices and current devices, collect:
+        # - newly appeared devices (ident)
+        # - devices attached from a vm to frontend vm (ident: frontend_vm)
+        # - devices detached from frontend vm (ident: frontend_vm)
+        # - disappeared devices, e.g., plugged out (ident)
+        added = set()
+        attached = dict()
+        detached = dict()
+        removed = set()
+        cache = self.devices_cache[vm.name]
+        for dev_id, front_vm in current_devices.items():
+            if dev_id not in cache:
+                added.add(dev_id)
+                if front_vm is not None:
+                    attached[dev_id] = front_vm
+            elif cache[dev_id] != front_vm:
+                cached_front = cache[dev_id]
+                if front_vm is None:
+                    detached[dev_id] = cached_front
+                elif cached_front is None:
+                    attached[dev_id] = front_vm
+                else:
+                    # a front changed from one to another, so we signal it as:
+                    # detach from the first one and attach to the second one.
+                    detached[dev_id] = cached_front
+                    attached[dev_id] = front_vm
+
+        for dev_id, cached_front in cache.items():
+            if dev_id not in current_devices:
+                removed.add(dev_id)
+                if cached_front is not None:
+                    detached[dev_id] = cached_front
+        return added, attached, detached, removed
+
+    def get_device_attachments(self, vm_):
+        result = {}
+        for vm in vm_.app.domains:
+            if not vm.is_running():
+                continue
+
+            xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
+
+            for disk in xml_desc.findall('devices/disk'):
+                info = _try_get_block_device_info(vm.app, disk)
+                if not info:
+                    continue
+                _backend_domain, ident = info
+
+                result[ident] = vm
+        return result
 
     def device_get(self, vm, ident):
-        '''Read information about device from QubesDB
+        """
+        Read information about a device from QubesDB
 
         :param vm: backend VM object
         :param ident: device identifier
-        :returns BlockDevice'''
+        :returns BlockDevice
+        """
 
         untrusted_qubes_device_attrs = vm.untrusted_qdb.list(
             '/qubes-block-devices/{}/'.format(ident))
@@ -242,6 +527,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('device-pre-attach:block')
     def on_device_pre_attached_block(self, vm, event, device, options):
         # pylint: disable=unused-argument
+        if isinstance(device, qubes.devices.UnknownDevice):
+            print(f'{device.devclass.capitalize()} device {device} '
+                  'not available, skipping.', file=sys.stderr)
+            raise qubes.devices.UnrecognizedDevice()
 
         # validate options
         for option, value in options.items():
@@ -257,6 +546,15 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     raise qubes.exc.QubesValueError(
                         'devtype option can only have '
                         '\'disk\' or \'cdrom\' value')
+            elif option == 'identity':
+                identity = value
+                if identity != 'any' and device.self_identity != identity:
+                    print("Unrecognized identity, skipping attachment of"
+                          f" {device}", file=sys.stderr)
+                    raise qubes.devices.UnrecognizedDevice(
+                        f"Device presented identity {device.self_identity} "
+                        f"does not match expected {identity}"
+                    )
             else:
                 raise qubes.exc.QubesValueError(
                     'Unsupported option {}'.format(option))
@@ -268,20 +566,92 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 'This device can be attached only read-only')
 
         if not vm.is_running():
+            print("Not attach, not running", file=sys.stderr)
             return
 
+        if not isinstance(device, BlockDevice):
+            print("The device is not recognized as block device, "
+                  f"skipping attachment of {device}",
+                  file=sys.stderr)
+            return
+
+        if device.attachment:
+            raise qubes.devices.DeviceAlreadyAttached(
+                'Device {!s} already attached to {!s}'.format(
+                    device, device.attachment)
+            )
+
         if not device.backend_domain.is_running():
-            raise qubes.exc.QubesVMNotRunningError(device.backend_domain,
-                'Domain {} needs to be running to attach device from '
-                'it'.format(device.backend_domain.name))
+            raise qubes.exc.QubesVMNotRunningError(
+                device.backend_domain,
+                f'Domain {device.backend_domain.name} needs to be running '
+                f'to attach device from it')
+
+        self.devices_cache[device.backend_domain.name][device.ident] = vm
 
         if 'frontend-dev' not in options:
             options['frontend-dev'] = self.find_unused_frontend(
                 vm, options.get('devtype', 'disk'))
 
+        print(f'attaching {device} exposed by {device.backend_domain.name}')
         vm.libvirt_domain.attachDevice(
             vm.app.env.get_template('libvirt/devices/block.xml').render(
                 device=device, vm=vm, options=options))
+
+    @qubes.ext.handler('domain-start')
+    async def on_domain_start(self, vm, _event, **_kwargs):
+        # pylint: disable=unused-argument
+        for assignment in vm.devices['block'].get_assigned_devices():
+            asyncio.ensure_future(self._attach_and_notify(
+                vm, assignment.device, assignment.options))
+
+    async def _attach_and_notify(self, vm, device, options):
+        # bypass DeviceCollection logic preventing double attach
+        try:
+            self.on_device_pre_attached_block(
+                vm, 'device-pre-attach:block', device, options)
+        except qubes.devices.UnrecognizedDevice:
+            return
+        await vm.fire_event_async(
+            'device-attach:block', device=device, options=options)
+
+    @qubes.ext.handler('domain-shutdown')
+    async def on_domain_shutdown(self, vm, event, **_kwargs):
+        """
+        Remove from cache devices attached to or exposed by the vm.
+        """
+        # pylint: disable=unused-argument
+
+        new_cache = {}
+        for domain in vm.app.domains.values():
+            new_cache[domain.name] = {}
+            if domain == vm:
+                for dev_id, front_vm in self.devices_cache[domain.name].items():
+                    if front_vm is None:
+                        continue
+                    dev = BlockDevice(vm, dev_id)
+                    await self._detach_and_notify(vm, dev, options=None)
+                continue
+            for dev_id, front_vm in self.devices_cache[domain.name].items():
+                if front_vm == vm:
+                    dev = BlockDevice(vm, dev_id)
+                    asyncio.ensure_future(front_vm.fire_event_async(
+                            'device-detach:block', device=dev))
+                else:
+                    new_cache[domain.name][dev_id] = front_vm
+        self.devices_cache = new_cache.copy()
+
+    async def _detach_and_notify(self, vm, device, options):
+        # bypass DeviceCollection logic preventing double attach
+        self.on_device_pre_detached_block(
+            vm, 'device-pre-detach:block', device)
+        await vm.fire_event_async(
+            'device-detach:block', device=device, options=options)
+
+    @qubes.ext.handler('qubes-close', system=True)
+    def on_qubes_close(self, app, event):
+        # pylint: disable=unused-argument
+        self.devices_cache.clear()
 
     @qubes.ext.handler('device-pre-detach:block')
     def on_device_pre_detached_block(self, vm, event, device):
@@ -293,6 +663,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
         # least)
         for attached_device, options in self.on_device_list_attached(vm, event):
             if attached_device == device:
+                self.devices_cache[device.backend_domain.name][
+                    device.ident] = None
                 vm.libvirt_domain.detachDevice(
                     vm.app.env.get_template('libvirt/devices/block.xml').render(
                         device=device, vm=vm, options=options))

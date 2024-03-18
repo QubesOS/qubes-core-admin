@@ -18,12 +18,16 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-''' Qubes PCI Extensions '''
+""" Qubes PCI Extensions """
 
 import functools
 import os
 import re
+import string
 import subprocess
+import sys
+from typing import Optional, List, Dict, Tuple
+
 import libvirt
 import lxml
 import lxml.etree
@@ -35,7 +39,7 @@ import qubes.ext
 pci_classes = None
 
 
-#: emit warning on unspported device only once
+#: emit warning on unsupported device only once
 unsupported_devices_warned = set()
 
 
@@ -44,14 +48,14 @@ class UnsupportedDevice(Exception):
 
 
 def load_pci_classes():
-    ''' List of known device classes, subclasses and programming interfaces. '''
+    """ List of known device classes, subclasses and programming interfaces. """
     # Syntax:
     # C class       class_name
     #       subclass        subclass_name           <-- single tab
     #               prog-if  prog-if_name   <-- two tabs
     result = {}
     with open('/usr/share/hwdata/pci.ids',
-            encoding='utf-8', errors='ignore') as pciids:
+              encoding='utf-8', errors='ignore') as pciids:
         class_id = None
         subclass_id = None
         for line in pciids.readlines():
@@ -83,7 +87,7 @@ def pcidev_class(dev_xmldesc):
         with open(sysfs_path + '/class', encoding='ascii') as f_class:
             class_id = f_class.read().strip()
     except OSError:
-        return "Unknown"
+        return "unknown"
 
     if not qubes.ext.pci.pci_classes:
         qubes.ext.pci.pci_classes = load_pci_classes()
@@ -93,7 +97,21 @@ def pcidev_class(dev_xmldesc):
         # ignore prog-if
         return qubes.ext.pci.pci_classes[class_id[0:4]]
     except KeyError:
-        return "Unknown"
+        return "unknown"
+
+
+def pcidev_interface(dev_xmldesc):
+    sysfs_path = dev_xmldesc.findtext('path')
+    assert sysfs_path
+    try:
+        with open(sysfs_path + '/class', encoding='ascii') as f_class:
+            class_id = f_class.read().strip()
+    except OSError:
+        return "000000"
+
+    if class_id.startswith('0x'):
+        class_id = class_id[2:]
+    return class_id
 
 
 def attached_devices(app):
@@ -150,16 +168,86 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 raise UnsupportedDevice(libvirt_name)
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
-        super().__init__(backend_domain, ident, None)
+        super().__init__(
+            backend_domain=backend_domain, ident=ident, devclass="pci")
+
+        if hasattr(self, 'regex'):
+            # pylint: disable=no-member
+            dev_match = self.regex.match(ident)
+            if not dev_match:
+                raise ValueError('Invalid device identifier: {!r}'.format(
+                    ident))
+
+            for group in self.regex.groupindex:
+                setattr(self, group, dev_match.group(group))
 
         # lazy loading
         self._description = None
+        self._vendor_id = None
+        self._product_id = None
+
+    @property
+    def vendor(self) -> str:
+        """
+        Device vendor from local database `/usr/share/hwdata/pci.ids`
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._vendor is None:
+            result = self._load_desc()["vendor"]
+        else:
+            result = self._vendor
+        return result
+
+    @property
+    def product(self) -> str:
+        """
+        Device name from local database `/usr/share/hwdata/usb.ids`
+
+        Could be empty string or "unknown".
+
+        Lazy loaded.
+        """
+        if self._product is None:
+            result = self._load_desc()["product"]
+        else:
+            result = self._product
+        return result
+
+    @property
+    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
+        """
+        List of device interfaces.
+
+        Every device should have at least one interface.
+        """
+        if self._interfaces is None:
+            hostdev_details = \
+                self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+                    self.libvirt_name
+                )
+            interface_encoding = pcidev_interface(lxml.etree.fromstring(
+                hostdev_details.XMLDesc()))
+            self._interfaces = [qubes.devices.DeviceInterface(
+                interface_encoding, devclass='pci')]
+        return self._interfaces
+
+    @property
+    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+        """
+        The parent device if any.
+
+        PCI device has no parents.
+        """
+        return None
 
     @property
     def libvirt_name(self):
         # pylint: disable=no-member
         # noinspection PyUnresolvedReferences
-        return 'pci_0000_{}_{}_{}'.format(self.bus, self.device, self.function)
+        return f'pci_0000_{self.bus}_{self.device}_{self.function}'
 
     @property
     def description(self):
@@ -173,11 +261,71 @@ class PCIDevice(qubes.devices.DeviceInfo):
         return self._description
 
     @property
+    def self_identity(self) -> str:
+        """
+        Get identification of device not related to port.
+        """
+        allowed_chars = string.digits + string.ascii_letters + '-_.'
+        if self._vendor_id is None:
+            vendor_id = self._load_desc()["vendor ID"]
+            self._vendor_id = ''.join(
+                c if c in set(allowed_chars) else '_' for c in vendor_id)
+        if self._product_id is None:
+            product_id = self._load_desc()["product ID"]
+            self._product_id = ''.join(
+                c if c in set(allowed_chars) else '_' for c in product_id)
+        interfaces = ''.join(repr(ifc) for ifc in self.interfaces)
+        serial = self._serial if self._serial else ""
+        return \
+            f'{self._vendor_id}:{self._product_id}:{serial}:{interfaces}'
+
+    def _load_desc(self) -> Dict[str, str]:
+        unknown = "unknown"
+        result = {"vendor": unknown,
+                  "vendor ID": "0000",
+                  "product": unknown,
+                  "product ID": "0000",
+                  "manufacturer": unknown,
+                  "name": unknown,
+                  "serial": unknown}
+        if not self.backend_domain.is_running():
+            # don't cache these values
+            return result
+        hostdev_details = \
+            self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+                self.libvirt_name
+            )
+
+        # Data successfully loaded, cache these values
+        hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
+        self._vendor = result["vendor"] = hostdev_xml.findtext(
+            'capability/vendor')
+        self._vendor_id = result["vendor ID"] = hostdev_xml.xpath(
+            "//vendor/@id")
+        self._product = result["product"] = hostdev_xml.findtext(
+            'capability/product')
+        self._product_id = result["product ID"] = hostdev_xml.xpath(
+            "//product/@id")
+        return result
+
+    @staticmethod
+    def _sanitize(
+            untrusted_device_desc: bytes,
+            safe_chars: str =
+            string.ascii_letters + string.digits + string.punctuation + ' '
+    ) -> str:
+        # b'USB\\x202.0\\x20Camera' -> 'USB 2.0 Camera'
+        untrusted_device_desc = untrusted_device_desc.decode(
+            'unicode_escape', errors='ignore')
+        return ''.join(
+            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
+        )
+
+    @property
     def frontend_domain(self):
         # TODO: cache this
         all_attached = attached_devices(self.backend_domain.app)
         return all_attached.get(self.ident, None)
-
 
 
 class PCIDeviceExtension(qubes.ext.Extension):
@@ -300,7 +448,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-pre-start')
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
-        for assignment in vm.devices['pci'].persistent():
+        for assignment in vm.devices['pci'].get_assigned_devices():
             device = _cache_get(assignment.backend_domain, assignment.ident)
             self.bind_pci_to_pciback(vm.app, device)
 
