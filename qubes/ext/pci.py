@@ -25,13 +25,13 @@ import os
 import re
 import string
 import subprocess
-import sys
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict
 
 import libvirt
 import lxml
 import lxml.etree
 
+import qubes.device_protocol
 import qubes.devices
 import qubes.ext
 
@@ -152,7 +152,7 @@ def _device_desc(hostdev_xml):
     )
 
 
-class PCIDevice(qubes.devices.DeviceInfo):
+class PCIDevice(qubes.device_protocol.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
         r'\A(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\.'
@@ -217,7 +217,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
         return result
 
     @property
-    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
+    def interfaces(self) -> List[qubes.device_protocol.DeviceInterface]:
         """
         List of device interfaces.
 
@@ -230,12 +230,12 @@ class PCIDevice(qubes.devices.DeviceInfo):
                 )
             interface_encoding = pcidev_interface(lxml.etree.fromstring(
                 hostdev_details.XMLDesc()))
-            self._interfaces = [qubes.devices.DeviceInterface(
+            self._interfaces = [qubes.device_protocol.DeviceInterface(
                 interface_encoding, devclass='pci')]
         return self._interfaces
 
     @property
-    def parent_device(self) -> Optional[qubes.devices.DeviceInfo]:
+    def parent_device(self) -> Optional[qubes.device_protocol.DeviceInfo]:
         """
         The parent device if any.
 

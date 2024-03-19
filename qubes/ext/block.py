@@ -29,6 +29,7 @@ from typing import Optional, List
 
 import lxml.etree
 
+import qubes.device_protocol
 import qubes.devices
 import qubes.ext
 from qubes.ext.utils import device_list_change
@@ -49,7 +50,7 @@ SYSTEM_DISKS = ('xvda', 'xvdb', 'xvdc')
 SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 
-class BlockDevice(qubes.devices.DeviceInfo):
+class BlockDevice(qubes.device_protocol.DeviceInfo):
     def __init__(self, backend_domain, ident):
         super().__init__(
             backend_domain=backend_domain, ident=ident, devclass="block")
@@ -155,16 +156,16 @@ class BlockDevice(qubes.devices.DeviceInfo):
         return '/dev/' + self.ident.replace('_', '/')
 
     @property
-    def interfaces(self) -> List[qubes.devices.DeviceInterface]:
+    def interfaces(self) -> List[qubes.device_protocol.DeviceInterface]:
         """
         List of device interfaces.
 
         Every device should have at least one interface.
         """
-        return [qubes.devices.DeviceInterface("******", "block")]
+        return [qubes.device_protocol.DeviceInterface("******", "block")]
 
     @property
-    def parent_device(self) -> Optional[qubes.devices.Device]:
+    def parent_device(self) -> Optional[qubes.device_protocol.Device]:
         """
         The parent device if any.
 
@@ -186,7 +187,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 devclass = 'usb' if sep == ':' else 'block'
                 if not parent_ident:
                     return None
-                self._parent = qubes.devices.Device(
+                self._parent = qubes.device_protocol.Device(
                     self.backend_domain, parent_ident, devclass=devclass)
                 self._interface_num = interface_num
         return self._parent
@@ -464,7 +465,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('device-pre-attach:block')
     def on_device_pre_attached_block(self, vm, event, device, options):
         # pylint: disable=unused-argument
-        if isinstance(device, qubes.devices.UnknownDevice):
+        if isinstance(device, qubes.device_protocol.UnknownDevice):
             print(f'{device.devclass.capitalize()} device {device} '
                   'not available, skipping.', file=sys.stderr)
             raise qubes.devices.UnrecognizedDevice()
