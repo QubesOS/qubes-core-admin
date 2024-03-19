@@ -31,6 +31,7 @@ import lxml.etree
 
 import qubes.devices
 import qubes.ext
+from qubes.ext.utils import device_list_change
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
 device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
@@ -302,10 +303,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if event == 'domain-load':
             # avoid building a cache on domain-init, as it isn't fully set yet,
             # and definitely isn't running yet
-            current_devices = {
-                dev.ident: dev.attachment  # TODO load all attachments at once
-                for dev in self.on_device_list_block(vm, None)
-            }
+            device_attachments = self.get_device_attachments(vm)
+            current_devices = dict(
+                (dev.ident, device_attachments.get(dev.ident, None))
+                for dev in self.on_device_list_block(vm, None))
             self.devices_cache[vm.name] = current_devices.copy()
         else:
             self.devices_cache[vm.name] = {}.copy()
@@ -314,81 +315,14 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_qdb_change(self, vm, event, path):
         """A change in QubesDB means a change in a device list."""
         # pylint: disable=unused-argument
-        if path is not None:
-            vm.fire_event('device-list-change:block')
         device_attachments = self.get_device_attachments(vm)
         current_devices = dict(
             (dev.ident, device_attachments.get(dev.ident, None))
             for dev in self.on_device_list_block(vm, None))
+        device_list_change(self, current_devices, vm, path, BlockDevice)
 
-        added, attached, detached, removed = (
-            self._compare_cache(vm, current_devices))
-
-        # send events about devices detached/attached outside by themselves
-        for dev_id, front_vm in detached.items():
-            dev = BlockDevice(vm, dev_id)
-            asyncio.ensure_future(front_vm.fire_event_async(
-                'device-detach:block', device=dev))
-        for dev_id in removed:
-            device = BlockDevice(vm, dev_id)
-            vm.fire_event('device-removed:block', device=device)
-        for dev_id in added:
-            device = BlockDevice(vm, dev_id)
-            vm.fire_event('device-added:block', device=device)
-        for dev_ident, front_vm in attached.items():
-            dev = BlockDevice(vm, dev_ident)
-            asyncio.ensure_future(front_vm.fire_event_async(
-                'device-attach:block', device=dev, options={}))
-
-        self.devices_cache[vm.name] = current_devices.copy()
-
-        for front_vm in vm.app.domains:
-            if not front_vm.is_running():
-                continue
-            for assignment in front_vm.devices['block'].get_assigned_devices():
-                if (assignment.backend_domain == vm
-                        and assignment.ident in added
-                        and assignment.ident not in attached
-                ):
-                    asyncio.ensure_future(self._attach_and_notify(
-                        front_vm, assignment.device, assignment.options))
-
-    def _compare_cache(self, vm, current_devices):
-        # compare cached devices and current devices, collect:
-        # - newly appeared devices (ident)
-        # - devices attached from a vm to frontend vm (ident: frontend_vm)
-        # - devices detached from frontend vm (ident: frontend_vm)
-        # - disappeared devices, e.g., plugged out (ident)
-        added = set()
-        attached = dict()
-        detached = dict()
-        removed = set()
-        cache = self.devices_cache[vm.name]
-        for dev_id, front_vm in current_devices.items():
-            if dev_id not in cache:
-                added.add(dev_id)
-                if front_vm is not None:
-                    attached[dev_id] = front_vm
-            elif cache[dev_id] != front_vm:
-                cached_front = cache[dev_id]
-                if front_vm is None:
-                    detached[dev_id] = cached_front
-                elif cached_front is None:
-                    attached[dev_id] = front_vm
-                else:
-                    # a front changed from one to another, so we signal it as:
-                    # detach from the first one and attach to the second one.
-                    detached[dev_id] = cached_front
-                    attached[dev_id] = front_vm
-
-        for dev_id, cached_front in cache.items():
-            if dev_id not in current_devices:
-                removed.add(dev_id)
-                if cached_front is not None:
-                    detached[dev_id] = cached_front
-        return added, attached, detached, removed
-
-    def get_device_attachments(self, vm_):
+    @staticmethod
+    def get_device_attachments(vm_):
         result = {}
         for vm in vm_.app.domains:
             if not vm.is_running():
@@ -405,7 +339,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 result[ident] = vm
         return result
 
-    def device_get(self, vm, ident):
+    @staticmethod
+    def device_get(vm, ident):
         """
         Read information about a device from QubesDB
 
@@ -506,9 +441,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             yield (BlockDevice(backend_domain, ident), options)
 
-    def find_unused_frontend(self, vm, devtype='disk'):
-        '''Find unused block frontend device node for <target dev=.../>
-        parameter'''
+    @staticmethod
+    def find_unused_frontend(vm, devtype='disk'):
+        """
+        Find unused block frontend device node for <target dev=.../> parameter
+        """
         assert vm.is_running()
 
         xml = vm.libvirt_domain.XMLDesc()
@@ -602,10 +539,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
     async def on_domain_start(self, vm, _event, **_kwargs):
         # pylint: disable=unused-argument
         for assignment in vm.devices['block'].get_assigned_devices():
-            asyncio.ensure_future(self._attach_and_notify(
+            asyncio.ensure_future(self.attach_and_notify(
                 vm, assignment.device, assignment.options))
 
-    async def _attach_and_notify(self, vm, device, options):
+    async def attach_and_notify(self, vm, device, options):
         # bypass DeviceCollection logic preventing double attach
         try:
             self.on_device_pre_attached_block(

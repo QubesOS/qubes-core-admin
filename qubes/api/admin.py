@@ -1381,10 +1381,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_device_set_assignment(self, endpoint, untrusted_payload):
         """
-        Update assignment of already attached device.
+        Update assignment of an already attached device.
 
         Payload:
-            `None` -> unassign device from qube
+            `None` -> unassign device from a qube
             `False` -> device will be auto-attached to qube
             `True` -> device is required to start qube
         """
