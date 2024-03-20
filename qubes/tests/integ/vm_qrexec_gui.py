@@ -308,7 +308,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             self.fail('VM recorded something, even though mic disabled')
 
     def common_audio_record_unmuted(self):
-        deva = qubes.devices.DeviceAssignment(self.app.domains[0], 'mic')
+        deva = qubes.device_protocol.DeviceAssignment(self.app.domains[0], 'mic')
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].attach(deva))
         # connect VM's recording source output monitor (instead of mic)

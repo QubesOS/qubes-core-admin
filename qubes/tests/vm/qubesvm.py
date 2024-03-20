@@ -79,8 +79,9 @@ class TestDeviceCollection(object):
     def __init__(self):
         self._list = []
 
-    def persistent(self):
+    def get_assigned_devices(self, required_only=False):
         return self._list
+
 
 class TestQubesDB(object):
     def __init__(self, data=None):
@@ -214,7 +215,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.vm.template = None
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'pvh')
-        self.vm.devices['pci'].persistent().append('some-dev')
+        self.vm.devices['pci'].get_assigned_devices().append('some-dev')
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
             'hvm')
 
@@ -246,7 +247,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.vm.is_memory_balancing_possible = \
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
                 self.vm)
-        self.vm.devices['pci'].persistent().append('00_00.0')
+        self.vm.devices['pci'].get_assigned_devices().append('00_00.0')
         self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
 
     def test_022_default_maxmem_linux(self):
@@ -1391,7 +1392,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.kernel = None
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
-        assignment = qubes.devices.DeviceAssignment(
+        assignment = qubes.device_protocol.DeviceAssignment(
             vm,  # this is violation of API, but for PCI the argument
             #  is unused
             '00_00.0',
@@ -1477,7 +1478,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.kernel = None
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
-        dev = qubes.devices.DeviceAssignment(
+        dev = qubes.device_protocol.DeviceAssignment(
             dom0, 'sda',
             {'devtype': 'cdrom', 'read-only': 'yes'},
             attach_automatically=True, required=True)
@@ -1582,7 +1583,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             })
             dom0.events_enabled = True
             self.app.vmm.offline_mode = False
-            dev = qubes.devices.DeviceAssignment(
+            dev = qubes.device_protocol.DeviceAssignment(
                 dom0, 'sda',
                 {'devtype': 'cdrom', 'read-only': 'yes'},
                  attach_automatically=True, required=True)

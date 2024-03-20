@@ -21,12 +21,13 @@
 #
 
 import qubes.devices
-from qubes.devices import DeviceInfo
+from qubes.device_protocol import (Device, DeviceInfo, DeviceAssignment,
+                                   DeviceInterface)
 
 import qubes.tests
 
 
-class TestDevice(qubes.devices.DeviceInfo):
+class TestDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
     pass
 
@@ -89,7 +90,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.app.domains['vm'] = self.emitter
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
-        self.assignment = qubes.devices.DeviceAssignment(
+        self.assignment = DeviceAssignment(
             backend_domain=self.device.backend_domain,
             ident=self.device.ident,
             attach_automatically=True,
@@ -356,7 +357,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = qubes.devices.DeviceAssignment(
+        assignment = DeviceAssignment(
             backend_domain=device.backend_domain,
             ident=device.ident,
             attach_automatically=True, required=True)
@@ -382,8 +383,8 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             manufacturer="",
             name="Some untrusted garbage",
             serial=None,
-            interfaces=[qubes.devices.DeviceInterface(" ******"),
-                        qubes.devices.DeviceInterface("u03**01")],
+            interfaces=[DeviceInterface(" ******"),
+                        DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
         )
@@ -410,11 +411,11 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             manufacturer="",
             name="Some untrusted garbage",
             serial=None,
-            interfaces=[qubes.devices.DeviceInterface(" ******"),
-                        qubes.devices.DeviceInterface("u03**01")],
+            interfaces=[DeviceInterface(" ******"),
+                        DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
-            parent=qubes.devices.Device(self.vm, '1-1.1', 'pci')
+            parent=Device(self.vm, '1-1.1', 'pci')
         )
         actual = device.serialize()
         expected = (
@@ -449,8 +450,8 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             manufacturer="unknown",
             name="Some untrusted garbage",
             serial=None,
-            interfaces=[qubes.devices.DeviceInterface(" ******"),
-                        qubes.devices.DeviceInterface("u03**01")],
+            interfaces=[DeviceInterface(" ******"),
+                        DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
         )

@@ -327,7 +327,7 @@ class AttachMixin:
                 self.img_path, self.backend.name))
 
     def test_000_attach_reattach(self):
-        ass = qubes.devices.DeviceAssignment(self.backend, self.device_ident)
+        ass = qubes.device_protocol.DeviceAssignment(self.backend, self.device_ident)
         with self.subTest('attach'):
             self.loop.run_until_complete(
                 self.frontend.devices['block'].attach(ass))

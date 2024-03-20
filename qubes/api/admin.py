@@ -45,6 +45,7 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
+from qubes.device_protocol import Device
 
 
 class QubesMgmtEventsDispatcher:
@@ -1276,11 +1277,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        assignment = qubes.devices.DeviceAssignment.deserialize(
-            untrusted_payload,
-            expected_backend_domain=dev.backend_domain,
-            expected_ident=ident,
-            expected_devclass=devclass
+        assignment = qubes.device_protocol.DeviceAssignment.deserialize(
+            untrusted_payload, expected_device=dev
         )
 
         self.fire_event_for_permission(
@@ -1312,8 +1310,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
-        assignment = qubes.devices.DeviceAssignment(
-            dev.backend_domain, dev.ident)
+        assignment = qubes.device_protocol.DeviceAssignment(
+            dev.backend_domain, dev.ident, devclass)
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
 
@@ -1333,11 +1331,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
-        assignment = qubes.devices.DeviceAssignment.deserialize(
-            untrusted_payload,
-            expected_backend_domain=dev.backend_domain,
-            expected_ident=ident,
-            expected_devclass=devclass
+        assignment = qubes.device_protocol.DeviceAssignment.deserialize(
+            untrusted_payload, expected_device=dev
         )
 
         self.fire_event_for_permission(
@@ -1348,9 +1343,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         )
 
         await self.dest.devices[devclass].attach(assignment)
-        self.app.save()  # not needed?
 
-    # Attach/Detach action can modify only volatile state of running VM.
+    # Attach/Detach action can modify only a volatile state of running VM.
     # For this reason, execute=True
     @qubes.api.method(
         'admin.vm.device.{endpoint}.Detach',
@@ -1370,11 +1364,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
-        assignment = qubes.devices.DeviceAssignment(
-            dev.backend_domain, dev.ident)
+        assignment = qubes.device_protocol.DeviceAssignment(
+            dev.backend_domain, dev.ident, devclass)
         await self.dest.devices[devclass].detach(assignment)
 
-    # Assign/Unassign action can modify only persistent state of running VM.
+    # Assign/Unassign action can modify only a persistent state of running VM.
     # For this reason, write=True
     @qubes.api.method('admin.vm.device.{endpoint}.Set.assignment',
         endpoints=(ep.name
@@ -1382,7 +1376,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_device_set_assignment(self, endpoint, untrusted_payload):
         """
-        Update assignment of an already attached device.
+        Update assignment of an already assigned device.
 
         Payload:
             `None` -> unassign device from a qube
@@ -1392,18 +1386,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devclass = endpoint
 
         self.enforce(untrusted_payload in (b'True', b'False', b'None'))
-        # now is safe to eval, since value of untrusted_payload is trusted
+        # now is safe to eval, since the value of untrusted_payload is trusted
+        # pylint: disable=eval-used
         assignment = eval(untrusted_payload)
         del untrusted_payload
 
         # qrexec already verified that no strange characters are in self.arg
-        backend_domain, ident = self.arg.split('+', 1)
-        # device must be already attached
-        matching_devices = [dev for dev
-            in self.dest.devices[devclass].get_attached_devices()
-            if dev.backend_domain.name == backend_domain and dev.ident == ident]
-        self.enforce(len(matching_devices) == 1)
-        dev = matching_devices[0]
+        backend_domain_name, ident = self.arg.split('+', 1)
+        backend_domain = self.app.domains[backend_domain_name]
+        dev = Device(backend_domain, ident, devclass)
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 

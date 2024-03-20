@@ -276,7 +276,7 @@ class BaseVM(qubes.PropertyHolder):
                     options[option.get('name')] = str(option.text)
 
                 try:
-                    device_assignment = qubes.devices.DeviceAssignment(
+                    device_assignment = qubes.device_protocol.DeviceAssignment(
                         self.app.domains[node.get('backend-domain')],
                         node.get('id'),
                         options,
@@ -299,10 +299,10 @@ class BaseVM(qubes.PropertyHolder):
 
         # SEE:1815 firewall, policy.
 
-    def get_provided_assignments(self, required_only: bool)\
-            -> List['qubes.devices.DeviceAssignment']:
+    def get_provided_assignments(self, required_only: bool = False)\
+            -> List['qubes.device_protocol.DeviceAssignment']:
         """
-        List  device assignments from this VM.
+        List device assignments from this VM.
         """
 
         assignments = []
@@ -310,7 +310,8 @@ class BaseVM(qubes.PropertyHolder):
             if domain == self:
                 continue
             for device_collection in domain.devices.values():
-                for assignment in device_collection.get_assigned_devices():
+                for assignment in device_collection.get_assigned_devices(
+                        required_only):
                     if assignment.backend_domain == self:
                         assignments.append(assignment)
         return assignments

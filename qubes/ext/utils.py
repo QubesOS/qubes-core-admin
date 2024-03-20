@@ -25,7 +25,7 @@ import qubes
 
 def device_list_change(
         ext: qubes.ext.Extension, current_devices,
-        vm, path, device_class: qubes.devices.DeviceInfo
+        vm, path, device_class: qubes.device_protocol.DeviceInfo
 ):
     devclass = device_class.__name__[:-len('Device')].lower()
 
@@ -72,8 +72,8 @@ def compare_device_cache(vm, devices_cache, current_devices):
     # - devices detached from frontend vm (ident: frontend_vm)
     # - disappeared devices, e.g., plugged out (ident)
     added = set()
-    attached = dict()
-    detached = dict()
+    attached = {}
+    detached = {}
     removed = set()
     cache = devices_cache[vm.name]
     for dev_id, front_vm in current_devices.items():

@@ -179,17 +179,16 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
                 f'/qubes-block-devices/{self.ident}/parent')
             if untrusted_parent_info is None:
                 return None
-            else:
-                # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
-                # 'sda' -> parent_ident='sda', interface_num=''
-                parent_ident, sep, interface_num = self._sanitize(
-                    untrusted_parent_info).partition(":")
-                devclass = 'usb' if sep == ':' else 'block'
-                if not parent_ident:
-                    return None
-                self._parent = qubes.device_protocol.Device(
-                    self.backend_domain, parent_ident, devclass=devclass)
-                self._interface_num = interface_num
+            # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
+            # 'sda' -> parent_ident='sda', interface_num=''
+            parent_ident, sep, interface_num = self._sanitize(
+                untrusted_parent_info).partition(":")
+            devclass = 'usb' if sep == ':' else 'block'
+            if not parent_ident:
+                return None
+            self._parent = qubes.device_protocol.Device(
+                self.backend_domain, parent_ident, devclass=devclass)
+            self._interface_num = interface_num
         return self._parent
 
     @property
@@ -486,7 +485,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                         '\'disk\' or \'cdrom\' value')
             elif option == 'identity':
                 identity = value
-                if identity != 'any' and device.self_identity != identity:
+                if identity not in ('any', device.self_identity):
                     print("Unrecognized identity, skipping attachment of"
                           f" {device}", file=sys.stderr)
                     raise qubes.devices.UnrecognizedDevice(

@@ -1171,7 +1171,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             try:
                 for devclass in self.devices:
                     for ass in self.devices[devclass].get_assigned_devices():
-                        if isinstance(ass.device, qubes.devices.UnknownDevice) \
+                        if isinstance(
+                                ass.device,
+                                qubes.device_protocol.UnknownDevice) \
                                 and ass.required:
                             raise qubes.exc.QubesException(
                                 f'{devclass.capitalize()} device {ass} '

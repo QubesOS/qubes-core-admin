@@ -33,8 +33,8 @@ Devices are identified by pair of (backend domain, `ident`), where `ident` is
 
 Such extension should:
  - provide `qubes.devices` endpoint - a class descendant from
-   :py:class:`qubes.devices.DeviceInfo`, designed to hold device description
-   (including bus-specific properties)
+   :py:class:`qubes.device_protocol.DeviceInfo`, designed to hold device
+   description (including bus-specific properties)
  - handle `device-attach:bus` and `device-detach:bus` events for
    performing the attach/detach action; events are fired even when domain isn't
    running and extension should be prepared for this; handlers for those events
@@ -63,7 +63,6 @@ from typing import Optional, Iterable
 
 import qubes.exc
 import qubes.utils
-from qubes.exc import ProtocolError
 from qubes.device_protocol import (Device, DeviceInfo, UnknownDevice,
                                    DeviceAssignment)
 
@@ -86,113 +85,10 @@ class DeviceAlreadyAssigned(qubes.exc.QubesException, KeyError):
     """
 
 
-class UnexpectedDeviceProperty(qubes.exc.QubesException, ValueError):
-    """
-    Device has unexpected property such as backend_domain, devclass etc.
-    """
-
 class UnrecognizedDevice(qubes.exc.QubesException, ValueError):
     """
     Device identity is not as expected.
     """
-
-
-def serialize_str(value: str):
-    return repr(str(value))
-
-
-def deserialize_str(value: str):
-    return value.replace("\\\'", "'")
-
-
-def sanitize_str(
-        untrusted_value: str,
-        allowed_chars: str,
-        replace_char: str = None,
-        error_message: str = ""
-) -> str:
-    """
-    Sanitize given untrusted string.
-
-    If `replace_char` is not None, ignore `error_message` and replace invalid
-    characters with the string.
-    """
-    if replace_char is None:
-        if any(x not in allowed_chars for x in untrusted_value):
-            raise qubes.exc.ProtocolError(error_message)
-        return untrusted_value
-    result = ""
-    for char in untrusted_value:
-        if char in allowed_chars:
-            result += char
-        else:
-            result += replace_char
-    return result
-
-
-def unpack_properties(
-        untrusted_serialization: bytes,
-        allowed_chars_key: str,
-        allowed_chars_value: str
-):
-    ut_decoded = untrusted_serialization.decode(
-        'ascii', errors='strict').strip()
-
-    options = {}
-    keys = []
-    values = []
-    ut_key, _, ut_rest = ut_decoded.partition("='")
-
-    key = sanitize_str(
-        ut_key, allowed_chars_key,
-        error_message='Invalid chars in property name')
-    keys.append(key)
-    while "='" in ut_rest:
-        ut_value_key, _, ut_rest = ut_rest.partition("='")
-        ut_value, _, ut_key = ut_value_key.rpartition("' ")
-        value = sanitize_str(
-            deserialize_str(ut_value), allowed_chars_value,
-            error_message='Invalid chars in property value')
-        values.append(value)
-        key = sanitize_str(
-            ut_key, allowed_chars_key,
-            error_message='Invalid chars in property name')
-        keys.append(key)
-    ut_value = ut_rest[:-1]  # ending '
-    value = sanitize_str(
-        deserialize_str(ut_value), allowed_chars_value,
-        error_message='Invalid chars in property value')
-    values.append(value)
-
-    properties = dict()
-    for key, value in zip(keys, values):
-        if key.startswith("_"):
-            # it's handled in cls.__init__
-            options[key[1:]] = value
-        else:
-            properties[key] = value
-
-    return properties, options
-
-
-def check_device_properties(
-        expected_backend_domain, expected_ident, expected_devclass, properties
-):
-    if properties['backend_domain'] != expected_backend_domain.name:
-        raise UnexpectedDeviceProperty(
-            f"Got device exposed by {properties['backend_domain']}"
-            f"when expected devices from {expected_backend_domain.name}.")
-    properties['backend_domain'] = expected_backend_domain
-
-    if properties['ident'] != expected_ident:
-        raise UnexpectedDeviceProperty(
-            f"Got device with id: {properties['ident']} "
-            f"when expected id: {expected_ident}.")
-
-    if expected_devclass and properties['devclass'] != expected_devclass:
-        raise UnexpectedDeviceProperty(
-            f"Got {properties['devclass']} device "
-            f"when expected {expected_devclass}.")
 
 
 class DeviceCollection:
@@ -297,11 +193,12 @@ class DeviceCollection:
         Attach device to domain.
         """
 
-        if assignment.devclass is None:
+        if not assignment.devclass_is_set:
             assignment.devclass = self._bus
         elif assignment.devclass != self._bus:
             raise ValueError(
-                'Trying to attach DeviceAssignment of a different device class')
+                f'Trying to attach {assignment.devclass} device '
+                f'when {self._bus} device expected.')
 
         if self._vm.is_halted():
             raise qubes.exc.QubesVMNotRunningError(
@@ -326,11 +223,12 @@ class DeviceCollection:
         """
         Assign device to domain.
         """
-        if assignment.devclass is None:
+        if not assignment.devclass_is_set:
             assignment.devclass = self._bus
         elif assignment.devclass != self._bus:
             raise ValueError(
-                'Trying to assign DeviceAssignment of a different device class')
+                f'Trying to attach {assignment.devclass} device '
+                f'when {self._bus} device expected.')
 
         device = assignment.device
         if device in self.get_assigned_devices():
@@ -355,12 +253,11 @@ class DeviceCollection:
         device_assignment.devclass = self._bus
         self._set.add(device_assignment)
 
-    async def update_assignment(
-            self, device: DeviceInfo, required: Optional[bool]):
+    async def update_assignment(self, device: Device, required: Optional[bool]):
         """
-        Update assignment of already attached device.
+        Update assignment of an already attached device.
 
-        :param DeviceInfo device: device for which change required flag
+        :param Device device: device for which change required flag
         :param bool required: new assignment:
                               `None` -> unassign device from qube
                               `False` -> device will be auto-attached to qube
@@ -372,9 +269,10 @@ class DeviceCollection:
                 'VM must be running to modify device assignment'
             )
         assignments = [a for a in self.get_assigned_devices()
-                       if a.device == device]
+                       if a == device]
         if not assignments:
-            raise qubes.exc.QubesValueError('Device not assigned')
+            raise qubes.exc.QubesValueError(
+                f'Device {device} not assigned to {self._vm.name}')
         assert len(assignments) == 1
         assignment = assignments[0]
 
@@ -388,6 +286,8 @@ class DeviceCollection:
             await self._vm.fire_event_async(
                 'device-assignment-changed:' + self._bus, device=device)
         else:
+            await self._vm.fire_event_async(
+                'device-unassign:' + self._bus, device=device)
             await self.unassign(assignment)
 
     async def detach(self, device: Device):
@@ -438,7 +338,7 @@ class DeviceCollection:
                 "Can not remove an required assignment from "
                 "a non halted qube.")
 
-        self._set.discard(device_assignment)
+        self._set.discard(assignment)
 
         device = device_assignment.device
         await self._vm.fire_event_async(
@@ -448,10 +348,8 @@ class DeviceCollection:
         """
         List devices which are attached or assigned to this vm.
         """
-        dedicated = {dev for dev in itertools.chain(
-            self.get_attached_devices(), self.get_assigned_devices())}
-        for dev in dedicated:
-            yield dev
+        yield from itertools.chain(
+            self.get_attached_devices(), self.get_assigned_devices())
 
     def get_attached_devices(self) -> Iterable[DeviceAssignment]:
         """
@@ -491,9 +389,7 @@ class DeviceCollection:
         """
         List devices exposed by this vm.
         """
-        devices = self._vm.fire_event('device-list:' + self._bus)
-        for device in devices:
-            yield device
+        yield from self._vm.fire_event('device-list:' + self._bus)
 
     __iter__ = get_exposed_devices
 
@@ -554,7 +450,7 @@ class AssignedCollection:
 
     def discard(self, assignment: DeviceAssignment):
         """
-        Discard assignment from collection.
+        Discard assignment from a collection.
         """
         assert assignment.attach_automatically
         vm = assignment.backend_domain

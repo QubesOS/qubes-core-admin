@@ -37,18 +37,18 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
         if self._testMethodName not in ['test_000_list']:
             pcidev = os.environ['QUBES_TEST_PCIDEV']
             self.dev = self.app.domains[0].devices['pci'][pcidev]
-            self.assignment = qubes.devices.DeviceAssignment(
+            self.assignment = qubes.device_protocol.DeviceAssignment(
                 backend_domain=self.dev.backend_domain,
                 ident=self.dev.ident,
                 attach_automatically=True,
             )
-            self.required_assignment = qubes.devices.DeviceAssignment(
+            self.required_assignment = qubes.device_protocol.DeviceAssignment(
                 backend_domain=self.dev.backend_domain,
                 ident=self.dev.ident,
                 attach_automatically=True,
                 required=True,
             )
-            if isinstance(self.dev, qubes.devices.UnknownDevice):
+            if isinstance(self.dev, qubes.device_protocol.UnknownDevice):
                 self.skipTest('Specified device {} does not exists'.format(pcidev))
             self.init_default_template()
             self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
@@ -118,7 +118,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
         dev_col = self.vm.devices['pci']
         self.assertDeviceIs(
             self.dev, attached=False, assigned=False, required=False)
-        self.assignment.persistent = False
+        self.assignment.required = False
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.loop.run_until_complete(
                 dev_col.attach(self.assignment))
