@@ -171,15 +171,13 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         super().__init__(
             backend_domain=backend_domain, ident=ident, devclass="pci")
 
-        if hasattr(self, 'regex'):
-            # pylint: disable=no-member
-            dev_match = self.regex.match(ident)
-            if not dev_match:
-                raise ValueError('Invalid device identifier: {!r}'.format(
-                    ident))
+        dev_match = self.regex.match(ident)
+        if not dev_match:
+            raise ValueError('Invalid device identifier: {!r}'.format(
+                ident))
 
-            for group in self.regex.groupindex:
-                setattr(self, group, dev_match.group(group))
+        for group in self.regex.groupindex:
+            setattr(self, group, dev_match.group(group))
 
         # lazy loading
         self._description = None

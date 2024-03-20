@@ -30,13 +30,7 @@ import struct
 import traceback
 
 import qubes.exc
-
-class ProtocolError(AssertionError):
-    '''Raised when something is wrong with data received'''
-
-
-class PermissionDenied(Exception):
-    '''Raised deliberately by handlers when we decide not to cooperate'''
+from qubes.exc import ProtocolError, PermissionDenied
 
 
 def method(name, *, no_payload=False, endpoints=None, **classifiers):
@@ -213,11 +207,11 @@ class AbstractQubesAPI:
     def validate_size(self, untrusted_size: bytes) -> int:
         self.enforce(isinstance(untrusted_size, bytes))
         if not untrusted_size.isdigit():
-            raise qubes.api.ProtocolError('Size must be ASCII digits (only)')
+            raise qubes.exc.ProtocolError('Size must be ASCII digits (only)')
         if len(untrusted_size) >= 20:
-            raise qubes.api.ProtocolError('Sizes limited to 19 decimal digits')
+            raise qubes.exc.ProtocolError('Sizes limited to 19 decimal digits')
         if untrusted_size[0] == 48 and untrusted_size != b'0':
-            raise qubes.api.ProtocolError('Spurious leading zeros not allowed')
+            raise qubes.exc.ProtocolError('Spurious leading zeros not allowed')
         return int(untrusted_size)
 
 class QubesDaemonProtocol(asyncio.Protocol):

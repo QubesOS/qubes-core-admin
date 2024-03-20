@@ -37,6 +37,7 @@ import qubes.api
 import qubes.backup
 import qubes.config
 import qubes.devices
+import qubes.exc
 import qubes.ext
 import qubes.firewall
 import qubes.storage
@@ -501,7 +502,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             newvalue = qubes.property.bool(None, None,
                 untrusted_payload.decode('ascii'))
         except (UnicodeDecodeError, ValueError):
-            raise qubes.api.ProtocolError('Invalid value')
+            raise qubes.exc.ProtocolError('Invalid value')
         del untrusted_payload
 
         self.fire_event_for_permission(newvalue=newvalue)
@@ -520,7 +521,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             newvalue = qubes.property.bool(None, None,
                 untrusted_payload.decode('ascii'))
         except (UnicodeDecodeError, ValueError):
-            raise qubes.api.ProtocolError('Invalid value')
+            raise qubes.exc.ProtocolError('Invalid value')
         del untrusted_payload
 
         self.fire_event_for_permission(newvalue=newvalue)
@@ -751,7 +752,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             newvalue = qubes.property.bool(None, None,
                 untrusted_payload.decode('ascii', 'strict'))
         except (UnicodeDecodeError, ValueError):
-            raise qubes.api.ProtocolError('Invalid value')
+            raise qubes.exc.ProtocolError('Invalid value')
         del untrusted_payload
 
         self.fire_event_for_permission(newvalue=newvalue)
@@ -1076,7 +1077,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 errors='strict').split(' '):
             untrusted_key, untrusted_value = untrusted_param.split('=', 1)
             if untrusted_key in kwargs:
-                raise qubes.api.ProtocolError('duplicated parameters')
+                raise qubes.exc.ProtocolError('duplicated parameters')
 
             if untrusted_key == 'name':
                 qubes.vm.validate_name(None, None, untrusted_value)
@@ -1094,7 +1095,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             elif untrusted_key == 'pool' and allow_pool:
                 if pool is not None:
-                    raise qubes.api.ProtocolError('duplicated pool parameter')
+                    raise qubes.exc.ProtocolError('duplicated pool parameter')
                 pool = self.app.get_pool(untrusted_value)
             elif untrusted_key.startswith('pool:') and allow_pool:
                 untrusted_volume = untrusted_key.split(':', 1)[1]
@@ -1104,19 +1105,19 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                     'root', 'private', 'volatile', 'kernel'])
                 volume = untrusted_volume
                 if volume in pools:
-                    raise qubes.api.ProtocolError(
+                    raise qubes.exc.ProtocolError(
                         'duplicated pool:{} parameter'.format(volume))
                 pools[volume] = self.app.get_pool(untrusted_value)
 
             else:
-                raise qubes.api.ProtocolError('Invalid param name')
+                raise qubes.exc.ProtocolError('Invalid param name')
         del untrusted_payload
 
         if 'name' not in kwargs or 'label' not in kwargs:
-            raise qubes.api.ProtocolError('Missing name or label')
+            raise qubes.exc.ProtocolError('Missing name or label')
 
         if pool and pools:
-            raise qubes.api.ProtocolError(
+            raise qubes.exc.ProtocolError(
                 'Only one of \'pool=\' and \'pool:volume=\' can be used')
 
         if kwargs['name'] in self.app.domains:
@@ -1550,7 +1551,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         profile_path = os.path.join(qubes.config.backup_profile_dir,
             self.arg + '.conf')
         if not os.path.exists(profile_path):
-            raise qubes.api.PermissionDenied(
+            raise qubes.exc.PermissionDenied(
                 'Backup profile {} does not exist'.format(self.arg))
 
         if not hasattr(self.app, 'api_admin_running_backups'):
@@ -1602,7 +1603,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         profile_path = os.path.join(qubes.config.backup_profile_dir,
             self.arg + '.conf')
         if not os.path.exists(profile_path):
-            raise qubes.api.PermissionDenied(
+            raise qubes.exc.PermissionDenied(
                 'Backup profile {} does not exist'.format(self.arg))
 
         backup = await self._load_backup_profile(self.arg,

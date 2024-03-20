@@ -34,6 +34,7 @@ import pathlib
 
 import qubes
 import qubes.devices
+import qubes.exc
 import qubes.firewall
 import qubes.api.admin
 import qubes.api.internal
@@ -483,7 +484,7 @@ netvm default=True type=vm \n'''
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -511,7 +512,7 @@ netvm default=True type=vm \n'''
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.ListSnapshots', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -530,7 +531,7 @@ netvm default=True type=vm \n'''
             {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -543,7 +544,7 @@ netvm default=True type=vm \n'''
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -582,7 +583,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.Revert',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -630,7 +631,7 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'no-int-size')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -645,7 +646,7 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'-1')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -660,7 +661,7 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'10000000000000000000')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -675,7 +676,7 @@ netvm default=True type=vm \n'''
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         self.vm.storage.resize.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'01')
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -867,7 +868,7 @@ netvm default=True type=vm \n'''
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'param1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -892,7 +893,7 @@ netvm default=True type=vm \n'''
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=file\nparam1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -918,7 +919,7 @@ netvm default=True type=vm \n'''
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam 1=value\n_param2\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -946,7 +947,7 @@ netvm default=True type=vm \n'''
             'test-pool': unittest.mock.Mock(),
         }
         remove_pool_mock, self.app.remove_pool = self.coroutine_mock()
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.pool.Remove', b'dom0',
                 b'no-such-pool')
         self.assertEqual(remove_pool_mock.mock_calls, [])
@@ -1003,7 +1004,7 @@ netvm default=True type=vm \n'''
             'keys.return_value': range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'cyan',
                 b'abcd')
         self.assertEqual(self.app.get_label.mock_calls,
@@ -1019,13 +1020,13 @@ netvm default=True type=vm \n'''
             'keys.return_value': range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'01',
                 b'0xff0000')
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0', b'../xxx',
                 b'0xff0000')
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Create', b'dom0',
                 b'strange-name!@#$',
                 b'0xff0000')
@@ -1067,7 +1068,7 @@ netvm default=True type=vm \n'''
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(
             **{'return_value.index': 6})
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'blue')
         self.assertEqual(self.app.labels.mock_calls, [])
@@ -1077,7 +1078,7 @@ netvm default=True type=vm \n'''
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(
             **{'return_value.index': 1})
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'red')
         self.assertEqual(self.app.labels.mock_calls, [])
@@ -1149,7 +1150,7 @@ netvm default=True type=vm \n'''
         async def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1', b'forcewait')
         func_mock.assert_not_called()
 
@@ -1496,7 +1497,7 @@ netvm default=True type=vm \n'''
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_335_vm_create_missing_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template', b'label=red')
 
@@ -1505,7 +1506,7 @@ netvm default=True type=vm \n'''
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_336_vm_create_spurious_pool(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 label=red pool=default')
@@ -1526,7 +1527,7 @@ netvm default=True type=vm \n'''
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_338_vm_create_name_twice(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 name=test-vm3 label=red')
@@ -1608,7 +1609,7 @@ netvm default=True type=vm \n'''
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool:invalid=test')
@@ -1634,7 +1635,7 @@ netvm default=True type=vm \n'''
         # setting custom pool for 'root' volume of AppVM should not be
         # allowed - this volume belongs to the template
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                 b'pool=test pool:root=test')
@@ -2075,7 +2076,7 @@ netvm default=True type=vm \n'''
     def test_521_vm_volume_clone_invalid_volume(self):
         self.setup_for_clone()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
                     b'test-vm1', b'private123', b'')
         self.assertNotIn('init_volume().import_volume',
@@ -2087,7 +2088,7 @@ netvm default=True type=vm \n'''
 
         token = self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
                 b'test-vm1', b'private', b'')
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private123', token.encode())
         self.assertNotIn('init_volume().import_volume',
@@ -2105,7 +2106,7 @@ netvm default=True type=vm \n'''
             else:
                 return unittest.mock.DEFAULT
         self.pool.get_volume.side_effect = get_volume
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private', token.encode())
         self.assertNotIn('init_volume().import_volume',
@@ -2115,7 +2116,7 @@ netvm default=True type=vm \n'''
     def test_524_vm_volume_clone_invlid_token(self):
         self.setup_for_clone()
 
-        with self.assertRaises(qubes.api.PermissionDenied):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(b'admin.vm.volume.CloneTo',
                     b'test-vm1', b'private', b'no-such-token')
         self.assertNotIn('init_volume().import_volume',
@@ -2707,7 +2708,7 @@ netvm default=True type=vm \n'''
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
-            with self.assertRaises(qubes.api.PermissionDenied):
+            with self.assertRaises(qubes.exc.PermissionDenied):
                 self.call_mgmt_func(
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'True')
@@ -2720,7 +2721,7 @@ netvm default=True type=vm \n'''
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
-            with self.assertRaises(qubes.api.PermissionDenied):
+            with self.assertRaises(qubes.exc.PermissionDenied):
                 self.call_mgmt_func(
                     b'admin.vm.device.testclass.Set.persistent',
                     b'test-vm1', b'test-vm1+1234', b'maybe')
@@ -2739,7 +2740,7 @@ netvm default=True type=vm \n'''
 
     def test_661_pool_set_revisions_to_keep_negative(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
                 b'dom0', b'test-pool', b'-2')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2747,7 +2748,7 @@ netvm default=True type=vm \n'''
 
     def test_662_pool_set_revisions_to_keep_not_a_number(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
                 b'dom0', b'test-pool', b'abc')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2764,7 +2765,7 @@ netvm default=True type=vm \n'''
 
     def test_664_pool_set_ephemeral_not_a_boolean(self):
         self.app.pools['test-pool'] = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.pool.Set.ephemeral_volatile',
                 b'dom0', b'test-pool', b'abc')
         self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
@@ -2793,7 +2794,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'-2')
 
@@ -2804,7 +2805,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'abc')
 
@@ -2831,7 +2832,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.rw',
                 b'test-vm1', b'private', b'abc')
         self.assertFalse(self.app.save.called)
@@ -2859,7 +2860,7 @@ netvm default=True type=vm \n'''
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.api.ProtocolError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b'admin.vm.volume.Set.ephemeral',
                 b'test-vm1', b'volatile', b'abc')
         self.assertFalse(self.app.save.called)
@@ -3014,14 +3015,14 @@ netvm default=True type=vm \n'''
         for method in methods_with_no_payload:
             # should reject payload regardless of having argument or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(qubes.api.ProtocolError):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b'test-vm1', b'',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(qubes.api.ProtocolError):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
@@ -3052,11 +3053,11 @@ netvm default=True type=vm \n'''
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
+        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(qubes.api.PermissionDenied):
+                with self.assertRaises(qubes.exc.PermissionDenied):
                     self.call_mgmt_func(method, b'test-vm1', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
@@ -3099,14 +3100,14 @@ netvm default=True type=vm \n'''
         for method in methods_with_no_payload:
             # should reject payload regardless of having argument or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(qubes.api.ProtocolError):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b'dom0', b'',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode('ascii') + '+arg'):
-                with self.assertRaises(qubes.api.ProtocolError):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'unexpected-payload')
                 self.assertFalse(vm_mock.called)
@@ -3129,11 +3130,11 @@ netvm default=True type=vm \n'''
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
+        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode('ascii')):
-                with self.assertRaises(qubes.api.PermissionDenied):
+                with self.assertRaises(qubes.exc.PermissionDenied):
                     self.call_mgmt_func(method, b'dom0', b'some-arg',
                         b'')
                 self.assertFalse(vm_mock.called)
@@ -3185,7 +3186,7 @@ netvm default=True type=vm \n'''
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
+        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_for_dom0_only:
             # should reject call regardless of having payload or not
             with self.subTest(method.decode('ascii')):
@@ -3272,7 +3273,7 @@ netvm default=True type=vm \n'''
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = (lambda x, y: x.qid < y.qid)
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.api.PermissionDenied, qubes.api.ProtocolError)
+        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_for_vm_only:
             # should reject payload regardless of having argument or not
             # should reject call regardless of having payload or not

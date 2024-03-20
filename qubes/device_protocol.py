@@ -36,8 +36,7 @@ from typing import Optional, Dict, Any, List, Type, Union
 
 import qubes.utils
 
-from qubes.api import ProtocolError
-
+from qubes.exc import ProtocolError
 
 QubesVM = 'qubes.vm.BaseVM'
 

@@ -19,6 +19,7 @@
 
 import qubes.api
 import qubes.api.internal
+import qubes.exc
 import qubes.ext
 import qubes.vm.adminvm
 from qrexec.policy import utils, parser
@@ -52,7 +53,7 @@ class AdminExtension(qubes.ext.Extension):
         # pylint: disable=unused-argument
         if arg.startswith('created-by-') and \
                 not isinstance(vm, qubes.vm.adminvm.AdminVM):
-            raise qubes.api.PermissionDenied(
+            raise qubes.exc.PermissionDenied(
                 'changing this tag is prohibited by {}.{}'.format(
                     __name__, type(self).__name__))
 

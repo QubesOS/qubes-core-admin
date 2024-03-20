@@ -61,8 +61,9 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 import itertools
 from typing import Optional, Iterable
 
+import qubes.exc
 import qubes.utils
-from qubes.api import ProtocolError
+from qubes.exc import ProtocolError
 from qubes.device_protocol import (Device, DeviceInfo, UnknownDevice,
                                    DeviceAssignment)
 
@@ -118,7 +119,7 @@ def sanitize_str(
     """
     if replace_char is None:
         if any(x not in allowed_chars for x in untrusted_value):
-            raise qubes.api.ProtocolError(error_message)
+            raise qubes.exc.ProtocolError(error_message)
         return untrusted_value
     result = ""
     for char in untrusted_value:

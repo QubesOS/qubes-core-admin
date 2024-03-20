@@ -219,3 +219,11 @@ class QubesLabelNotFoundError(QubesException, KeyError):
     def __str__(self):
         # KeyError overrides __str__ method
         return QubesException.__str__(self)
+
+
+class ProtocolError(AssertionError):
+    '''Raised when something is wrong with data received'''
+
+
+class PermissionDenied(Exception):
+    '''Raised deliberately by handlers when we decide not to cooperate'''
