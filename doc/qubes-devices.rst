@@ -100,7 +100,7 @@ The microphone cannot be assigned (potentially) to any VM (attempting to attach 
 Understanding Device Self Identity
 ----------------------------------
 
-It is important to understand that :py:class:`qubes.devices.Device` does not
+It is important to understand that :py:class:`qubes.device_protocol.Device` does not
 correspond to the device itself, but rather to the *port* to which the device
 is connected. Therefore, when assigning a device to a VM, such as
 `sys-usb:1-1.1`, the port `1-1.1` is actually assigned, and thus
