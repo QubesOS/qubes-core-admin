@@ -464,6 +464,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('device-pre-attach:block')
     def on_device_pre_attached_block(self, vm, event, device, options):
         # pylint: disable=unused-argument
+        self.pre_attachment_internal(vm, device, options)
+
+        vm.libvirt_domain.attachDevice(
+            vm.app.env.get_template('libvirt/devices/block.xml').render(
+                device=device, vm=vm, options=options))
+
+    def pre_attachment_internal(self, vm, device, options):
         if isinstance(device, qubes.device_protocol.UnknownDevice):
             print(f'{device.devclass.capitalize()} device {device} '
                   'not available, skipping.', file=sys.stderr)
@@ -530,27 +537,21 @@ class BlockDeviceExtension(qubes.ext.Extension):
             options['frontend-dev'] = self.find_unused_frontend(
                 vm, options.get('devtype', 'disk'))
 
-        print(f'attaching {device} exposed by {device.backend_domain.name}')
-        vm.libvirt_domain.attachDevice(
-            vm.app.env.get_template('libvirt/devices/block.xml').render(
-                device=device, vm=vm, options=options))
-
     @qubes.ext.handler('domain-start')
     async def on_domain_start(self, vm, _event, **_kwargs):
         # pylint: disable=unused-argument
         for assignment in vm.devices['block'].get_assigned_devices():
-            asyncio.ensure_future(self.attach_and_notify(
-                vm, assignment.device, assignment.options))
+            self.notify_auto_attached(
+                vm, assignment.device, assignment.options)
 
-    async def attach_and_notify(self, vm, device, options):
+    def notify_auto_attached(self, vm, device, options):
+        pass
         # bypass DeviceCollection logic preventing double attach
-        try:
-            self.on_device_pre_attached_block(
-                vm, 'device-pre-attach:block', device, options)
-        except qubes.devices.UnrecognizedDevice:
-            return
-        await vm.fire_event_async(
-            'device-attach:block', device=device, options=options)
+        self.pre_attachment_internal(vm, device, options)
+
+        vm.libvirt_domain.attachDevice(
+            vm.app.env.get_template('libvirt/devices/block.xml').render(
+                device=device, vm=vm, options=options))
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):
