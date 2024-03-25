@@ -299,11 +299,11 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         self._vendor = result["vendor"] = hostdev_xml.findtext(
             'capability/vendor')
         self._vendor_id = result["vendor ID"] = hostdev_xml.xpath(
-            "//vendor/@id")
+            "//vendor/@id")[0]
         self._product = result["product"] = hostdev_xml.findtext(
             'capability/product')
         self._product_id = result["product ID"] = hostdev_xml.xpath(
-            "//product/@id")
+            "//product/@id")[0]
         return result
 
     @staticmethod
