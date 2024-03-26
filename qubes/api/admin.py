@@ -1370,22 +1370,21 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     # Assign/Unassign action can modify only a persistent state of running VM.
     # For this reason, write=True
-    @qubes.api.method('admin.vm.device.{endpoint}.Set.assignment',
+    @qubes.api.method('admin.vm.device.{endpoint}.Set.required',
         endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', write=True)
-    async def vm_device_set_assignment(self, endpoint, untrusted_payload):
+    async def vm_device_set_required(self, endpoint, untrusted_payload):
         """
-        Update assignment of an already assigned device.
+        Update `required` flag of an already assigned device.
 
         Payload:
-            `None` -> unassign device from a qube
             `False` -> device will be auto-attached to qube
             `True` -> device is required to start qube
         """
         devclass = endpoint
 
-        self.enforce(untrusted_payload in (b'True', b'False', b'None'))
+        self.enforce(untrusted_payload in (b'True', b'False'))
         # now is safe to eval, since the value of untrusted_payload is trusted
         # pylint: disable=eval-used
         assignment = eval(untrusted_payload)
@@ -1398,7 +1397,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 
-        await self.dest.devices[devclass].update_assignment(dev, assignment)
+        await self.dest.devices[devclass].update_required(dev, assignment)
         self.app.save()
 
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True,

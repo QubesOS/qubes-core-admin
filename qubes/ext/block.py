@@ -545,7 +545,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm, assignment.device, assignment.options)
 
     def notify_auto_attached(self, vm, device, options):
-        pass
         # bypass DeviceCollection logic preventing double attach
         self.pre_attachment_internal(vm, device, options)
 

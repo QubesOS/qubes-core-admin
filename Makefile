@@ -66,7 +66,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.pci.Attached \
 	admin.vm.device.pci.Available \
 	admin.vm.device.pci.Detach \
-	admin.vm.device.pci.Set.assignment \
+	admin.vm.device.pci.Set.required \
 	admin.vm.device.pci.Unassign \
 	admin.vm.device.block.Assign \
 	admin.vm.device.block.Assigned \
@@ -74,7 +74,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.block.Attached \
 	admin.vm.device.block.Available \
 	admin.vm.device.block.Detach \
-	admin.vm.device.block.Set.assignment \
+	admin.vm.device.block.Set.required \
 	admin.vm.device.block.Unassign \
 	admin.vm.device.usb.Assign \
 	admin.vm.device.usb.Assigned \
@@ -82,7 +82,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.usb.Attached \
 	admin.vm.device.usb.Available \
 	admin.vm.device.usb.Detach \
-	admin.vm.device.usb.Set.assignment \
+	admin.vm.device.usb.Set.required \
 	admin.vm.device.usb.Unassign \
 	admin.vm.device.mic.Assign \
 	admin.vm.device.mic.Assigned \
@@ -90,7 +90,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.mic.Attached \
 	admin.vm.device.mic.Available \
 	admin.vm.device.mic.Detach \
-	admin.vm.device.mic.Set.assignment \
+	admin.vm.device.mic.Set.required \
 	admin.vm.device.mic.Unassign \
 	admin.vm.feature.CheckWithNetvm \
 	admin.vm.feature.CheckWithTemplate \
@@ -227,7 +227,7 @@ endif
 				  admin.vm.device.testclass.Unassign \
 				  admin.vm.device.testclass.Attached \
 				  admin.vm.device.testclass.Assigned \
-				  admin.vm.device.testclass.Set.assignment \
+				  admin.vm.device.testclass.Set.required \
 				  admin.vm.device.testclass.Available
 	install -d $(DESTDIR)/etc/qubes/policy.d/include
 	install -m 0644 qubes-rpc-policy/admin-local-ro \

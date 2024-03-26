@@ -260,7 +260,7 @@ admin.vm.device.block.Attach
 admin.vm.device.block.Attached
 admin.vm.device.block.Available
 admin.vm.device.block.Detach
-admin.vm.device.block.Set.assignment
+admin.vm.device.block.Set.required
 admin.vm.device.block.Unassign
 admin.vm.device.pci.Assign
 admin.vm.device.pci.Assigned
@@ -268,7 +268,7 @@ admin.vm.device.pci.Attach
 admin.vm.device.pci.Attached
 admin.vm.device.pci.Available
 admin.vm.device.pci.Detach
-admin.vm.device.pci.Set.assignment
+admin.vm.device.pci.Set.required
 admin.vm.device.pci.Unassign
 admin.vm.feature.CheckWithAdminVM
 admin.vm.feature.CheckWithNetvm

@@ -59,7 +59,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `device-list-change:class` event.
 """
 import itertools
-from typing import Optional, Iterable
+from typing import Iterable
 
 import qubes.exc
 import qubes.utils
@@ -253,13 +253,12 @@ class DeviceCollection:
         device_assignment.devclass = self._bus
         self._set.add(device_assignment)
 
-    async def update_assignment(self, device: Device, required: Optional[bool]):
+    async def update_required(self, device: Device, required: bool):
         """
-        Update assignment of an already attached device.
+        Update `required` flag of an already attached device.
 
         :param Device device: device for which change required flag
         :param bool required: new assignment:
-                              `None` -> unassign device from qube
                               `False` -> device will be auto-attached to qube
                               `True` -> device is required to start qube
         """
@@ -278,17 +277,12 @@ class DeviceCollection:
 
         # be careful to use already present assignment, not the provided one
         # - to not change options as a side effect
-        if required is not None:
-            if assignment.required == required:
-                return
+        if assignment.required == required:
+            return
 
-            assignment.required = required
-            await self._vm.fire_event_async(
-                'device-assignment-changed:' + self._bus, device=device)
-        else:
-            await self._vm.fire_event_async(
-                'device-unassign:' + self._bus, device=device)
-            await self.unassign(assignment)
+        assignment.required = required
+        await self._vm.fire_event_async(
+            'device-assignment-changed:' + self._bus, device=device)
 
     async def detach(self, device: Device):
         """
