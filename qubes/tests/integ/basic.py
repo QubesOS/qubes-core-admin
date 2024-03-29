@@ -610,6 +610,19 @@ class TC_06_AppVMMixin(object):
         super(TC_06_AppVMMixin, self).setUp()
         self.init_default_template(self.template)
 
+    def test_010_os_metadata(self):
+        tpl = self.app.default_template
+        if self.template.startswith('fedora-'):
+            self.assertEqual(tpl.features.get('os-distribution'), 'fedora')
+            version = self.template.split('-')[1]
+            self.assertEqual(tpl.features.get('os-version'), version)
+            self.assertIsNotNone(tpl.features.get('os-eol'))
+        elif self.template.startswith('debian-'):
+            self.assertEqual(tpl.features.get('os-distribution'), 'debian')
+            version = self.template.split('-')[1]
+            self.assertEqual(tpl.features.get('os-version'), version)
+            self.assertIsNotNone(tpl.features.get('os-eol'))
+
     @unittest.skipUnless(
         spawn.find_executable('xdotool'), "xdotool not installed")
     def test_121_start_standalone_with_cdrom_vm(self):
