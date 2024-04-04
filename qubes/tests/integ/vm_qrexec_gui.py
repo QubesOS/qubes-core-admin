@@ -89,7 +89,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         # and some more...
         self.loop.run_until_complete(asyncio.sleep(1))
 
-    def prepare_audio_vm(self, backend):
+    def prepare_audio_test(self, backend):
         if 'whonix-g' in self.template:
             self.skipTest('whonix gateway have no audio')
         self.loop.run_until_complete(self.testvm1.start())
@@ -109,6 +109,66 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         else:
             self.fail('bad audio backend')
         self.wait_for_pulseaudio_startup(self.testvm1)
+
+    def create_audio_vm(self, backend, start=True):
+        self.audiovm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            label='red',
+            name=self.make_vm_name('audiovm'),
+            template=self.app.domains[self.template])
+        self.loop.run_until_complete(self.audiovm.create_on_disk())
+        with open("/etc/qubes/policy.d/10-test-audiovm.policy", "w") as f:
+            f.write("""
+admin.Events          *   {vm}     {vm}               allow   target=dom0
+admin.Events          *   {vm}     @adminvm                allow   target=dom0
+admin.Events          *   {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.CurrentState *   {vm}     {vm}               allow   target=dom0
+admin.vm.CurrentState *   {vm}     @adminvm                allow   target=dom0
+admin.vm.CurrentState *   {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.List         *   {vm}     {vm}               allow   target=dom0
+admin.vm.List         *   {vm}     @adminvm                allow   target=dom0
+admin.vm.List         *   {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.property.Get               +audiovm {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.property.Get               +xid     {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.property.Get               +stubdom_xid     {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.property.Get               +virt_mode     {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.feature.CheckWithTemplate  +audio   {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  allow   target=dom0
+""".format(vm=self.audiovm.name))
+        self.addCleanup(os.unlink, "/etc/qubes/policy.d/10-test-audiovm.policy")
+        self.audiovm.features['service.audiovm'] = True
+        if start:
+            self.loop.run_until_complete(self.audiovm.start())
+
+    def check_pacat_running(self, audiovm, xid):
+        pidfile = f"/run/qubes/pacat.{xid}"
+        if audiovm.qid == 0:
+            try:
+                with open(pidfile) as f:
+                    pid = int(f.readline())
+                os.kill(pid, 0)
+                running = True
+            except (FileNotFoundError, ProcessLookupError):
+                running = False
+        else:
+            try:
+                self.loop.run_until_complete(audiovm.run_for_stdio(f"kill -0 $(cat {pidfile})"))
+                running = True
+            except subprocess.CalledProcessError:
+                running = False
+        return running
+
+    def assert_pacat_running(self, audiovm, testvm, expected=True):
+        xid = testvm.xid
+        running = None
+        for attempt in range(10):
+            running = self.check_pacat_running(audiovm, xid)
+            if running == expected:
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+        if expected != running:
+            self.fail(f"pacat for {testvm.name} (xid {xid}) running({running}) "
+                      f"in {audiovm.name} while expected running({expected})")
 
     def check_audio_sample(self, sample, sfreq):
         rec = np.fromstring(sample, dtype=np.float32)
@@ -292,19 +352,19 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_220_audio_play_pulseaudio(self):
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_221_audio_rec_muted_pulseaudio(self):
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_222_audio_rec_unmuted_pulseaudio(self):
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         self.common_audio_record_unmuted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
@@ -312,7 +372,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     def test_223_audio_play_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         try:
             self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
@@ -327,7 +387,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     def test_224_audio_rec_muted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         try:
             # if pulseaudio is really emulated by pipewire, nothing needs to be
             # done - pipewire-qubes won't register output before connecting to
@@ -345,7 +405,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     def test_225_audio_rec_unmuted_hvm(self):
         self.testvm1.virt_mode = 'hvm'
         self.testvm1.features['audio-model'] = 'ich6'
-        self.prepare_audio_vm('pulseaudio')
+        self.prepare_audio_test('pulseaudio')
         pa_info = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("pactl info"))[0]
         # Server Name: PulseAudio (on PipeWire 0.3.65)
@@ -370,20 +430,44 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_226_audio_playback_pipewire(self):
-        self.prepare_audio_vm('pipewire')
+        self.prepare_audio_test('pipewire')
         self.common_audio_playback()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_227_audio_rec_muted_pipewire(self):
-        self.prepare_audio_vm('pipewire')
+        self.prepare_audio_test('pipewire')
         self.common_audio_record_muted()
 
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_228_audio_rec_unmuted_pipewire(self):
-        self.prepare_audio_vm('pipewire')
+        self.prepare_audio_test('pipewire')
         self.common_audio_record_unmuted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_250_audio_playback_audiovm_pipewire(self):
+        self.create_audio_vm('pipewire')
+        self.testvm1.audiovm = self.audiovm
+        self.prepare_audio_test('pipewire')
+        self.assert_pacat_running(self.audiovm, self.testvm1, True)
+        self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
+        self.common_audio_playback()
+        self.testvm1.audiovm = None
+        self.assert_pacat_running(self.audiovm, self.testvm1, False)
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_251_audio_playback_audiovm_pipewire_late_start(self):
+        self.create_audio_vm('pipewire', start=False)
+        self.testvm1.audiovm = self.audiovm
+        self.prepare_audio_test('pipewire')
+        self.loop.run_until_complete(self.audiovm.start())
+        self.assert_pacat_running(self.audiovm, self.testvm1, True)
+        self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
+        self.common_audio_playback()
+
 
 class TC_20_NonAudio(TC_00_AppVMMixin):
     def test_000_start_shutdown(self):
