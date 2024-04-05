@@ -219,7 +219,8 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         else:
             cmd = 'parecord --raw audio_rec.snd'
             kill_cmd = 'pkill --signal SIGINT parecord'
-        record = self.loop.run_until_complete(self.testvm1.run(cmd))
+        record = self.loop.run_until_complete(self.testvm1.run(cmd,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
         # give it time to start recording
         self.loop.run_until_complete(asyncio.sleep(0.5))
         p = subprocess.Popen(['sudo', '-E', '-u', local_user,
