@@ -1333,6 +1333,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except qubes.storage.StoragePoolException:
             self.log.exception('Failed to stop storage for domain %s',
                                self.name)
+        self._qdb_connection = None
         self.fire_event('property-reset:xid', name='xid')
         self.fire_event('property-reset:stubdom_xid', name='stubdom_xid')
         self.fire_event('property-reset:start_time', name='start_time')
