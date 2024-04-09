@@ -156,6 +156,11 @@
 
             {# start external devices from xvdi #}
             {% set counter = {'i': 4} %}
+            {% for assignment in vm.devices.block.get_assigned_devices(False) %}
+                {% set device = assignment.device %}
+                {% set options = assignment.options %}
+                {% include 'libvirt/devices/block.xml' %}
+            {% endfor %}
 
             {% if vm.netvm %}
                 {% include 'libvirt/devices/net.xml' with context %}

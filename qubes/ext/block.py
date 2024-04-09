@@ -470,7 +470,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             vm.app.env.get_template('libvirt/devices/block.xml').render(
                 device=device, vm=vm, options=options))
 
-    def pre_attachment_internal(self, vm, device, options):
+    def pre_attachment_internal(
+            self, vm, device, options, expected_attachment=None):
         if isinstance(device, qubes.device_protocol.UnknownDevice):
             print(f'{device.devclass.capitalize()} device {device} '
                   'not available, skipping.', file=sys.stderr)
@@ -519,7 +520,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                   file=sys.stderr)
             return
 
-        if device.attachment:
+        if device.attachment != expected_attachment:
             raise qubes.devices.DeviceAlreadyAttached(
                 'Device {!s} already attached to {!s}'.format(
                     device, device.attachment)
@@ -546,11 +547,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     def notify_auto_attached(self, vm, device, options):
         # bypass DeviceCollection logic preventing double attach
-        self.pre_attachment_internal(vm, device, options)
-
-        vm.libvirt_domain.attachDevice(
-            vm.app.env.get_template('libvirt/devices/block.xml').render(
-                device=device, vm=vm, options=options))
+        # we expected that these devices are already attached to this vm
+        self.pre_attachment_internal(
+            vm, device, options, expected_attachment=vm)
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):
