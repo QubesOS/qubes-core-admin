@@ -32,7 +32,7 @@ class AUDIO(qubes.ext.Extension):
     @staticmethod
     def set_qubesdb_audiovm(vm):
         # Ensure that qube is ready
-        if not vm.untrusted_qdb:
+        if not vm.is_running():
             return
 
         # Add AudioVM Xen ID for gui-agent
