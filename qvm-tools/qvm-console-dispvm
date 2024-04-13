@@ -30,8 +30,6 @@ fi
 
 QREXEC_REQUESTED_TARGET="$1"
 
-[[ "$QREXEC_REQUESTED_TARGET" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || { printf 'Invalid qube name %q\n' "$QREXEC_REQUESTED_TARGET">&2; exit 1; }
-
 if "$do_start"; then
     msg='cannot be started'
     qvm-start --skip-if-running -- "$QREXEC_REQUESTED_TARGET"
