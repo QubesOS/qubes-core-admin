@@ -622,6 +622,10 @@ class TC_06_AppVMMixin(object):
             version = self.template.split('-')[1]
             self.assertEqual(tpl.features.get('os-version'), version)
             self.assertIsNotNone(tpl.features.get('os-eol'))
+        elif self.template.startswith('whonix-'):
+            self.assertEqual(tpl.features.get('os-distribution'), 'whonix')
+            version = self.template.split('-')[2]
+            self.assertEqual(tpl.features.get('os-version'), version)
 
     @unittest.skipUnless(
         spawn.find_executable('xdotool'), "xdotool not installed")
