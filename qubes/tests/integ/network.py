@@ -413,6 +413,12 @@ class VmNetworkingMixin(object):
             if server2.returncode is None:
                 server2.terminate()
                 self.loop.run_until_complete(server2.wait())
+            if client1.returncode is None:
+                client1.terminate()
+                self.loop.run_until_complete(client1.wait())
+            if client2.returncode is None:
+                client2.terminate()
+                self.loop.run_until_complete(client2.wait())
 
     def test_040_inter_vm(self):
         '''
