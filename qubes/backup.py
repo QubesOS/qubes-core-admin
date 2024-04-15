@@ -589,7 +589,8 @@ class Backup:
                 self.log.debug(
                     "handle_streams returned: {}".format(run_error))
             except:
-                scrypt.terminate()
+                if scrypt is not None:
+                    scrypt.terminate()
                 raise
 
             scrypt.stdin.close()
