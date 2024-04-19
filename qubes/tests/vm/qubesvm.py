@@ -1393,7 +1393,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            vm,  # this is violation of API, but for PCI the argument
+            vm,  # this is a violation of API, but for PCI the argument
             #  is unused
             '00_00.0',
             devclass='pci',

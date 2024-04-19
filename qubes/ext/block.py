@@ -511,7 +511,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 'This device can be attached only read-only')
 
         if not vm.is_running():
-            print("Not attach, not running", file=sys.stderr)
+            print(f"Can not attach device, qube {vm.name} is not running."
+                  , file=sys.stderr)
             return
 
         if not isinstance(device, BlockDevice):

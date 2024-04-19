@@ -1629,9 +1629,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
          - have PCI devices
          - balloon driver not present
 
-        We don't have reliable way to detect the second point, but good
+        We don't have a reliable way to detect the second point, but good
         heuristic is HVM virt_mode (PV and PVH require OS support, and it does
-        include balloon driver) and lack of qrexec/meminfo-writer service
+        include the balloon driver) and lack of qrexec/meminfo-writer service
         support (no qubes tools installed).
         """
         if list(self.devices['pci'].get_assigned_devices()):
