@@ -1642,6 +1642,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 return False
         return True
 
+    def is_kernel_from_vm(self):
+        """Does the kernel is really a bootloader loading the kernel
+        from within the VM?"""
+        if self.virt_mode == 'hvm':
+            return not self.kernel
+        if self.virt_mode == 'pvh':
+            return self.kernel == 'pvgrub2-pvh'
+        if self.virt_mode == 'pv':
+            return self.kernel == 'pvgrub2'
+        assert False
+
     @property
     def use_memory_hotplug(self):
         """Use memory hotplug for memory balancing.
@@ -1655,9 +1666,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # if not explicitly set, check if support is advertised
         # for dom0-provided kernel - check there
         # Do not enable automatically for HVM, as qemu isn't happy about that -
-        # emulated devices wont work (DMA issues?); but still allow enabling
-        # manually in that case.
-        if self.kernel and self.virt_mode != 'hvm':
+        # emulated devices won't work (DMA issues?); but still allow enabling
+        # manually in that case (with the feature above).
+        if self.virt_mode == 'hvm':
+            return False
+        if not self.is_kernel_from_vm():
             return (pathlib.Path(self.storage.kernels_dir) /
                     'memory-hotplug-supported').exists()
         # otherwise - check advertised VM's features
