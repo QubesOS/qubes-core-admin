@@ -1216,7 +1216,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     async def vm_device_list(self, endpoint):
         devclass = endpoint
-        device_assignments = self.dest.devices[devclass].get_assigned_devices()
+        device_assignments = list(
+            self.dest.devices[devclass].get_assigned_devices())
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments

@@ -169,7 +169,7 @@ def _setter_kbd_layout(self, prop, value):
 
 
 def _default_virt_mode(self):
-    if self.devices['pci'].get_assigned_devices():
+    if list(self.devices['pci'].get_assigned_devices()):
         return 'hvm'
     try:
         return self.template.virt_mode
