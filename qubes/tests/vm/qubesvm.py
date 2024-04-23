@@ -1482,7 +1482,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             dom0, 'sda',
             {'devtype': 'cdrom', 'read-only': 'yes'},
             attach_automatically=True, required=True)
-        self.loop.run_until_complete(vm.devices['block'].attach(dev))
+        self.loop.run_until_complete(vm.devices['block'].assign(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
@@ -1587,7 +1587,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 dom0, 'sda',
                 {'devtype': 'cdrom', 'read-only': 'yes'},
                  attach_automatically=True, required=True)
-            self.loop.run_until_complete(vm.devices['block'].attach(dev))
+            self.loop.run_until_complete(vm.devices['block'].assign(dev))
             libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))

@@ -307,9 +307,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
             current_devices = dict(
                 (dev.ident, device_attachments.get(dev.ident, None))
                 for dev in self.on_device_list_block(vm, None))
-            self.devices_cache[vm.name] = current_devices.copy()
+            self.devices_cache[vm.name] = current_devices
         else:
-            self.devices_cache[vm.name] = {}.copy()
+            self.devices_cache[vm.name] = {}
 
     @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
     def on_qdb_change(self, vm, event, path):
@@ -327,6 +327,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         for vm in vm_.app.domains:
             if not vm.is_running():
                 continue
+
+            if vm.app.vmm.offline_mode:
+                return result
 
             xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 

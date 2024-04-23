@@ -218,11 +218,21 @@ the parser will complain about missing combine= attribute on the second <start>.
                                 </data>
                             </attribute>
                             <attribute name="id">
-                                <!-- TODO: pattern dependent on class! -->
                                 <data type="string">
                                     <param name="pattern">[0-9a-f]{2}_[0-9a-f]{2}.[0-9a-f]{2}</param>
                                 </data>
                             </attribute>
+                            <zeroOrMore>
+                                <attribute name="required">
+                                  <doc:description>
+                                      Flag: is the device required to start domain?
+                                      If not present assume 'yes'.
+                                  </doc:description>
+                                    <data type="string">
+                                        <param name="pattern">[yesno]+</param>
+                                    </data>
+                                </attribute>
+                            </zeroOrMore>
                             <zeroOrMore>
                               <element name="option">
                                 <doc:description>
