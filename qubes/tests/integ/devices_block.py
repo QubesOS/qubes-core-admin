@@ -87,7 +87,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         found = False
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
@@ -113,7 +113,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
         dev_list = list(self.vm.devices['block'])
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.fail(
                     'Device {} ({}) should not be listed because is mounted'
                     .format(dev, self.img_path))
@@ -132,11 +132,11 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.name, self.img_path,
+                self.assertNotEquals(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )
-            elif dev.name == 'test-dm':
+            elif dev.serial == 'test-dm':
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
@@ -163,12 +163,12 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.name, self.img_path,
+                self.assertNotEquals(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )
             else:
-                self.assertNotEquals(dev.name, 'test-dm',
+                self.assertNotEquals(dev.serial, 'test-dm',
                     "Device {} ({}) should not be listed as it is "
                     "mounted".format(dev, 'test-dm')
                 )
@@ -188,11 +188,11 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.name, self.img_path,
+                self.assertNotEquals(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )
-            elif dev.name == 'test-dm':
+            elif dev.serial == 'test-dm':
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
@@ -218,7 +218,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         found = False
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
@@ -242,7 +242,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         found = False
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.assertTrue(dev.ident.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
@@ -271,7 +271,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
         dev_list = list(self.vm.devices['block'])
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.fail(
                     'Device {} ({}) should not be listed because its '
                     'partition is mounted'
@@ -318,13 +318,13 @@ class AttachMixin:
             "udevadm settle".format(path=self.img_path), user="root"))
         dev_list = list(self.backend.devices['block'])
         for dev in dev_list:
-            if dev.name == self.img_path:
+            if dev.serial == self.img_path:
                 self.device = dev
                 self.device_ident = dev.ident
                 break
         else:
             self.fail('Device for {} in {} not found'.format(
-                self.img_path, self.backend.name))
+                self.img_path, self.backend.serial))
 
     def test_000_attach_reattach(self):
         ass = qubes.device_protocol.DeviceAssignment(self.backend, self.device_ident)
