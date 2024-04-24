@@ -137,7 +137,6 @@ class LinuxModules(Volume):
     def verify(self):  # pylint: disable=invalid-overridden-method
         if self.vid:
             _check_path(self.vmlinuz)
-            _check_path(self.initramfs)
 
     def block_device(self):
         path = self.path

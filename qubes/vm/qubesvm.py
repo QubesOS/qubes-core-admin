@@ -1034,7 +1034,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self, self.property_get_def(name), newvalue,
                 'Kernel {!r} not installed'.format(
                     newvalue))
-        for filename in ('vmlinuz', 'initramfs'):
+        for filename in ('vmlinuz',):
             if not os.path.exists(os.path.join(dirname, filename)):
                 raise qubes.exc.QubesPropertyValueError(
                     self, self.property_get_def(name), newvalue,
@@ -1652,7 +1652,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def initramfs_path(self):
         if not self.kernel:
             return None
-        return self.storage.kernels_dir + "/initramfs"
+        initramfs_path = self.storage.kernels_dir + "/initramfs"
+        if not os.path.exists(initramfs_path):
+            return None
+        return initramfs_path
 
     def is_kernel_from_vm(self):
         """Does the kernel is really a bootloader loading the kernel
