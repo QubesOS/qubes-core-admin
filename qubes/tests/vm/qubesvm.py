@@ -502,20 +502,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'include_in_backups', True)
 
-    @qubes.tests.skipUnlessDom0
+    @unittest.mock.patch('qubes.config.qubes_base_dir', '/tmp/qubes-test')
     def test_250_kernel(self):
-        kernels = os.listdir(os.path.join(
-            qubes.config.qubes_base_dir,
-            qubes.config.system_path['qubes_kernels_base_dir']))
-        if not len(kernels):
-            self.skipTest('Needs at least one kernel installed')
-        self.app.default_kernel = kernels[0]
+        for kver in ("dummy", "dummy2"):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/' + kver
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+        self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+        self.app.default_kernel = "dummy"
         vm = self.get_vm()
-        self.assertPropertyDefaultValue(vm, 'kernel', kernels[0])
-        self.assertPropertyValue(vm, 'kernel', kernels[-1], kernels[-1],
-            kernels[-1])
+        self.assertPropertyDefaultValue(vm, 'kernel', "dummy")
+        self.assertPropertyValue(vm, 'kernel', "dummy2", "dummy2",
+            "dummy2")
         del vm.kernel
-        self.assertPropertyDefaultValue(vm, 'kernel', kernels[0])
+        self.assertPropertyDefaultValue(vm, 'kernel', "dummy")
 
     @qubes.tests.skipUnlessDom0
     def test_251_kernel_invalid(self):
