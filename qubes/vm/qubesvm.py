@@ -1642,6 +1642,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 return False
         return True
 
+    @property
+    def kernel_path(self):
+        if not self.kernel:
+            return None
+        return self.storage.kernels_dir + "/vmlinuz"
+
+    @property
+    def initramfs_path(self):
+        if not self.kernel:
+            return None
+        return self.storage.kernels_dir + "/initramfs"
+
     def is_kernel_from_vm(self):
         """Does the kernel is really a bootloader loading the kernel
         from within the VM?"""

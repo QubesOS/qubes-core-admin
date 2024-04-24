@@ -773,8 +773,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <vcpu placement="static">2</vcpu>
         <os>
             <type arch="x86_64" machine="xenpv">linux</type>
-            <kernel>/tmp/kernel/vmlinuz</kernel>
-            <initrd>/tmp/kernel/initramfs</initrd>
+            <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
+            <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
             <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
@@ -788,7 +788,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <devices>
             <disk type="block" device="disk">
                 <driver name="phy" />
-                <source dev="/tmp/kernel/modules.img" />
+                <source dev="/tmp/qubes-test/vm-kernels/dummy/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
@@ -811,16 +811,16 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
             self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
             vm.kernel = 'dummy'
-        # tests for storage are later
-        vm.volumes['kernel'] = unittest.mock.Mock(**{
-            'kernels_dir': '/tmp/kernel',
-            'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.path': '/tmp/kernel/modules.img',
-            'block_device.return_value.devtype': 'disk',
-            'block_device.return_value.name': 'kernel',
-            'ephemeral': False,
-        })
-        libvirt_xml = vm.create_config_file()
+            # tests for storage are later
+            vm.volumes['kernel'] = unittest.mock.Mock(**{
+                'kernels_dir': '/tmp/qubes-test/vm-kernels/dummy',
+                'block_device.return_value.domain': 'dom0',
+                'block_device.return_value.path': '/tmp/qubes-test/vm-kernels/dummy/modules.img',
+                'block_device.return_value.devtype': 'disk',
+                'block_device.return_value.name': 'kernel',
+                'ephemeral': False,
+            })
+            libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
@@ -1034,8 +1034,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </cpu>
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
-            <kernel>/tmp/kernel/vmlinuz</kernel>
-            <initrd>/tmp/kernel/initramfs</initrd>
+            <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
+            <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
             <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
@@ -1053,7 +1053,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <devices>
             <disk type="block" device="disk">
                 <driver name="phy" />
-                <source dev="/tmp/kernel/modules.img" />
+                <source dev="/tmp/qubes-test/vm-kernels/dummy/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
@@ -1076,16 +1076,16 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
             self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
             vm.kernel = 'dummy'
-        # tests for storage are later
-        vm.volumes['kernel'] = unittest.mock.Mock(**{
-            'kernels_dir': '/tmp/kernel',
-            'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.path': '/tmp/kernel/modules.img',
-            'block_device.return_value.devtype': 'disk',
-            'block_device.return_value.name': 'kernel',
-            'ephemeral': False,
-        })
-        libvirt_xml = vm.create_config_file()
+            # tests for storage are later
+            vm.volumes['kernel'] = unittest.mock.Mock(**{
+                'kernels_dir': '/tmp/qubes-test/vm-kernels/dummy',
+                'block_device.return_value.domain': 'dom0',
+                'block_device.return_value.path': '/tmp/qubes-test/vm-kernels/dummy/modules.img',
+                'block_device.return_value.devtype': 'disk',
+                'block_device.return_value.name': 'kernel',
+                'ephemeral': False,
+            })
+            libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
@@ -1105,8 +1105,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </cpu>
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
-            <kernel>/tmp/kernel/vmlinuz</kernel>
-            <initrd>/tmp/kernel/initramfs</initrd>
+            <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
+            <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
             <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
@@ -1124,7 +1124,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <devices>
             <disk type="block" device="disk">
                 <driver name="phy" />
-                <source dev="/tmp/kernel/modules.img" />
+                <source dev="/tmp/qubes-test/vm-kernels/dummy/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
@@ -1148,16 +1148,16 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
             self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
             vm.kernel = 'dummy'
-        # tests for storage are later
-        vm.volumes['kernel'] = unittest.mock.Mock(**{
-            'kernels_dir': '/tmp/kernel',
-            'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.path': '/tmp/kernel/modules.img',
-            'block_device.return_value.devtype': 'disk',
-            'block_device.return_value.name': 'kernel',
-            'ephemeral': False,
-        })
-        libvirt_xml = vm.create_config_file()
+            # tests for storage are later
+            vm.volumes['kernel'] = unittest.mock.Mock(**{
+                'kernels_dir': '/tmp/qubes-test/vm-kernels/dummy',
+                'block_device.return_value.domain': 'dom0',
+                'block_device.return_value.path': '/tmp/qubes-test/vm-kernels/dummy/modules.img',
+                'block_device.return_value.devtype': 'disk',
+                'block_device.return_value.name': 'kernel',
+                'ephemeral': False,
+            })
+            libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
@@ -1363,7 +1363,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <devices>
             <disk type="block" device="disk">
                 <driver name="phy" />
-                <source dev="/tmp/kernel/modules.img" />
+                <source dev="/tmp/qubes-test/vm-kernels/dummy/modules.img" />
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
@@ -1409,22 +1409,22 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
             self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
             vm.kernel = 'dummy'
-        # tests for storage are later
-        vm.volumes['kernel'] = unittest.mock.Mock(**{
-            'kernels_dir': '/tmp/kernel',
-            'block_device.return_value.domain': 'dom0',
-            'block_device.return_value.path': '/tmp/kernel/modules.img',
-            'block_device.return_value.devtype': 'disk',
-            'block_device.return_value.name': 'kernel',
-            'ephemeral': False,
-        })
-        dom0.events_enabled = True
-        self.app.vmm.offline_mode = False
-        dev = qubes.devices.DeviceAssignment(
-            dom0, 'sda',
-            {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
-        self.loop.run_until_complete(vm.devices['block'].attach(dev))
-        libvirt_xml = vm.create_config_file()
+            # tests for storage are later
+            vm.volumes['kernel'] = unittest.mock.Mock(**{
+                'kernels_dir': '/tmp/qubes-test/vm-kernels/dummy',
+                'block_device.return_value.domain': 'dom0',
+                'block_device.return_value.path': '/tmp/qubes-test/vm-kernels/dummy/modules.img',
+                'block_device.return_value.devtype': 'disk',
+                'block_device.return_value.name': 'kernel',
+                'ephemeral': False,
+            })
+            dom0.events_enabled = True
+            self.app.vmm.offline_mode = False
+            dev = qubes.devices.DeviceAssignment(
+                dom0, 'sda',
+                {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
+            self.loop.run_until_complete(vm.devices['block'].attach(dev))
+            libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 

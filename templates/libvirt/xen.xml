@@ -46,8 +46,8 @@
                 {% elif vm.virt_mode == 'pv' %}
                     <type arch="x86_64" machine="xenpv">linux</type>
                 {% elif bug("Bad virt mode %r", vm.virt_mode) %}{% endif %}
-                <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
-                <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
+                <kernel>{{ vm.kernel_path }}</kernel>
+                <initrd>{{ vm.initramfs_path }}</initrd>
             {% endif %}
             {% if vm.kernel %}
                 {% if vm.features.check_with_template('no-default-kernelopts', False) -%}
