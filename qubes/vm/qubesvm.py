@@ -1645,6 +1645,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     @property
     def kernel_path(self):
         if not self.kernel:
+            if self.virt_mode == 'pvh':
+                return os.path.join(
+                    qubes.config.qubes_base_dir,
+                    qubes.config.system_path['qubes_kernels_base_dir'],
+                    "pvgrub2-pvh",
+                    "vmlinuz")
+            if self.virt_mode == "pv":
+                return os.path.join(
+                    qubes.config.qubes_base_dir,
+                    qubes.config.system_path['qubes_kernels_base_dir'],
+                    "pvgrub2",
+                    "vmlinuz")
             return None
         return self.storage.kernels_dir + "/vmlinuz"
 
@@ -1663,9 +1675,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.virt_mode == 'hvm':
             return not self.kernel
         if self.virt_mode == 'pvh':
-            return self.kernel == 'pvgrub2-pvh'
+            return not self.kernel or self.kernel == 'pvgrub2-pvh'
         if self.virt_mode == 'pv':
-            return self.kernel == 'pvgrub2'
+            return not self.kernel or self.kernel == 'pvgrub2'
         assert False
 
     @property

@@ -504,7 +504,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     @unittest.mock.patch('qubes.config.qubes_base_dir', '/tmp/qubes-test')
     def test_250_kernel(self):
-        for kver in ("dummy", "dummy2"):
+        for kver in ("dummy", "dummy2", "pvgrub2", "pvgrub2-pvh"):
             kernel_dir = '/tmp/qubes-test/vm-kernels/' + kver
             os.makedirs(kernel_dir, exist_ok=True)
             open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
@@ -517,6 +517,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "dummy2")
         del vm.kernel
         self.assertPropertyDefaultValue(vm, 'kernel', "dummy")
+        vm.kernel = None
+        self.assertEqual(vm.kernel_path, "/tmp/qubes-test/vm-kernels/pvgrub2-pvh/vmlinuz")
+        vm.virt_mode = "pv"
+        self.assertEqual(vm.kernel_path, "/tmp/qubes-test/vm-kernels/pvgrub2/vmlinuz")
+        vm.virt_mode = "hvm"
+        self.assertIsNone(vm.kernel_path)
 
     @qubes.tests.skipUnlessDom0
     def test_251_kernel_invalid(self):
