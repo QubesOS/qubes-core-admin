@@ -272,7 +272,7 @@ else
     HAP_VERBOSE="No"
 fi
 
-if [[ -f "/sys/class/tpm/tpm0/tpm_version_major" ]]
+if [[ -f "/sys/class/tpm/tpm0/tpm_version_major" && $(< "/sys/class/tpm/tpm0/tpm_version_major") == "2" ]]
   then
     TPM="Device present (TPM 2.0)"
     TPM_s="2.0"
