@@ -26,6 +26,8 @@ class AUDIO(qubes.ext.Extension):
     @staticmethod
     def attached_vms(vm):
         for domain in vm.app.domains:
+            if domain == vm:
+                continue
             if getattr(domain, "audiovm", None) == vm:
                 yield domain
 
