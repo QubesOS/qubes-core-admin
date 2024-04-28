@@ -69,6 +69,10 @@ class AdminExtension(qubes.ext.Extension):
             # dom0 can always list everything
             return None
 
+        if not hasattr(vm, 'app'):
+            # process cleanup, do not allow listing VMs anymore
+            return ((lambda _vm: False),)
+
         policy = self.policy_cache.get_policy()
         system_info = qubes.api.internal.get_system_info(vm.app)
 
@@ -113,6 +117,10 @@ class AdminExtension(qubes.ext.Extension):
                     dest = kwargs['vm'].name
                 else:
                     dest = '@adminvm'
+
+            if not hasattr(vm, 'app'):
+                # process cleanup, do not send events anymore
+                return False
 
             policy = self.policy_cache.get_policy()
             # TODO: cache system_info (based on last qubes.xml write time?)

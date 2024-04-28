@@ -26,13 +26,15 @@ class AUDIO(qubes.ext.Extension):
     @staticmethod
     def attached_vms(vm):
         for domain in vm.app.domains:
+            if domain == vm:
+                continue
             if getattr(domain, "audiovm", None) == vm:
                 yield domain
 
     @staticmethod
     def set_qubesdb_audiovm(vm):
         # Ensure that qube is ready
-        if not vm.untrusted_qdb:
+        if not vm.is_running():
             return
 
         # Add AudioVM Xen ID for gui-agent
