@@ -22,7 +22,7 @@
 
 import qubes.devices
 from qubes.device_protocol import (Device, DeviceInfo, DeviceAssignment,
-                                   DeviceInterface)
+                                   DeviceInterface, UnknownDevice)
 
 import qubes.tests
 
@@ -414,6 +414,19 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
                                     b"Some_untrusted_garbage").split(b" "))
         self.assertEqual(actual, expected)
 
+    def test_012_invalid_serialize(self):
+        device = DeviceInfo(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus?",
+            vendor="malicious",
+            product="suspicious",
+            manufacturer="",
+            name="""Some='untrusted' garbage="5%\n" ?""",
+        )
+        with self.assertRaises(qubes.exc.ProtocolError):
+            _ = device.serialize()
+
     def test_020_deserialize(self):
         serialized = (
             b"1-1.1.1 "
@@ -450,3 +463,188 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
         self.assertEqual(repr(actual.interfaces), repr(expected.interfaces))
         self.assertEqual(actual.self_identity, expected.self_identity)
         self.assertEqual(actual.data, expected.data)
+
+    def test_021_invalid_deserialize(self):
+        serialized = (
+            b"1-1.1.1 "
+            b"manufacturer='unknown' self_identity='0000:0000::?******' "
+            b"serial='unknown' ident='1-1.1.1' product='Qubes' "
+            b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
+            b"backend_domain='vm' interfaces=' ******u03**01' "
+            b"_additional_info='' _date='06.12.23' "
+            b"parent_ident='1-1.1' parent_devclass='None' add'tional='info'")
+        actual = DeviceInfo.deserialize(serialized, self.vm)
+        self.assertIsInstance(actual, UnknownDevice)
+        self.assertEqual(actual.backend_domain, self.vm)
+        self.assertEqual(actual.ident, '1-1.1.1')
+        self.assertEqual(actual.devclass, 'peripheral')
+
+    def test_030_serialize_and_deserialize(self):
+        device = DeviceInfo(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus?",
+            vendor="malicious",
+            product="suspicious",
+            manufacturer="",
+            name=r"""Some='untrusted' garbage="5%\n" ?""",
+            serial=None,
+            interfaces=[DeviceInterface(" 112233"),
+                        DeviceInterface("&012345")],
+            **{"additional info": "and='more'", "date": "06.12.23"}
+        )
+        serialized = device.serialize()
+        deserialized = DeviceInfo.deserialize(b'1-1.1.1 ' + serialized, self.vm)
+        self.assertEqual(deserialized.backend_domain, device.backend_domain)
+        self.assertEqual(deserialized.ident, device.ident)
+        self.assertEqual(deserialized.devclass, device.devclass)
+        self.assertEqual(deserialized.vendor, device.vendor)
+        self.assertEqual(deserialized.product, device.product)
+        self.assertEqual(deserialized.manufacturer, device.manufacturer)
+        self.assertEqual(deserialized.name, device.name)
+        self.assertEqual(deserialized.serial, device.serial)
+        self.assertEqual(deserialized.data, device.data)
+        self.assertEqual(deserialized.interfaces[0], device.interfaces[0])
+        self.assertEqual(deserialized.interfaces[1], device.interfaces[1])
+
+
+class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.app = TestApp()
+        self.vm = TestVM(self.app, 'vm')
+
+    def test_010_serialize(self):
+        assignment = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+        )
+        actual = assignment.serialize()
+        expected = (
+            b"ident='1-1.1.1' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='no'")
+        expected = set(expected.split(b" "))
+        actual = set(actual.split(b" "))
+        self.assertEqual(actual, expected)
+
+    def test_011_serialize_required(self):
+        assignment = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            attach_automatically=True,
+            required=True,
+        )
+        actual = assignment.serialize()
+        expected = (
+            b"ident='1-1.1.1' devclass='bus' "
+            b"backend_domain='vm' required='yes' attach_automatically='yes'")
+        expected = set(expected.split(b" "))
+        actual = set(actual.split(b" "))
+        self.assertEqual(actual, expected)
+
+    def test_012_serialize_fronted(self):
+        assignment = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            frontend_domain=self.vm,
+        )
+        actual = assignment.serialize()
+        expected = (
+            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='no'")
+        expected = set(expected.split(b" "))
+        actual = set(actual.split(b" "))
+        self.assertEqual(actual, expected)
+
+    def test_013_serialize_options(self):
+        assignment = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            options={'read-only': 'yes'},
+        )
+        actual = assignment.serialize()
+        expected = (
+            b"ident='1-1.1.1' _read-only='yes' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='no'")
+        expected = set(expected.split(b" "))
+        actual = set(actual.split(b" "))
+        self.assertEqual(actual, expected)
+
+    def test_014_invalid_serialize(self):
+        assignment = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            options={"read'only": 'yes'},
+        )
+        with self.assertRaises(qubes.exc.ProtocolError):
+            _ = assignment.serialize()
+
+    def test_020_deserialize(self):
+        serialized = (
+            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"_read-only='yes'")
+        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        actual = DeviceAssignment.deserialize(serialized, expected_device)
+        expected = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            frontend_domain=self.vm,
+            attach_automatically=True,
+            required=False,
+            options={'read-only': 'yes'},
+        )
+
+        self.assertEqual(actual.backend_domain, expected.backend_domain)
+        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.devclass, expected.devclass)
+        self.assertEqual(actual.frontend_domain, expected.frontend_domain)
+        self.assertEqual(actual.attach_automatically, expected.attach_automatically)
+        self.assertEqual(actual.required, expected.required)
+        self.assertEqual(actual.options, expected.options)
+
+    def test_021_invalid_deserialize(self):
+        serialized = (
+            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"_read'only='yes'")
+        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        with self.assertRaises(qubes.exc.ProtocolError):
+            _ = DeviceAssignment.deserialize(serialized, expected_device)
+
+    def test_022_invalid_deserialize_2(self):
+        serialized = (
+            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
+            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"read-only='yes'")
+        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        with self.assertRaises(qubes.exc.ProtocolError):
+            _ = DeviceAssignment.deserialize(serialized, expected_device)
+
+    def test_030_serialize_and_deserialize(self):
+        expected = DeviceAssignment(
+            backend_domain=self.vm,
+            ident="1-1.1.1",
+            devclass="bus",
+            frontend_domain=self.vm,
+            attach_automatically=True,
+            required=False,
+            options={'read-only': 'yes'},
+        )
+        serialized = expected.serialize()
+        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        actual = DeviceAssignment.deserialize(serialized, expected_device)
+        self.assertEqual(actual.backend_domain, expected.backend_domain)
+        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.devclass, expected.devclass)
+        self.assertEqual(actual.frontend_domain, expected.frontend_domain)
+        self.assertEqual(actual.attach_automatically,
+                         expected.attach_automatically)
+        self.assertEqual(actual.required, expected.required)
+        self.assertEqual(actual.options, expected.options)
