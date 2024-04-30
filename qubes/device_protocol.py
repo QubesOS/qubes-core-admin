@@ -64,7 +64,7 @@ class Device:
     """
     ALLOWED_CHARS_KEY = set(
             string.digits + string.ascii_letters
-            + r"!#$%&()*+,-./:;<>?@[\]^_{|}~" + ' ')
+            + r"!#$%&()*+,-./:;<>?@[\]^_{|}~")
     ALLOWED_CHARS_PARAM = ALLOWED_CHARS_KEY.union(set(string.punctuation + ' '))
 
     def __init__(self, backend_domain, ident, devclass=None):
