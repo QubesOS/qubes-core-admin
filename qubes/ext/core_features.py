@@ -36,11 +36,13 @@ class CoreFeatures(qubes.ext.Extension):
                 'Ignoring qubes.NotifyTools for template-based VM')
             return
 
-        if "os-distribution" in untrusted_features:
+        if "os-distribution" in untrusted_features \
+                and untrusted_features["os-distribution"]:
             # entry point already validates values for safe characters
             vm.features["os-distribution"] = \
                 untrusted_features["os-distribution"]
-        if "os-version" in untrusted_features:
+        if "os-version" in untrusted_features \
+                and untrusted_features["os-version"]:
             # no letters in versions please
             safe_set = string.digits + ".-"
             untrusted_version = untrusted_features["os-version"]
@@ -53,7 +55,8 @@ class CoreFeatures(qubes.ext.Extension):
                     "Invalid 'os-version' value '%s', must start "
                     "with a digit and only digits and _ or . are allowed",
                     untrusted_version)
-        if "os-eol" in untrusted_features:
+        if "os-eol" in untrusted_features \
+                and untrusted_features["os-eol"]:
             untrusted_eol = untrusted_features["os-eol"]
             valid = False
             if re.match(r"\A\d{4}-\d{2}-\d{2}\Z", untrusted_eol):

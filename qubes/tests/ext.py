@@ -313,6 +313,21 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.get', ('qrexec', False), {}),
         ])
 
+    def test_034_distro_meta_empty(self):
+        self.features['qrexec'] = True
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(self.vm, 'features-request',
+                untrusted_features={
+                    'os': '',
+                    'os-distribution': '',
+                    'os-version': '',
+                    'os-eol': '',
+                }))
+        self.assertListEqual(self.vm.mock_calls, [
+            ('features.get', ('qrexec', False), {}),
+        ])
+
     def test_100_servicevm_feature(self):
         self.vm.provides_network = True
         self.ext.set_servicevm_feature(self.vm)
