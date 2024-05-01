@@ -7,6 +7,9 @@
 {% if options.get('permissive', False) %}
      writeFiltering="no"
 {% endif %}
+{% if power_mgmt %}
+     powerManagementFiltering="no"
+{% endif %}
     >
         <address
             bus="0x{{ device.bus }}"

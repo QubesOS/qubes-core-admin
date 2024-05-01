@@ -1300,6 +1300,91 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
+        dom0 = self.get_vm(name='dom0', qid=0)
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'hvm'
+        vm.kernel = None
+        # even with meminfo-writer enabled, should have memory==maxmem
+        vm.features['service.meminfo-writer'] = True
+        assignment = qubes.devices.DeviceAssignment(
+            vm,  # this is violation of API, but for PCI the argument
+            #  is unused
+            '00_00.0',
+            bus='pci',
+            persistent=True)
+        vm.devices['pci']._set.add(
+            assignment)
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
+    def test_600_libvirt_xml_hvm_pcidev_s0ix(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">400</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+            <xen>
+                <e820_host state="on"/>
+            </xen>
+        </features>
+        <clock offset="variable" adjustment="0" basis="utc" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <hostdev type="pci" managed="yes">
+                <source
+                    powerManagementFiltering="no">
+                    <address
+                        bus="0x00"
+                        slot="0x00"
+                        function="0x0" />
+                </source>
+            </hostdev>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        # required for PCI devices listing
+        self.app.vmm.offline_mode = False
+        dom0 = self.get_vm(name='dom0', qid=0)
+        dom0.features['suspend-s0ix'] = True
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'

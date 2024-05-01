@@ -164,6 +164,8 @@
             {% for assignment in vm.devices.pci.assignments(True) %}
                 {% set device = assignment.device %}
                 {% set options = assignment.options %}
+                {% set power_mgmt =
+                    vm.app.domains[0].features.get('suspend-s0ix', False) %}
                 {% include 'libvirt/devices/pci.xml' %}
             {% endfor %}
 
