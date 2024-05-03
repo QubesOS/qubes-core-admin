@@ -33,7 +33,7 @@ from datetime import datetime
 
 import asyncio
 import lxml.etree
-import pkg_resources
+import importlib.metadata
 import qubes
 import qubes.exc
 import qubes.utils
@@ -989,7 +989,8 @@ def _sanitize_config(config):
 def pool_drivers():
     """ Return a list of EntryPoints names """
     return [ep.name
-            for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
+            for ep in importlib.metadata.entry_points(
+            group=STORAGE_ENTRY_POINT)]
 
 
 def driver_parameters(name):

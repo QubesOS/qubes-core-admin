@@ -32,7 +32,6 @@ import unittest
 
 import collections
 
-import pkg_resources
 import shutil
 
 import sys
