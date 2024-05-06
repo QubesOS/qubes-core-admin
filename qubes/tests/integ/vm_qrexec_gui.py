@@ -215,9 +215,9 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             input=audio_in.astype(np.float32).tobytes()))
         local_user = grp.getgrnam('qubes').gr_mem[0]
         if self.testvm1.features['service.pipewire']:
-            cmd = 'pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd'
+            cmd = 'timeout 20s pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd'
         else:
-            cmd = ('paplay --format=float32le --rate=44100 --channels=1 '
+            cmd = ('timeout 20s paplay --format=float32le --rate=44100 --channels=1 '
                    '--raw audio_in.snd')
         with tempfile.NamedTemporaryFile() as recorded_audio:
             os.chmod(recorded_audio.name, 0o666)
