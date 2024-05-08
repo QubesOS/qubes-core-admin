@@ -1313,7 +1313,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             #  is unused
             '00_00.0',
             devclass='pci',
-            persistent=True)
+            attach_automatically=True,
+            required=True,
+        )
         vm.devices['pci']._set.add(
             assignment)
         libvirt_xml = vm.create_config_file()
