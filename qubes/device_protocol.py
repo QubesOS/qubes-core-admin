@@ -560,10 +560,10 @@ class DeviceInfo(Device):
     @property
     def parent_device(self) -> Optional[Device]:
         """
-        The parent device if any.
+        The parent device, if any.
 
-        If the device is part of another device (e.g. it's a single
-        partition of an usb stick), the parent device id should be here.
+        If the device is part of another device (e.g., it's a single
+        partition of a USB stick), the parent device id should be here.
         """
         return self._parent
 
@@ -572,7 +572,7 @@ class DeviceInfo(Device):
         """
         The list of children devices if any.
 
-        If the device has subdevices (e.g. partitions of an usb stick),
+        If the device has subdevices (e.g., partitions of a USB stick),
         the subdevices id should be here.
         """
         return [dev for dev in self.backend_domain.devices[self.devclass]
@@ -604,7 +604,7 @@ class DeviceInfo(Device):
 
         if self.attachment:
             properties = self.pack_property(
-                properties, 'attachment', self.attachment.name)
+                'attachment', self.attachment.name)
 
         properties += b' ' + self.pack_property(
             'interfaces',
@@ -742,6 +742,7 @@ def sanitize_str(
     if replace_char is None:
         not_allowed_chars = set(untrusted_value) - allowed_chars
         if not_allowed_chars:
+            print(untrusted_value)
             raise ProtocolError(error_message + repr(not_allowed_chars))
         return untrusted_value
     result = ""

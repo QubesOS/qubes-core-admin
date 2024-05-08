@@ -1312,7 +1312,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm,  # this is violation of API, but for PCI the argument
             #  is unused
             '00_00.0',
-            bus='pci',
+            devclass='pci',
             persistent=True)
         vm.devices['pci']._set.add(
             assignment)

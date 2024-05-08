@@ -491,7 +491,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             serial=None,
             interfaces=[DeviceInterface(" 112233"),
                         DeviceInterface("&012345")],
-            **{"additional info": "and='more'", "date": "06.12.23"}
+            **{"additional_info": "and='more'", "date": "06.12.23"}
         )
         serialized = device.serialize()
         deserialized = DeviceInfo.deserialize(b'1-1.1.1 ' + serialized, self.vm)
