@@ -304,7 +304,7 @@ class DeviceCollection:
                 "Can not detach a required device from a non halted qube. "
                 "You need to unassign device first.")
 
-        # use local object
+        # use the local object
         device = assignment.device
         await self._vm.fire_event_async(
             'device-pre-detach:' + self._bus, pre_event=True, device=device)
@@ -325,12 +325,6 @@ class DeviceCollection:
             raise DeviceNotAssigned(
                 f'device {device_assignment.ident!s} of class {self._bus} not '
                 f'assigned to {self._vm!s}')
-
-        if not self._vm.is_halted() and assignment.required:
-            raise qubes.exc.QubesVMNotHaltedError(
-                self._vm,
-                "Can not remove an required assignment from "
-                "a non halted qube.")
 
         self._set.discard(assignment)
 

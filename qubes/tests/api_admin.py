@@ -1994,7 +1994,8 @@ netvm default=True type=vm \n'''
             value = self.call_mgmt_func(b'admin.vm.device.testclass.Unassign',
                 b'test-vm1', b'test-vm1+1234')
         self.assertIsNone(value)
-        mock_action.assert_called_once_with(self.vm, 'device-unassign:testclass',
+        mock_action.assert_called_once_with(
+            self.vm, 'device-unassign:testclass',
             device=self.vm.devices['testclass']['1234'])
         self.app.save.assert_called_once_with()
 
@@ -2010,12 +2011,15 @@ netvm default=True type=vm \n'''
         self.vm.add_handler('device-unassign:testclass', mock_action)
         with unittest.mock.patch.object(
                 qubes.vm.qubesvm.QubesVM, 'is_halted', lambda _: False):
-            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                self.call_mgmt_func(
+            value = self.call_mgmt_func(
                     b'admin.vm.device.testclass.Unassign',
                     b'test-vm1', b'test-vm1+1234')
-        self.assertFalse(mock_action.called)
-        self.assertFalse(self.app.save.called)
+        self.assertIsNone(value)
+        mock_action.assert_called_once_with(
+            self.vm, 'device-unassign:testclass',
+            device=self.vm.devices['testclass']['1234'])
+        self.app.save.assert_called_once_with()
+
     def test_492_vm_device_unassign_from_halted(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             self.vm, '1234', attach_automatically=True, required=False,

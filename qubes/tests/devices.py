@@ -312,11 +312,11 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
                 self.collection.detach(self.assignment))
 
     def test_042_unassign_required(self):
-        self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.emitter.running = True
-        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-            self.loop.run_until_complete(
-                self.collection.unassign(self.assignment))
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        self.loop.run_until_complete(self.collection.unassign(self.assignment))
+        self.assertEventFired(self.emitter, 'device-assign:testclass')
+        self.assertEventFired(self.emitter, 'device-unassign:testclass')
 
     def test_043_detach_assigned(self):
         self.assignment.required = False

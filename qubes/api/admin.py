@@ -1304,9 +1304,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         # qrexec already verified that no strange characters are in self.arg
         backend_domain, ident = self.arg.split('+', 1)
-        # may raise KeyError; if device isn't found, it will be UnknownDevice
-        #  instance - but allow it, otherwise it will be impossible to detach
-        #  already removed device
+        # may raise KeyError; if a device isn't found, it will be UnknownDevice
+        #  instance - but allow it, otherwise it will be impossible to unassign
+        #  an already removed device
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
