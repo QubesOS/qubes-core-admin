@@ -300,6 +300,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         """Initialize watching for changes"""
         # pylint: disable=unused-argument
         vm.watch_qdb_path('/qubes-block-devices')
+        if vm.app.vmm.offline_mode:
+            self.devices_cache[vm.name] = {}
+            return
         if event == 'domain-load':
             # avoid building a cache on domain-init, as it isn't fully set yet,
             # and definitely isn't running yet
