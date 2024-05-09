@@ -742,7 +742,6 @@ def sanitize_str(
     if replace_char is None:
         not_allowed_chars = set(untrusted_value) - allowed_chars
         if not_allowed_chars:
-            print(untrusted_value)
             raise ProtocolError(error_message + repr(not_allowed_chars))
         return untrusted_value
     result = ""
