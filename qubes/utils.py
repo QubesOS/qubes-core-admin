@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
 
-import pkg_resources
+import importlib.metadata
 
 import docutils
 import docutils.core
@@ -143,7 +143,7 @@ def urandom(size):
 
 
 def get_entry_point_one(group, name):
-    epoints = tuple(pkg_resources.iter_entry_points(group, name))
+    epoints = tuple(importlib.metadata.entry_points(group=group, name=name))
     if not epoints:
         raise KeyError(name)
     if len(epoints) > 1:

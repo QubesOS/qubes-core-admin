@@ -49,7 +49,7 @@ from distutils import spawn
 
 import gc
 import lxml.etree
-import pkg_resources
+import importlib.metadata
 
 import qubes
 import qubes.api
@@ -352,7 +352,7 @@ class _QrexecPolicyContext(object):
 
 
 class substitute_entry_points(object):
-    """Monkey-patch pkg_resources to substitute one group in iter_entry_points
+    """Monkey-patch importlib.metadata to substitute one group in entry_points
 
     This is for testing plugins, like device classes.
 
@@ -374,15 +374,15 @@ class substitute_entry_points(object):
     def _iter_entry_points(self, group, *args, **kwargs):
         if group == self.group:
             group = self.tempgroup
-        return self._orig_iter_entry_points(group, *args, **kwargs)
+        return self._orig_iter_entry_points(group=group, *args, **kwargs)
 
     def __enter__(self):
-        self._orig_iter_entry_points = pkg_resources.iter_entry_points
-        pkg_resources.iter_entry_points = self._iter_entry_points
+        self._orig_iter_entry_points = importlib.metadata.entry_points
+        importlib.metadata.entry_points = self._iter_entry_points
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        pkg_resources.iter_entry_points = self._orig_iter_entry_points
+        importlib.metadata.entry_points = self._orig_iter_entry_points
         self._orig_iter_entry_points = None
 
 

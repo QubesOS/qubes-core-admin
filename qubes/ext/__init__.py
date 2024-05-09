@@ -25,7 +25,7 @@ some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
 '''
 
-import pkg_resources
+import importlib.metadata
 import qubes.events
 
 
@@ -56,7 +56,7 @@ class Extension:
 
 def get_extensions():
     return set(ext.load()()
-        for ext in pkg_resources.iter_entry_points('qubes.ext'))
+        for ext in importlib.metadata.entry_points(group='qubes.ext'))
 
 
 def handler(*events, **kwargs):

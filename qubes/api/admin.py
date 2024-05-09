@@ -31,7 +31,7 @@ import pathlib
 
 import libvirt
 import lxml.etree
-import pkg_resources
+import importlib.metadata
 import yaml
 
 import qubes.api
@@ -103,7 +103,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == 'dom0')
 
         entrypoints = self.fire_event_for_filter(
-            pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT))
+            importlib.metadata.entry_points(group=qubes.vm.VM_ENTRY_POINT))
 
         return ''.join('{}\n'.format(ep.name)
             for ep in entrypoints)
@@ -1034,14 +1034,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method('admin.vm.Create.{endpoint}', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)),
+            for ep in importlib.metadata.entry_points(
+        group=qubes.vm.VM_ENTRY_POINT)),
         scope='global', write=True)
     def vm_create(self, endpoint, untrusted_payload=None):
         return self._vm_create(endpoint, allow_pool=False,
             untrusted_payload=untrusted_payload)
 
     @qubes.api.method('admin.vm.CreateInPool.{endpoint}', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)),
+            for ep in importlib.metadata.entry_points(
+        group=qubes.vm.VM_ENTRY_POINT)),
         scope='global', write=True)
     def vm_create_in_pool(self, endpoint, untrusted_payload=None):
         return self._vm_create(endpoint, allow_pool=True,
@@ -1184,12 +1186,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == 'dom0')
 
         entrypoints = self.fire_event_for_filter(
-            pkg_resources.iter_entry_points('qubes.devices'))
+            importlib.metadata.entry_points(group='qubes.devices'))
 
         return ''.join('{}\n'.format(ep.name) for ep in entrypoints)
 
     @qubes.api.method('admin.vm.device.{endpoint}.Available', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
             no_payload=True,
         scope='local', read=True)
     async def vm_device_available(self, endpoint):
@@ -1223,7 +1225,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             for ident in sorted(dev_info))
 
     @qubes.api.method('admin.vm.device.{endpoint}.List', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
             no_payload=True,
         scope='local', read=True)
     async def vm_device_list(self, endpoint):
@@ -1259,7 +1261,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     # persistent=True) and volatile state of running VM (with persistent=False).
     # For this reason, write=True + execute=True
     @qubes.api.method('admin.vm.device.{endpoint}.Attach', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', write=True, execute=True)
     async def vm_device_attach(self, endpoint, untrusted_payload):
         devclass = endpoint
@@ -1303,7 +1305,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     # persistent=True) and volatile state of running VM (with persistent=False).
     # For this reason, write=True + execute=True
     @qubes.api.method('admin.vm.device.{endpoint}.Detach', endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
             no_payload=True,
         scope='local', write=True, execute=True)
     async def vm_device_detach(self, endpoint):
@@ -1329,7 +1331,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     # For this reason, write=True + execute=True
     @qubes.api.method('admin.vm.device.{endpoint}.Set.persistent',
         endpoints=(ep.name
-            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', write=True, execute=True)
     async def vm_device_set_persistent(self, endpoint, untrusted_payload):
         devclass = endpoint

@@ -23,7 +23,7 @@ import os
 import subprocess
 import sys
 
-import pkg_resources
+import importlib.metadata
 
 import qubes.tests
 import qubes.vm.appvm
@@ -217,13 +217,13 @@ def load_tests(loader, tests, pattern):
     if 'QUBES_TEST_EXTRA_EXCLUDE' in os.environ:
         exclude_list = os.environ['QUBES_TEST_EXTRA_EXCLUDE'].split()
 
-    for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
+    for entry in importlib.metadata.entry_points(group='qubes.tests.extra'):
         if include_list is not None and entry.name not in include_list:
             continue
         if entry.name in exclude_list:
             continue
         try:
-            for test_case in entry.resolve()():
+            for test_case in entry.load()():
                 tests.addTests(loader.loadTestsFromNames([
                     '{}.{}'.format(test_case.__module__, test_case.__name__)]))
         except Exception as err:  # pylint: disable=broad-except
@@ -234,14 +234,14 @@ def load_tests(loader, tests, pattern):
                 {entry.name: runTest})
             tests.addTest(ExtraLoadFailure(entry.name))
 
-    for entry in pkg_resources.iter_entry_points(
-            'qubes.tests.extra.for_template'):
+    for entry in importlib.metadata.entry_points(
+            name='qubes.tests.extra.for_template'):
         if include_list is not None and entry.name not in include_list:
             continue
         if entry.name in exclude_list:
             continue
         try:
-            for test_case in entry.resolve()():
+            for test_case in entry.load()():
                 tests.addTests(loader.loadTestsFromNames(
                     qubes.tests.create_testcases_for_templates(
                         test_case.__name__, test_case,
