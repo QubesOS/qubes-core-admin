@@ -125,10 +125,6 @@ class AUDIO(qubes.ext.Extension):
                 self.set_stubdom_audiovm_domid(subject, newvalue)
             )
 
-    @qubes.ext.handler("property-del:audiovm")
-    def on_property_del(self, subject, event, name, oldvalue=None):
-        self.set_tag_and_qubesdb_entry(subject=subject, event=event)
-
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
         self.set_qubesdb_audiovm(vm)
