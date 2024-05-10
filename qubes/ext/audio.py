@@ -93,9 +93,13 @@ class AUDIO(qubes.ext.Extension):
 
     @staticmethod
     async def set_stubdom_audiovm_domid(qube, audiovm):
+        if audiovm:
+            audiovm_xid = audiovm.xid
+        else:
+            audiovm_xid = -1
         try:
             await qube.run_service_for_stdio(
-                f"qubes.SetAudioVM+{audiovm.xid}",
+                f"qubes.SetAudioVM+{audiovm_xid}",
                 user="root",
                 stubdom=True,
                 stdout=subprocess.DEVNULL,
@@ -120,7 +124,6 @@ class AUDIO(qubes.ext.Extension):
             subject.log.warning("Cannot change dynamically audiovm: qrexec"
                                 " is not available (stubdom-qrexec feature)")
         if has_audio_model and has_stubdom_qrexec:
-            subject.log.warning(f"setting {newvalue.xid}")
             asyncio.ensure_future(
                 self.set_stubdom_audiovm_domid(subject, newvalue)
             )
