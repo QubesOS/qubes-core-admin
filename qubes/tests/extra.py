@@ -235,7 +235,7 @@ def load_tests(loader, tests, pattern):
             tests.addTest(ExtraLoadFailure(entry.name))
 
     for entry in importlib.metadata.entry_points(
-            name='qubes.tests.extra.for_template'):
+            group='qubes.tests.extra.for_template'):
         if include_list is not None and entry.name not in include_list:
             continue
         if entry.name in exclude_list:
