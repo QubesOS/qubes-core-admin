@@ -425,6 +425,12 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio("chmod +x /home/user/open-file"))
 
+        # disable donation message as it messes with editor detection
+        self.loop.run_until_complete(
+            self.testvm1.run_for_stdio("cat > /etc/thunderbird/pref/test.js",
+                input=b'pref("app.donation.eoy.version.viewed", 100);\n',
+                user="root"))
+
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio(
                 'gsettings set org.gnome.desktop.interface '
