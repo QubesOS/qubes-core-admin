@@ -24,6 +24,7 @@ import jinja2
 
 import qubes.tests
 import qubes.ext.block
+from qubes.device_protocol import DeviceInterface, Device, DeviceInfo
 
 modules_disk = '''
     <disk type='block' device='disk'>
@@ -102,6 +103,13 @@ class TestQubesDB(object):
 
 
 class TestApp(object):
+    class Domains(dict):
+        def __init__(self):
+            super().__init__()
+
+        def __iter__(self):
+            return iter(self.values())
+
     def __init__(self):
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
@@ -112,7 +120,19 @@ class TestApp(object):
             ]),
             undefined=jinja2.StrictUndefined,
             autoescape=True)
-        self.domains = {}
+        self.domains = TestApp.Domains()
+
+
+class TestDeviceCollection(object):
+    def __init__(self, backend_vm, devclass):
+        self._exposed = []
+        self.backend_vm = backend_vm
+        self.devclass = devclass
+
+    def __getitem__(self, ident):
+        for dev in self._exposed:
+            if dev.ident == ident:
+                return dev
 
 
 class TestVM(qubes.tests.TestEmitter):
@@ -136,12 +156,15 @@ class TestVM(qubes.tests.TestEmitter):
                 'XMLDesc.return_value': domain_xml
             })
         self.devices = {
-            'testclass': qubes.devices.DeviceCollection(self, 'testclass')
+            'testclass': TestDeviceCollection(self, 'testclass')
         }
 
     def __eq__(self, other):
         if isinstance(other, TestVM):
             return self.name == other.name
+
+    def __str__(self):
+        return self.name
 
 
 class TC_00_Block(qubes.tests.QubesTestCase):
@@ -156,7 +179,33 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/desc': b'Test_ (device)',
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'w',
-        })
+            '/qubes-block-devices/sda/parent': b'1-1.1:1.0',
+            }, domain_xml=domain_xml_template.format(""))
+        parent = DeviceInfo(vm, '1-1.1', devclass='usb')
+        vm.devices['usb'] = TestDeviceCollection(backend_vm=vm, devclass='usb')
+        vm.devices['usb']._exposed.append(parent)
+        vm.is_running = lambda: True
+
+        dom0 = TestVM({}, name='dom0',
+                      domain_xml=domain_xml_template.format(""))
+
+        disk = '''
+        <disk type="block" device="disk">
+            <driver name="phy" />
+            <source dev="/dev/sda" />
+            <target dev="xvdi" />
+            <readonly />
+            <backenddomain name="test-vm" />
+        </disk>
+        '''
+        front = TestVM({}, domain_xml=domain_xml_template.format(disk), name='front-vm')
+
+        vm.app.domains[0] = dom0
+        vm.app.domains['test-vm'] = vm
+        vm.app.domains['front-vm'] = front
+        front.app.domains = vm.app.domains
+        dom0.app.domains = vm.app.domains
+
         device_info = self.ext.device_get(vm, 'sda')
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
         self.assertEqual(device_info.backend_domain, vm)
@@ -167,6 +216,16 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info._serial, 'Test')
         self.assertEqual(device_info.size, 1024000)
         self.assertEqual(device_info.mode, 'w')
+        self.assertEqual(device_info.manufacturer,
+                         'sub-device of test-vm:1-1.1')
+        self.assertEqual(device_info.device_node, '/dev/sda')
+        self.assertEqual(device_info.interfaces,
+                         [DeviceInterface("b******")])
+        self.assertEqual(device_info.parent_device,
+                         Device(vm, '1-1.1', devclass='usb'))
+        self.assertEqual(device_info.attachment, front)
+        self.assertEqual(device_info.self_identity,
+                         '1-1.1:0000:0000::?******:1.0')
         self.assertEqual(
             device_info.data.get('test_frontend_domain', None), None)
         self.assertEqual(device_info.device_node, '/dev/sda')
@@ -325,6 +384,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         options = devices[0][1]
         self.assertEqual(dev.backend_domain, vm.app.domains['sys-usb'])
         self.assertEqual(dev.ident, 'sda')
+        self.assertEqual(dev.attachment, None)
         self.assertEqual(options['frontend-dev'], 'xvdi')
         self.assertEqual(options['read-only'], 'yes')
 
@@ -584,14 +644,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         })
-        device_xml = (
-            '<disk type="block" device="disk">\n'
-            '    <driver name="phy" />\n'
-            '    <source dev="/dev/sda" />\n'
-            '    <target dev="xvdi" />\n'
-            '    <readonly />\n\n'
-            '    <backenddomain name="sys-usb" />\n'
-            '</disk>')
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         vm.app.domains['test-vm'] = vm
         vm.app.domains['sys-usb'] = TestVM({}, name='sys-usb')

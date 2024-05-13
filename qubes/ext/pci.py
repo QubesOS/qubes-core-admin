@@ -145,7 +145,7 @@ def attached_devices(app):
 
 
 def _device_desc(hostdev_xml):
-    return '{devclass}: {vendor} {product}'.format(
+    return '{devclass}: {product} ({vendor})'.format(
         devclass=pcidev_class(hostdev_xml),
         vendor=hostdev_xml.findtext('capability/vendor'),
         product=hostdev_xml.findtext('capability/product'),
@@ -235,7 +235,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
     @property
     def parent_device(self) -> Optional[qubes.device_protocol.DeviceInfo]:
         """
-        The parent device if any.
+        The parent device, if any.
 
         PCI device has no parents.
         """
@@ -261,7 +261,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
     @property
     def self_identity(self) -> str:
         """
-        Get identification of device not related to port.
+        Get identification of the device not related to port.
         """
         allowed_chars = string.digits + string.ascii_letters + '-_.'
         if self._vendor_id is None:
@@ -305,19 +305,6 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         self._product_id = result["product ID"] = hostdev_xml.xpath(
             "//product/@id")[0]
         return result
-
-    @staticmethod
-    def _sanitize(
-            untrusted_device_desc: bytes,
-            safe_chars: str =
-            string.ascii_letters + string.digits + string.punctuation + ' '
-    ) -> str:
-        # b'USB\\x202.0\\x20Camera' -> 'USB 2.0 Camera'
-        untrusted_device_desc = untrusted_device_desc.decode(
-            'unicode_escape', errors='ignore')
-        return ''.join(
-            c if c in set(safe_chars) else '_' for c in untrusted_device_desc
-        )
 
     @property
     def frontend_domain(self):

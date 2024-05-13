@@ -167,9 +167,9 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     @property
     def parent_device(self) -> Optional[qubes.device_protocol.Device]:
         """
-        The parent device if any.
+        The parent device, if any.
 
-        If the device is part of another device (e.g. it's a single
+        If the device is part of another device (e.g., it's a single
         partition of an usb stick), the parent device id should be here.
         """
         if self._parent is None:
@@ -602,7 +602,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if not vm.is_running():
             return
 
-        # need to enumerate attached device to find frontend_dev option (at
+        # need to enumerate attached devices to find frontend_dev option (at
         # least)
         for attached_device, options in self.on_device_list_attached(vm, event):
             if attached_device == device:
