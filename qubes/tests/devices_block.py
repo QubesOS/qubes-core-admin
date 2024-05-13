@@ -17,14 +17,15 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
-
+import asyncio
 from unittest import mock
 
 import jinja2
 
 import qubes.tests
 import qubes.ext.block
-from qubes.device_protocol import DeviceInterface, Device, DeviceInfo
+from qubes.device_protocol import DeviceInterface, Device, DeviceInfo, \
+    DeviceAssignment
 
 modules_disk = '''
     <disk type='block' device='disk'>
@@ -121,13 +122,18 @@ class TestApp(object):
             undefined=jinja2.StrictUndefined,
             autoescape=True)
         self.domains = TestApp.Domains()
+        self.vmm = mock.Mock()
 
 
 class TestDeviceCollection(object):
     def __init__(self, backend_vm, devclass):
         self._exposed = []
+        self._assigned = []
         self.backend_vm = backend_vm
         self.devclass = devclass
+
+    def get_assigned_devices(self):
+        return self._assigned
 
     def __getitem__(self, ident):
         for dev in self._exposed:
@@ -650,3 +656,232 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
         self.ext.on_device_pre_detached_block(vm, '', dev)
         self.assertFalse(vm.libvirt_domain.detachDevice.called)
+
+    def test_060_on_qdb_change_added(self):
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        }, domain_xml=domain_xml_template.format(""))
+        exp_dev = Device(back_vm, 'sda', 'block')
+
+        self.ext.on_qdb_change(back_vm, None, None)
+
+        self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': None}})
+        self.assertEqual(
+            back_vm.fired_events[
+                ('device-added:block', frozenset({('device', exp_dev)}))],1)
+
+    def test_061_on_qdb_change_auto_attached(self):
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        }, domain_xml=domain_xml_template.format(""))
+        exp_dev = Device(back_vm, 'sda', 'block')
+        front = TestVM({}, domain_xml=domain_xml_template.format(""),
+                       name='front-vm')
+        dom0 = TestVM({}, name='dom0',
+                      domain_xml=domain_xml_template.format(""))
+        back_vm.app.domains['sys-usb'] = back_vm
+        back_vm.app.domains['front-vm'] = front
+        back_vm.app.domains[0] = dom0
+        front.app = back_vm.app
+        dom0.app = back_vm.app
+
+        back_vm.app.vmm.configure_mock(**{'offline_mode': False})
+        fire_event_async = mock.Mock()
+        front.fire_event_async = fire_event_async
+
+        back_vm.devices['block'] = TestDeviceCollection(
+            backend_vm=back_vm, devclass='block')
+        front.devices['block'] = TestDeviceCollection(
+            backend_vm=front, devclass='block')
+        dom0.devices['block'] = TestDeviceCollection(
+            backend_vm=dom0, devclass='block')
+
+        front.devices['block']._assigned.append(
+            DeviceAssignment.from_device(exp_dev))
+        back_vm.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(back_vm, 'sda'))
+
+        with mock.patch('asyncio.ensure_future'):
+            self.ext.on_qdb_change(back_vm, None, None)
+        self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front}})
+        fire_event_async.assert_called_once_with(
+            'device-attach:block', device=exp_dev,
+            options={'read-only': 'yes', 'frontend-dev': 'xvdi'})
+
+    def test_062_on_qdb_change_attached(self):
+        # added
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        }, domain_xml=domain_xml_template.format(""))
+        exp_dev = Device(back_vm, 'sda', 'block')
+
+        self.ext.devices_cache = {'sys-usb': {'sda': None}}
+
+        # then attached
+        disk = '''
+                <disk type="block" device="disk">
+                    <driver name="phy" />
+                    <source dev="/dev/sda" />
+                    <target dev="xvdi" />
+                    <readonly />
+                    <backenddomain name="sys-usb" />
+                </disk>
+                '''
+        front = TestVM({}, domain_xml=domain_xml_template.format(disk),
+                       name='front-vm')
+        dom0 = TestVM({}, name='dom0',
+                      domain_xml=domain_xml_template.format(""))
+        back_vm.app.domains['sys-usb'] = back_vm
+        back_vm.app.domains['front-vm'] = front
+        back_vm.app.domains[0] = dom0
+        front.app = back_vm.app
+        dom0.app = back_vm.app
+
+        back_vm.app.vmm.configure_mock(**{'offline_mode': False})
+        fire_event_async = mock.Mock()
+        front.fire_event_async = fire_event_async
+
+        back_vm.devices['block'] = TestDeviceCollection(
+            backend_vm=back_vm, devclass='block')
+        front.devices['block'] = TestDeviceCollection(
+            backend_vm=front, devclass='block')
+        dom0.devices['block'] = TestDeviceCollection(
+            backend_vm=dom0, devclass='block')
+
+        with mock.patch('asyncio.ensure_future'):
+            self.ext.on_qdb_change(back_vm, None, None)
+        self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front}})
+        fire_event_async.assert_called_once_with(
+            'device-attach:block', device=exp_dev, options={})
+
+    def test_063_on_qdb_change_changed(self):
+        # attached to front-vm
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        }, domain_xml=domain_xml_template.format(""))
+        exp_dev = Device(back_vm, 'sda', 'block')
+
+        front = TestVM({}, name='front-vm')
+        dom0 = TestVM({}, name='dom0',
+                      domain_xml=domain_xml_template.format(""))
+
+        self.ext.devices_cache = {'sys-usb': {'sda': front}}
+
+        disk = '''
+            <disk type="block" device="disk">
+                <driver name="phy" />
+                <source dev="/dev/sda" />
+                <target dev="xvdi" />
+                <readonly />
+                <backenddomain name="sys-usb" />
+            </disk>
+            '''
+        front_2 = TestVM({}, domain_xml=domain_xml_template.format(disk),
+                         name='front-2')
+
+        back_vm.app.vmm.configure_mock(**{'offline_mode': False})
+        front.libvirt_domain.configure_mock(**{
+            'XMLDesc.return_value': domain_xml_template.format("")
+        })
+
+        back_vm.app.domains['sys-usb'] = back_vm
+        back_vm.app.domains['front-vm'] = front
+        back_vm.app.domains['front-2'] = front_2
+        back_vm.app.domains[0] = dom0
+
+        front.app = back_vm.app
+        front_2.app = back_vm.app
+        dom0.app = back_vm.app
+
+        fire_event_async = mock.Mock()
+        front.fire_event_async = fire_event_async
+        fire_event_async_2 = mock.Mock()
+        front_2.fire_event_async = fire_event_async_2
+
+        back_vm.devices['block'] = TestDeviceCollection(
+            backend_vm=back_vm, devclass='block')
+        front.devices['block'] = TestDeviceCollection(
+            backend_vm=front, devclass='block')
+        dom0.devices['block'] = TestDeviceCollection(
+            backend_vm=dom0, devclass='block')
+        front_2.devices['block'] = TestDeviceCollection(
+            backend_vm=front_2, devclass='block')
+
+        with mock.patch('asyncio.ensure_future'):
+            self.ext.on_qdb_change(back_vm, None, None)
+
+        self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front_2}})
+        fire_event_async.assert_called_with(
+            'device-detach:block', device=exp_dev)
+        fire_event_async_2.assert_called_once_with(
+            'device-attach:block', device=exp_dev, options={})
+
+    def test_064_on_qdb_change_removed_attached(self):
+        # attached to front-vm
+        back_vm = TestVM(name='sys-usb', qdb={
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
+        }, domain_xml=domain_xml_template.format(""))
+        dom0 = TestVM({}, name='dom0',
+                      domain_xml=domain_xml_template.format(""))
+        exp_dev = Device(back_vm, 'sda', 'block')
+
+        disk = '''
+            <disk type="block" device="disk">
+                <driver name="phy" />
+                <source dev="/dev/sda" />
+                <target dev="xvdi" />
+                <readonly />
+                <backenddomain name="sys-usb" />
+            </disk>
+            '''
+        front = TestVM({}, domain_xml=domain_xml_template.format(disk),
+                         name='front')
+        self.ext.devices_cache = {'sys-usb': {'sda': front}}
+
+        back_vm.app.vmm.configure_mock(**{'offline_mode': False})
+        front.libvirt_domain.configure_mock(**{
+            'XMLDesc.return_value': domain_xml_template.format("")
+        })
+
+        back_vm.app.domains['sys-usb'] = back_vm
+        back_vm.app.domains['front-vm'] = front
+        back_vm.app.domains[0] = dom0
+
+        front.app = back_vm.app
+        dom0.app = back_vm.app
+
+        fire_event_async = mock.Mock()
+        front.fire_event_async = fire_event_async
+
+        back_vm.devices['block'] = TestDeviceCollection(
+            backend_vm=back_vm, devclass='block')
+        front.devices['block'] = TestDeviceCollection(
+            backend_vm=front, devclass='block')
+        dom0.devices['block'] = TestDeviceCollection(
+            backend_vm=dom0, devclass='block')
+
+        back_vm.untrusted_qdb = TestQubesDB({})
+        with mock.patch('asyncio.ensure_future'):
+            self.ext.on_qdb_change(back_vm, None, None)
+        self.assertEqual(self.ext.devices_cache, {'sys-usb': {}})
+        fire_event_async.assert_called_with(
+            'device-detach:block', device=exp_dev)
+        self.assertEqual(
+            back_vm.fired_events[
+                ('device-removed:block', frozenset({('device', exp_dev)}))],
+            1)

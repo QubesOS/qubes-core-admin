@@ -527,7 +527,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                   file=sys.stderr)
             return
 
-        if device.attachment != expected_attachment:
+        if device.attachment and device.attachment != expected_attachment:
             raise qubes.devices.DeviceAlreadyAttached(
                 'Device {!s} already attached to {!s}'.format(
                     device, device.attachment)
@@ -557,6 +557,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
         # we expected that these devices are already attached to this vm
         self.pre_attachment_internal(
             vm, device, options, expected_attachment=vm)
+        asyncio.ensure_future(vm.fire_event_async(
+            'device-attach:block', device=device, options=options))
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):

@@ -48,6 +48,7 @@ def device_list_change(
         vm.fire_event(f'device-added:{devclass}', device=device)
     for dev_ident, front_vm in attached.items():
         dev = device_class(vm, dev_ident)
+        # options are unknown, device already attached
         asyncio.ensure_future(front_vm.fire_event_async(
             f'device-attach:{devclass}', device=dev, options={}))
 
@@ -61,8 +62,8 @@ def device_list_change(
                     and assignment.ident in added
                     and assignment.ident not in attached
             ):
-                asyncio.ensure_future(ext.attach_and_notify(
-                    front_vm, assignment.device, assignment.options))
+                ext.notify_auto_attached(
+                    front_vm, assignment.device, assignment.options)
 
 
 def compare_device_cache(vm, devices_cache, current_devices):
