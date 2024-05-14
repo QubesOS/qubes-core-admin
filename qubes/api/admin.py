@@ -1297,8 +1297,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method(
         'admin.vm.device.{endpoint}.Unassign',
         endpoints=(
-            ep.name 
-            for ep in importlib.metadata.entry_points(group='qubes.devices')), no_payload=True, scope='local', write=True)
+            ep.name
+            for ep in importlib.metadata.entry_points(group='qubes.devices')),
+            no_payload=True, scope='local', write=True)
     async def vm_device_unassign(self, endpoint):
         devclass = endpoint
 
@@ -1321,7 +1322,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method(
         'admin.vm.device.{endpoint}.Attach',
         endpoints=(
-            ep.name 
+            ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', execute=True)
     async def vm_device_attach(self, endpoint, untrusted_payload):
