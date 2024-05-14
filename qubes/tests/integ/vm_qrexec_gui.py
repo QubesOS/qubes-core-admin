@@ -148,7 +148,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                     pid = int(f.readline())
                 os.kill(pid, 0)
                 running = True
-            except (FileNotFoundError, ProcessLookupError):
+            except (FileNotFoundError, ProcessLookupError, ValueError):
                 running = False
         else:
             try:
@@ -159,7 +159,10 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         return running
 
     def assert_pacat_running(self, audiovm, testvm, expected=True):
-        xid = testvm.xid
+        if testvm.features.get('audio-model', None):
+            xid = testvm.stubdom_xid
+        else:
+            xid = testvm.xid
         running = None
         for attempt in range(10):
             running = self.check_pacat_running(audiovm, xid)
@@ -212,9 +215,9 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             input=audio_in.astype(np.float32).tobytes()))
         local_user = grp.getgrnam('qubes').gr_mem[0]
         if self.testvm1.features['service.pipewire']:
-            cmd = 'pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd'
+            cmd = 'timeout 20s pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd'
         else:
-            cmd = ('paplay --format=float32le --rate=44100 --channels=1 '
+            cmd = ('timeout 20s paplay --format=float32le --rate=44100 --channels=1 '
                    '--raw audio_in.snd')
         with tempfile.NamedTemporaryFile() as recorded_audio:
             os.chmod(recorded_audio.name, 0o666)
@@ -426,6 +429,26 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         except subprocess.CalledProcessError:
             self.skipTest('PipeWire modules cannot be unloaded')
         self.common_audio_record_unmuted()
+
+    @unittest.skipUnless(spawn.find_executable('parecord'),
+                         "pulseaudio-utils not installed in dom0")
+    def test_252_audio_playback_audiovm_switch_hvm(self):
+        self.create_audio_vm('pulseaudio')
+        self.testvm1.audiovm = self.audiovm
+        self.testvm1.virt_mode = 'hvm'
+        self.testvm1.features['audio-model'] = 'ich6'
+        self.testvm1.features['stubdom-qrexec'] = '1'
+        self.prepare_audio_test('pulseaudio')
+        self.assert_pacat_running(self.audiovm, self.testvm1, True)
+        self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
+        self.common_audio_playback()
+        self.testvm1.audiovm = 'dom0'
+        self.assert_pacat_running(self.audiovm, self.testvm1, False)
+        self.assert_pacat_running(self.app.domains[0], self.testvm1, True)
+        self.common_audio_playback()
+        self.testvm1.audiovm = None
+        self.assert_pacat_running(self.audiovm, self.testvm1, False)
+
 
 class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
     @unittest.skipUnless(spawn.find_executable('parecord'),
