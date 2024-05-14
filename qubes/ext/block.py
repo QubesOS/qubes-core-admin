@@ -553,12 +553,15 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm, assignment.device, assignment.options)
 
     def notify_auto_attached(self, vm, device, options):
-        # bypass DeviceCollection logic preventing double attach
-        # we expected that these devices are already attached to this vm
         self.pre_attachment_internal(
             vm, device, options, expected_attachment=vm)
         asyncio.ensure_future(vm.fire_event_async(
             'device-attach:block', device=device, options=options))
+
+    async def attach_and_notify(self, vm, device, options):
+        # bypass DeviceCollection logic preventing double attach
+        # we expected that these devices are already attached to this vm
+        self.notify_auto_attached(vm, device, options)
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):

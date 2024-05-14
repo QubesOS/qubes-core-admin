@@ -707,6 +707,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back_vm.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back_vm, 'sda'))
 
+        # In the case of block devices it is the same,
+        # but notify_auto_attached is synchronous
+        self.ext.attach_and_notify = self.ext.notify_auto_attached
         with mock.patch('asyncio.ensure_future'):
             self.ext.on_qdb_change(back_vm, None, None)
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front}})
