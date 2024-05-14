@@ -261,7 +261,7 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
         if has_oldvalue:
             instance.fire_event('property-pre-set:' + self.__name__,
                 pre_event=True,
-                name=self.__name__, newvalue=value, oldvalue=oldvalue)
+                name=self.__name__, newvalue=value, oldvalue=oldvalue)  # pylint: disable=possibly-used-before-assignment
         else:
             instance.fire_event('property-pre-set:' + self.__name__,
                 pre_event=True,

@@ -118,6 +118,8 @@ class Element:
                 number = '\\+'
             else:
                 print(parent.tag)
+                raise Exception(
+                        f"Cannot choose number format for tag {parent.tag}")
 
             if xml.tag == 'ref':
                 xml = self.resolve_ref(xml)
