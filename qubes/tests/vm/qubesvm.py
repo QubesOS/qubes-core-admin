@@ -868,7 +868,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -926,7 +926,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -993,7 +993,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1285,7 +1285,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 </source>
             </hostdev>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1368,7 +1368,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 </source>
             </hostdev>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1448,7 +1448,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1537,7 +1537,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1633,7 +1633,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <script path="vif-route-qubes" />
             </interface>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" cmdline="-qubes-net:client_ip=10.137.0.1,dns_0=10.139.1.1,dns_1=10.139.1.2,gw=10.137.0.2,netmask=255.255.255.255" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=0 -qubes-net:client_ip=10.137.0.1,dns_0=10.139.1.1,dns_1=10.139.1.2,gw=10.137.0.2,netmask=255.255.255.255" />
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1647,10 +1647,16 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         '''
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         netvm = self.get_vm(qid=2, name='netvm', provides_network=True)
+
+        dom0 = self.get_vm(name='dom0', qid=0)
+        dom0._qubesprop_xid = 0
+
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = netvm
         vm.virt_mode = 'hvm'
         vm.features['qrexec'] = True
+        vm.audiovm = dom0
+
         with self.subTest('ipv4_only'):
             libvirt_xml = vm.create_config_file()
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1662,6 +1668,76 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 lxml.etree.XML(expected.format(
                     extra_ip='<ip address="{}::a89:1" family=\'ipv6\'/>'.format(
                         qubes.config.qubes_ipv6_prefix.replace(':0000', '')))))
+
+    def test_611_libvirt_xml_audiovm(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">500</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset="variable" adjustment="0" basis="utc" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <interface type="ethernet">
+                <mac address="00:16:3e:5e:6c:00" />
+                <ip address="10.137.0.1" />
+                <backenddomain name="test-inst-netvm" />
+                <script path="vif-route-qubes" />
+            </interface>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid={audiovm_xid} -qubes-net:client_ip=10.137.0.1,dns_0=10.139.1.1,dns_1=10.139.1.2,gw=10.137.0.2,netmask=255.255.255.255" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        netvm = self.get_vm(qid=2, name='netvm', provides_network=True)
+        audiovm = self.get_vm(qid=3, name='sys-audio', provides_network=False)
+        audiovm._qubesprop_xid = audiovm.qid
+
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = netvm
+        vm.audiovm = audiovm
+        vm.virt_mode = 'hvm'
+        vm.features['qrexec'] = True
+
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected.format(audiovm_xid=audiovm.xid)))
 
     def test_615_libvirt_xml_block_devices(self):
         expected = '''<domain type="xen">
@@ -1749,7 +1825,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" />
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
