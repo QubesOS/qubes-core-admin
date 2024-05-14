@@ -1,3 +1,8 @@
+{% if vm.audiovm is defined and vm.audiovm %}
+ {% set audiovm_xid = vm.audiovm.xid %}
+{% else %}
+ {% set audiovm_xid = -1 %}
+{% endif %}
 <domain type="xen">
     {% block basic %}
         <name>{{ vm.name }}</name>
@@ -179,18 +184,20 @@
                     {% endif %}
                     {% if vm.netvm %}
                       {% if vm.features.check_with_template('linux-stubdom', True) %}
-                        cmdline="-qubes-net:client_ip={{ vm.ip -}}
+                        cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }} -qubes-net:client_ip={{ vm.ip -}}
                             ,dns_0={{ vm.dns[0] -}}
                             ,dns_1={{ vm.dns[1] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                       {% else %}
-                        cmdline="-net lwip,client_ip={{ vm.ip -}}
+                        cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }} -net lwip,client_ip={{ vm.ip -}}
                             ,server_ip={{ vm.dns[1] -}}
                             ,dns={{ vm.dns[0] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                       {% endif %}
+                    {% else %}
+                      cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }}"
                     {% endif %}
                     {% if vm.stubdom_mem %}
                         memory="{{ vm.stubdom_mem * 1024 -}}"
