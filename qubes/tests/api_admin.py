@@ -1046,7 +1046,7 @@ netvm default=True type=vm \n'''
     def test_210_label_remove(self):
         label = qubes.Label(9, '0x00ffff', 'cyan')
         self.app.labels[9] = label
-        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+        self.app.get_label = unittest.mock.Mock(
             **{'return_value.index': 9})
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         value = self.call_mgmt_func(b'admin.label.Remove', b'dom0', b'cyan')
@@ -1065,7 +1065,7 @@ netvm default=True type=vm \n'''
 
     def test_210_label_remove_default_label(self):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
-        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+        self.app.get_label = unittest.mock.Mock(
             **{'return_value.index': 6})
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
@@ -1075,7 +1075,7 @@ netvm default=True type=vm \n'''
 
     def test_210_label_remove_in_use(self):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
-        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+        self.app.get_label = unittest.mock.Mock(
             **{'return_value.index': 1})
         with self.assertRaises(qubes.api.PermissionDenied):
             self.call_mgmt_func(b'admin.label.Remove', b'dom0',
