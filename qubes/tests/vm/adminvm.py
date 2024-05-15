@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
+import grp
 import subprocess
 import unittest
 import unittest.mock
@@ -111,9 +112,19 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def test_700_run_service(self, mock_subprocess):
         self.add_vm('vm')
 
+        # if there is a user in 'qubes' group, it should be used by default
+        try:
+            gr = grp.getgrnam("qubes")
+            default_user = gr.gr_mem[0]
+            command_prefix = ["runuser", "-u", default_user, "--"]
+        except (KeyError, IndexError):
+            command_prefix = []
+
+
         with self.subTest('running'):
             self.loop.run_until_complete(self.vm.run_service('test.service'))
             mock_subprocess.assert_called_once_with(
+                *command_prefix,
                 '/usr/lib/qubes/qubes-rpc-multiplexer',
                 'test.service', 'dom0', 'name', 'dom0')
 
@@ -131,6 +142,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             self.loop.run_until_complete(
                 self.vm.run_service('test.service', source='test-inst-vm'))
             mock_subprocess.assert_called_once_with(
+                *command_prefix,
                 '/usr/lib/qubes/qubes-rpc-multiplexer',
                 'test.service', 'test-inst-vm', 'name', 'dom0')
 
