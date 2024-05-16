@@ -397,11 +397,15 @@ class DeviceInterface:
         result = {}
         with open(f'/usr/share/hwdata/{bus}.ids',
                   encoding='utf-8', errors='ignore') as pciids:
+            # for `class_name` and `subclass_name`
+            # pylint: disable=used-before-assignment
+            # pylint: disable=possibly-used-before-assignment
             class_id = None
             subclass_id = None
             for line in pciids.readlines():
                 line = line.rstrip()
-                if line.startswith('\t\t') and class_id and subclass_id:
+                if line.startswith('\t\t') \
+                    and class_id is not None and subclass_id is not None:
                     (progif_id, _, progif_name) = line[2:].split(' ', 2)
                     result[class_id + subclass_id + progif_id] = \
                         f"{class_name}: {subclass_name} ({progif_name})"
