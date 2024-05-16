@@ -186,8 +186,12 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             devclass = 'usb' if sep == ':' else 'block'
             if not parent_ident:
                 return None
-            self._parent = qubes.device_protocol.Device(
-                self.backend_domain, parent_ident, devclass=devclass)
+            try:
+                self._parent = (
+                    self.backend_domain.devices)[devclass][parent_ident]
+            except KeyError:
+                self._parent = qubes.device_protocol.UnknownDevice(
+                    self.backend_domain, parent_ident, devclass=devclass)
             self._interface_num = interface_num
         return self._parent
 
