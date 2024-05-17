@@ -253,6 +253,9 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
         vm = self.app.add_new_vm('AppVM', label='red',
             name=vmname)
         self.loop.run_until_complete(vm.create_on_disk())
+        vm.features['vm-config.test'] = 'value'
+        # this should not be included in pillar
+        vm.features['internal'] = '1'
 
         cmd_output = self.dom0_salt_call_json(
             ['pillar.items', '--id=' + vmname])
@@ -263,6 +266,8 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
             'type': 'app',
             'netvm': str(vm.netvm),
             'template': str(vm.template),
+            'features': {'vm-config.test': 'value'},
+            'tags': ['audiovm-dom0', 'guivm-dom0'],
         })
 
 class SaltVMTestMixin(SaltTestMixin):
