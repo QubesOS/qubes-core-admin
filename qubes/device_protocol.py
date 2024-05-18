@@ -370,12 +370,17 @@ class DeviceInterface:
         if self.devclass == "block":
             return "Block device"
         if self.devclass in ("usb", "pci"):
+            # try subclass first as in `lspci`
             result = self._load_classes(self.devclass).get(
-                self._interface_encoding[1:], None)
-            if result is None:
+                self._interface_encoding[1:-2] + '**', None)
+            if (result is None or result.lower()
+                    in ('none', 'no subclass', 'unused', 'undefined')):
+                # if not, try interface
                 result = self._load_classes(self.devclass).get(
-                    self._interface_encoding[1:-2] + '**', None)
-            if result is None:
+                    self._interface_encoding[1:], None)
+            if (result is None or result.lower()
+                    in ('none', 'no subclass', 'unused', 'undefined')):
+                # if not, try class
                 result = self._load_classes(self.devclass).get(
                     self._interface_encoding[1:-4] + '****', None)
             if result is None:
@@ -399,21 +404,20 @@ class DeviceInterface:
                   encoding='utf-8', errors='ignore') as pciids:
             # for `class_name` and `subclass_name`
             # pylint: disable=used-before-assignment
-            # pylint: disable=possibly-used-before-assignment
             class_id = None
             subclass_id = None
             for line in pciids.readlines():
                 line = line.rstrip()
                 if line.startswith('\t\t') \
-                    and class_id is not None and subclass_id is not None:
+                        and class_id is not None and subclass_id is not None:
                     (progif_id, _, progif_name) = line[2:].split(' ', 2)
                     result[class_id + subclass_id + progif_id] = \
-                        f"{class_name}: {subclass_name} ({progif_name})"
+                        progif_name
                 elif line.startswith('\t') and class_id:
                     (subclass_id, _, subclass_name) = line[1:].split(' ', 2)
                     # store both prog-if specific entry and generic one
                     result[class_id + subclass_id + '**'] = \
-                        f"{class_name}: {subclass_name}"
+                        subclass_name
                 elif line.startswith('C '):
                     (_, class_id, _, class_name) = line.split(' ', 3)
                     result[class_id + '****'] = class_name
@@ -548,7 +552,8 @@ class DeviceInfo(Device):
         else:
             vendor = "unknown vendor"
 
-        return f"{prod} ({vendor})"
+        main_interface = str(self.interfaces[0])
+        return f"{main_interface}: {vendor} {prod}"
 
     @property
     def interfaces(self) -> List[DeviceInterface]:

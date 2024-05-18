@@ -145,7 +145,7 @@ def attached_devices(app):
 
 
 def _device_desc(hostdev_xml):
-    return '{devclass}: {product} ({vendor})'.format(
+    return '{devclass}: {vendor} {product}'.format(
         devclass=pcidev_class(hostdev_xml),
         vendor=hostdev_xml.findtext('capability/vendor'),
         product=hostdev_xml.findtext('capability/product'),

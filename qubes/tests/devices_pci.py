@@ -151,6 +151,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(devices[0].parent_device, None)
         self.assertEqual(devices[0].libvirt_name, "pci_0000_00_14_0")
         self.assertEqual(devices[0].description,
-                         "USB controller: 9 Series Chipset Family "
-                         "USB xHCI Controller (Intel Corporation)")
+                         "USB controller: Intel Corporation 9 Series "
+                         "Chipset Family USB xHCI Controller")
         self.assertEqual(devices[0].self_identity, "0x8086:0x8cb1::p0c0330")
