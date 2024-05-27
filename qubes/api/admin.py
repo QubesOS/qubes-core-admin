@@ -1150,6 +1150,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         dispvm = await qubes.vm.dispvm.DispVM.from_appvm(dispvm_template)
         # TODO: move this to extension (in race-free fashion, better than here)
+        dispvm.tags.add('created-by-' + str(self.src))
         dispvm.tags.add('disp-created-by-' + str(self.src))
 
         return dispvm.name
