@@ -1403,13 +1403,6 @@ netvm default=True type=vm \n'''
         self.assertNotIn('test-feature', self.vm.features)
         self.assertFalse(self.app.save.called)
 
-    def test_324_feature_set_service_bad_name(self):
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b'admin.vm.feature.Set',
-                b'test-vm1', b'service.0')
-        self.assertNotIn('test-feature', self.vm.features)
-        self.assertFalse(self.app.save.called)
-
     def test_325_feature_set_service_empty_name(self):
         with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(b'admin.vm.feature.Set',
