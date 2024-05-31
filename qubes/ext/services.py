@@ -62,6 +62,12 @@ class ServicesExtension(qubes.ext.Extension):
             if not feature.startswith('service.'):
                 continue
             service = feature[len('service.'):]
+            if not service:
+                vm.log.warning("Empty service name, ignoring: " + service)
+                continue
+            if len(service) > 48:
+                vm.log.warning("Too long service name, ignoring: " + service)
+                continue
             # forcefully convert to '0' or '1'
             vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                                    str(int(bool(value))))
@@ -69,6 +75,21 @@ class ServicesExtension(qubes.ext.Extension):
         # always set meminfo-writer according to maxmem
         vm.untrusted_qdb.write('/qubes-service/meminfo-writer',
                                '1' if vm.maxmem > 0 else '0')
+
+    @qubes.ext.handler('domain-feature-pre-set:*')
+    def on_domain_feature_pre_set(self, vm, event, feature,
+            value, oldvalue=None):
+        """Check if service name is compatible with QubesDB"""
+        # pylint: disable=unused-argument
+        if not feature.startswith('service.'):
+            return
+        service = feature[len('service.'):]
+        if not service:
+            raise qubes.exc.QubesValueError(
+                    'Service name cannot be empty')
+        if len(service) > 48:
+            raise qubes.exc.QubesValueError(
+                    'Service name must not exceed 48 bytes')
 
     @qubes.ext.handler('domain-feature-set:*')
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
