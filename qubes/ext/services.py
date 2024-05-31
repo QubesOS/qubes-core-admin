@@ -88,28 +88,13 @@ class ServicesExtension(qubes.ext.Extension):
             # balancing state anymore
             del vm.features['service.meminfo-writer']
 
+        if not vm.is_running():
+            return
         if not feature.startswith('service.'):
             return
         service = feature[len('service.'):]
-        # qubesdb keys are limited to 63 bytes, and "/qubes-service/" is
-        # 15 bytes.  That leaves 48 for the service name.
-        if len(service) > 48:
-            raise qubes.exc.QubesValueError(
-                    'Service name must not exceed 48 bytes')
-        # The empty string is not a valid file name.
-        if not service:
-            raise qubes.exc.QubesValueError('Empty service name not allowed')
-        # Require service names to start with an ASCII letter.  This implicitly
-        # rejects names which start with '-' (which could be interpreted as an
-        # option) or are '.' or '..'.
-        if not (('a' <= service[0] <= 'z') or ('A' <= service[0] <= 'Z')):
-            raise qubes.exc.QubesValueError(
-                    'Service name must start with an ASCII letter')
-
-        if not vm.is_running():
-            return
         # forcefully convert to '0' or '1'
-        vm.untrusted_qdb.write('/qubes-service/' + service,
+        vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                                str(int(bool(value))))
 
         if vm.name == "dom0":
