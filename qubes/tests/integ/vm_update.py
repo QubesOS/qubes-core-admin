@@ -512,8 +512,8 @@ SHA256:
         self.start_vm_with_proxy_repo()
 
         with self.qrexec_policy(
-                'qubes.UpdatesProxy', self.testvm1, '$default',
-                action='allow,target=' + self.netvm_repo.name):
+                'qubes.UpdatesProxy', self.testvm1, '@default',
+                action='allow target=' + self.netvm_repo.name):
             self.install_test_package()
 
             # verify if it was really installed
