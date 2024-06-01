@@ -303,22 +303,24 @@ class _QrexecPolicyContext(object):
         except AttributeError:
             pass
 
-        self._filename = pathlib.Path('/etc/qubes-rpc/policy') / service
+        if "+" in service:
+            service, arg = service.split("+", 1)
+            arg = "+" + arg
+        else:
+            arg = "*"
+
+        self._filename = pathlib.Path("/etc/qubes/policy.d") / f"10-test-{id(self)}.policy"
         if action is None:
             action = 'allow' if allow else 'deny'
-        self._rule = '{} {} {}\n'.format(source, destination, action)
+        self._rule = f"{service} {arg} {source} {destination} {action}\n"
         self._did_create = False
         self._handle = None
 
-    def load(self):
-        if self._handle is None:
-            try:
-                self._handle = self._filename.open('r+')
-            except FileNotFoundError:
-                self._handle = self._filename.open('w+')
-                self._did_create = True
-        self._handle.seek(0)
-        return self._handle.readlines()
+    def open(self):
+        assert self._handle is None
+        if self._filename.exists():
+            raise FileExistsError(f"Policy file {self._filename!s} already exists, clean it up")
+        self._handle = self._filename.open('w+')
 
     def save(self, rules):
         assert self._handle is not None
@@ -333,22 +335,14 @@ class _QrexecPolicyContext(object):
         self._handle = None
 
     def __enter__(self):
-        rules = self.load()
-        rules.insert(0, self._rule)
+        self.open()
+        rules = [self._rule]
         self.save(rules)
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        if not self._did_create:
-            try:
-                rules = self.load()
-                rules.remove(self._rule)
-                self.save(rules)
-            finally:
-                self.close()
-        else:
-            self.close()
-            self._filename.unlink()
+        self.close()
+        self._filename.unlink()
 
 
 class substitute_entry_points(object):
