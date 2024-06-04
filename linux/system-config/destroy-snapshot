@@ -43,7 +43,7 @@ case $node in
       if is_unused "$snap"; then
         # unused snapshot - remove it
         deps+=" $(deps "$snap")"
-        dmsetup -- remove "$snap"
+        dmsetup remove --retry -- "$snap"
       else
         has_snapshot=true
       fi
@@ -55,7 +55,7 @@ case $node in
 esac
 
 if [[ "$has_snapshot" = 'false' ]] && [[ -e "$node" ]]; then
-  dmsetup -- remove "$node"
+  dmsetup remove --retry -- "$node"
 fi
 
 # try to free unused devices
@@ -66,7 +66,7 @@ for dev in $deps; do
         losetup -d "$dev" 2> /dev/null || true
         ;;
       /dev/dm-*)
-        dmsetup remove "$dev" 2> /dev/null || true
+        dmsetup remove --retry -- "$dev" 2> /dev/null || true
         ;;
     esac
   fi
