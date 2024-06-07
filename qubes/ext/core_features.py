@@ -41,6 +41,11 @@ class CoreFeatures(qubes.ext.Extension):
             # entry point already validates values for safe characters
             vm.features["os-distribution"] = \
                 untrusted_features["os-distribution"]
+        if "os-distribution-like" in untrusted_features \
+                and untrusted_features["os-distribution-like"]:
+            # entry point already validates values for safe characters
+            vm.features["os-distribution-like"] = \
+                untrusted_features["os-distribution-like"]
         if "os-version" in untrusted_features \
                 and untrusted_features["os-version"]:
             # no letters in versions please

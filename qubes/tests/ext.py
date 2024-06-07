@@ -267,11 +267,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                 untrusted_features={
                     'os': 'Linux',
                     'os-distribution': 'ubuntu',
+                    'os-distribution-like': 'debian',
                     'os-version': '22.04',
                     'os-eol': '2027-06-01',
                 }))
         self.assertListEqual(self.vm.mock_calls, [
             ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('features.__setitem__', ('os-distribution-like', 'debian'), {}),
             ('features.__setitem__', ('os-version', '22.04'), {}),
             ('features.__setitem__', ('os-eol', '2027-06-01'), {}),
             ('features.get', ('qrexec', False), {}),
@@ -285,11 +287,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                 untrusted_features={
                     'os': 'Linux',
                     'os-distribution': 'ubuntu',
+                    'os-distribution-like': 'debian',
                     'os-version': '123aaa',
                     'os-eol': '20270601',
                 }))
         self.assertListEqual(self.vm.mock_calls, [
             ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('features.__setitem__', ('os-distribution-like', 'debian'), {}),
             ('log.warning', unittest.mock.ANY, {}),
             ('log.warning', unittest.mock.ANY, {}),
             ('features.get', ('qrexec', False), {}),
@@ -303,11 +307,13 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                 untrusted_features={
                     'os': 'Linux',
                     'os-distribution': 'ubuntu',
+                    'os-distribution-like': 'debian',
                     'os-version': 'a123',
                     'os-eol': '2027-06-40',
                 }))
         self.assertListEqual(self.vm.mock_calls, [
             ('features.__setitem__', ('os-distribution', 'ubuntu'), {}),
+            ('features.__setitem__', ('os-distribution-like', 'debian'), {}),
             ('log.warning', unittest.mock.ANY, {}),
             ('log.warning', unittest.mock.ANY, {}),
             ('features.get', ('qrexec', False), {}),
@@ -321,6 +327,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                 untrusted_features={
                     'os': '',
                     'os-distribution': '',
+                    'os-distribution-like': '',
                     'os-version': '',
                     'os-eol': '',
                 }))
