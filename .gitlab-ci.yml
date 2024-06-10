@@ -35,8 +35,7 @@ checks:tests:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   stage: checks
   tags:
-  - short-living-job
-  - vm-runner
+  - vm
 include:
 - file: /r4.2/gitlab-base.yml
   project: QubesOS/qubes-continuous-integration
