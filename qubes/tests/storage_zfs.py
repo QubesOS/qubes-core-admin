@@ -105,7 +105,8 @@ def setup_test_zfs_pool(pool_name: str) -> Tuple[str, str]:
         return free
 
     if os.path.ismount("/rw") and freebytes("/rw", f"/rw/{name}.img") > want:
-        data_file = f"/rw/{name}.img"
+        os.makedirs(os.path.expanduser("~/.cache"), exist_ok=True)
+        data_file = os.path.expanduser(f"~/.cache/{name}.img")
     elif freebytes("/var/tmp", f"/var/tmp/{name}.img") > want:
         data_file = f"/var/tmp/{name}.img"
     else:
