@@ -18,7 +18,9 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import contextlib
+import grp
 import os
+import pwd
 import subprocess
 import tempfile
 import time
@@ -393,11 +395,25 @@ class TC_20_DispVMMixin(object):
                 "app = tree.root.application('org.gnome.Nautilus')\n"
                 "app.child(os.path.basename(sys.argv[1])).doubleClick()\n"
             ).encode()
-        if application in ('mozilla-thunderbird', 'thunderbird'):
+        if application in ('mozilla-thunderbird', 'thunderbird', 'org.mozilla.thunderbird'):
             with open('/usr/share/qubes/tests-data/'
                       'dispvm-open-thunderbird-attachment', 'rb') as f:
                 return f.read()
         assert False
+
+    def _get_apps_list(self, template):
+        try:
+            # get first user in the qubes group
+            qubes_grp = grp.getgrnam("qubes")
+            qubes_user = pwd.getpwnam(qubes_grp.gr_mem[0])
+        except KeyError:
+            self.skipTest('Cannot find a user in the qubes group')
+
+        desktop_list = os.listdir(os.path.join(
+            qubes_user.pw_dir,
+            f'.local/share/qubes-appmenus/{template}/apps.templates'))
+        return [l[:-len('.desktop')] for l in desktop_list
+                if l.endswith('.desktop')]
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -412,6 +428,9 @@ class TC_20_DispVMMixin(object):
         app_id = 'mozilla-thunderbird'
         if 'debian' in self.template or 'whonix' in self.template:
             app_id = 'thunderbird'
+        # F40+ has org.mozilla.thunderbird
+        if 'org.mozilla.thunderbird' in self._get_apps_list(self.template):
+            app_id = 'org.mozilla.thunderbird'
 
         self.testvm1.features['service.app-dispvm.' + app_id] = '1'
         self.loop.run_until_complete(self.testvm1.start())
