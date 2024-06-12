@@ -623,8 +623,12 @@ class TC_06_AppVMMixin(object):
             self.assertIsNotNone(tpl.features.get('os-eol'))
         elif self.template.startswith('whonix-'):
             self.assertEqual(tpl.features.get('os-distribution'), 'whonix')
+            self.assertEqual(tpl.features.get('os-distribution-like'), 'debian')
             version = self.template.split('-')[2]
             self.assertEqual(tpl.features.get('os-version'), version)
+        elif self.template.startswith('kali-core'):
+            self.assertEqual(tpl.features.get('os-distribution'), 'kali')
+            self.assertEqual(tpl.features.get('os-distribution-like'), 'debian')
 
     @unittest.skipUnless(
         spawn.find_executable('xdotool'), "xdotool not installed")
