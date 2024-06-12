@@ -87,6 +87,15 @@ class ServicesExtension(qubes.ext.Extension):
         if not service:
             raise qubes.exc.QubesValueError(
                     'Service name cannot be empty')
+
+        if '/' in service:
+            raise qubes.exc.QubesValueError(
+                    'Service name cannot contain a slash')
+
+        if service in ('.', '..'):
+            raise qubes.exc.QubesValueError(
+                    'Service name cannot be "." or ".."')
+
         if len(service) > 48:
             raise qubes.exc.QubesValueError(
                     'Service name must not exceed 48 bytes')
