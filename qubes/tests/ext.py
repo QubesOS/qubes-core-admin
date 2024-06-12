@@ -487,6 +487,13 @@ class TC_20_Services(qubes.tests.QubesTestCase):
             ('rm', ('/qubes-service/test3',), {}),
         ])
 
+    def test_003_feature_set_invalid(self):
+        for val in ('', '.', 'a/b', 'aa' * 30):
+            with self.assertRaises(qubes.exc.QubesValueError):
+                self.ext.on_domain_feature_pre_set(self.vm,
+                    'feature-set:service.' + val,
+                    'service.' + val, '1')
+
     def test_010_supported_services(self):
         self.ext.supported_services(self.vm, 'features-request',
             untrusted_features={
