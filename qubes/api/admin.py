@@ -1292,6 +1292,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # may raise KeyError, either on domain or ident
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
+        if devclass == 'block' and persistent:
+            raise qubes.exc.QubesException('Block devices cannot be persistently attached')
+
         self.fire_event_for_permission(device=dev,
             devclass=devclass, persistent=persistent,
             options=options)
