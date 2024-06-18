@@ -784,6 +784,78 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'test -f /tmp/testfile'))
 
+    def test_140_qrexec_filecopy_unsafe_name(self):
+        self.loop.run_until_complete(asyncio.gather(
+            self.testvm1.start(),
+            self.testvm2.start()))
+
+        # emoji are "unsafe"
+        name = "test-\U0001f605"
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            f"cp /etc/passwd /tmp/{name}"))
+        with self.qrexec_policy('qubes.Filecopy+', self.testvm1, self.testvm2), \
+                self.qrexec_policy('qubes.Filecopy+allow-unsafe-characters', self.testvm1, self.testvm2, allow=False):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        f"qvm-copy-to-vm {self.testvm2!s} /tmp/{name}"))
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                f"! test -e /home/user/QubesIncoming/{self.testvm1!s}/{name}"))
+        except subprocess.CalledProcessError:
+            self.fail('file with "unsafe" name was copied')
+
+        # try again with changed policy
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            try:
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        f"qvm-copy-to-vm {self.testvm2!s} /tmp/{name}"))
+            except subprocess.CalledProcessError as e:
+                self.fail(f"qvm-copy-to-vm failed: {e.stderr}")
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                f"diff /etc/passwd /home/user/QubesIncoming/{self.testvm1!s}/{name}"))
+        except subprocess.CalledProcessError:
+            self.fail('file differs')
+
+        try:
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                f"test -f /tmp/{name}"))
+        except subprocess.CalledProcessError:
+            self.fail('source file got removed')
+
+    def test_141_qrexec_filecopy_unsafe_symlink(self):
+        self.loop.run_until_complete(asyncio.gather(
+            self.testvm1.start(),
+            self.testvm2.start()))
+
+        # symlinks are not allowed in either mode
+        name = "test"
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            f"ln -s /etc/passwd /tmp/{name}"))
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            f"ln -s ../etc/passwd /tmp/{name}2"))
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        f"qvm-copy-to-vm {self.testvm2!s} /tmp/{name}"))
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        f"qvm-copy-to-vm {self.testvm2!s} /tmp/{name}2"))
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                f"! test -e /home/user/QubesIncoming/{self.testvm1!s}/{name}"))
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                f"! test -e /home/user/QubesIncoming/{self.testvm1!s}/{name}2"))
+        except subprocess.CalledProcessError:
+            self.fail('file with "unsafe" symlink was copied')
+
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
         if "whonix" in self.template:
