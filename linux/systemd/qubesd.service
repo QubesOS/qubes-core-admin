@@ -6,7 +6,6 @@ Before=systemd-user-sessions.service
 Type=notify
 ExecStart=/usr/bin/qubesd
 StandardOutput=syslog
-KillMode=process
 Restart=on-failure
 RestartSec=1s
 
