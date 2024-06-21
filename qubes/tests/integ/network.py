@@ -163,7 +163,6 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
-
     def test_010_simple_proxyvm(self):
         '''
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
@@ -188,6 +187,23 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
                          "Ping by IP from AppVM failed")
 
+        self.proxy.netvm = None
+        self.loop.run_until_complete(self.testnetvm.shutdown(wait=True))
+        # change IP to test if all info is updated, especially DNS redirect
+        self.test_ip = '192.168.45.123'
+        self.ping_ip = self.ping_cmd.format(target=self.test_ip)
+        self.configure_netvm()
+        self.proxy.netvm = self.testnetvm
+        self.loop.run_until_complete(asyncio.sleep(1))
+
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                         "Ping by IP from ProxyVM failed (after switch)")
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                         "Ping by name from ProxyVM failed (after switch)")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                         "Ping by IP from AppVM failed (after switch)")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                         "Ping by IP from AppVM failed (after switch)")
 
     @qubes.tests.expectedFailureIfTemplate('debian-7')
     @unittest.skipUnless(spawn.find_executable('xdotool'),
