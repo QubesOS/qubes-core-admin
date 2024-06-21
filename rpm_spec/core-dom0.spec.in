@@ -506,6 +506,7 @@ done
 %dir %{python3_sitelib}/qubes/tests/integ/__pycache__
 %{python3_sitelib}/qubes/tests/integ/__pycache__/*
 %{python3_sitelib}/qubes/tests/integ/__init__.py
+%{python3_sitelib}/qubes/tests/integ/audio.py
 %{python3_sitelib}/qubes/tests/integ/backup.py
 %{python3_sitelib}/qubes/tests/integ/backupcompatibility.py
 %{python3_sitelib}/qubes/tests/integ/backupdispvm.py
