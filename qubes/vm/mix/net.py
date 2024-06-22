@@ -583,11 +583,19 @@ class NetVMMixin(qubes.events.Emitter):
                 self.set_mapped_ip_info_for_vm(vm)
                 self.reload_firewall_for_vm(vm)
 
-    @qubes.events.handler('firewall-changed', 'domain-spawn')
+    @qubes.events.handler('firewall-changed')
     def on_firewall_changed(self, event, **kwargs):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
+            self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
+
+    @qubes.events.handler('domain-pre-spawn')
+    def on_pre_spawn(self, event, **kwargs):
+        """ Prepare qubesdb in netvm entries before relevant interface
+            is created """
+        # pylint: disable=unused-argument
+        if self.netvm:
             self.netvm.reload_connected_ips()
             self.netvm.set_mapped_ip_info_for_vm(self)
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
