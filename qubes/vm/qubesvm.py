@@ -280,6 +280,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             *other arguments are as in :py:meth:`start`*
 
+        .. event:: domain-pre-spawn (subject, event, start_guid)
+
+            Fired just before creating libvirt domain.
+            But after preparation steps - verifying storage, requesting memory,
+            starting netvm etc.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-pre-spawn'``)
+
+            Handler for this event may be asynchronous.
+
+            *other arguments are as in :py:meth:`start`*
+
         .. event:: domain-spawn (subject, event, start_guid)
 
             Fired after creating libvirt domain.
@@ -1208,6 +1221,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise
 
             try:
+                await self.fire_event_async('domain-pre-spawn',
+                                            pre_event=True,
+                                            start_guid=start_guid)
+
                 self._update_libvirt_domain()
 
                 self.libvirt_domain.createWithFlags(
