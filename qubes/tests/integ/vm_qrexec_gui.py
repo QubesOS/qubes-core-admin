@@ -794,7 +794,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             f"cp /etc/passwd /tmp/{name}"))
         with self.qrexec_policy('qubes.Filecopy+', self.testvm1, self.testvm2), \
-                self.qrexec_policy('qubes.Filecopy+allow-unsafe-characters', self.testvm1, self.testvm2, allow=False):
+                self.qrexec_policy('qubes.Filecopy+allow-all-names', self.testvm1, self.testvm2, allow=False):
             with self.assertRaises(subprocess.CalledProcessError):
                 self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
