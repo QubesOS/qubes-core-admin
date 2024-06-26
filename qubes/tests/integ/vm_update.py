@@ -460,6 +460,7 @@ SHA256:
                 asyncio.create_subprocess_exec(
                     'qubes-vm-update',
                     "--targets", self.testvm1.name,
+                    "--force-update",
                     *options,
                     stdout=f_log,
                     stderr=subprocess.STDOUT
