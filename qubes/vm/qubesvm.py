@@ -2143,7 +2143,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :py:obj:`False` otherwise.
         :rtype: bool
         """
-        if self.xid < 0:  # pylint: disable=comparison-with-callable
+        if self.xid < 0:
             return False
         name = self.name + '-dm' if stubdom else self.name
         return os.path.exists('/var/run/qubes/qrexec.%s' % name)
@@ -2281,7 +2281,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def icon(self):
         """freedesktop icon name, suitable for use in
         :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
-        #  pylint: disable=comparison-with-callable
         raw_icon_name = self.label.name
         if self.klass == 'TemplateVM':
             return 'templatevm-' + raw_icon_name
