@@ -1,6 +1,7 @@
 [MASTER]
 persistent=no
 ignore=tests
+init-hook="import astroid.bases; astroid.bases.POSSIBLE_PROPERTIES.add('stateless_property')"
 
 [MESSAGES CONTROL]
 # abstract-class-little-used: see http://www.logilab.org/ticket/111138
