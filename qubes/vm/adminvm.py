@@ -25,6 +25,7 @@ import asyncio
 import grp
 import subprocess
 import libvirt
+import uuid
 
 import qubes
 import qubes.exc
@@ -45,7 +46,7 @@ class AdminVM(BaseVM):
         default=0, type=int, setter=qubes.property.forbidden)
 
     uuid = qubes.property('uuid',
-        default='00000000-0000-0000-0000-000000000000',
+        default=uuid.UUID('00000000-0000-0000-0000-000000000000'),
         setter=qubes.property.forbidden)
 
     default_dispvm = qubes.VMProperty('default_dispvm',
