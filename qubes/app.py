@@ -427,6 +427,10 @@ class VMCollection:
     def __init__(self, app):
         self.app = app
         self._dict = {}
+        # Recently used disposable IDs: dispid -> destroy seconds since epoch
+        self._recent_dispids = {}
+        # Avoid reuse of disposable IDs for one week
+        self._no_dispid_reuse_period = 7 * 24 * 60 * 60
 
     def close(self):
         del self.app
@@ -538,6 +542,8 @@ class VMCollection:
                 pass
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm=vm)
+        if getattr(vm, 'dispid', None):
+            self._recent_dispids[getattr(vm, 'dispid')] = int(time.monotonic())
 
     def __contains__(self, key):
         return any((key in (vm, vm.qid, vm.name))
@@ -583,6 +589,15 @@ class VMCollection:
         for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
             if not any(getattr(vm, 'dispid', None) == dispid for vm in self):
+                if dispid in self._recent_dispids:
+                    delta_secs = int(time.monotonic()) - \
+                        self._recent_dispids[dispid]
+                    if delta_secs < self._no_dispid_reuse_period:
+                        continue
+                    del self._recent_dispids[dispid]
+                    self.app.log.debug(
+                        'Reused dispID {} after {} hours'.format(
+                        dispid, delta_secs / 60 / 60))
                 return dispid
         raise LookupError((
                               'https://xkcd.com/221/',
