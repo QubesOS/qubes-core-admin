@@ -32,6 +32,8 @@ import qubes.tests
 import qubes.tests.init
 import qubes.tests.storage_reflink
 
+import logging
+import time
 
 class TestApp(qubes.tests.TestEmitter):
     pass
@@ -211,6 +213,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         super().setUp()
         self.app = TestApp()
         self.vms = qubes.app.VMCollection(self.app)
+        self.app.log = logging.getLogger()
 
         self.testvm1 = qubes.tests.init.TestVM(
             None, None, qid=1, name='testvm1')
@@ -315,6 +318,21 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
         self.vms.get_new_unused_qid()
 
+    def test_999999_get_new_unused_dispid(self):
+        with mock.patch('random.SystemRandom') as random:
+            random.return_value.randrange.side_effect = [11, 22, 33, 44, 55, 66]
+            # Testing overal functionality
+            self.assertEqual(self.vms.get_new_unused_dispid(), 11)
+            self.assertEqual(self.vms.get_new_unused_dispid(), 22)
+            self.assertEqual(self.vms.get_new_unused_dispid(), 33)
+            # Testing no reuse
+            self.vms._recent_dispids[44] = time.monotonic()
+            self.assertNotEqual(self.vms.get_new_unused_dispid(), 44)
+            # Testing reuse after safe period
+            self.vms._recent_dispids[66] = time.monotonic() \
+                    - self.vms._no_dispid_reuse_period - 1
+            self.assertEqual(self.vms.get_new_unused_dispid(), 66)
+            self.assertFalse(66 in self.vms._recent_dispids)
 
 #   def test_200_get_vms_based_on(self):
 #       pass
