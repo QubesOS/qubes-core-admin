@@ -2,11 +2,19 @@
 set -eu
 print_usage() {
 cat >&2 << USAGE
-Usage: $0 [--autostart] [--] vmname
+Usage: $0 [--help] [--autostart] [--] vmname
+
 Connects to VM console throught DispVM using the qubes.ShowInTerminal RPC service.
-With --autostart, start the VM first.
+
+  --help, -h      show this help message and exit
+  --autostart     start the VM first.
 USAGE
 }
+
+if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    print_usage
+    exit 0
+fi
 
 do_start=false
 if [[ $# -ge 2 ]] && [[ "$1" = '--autostart' ]]; then
