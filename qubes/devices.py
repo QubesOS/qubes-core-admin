@@ -63,7 +63,7 @@ from typing import Iterable
 
 import qubes.exc
 import qubes.utils
-from qubes.device_protocol import (Device, DeviceInfo, UnknownDevice,
+from qubes.device_protocol import (Port, DeviceInfo, UnknownDevice,
                                    DeviceAssignment)
 
 
@@ -193,9 +193,7 @@ class DeviceCollection:
         Attach device to domain.
         """
 
-        if not assignment.devclass_is_set:
-            assignment.devclass = self._bus
-        elif assignment.devclass != self._bus:
+        if assignment.devclass != self._bus:
             raise ValueError(
                 f'Trying to attach {assignment.devclass} device '
                 f'when {self._bus} device expected.')
@@ -223,9 +221,7 @@ class DeviceCollection:
         """
         Assign device to domain.
         """
-        if not assignment.devclass_is_set:
-            assignment.devclass = self._bus
-        elif assignment.devclass != self._bus:
+        if assignment.devclass != self._bus:
             raise ValueError(
                 f'Trying to attach {assignment.devclass} device '
                 f'when {self._bus} device expected.')
@@ -250,10 +246,9 @@ class DeviceCollection:
         """
         assert not self._vm.events_enabled
         assert device_assignment.attach_automatically
-        device_assignment.devclass = self._bus
         self._set.add(device_assignment)
 
-    async def update_required(self, device: Device, required: bool):
+    async def update_required(self, device: Port, required: bool):
         """
         Update `required` flag of an already attached device.
 
@@ -284,7 +279,7 @@ class DeviceCollection:
         await self._vm.fire_event_async(
             'device-assignment-changed:' + self._bus, device=device)
 
-    async def detach(self, device: Device):
+    async def detach(self, device: Port):
         """
         Detach device from domain.
         """
@@ -316,15 +311,17 @@ class DeviceCollection:
         """
         Unassign device from domain.
         """
+        all_ass = []
         for assignment in self.get_assigned_devices():
+            all_ass.append(assignment.devclass)
             if device_assignment == assignment:
                 # load all options
                 device_assignment = assignment
                 break
         else:
             raise DeviceNotAssigned(
-                f'device {device_assignment.ident!s} of class {self._bus} not '
-                f'assigned to {self._vm!s}')
+                f'{self._bus} device at port {device_assignment}'
+                f'not assigned to {self._vm!s} | {all_ass} vs {device_assignment.devclass}')
 
         self._set.discard(assignment)
 
@@ -353,9 +350,9 @@ class DeviceCollection:
                 yield DeviceAssignment(
                     backend_domain=dev.backend_domain,
                     ident=dev.ident,
-                    options=options,
-                    frontend_domain=self._vm,
                     devclass=dev.devclass,
+                    frontend_domain=self._vm,
+                    options=options,
                     attach_automatically=False,
                     required=False,
                 )

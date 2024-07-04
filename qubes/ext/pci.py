@@ -168,8 +168,9 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
                 raise UnsupportedDevice(libvirt_name)
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
-        super().__init__(
+        port = qubes.device_protocol.Port(
             backend_domain=backend_domain, ident=ident, devclass="pci")
+        super().__init__(port)
 
         dev_match = self.regex.match(ident)
         if not dev_match:

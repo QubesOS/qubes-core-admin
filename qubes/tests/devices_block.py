@@ -24,7 +24,7 @@ import jinja2
 
 import qubes.tests
 import qubes.ext.block
-from qubes.device_protocol import DeviceInterface, Device, DeviceInfo, \
+from qubes.device_protocol import DeviceInterface, Port, DeviceInfo, \
     DeviceAssignment
 
 modules_disk = '''
@@ -187,7 +187,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/mode': b'w',
             '/qubes-block-devices/sda/parent': b'1-1.1:1.0',
             }, domain_xml=domain_xml_template.format(""))
-        parent = DeviceInfo(vm, '1-1.1', devclass='usb')
+        parent = DeviceInfo(Port(vm, '1-1.1', devclass='usb'))
         vm.devices['usb'] = TestDeviceCollection(backend_vm=vm, devclass='usb')
         vm.devices['usb']._exposed.append(parent)
         vm.is_running = lambda: True
@@ -228,7 +228,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info.interfaces,
                          [DeviceInterface("b******")])
         self.assertEqual(device_info.parent_device,
-                         Device(vm, '1-1.1', devclass='usb'))
+                         Port(vm, '1-1.1', devclass='usb'))
         self.assertEqual(device_info.attachment, front)
         self.assertEqual(device_info.self_identity,
                          '1-1.1:0000:0000::?******:1.0')
@@ -664,7 +664,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = Port(back_vm, 'sda', 'block')
 
         self.ext.on_qdb_change(back_vm, None, None)
 
@@ -680,7 +680,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = Port(back_vm, 'sda', 'block')
         front = TestVM({}, domain_xml=domain_xml_template.format(""),
                        name='front-vm')
         dom0 = TestVM({}, name='dom0',
@@ -725,7 +725,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = Port(back_vm, 'sda', 'block')
 
         self.ext.devices_cache = {'sys-usb': {'sda': None}}
 
@@ -774,7 +774,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = Port(back_vm, 'sda', 'block')
 
         front = TestVM({}, name='front-vm')
         dom0 = TestVM({}, name='dom0',
@@ -841,7 +841,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         }, domain_xml=domain_xml_template.format(""))
         dom0 = TestVM({}, name='dom0',
                       domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = Port(back_vm, 'sda', 'block')
 
         disk = '''
             <disk type="block" device="disk">

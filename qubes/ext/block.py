@@ -48,8 +48,9 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 class BlockDevice(qubes.device_protocol.DeviceInfo):
     def __init__(self, backend_domain, ident):
-        super().__init__(
+        port = qubes.device_protocol.Port(
             backend_domain=backend_domain, ident=ident, devclass="block")
+        super().__init__(port)
 
         # lazy loading
         self._mode = None
@@ -161,7 +162,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         return [qubes.device_protocol.DeviceInterface("******", "block")]
 
     @property
-    def parent_device(self) -> Optional[qubes.device_protocol.Device]:
+    def parent_device(self) -> Optional[qubes.device_protocol.Port]:
         """
         The parent device, if any.
 
