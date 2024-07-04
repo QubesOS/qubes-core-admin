@@ -28,6 +28,7 @@ import unittest
 import qubes.devices
 import qubes.ext.pci
 import qubes.tests
+from qubes.device_protocol import DeviceAssignment
 
 
 @qubes.tests.skipUnlessEnv('QUBES_TEST_PCIDEV')
@@ -37,14 +38,11 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
         if self._testMethodName not in ['test_000_list']:
             pcidev = os.environ['QUBES_TEST_PCIDEV']
             self.dev = self.app.domains[0].devices['pci'][pcidev]
-            self.assignment = qubes.device_protocol.DeviceAssignment(
-                backend_domain=self.dev.backend_domain,
-                ident=self.dev.ident,
-                attach_automatically=True,
+            self.assignment = DeviceAssignment.from_device(
+                self.dev, attach_automatically=True
             )
-            self.required_assignment = qubes.device_protocol.DeviceAssignment(
-                backend_domain=self.dev.backend_domain,
-                ident=self.dev.ident,
+            self.required_assignment = DeviceAssignment.from_device(
+                self.dev,
                 attach_automatically=True,
                 required=True,
             )

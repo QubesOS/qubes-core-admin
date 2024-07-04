@@ -45,7 +45,7 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
-from qubes.device_protocol import Device
+from qubes.device_protocol import Port
 
 
 class QubesMgmtEventsDispatcher:
@@ -1309,7 +1309,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
         assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_device=dev
+            untrusted_payload, expected_port=dev
         )
 
         self.fire_event_for_permission(
@@ -1364,7 +1364,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dev = self.app.domains[backend_domain].devices[devclass][ident]
 
         assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_device=dev
+            untrusted_payload, expected_port=dev
         )
 
         self.fire_event_for_permission(
@@ -1425,7 +1425,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # qrexec already verified that no strange characters are in self.arg
         backend_domain_name, ident = self.arg.split('+', 1)
         backend_domain = self.app.domains[backend_domain_name]
-        dev = Device(backend_domain, ident, devclass)
+        dev = Port(backend_domain, ident, devclass)
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 

@@ -21,7 +21,7 @@
 #
 
 import qubes.devices
-from qubes.device_protocol import (Device, DeviceInfo, DeviceAssignment,
+from qubes.device_protocol import (Port, DeviceInfo, DeviceAssignment,
                                    DeviceInterface, UnknownDevice)
 
 import qubes.tests
@@ -90,9 +90,8 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.app.domains['vm'] = self.emitter
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
-        self.assignment = DeviceAssignment(
-            backend_domain=self.device.backend_domain,
-            ident=self.device.ident,
+        self.assignment = DeviceAssignment.from_device(
+            self.device,
             attach_automatically=True,
             required=True,
         )
@@ -340,10 +339,8 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = DeviceAssignment(
-            backend_domain=device.backend_domain,
-            ident=device.ident,
-            attach_automatically=True, required=True)
+        assignment = DeviceAssignment.from_device(
+            device, attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.manager['testclass'].assign(assignment))
         self.assertEqual(
@@ -358,9 +355,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_010_serialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 ident="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="",
@@ -386,9 +383,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_011_serialize_with_parent(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 ident="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="",
@@ -398,7 +395,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
                         DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
-            parent=Device(self.vm, '1-1.1', 'pci')
+            parent=Port(self.vm, '1-1.1', 'pci')
         )
         actual = device.serialize()
         expected = (
@@ -416,9 +413,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_012_invalid_serialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus?",
+            Port(backend_domain=self.vm,
+                 ident="1-1.1.1",
+                 devclass="bus?"),
             vendor="malicious",
             product="suspicious",
             manufacturer="",
@@ -438,9 +435,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             b"parent_ident='1-1.1' parent_devclass='None'")
         actual = DeviceInfo.deserialize(serialized, self.vm)
         expected = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 ident="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="unknown",
@@ -481,9 +478,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_030_serialize_and_deserialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus?",
+            Port(backend_domain=self.vm,
+                 ident="1-1.1.1",
+                 devclass="bus?"),
             vendor="malicious",
             product="suspicious",
             manufacturer="",
@@ -589,7 +586,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
             b"backend_domain='vm' required='no' attach_automatically='yes' "
             b"_read-only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = Port(self.vm, '1-1.1.1', 'bus')
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         expected = DeviceAssignment(
             backend_domain=self.vm,
@@ -614,7 +611,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
             b"backend_domain='vm' required='no' attach_automatically='yes' "
             b"_read'only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = Port(self.vm, '1-1.1.1', 'bus')
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
@@ -623,7 +620,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
             b"backend_domain='vm' required='no' attach_automatically='yes' "
             b"read-only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = Port(self.vm, '1-1.1.1', 'bus')
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
@@ -638,7 +635,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             options={'read-only': 'yes'},
         )
         serialized = expected.serialize()
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = Port(self.vm, '1-1.1.1', 'bus')
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         self.assertEqual(actual.backend_domain, expected.backend_domain)
         self.assertEqual(actual.ident, expected.ident)
