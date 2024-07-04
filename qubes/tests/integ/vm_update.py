@@ -491,7 +491,8 @@ SHA256:
             method="direct",
             options=(),
             expected_ret_codes=None,
-            break_repo=False
+            break_repo=False,
+            expect_updated=True,
     ):
         """
         Test both whether updates proxy works and whether is actually used
@@ -502,6 +503,7 @@ SHA256:
         :type options: tuple
         :type expected_ret_codes: tuple
         :type break_repo: bool
+        :type: expect_updated: bool
         """
         if self.template.count("minimal"):
             self.skipTest("Template {} not supported by this test".format(
@@ -545,7 +547,7 @@ SHA256:
             self.assertRunCommandReturnCode(
                 self.testvm1,
                 self.upgrade_test_cmd.format('test-pkg'),
-                expected_ret_codes
+                (0,) if expect_updated else (1,)
             )
 
     def test_010_update_via_proxy(self):
@@ -570,13 +572,14 @@ SHA256:
             ))
 
     def updates_available_notification_qubes_vm_update_impl(
-            self, method="direct", options=()):
+            self, method="direct", options=(), expect_updated=True):
         """
         Test if updates-available flags is updated.
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         :type method: str
         :type options: tuple
+        :type expect_updated: bool
         """
         self.start_standalone_vm_with_repo()
 
@@ -608,7 +611,7 @@ SHA256:
         self.assertRunCommandReturnCode(
             self.testvm1,
             self.upgrade_test_cmd.format('test-pkg'),
-            self.ret_code_ok
+            (0,) if expect_updated else (1,)
         )
 
     def test_020_updates_available_notification(self):
@@ -640,7 +643,8 @@ SHA256:
             method="qubes-vm-update",
             options=(),
             expected_ret_codes=(23,),
-            break_repo=True
+            break_repo=True,
+            expect_updated=False,
         )
 
     def test_131_no_network_qubes_vm_update_cli(self):
@@ -648,7 +652,8 @@ SHA256:
             method="qubes-vm-update",
             options=("--no-progress",),
             expected_ret_codes=(23,),
-            break_repo=True
+            break_repo=True,
+            expect_updated=False,
         )
 
 
