@@ -1495,6 +1495,18 @@ netvm default=True type=vm \n'''
         self.assertNotIn('test-###', self.app.domains)
         self.assertFalse(self.app.save.called)
 
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
+                b'dom0', b'test-template', b'name=--helpVM')
+        self.assertNotIn('--helpVM', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
+                b'dom0', b'test-template', b'name=1stVM')
+        self.assertNotIn('1stVM', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_335_vm_create_missing_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
