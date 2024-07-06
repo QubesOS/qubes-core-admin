@@ -33,17 +33,13 @@ import qubes.device_protocol
 import qubes.devices
 import qubes.ext
 from qubes.ext.utils import device_list_change
+from qubes.storage import Storage
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
 device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
 # FIXME: any better idea of desc_re?
 desc_re = re.compile(r"\A.{1,255}\Z")
 mode_re = re.compile(r"\A[rw]\Z")
-
-# all frontends, prefer xvdi
-# TODO: get this from libvirt driver?
-AVAILABLE_FRONTENDS = ['xvd'+c for c in
-                       string.ascii_lowercase[8:]+string.ascii_lowercase[:8]]
 
 SYSTEM_DISKS = ('xvda', 'xvdb', 'xvdc')
 # xvdd is considered system disk only if vm.kernel is set
@@ -466,7 +462,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             # prefer 'xvdd' for CDROM if available; only first 4 disks are
             # emulated in HVM, which means only those are bootable
             return 'xvdd'
-        for dev in AVAILABLE_FRONTENDS:
+        for dev in Storage.AVAILABLE_FRONTENDS:
             if dev not in used:
                 return dev
         return None
