@@ -494,7 +494,14 @@ class Storage:
     in mind.
     '''
 
-    AVAILABLE_FRONTENDS = {'xvd' + c for c in string.ascii_lowercase}
+    # all frontends, prefer xvdi
+    # TODO: get this from libvirt driver?
+    AVAILABLE_FRONTENDS = ['xvd'+c for c in string.ascii_lowercase[8:]]
+    AVAILABLE_FRONTENDS += ['xvd'+c+d for c in string.ascii_lowercase
+                                      for d in string.ascii_lowercase]
+    # xvda - xvdh are reserved by Qubes OS and sometimes hidden from tools,
+    # so we put them to the end of the list
+    AVAILABLE_FRONTENDS += ['xvd'+c for c in string.ascii_lowercase[:8]]
 
     def __init__(self, vm):
         #: Domain for which we manage storage
