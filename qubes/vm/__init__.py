@@ -52,6 +52,14 @@ def validate_name(holder, prop, value):
         raise qubes.exc.QubesValueError(
             'VM name must be shorter than 32 characters')
 
+    if re.match(r"\A[0-9_-].*\Z", value) is not None:
+        if holder is not None and prop is not None:
+            raise qubes.exc.QubesPropertyValueError(holder, prop, value,
+                '{} cannot start with hyphen, underscore or numbers'.format(
+                    prop.__name__))
+        raise qubes.exc.QubesValueError(
+            'VM name cannot start with hyphen, underscore or numbers')
+
     # this regexp does not contain '+'; if it had it, we should specifically
     # disallow 'lost+found' #1440
     if re.match(r"\A[a-zA-Z][a-zA-Z0-9_-]*\Z", value) is None:
