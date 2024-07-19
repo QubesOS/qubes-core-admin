@@ -1199,7 +1199,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     async def vm_device_available(self, endpoint):
         devclass = endpoint
-        devices = self.dest.devices[devclass].get_exposed_devices()
+        try:
+            devices = self.dest.devices[devclass].get_exposed_devices()
+        except AttributeError as e:
+            if e.name == 'devices':
+                # shutdown in progress, return specific error
+                raise qubes.exc.QubesException("qubesd shutdown in progress")
+            raise
         if self.arg:
             devices = [dev for dev in devices if dev.ident == self.arg]
             # no duplicated devices, but device may not exist, in which case
@@ -1216,8 +1222,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', read=True)
     async def vm_device_list(self, endpoint):
         devclass = endpoint
-        device_assignments = list(
-            self.dest.devices[devclass].get_assigned_devices())
+        try:
+            device_assignments = list(
+                self.dest.devices[devclass].get_assigned_devices())
+        except AttributeError as e:
+            if e.name == 'devices':
+                # shutdown in progress, return specific error
+                raise qubes.exc.QubesException("qubesd shutdown in progress")
+            raise
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
@@ -1245,7 +1257,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         no_payload=True, scope='local', read=True)
     async def vm_device_attached(self, endpoint):
         devclass = endpoint
-        device_assignments = self.dest.devices[devclass].get_attached_devices()
+        try:
+            device_assignments = \
+                self.dest.devices[devclass].get_attached_devices()
+        except AttributeError as e:
+            if e.name == 'devices':
+                # shutdown in progress, return specific error
+                raise qubes.exc.QubesException("qubesd shutdown in progress")
+            raise
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
