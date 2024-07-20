@@ -24,10 +24,13 @@ import errno
 import functools
 import io
 import os
+import re
 import shutil
 import socket
 import struct
 import traceback
+from typing import Union, Any
+import uuid
 
 import qubes.exc
 from qubes.exc import ProtocolError, PermissionDenied
@@ -88,6 +91,32 @@ def apply_filters(iterable, filters):
         iterable = filter(selector, iterable)
     return iterable
 
+# This regex allows incorrect-length UUIDs,
+# but there is an explicit length check to catch that.
+_uuid_regex = re.compile(rb"\Auuid:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]*")
+def decode_vm(
+    untrusted_input: bytes, domains: qubes.app.VMCollection
+) -> qubes.vm.qubesvm.QubesVM:
+    lookup: Union[uuid.UUID, str]
+    vm = untrusted_input.decode("ascii", "strict")
+    if untrusted_input.startswith(b"uuid:"):
+        if (len(untrusted_input) != 41 or
+            not _uuid_regex.match(untrusted_input)):
+            raise qubes.exc.QubesVMInvalidUUIDError(vm[5:])
+        lookup = uuid.UUID(vm[5:])
+    else:
+        # throws if name is invalid
+        qubes.vm.validate_name(None, None, vm)
+        lookup = vm
+    try:
+        return domains[lookup]
+    except KeyError:
+        # normally this should filtered out by qrexec policy, but there are
+        # two cases it might not be:
+        # 1. The call comes from dom0, which bypasses qrexec policy
+        # 2. Domain was removed between checking the policy and here
+        # we inform the client accordingly
+        raise qubes.exc.QubesVMNotFoundError(vm)
 
 class AbstractQubesAPI:
     '''Common code for Qubes Management Protocol handling
@@ -108,25 +137,23 @@ class AbstractQubesAPI:
     #: the preferred socket location (to be overridden in child's class)
     SOCKNAME = None
 
-    def __init__(self, app, src, method_name, dest, arg, send_event=None):
+    app: qubes.Qubes
+    src: qubes.vm.qubesvm.QubesVM
+    def __init__(self,
+                 app: qubes.Qubes,
+                 src: bytes,
+                 method_name: bytes,
+                 dest: bytes,
+                 arg: qubes.Qubes,
+                 send_event: Any = None) -> None:
         #: :py:class:`qubes.Qubes` object
         self.app = app
 
-        try:
-            vm = src.decode('ascii')
-            #: source qube
-            self.src = self.app.domains[vm]
+        #: source qube
+        self.src = decode_vm(src, app.domains)
 
-            vm = dest.decode('ascii')
-            #: destination qube
-            self.dest = self.app.domains[vm]
-        except KeyError:
-            # normally this should be filtered out by qrexec policy, but there
-            # are two cases it might not be:
-            # 1. The call comes from dom0, which bypasses qrexec policy
-            # 2. Domain was removed between checking the policy and here
-            # we inform the client accordingly
-            raise qubes.exc.QubesVMNotFoundError(vm)
+        #: destination qube
+        self.dest = decode_vm(dest, app.domains)
 
         #: argument
         self.arg = arg.decode('ascii')

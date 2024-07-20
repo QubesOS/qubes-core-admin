@@ -23,12 +23,15 @@ import qubes.tests
 import qubes.vm.adminvm
 from unittest import mock
 import json
+import uuid
 
 def mock_coro(f):
     async def coro_f(*args, **kwargs):
         return f(*args, **kwargs)
 
     return coro_f
+
+TEST_UUID = uuid.UUID("50c7dad4-5f1e-4586-9f6a-bf10a86ba6f0")
 
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -150,6 +153,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.dom0.template_for_dispvms = False
         self.dom0.label.icon = 'icon-dom0'
         self.dom0.get_power_state.return_value = 'Running'
+        self.dom0.uuid = uuid.UUID("00000000-0000-0000-0000-000000000000")
         del self.dom0.guivm
 
         vm = mock.NonCallableMock(spec=qubes.vm.qubesvm.QubesVM)
@@ -160,6 +164,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         vm.label.icon = 'icon-vm'
         vm.guivm = vm
         vm.get_power_state.return_value = 'Halted'
+        vm.uuid = TEST_UUID
         self.domains['vm'] = vm
 
         ret = json.loads(self.call_mgmt_func(b'internal.GetSystemInfo'))
@@ -173,6 +178,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     'icon': 'icon-dom0',
                     'guivm': None,
                     'power_state': 'Running',
+                    'uuid': "00000000-0000-0000-0000-000000000000",
                 },
                 'vm': {
                     'tags': ['tag3', 'tag4'],
@@ -182,6 +188,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     'icon': 'icon-vm',
                     'guivm': 'vm',
                     'power_state': 'Halted',
+                    "uuid": str(TEST_UUID),
                 }
             }
         })

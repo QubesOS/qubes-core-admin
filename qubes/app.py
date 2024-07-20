@@ -520,6 +520,7 @@ class VMCollection:
 
         if isinstance(key, uuid.UUID):
             for vm in self:
+                assert isinstance(vm.uuid, uuid.UUID)
                 if vm.uuid == key:
                     return vm
             raise KeyError(key)
@@ -546,7 +547,7 @@ class VMCollection:
             self._recent_dispids[getattr(vm, 'dispid')] = int(time.monotonic())
 
     def __contains__(self, key):
-        return any((key in (vm, vm.qid, vm.name))
+        return any((key in (vm, vm.qid, vm.name, vm.uuid))
                    for vm in self)
 
     def __len__(self):
