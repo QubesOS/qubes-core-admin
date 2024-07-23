@@ -31,7 +31,7 @@ while [ $# -gt 0 ]; do
       SUPPORT_FILES=1
       ;;
 
-    -y |--yaml)
+    -y |--yaml-only)
       YAML_ONLY=1
       ;;
 
