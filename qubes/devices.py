@@ -348,9 +348,11 @@ class DeviceCollection:
                     break
             else:
                 yield DeviceAssignment(
-                    backend_domain=dev.backend_domain,
-                    ident=dev.ident,
-                    devclass=dev.devclass,
+                    Port(
+                        backend_domain=dev.backend_domain,
+                        ident=dev.ident,
+                        devclass=dev.devclass,
+                    ),
                     frontend_domain=self._vm,
                     options=options,
                     attach_automatically=False,

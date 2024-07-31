@@ -90,7 +90,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.app.domains['vm'] = self.emitter
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
-        self.assignment = DeviceAssignment.from_device(
+        self.assignment = DeviceAssignment(
             self.device,
             attach_automatically=True,
             required=True,
@@ -339,7 +339,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = DeviceAssignment.from_device(
+        assignment = DeviceAssignment(
             device, attach_automatically=True, required=True)
         self.loop.run_until_complete(
             self.manager['testclass'].assign(assignment))
@@ -512,11 +512,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
         self.vm = TestVM(self.app, 'vm')
 
     def test_010_serialize(self):
-        assignment = DeviceAssignment(
+        assignment = DeviceAssignment(Port(
             backend_domain=self.vm,
             ident="1-1.1.1",
             devclass="bus",
-        )
+        ))
         actual = assignment.serialize()
         expected = (
             b"ident='1-1.1.1' devclass='bus' "
@@ -527,9 +527,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_011_serialize_required(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             attach_automatically=True,
             required=True,
         )
@@ -543,9 +545,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_012_serialize_fronted(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             frontend_domain=self.vm,
         )
         actual = assignment.serialize()
@@ -558,9 +562,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_013_serialize_options(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             options={'read-only': 'yes'},
         )
         actual = assignment.serialize()
@@ -573,9 +579,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_014_invalid_serialize(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             options={"read'only": 'yes'},
         )
         with self.assertRaises(qubes.exc.ProtocolError):
@@ -589,9 +597,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
         expected_device = Port(self.vm, '1-1.1.1', 'bus')
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         expected = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             frontend_domain=self.vm,
             attach_automatically=True,
             required=False,
@@ -626,9 +636,11 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_030_serialize_and_deserialize(self):
         expected = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(
+                backend_domain=self.vm,
+                ident="1-1.1.1",
+                devclass="bus",
+            ),
             frontend_domain=self.vm,
             attach_automatically=True,
             required=False,
