@@ -1343,7 +1343,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
         assignment = qubes.device_protocol.DeviceAssignment(
-            dev.backend_domain, dev.ident, devclass=devclass)
+            qubes.device_protocol.Port(dev.backend_domain, dev.ident, devclass))
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
 
@@ -1397,7 +1397,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
         assignment = qubes.device_protocol.DeviceAssignment(
-            dev.backend_domain, dev.ident, devclass=devclass)
+            qubes.device_protocol.Port(dev.backend_domain, dev.ident, devclass))
         await self.dest.devices[devclass].detach(assignment)
 
     # Assign/Unassign action can modify only a persistent state of running VM.

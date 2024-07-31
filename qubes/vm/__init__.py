@@ -285,9 +285,12 @@ class BaseVM(qubes.PropertyHolder):
 
                 try:
                     device_assignment = qubes.device_protocol.DeviceAssignment(
-                        self.app.domains[node.get('backend-domain')],
-                        node.get('id'),
-                        devclass=devclass,
+                        qubes.device_protocol.Port(
+                            backend_domain=self.app.domains[
+                                node.get('backend-domain')],
+                            ident=node.get('id'),
+                            devclass=devclass,
+                        ),
                         options=options,
                         attach_automatically=True,
                         # backward compatibility: persistent~>required=True

@@ -243,8 +243,8 @@ class DeviceCategory(Enum):
     Mouse = ("u03**02", "p0902**")
     Printer = ("u07****",)
     Scanner = ("p0903**",)
-    # Multimedia = Audio, Video, Displays etc.
     Microphone = ("m******",)
+    # Multimedia = Audio, Video, Displays etc.
     Multimedia = ("u01****", "u0e****", "u06****", "u10****", "p03****",
                   "p04****")
     Wireless = ("ue0****", "p0d****")
@@ -349,7 +349,7 @@ class DeviceInterface:
 
     def __str__(self):
         if self.devclass == "block":
-            return "Block device"
+            return "Block Device"
         if self.devclass in ("usb", "pci"):
             # try subclass first as in `lspci`
             result = self._load_classes(self.devclass).get(
@@ -538,8 +538,10 @@ class DeviceInfo(Port):
         else:
             vendor = "unknown vendor"
 
-        main_interface = str(self.interfaces[0])
-        return f"{main_interface}: {vendor} {prod}"
+        cat = self.interfaces[0].category.name
+        if cat == "Other":
+            cat = str(self.interfaces[0])
+        return f"{cat}: {vendor} {prod}"
 
     @property
     def interfaces(self) -> List[DeviceInterface]:
@@ -784,15 +786,29 @@ class DeviceAssignment(Port):
                                and required to start domain.
     """
 
-    def __init__(self, backend_domain, ident, *, options=None,
-                 frontend_domain=None, devclass=None,
-                 required=False, attach_automatically=False):
-        super().__init__(backend_domain, ident, devclass)
+    class AssignmentType(Enum):
+        MANUAL = 0
+        ASK = 1
+        AUTO = 2
+        REQUIRED = 3
+
+    def __init__(
+            self,
+            port: Port,
+            frontend_domain=None,
+            options=None,
+            required=False,
+            attach_automatically=False
+    ):
+        super().__init__(port.backend_domain, port.ident, port.devclass)
         self.__options = options or {}
         if required:
             assert attach_automatically
-        self.__required = required
-        self.__attach_automatically = attach_automatically
+            self.type = DeviceAssignment.AssignmentType.REQUIRED
+        elif attach_automatically:
+            self.type = DeviceAssignment.AssignmentType.AUTO
+        else:
+            self.type = DeviceAssignment.AssignmentType.MANUAL
         self.frontend_domain = frontend_domain
 
     def clone(self, **kwargs):
@@ -800,28 +816,14 @@ class DeviceAssignment(Port):
         Clone object and substitute attributes with explicitly given.
         """
         attr = {
-            "backend_domain": self.backend_domain,
-            "ident": self.ident,
             "options": self.options,
             "required": self.required,
             "attach_automatically": self.attach_automatically,
             "frontend_domain": self.frontend_domain,
-            "devclass": self.devclass,
         }
         attr.update(kwargs)
-        return self.__class__(**attr)
-
-    @classmethod
-    def from_device(cls, device: Port, **kwargs) -> 'DeviceAssignment':
-        """
-        Get assignment of the device.
-        """
-        return cls(
-            backend_domain=device.backend_domain,
-            ident=device.ident,
-            devclass=device.devclass,
-            **kwargs
-        )
+        return self.__class__(
+            Port(self.backend_domain, self.ident, self.devclass), **attr)
 
     @property
     def device(self) -> DeviceInfo:
@@ -857,11 +859,11 @@ class DeviceAssignment(Port):
         Is the presence of this device required for the domain to start? If yes,
         it will be attached automatically.
         """
-        return self.__required
+        return self.type == DeviceAssignment.AssignmentType.REQUIRED
 
     @required.setter
     def required(self, required: bool):
-        self.__required = required
+        self.type = DeviceAssignment.AssignmentType.REQUIRED
 
     @property
     def attach_automatically(self) -> bool:
@@ -869,11 +871,14 @@ class DeviceAssignment(Port):
         Should this device automatically connect to the frontend domain when
         available and not connected to other qubes?
         """
-        return self.__attach_automatically
+        return self.type in (
+            DeviceAssignment.AssignmentType.AUTO,
+            DeviceAssignment.AssignmentType.REQUIRED
+        )
 
     @attach_automatically.setter
     def attach_automatically(self, attach_automatically: bool):
-        self.__attach_automatically = attach_automatically
+        self.type = DeviceAssignment.AssignmentType.AUTO
 
     @property
     def options(self) -> Dict[str, Any]:
@@ -938,9 +943,12 @@ class DeviceAssignment(Port):
         properties['options'] = options
 
         cls.check_device_properties(expected_port, properties)
+        del properties['backend_domain']
+        del properties['ident']
+        del properties['devclass']
 
         properties['attach_automatically'] = qbool(
             properties.get('attach_automatically', 'no'))
         properties['required'] = qbool(properties.get('required', 'no'))
 
-        return cls(**properties)
+        return cls(expected_port, **properties)

@@ -702,8 +702,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dom0.devices['block'] = TestDeviceCollection(
             backend_vm=dom0, devclass='block')
 
-        front.devices['block']._assigned.append(
-            DeviceAssignment.from_device(exp_dev))
+        front.devices['block']._assigned.append(DeviceAssignment(exp_dev))
         back_vm.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back_vm, 'sda'))
 
