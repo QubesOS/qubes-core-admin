@@ -438,6 +438,32 @@ class DeviceInfo(Port):
 
         self.data = kwargs
 
+    def __hash__(self):
+        return hash(self.port)# self.self_identity))
+
+    def __eq__(self, other):
+        if isinstance(other, DeviceInfo):
+            return (
+                self.port == other.port
+                # and self.self_identity == other.self_identity
+            )
+        else:
+            return super().__lt__(other)
+
+    def __lt__(self, other):
+        if isinstance(other, DeviceInfo):
+            # return (self.port, self.self_identity) < \
+            #        (other.port, other.self_identity)
+            return self.port < other.port
+        else:
+            return super().__lt__(other)
+
+    def __repr__(self):
+        return f"{self.port!r}"#:{self.self_identity}"
+
+    def __str__(self):
+        return f"{self.port}"#:{self.self_identity}"
+
     @property
     def port(self) -> Port:
         """
