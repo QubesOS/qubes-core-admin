@@ -90,11 +90,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.app.domains['vm'] = self.emitter
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
-        self.assignment = DeviceAssignment(
-            self.device,
-            attach_automatically=True,
-            required=True,
-        )
+        self.assignment = DeviceAssignment(self.device, mode='required')
 
     def attach(self):
         self.emitter.running = True
@@ -339,8 +335,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = DeviceAssignment(
-            device, attach_automatically=True, required=True)
+        assignment = DeviceAssignment(device, mode='required')
         self.loop.run_until_complete(
             self.manager['testclass'].assign(assignment))
         self.assertEqual(
@@ -532,8 +527,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
                 ident="1-1.1.1",
                 devclass="bus",
             ),
-            attach_automatically=True,
-            required=True,
+            mode='required',
         )
         actual = assignment.serialize()
         expected = (
@@ -603,8 +597,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
                 devclass="bus",
             ),
             frontend_domain=self.vm,
-            attach_automatically=True,
-            required=False,
+            mode='auto-attach',
             options={'read-only': 'yes'},
         )
 
@@ -642,8 +635,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
                 devclass="bus",
             ),
             frontend_domain=self.vm,
-            attach_automatically=True,
-            required=False,
+            mode='auto-attach',
             options={'read-only': 'yes'},
         )
         serialized = expected.serialize()

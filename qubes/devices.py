@@ -229,8 +229,8 @@ class DeviceCollection:
         device = assignment.device
         if device in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
-                'device {!s} of class {} already assigned to {!s}'.format(
-                    device, self._bus, self._vm))
+                '{} device {!s} already assigned to {!s}'.format(
+                    self._bus, device, self._vm))
 
         self._set.add(assignment)
 
@@ -355,8 +355,7 @@ class DeviceCollection:
                     ),
                     frontend_domain=self._vm,
                     options=options,
-                    attach_automatically=False,
-                    required=False,
+                    mode='manual',
                 )
 
     def get_assigned_devices(
