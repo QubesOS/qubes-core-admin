@@ -1317,8 +1317,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 ident='00_00.0',
                 devclass="pci",
             ),
-            attach_automatically=True,
-            required=True,
+            mode='required',
         )
         vm.devices['pci']._set.add(
             assignment)
@@ -1405,7 +1404,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 ident='00_00.0',
                 devclass="pci",
             ),
-            attach_automatically=True, required=True)
+            mode='required')
         vm.devices['pci']._set.add(
             assignment)
         libvirt_xml = vm.create_config_file()
@@ -1493,7 +1492,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 devclass="block",
             ),
             options={'devtype': 'cdrom', 'read-only': 'yes'},
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(vm.devices['block'].assign(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1602,7 +1601,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     devclass="block",
                 ),
                 options={'devtype': 'cdrom', 'read-only': 'yes'},
-                 attach_automatically=True, required=True)
+                mode='required')
             self.loop.run_until_complete(vm.devices['block'].assign(dev))
             libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),

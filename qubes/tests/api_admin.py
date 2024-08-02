@@ -1787,7 +1787,7 @@ netvm default=True type=vm \n'''
     def test_470_vm_device_list_assigned(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.Assigned',
@@ -1800,12 +1800,11 @@ netvm default=True type=vm \n'''
     def test_471_vm_device_list_assigned_options(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True, options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         assignment = qubes.device_protocol.DeviceAssignment(
-            self.vm, '4321', 'test',
-            attach_automatically=True, required=True)
+            self.vm, '4321', 'test', mode='required')
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.Assigned',
@@ -1838,12 +1837,12 @@ netvm default=True type=vm \n'''
     def test_473_vm_device_list_assigned_specific(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '4321', 'test'),
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.Assigned',
@@ -2027,8 +2026,7 @@ netvm default=True type=vm \n'''
     def test_490_vm_device_unassign_from_running(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=False,
-            options={'opt1': 'value'})
+            mode='auto-attach', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2048,8 +2046,7 @@ netvm default=True type=vm \n'''
     def test_491_vm_device_unassign_required_from_running(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True,
-            options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2070,8 +2067,7 @@ netvm default=True type=vm \n'''
     def test_492_vm_device_unassign_from_halted(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=False,
-            options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2089,8 +2085,7 @@ netvm default=True type=vm \n'''
     def test_493_vm_device_unassign_required_from_halted(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True,
-            options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2111,8 +2106,7 @@ netvm default=True type=vm \n'''
                             self.device_list_single_attached_testclass)
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=False,
-            options={'opt1': 'value'})
+            mode='auto-attach', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2199,7 +2193,7 @@ netvm default=True type=vm \n'''
         self.setup_for_clone()
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(
             self.vm2.devices['testclass'].assign(assignment))
 
@@ -2919,8 +2913,7 @@ netvm default=True type=vm \n'''
     def test_650_vm_device_set_required_true(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=False,
-            options={'opt1': 'value'})
+            mode='auto-attach', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2950,8 +2943,7 @@ netvm default=True type=vm \n'''
     def test_651_vm_device_set_required_false(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True,
-            options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         mock_action = unittest.mock.Mock()
@@ -2981,8 +2973,7 @@ netvm default=True type=vm \n'''
     def test_652_vm_device_set_required_true_unchanged(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=True,
-            options={'opt1': 'value'})
+            mode='required', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
@@ -3000,8 +2991,7 @@ netvm default=True type=vm \n'''
     def test_653_vm_device_set_required_false_unchanged(self):
         assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.Port(self.vm, '1234', 'test'),
-            attach_automatically=True, required=False,
-            options={'opt1': 'value'})
+            mode='auto-attach', options={'opt1': 'value'})
         self.loop.run_until_complete(
             self.vm.devices['testclass'].assign(assignment))
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,

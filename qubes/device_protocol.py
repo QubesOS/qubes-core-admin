@@ -792,6 +792,13 @@ class UnknownDevice(DeviceInfo):
         super().__init__(port, **kwargs)
 
 
+class AssignmentMode(Enum):
+    MANUAL = "manual"
+    ASK = "ask-to-attach"
+    AUTO = "auto-attach"
+    REQUIRED = "required"
+
+
 class DeviceAssignment(Port):
     """ Maps a device to a frontend_domain.
 
@@ -812,29 +819,20 @@ class DeviceAssignment(Port):
                                and required to start domain.
     """
 
-    class AssignmentType(Enum):
-        MANUAL = 0
-        ASK = 1
-        AUTO = 2
-        REQUIRED = 3
-
     def __init__(
             self,
             port: Port,
+            device_id=None,
             frontend_domain=None,
             options=None,
-            required=False,
-            attach_automatically=False
+            mode: Union[str, AssignmentMode] = "manual",
     ):
         super().__init__(port.backend_domain, port.ident, port.devclass)
         self.__options = options or {}
-        if required:
-            assert attach_automatically
-            self.type = DeviceAssignment.AssignmentType.REQUIRED
-        elif attach_automatically:
-            self.type = DeviceAssignment.AssignmentType.AUTO
+        if isinstance(mode, AssignmentMode):
+            self.mode = mode
         else:
-            self.type = DeviceAssignment.AssignmentType.MANUAL
+            self.mode = AssignmentMode(mode)
         self.frontend_domain = frontend_domain
 
     def clone(self, **kwargs):
@@ -885,11 +883,11 @@ class DeviceAssignment(Port):
         Is the presence of this device required for the domain to start? If yes,
         it will be attached automatically.
         """
-        return self.type == DeviceAssignment.AssignmentType.REQUIRED
+        return self.mode == AssignmentMode.REQUIRED
 
     @required.setter
     def required(self, required: bool):
-        self.type = DeviceAssignment.AssignmentType.REQUIRED
+        self.mode = AssignmentMode.REQUIRED
 
     @property
     def attach_automatically(self) -> bool:
@@ -897,14 +895,14 @@ class DeviceAssignment(Port):
         Should this device automatically connect to the frontend domain when
         available and not connected to other qubes?
         """
-        return self.type in (
-            DeviceAssignment.AssignmentType.AUTO,
-            DeviceAssignment.AssignmentType.REQUIRED
+        return self.mode in (
+            AssignmentMode.AUTO,
+            AssignmentMode.REQUIRED
         )
 
     @attach_automatically.setter
     def attach_automatically(self, attach_automatically: bool):
-        self.type = DeviceAssignment.AssignmentType.AUTO
+        self.mode = AssignmentMode.AUTO
 
     @property
     def options(self) -> Dict[str, Any]:
@@ -923,9 +921,7 @@ class DeviceAssignment(Port):
         properties = b' '.join(
             self.pack_property(key, value)
             for key, value in (
-                ('required', 'yes' if self.required else 'no'),
-                ('attach_automatically',
-                 'yes' if self.attach_automatically else 'no'),
+                ('mode', self.mode.value),
                 ('ident', self.ident),
                 ('devclass', self.devclass)))
 
@@ -972,9 +968,5 @@ class DeviceAssignment(Port):
         del properties['backend_domain']
         del properties['ident']
         del properties['devclass']
-
-        properties['attach_automatically'] = qbool(
-            properties.get('attach_automatically', 'no'))
-        properties['required'] = qbool(properties.get('required', 'no'))
 
         return cls(expected_port, **properties)

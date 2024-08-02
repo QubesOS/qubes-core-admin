@@ -39,12 +39,10 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             pcidev = os.environ['QUBES_TEST_PCIDEV']
             self.dev = self.app.domains[0].devices['pci'][pcidev]
             self.assignment = DeviceAssignment(
-                self.dev, attach_automatically=True
+                self.dev, mode='auto-attach'
             )
             self.required_assignment = DeviceAssignment(
-                self.dev,
-                attach_automatically=True,
-                required=True,
+                self.dev, mode='required',
             )
             if isinstance(self.dev, qubes.device_protocol.UnknownDevice):
                 self.skipTest('Specified device {} does not exists'.format(pcidev))
