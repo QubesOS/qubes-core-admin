@@ -498,18 +498,18 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     raise qubes.exc.QubesValueError(
                         'devtype option can only have '
                         '\'disk\' or \'cdrom\' value')
-            elif option == 'identity':
-                identity = value
-                if identity not in ('any', device.self_identity):
-                    print("Unrecognized identity, skipping attachment of"
-                          f" {device}", file=sys.stderr)
-                    raise qubes.devices.UnrecognizedDevice(
-                        f"Device presented identity {device.self_identity} "
-                        f"does not match expected {identity}"
-                    )
             else:
                 raise qubes.exc.QubesValueError(
                     'Unsupported option {}'.format(option))
+
+        # identity = value  # TODO!
+        # if identity not in ('any', device.self_identity):
+        #     print("Unrecognized identity, skipping attachment of"
+        #           f" {device}", file=sys.stderr)
+        #     raise qubes.devices.UnrecognizedDevice(
+        #         f"Device presented identity {device.self_identity} "
+        #         f"does not match expected {identity}"
+        #     )
 
         if 'read-only' not in options:
             options['read-only'] = 'yes' if device.mode == 'r' else 'no'
