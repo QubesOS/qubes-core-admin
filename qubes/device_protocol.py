@@ -857,14 +857,15 @@ class DeviceAssignment(Port):
     def device(self) -> DeviceInfo:
         """Get DeviceInfo object corresponding to this DeviceAssignment"""
         dev = self.backend_domain.devices[self.devclass][self.ident]
-        if (self.device_identity is not None
-                and self.device_identity != dev.self_identity):
+        # TODO: device identity could not match
+        # if (self.device_identity is not None
+        #         and self.device_identity != dev.self_identity):
             # raise ProtocolError(
             #     "Device identity does not match, expected "
             #     f"'{self.device_identity}' got '{dev.self_identity}'")
             # TODO
-            return UnknownDevice(
-                self.backend_domain, self.ident, devclass=self.devclass)
+            # return UnknownDevice(
+            #     self.backend_domain, self.ident, devclass=self.devclass)
         return dev
 
     @property

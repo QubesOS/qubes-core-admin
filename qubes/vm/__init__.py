@@ -285,13 +285,17 @@ class BaseVM(qubes.PropertyHolder):
                     options[option.get('name')] = str(option.text)
 
                 try:
+                    import sys  # TODO
+                    print(f'{self.name=}', file=sys.stderr)  # TODO
                     # backward compatibility: persistent~>required=True
                     legacy_required = node.get('required', 'absent')
+                    print(f'{legacy_required=}', file=sys.stderr)  # TODO
                     if legacy_required == 'absent':
                         mode_str = node.get('mode', 'required')
                         try:
                             mode = (qubes.device_protocol.
                                     AssignmentMode(mode_str))
+                            print(f'{mode=}', file=sys.stderr)  # TODO
                         except ValueError:
                             self.log.error(
                                 "Unrecognized assignment mode, ignoring.")
@@ -299,17 +303,21 @@ class BaseVM(qubes.PropertyHolder):
                     else:
                         required = qubes.property.bool(
                             None, None, legacy_required)
+                        print(f'{required=}', file=sys.stderr)  # TODO
                         if required:
                             mode = (qubes.device_protocol.
                                     AssignmentMode.REQUIRED)
+                            print(f'{mode=}', file=sys.stderr)  # TODO
                         else:
                             mode = (qubes.device_protocol.
                                     AssignmentMode.AUTO)
+                            print(f'{mode=}', file=sys.stderr)  # TODO
                     if 'identity' in options:
                         identity = options.get('identity')
                         del options['identity']
                     else:
                         identity = node.get('identity', 'any')
+                    print(mode.value, file=sys.stderr)  # TODO
                     device_assignment = qubes.device_protocol.DeviceAssignment(
                         qubes.device_protocol.Port(
                             backend_domain=self.app.domains[

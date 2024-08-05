@@ -100,8 +100,7 @@ def device_list_change(
         else:
             target = tuple(frontends.keys())[0]
         assignment = frontends[target]
-        asyncio.ensure_future(ext.attach_and_notify(
-            target, assignment.device, assignment.options))
+        asyncio.ensure_future(ext.attach_and_notify(target, assignment))
 
 
 def compare_device_cache(vm, devices_cache, current_devices):
