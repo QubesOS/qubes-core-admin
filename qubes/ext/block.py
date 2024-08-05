@@ -502,15 +502,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 raise qubes.exc.QubesValueError(
                     'Unsupported option {}'.format(option))
 
-        # identity = value  # TODO!
-        # if identity not in ('any', device.self_identity):
-        #     print("Unrecognized identity, skipping attachment of"
-        #           f" {device}", file=sys.stderr)
-        #     raise qubes.devices.UnrecognizedDevice(
-        #         f"Device presented identity {device.self_identity} "
-        #         f"does not match expected {identity}"
-        #     )
-
         if 'read-only' not in options:
             options['read-only'] = 'yes' if device.mode == 'r' else 'no'
         if options.get('read-only', 'no') == 'no' and device.mode == 'r':
@@ -550,19 +541,34 @@ class BlockDeviceExtension(qubes.ext.Extension):
     async def on_domain_start(self, vm, _event, **_kwargs):
         # pylint: disable=unused-argument
         for assignment in vm.devices['block'].get_assigned_devices():
-            self.notify_auto_attached(
-                vm, assignment.device, assignment.options)
+            if assignment.mode == qubes.device_protocol.AssignmentMode.ASK:
+                pass
+            self.notify_auto_attached(vm, assignment)
 
-    def notify_auto_attached(self, vm, device, options):
+    def notify_auto_attached(self, vm, assignment):
+        identity = assignment.device_ientity
+        device = assignment.device
+        if identity not in ('any', device.self_identity):
+            print("Unrecognized identity, skipping attachment of device in port"
+                  f" {assignment}", file=sys.stderr)
+            raise qubes.devices.UnrecognizedDevice(
+                f"Device presented identity {device.self_identity} "
+                f"does not match expected {identity}"
+            )
+
         self.pre_attachment_internal(
-            vm, device, options, expected_attachment=vm)
-        asyncio.ensure_future(vm.fire_event_async(
-            'device-attach:block', device=device, options=options))
+            vm, device, assignment.options, expected_attachment=vm)
 
-    async def attach_and_notify(self, vm, device, options):
+        asyncio.ensure_future(vm.fire_event_async(
+            'device-attach:block',
+            device=device,
+            options=assignment.options,
+        ))
+
+    async def attach_and_notify(self, vm, assignment):
         # bypass DeviceCollection logic preventing double attach
         # we expected that these devices are already attached to this vm
-        self.notify_auto_attached(vm, device, options)
+        self.notify_auto_attached(vm, assignment)
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):
