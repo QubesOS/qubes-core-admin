@@ -32,7 +32,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.ext.utils import device_list_change
+from qubes.ext.utils import device_list_change, confirm_device_attachment
 from qubes.storage import Storage
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
@@ -541,8 +541,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
     async def on_domain_start(self, vm, _event, **_kwargs):
         # pylint: disable=unused-argument
         for assignment in vm.devices['block'].get_assigned_devices():
-            if assignment.mode == qubes.device_protocol.AssignmentMode.ASK:
-                pass
             self.notify_auto_attached(vm, assignment)
 
     def notify_auto_attached(self, vm, assignment):
@@ -555,6 +553,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 f"Device presented identity {device.self_identity} "
                 f"does not match expected {identity}"
             )
+
+        if assignment.mode.value == "ask-to-attach":
+            if vm.name != confirm_device_attachment(device, {vm: assignment}):
+                return
 
         self.pre_attachment_internal(
             vm, device, assignment.options, expected_attachment=vm)
