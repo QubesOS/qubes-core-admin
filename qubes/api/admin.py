@@ -1223,7 +1223,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             #  the list is empty
             self.enforce(len(devices) <= 1)
         devices = self.fire_event_for_filter(devices, devclass=devclass)
-        dev_info = {dev.ident: dev.serialize().decode() for dev in devices}
+        dev_info = {f'{dev.ident}:{dev.self_identity}':
+                        dev.serialize().decode() for dev in devices}
         return ''.join('{} {}\n'.format(ident, dev_info[ident])
                        for ident in sorted(dev_info))
 
@@ -1253,7 +1254,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             device_assignments, devclass=devclass)
 
         dev_info = {
-            f'{assignment.backend_domain}+{assignment.ident}':
+            (f'{assignment.backend_domain}'
+             f'+{assignment.ident}:{assignment.device_identity}'):
                 assignment.serialize().decode('ascii', errors="ignore")
             for assignment in device_assignments}
 
@@ -1288,7 +1290,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                                                         devclass=devclass)
 
         dev_info = {
-            f'{assignment.backend_domain}+{assignment.ident}':
+            (f'{assignment.backend_domain}'
+             f'+{assignment.ident}:{assignment.device_identity}'):
                 assignment.serialize().decode('ascii', errors="ignore")
             for assignment in device_assignments}
 

@@ -216,8 +216,8 @@ class Port:
 
         if properties.get('ident', expected.ident) != expected.ident:
             raise UnexpectedDeviceProperty(
-                f"Got device with id: {properties['ident']} "
-                f"when expected id: {expected.ident}.")
+                f"Got device from port: {properties['ident']} "
+                f"when expected port: {expected.ident}.")
         properties['ident'] = expected.ident
 
         if properties.get('devclass', expected.devclass) != expected.devclass:
@@ -966,12 +966,14 @@ class DeviceAssignment(Port):
             cls,
             serialization: bytes,
             expected_port: Port,
+            expected_identity: Optional[str],
     ) -> 'DeviceAssignment':
         """
         Recovers a serialized object, see: :py:meth:`serialize`.
         """
         try:
-            result = cls._deserialize(serialization, expected_port)
+            result = cls._deserialize(
+                serialization, expected_port, expected_identity)
         except Exception as exc:
             raise ProtocolError() from exc
         return result
@@ -981,6 +983,7 @@ class DeviceAssignment(Port):
             cls,
             untrusted_serialization: bytes,
             expected_port: Port,
+            expected_identity: Optional[str],
     ) -> 'DeviceAssignment':
         """
         Actually deserializes the object.
@@ -993,4 +996,9 @@ class DeviceAssignment(Port):
         del properties['ident']
         del properties['devclass']
 
-        return cls(expected_port, **properties)
+        assignment = cls(expected_port, **properties)
+        if assignment.device.self_identity != expected_identity:
+            raise UnexpectedDeviceProperty(
+                f"Got device with identity {assignment.device.self_identity}"
+                f"when expected devices with identity {expected_identity}.")
+        return assignment
