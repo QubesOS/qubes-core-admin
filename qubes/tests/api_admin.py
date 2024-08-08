@@ -1955,6 +1955,16 @@ netvm default=True type=vm \n'''
         self.assertFalse(mock_remove.called)
         self.assertFalse(self.app.save.called)
 
+    @unittest.mock.patch('qubes.storage.Storage.remove')
+    @unittest.mock.patch('shutil.rmtree')
+    def test_503_vm_remove_dom0(self, mock_rmtree, mock_remove):
+        mock_remove.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesVMInUseError):
+            self.call_mgmt_func(b'admin.vm.Remove', b'dom0')
+        self.assertFalse(mock_rmtree.called)
+        self.assertFalse(mock_remove.called)
+        self.assertFalse(self.app.save.called)
+
     # Import tests
     # (internal methods, normally called from qubes-rpc script)
 
