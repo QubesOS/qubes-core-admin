@@ -1164,6 +1164,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
 
+        if self.dest.name == 'dom0':
+            raise qubes.exc.QubesVMInUseError(
+                self.dest, msg="'dom0' cannot be removed")
+
         async with self.dest.startup_lock:
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
