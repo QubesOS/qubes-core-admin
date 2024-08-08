@@ -223,14 +223,14 @@ class DeviceCollection:
         """
         if assignment.devclass != self._bus:
             raise ValueError(
-                f'Trying to attach {assignment.devclass} device '
+                f'Trying to assign {assignment.devclass} device '
                 f'when {self._bus} device expected.')
 
         device = assignment.device
         if device in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
-                '{} device {!s} already assigned to {!s}'.format(
-                    self._bus, device, self._vm))
+                f'{self._bus} device {device!s} '
+                f'already assigned to {self._vm!s}')
 
         self._set.add(assignment)
 
@@ -366,10 +366,10 @@ class DeviceCollection:
 
         Safe to access before libvirt bootstrap.
         """
-        for dev in self._set:
-            if required_only and not dev.required:
+        for ass in self._set:
+            if required_only and not ass.required:
                 continue
-            yield dev
+            yield ass
 
     def get_exposed_devices(self) -> Iterable[DeviceInfo]:
         """
