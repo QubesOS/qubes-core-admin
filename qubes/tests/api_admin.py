@@ -1726,13 +1726,13 @@ netvm default=True type=vm \n'''
         value = value.replace("'Some other device'", "'Some_other_device'")
         self.assertSerializedEqual(value,
             "1234 serial='unknown' manufacturer='unknown' "
-            "self_identity='0000:0000::?******' vendor='unknown' "
-            "devclass='peripheral' product='Some_device' ident='1234' "
+            "device_id='0000:0000::?******' vendor='unknown' "
+            "devclass='peripheral' product='Some_device' port_id='1234' "
             "name='unknown' backend_domain='test-vm1' interfaces='?******'\n"
              "4321 serial='unknown' manufacturer='unknown' "
-            "self_identity='0000:0000::?******' vendor='unknown' "
+            "device_id='0000:0000::?******' vendor='unknown' "
             "devclass='peripheral' product='Some_other_device' "
-            "ident='4321' name='unknown' backend_domain='test-vm1' "
+            "port_id='4321' name='unknown' backend_domain='test-vm1' "
             "interfaces='?******'\n")
         self.assertFalse(self.app.save.called)
 
@@ -1743,9 +1743,9 @@ netvm default=True type=vm \n'''
         value = value.replace("'Some other device'", "'Some_other_device'")
         self.assertSerializedEqual(value,
             "4321 serial='unknown' manufacturer='unknown' "
-            "self_identity='0000:0000::?******' vendor='unknown' "
+            "device_id='0000:0000::?******' vendor='unknown' "
             "devclass='peripheral' product='Some_other_device' "
-            "ident='4321' name='unknown' backend_domain='test-vm1' "
+            "port_id='4321' name='unknown' backend_domain='test-vm1' "
             "interfaces='?******'\n")
         self.assertFalse(self.app.save.called)
 
@@ -1766,7 +1766,7 @@ netvm default=True type=vm \n'''
             b'test-vm1')
         self.assertEqual(value,
             "test-vm1+1234 required='yes' attach_automatically='yes' "
-            "ident='1234' devclass='testclass' backend_domain='test-vm1'\n")
+            "port_id='1234' devclass='testclass' backend_domain='test-vm1'\n")
         self.assertFalse(self.app.save.called)
 
     def test_471_vm_device_list_assigned_options(self):
@@ -1783,10 +1783,10 @@ netvm default=True type=vm \n'''
             b'test-vm1')
         self.assertEqual(value,
             "test-vm1+1234 required='yes' attach_automatically='yes' "
-            "ident='1234' devclass='testclass' backend_domain='test-vm1' "
+            "port_id='1234' devclass='testclass' backend_domain='test-vm1' "
             "_opt1='value'\n"
             "test-vm1+4321 required='yes' attach_automatically='yes' "
-            "ident='4321' devclass='testclass' backend_domain='test-vm1'\n")
+            "port_id='4321' devclass='testclass' backend_domain='test-vm1'\n")
         self.assertFalse(self.app.save.called)
 
     def device_list_single_attached_testclass(self, vm, event, **kwargs):
@@ -1802,7 +1802,7 @@ netvm default=True type=vm \n'''
             b'test-vm1')
         self.assertEqual(value,
             "test-vm1+1234 required='no' attach_automatically='no' "
-            "ident='1234' devclass='testclass' backend_domain='test-vm1' "
+            "port_id='1234' devclass='testclass' backend_domain='test-vm1' "
             "frontend_domain='test-vm1' _attach_opt='value'\n")
         self.assertFalse(self.app.save.called)
 
@@ -1821,7 +1821,7 @@ netvm default=True type=vm \n'''
             b'test-vm1', b'test-vm1+1234')
         self.assertEqual(value,
             "test-vm1+1234 required='yes' attach_automatically='yes' "
-            "ident='1234' devclass='testclass' backend_domain='test-vm1'\n")
+            "port_id='1234' devclass='testclass' backend_domain='test-vm1'\n")
         self.assertFalse(self.app.save.called)
 
     def device_list_multiple_attached_testclass(self, vm, event, **kwargs):
@@ -1839,7 +1839,7 @@ netvm default=True type=vm \n'''
             b'test-vm1', b'test-vm1+1234')
         self.assertEqual(value,
             "test-vm1+1234 required='no' attach_automatically='no' "
-            "ident='1234' devclass='testclass' backend_domain='test-vm1' "
+            "port_id='1234' devclass='testclass' backend_domain='test-vm1' "
             "frontend_domain='test-vm1' _attach_opt='value'\n")
         self.assertFalse(self.app.save.called)
 

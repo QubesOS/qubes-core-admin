@@ -143,7 +143,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         })
         devices = list(self.ext.on_device_list_pci(vm, 'device-list:pci'))
         self.assertEqual(len(devices), 1)
-        self.assertEqual(devices[0].ident, "00_14.0")
+        self.assertEqual(devices[0].port_id, "00_14.0")
         self.assertEqual(devices[0].vendor, "Intel Corporation")
         self.assertEqual(devices[0].product,
                          "9 Series Chipset Family USB xHCI Controller")
@@ -153,4 +153,4 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(devices[0].description,
                          "USB controller: Intel Corporation 9 Series "
                          "Chipset Family USB xHCI Controller")
-        self.assertEqual(devices[0].self_identity, "0x8086:0x8cb1::p0c0330")
+        self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")
