@@ -47,9 +47,9 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ('xvdd',)
 
 
 class BlockDevice(qubes.device_protocol.DeviceInfo):
-    def __init__(self, backend_domain, ident):
+    def __init__(self, backend_domain, port_id):
         port = qubes.device_protocol.Port(
-            backend_domain=backend_domain, ident=ident, devclass="block")
+            backend_domain=backend_domain, port_id=port_id, devclass="block")
         super().__init__(port)
 
         # lazy loading
@@ -87,7 +87,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if not self.backend_domain.is_running():
             return "unknown", "unknown"
         untrusted_desc = self.backend_domain.untrusted_qdb.read(
-            f'/qubes-block-devices/{self.ident}/desc')
+            f'/qubes-block-devices/{self.port_id}/desc')
         if not untrusted_desc:
             return "unknown", "unknown"
         desc = BlockDevice._sanitize(
@@ -108,7 +108,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     @property
     def manufacturer(self) -> str:
         if self.parent_device:
-            return f"sub-device of {self.parent_device}"
+            return f"sub-device of {self.parent_device.port}"
         return f"hosted by {self.backend_domain!s}"
 
     @property
@@ -118,12 +118,12 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not self.backend_domain.is_running():
                 return 'w'
             untrusted_mode = self.backend_domain.untrusted_qdb.read(
-                '/qubes-block-devices/{}/mode'.format(self.ident))
+                '/qubes-block-devices/{}/mode'.format(self.port_id))
             if untrusted_mode is None:
                 self._mode = 'w'
             elif untrusted_mode not in (b'w', b'r'):
                 self.backend_domain.log.warning(
-                    'Device {} has invalid mode'.format(self.ident))
+                    'Device {} has invalid mode'.format(self.port_id))
                 self._mode = 'w'
             else:
                 self._mode = untrusted_mode.decode()
@@ -136,12 +136,12 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not self.backend_domain.is_running():
                 return None
             untrusted_size = self.backend_domain.untrusted_qdb.read(
-                '/qubes-block-devices/{}/size'.format(self.ident))
+                '/qubes-block-devices/{}/size'.format(self.port_id))
             if untrusted_size is None:
                 self._size = 0
             elif not untrusted_size.isdigit():
                 self.backend_domain.log.warning(
-                    'Device {} has invalid size'.format(self.ident))
+                    'Device {} has invalid size'.format(self.port_id))
                 self._size = 0
             else:
                 self._size = int(untrusted_size)
@@ -150,7 +150,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     @property
     def device_node(self):
         """Device node in backend domain"""
-        return '/dev/' + self.ident.replace('_', '/')
+        return '/dev/' + self.port_id.replace('_', '/')
 
     @property
     def interfaces(self) -> List[qubes.device_protocol.DeviceInterface]:
@@ -173,7 +173,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not self.backend_domain.is_running():
                 return None
             untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
-                f'/qubes-block-devices/{self.ident}/parent')
+                f'/qubes-block-devices/{self.port_id}/parent')
             if untrusted_parent_info is None:
                 return None
             # '4-4.1:1.0' -> parent_ident='4-4.1', interface_num='1.0'
@@ -188,7 +188,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
                     self.backend_domain.devices)[devclass][parent_ident]
             except KeyError:
                 self._parent = qubes.device_protocol.UnknownDevice(
-                    self.backend_domain, parent_ident, devclass=devclass)
+                    qubes.device_protocol.Port(
+                        self.backend_domain, parent_ident, devclass=devclass))
             self._interface_num = interface_num
         return self._parent
 
@@ -214,27 +215,27 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             info = _try_get_block_device_info(vm.app, disk)
             if not info:
                 continue
-            backend_domain, ident = info
+            backend_domain, port_id = info
 
             if backend_domain.name != self.backend_domain.name:
                 continue
 
-            if self.ident == ident:
+            if self.port_id == port_id:
                 return True
         return False
 
     @property
-    def self_identity(self) -> str:
+    def device_id(self) -> str:
         """
         Get identification of a device not related to port.
         """
         parent_identity = ''
         p = self.parent_device
         if p is not None:
-            p_info = p.backend_domain.devices[p.devclass][p.ident]
-            parent_identity = p_info.self_identity
+            p_info = p.backend_domain.devices[p.devclass][p.port_id]
+            parent_identity = p_info.device_id
             if p.devclass == 'usb':
-                parent_identity = f'{p.ident}:{parent_identity}'
+                parent_identity = f'{p.port_id}:{parent_identity}'
         if self._interface_num:
             # device interface number (not partition)
             self_id = self._interface_num
@@ -249,7 +250,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         The behavior is undefined for the rest block devices.
         """
         # partition number: 'xxxxx12' -> '12' (partition)
-        numbers = re.findall(r'\d+$', self.ident)
+        numbers = re.findall(r'\d+$', self.port_id)
         return int(numbers[-1]) if numbers else None
 
     @staticmethod
@@ -282,13 +283,13 @@ def _try_get_block_device_info(app, disk):
     dev_path = dev_path_node.get('dev')
 
     if dev_path.startswith('/dev/'):
-        ident = dev_path[len('/dev/'):]
+        port_id = dev_path[len('/dev/'):]
     else:
-        ident = dev_path
+        port_id = dev_path
 
-    ident = ident.replace('/', '_')
+    port_id = port_id.replace('/', '_')
 
-    return backend_domain, ident
+    return backend_domain, port_id
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
@@ -309,7 +310,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             # and definitely isn't running yet
             device_attachments = self.get_device_attachments(vm)
             current_devices = dict(
-                (dev.ident, device_attachments.get(dev.ident, None))
+                (dev.port_id, device_attachments.get(dev.port_id, None))
                 for dev in self.on_device_list_block(vm, None))
             self.devices_cache[vm.name] = current_devices
         else:
@@ -321,7 +322,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         # pylint: disable=unused-argument
         device_attachments = self.get_device_attachments(vm)
         current_devices = dict(
-            (dev.ident, device_attachments.get(dev.ident, None))
+            (dev.port_id, device_attachments.get(dev.port_id, None))
             for dev in self.on_device_list_block(vm, None))
         device_list_change(self, current_devices, vm, path, BlockDevice)
 
@@ -341,26 +342,26 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 info = _try_get_block_device_info(vm.app, disk)
                 if not info:
                     continue
-                _backend_domain, ident = info
+                _backend_domain, port_id = info
 
-                result[ident] = vm
+                result[port_id] = vm
         return result
 
     @staticmethod
-    def device_get(vm, ident):
+    def device_get(vm, port_id):
         """
         Read information about a device from QubesDB
 
         :param vm: backend VM object
-        :param ident: device identifier
+        :param port_id: port identifier
         :returns BlockDevice
         """
 
         untrusted_qubes_device_attrs = vm.untrusted_qdb.list(
-            '/qubes-block-devices/{}/'.format(ident))
+            '/qubes-block-devices/{}/'.format(port_id))
         if not untrusted_qubes_device_attrs:
             return None
-        return BlockDevice(vm, ident)
+        return BlockDevice(vm, port_id)
 
     @qubes.ext.handler('device-list:block')
     def on_device_list_block(self, vm, event):
@@ -378,19 +379,19 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm.log.warning(msg % vm.name)
                 continue
 
-            ident = untrusted_ident
+            port_id = untrusted_ident
 
-            device_info = self.device_get(vm, ident)
+            device_info = self.device_get(vm, port_id)
             if device_info:
                 yield device_info
 
     @qubes.ext.handler('device-get:block')
-    def on_device_get_block(self, vm, event, ident):
+    def on_device_get_block(self, vm, event, port_id):
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
         if not vm.app.vmm.offline_mode:
-            device_info = self.device_get(vm, ident)
+            device_info = self.device_get(vm, port_id)
             if device_info:
                 yield device_info
 
@@ -440,13 +441,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 options['devtype'] = disk.get('device')
 
             if dev_path.startswith('/dev/'):
-                ident = dev_path[len('/dev/'):]
+                port_id = dev_path[len('/dev/'):]
             else:
-                ident = dev_path
+                port_id = dev_path
 
-            ident = ident.replace('/', '_')
+            port_id = port_id.replace('/', '_')
 
-            yield (BlockDevice(backend_domain, ident), options)
+            yield (BlockDevice(backend_domain, port_id), options)
 
     @staticmethod
     def find_unused_frontend(vm, devtype='disk'):
@@ -531,7 +532,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 f'Domain {device.backend_domain.name} needs to be running '
                 f'to attach device from it')
 
-        self.devices_cache[device.backend_domain.name][device.ident] = vm
+        self.devices_cache[device.backend_domain.name][device.port_id] = vm
 
         if 'frontend-dev' not in options:
             options['frontend-dev'] = self.find_unused_frontend(
@@ -544,13 +545,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
             self.notify_auto_attached(vm, assignment)
 
     def notify_auto_attached(self, vm, assignment):
-        identity = assignment.device_identity
+        identity = assignment.device_id
         device = assignment.device
-        if identity not in ('any', device.self_identity):
+        if identity not in ('*', device.device_id):
             print("Unrecognized identity, skipping attachment of device in port"
                   f" {assignment}", file=sys.stderr)
             raise qubes.devices.UnrecognizedDevice(
-                f"Device presented identity {device.self_identity} "
+                f"Device presented identity {device.device_id} "
                 f"does not match expected {identity}"
             )
 
@@ -601,7 +602,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     async def _detach_and_notify(self, vm, device, options):
         # bypass DeviceCollection logic preventing double attach
         self.on_device_pre_detached_block(
-            vm, 'device-pre-detach:block', device)
+            vm, 'device-pre-detach:block', device.port)
         await vm.fire_event_async(
             'device-detach:block', device=device, options=options)
 
@@ -611,7 +612,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         self.devices_cache.clear()
 
     @qubes.ext.handler('device-pre-detach:block')
-    def on_device_pre_detached_block(self, vm, event, device):
+    def on_device_pre_detached_block(self, vm, event, port):
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
@@ -619,10 +620,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
         # need to enumerate attached devices to find frontend_dev option (at
         # least)
         for attached_device, options in self.on_device_list_attached(vm, event):
-            if attached_device == device:
-                self.devices_cache[device.backend_domain.name][
-                    device.ident] = None
+            if attached_device.port == port:
+                self.devices_cache[port.backend_domain.name][
+                    port.port_id] = None
                 vm.libvirt_domain.detachDevice(
                     vm.app.env.get_template('libvirt/devices/block.xml').render(
-                        device=device, vm=vm, options=options))
+                        device=attached_device, vm=vm, options=options))
                 break

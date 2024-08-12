@@ -6,8 +6,8 @@ devices, which can be attached to other domains (frontend). Devices can be of
 different buses (like 'pci', 'usb', etc.). Each device bus is implemented by
 an extension (see :py:mod:`qubes.ext`).
 
-Devices are identified by pair of (backend domain, `ident`), where `ident` is
-:py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
+Devices are identified by pair of (backend domain, `port_id`), where `port_id`
+is :py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
 
 
 Device Assignment vs Attachment
@@ -106,11 +106,11 @@ is connected. Therefore, when assigning a device to a VM, such as
 `sys-usb:1-1.1`, the port `1-1.1` is actually assigned, and thus
 *every* devices connected to it will be automatically attached.
 Similarly, when assigning `vm:sda`, every block device with the name `sda`
-will be automatically attached. We can limit this using :py:meth:`qubes.device_protocol.DeviceInfo.self_identity`, which returns a string containing information
+will be automatically attached. We can limit this using :py:meth:`qubes.device_protocol.DeviceInfo.device_id`, which returns a string containing information
 presented by the device, such as, `vendor_id`, `product_id`, `serial_number`,
-and encoded interfaces. In the case of block devices, `self_identity`
+and encoded interfaces. In the case of block devices, `device_id`
 consists of the parent port to which the device is connected (if any),
-the parent's `self_identity`, and the interface/partition number.
+the parent's `device_id`, and the interface/partition number.
 In practice, this means that, a partition on a USB drive will only be
 automatically attached to a frontend domain if the parent presents
 the correct serial number etc., and is connected to a specific port.

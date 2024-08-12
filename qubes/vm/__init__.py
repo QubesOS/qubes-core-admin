@@ -285,17 +285,13 @@ class BaseVM(qubes.PropertyHolder):
                     options[option.get('name')] = str(option.text)
 
                 try:
-                    import sys  # TODO
-                    print(f'{self.name=}', file=sys.stderr)  # TODO
                     # backward compatibility: persistent~>required=True
                     legacy_required = node.get('required', 'absent')
-                    print(f'{legacy_required=}', file=sys.stderr)  # TODO
                     if legacy_required == 'absent':
                         mode_str = node.get('mode', 'required')
                         try:
                             mode = (qubes.device_protocol.
                                     AssignmentMode(mode_str))
-                            print(f'{mode=}', file=sys.stderr)  # TODO
                         except ValueError:
                             self.log.error(
                                 "Unrecognized assignment mode, ignoring.")
@@ -303,29 +299,27 @@ class BaseVM(qubes.PropertyHolder):
                     else:
                         required = qubes.property.bool(
                             None, None, legacy_required)
-                        print(f'{required=}', file=sys.stderr)  # TODO
                         if required:
                             mode = (qubes.device_protocol.
                                     AssignmentMode.REQUIRED)
-                            print(f'{mode=}', file=sys.stderr)  # TODO
                         else:
                             mode = (qubes.device_protocol.
                                     AssignmentMode.AUTO)
-                            print(f'{mode=}', file=sys.stderr)  # TODO
                     if 'identity' in options:
                         identity = options.get('identity')
                         del options['identity']
                     else:
                         identity = node.get('identity', 'any')
-                    print(mode.value, file=sys.stderr)  # TODO
                     device_assignment = qubes.device_protocol.DeviceAssignment(
-                        qubes.device_protocol.Port(
-                            backend_domain=self.app.domains[
-                                node.get('backend-domain')],
-                            ident=node.get('id'),
-                            devclass=devclass,
+                        qubes.device_protocol.Device(
+                            qubes.device_protocol.Port(
+                                backend_domain=self.app.domains[
+                                    node.get('backend-domain')],
+                                port_id=node.get('id'),
+                                devclass=devclass,
+                            ),
+                            device_id=identity,
                         ),
-                        device_identity=identity,
                         options=options,
                         mode=mode,
                     )
@@ -384,9 +378,9 @@ class BaseVM(qubes.PropertyHolder):
             for assignment in self.devices[devclass].get_assigned_devices():
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', assignment.backend_domain.name)
-                node.set('id', assignment.ident)
+                node.set('id', assignment.port_id)
                 node.set('mode', assignment.mode.value)
-                identity = assignment.device_identity or 'any'
+                identity = assignment.device_id or 'any'
                 node.set('identity', identity)
                 for key, val in assignment.options.items():
                     option_node = lxml.etree.Element('option')

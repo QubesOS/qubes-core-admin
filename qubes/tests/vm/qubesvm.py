@@ -1311,11 +1311,13 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Port(
-                backend_domain=vm,  # this is violation of API,
-                                    # but for PCI the argument is unused
-                ident='00_00.0',
-                devclass="pci",
+            qubes.device_protocol.Device(
+                qubes.device_protocol.Port(
+                    backend_domain=vm,  # this is violation of API,
+                                        # but for PCI the argument is unused
+                    port_id='00_00.0',
+                    devclass="pci",
+                )
             ),
             mode='required',
         )
@@ -1398,11 +1400,13 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Port(
-                backend_domain=vm,  # this is violation of API,
-                # but for PCI the argument is unused
-                ident='00_00.0',
-                devclass="pci",
+            qubes.device_protocol.Device(
+                qubes.device_protocol.Port(
+                    backend_domain=vm,  # this is violation of API,
+                    # but for PCI the argument is unused
+                    port_id='00_00.0',
+                    devclass="pci",
+                ),
             ),
             mode='required')
         vm.devices['pci']._set.add(
@@ -1486,10 +1490,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
         dev = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Port(
-                backend_domain=dom0,
-                ident='sda',
-                devclass="block",
+            qubes.device_protocol.Device(
+                qubes.device_protocol.Port(
+                    backend_domain=dom0,
+                    port_id='sda',
+                    devclass="block",
+                )
             ),
             options={'devtype': 'cdrom', 'read-only': 'yes'},
             mode='required')
@@ -1595,10 +1601,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             dom0.events_enabled = True
             self.app.vmm.offline_mode = False
             dev = qubes.device_protocol.DeviceAssignment(
-                qubes.device_protocol.Port(
-                    backend_domain=dom0,
-                    ident='sda',
-                    devclass="block",
+                qubes.device_protocol.Device(
+                    qubes.device_protocol.Port(
+                        backend_domain=dom0,
+                        port_id='sda',
+                        devclass="block",
+                    )
                 ),
                 options={'devtype': 'cdrom', 'read-only': 'yes'},
                 mode='required')

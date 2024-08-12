@@ -1542,7 +1542,7 @@ class Qubes(qubes.PropertyHolder):
         assignments = vm.get_provided_assignments()
         if assignments:
             desc = ', '.join(
-                assignment.ident for assignment in assignments)
+                assignment.port_id for assignment in assignments)
             raise qubes.exc.QubesVMInUseError(
                 vm,
                 'VM has devices assigned to other VMs: ' + desc)

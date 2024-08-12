@@ -45,7 +45,7 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
-from qubes.device_protocol import Port
+from qubes.device_protocol import Port, Device, DeviceInfo
 
 
 class QubesMgmtEventsDispatcher:
@@ -1218,15 +1218,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 raise qubes.exc.QubesException("qubesd shutdown in progress")
             raise
         if self.arg:
-            devices = [dev for dev in devices if dev.ident == self.arg]
+            devices = [dev for dev in devices if dev.port_id == self.arg]
             # no duplicated devices, but device may not exist, in which case
             #  the list is empty
             self.enforce(len(devices) <= 1)
         devices = self.fire_event_for_filter(devices, devclass=devclass)
-        dev_info = {f'{dev.ident}:{dev.self_identity}':
+        dev_info = {f'{dev.port_id}:{dev.device_id}':
                         dev.serialize().decode() for dev in devices}
-        return ''.join('{} {}\n'.format(ident, dev_info[ident])
-                       for ident in sorted(dev_info))
+        return ''.join('{} {}\n'.format(port_id, dev_info[port_id])
+                       for port_id in sorted(dev_info))
 
     @qubes.api.method('admin.vm.device.{endpoint}.Assigned', endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
@@ -1245,7 +1245,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
-                if (str(dev.backend_domain), dev.ident)
+                if (str(dev.backend_domain), dev.port_id)
                    == (select_backend, select_ident)]
             # no duplicated devices, but device may not exist, in which case
             #  the list is empty
@@ -1255,12 +1255,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         dev_info = {
             (f'{assignment.backend_domain}'
-             f'+{assignment.ident}:{assignment.device_identity}'):
+             f'+{assignment.port_id}:{assignment.device_id}'):
                 assignment.serialize().decode('ascii', errors="ignore")
             for assignment in device_assignments}
 
-        return ''.join('{} {}\n'.format(ident, dev_info[ident])
-            for ident in sorted(dev_info))
+        return ''.join('{} {}\n'.format(port_id, dev_info[port_id])
+            for port_id in sorted(dev_info))
 
     @qubes.api.method(
         'admin.vm.device.{endpoint}.Attached',
@@ -1281,7 +1281,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if self.arg:
             select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
-                                  if (str(dev.backend_domain), dev.ident)
+                                  if (str(dev.backend_domain), dev.port_id)
                                   == (select_backend, select_ident)]
             # no duplicated devices, but device may not exist, in which case
             #  the list is empty
@@ -1291,12 +1291,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         dev_info = {
             (f'{assignment.backend_domain}'
-             f'+{assignment.ident}:{assignment.device_identity}'):
+             f'+{assignment.port_id}:{assignment.device_id}'):
                 assignment.serialize().decode('ascii', errors="ignore")
             for assignment in device_assignments}
 
-        return ''.join('{} {}\n'.format(ident, dev_info[ident])
-                       for ident in sorted(dev_info))
+        return ''.join('{} {}\n'.format(port_id, dev_info[port_id])
+                       for port_id in sorted(dev_info))
 
     # Assign/Unassign action can modify only persistent state of running VM.
     # For this reason, write=True
@@ -1305,14 +1305,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', write=True)
     async def vm_device_assign(self, endpoint, untrusted_payload):
         devclass = endpoint
-
-        # qrexec already verified that no strange characters are in self.arg
-        backend_domain, ident = self.arg.split('+', 1)
-        # may raise KeyError, either on domain or ident
-        dev = self.app.domains[backend_domain].devices[devclass][ident]
+        dev = self.load_device_info(devclass)
 
         assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_port=dev
+            untrusted_payload, expected_device=dev
         )
 
         self.fire_event_for_permission(
@@ -1325,6 +1321,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         await self.dest.devices[devclass].assign(assignment)
         self.app.save()
 
+    def load_device_info(self, devclass) -> DeviceInfo:
+        # qrexec already verified that no strange characters are in self.arg
+        _dev = Device.from_qarg(self.arg, devclass, self.app.domains)
+        # load all info, may raise KeyError, either on domain or port_id
+        return self.app.domains[
+            _dev.backend_domain].devices[devclass][_dev.port_id]
+
     # Assign/Unassign action can modify only persistent state of running VM.
     # For this reason, write=True
     @qubes.api.method(
@@ -1335,18 +1338,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             no_payload=True, scope='local', write=True)
     async def vm_device_unassign(self, endpoint):
         devclass = endpoint
-
-        # qrexec already verified that no strange characters are in self.arg
-        backend_domain, ident = self.arg.split('+', 1)
-        # may raise KeyError; if a device isn't found, it will be UnknownDevice
-        #  instance - but allow it, otherwise it will be impossible to unassign
-        #  an already removed device
-        dev = self.app.domains[backend_domain].devices[devclass][ident]
+        dev = self.load_device_info(devclass)
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
-        assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Port(dev.backend_domain, dev.ident, devclass))
+        assignment = qubes.device_protocol.DeviceAssignment(dev)
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
 
@@ -1360,14 +1356,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         scope='local', execute=True)
     async def vm_device_attach(self, endpoint, untrusted_payload):
         devclass = endpoint
-
-        # qrexec already verified that no strange characters are in self.arg
-        backend_domain, ident = self.arg.split('+', 1)
-        # may raise KeyError, either on domain or ident
-        dev = self.app.domains[backend_domain].devices[devclass][ident]
+        dev = self.load_device_info(devclass)
 
         assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_port=dev
+            untrusted_payload, expected_device=dev
         )
 
         self.fire_event_for_permission(
@@ -1389,18 +1381,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         no_payload=True, scope='local', execute=True)
     async def vm_device_detach(self, endpoint):
         devclass = endpoint
-
-        # qrexec already verified that no strange characters are in self.arg
-        backend_domain, ident = self.arg.split('+', 1)
-        # may raise KeyError; if device isn't found, it will be UnknownDevice
-        #  instance - but allow it, otherwise it will be impossible to detach
-        #  already removed device
-        dev = self.app.domains[backend_domain].devices[devclass][ident]
+        dev = self.load_device_info(devclass)
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
-        assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Port(dev.backend_domain, dev.ident, devclass))
+        assignment = qubes.device_protocol.DeviceAssignment(dev)
         await self.dest.devices[devclass].detach(assignment)
 
     # Assign/Unassign action can modify only a persistent state of running VM.
@@ -1425,10 +1410,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = eval(untrusted_payload)
         del untrusted_payload
 
-        # qrexec already verified that no strange characters are in self.arg
-        backend_domain_name, ident = self.arg.split('+', 1)
-        backend_domain = self.app.domains[backend_domain_name]
-        dev = Port(backend_domain, ident, devclass)
+        dev = Device.from_qarg(self.arg, devclass, self.app.domains)
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 

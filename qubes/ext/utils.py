@@ -66,16 +66,15 @@ def device_list_change(
             continue
         for assignment in front_vm.devices[devclass].get_assigned_devices():
             if (assignment.backend_domain == vm
-                    and assignment.device_identity
-                        == assignment.device.self_identity
-                    and assignment.ident in added
-                    and assignment.ident not in attached
+                    and assignment.device_id == assignment.device.device_id
+                    and assignment.port_id in added
+                    and assignment.port_id not in attached
             ):
-                frontends = to_attach.get(assignment.ident, {})
+                frontends = to_attach.get(assignment.port_id, {})
                 frontends[front_vm] = assignment
-                to_attach[assignment.ident] = frontends
+                to_attach[assignment.port_id] = frontends
 
-    for ident, frontends in to_attach.items():
+    for port_id, frontends in to_attach.items():
         if len(frontends) > 1:
             device = tuple(frontends.values())[0].device
             target_name = confirm_device_attachment(device, frontends)
@@ -98,10 +97,10 @@ def device_list_change(
 
 def compare_device_cache(vm, devices_cache, current_devices):
     # compare cached devices and current devices, collect:
-    # - newly appeared devices (ident)
-    # - devices attached from a vm to frontend vm (ident: frontend_vm)
-    # - devices detached from frontend vm (ident: frontend_vm)
-    # - disappeared devices, e.g., plugged out (ident)
+    # - newly appeared devices (port_id)
+    # - devices attached from a vm to frontend vm (port_id: frontend_vm)
+    # - devices detached from frontend vm (port_id: frontend_vm)
+    # - disappeared devices, e.g., plugged out (port_id)
     added = set()
     attached = {}
     detached = {}
@@ -138,7 +137,7 @@ def confirm_device_attachment(device, frontends) -> str:
 
     proc = subprocess.Popen(
         ["attach-confirm", guivm,
-         device.backend_domain.name, device.ident,
+         device.backend_domain.name, device.port_id,
          device.description,
          *[f.name for f in frontends.keys()]],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)

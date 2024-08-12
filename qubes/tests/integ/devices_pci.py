@@ -65,7 +65,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             l.split(' (')[0].split(' ', 1)
                 for l in p.communicate()[0].decode().splitlines())
         for dev in self.app.domains[0].devices['pci']:
-            lspci_ident = dev.ident.replace('_', ':')
+            lspci_ident = dev.port_id.replace('_', ':')
             self.assertIsInstance(dev, qubes.ext.pci.PCIDevice)
             self.assertEqual(dev.backend_domain, self.app.domains[0])
             self.assertIn(lspci_ident, actual_devices)

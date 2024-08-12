@@ -28,8 +28,8 @@ expose (potentially multiple) devices, which can be attached to other domains.
 Devices can be of different buses (like 'pci', 'usb', etc.). Each device
 bus is implemented by an extension.
 
-Devices are identified by pair of (backend domain, `ident`), where `ident` is
-:py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
+Devices are identified by pair of (backend domain, `port_id`), where `port_id`
+is :py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
 
 Such extension should:
  - provide `qubes.devices` endpoint - a class descendant from
@@ -59,12 +59,13 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `device-list-change:class` event.
 """
 import itertools
+import sys
 from typing import Iterable
 
 import qubes.exc
 import qubes.utils
 from qubes.device_protocol import (Port, DeviceInfo, UnknownDevice,
-                                   DeviceAssignment)
+                                   DeviceAssignment, Device)
 
 
 class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
@@ -134,13 +135,13 @@ class DeviceCollection:
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
-        .. event:: device-pre-detach:<class> (device)
+        .. event:: device-pre-detach:<class> (port)
 
             Fired before device is detached from a VM
 
             Handler for this event can be asynchronous (a coroutine).
 
-            :param device: :py:class:`DeviceInfo` object to be attached
+            :param port: :py:class:`Port` object from which device be detached
 
         .. event:: device-assign:<class> (device, options)
 
@@ -165,9 +166,9 @@ class DeviceCollection:
             event should return a list of py:class:`DeviceInfo` objects (or
             appropriate class specific descendant)
 
-        .. event:: device-get:<class> (ident)
+        .. event:: device-get:<class> (port_id)
 
-            Fired to get a single device, given by the `ident` parameter.
+            Fired to get a single device, given by the `port_id` parameter.
             Handlers of this event should either return appropriate object of
             :py:class:`DeviceInfo`, or :py:obj:`None`. Especially should not
             raise :py:class:`exceptions.KeyError`.
@@ -227,7 +228,7 @@ class DeviceCollection:
                 f'when {self._bus} device expected.')
 
         device = assignment.device
-        if device in self.get_assigned_devices():
+        if assignment in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
                 f'{self._bus} device {device!s} '
                 f'already assigned to {self._vm!s}')
@@ -248,7 +249,7 @@ class DeviceCollection:
         assert device_assignment.attach_automatically
         self._set.add(device_assignment)
 
-    async def update_required(self, device: Port, required: bool):
+    async def update_required(self, device: Device, required: bool):
         """
         Update `required` flag of an already attached device.
 
@@ -263,7 +264,7 @@ class DeviceCollection:
                 'VM must be running to modify device assignment'
             )
         assignments = [a for a in self.get_assigned_devices()
-                       if a == device]
+                       if a.device == device]
         if not assignments:
             raise qubes.exc.QubesValueError(
                 f'Device {device} not assigned to {self._vm.name}')
@@ -275,22 +276,23 @@ class DeviceCollection:
         if assignment.required == required:
             return
 
-        assignment.required = required
+        assignments[0] = assignment.clone(
+            mode='required' if required else 'auto-attach')
         await self._vm.fire_event_async(
             'device-assignment-changed:' + self._bus, device=device)
 
-    async def detach(self, device: Port):
+    async def detach(self, port: Port):
         """
         Detach device from domain.
         """
         for assign in self.get_attached_devices():
-            if device == assign:
+            if port.port_id == assign.port_id:
                 # load all options
                 assignment = assign
                 break
         else:
             raise DeviceNotAssigned(
-                f'device {device.ident!s} of class {self._bus} not '
+                f'device {port.port_id!s} of class {self._bus} not '
                 f'attached to {self._vm!s}')
 
         if assignment.required and not self._vm.is_halted():
@@ -300,12 +302,12 @@ class DeviceCollection:
                 "You need to unassign device first.")
 
         # use the local object
-        device = assignment.device
+        port = assignment.device.port
         await self._vm.fire_event_async(
-            'device-pre-detach:' + self._bus, pre_event=True, device=device)
+            'device-pre-detach:' + self._bus, pre_event=True, port=port)
 
         await self._vm.fire_event_async(
-            'device-detach:' + self._bus, device=device)
+            'device-detach:' + self._bus, port=port)
 
     async def unassign(self, device_assignment: DeviceAssignment):
         """
@@ -344,15 +346,12 @@ class DeviceCollection:
         for dev, options in attached:
             for assignment in self._set:
                 if dev == assignment:
+                    print("ok", file=sys.stderr)
                     yield assignment
                     break
             else:
                 yield DeviceAssignment(
-                    Port(
-                        backend_domain=dev.backend_domain,
-                        ident=dev.ident,
-                        devclass=dev.devclass,
-                    ),
+                    dev,
                     frontend_domain=self._vm,
                     options=options,
                     mode='manual',
@@ -379,8 +378,8 @@ class DeviceCollection:
 
     __iter__ = get_exposed_devices
 
-    def __getitem__(self, ident):
-        '''Get device object with given ident.
+    def __getitem__(self, port_id):
+        """Get device object with given port id.
 
         :returns: py:class:`DeviceInfo`
 
@@ -389,15 +388,15 @@ class DeviceCollection:
         devices - otherwise it will be impossible to detach already
         disconnected device.
 
-        :raises AssertionError: when multiple devices with the same ident are
+        :raises AssertionError: when multiple devices with the same port_id are
         found
-        '''
-        dev = self._vm.fire_event('device-get:' + self._bus, ident=ident)
+        """
+        dev = self._vm.fire_event('device-get:' + self._bus, port_id=port_id)
         if dev:
             assert len(dev) == 1
             return dev[0]
 
-        return UnknownDevice(self._vm, ident, devclass=self._bus)
+        return UnknownDevice(Port(self._vm, port_id, devclass=self._bus))
 
 
 class DeviceManager(dict):
@@ -428,8 +427,9 @@ class AssignedCollection:
         """ Add assignment to collection """
         assert assignment.attach_automatically
         vm = assignment.backend_domain
-        ident = assignment.ident
-        key = (vm, ident)
+        port_id = assignment.port_id
+        dev_id = assignment.device_id
+        key = (vm, port_id, dev_id)
         assert key not in self._dict
 
         self._dict[key] = assignment
@@ -440,20 +440,23 @@ class AssignedCollection:
         """
         assert assignment.attach_automatically
         vm = assignment.backend_domain
-        ident = assignment.ident
-        key = (vm, ident)
+        port_id = assignment.port_id
+        dev_id = assignment.device_id
+        key = (vm, port_id, dev_id)
         if key not in self._dict:
             raise KeyError
         del self._dict[key]
 
     def __contains__(self, device) -> bool:
-        return (device.backend_domain, device.ident) in self._dict
+        key = (device.backend_domain, device.port_id, device.device_id)
+        return key in self._dict
 
     def get(self, device: DeviceInfo) -> DeviceAssignment:
         """
         Returns the corresponding `DeviceAssignment` for the device.
         """
-        return self._dict[(device.backend_domain, device.ident)]
+        key = (device.backend_domain, device.port_id, device.device_id)
+        return self._dict[key]
 
     def __iter__(self):
         return self._dict.values().__iter__()
