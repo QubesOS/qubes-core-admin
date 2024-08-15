@@ -50,7 +50,7 @@ class TestVM(qubes.tests.TestEmitter):
         self.app = app
         self.name = name
         self.device = TestDevice(
-            Port(self, 'testport', 'testclass'), devclass='testdev')
+            Port(self, 'testport', devclass='testclass'), device_id='testdev')
         self.events_enabled = True
         self.devices = {
             'testclass': qubes.devices.DeviceCollection(self, 'testclass')
@@ -147,8 +147,6 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_012_double_attach(self):
         self.attach()
         with self.assertRaises(qubes.devices.DeviceAlreadyAttached):
-            print(self.assignment, file=sys.stderr)  # TODO
-            print(self.assignment.device, file=sys.stderr)  # TODO
             self.loop.run_until_complete(
                 self.collection.attach(self.assignment))
 
@@ -212,7 +210,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEqual(
             {self.assignment}, set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(
-            self.collection.update_required(self.device.port, False))
+            self.collection.update_required(self.device, False))
         self.assertEqual(
             {self.assignment}, set(self.collection.get_assigned_devices()))
         self.assertEqual(
@@ -233,7 +231,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEqual({self.assignment},
                          set(self.collection.get_attached_devices()))
         self.loop.run_until_complete(
-            self.collection.update_required(self.device.port, True))
+            self.collection.update_required(self.device, True))
         self.assertEqual({self.assignment},
                          set(self.collection.get_assigned_devices()))
         self.assertEqual({self.assignment},

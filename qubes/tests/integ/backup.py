@@ -303,9 +303,8 @@ class BackupTestsMixin(object):
                 vm_info['default'][prop] = vm.property_is_default(prop)
             for dev_class in vm.devices.keys():
                 vm_info['devices'][dev_class] = {}
-                for dev_ass in vm.devices[dev_class].get_assigned_devices():
-                    vm_info['devices'][dev_class][str(dev_ass.device)] = \
-                        dev_ass.options
+                for ass in vm.devices[dev_class].get_assigned_devices():
+                    vm_info['devices'][dev_class][str(ass)] = ass.options
             vms_info[vm.name] = vm_info
 
         return vms_info
@@ -339,7 +338,7 @@ class BackupTestsMixin(object):
                     found = False
                     for restored_dev_ass in restored_vm.devices[
                             dev_class].get_assigned_devices():
-                        if str(restored_dev_ass.device) == dev:
+                        if str(restored_dev_ass) == dev:
                             found = True
                             self.assertEqual(vm_info['devices'][dev_class][dev],
                                 restored_dev_ass.options,

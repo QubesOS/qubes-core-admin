@@ -27,6 +27,7 @@ import qubes
 from typing import Type
 
 from qubes import device_protocol
+from qubes.device_protocol import VirtualDevice
 
 
 def device_list_change(
@@ -65,18 +66,22 @@ def device_list_change(
         if not front_vm.is_running():
             continue
         for assignment in front_vm.devices[devclass].get_assigned_devices():
-            if (assignment.backend_domain == vm
-                    and assignment.device_id == assignment.device.device_id
-                    and assignment.port_id in added
-                    and assignment.port_id not in attached
-            ):
-                frontends = to_attach.get(assignment.port_id, {})
-                frontends[front_vm] = assignment
-                to_attach[assignment.port_id] = frontends
+            for device in assignment.devices:
+                if (device.backend_domain == vm
+                        and assignment.device_id == device.device_id
+                        and device.port_id in added
+                        and device.port_id not in attached
+                ):
+                    frontends = to_attach.get(device.port_id, {})
+                    # make it unique
+                    frontends[front_vm] = assignment.clone(
+                        device=VirtualDevice(device.port, device.device_id))
+                    to_attach[device.port_id] = frontends
 
     for port_id, frontends in to_attach.items():
         if len(frontends) > 1:
-            device = tuple(frontends.values())[0].device
+            # unique
+            device = tuple(frontends.values())[0].devices[0]
             target_name = confirm_device_attachment(device, frontends)
             for front in frontends:
                 if front.name == target_name:

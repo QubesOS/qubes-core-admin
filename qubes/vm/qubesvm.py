@@ -1179,10 +1179,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             try:
                 for devclass in self.devices:
                     for ass in self.devices[devclass].get_assigned_devices():
-                        if isinstance(
-                                ass.device,
-                                qubes.device_protocol.UnknownDevice) \
-                                and ass.required:
+                        if not ass.required:
+                            continue
+                        for device in ass.devices:
+                            if isinstance(device,
+                                          qubes.device_protocol.UnknownDevice):
+                                continue
+                            else:
+                                break
+                        else:
                             raise qubes.exc.QubesException(
                                 f'{devclass.capitalize()} device {ass} '
                                 f'not available'

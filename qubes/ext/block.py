@@ -546,27 +546,25 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
     def notify_auto_attached(self, vm, assignment):
         identity = assignment.device_id
-        device = assignment.device
-        if identity not in ('*', device.device_id):
-            print("Unrecognized identity, skipping attachment of device "
-                  f"from the port {assignment}", file=sys.stderr)
-            raise qubes.devices.UnrecognizedDevice(
-                f"Device presented identity {device.device_id} "
-                f"does not match expected {identity}"
-            )
+        for device in assignment.devices:
+            if identity not in ('*', device.device_id):
+                print("Unrecognized identity, skipping attachment of device "
+                      f"from the port {assignment}", file=sys.stderr)
+                continue
 
-        if assignment.mode.value == "ask-to-attach":
-            if vm.name != confirm_device_attachment(device, {vm: assignment}):
-                return
+            if assignment.mode.value == "ask-to-attach":
+                if vm.name != confirm_device_attachment(device,
+                                                        {vm: assignment}):
+                    continue
 
-        self.pre_attachment_internal(
-            vm, device, assignment.options, expected_attachment=vm)
+            self.pre_attachment_internal(
+                vm, device, assignment.options, expected_attachment=vm)
 
-        asyncio.ensure_future(vm.fire_event_async(
-            'device-attach:block',
-            device=device,
-            options=assignment.options,
-        ))
+            asyncio.ensure_future(vm.fire_event_async(
+                'device-attach:block',
+                device=device,
+                options=assignment.options,
+            ))
 
     async def attach_and_notify(self, vm, assignment):
         # bypass DeviceCollection logic preventing double attach

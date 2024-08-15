@@ -177,6 +177,7 @@ class DeviceSerializer:
                     f"Unrecognized device identity '{properties['device_id']}' "
                     f"expected '{expected_device.device_id}'"
                 )
+        expected._device_id = properties.get('device_id', expected_devid)
 
         properties['port'] = expected
 
@@ -319,13 +320,21 @@ class Port:
 
 
 class VirtualDevice:
+    """
+    Class of a device connected to *port*.
+
+    Attributes:
+        port (Port): A unique identifier for the port within the backend domain.
+        device_id (str): A unique identifier for the device.
+    """
     def __init__(
             self,
             port: Optional[Port] = None,
             device_id: Optional[str] = None,
     ):
+        # TODO! one of them cannot be None
         self.port: Optional[Port] = port
-        self._device_id = device_id if device_id else '*'
+        self._device_id = device_id
 
     def clone(self, **kwargs):
         """
@@ -348,29 +357,33 @@ class VirtualDevice:
 
     @property
     def device_id(self):
-        return self._device_id
-
-    @device_id.setter
-    def device_id(self, value):
-        self._device_id = value if value else '*'
+        if self._device_id is not None:
+            return self._device_id
+        return '*'
 
     @property
     def backend_domain(self):
-        if self.port != '*':
+        if self.port != '*' and self.port.backend_domain is not None:
             return self.port.backend_domain
-        return None
+        return '*'
 
     @property
     def port_id(self):
-        if self.port != '*':
+        if self.port != '*' and self.port.port_id is not None:
             return self.port.port_id
-        return None
+        return '*'
 
     @property
     def devclass(self):
-        if self.port != '*':
+        if self.port != '*' and self.port.devclass is not None:
             return self.port.devclass
-        return None
+        return '*'
+
+    @property
+    def description(self):
+        if self.device_id == '*':
+            return 'any device'
+        return self.device_id
 
     def __hash__(self):
         return hash((self.port, self.device_id))
@@ -1006,8 +1019,8 @@ class DeviceAssignment:
             mode: Union[str, AssignmentMode] = "manual",
     ):
         if isinstance(device, DeviceInfo):
-            device = VirtualDevice(device.port, device.device_id)
-        self._device_ident = device
+            device = VirtualDevice(device.port, device._device_id)
+        self.virtual_device = device
         self.__options = options or {}
         if isinstance(mode, AssignmentMode):
             self.mode = mode
@@ -1019,12 +1032,8 @@ class DeviceAssignment:
         """
         Clone object and substitute attributes with explicitly given.
         """
-        kwargs["device"] = kwargs.get(
-            "device", VirtualDevice(
-                Port(self.backend_domain, self.port_id, self.devclass),
-                self.device_id
-            ))
         attr = {
+            "device": self.virtual_device,
             "options": self.options,
             "mode": self.mode,
             "frontend_domain": self.frontend_domain,
@@ -1033,13 +1042,13 @@ class DeviceAssignment:
         return self.__class__(**attr)
 
     def __repr__(self):
-        return f"{self._device_ident!r}"
+        return f"{self.virtual_device!r}"
 
     def __str__(self):
-        return f"{self._device_ident}"
+        return f"{self.virtual_device}"
 
     def __hash__(self):
-        return hash(self._device_ident)
+        return hash(self.virtual_device)
 
     def __eq__(self, other):
         if isinstance(other, (VirtualDevice, DeviceAssignment)):
@@ -1052,36 +1061,40 @@ class DeviceAssignment:
 
     def __lt__(self, other):
         if isinstance(other, DeviceAssignment):
-            return self._device_ident < other._device_ident
+            return self.virtual_device < other.virtual_device
         if isinstance(other, VirtualDevice):
-            return self._device_ident < other
+            return self.virtual_device < other
         raise TypeError(
             f"Comparing instances of {type(self)} and '{type(other)}' "
             "is not supported")
 
     @property
     def backend_domain(self):
-        return self._device_ident.port.backend_domain
+        return self.virtual_device.port.backend_domain
 
     @property
     def port_id(self):
-        return self._device_ident.port.port_id
+        return self.virtual_device.port.port_id
 
     @property
     def devclass(self):
-        return self._device_ident.port.devclass
+        return self.virtual_device.port.devclass
 
     @property
     def device_id(self):
-        return self._device_ident.device_id
+        return self.virtual_device.device_id
 
     @property
-    def device(self) -> DeviceInfo:
+    def devices(self) -> List[DeviceInfo]:
         """Get DeviceInfo object corresponding to this DeviceAssignment"""
-        if self.port_id:
-            dev = self.backend_domain.devices[self.devclass][self.port_id]
-        # TODO: device identity could not match
-        return dev
+        if self.port_id != '*':
+            # could return UnknownDevice
+            return [self.backend_domain.devices[self.devclass][self.port_id]]
+        result = []
+        for dev in self.backend_domain.devices[self.devclass]:
+            if dev.device_id == self.device_id:
+                result.append(dev)
+        return result
 
     @property
     def port(self) -> Port:
@@ -1111,7 +1124,10 @@ class DeviceAssignment:
 
         Returns False if device is attached to different domain
         """
-        return self.device.attachment == self.frontend_domain
+        for device in self.devices:
+            if device.attachment == self.frontend_domain:
+                return True
+        return False
 
     @property
     def required(self) -> bool:
@@ -1147,7 +1163,7 @@ class DeviceAssignment:
         """
         Serialize an object to be transmitted via Qubes API.
         """
-        properties = self._device_ident.serialize()
+        properties = self.virtual_device.serialize()
         properties += b' ' + DeviceSerializer.pack_property(
             'mode', self.mode.value)
         if self.frontend_domain is not None:
@@ -1191,6 +1207,8 @@ class DeviceAssignment:
             expected_device, properties)
         # we do not need port, we need device
         del properties['port']
+        expected_device._device_id = properties.get(
+            'device_id', expected_device.device_id)
         properties.pop('device_id', None)
         properties['device'] = expected_device
 
