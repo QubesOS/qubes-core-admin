@@ -26,7 +26,7 @@ import jinja2
 import qubes.tests
 import qubes.ext.block
 from qubes.device_protocol import DeviceInterface, Port, DeviceInfo, \
-    DeviceAssignment, Device
+    DeviceAssignment
 
 modules_disk = '''
     <disk type='block' device='disk'>

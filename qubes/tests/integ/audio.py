@@ -272,7 +272,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
     def attach_mic(self):
         deva = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(self.app.domains[0], 'mic', 'mic')))
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].attach(deva)
@@ -281,7 +281,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
     def detach_mic(self):
         deva = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(self.app.domains[0], 'mic', 'mic')))
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].detach(deva)

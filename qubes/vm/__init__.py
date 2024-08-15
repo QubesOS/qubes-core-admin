@@ -309,13 +309,13 @@ class BaseVM(qubes.PropertyHolder):
                         identity = options.get('identity')
                         del options['identity']
                     else:
-                        identity = node.get('identity', 'any')
+                        identity = node.get('identity', '*')
                     device_assignment = qubes.device_protocol.DeviceAssignment(
-                        qubes.device_protocol.Device(
+                        qubes.device_protocol.VirtualDevice(
                             qubes.device_protocol.Port(
                                 backend_domain=self.app.domains[
                                     node.get('backend-domain')],
-                                port_id=node.get('id'),
+                                port_id=node.get('id', '*'),
                                 devclass=devclass,
                             ),
                             device_id=identity,
@@ -380,7 +380,7 @@ class BaseVM(qubes.PropertyHolder):
                 node.set('backend-domain', assignment.backend_domain.name)
                 node.set('id', assignment.port_id)
                 node.set('mode', assignment.mode.value)
-                identity = assignment.device_id or 'any'
+                identity = assignment.device_id or '*'
                 node.set('identity', identity)
                 for key, val in assignment.options.items():
                     option_node = lxml.etree.Element('option')

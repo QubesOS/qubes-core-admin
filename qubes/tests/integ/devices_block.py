@@ -328,7 +328,7 @@ class AttachMixin:
 
     def test_000_attach_reattach(self):
         ass = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(
                     self.backend, self.device_ident, 'block')
             ))

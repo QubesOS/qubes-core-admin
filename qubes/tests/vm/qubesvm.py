@@ -1309,7 +1309,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(
                     backend_domain=vm,  # this is violation of API,
                                         # but for PCI the argument is unused
@@ -1398,7 +1398,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(
                     backend_domain=vm,  # this is violation of API,
                     # but for PCI the argument is unused
@@ -1488,7 +1488,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
         dev = qubes.device_protocol.DeviceAssignment(
-            qubes.device_protocol.Device(
+            qubes.device_protocol.VirtualDevice(
                 qubes.device_protocol.Port(
                     backend_domain=dom0,
                     port_id='sda',
@@ -1599,7 +1599,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             dom0.events_enabled = True
             self.app.vmm.offline_mode = False
             dev = qubes.device_protocol.DeviceAssignment(
-                qubes.device_protocol.Device(
+                qubes.device_protocol.VirtualDevice(
                     qubes.device_protocol.Port(
                         backend_domain=dom0,
                         port_id='sda',
