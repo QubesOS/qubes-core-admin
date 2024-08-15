@@ -127,7 +127,7 @@ class DeviceCollection:
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
-        .. event:: device-detach:<class> (device)
+        .. event:: device-detach:<class> (port)
 
             Fired when device is detached from a VM.
 

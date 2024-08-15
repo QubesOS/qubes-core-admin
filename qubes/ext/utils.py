@@ -45,7 +45,7 @@ def device_list_change(
     for dev_id, front_vm in detached.items():
         dev = device_class(vm, dev_id)
         asyncio.ensure_future(front_vm.fire_event_async(
-            f'device-detach:{devclass}', device=dev))
+            f'device-detach:{devclass}', port=dev))
     for dev_id in removed:
         device = device_class(vm, dev_id)
         vm.fire_event(f'device-removed:{devclass}', device=device)
