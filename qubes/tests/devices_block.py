@@ -833,9 +833,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front_2}})
         fire_event_async.assert_called_with(
-            'device-detach:block', port=exp_dev)
+            'device-detach:block', port=exp_dev.port)
         fire_event_async_2.assert_called_once_with(
-            'device-attach:block', port=exp_dev, options={})
+            'device-attach:block', device=exp_dev, options={})
 
     def test_064_on_qdb_change_removed_attached(self):
         # attached to front-vm
@@ -889,7 +889,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             self.ext.on_qdb_change(back_vm, None, None)
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {}})
         fire_event_async.assert_called_with(
-            'device-detach:block', port=exp_dev)
+            'device-detach:block', port=exp_dev.port)
         self.assertEqual(
             back_vm.fired_events[
                 ('device-removed:block', frozenset({('device', exp_dev)}))],
