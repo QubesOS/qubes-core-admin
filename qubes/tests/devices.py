@@ -23,7 +23,7 @@ import sys
 
 import qubes.devices
 from qubes.device_protocol import (Port, DeviceInfo, DeviceAssignment,
-                                   DeviceInterface, UnknownDevice, Device)
+                                   DeviceInterface, UnknownDevice, VirtualDevice)
 
 import qubes.tests
 
@@ -515,7 +515,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
         self.vm = TestVM(self.app, 'vm')
 
     def test_010_serialize(self):
-        assignment = DeviceAssignment(Device(Port(
+        assignment = DeviceAssignment(VirtualDevice(Port(
             backend_domain=self.vm,
             port_id="1-1.1.1",
             devclass="bus",
@@ -530,7 +530,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_011_serialize_required(self):
         assignment = DeviceAssignment(
-            Device(Port(
+            VirtualDevice(Port(
                 backend_domain=self.vm,
                 port_id="1-1.1.1",
                 devclass="bus",
@@ -547,7 +547,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_012_serialize_fronted(self):
         assignment = DeviceAssignment(
-            Device(Port(
+            VirtualDevice(Port(
                 backend_domain=self.vm,
                 port_id="1-1.1.1",
                 devclass="bus",
@@ -564,7 +564,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_013_serialize_options(self):
         assignment = DeviceAssignment(
-            Device(Port(
+            VirtualDevice(Port(
                 backend_domain=self.vm,
                 port_id="1-1.1.1",
                 devclass="bus",
@@ -581,7 +581,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_014_invalid_serialize(self):
         assignment = DeviceAssignment(
-            Device(Port(
+            VirtualDevice(Port(
                 backend_domain=self.vm,
                 port_id="1-1.1.1",
                 devclass="bus",
@@ -596,10 +596,10 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
             b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"_read-only='yes'")
-        expected_device = Device(Port(self.vm, '1-1.1.1', 'bus'))
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         expected = DeviceAssignment(
-            Device(Port(
+            VirtualDevice(Port(
                 backend_domain=self.vm,
                 port_id="1-1.1.1",
                 devclass="bus",
@@ -622,7 +622,7 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
             b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"_read'only='yes'")
-        expected_device = Device(Port(self.vm, '1-1.1.1', 'bus'))
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
@@ -631,12 +631,12 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
             b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
             b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"read-only='yes'")
-        expected_device = Device(Port(self.vm, '1-1.1.1', 'bus'))
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
     def test_030_serialize_and_deserialize(self):
-        expected_device = Device(Port(self.vm, '1-1.1.1', 'bus'))
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         expected = DeviceAssignment(
             expected_device,
             frontend_domain=self.vm,

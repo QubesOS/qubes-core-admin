@@ -65,7 +65,7 @@ from typing import Iterable
 import qubes.exc
 import qubes.utils
 from qubes.device_protocol import (Port, DeviceInfo, UnknownDevice,
-                                   DeviceAssignment, Device)
+                                   DeviceAssignment, VirtualDevice)
 
 
 class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
@@ -249,11 +249,11 @@ class DeviceCollection:
         assert device_assignment.attach_automatically
         self._set.add(device_assignment)
 
-    async def update_required(self, device: Device, required: bool):
+    async def update_required(self, device: VirtualDevice, required: bool):
         """
         Update `required` flag of an already attached device.
 
-        :param Device device: device for which change required flag
+        :param VirtualDevice device: device for which change required flag
         :param bool required: new assignment:
                               `False` -> device will be auto-attached to qube
                               `True` -> device is required to start qube

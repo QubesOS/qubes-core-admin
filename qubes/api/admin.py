@@ -45,7 +45,7 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
-from qubes.device_protocol import Port, Device, DeviceInfo
+from qubes.device_protocol import Port, VirtualDevice, DeviceInfo
 
 
 class QubesMgmtEventsDispatcher:
@@ -1323,7 +1323,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     def load_device_info(self, devclass) -> DeviceInfo:
         # qrexec already verified that no strange characters are in self.arg
-        _dev = Device.from_qarg(self.arg, devclass, self.app.domains)
+        _dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
         # load all info, may raise KeyError, either on domain or port_id
         return self.app.domains[
             _dev.backend_domain].devices[devclass][_dev.port_id]
@@ -1410,7 +1410,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = eval(untrusted_payload)
         del untrusted_payload
 
-        dev = Device.from_qarg(self.arg, devclass, self.app.domains)
+        dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
 
         self.fire_event_for_permission(device=dev, assignment=assignment)
 
