@@ -272,8 +272,13 @@ class Port:
         return cls._parse(representation, devclass, get_domain, '+')
 
     @classmethod
-    def from_str(cls, representation: str, devclass, domains) -> 'Port':
-        get_domain = domains.get
+    def from_str(
+            cls, representation: str, devclass, domains, blind=False
+    ) -> 'Port':
+        if blind:
+            get_domain = domains.get_blind
+        else:
+            get_domain = domains.__getitem__
         return cls._parse(representation, devclass, get_domain, ':')
 
     @classmethod
@@ -438,10 +443,13 @@ class Device:
     @classmethod
     def from_str(
             cls, representation: str, devclass: Optional[str], domains,
-            backend=None
+            blind=False, backend=None
     ) -> 'Device':
         if backend is None:
-            get_domain = domains.get
+            if blind:
+                get_domain = domains.get_blind
+            else:
+                get_domain = domains.__getitem__
         else:
             get_domain = None
         return cls._parse(representation, devclass, get_domain, backend, ':')
