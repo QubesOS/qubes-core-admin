@@ -594,7 +594,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 if front_vm == vm:
                     dev = BlockDevice(vm, dev_id)
                     asyncio.ensure_future(front_vm.fire_event_async(
-                            'device-detach:block', port=dev))
+                            'device-detach:block', port=dev.port))
                 else:
                     new_cache[domain.name][dev_id] = front_vm
         self.devices_cache = new_cache.copy()
@@ -604,7 +604,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         self.on_device_pre_detached_block(
             vm, 'device-pre-detach:block', device.port)
         await vm.fire_event_async(
-            'device-detach:block', port=device, options=options)
+            'device-detach:block', port=device.port, options=options)
 
     @qubes.ext.handler('qubes-close', system=True)
     def on_qubes_close(self, app, event):
