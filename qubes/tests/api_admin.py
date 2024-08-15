@@ -2148,7 +2148,7 @@ netvm default=True type=vm \n'''
                 b'test-vm1', b'test-vm1+1234')
         self.assertIsNone(value)
         mock_detach.assert_called_once_with(self.vm, 'device-detach:testclass',
-            device=self.vm.devices['testclass']['1234'])
+            port=self.vm.devices['testclass']['1234'])
         self.assertFalse(self.app.save.called)
 
     def test_497_vm_device_detach_not_attached(self):
