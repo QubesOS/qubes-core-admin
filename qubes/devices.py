@@ -204,8 +204,12 @@ class DeviceCollection:
                 self._vm,"VM not running, cannot attach device,"
                 " do you mean `assign`?")
 
-        device = assignment.device
-        if device in self.get_attached_devices():
+        if len(assignment.devices) != 1:
+            raise ValueError(
+                f'Cannot attach ambiguous {assignment.devclass} device.')
+
+        device = assignment.devices[0]
+        if device in [ass.devices[0] for ass in self.get_attached_devices()]:
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
@@ -227,7 +231,7 @@ class DeviceCollection:
                 f'Trying to assign {assignment.devclass} device '
                 f'when {self._bus} device expected.')
 
-        device = assignment.device
+        device = assignment.virtual_device
         if assignment in self.get_assigned_devices():
             raise DeviceAlreadyAssigned(
                 f'{self._bus} device {device!s} '
@@ -264,7 +268,7 @@ class DeviceCollection:
                 'VM must be running to modify device assignment'
             )
         assignments = [a for a in self.get_assigned_devices()
-                       if a.device == device]
+                       if a.virtual_device == device]
         if not assignments:
             raise qubes.exc.QubesValueError(
                 f'Device {device} not assigned to {self._vm.name}')
@@ -301,35 +305,35 @@ class DeviceCollection:
                 "Can not detach a required device from a non halted qube. "
                 "You need to unassign device first.")
 
-        # use the local object
-        port = assignment.device.port
+        # use the local object, only one device can match
+        port = assignment.devices[0].port
         await self._vm.fire_event_async(
             'device-pre-detach:' + self._bus, pre_event=True, port=port)
 
         await self._vm.fire_event_async(
             'device-detach:' + self._bus, port=port)
 
-    async def unassign(self, device_assignment: DeviceAssignment):
+    async def unassign(self, assignment: DeviceAssignment):
         """
         Unassign device from domain.
         """
         all_ass = []
-        for assignment in self.get_assigned_devices():
-            all_ass.append(assignment.devclass)
-            if device_assignment == assignment:
+        for assign in self.get_assigned_devices():
+            all_ass.append(assign.devclass)
+            if assignment == assign:
                 # load all options
-                device_assignment = assignment
+                assignment = assign
                 break
         else:
             raise DeviceNotAssigned(
-                f'{self._bus} device at port {device_assignment}'
-                f'not assigned to {self._vm!s} | {all_ass} vs {device_assignment.devclass}')
+                f'{self._bus} device at port {assignment}'
+                f'not assigned to {self._vm!s} '
+                f'| {all_ass} vs {assignment.devclass}')
 
         self._set.discard(assignment)
 
-        device = device_assignment.device
         await self._vm.fire_event_async(
-            'device-unassign:' + self._bus, device=device)
+            'device-unassign:' + self._bus, device=assignment.virtual_device)
 
     def get_dedicated_devices(self) -> Iterable[DeviceAssignment]:
         """
