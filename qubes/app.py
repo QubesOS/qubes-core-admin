@@ -659,6 +659,28 @@ def _setter_default_netvm(app, prop, value):
     return value
 
 
+def validate_kernel(obj, property_name: str, kernel: str) -> None:
+    """Helper function to validate existence of specific kernel"""
+    if not kernel:
+        return
+    dirname = os.path.join(
+        qubes.config.qubes_base_dir,
+        qubes.config.system_path['qubes_kernels_base_dir'],
+        kernel)
+    if not os.path.exists(dirname):
+        raise qubes.exc.QubesPropertyValueError(
+            obj, obj.property_get_def(property_name), kernel,
+            'Kernel {!r} not installed'.format(
+                kernel))
+    for filename in ('vmlinuz',):
+        if not os.path.exists(os.path.join(dirname, filename)):
+            raise qubes.exc.QubesPropertyValueError(
+                obj, obj.property_get_def(property_name), kernel,
+                'Kernel {!r} not properly installed: '
+                'missing {!r} file'.format(
+                    kernel, filename))
+
+
 class Qubes(qubes.PropertyHolder):
     """Main Qubes application
 
@@ -1579,3 +1601,10 @@ class Qubes(qubes.PropertyHolder):
                 # resetting dispvm to it's default value
                 vm.fire_event('property-reset:default_dispvm',
                               name='default_dispvm', oldvalue=oldvalue)
+
+    @qubes.events.handler('property-pre-set:default_kernel')
+    # pylint: disable-next=invalid-name
+    def on_property_pre_set_default_kernel(self, event, name, newvalue,
+                                           oldvalue=None):
+        # pylint: disable=unused-argument
+        validate_kernel(self, 'default_kernel', newvalue)

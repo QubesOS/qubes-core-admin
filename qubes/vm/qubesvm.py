@@ -1039,24 +1039,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
-        if not newvalue:
-            return
-        dirname = os.path.join(
-            qubes.config.qubes_base_dir,
-            qubes.config.system_path['qubes_kernels_base_dir'],
-            newvalue)
-        if not os.path.exists(dirname):
-            raise qubes.exc.QubesPropertyValueError(
-                self, self.property_get_def(name), newvalue,
-                'Kernel {!r} not installed'.format(
-                    newvalue))
-        for filename in ('vmlinuz',):
-            if not os.path.exists(os.path.join(dirname, filename)):
-                raise qubes.exc.QubesPropertyValueError(
-                    self, self.property_get_def(name), newvalue,
-                    'Kernel {!r} not properly installed: '
-                    'missing {!r} file'.format(
-                        newvalue, filename))
+        qubes.app.validate_kernel(self, name, newvalue)
 
     @qubes.events.handler('property-pre-set:autostart')
     def on_property_pre_set_autostart(self, event, name, newvalue,
