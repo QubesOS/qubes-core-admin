@@ -18,7 +18,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 # USA.
-import importlib
 import asyncio
 import subprocess
 
@@ -67,8 +66,7 @@ def device_list_change(
             continue
         for assignment in front_vm.devices[devclass].get_assigned_devices():
             for device in assignment.devices:
-                if (device.backend_domain == vm
-                        and assignment.device_id == device.device_id
+                if (assignment.matches(device)
                         and device.port_id in added
                         and device.port_id not in attached
                 ):

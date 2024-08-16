@@ -731,7 +731,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev =  qubes.ext.block.BlockDevice(back_vm, 'sda')
+        exp_dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
 
         self.ext.devices_cache = {'sys-usb': {'sda': None}}
 
