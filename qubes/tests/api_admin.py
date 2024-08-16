@@ -58,9 +58,12 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.base_dir_patch3 = unittest.mock.patch.dict(
             qubes.config.defaults['pool_configs']['varlibqubes'],
             {'dir_path': self.test_base_dir})
+        self.skip_kernel_validation_patch = unittest.mock.patch(
+            'qubes.app.validate_kernel', lambda obj, key, value: None)
         self.base_dir_patch.start()
         self.base_dir_patch2.start()
         self.base_dir_patch3.start()
+        self.skip_kernel_validation_patch.start()
         app = qubes.Qubes('/tmp/qubes-test.xml', load=False)
         app.vmm = unittest.mock.Mock(spec=qubes.app.VMMConnection)
         app.load_initial_values()
