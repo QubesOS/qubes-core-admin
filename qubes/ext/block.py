@@ -545,9 +545,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             self.notify_auto_attached(vm, assignment)
 
     def notify_auto_attached(self, vm, assignment):
-        identity = assignment.device_id
         for device in assignment.devices:
-            if identity not in ('*', device.device_id):
+            if not assignment.matches(device):
                 print("Unrecognized identity, skipping attachment of device "
                       f"from the port {assignment}", file=sys.stderr)
                 continue
