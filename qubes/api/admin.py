@@ -1321,12 +1321,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         await self.dest.devices[devclass].assign(assignment)
         self.app.save()
 
-    def load_device_info(self, devclass) -> DeviceInfo:
+    def load_device_info(self, devclass) -> VirtualDevice:
         # qrexec already verified that no strange characters are in self.arg
         _dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
         # load all info, may raise KeyError, either on domain or port_id
-        return self.app.domains[
-            _dev.backend_domain].devices[devclass][_dev.port_id]
+        try:
+            return self.app.domains[
+                _dev.backend_domain].devices[devclass][_dev.port_id]
+        except KeyError:
+            return _dev
 
     # Assign/Unassign action can modify only persistent state of running VM.
     # For this reason, write=True

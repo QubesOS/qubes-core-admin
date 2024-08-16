@@ -238,29 +238,35 @@ class Port:
         self.__devclass = devclass
 
     def __hash__(self):
-        return hash((self.backend_domain.name, self.port_id, self.devclass))
+        return hash((self.backend_name, self.port_id, self.devclass))
 
     def __eq__(self, other):
         if isinstance(other, Port):
             return (
-                self.backend_domain == other.backend_domain and
-                self.port_id == other.port_id and
-                self.devclass == other.devclass
+                    self.backend_name == other.backend_name and
+                    self.port_id == other.port_id and
+                    self.devclass == other.devclass
             )
         return False
 
     def __lt__(self, other):
         if isinstance(other, Port):
-            return (self.backend_domain.name, self.devclass, self.port_id) < \
-                   (other.backend_domain.name, other.devclass, other.port_id)
+            return (self.backend_name, self.devclass, self.port_id) < \
+                   (self.backend_name, other.devclass, other.port_id)
         raise TypeError(f"Comparing instances of 'Port' and '{type(other)}' "
                         "is not supported")
 
     def __repr__(self):
-        return f"{self.backend_domain.name}+{self.port_id}"
+        return f"{self.backend_name}+{self.port_id}"
 
     def __str__(self):
-        return f"{self.backend_domain.name}:{self.port_id}"
+        return f"{self.backend_name}:{self.port_id}"
+
+    @property
+    def backend_name(self) -> str:
+        if self.backend_domain is not None:
+            return self.backend_domain.name
+        return "*"
 
     @classmethod
     def from_qarg(
@@ -304,7 +310,7 @@ class Port:
         return self.__port_id
 
     @property
-    def backend_domain(self) -> QubesVM:
+    def backend_domain(self) -> Optional[QubesVM]:
         """ Which domain exposed this port. (immutable)"""
         return self.__backend_domain
 
@@ -366,6 +372,13 @@ class VirtualDevice:
         if self.port != '*' and self.port.backend_domain is not None:
             return self.port.backend_domain
         return '*'
+
+    @property
+    def backend_name(self):
+        if self.port != '*':
+            return self.port.backend_name
+        return '*'
+
 
     @property
     def port_id(self):
@@ -478,7 +491,8 @@ class VirtualDevice:
     ) -> 'VirtualDevice':
         if backend is None:
             backend_name, identity = representation.split(sep, 1)
-            backend = get_domain(backend_name)
+            if backend_name != '*':
+                backend = get_domain(backend_name)
         else:
             identity = representation
         port_id, _, devid = identity.partition(':')
@@ -1070,15 +1084,19 @@ class DeviceAssignment:
 
     @property
     def backend_domain(self):
-        return self.virtual_device.port.backend_domain
+        return self.virtual_device.backend_domain
+
+    @property
+    def backend_name(self) -> str:
+        return self.virtual_device.backend_name
 
     @property
     def port_id(self):
-        return self.virtual_device.port.port_id
+        return self.virtual_device.port_id
 
     @property
     def devclass(self):
-        return self.virtual_device.port.devclass
+        return self.virtual_device.devclass
 
     @property
     def device_id(self):
