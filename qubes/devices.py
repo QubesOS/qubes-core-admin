@@ -319,16 +319,14 @@ class DeviceCollection:
         """
         all_ass = []
         for assign in self.get_assigned_devices():
-            all_ass.append(assign.devclass)
+            all_ass.append(assign)
             if assignment == assign:
                 # load all options
                 assignment = assign
                 break
         else:
             raise DeviceNotAssigned(
-                f'{self._bus} device at port {assignment}'
-                f'not assigned to {self._vm!s} '
-                f'| {all_ass} vs {assignment.devclass}')
+                f'{self._bus} device {assignment} not assigned to {self._vm!s}')
 
         self._set.discard(assignment)
 

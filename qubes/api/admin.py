@@ -45,7 +45,8 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
-from qubes.device_protocol import Port, VirtualDevice, DeviceInfo
+from qubes.device_protocol import (Port, VirtualDevice, UnknownDevice,
+                                   DeviceAssignment)
 
 
 class QubesMgmtEventsDispatcher:
@@ -1324,10 +1325,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     def load_device_info(self, devclass) -> VirtualDevice:
         # qrexec already verified that no strange characters are in self.arg
         _dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
+        if _dev.port_id == '*' or _dev.device_id == '*':
+            return _dev
         # load all info, may raise KeyError, either on domain or port_id
         try:
-            return self.app.domains[
+            dev = self.app.domains[
                 _dev.backend_domain].devices[devclass][_dev.port_id]
+            if isinstance(dev, UnknownDevice):
+                return _dev
+            return dev
         except KeyError:
             return _dev
 
@@ -1338,14 +1344,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(
             ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-            no_payload=True, scope='local', write=True)
-    async def vm_device_unassign(self, endpoint):
+        scope='local', write=True)
+    async def vm_device_unassign(self, endpoint, untrusted_payload):
         devclass = endpoint
         dev = self.load_device_info(devclass)
+        assignment = DeviceAssignment.deserialize(
+            untrusted_payload, expected_device=dev)
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
-        assignment = qubes.device_protocol.DeviceAssignment(dev)
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
 
@@ -1356,14 +1363,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(
             ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-        scope='local', execute=True)
-    async def vm_device_attach(self, endpoint, untrusted_payload):
+        no_payload=True, scope='local', execute=True)
+    async def vm_device_attach(self, endpoint):
         devclass = endpoint
         dev = self.load_device_info(devclass)
 
-        assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_device=dev
-        )
+        assignment = DeviceAssignment(dev)
 
         self.fire_event_for_permission(
             device=dev, devclass=devclass,

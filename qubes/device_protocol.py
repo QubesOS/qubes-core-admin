@@ -145,7 +145,7 @@ class DeviceSerializer:
             the expected values.
         """
         expected = expected_device.port
-        exp_vm_name = expected.backend_domain.name
+        exp_vm_name = expected.backend_name
         if properties.get('backend_domain', exp_vm_name) != exp_vm_name:
             raise UnexpectedDeviceProperty(
                 f"Got device exposed by {properties['backend_domain']}"
@@ -264,7 +264,7 @@ class Port:
 
     @property
     def backend_name(self) -> str:
-        if self.backend_domain is not None:
+        if self.backend_domain not in (None, "*"):
             return self.backend_domain.name
         return "*"
 
@@ -307,7 +307,9 @@ class Port:
 
         Unique for given domain and devclass.
         """
-        return self.__port_id
+        if self.__port_id is not None:
+            return self.__port_id
+        return '*'
 
     @property
     def backend_domain(self) -> Optional[QubesVM]:
@@ -338,7 +340,7 @@ class VirtualDevice:
             port: Optional[Port] = None,
             device_id: Optional[str] = None,
     ):
-        # TODO! one of them cannot be None
+        assert port is not None or device_id is not None
         self.port: Optional[Port] = port
         self._device_id = device_id
 
@@ -378,7 +380,6 @@ class VirtualDevice:
         if self.port != '*':
             return self.port.backend_name
         return '*'
-
 
     @property
     def port_id(self):
@@ -496,8 +497,8 @@ class VirtualDevice:
         else:
             identity = representation
         port_id, _, devid = identity.partition(':')
-        if devid in ('', '*'):
-            devid = '*'
+        if devid == '':
+            devid = None
         return cls(
             Port(backend_domain=backend, port_id=port_id, devclass=devclass),
             device_id=devid
@@ -515,7 +516,7 @@ class VirtualDevice:
                 ('devclass', self.devclass)))
 
         properties += b' ' + DeviceSerializer.pack_property(
-            'backend_domain', self.backend_domain.name)
+            'backend_domain', self.backend_name)
 
         return properties
 
@@ -1143,7 +1144,7 @@ class DeviceAssignment:
         Returns False if device is attached to different domain
         """
         for device in self.devices:
-            if device.attachment == self.frontend_domain:
+            if device.attachment and device.attachment == self.frontend_domain:
                 return True
         return False
 
@@ -1233,11 +1234,11 @@ class DeviceAssignment:
         return cls(**properties)
 
     def matches(self, device: VirtualDevice) -> bool:
-        if self.backend_domain != '*' and self.backend_domain != device.backend_domain:
+        if self.devclass != device.devclass:
+            return False
+        if self.backend_domain != device.backend_domain:
             return False
         if self.port_id != '*' and self.port_id != device.port_id:
-            return False
-        if self.devclass != '*' and self.devclass != device.devclass:
             return False
         if self.device_id != '*' and self.device_id != device.device_id:
             return False
