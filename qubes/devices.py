@@ -59,7 +59,6 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `device-list-change:class` event.
 """
 import itertools
-import sys
 from typing import Iterable
 
 import qubes.exc
@@ -348,7 +347,6 @@ class DeviceCollection:
         for dev, options in attached:
             for assignment in self._set:
                 if dev == assignment:
-                    print("ok", file=sys.stderr)
                     yield assignment
                     break
             else:

@@ -1344,12 +1344,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(
             ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-        scope='local', write=True)
-    async def vm_device_unassign(self, endpoint, untrusted_payload):
+        no_payload=True, scope='local', write=True)
+    async def vm_device_unassign(self, endpoint):
         devclass = endpoint
         dev = self.load_device_info(devclass)
-        assignment = DeviceAssignment.deserialize(
-            untrusted_payload, expected_device=dev)
+        assignment = DeviceAssignment(dev)
 
         self.fire_event_for_permission(device=dev, devclass=devclass)
 
@@ -1363,12 +1362,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         endpoints=(
             ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
-        no_payload=True, scope='local', execute=True)
-    async def vm_device_attach(self, endpoint):
+        scope='local', execute=True)
+    async def vm_device_unassign(self, endpoint, untrusted_payload):
         devclass = endpoint
         dev = self.load_device_info(devclass)
-
-        assignment = DeviceAssignment(dev)
+        assignment = DeviceAssignment.deserialize(
+            untrusted_payload, expected_device=dev)
 
         self.fire_event_for_permission(
             device=dev, devclass=devclass,
