@@ -1034,7 +1034,7 @@ class DeviceAssignment:
             mode: Union[str, AssignmentMode] = "manual",
     ):
         if isinstance(device, DeviceInfo):
-            device = VirtualDevice(device.port, device._device_id)
+            device = VirtualDevice(device.port, device.device_id)
         self.virtual_device = device
         self.__options = options or {}
         if isinstance(mode, AssignmentMode):

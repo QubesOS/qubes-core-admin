@@ -27,6 +27,7 @@ import os
 import string
 import subprocess
 import pathlib
+import sys
 
 import libvirt
 import lxml.etree
@@ -1280,22 +1281,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 raise qubes.exc.QubesException("qubesd shutdown in progress")
             raise
         if self.arg:
-            select_backend, select_ident = self.arg.split('+', 1)
+            select_backend, select_ident = self.arg.split('+', 1)  # TODO
             device_assignments = [dev for dev in device_assignments
                                   if (str(dev.backend_domain), dev.port_id)
                                   == (select_backend, select_ident)]
             # no duplicated devices, but device may not exist, in which case
             #  the list is empty
             self.enforce(len(device_assignments) <= 1)
-        device_assignments = self.fire_event_for_filter(device_assignments,
-                                                        devclass=devclass)
+        device_assignments = [
+            a.clone(device=self.app.domains[a.backend_name
+            ].devices[devclass][a.port_id]) for a in device_assignments]
+        device_assignments = self.fire_event_for_filter(
+            device_assignments, devclass=devclass)
 
         dev_info = {
             (f'{assignment.backend_domain}'
              f'+{assignment.port_id}:{assignment.device_id}'):
                 assignment.serialize().decode('ascii', errors="ignore")
             for assignment in device_assignments}
-
         return ''.join('{} {}\n'.format(port_id, dev_info[port_id])
                        for port_id in sorted(dev_info))
 
@@ -1363,7 +1366,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', execute=True)
-    async def vm_device_unassign(self, endpoint, untrusted_payload):
+    async def vm_device_attach(self, endpoint, untrusted_payload):
         devclass = endpoint
         dev = self.load_device_info(devclass)
         assignment = DeviceAssignment.deserialize(

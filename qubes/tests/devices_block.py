@@ -673,8 +673,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.ext.on_qdb_change(back_vm, None, None)
 
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': None}})
-        print(back_vm.fired_events, file=sys.stderr)  # TODO
-        print(exp_dev, file=sys.stderr)  # TODO
         self.assertEqual(
             back_vm.fired_events[
                 ('device-added:block', frozenset({('device', exp_dev)}))], 1)
