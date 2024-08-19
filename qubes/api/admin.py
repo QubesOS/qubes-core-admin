@@ -1373,9 +1373,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             untrusted_payload, expected_device=dev)
 
         self.fire_event_for_permission(
-            device=dev, devclass=devclass,
-            required=assignment.required,
-            attach_automatically=assignment.attach_automatically,
+            device=dev,
+            mode=assignment.mode.value,
             options=assignment.options
         )
 

@@ -700,6 +700,18 @@ class DeviceInterface:
 
         return result
 
+    def matches(self, other: 'DeviceInterface') -> bool:
+        pattern = repr(self)
+        candidate = repr(other)
+        if len(pattern) != len(candidate):
+            return False
+        for p, c in zip(pattern, candidate):
+            if p == '*':
+                continue
+            if p != c:
+                return False
+        return True
+
 
 class DeviceInfo(VirtualDevice):
     """ Holds all information about a device """
