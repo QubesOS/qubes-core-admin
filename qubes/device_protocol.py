@@ -895,7 +895,7 @@ class DeviceInfo(VirtualDevice):
                 if getattr(self, key) != getattr(default, key)))
 
         if self.attachment:
-            properties = DeviceSerializer.pack_property(
+            properties += b' ' + DeviceSerializer.pack_property(
                 'attachment', self.attachment.name)
 
         properties += b' ' + DeviceSerializer.pack_property(
@@ -1122,6 +1122,8 @@ class DeviceAssignment:
             # could return UnknownDevice
             return [self.backend_domain.devices[self.devclass][self.port_id]]
         result = []
+        if self.device_id == "0000:0000::?******":
+            return result
         for dev in self.backend_domain.devices[self.devclass]:
             if dev.device_id == self.device_id:
                 result.append(dev)

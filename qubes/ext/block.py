@@ -541,34 +541,41 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-start')
     async def on_domain_start(self, vm, _event, **_kwargs):
         # pylint: disable=unused-argument
-        for assignment in vm.devices['block'].get_assigned_devices():
-            self.notify_auto_attached(vm, assignment)
-
-    def notify_auto_attached(self, vm, assignment):
-        for device in assignment.devices:
-            if not assignment.matches(device):
-                print("Unrecognized identity, skipping attachment of device "
-                      f"from the port {assignment}", file=sys.stderr)
+        to_attach = {}
+        assignments = vm.devices['block'].get_assigned_devices()
+        # the most specific assignments first
+        for assignment in reversed(sorted(assignments)):
+            if assignment.required:
+                # already attached
                 continue
-
-            if assignment.mode.value == "ask-to-attach":
-                if vm.name != confirm_device_attachment(device,
-                                                        {vm: assignment}):
+                # TODO: notify?
+            for device in assignment.devices:
+                if isinstance(device, qubes.device_protocol.UnknownDevice):
                     continue
-
-            self.pre_attachment_internal(
-                vm, device, assignment.options, expected_attachment=vm)
-
-            asyncio.ensure_future(vm.fire_event_async(
-                'device-attach:block',
-                device=device,
-                options=assignment.options,
-            ))
+                if not assignment.matches(device):
+                    print(
+                        "Unrecognized identity, skipping attachment of device "
+                        f"from the port {assignment}", file=sys.stderr)
+                    continue
+                # chose first assignment (the most specific) and ignore rest
+                if device not in to_attach:
+                    # make it unique
+                    to_attach[device] = assignment.clone(
+                        device=qubes.device_protocol.VirtualDevice(
+                            device.port, device.device_id))
+        for assignment in to_attach.values():
+            await self.attach_and_notify(vm, assignment)
 
     async def attach_and_notify(self, vm, assignment):
         # bypass DeviceCollection logic preventing double attach
-        # we expected that these devices are already attached to this vm
-        self.notify_auto_attached(vm, assignment)
+        device = assignment.device
+        if assignment.mode.value == "ask-to-attach":
+            if vm.name != confirm_device_attachment(device, {vm: assignment}):
+                return
+        self.on_device_pre_attached_block(
+            vm, 'device-pre-attach:block', device, assignment.options)
+        await vm.fire_event_async(
+            'device-attach:block', device=str(device), options=assignment.options)
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):

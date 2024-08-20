@@ -43,15 +43,15 @@ def device_list_change(
         compare_device_cache(vm, ext.devices_cache, current_devices))
 
     # send events about devices detached/attached outside by themselves
-    for dev_id, front_vm in detached.items():
-        dev = device_class(vm, dev_id)
+    for port_id, front_vm in detached.items():
+        dev = device_class(vm, port_id)
         asyncio.ensure_future(front_vm.fire_event_async(
             f'device-detach:{devclass}', port=dev.port))
-    for dev_id in removed:
-        device = device_class(vm, dev_id)
-        vm.fire_event(f'device-removed:{devclass}', device=device)
-    for dev_id in added:
-        device = device_class(vm, dev_id)
+    for port_id in removed:
+        device = device_class(vm, port_id)
+        vm.fire_event(f'device-removed:{devclass}', port=device.port)
+    for port_id in added:
+        device = device_class(vm, port_id)
         vm.fire_event(f'device-added:{devclass}', device=device)
     for dev_ident, front_vm in attached.items():
         dev = device_class(vm, dev_ident)
@@ -73,8 +73,12 @@ def device_list_change(
                 ):
                     frontends = to_attach.get(device.port_id, {})
                     # make it unique
-                    frontends[front_vm] = assignment.clone(
+                    ass = assignment.clone(
                         device=VirtualDevice(device.port, device.device_id))
+                    curr = frontends.get(front_vm, None)
+                    if curr is None or curr < ass:
+                        # chose the most specific assignment
+                        frontends[front_vm] = ass
                     to_attach[device.port_id] = frontends
 
     for port_id, frontends in to_attach.items():
@@ -137,7 +141,6 @@ def compare_device_cache(vm, devices_cache, current_devices):
 
 def confirm_device_attachment(device, frontends) -> str:
     guivm = 'dom0'  # TODO
-    # TODO: guivm rpc?
 
     try:
         proc = subprocess.Popen(

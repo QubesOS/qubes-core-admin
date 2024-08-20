@@ -668,7 +668,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
         }, domain_xml=domain_xml_template.format(""))
-        exp_dev =  qubes.ext.block.BlockDevice(back_vm, 'sda')
+        exp_dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
 
         self.ext.on_qdb_change(back_vm, None, None)
 
@@ -713,6 +713,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         # In the case of block devices it is the same,
         # but notify_auto_attached is synchronous
+        # TODO!
         self.ext.attach_and_notify = self.ext.notify_auto_attached
         with mock.patch('asyncio.ensure_future'):
             self.ext.on_qdb_change(back_vm, None, None)

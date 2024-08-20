@@ -1227,7 +1227,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devices = self.fire_event_for_filter(devices, devclass=devclass)
         dev_info = {f'{dev.port_id}:{dev.device_id}':
                         dev.serialize().decode() for dev in devices}
-        return ''.join('{} {}\n'.format(port_id, dev_info[port_id])
+        return ''.join(f'{port_id} {dev_info[port_id]}\n'
                        for port_id in sorted(dev_info))
 
     @qubes.api.method('admin.vm.device.{endpoint}.Assigned', endpoints=(ep.name
