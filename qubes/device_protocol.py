@@ -1128,6 +1128,23 @@ class DeviceAssignment:
         return result
 
     @property
+    def device(self) -> DeviceInfo:
+        """
+        Get single DeviceInfo object or raise an error.
+
+        If port id is set we have exactly one device
+        since we can attach ony one device to one port.
+        If assignment is more general we can get 0 or many devices.
+        """
+        devices = self.devices
+        if len(devices) == 1:
+            return devices[0]
+        if len(devices) > 1:
+            raise ProtocolError("Too many devices matches to assignment")
+        if len(devices) == 0:
+            raise ProtocolError("Any devices matches to assignment")
+
+    @property
     def port(self) -> Port:
         """
         Device port visible in Qubes.
