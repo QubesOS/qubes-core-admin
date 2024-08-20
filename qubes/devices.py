@@ -209,8 +209,8 @@ class DeviceCollection:
             raise ValueError(
                 f'Cannot attach ambiguous {assignment.devclass} device.')
 
-        device = assignment.devices[0]
-        if device in [ass.devices[0] for ass in self.get_attached_devices()]:
+        device = assignment.device
+        if device in [ass.device for ass in self.get_attached_devices()]:
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
@@ -307,7 +307,7 @@ class DeviceCollection:
                 "You need to unassign device first.")
 
         # use the local object, only one device can match
-        port = assignment.devices[0].port
+        port = assignment.device.port
         await self._vm.fire_event_async(
             'device-pre-detach:' + self._bus, pre_event=True, port=port)
 

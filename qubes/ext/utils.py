@@ -79,7 +79,7 @@ def device_list_change(
     for port_id, frontends in to_attach.items():
         if len(frontends) > 1:
             # unique
-            device = tuple(frontends.values())[0].devices[0]
+            device = tuple(frontends.values())[0].device
             target_name = confirm_device_attachment(device, frontends)
             for front in frontends:
                 if front.name == target_name:
