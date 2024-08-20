@@ -238,6 +238,9 @@ class DeviceCollection:
                 f'{self._bus} device {device!s} '
                 f'already assigned to {self._vm!s}')
 
+        if not assignment.attach_automatically:
+            raise ValueError('Only auto-attachable devices can be assigned.')
+
         self._set.add(assignment)
 
         await self._vm.fire_event_async(
@@ -281,8 +284,10 @@ class DeviceCollection:
         if assignment.required == required:
             return
 
-        assignments[0] = assignment.clone(
+        new_assignment = assignment.clone(
             mode='required' if required else 'auto-attach')
+        self._set.discard(assignment)
+        self._set.add(new_assignment)
         await self._vm.fire_event_async(
             'device-assignment-changed:' + self._bus, device=device)
 
