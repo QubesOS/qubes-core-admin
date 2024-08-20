@@ -297,6 +297,29 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEventFired(self.emitter, 'device-assign:testclass')
         self.assertEventFired(self.emitter, 'device-unassign:testclass')
 
+    def test_036_assign_unassign_port(self):
+        self.emitter.running = True
+        device = self.assignment.virtual_device
+        device = device.clone(port=Port(
+            device.backend_domain, '*', device.devclass))
+        self.assignment = self.assignment.clone(
+            mode='ask-to-attach', device=device)
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        self.loop.run_until_complete(self.collection.unassign(self.assignment))
+        self.assertEventFired(self.emitter, 'device-assign:testclass')
+        self.assertEventFired(self.emitter, 'device-unassign:testclass')
+
+    def test_037_assign_unassign_device(self):
+        self.emitter.running = True
+        device = self.assignment.virtual_device
+        device = device.clone(device_id="*")
+        self.assignment = self.assignment.clone(
+            mode='ask-to-attach', device=device)
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        self.loop.run_until_complete(self.collection.unassign(self.assignment))
+        self.assertEventFired(self.emitter, 'device-assign:testclass')
+        self.assertEventFired(self.emitter, 'device-unassign:testclass')
+
     def test_040_detach_required(self):
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.attach()

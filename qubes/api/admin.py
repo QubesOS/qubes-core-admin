@@ -1281,7 +1281,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 raise qubes.exc.QubesException("qubesd shutdown in progress")
             raise
         if self.arg:
-            select_backend, select_ident = self.arg.split('+', 1)  # TODO
+            select_backend, select_ident = self.arg.split('+', 1)
             device_assignments = [dev for dev in device_assignments
                                   if (str(dev.backend_domain), dev.port_id)
                                   == (select_backend, select_ident)]
@@ -1421,7 +1421,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
 
-        self.fire_event_for_permission(device=dev, assignment=assignment)
+        self.fire_event_for_permission(device=dev, mode=assignment)
 
         await self.dest.devices[devclass].update_required(dev, assignment)
         self.app.save()
