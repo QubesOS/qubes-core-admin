@@ -38,7 +38,7 @@ checks:tests:
   tags:
   - vm-kvm
 include:
-- file: /r4.2/gitlab-base.yml
+- file: /r4.3/gitlab-base.yml
   project: QubesOS/qubes-continuous-integration
-- file: /r4.2/gitlab-host.yml
+- file: /r4.3/gitlab-host.yml
   project: QubesOS/qubes-continuous-integration
