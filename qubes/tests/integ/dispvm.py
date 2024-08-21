@@ -108,7 +108,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         lines = lines_task.result().splitlines()
         self.assertTrue(lines, 'No output received from DispVM')
         dispvm_name = lines[0]
-        self.assertNotEquals(dispvm_name, b"ERROR")
+        self.assertNotEqual(dispvm_name, b"ERROR")
 
         self.assertNotIn(dispvm_name, self.app.domains)
 

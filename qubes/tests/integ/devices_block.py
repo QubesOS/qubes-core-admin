@@ -132,7 +132,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.serial, self.img_path,
+                self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )
@@ -163,12 +163,12 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.serial, self.img_path,
+                self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )
             else:
-                self.assertNotEquals(dev.serial, 'test-dm',
+                self.assertNotEqual(dev.serial, 'test-dm',
                     "Device {} ({}) should not be listed as it is "
                     "mounted".format(dev, 'test-dm')
                 )
@@ -188,7 +188,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.ident.startswith('loop'):
-                self.assertNotEquals(dev.serial, self.img_path,
+                self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
                 )

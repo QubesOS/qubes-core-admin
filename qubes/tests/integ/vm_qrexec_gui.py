@@ -473,10 +473,10 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             # get current time
             current_time, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('date -u +%s'))
-            self.assertAlmostEquals(int(vm_time), int(current_time), delta=30)
+            self.assertAlmostEqual(int(vm_time), int(current_time), delta=30)
 
             dom0_time = subprocess.check_output(['date', '-u', '+%s'])
-            self.assertAlmostEquals(int(dom0_time), int(current_time), delta=30)
+            self.assertAlmostEqual(int(dom0_time), int(current_time), delta=30)
 
         except:
             # reset time to some approximation of the real time
