@@ -587,7 +587,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         else:
             xterm_desktop_path = xterm_desktop_path_debian
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
-        self.loop.run_until_complete(
+        p = self.loop.run_until_complete(
             self.testvm1.run('qubes-desktop-run {}'.format(xterm_desktop_path)))
         title = 'user@{}'.format(self.testvm1.name)
         if self.template.count("whonix"):
@@ -600,6 +600,11 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
              'windowactivate', '--sync', 'type', 'exit\n'])
 
         self.wait_for_window(title, show=False)
+        try:
+            self.loop.run_until_complete(asyncio.wait_for(p.wait(), 5))
+        except asyncio.TimeoutError:
+            p.terminate()
+            self.loop.run_until_complete(p.wait())
 
     def test_100_qrexec_filecopy(self):
         self.loop.run_until_complete(asyncio.gather(
