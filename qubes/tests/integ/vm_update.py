@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import asyncio
+import contextlib
 import os
 import shutil
 import subprocess
@@ -226,6 +227,13 @@ class VmUpdatesMixin(object):
             name=self.make_vm_name('vm1'),
             label='red')
         self.loop.run_until_complete(self.testvm1.create_on_disk())
+        self.repo_proc = None
+
+    def tearDown(self):
+        if self.repo_proc:
+            self.repo_proc.terminate()
+            self.loop.run_until_complete(self.repo_proc.wait())
+        super().tearDown()
 
     def test_000_simple_update(self):
         """
@@ -322,12 +330,12 @@ SHA256:
         """
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
-            self.loop.run_until_complete(self.netvm_repo.run(
+            self.repo_proc = self.loop.run_until_complete(self.netvm_repo.run(
                 'cd /tmp/apt-repo && python3 -m http.server 8080',
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         elif self.template.count("fedora"):
             self.create_repo_yum()
-            self.loop.run_until_complete(self.netvm_repo.run(
+            self.repo_proc = self.loop.run_until_complete(self.netvm_repo.run(
                 'cd /tmp/yum-repo && python3 -m http.server 8080',
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         else:
@@ -482,9 +490,11 @@ SHA256:
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
-        self.loop.run_until_complete(self.netvm_repo.run(
-             r"kill -9 `ps -ef | grep python | awk '{print $2}'`",
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio(
+             r"kill -9 `ps -ef | grep [h]ttp.server | awk '{print $2}'`",
              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        self.loop.run_until_complete(self.repo_proc.wait())
+        self.repo_proc = None
 
     def update_via_proxy_qubes_vm_update_impl(
             self,
