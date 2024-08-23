@@ -82,6 +82,9 @@ def skip_autoconf2(tb):
 def open_attachment(tb, name):
     # message subject
     msg = tb.child(name='Test Message - .*', roleName='frame')
+    # resize the window so that button is on screen even on 1024x768
+    subprocess.call(["xdotool", "search", "Test Message", "windowsize", "900", "700"])
+    time.sleep(1)
     msg.button(name).click()
     confirm = tb.child(name='Opening ' + name, roleName='frame')
     time.sleep(3)
