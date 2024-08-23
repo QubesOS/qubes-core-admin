@@ -496,6 +496,11 @@ class TC_20_DispVMMixin(object):
             test_txt_content = f.read()
         self.assertEqual(test_txt_content.strip(), b"test1")
 
+        # this doesn't really close the application, only the qrexec-client
+        # process that started it; but clean it up anyway to not leak processes
+        app.terminate()
+        self.loop.run_until_complete(app.wait())
+
 
 def create_testcases_for_templates():
     return qubes.tests.create_testcases_for_templates('TC_20_DispVM',
