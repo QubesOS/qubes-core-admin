@@ -24,6 +24,7 @@ def sighandler(loop, signame, servers):
     print('caught {}, exiting'.format(signame))
     for server in servers:
         server.close()
+        server.close_clients()
     loop.stop()
 
 parser = qubes.tools.QubesArgumentParser(description='Qubes OS daemon')

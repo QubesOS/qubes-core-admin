@@ -785,16 +785,11 @@ class SystemTestCase(QubesTestCase):
             for sock in server.sockets:
                 os.unlink(sock.getsockname())
             server.close()
+            # close all existing connections, especially this will interrupt
+            # running admin.Events calls, which do keep reference to Qubes() and
+            # libvirt connection
+            server.close_clients()
         del server
-
-        # close all existing connections, especially this will interrupt
-        # running admin.Events calls, which do keep reference to Qubes() and
-        # libvirt connection
-        conn = None
-        for conn in qubes.api.QubesDaemonProtocol.connections:
-            if conn.transport:
-                conn.transport.abort()
-        del conn
 
         self.loop.run_until_complete(asyncio.wait([
             self.loop.create_task(server.wait_closed()) for server in self.qubesd]))
