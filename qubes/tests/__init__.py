@@ -517,7 +517,9 @@ class QubesTestCase(unittest.TestCase):
         # lifecycle, and it is unwatched only at loop.close(); so we cannot just
         # check selector for non-emptiness
         assert len(self.loop._selector.get_map()) \
-               == int(self.loop._ssock is not None)
+               == int(self.loop._ssock is not None), \
+               f"unexpected selector map entries: " \
+               f"{dict(self.loop._selector.get_map())!r}"
 
         del self.loop
 
