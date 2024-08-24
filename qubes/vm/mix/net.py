@@ -369,10 +369,25 @@ class NetVMMixin(qubes.events.Emitter):
 
         return self.netvm is not None
 
+    def resolve_netpath(self):
+        '''This VM does not have a network path since it has no netvm'''
+        if self.netvm is None:
+            return
+
+        '''Recursively resolve netvm until no netvm is set, order is important'''
+        netpath = list()
+        netvm = self
+        while netvm:
+            netpath.append(netvm)
+            netvm = netvm.netvm
+        return netpath
+
     def reload_firewall_for_vm(self, vm):
         ''' Reload the firewall rules for the vm '''
         if not self.is_running():
             return
+
+        netpath = self.resolve_netpath()
 
         for addr_family in (4, 6):
             ip = vm.ip6 if addr_family == 6 else vm.ip
@@ -382,12 +397,43 @@ class NetVMMixin(qubes.events.Emitter):
             # remove old entries if any (but don't touch base empty entry - it
             # would trigger reload right away
             self.untrusted_qdb.rm(base_dir)
-            # write new rules
+
+            # begin write new accept/drop rules
             for key, value in vm.firewall.qdb_entries(
                     addr_family=addr_family).items():
                 self.untrusted_qdb.write(base_dir + key, value)
+
             # signal its done
             self.untrusted_qdb.write(base_dir[:-1], '')
+
+            # begin write new forward rules
+            #clean
+            if netpath:
+                for netvm in netpath:
+                    base_dir = '/qubes-firewall-forward/{}/'.format(vm.name)
+                    netvm.untrusted_qdb.rm(base_dir)
+
+            for key, value in vm.firewall.qdb_forward_entries(
+                    addr_family=addr_family).items():
+                forwardtype = key.split(":")[1]
+                key = key.split(":")[0]
+                if forwardtype == "internal":
+                    base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, ip)
+                    self.untrusted_qdb.write(base_dir + key, value)
+                    self.untrusted_qdb.write(base_dir[:-1], '')
+                elif forwardtype == "external":
+                    current_ip = ip
+                    for i, netvm in enumerate(netpath):
+                        base_dir = '/qubes-firewall-forward/{}/{}/'.format(vm.name, current_ip)
+                        if i == len(netpath)-1:
+                            value += ' last=1'
+                        netvm.untrusted_qdb.write(base_dir + key, value)
+                        current_ip = netvm.ip
+                        netvm.untrusted_qdb.write(base_dir[:-1], '')
+                else:
+                    raise ValueError('Invalid forwardtype')
+            # end forward rules
+            
 
     def set_mapped_ip_info_for_vm(self, vm):
         '''
