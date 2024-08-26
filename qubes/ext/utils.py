@@ -65,7 +65,8 @@ def device_list_change(
     for front_vm in vm.app.domains:
         if not front_vm.is_running():
             continue
-        for assignment in front_vm.devices[devclass].get_assigned_devices():
+        for assignment in reversed(sorted(
+                front_vm.devices[devclass].get_assigned_devices())):
             for device in assignment.devices:
                 if (assignment.matches(device)
                         and device.port_id in added

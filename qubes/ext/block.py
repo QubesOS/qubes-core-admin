@@ -552,6 +552,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             for device in assignment.devices:
                 if isinstance(device, qubes.device_protocol.UnknownDevice):
                     continue
+                if device.attachment:
+                    continue
                 if not assignment.matches(device):
                     print(
                         "Unrecognized identity, skipping attachment of device "
@@ -560,11 +562,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 # chose first assignment (the most specific) and ignore rest
                 if device not in to_attach:
                     # make it unique
-                    to_attach[device] = assignment.clone(
-                        device=qubes.device_protocol.VirtualDevice(
-                            device.port, device.device_id))
+                    to_attach[device] = assignment.clone(device=device)
         for assignment in to_attach.values():
-            await self.attach_and_notify(vm, assignment)
+            asyncio.ensure_future(self.attach_and_notify(vm, assignment))
 
     async def attach_and_notify(self, vm, assignment):
         # bypass DeviceCollection logic preventing double attach
@@ -575,7 +575,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         self.on_device_pre_attached_block(
             vm, 'device-pre-attach:block', device, assignment.options)
         await vm.fire_event_async(
-            'device-attach:block', device=str(device), options=assignment.options)
+            'device-attach:block', device=device, options=assignment.options)
 
     @qubes.ext.handler('domain-shutdown')
     async def on_domain_shutdown(self, vm, event, **_kwargs):
