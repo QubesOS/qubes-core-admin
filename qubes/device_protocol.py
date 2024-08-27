@@ -897,7 +897,8 @@ class DeviceAssignment(Port):
         """
         return self.mode in (
             AssignmentMode.AUTO,
-            AssignmentMode.REQUIRED
+            AssignmentMode.ASK,
+            AssignmentMode.REQUIRED,
         )
 
     @attach_automatically.setter
