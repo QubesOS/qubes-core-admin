@@ -1893,23 +1893,37 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 'options': {'frontend-dev': 'xvdl'},
                 'device.device_node': '/dev/sdb',
                 'device.backend_domain.name': 'dom0',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/sdb',
+                    'backend_domain.name': 'dom0',})]
             }),
             unittest.mock.Mock(**{
                 'options': {'devtype': 'cdrom'},
                 'device.device_node': '/dev/sda',
                 'device.backend_domain.name': 'dom0',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/sda',
+                    'backend_domain.name': 'dom0', })]
             }),
             unittest.mock.Mock(**{
                 'options': {'read-only': True},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend0',
                 'device.backend_domain.features.check_with_template.return_value': '4.2',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/loop0',
+                    'backend_domain.name': 'backend0',
+                    'backend_domain.features.check_with_template.return_value': '4.2'})]
             }),
             unittest.mock.Mock(**{
                 'options': {},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend1',
                 'device.backend_domain.features.check_with_template.return_value': '4.2',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/loop0',
+                    'backend_domain.name': 'backend1',
+                    'backend_domain.features.check_with_template.return_value': '4.2'})]
             }),
         ]
         vm.devices['block'].get_assigned_devices = \

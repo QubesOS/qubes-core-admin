@@ -27,7 +27,6 @@ import os
 import string
 import subprocess
 import pathlib
-import sys
 
 import libvirt
 import lxml.etree
@@ -46,8 +45,8 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
-from qubes.device_protocol import (Port, VirtualDevice, UnknownDevice,
-                                   DeviceAssignment)
+from qubes.device_protocol import (
+    VirtualDevice, UnknownDevice, DeviceAssignment)
 
 
 class QubesMgmtEventsDispatcher:

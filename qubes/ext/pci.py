@@ -223,6 +223,10 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         Every device should have at least one interface.
         """
         if self._interfaces is None:
+            if self.backend_domain.app.vmm.offline_mode:
+                # don't cache this value
+                return [qubes.device_protocol.DeviceInterface(
+                    '******', devclass='pci')]
             hostdev_details = \
                 self.backend_domain.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                     self.libvirt_name
@@ -287,7 +291,9 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
                   "manufacturer": unknown,
                   "name": unknown,
                   "serial": unknown}
-        if not self.backend_domain.is_running():
+        if (not self.backend_domain.is_running()
+            or self.backend_domain.app.vmm.offline_mode
+        ):
             # don't cache these values
             return result
         hostdev_details = \

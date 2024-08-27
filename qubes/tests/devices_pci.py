@@ -126,6 +126,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
     def test_000_unsupported_device(self):
         vm = TestVM()
         vm.app.configure_mock(**{
+            'vmm.offline_mode': False,
             'vmm.libvirt_conn.nodeDeviceLookupByName.return_value':
                 mock.Mock(**{"XMLDesc.return_value":
                                  PCI_XML.format(*["0000"] * 3)

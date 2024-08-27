@@ -1,4 +1,5 @@
 # pylint: disable=protected-access
+import sys
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
@@ -47,6 +48,10 @@ class TestVM(qubes.vm.BaseVM):
     testprop = qubes.property('testprop')
     testlabel = qubes.property('testlabel')
     defaultprop = qubes.property('defaultprop', default='defaultvalue')
+
+    def is_running(self):
+        return False
+
 
 class TC_10_BaseVM(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -110,8 +115,10 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         })
 
         self.assertCountEqual(vm.devices.keys(), ('pci',))
-        self.assertCountEqual(list(vm.devices['pci'].get_assigned_devices()),
-                              [qubes.ext.pci.PCIDevice(vm, '00_11.22')])
+
+        self.assertTrue(
+            list(vm.devices['pci'].get_assigned_devices())[0].matches(
+                qubes.ext.pci.PCIDevice(vm, '00_11.22', )))
 
         assignments = list(vm.devices['pci'].get_assigned_devices())
         self.assertEqual(len(assignments), 1)

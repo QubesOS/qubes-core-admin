@@ -141,17 +141,16 @@ def compare_device_cache(vm, devices_cache, current_devices):
 
 
 def confirm_device_attachment(device, frontends) -> str:
-    guivm = 'dom0'  # TODO
-
     try:
+        # pylint: disable=consider-using-with
         proc = subprocess.Popen(
-            ["attach-confirm", guivm,
-             device.backend_domain.name, device.port_id,
-             device.description,
+            ["attach-confirm", device.backend_domain.name,
+            device.port_id, device.description,
              *[f.name for f in frontends.keys()]],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         (target_name, _) = proc.communicate()
         return target_name.decode()
     except Exception as exc:
-        print(exc, file=sys.stderr)
+        print("attach-confirm", exc, file=sys.stderr)
         return ""
