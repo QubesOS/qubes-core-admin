@@ -1187,10 +1187,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                         if not ass.required:
                             continue
                         for device in ass.devices:
-                            if isinstance(device,
-                                          qubes.device_protocol.UnknownDevice):
-                                continue
-                            else:
+                            if not isinstance(
+                                device, qubes.device_protocol.UnknownDevice
+                            ):
                                 break
                         else:
                             raise qubes.exc.QubesException(

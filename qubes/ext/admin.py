@@ -17,7 +17,6 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 import importlib
-import sys
 
 import qubes.api
 import qubes.api.internal
@@ -171,6 +170,7 @@ class AdminExtension(qubes.ext.Extension):
     def on_device_attach(
             self, vm, event, dest, arg, device, mode, options, **kwargs
     ):
+        # pylint: disable=unused-argument
         # ignore auto-attachment
         if mode != 'manual':
             return
@@ -178,7 +178,7 @@ class AdminExtension(qubes.ext.Extension):
         # load device deny list
         deny = {}
         try:
-            with open(DEVICE_DENY_LIST, 'r') as file:
+            with open(DEVICE_DENY_LIST, 'r', encoding="utf-8") as file:
                 for line in file:
                     line = line.strip()
 
@@ -186,7 +186,7 @@ class AdminExtension(qubes.ext.Extension):
                         name, *values = line.split()
 
                         values = ' '.join(values).replace(',', ' ').split()
-                        values = set([v for v in values if len(v) > 0])
+                        values = {v for v in values if len(v) > 0}
 
                         deny[name] = deny.get(name, set()).union(set(values))
         except IOError:
@@ -198,4 +198,3 @@ class AdminExtension(qubes.ext.Extension):
             for devint in device.interfaces:
                 if pattern.matches(devint):
                     raise qubes.exc.PermissionDenied()
-
