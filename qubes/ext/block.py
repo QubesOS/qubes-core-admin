@@ -548,7 +548,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
             if assignment.required:
                 # already attached
                 continue
-                # TODO: notify?
             for device in assignment.devices:
                 if isinstance(device, qubes.device_protocol.UnknownDevice):
                     continue
