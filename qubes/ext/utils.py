@@ -18,14 +18,24 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 # USA.
+import itertools
 import asyncio
+import subprocess
+import sys
+
+import gbulb
 
 import qubes
+
+from typing import Type
+
+from qubes.ext.attachment_confirm import confirm_device_attachment
+from qrexec import server
 
 
 def device_list_change(
         ext: qubes.ext.Extension, current_devices,
-        vm, path, device_class: qubes.device_protocol.DeviceInfo
+        vm, path, device_class: Type[qubes.device_protocol.DeviceInfo]
 ):
     devclass = device_class.__name__[:-len('Device')].lower()
 
@@ -54,6 +64,7 @@ def device_list_change(
 
     ext.devices_cache[vm.name] = current_devices
 
+    to_attach = {}
     for front_vm in vm.app.domains:
         if not front_vm.is_running():
             continue
@@ -62,8 +73,35 @@ def device_list_change(
                     and assignment.ident in added
                     and assignment.ident not in attached
             ):
-                asyncio.ensure_future(ext.attach_and_notify(
-                    front_vm, assignment.device, assignment.options))
+                frontends = to_attach.get(assignment.ident, {})
+                frontends[front_vm] = assignment
+                to_attach[assignment.ident] = frontends
+
+    for ident, frontends in to_attach.items():
+        if len(frontends) > 1:
+            guivm = 'dom0'  # TODO
+
+            assignment = tuple(frontends.values())[0]
+
+            proc = subprocess.Popen(
+                ["/home/user/devel/test.py", guivm,
+                 assignment.backend_domain.name, assignment.ident,
+                 *[f.name for f in frontends.keys()]],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            (target_name, _) = proc.communicate()
+            target_name = target_name.decode()
+            for front in frontends:
+                if front.name == target_name:
+                    target = front
+                    break
+            else:
+                print("Something really goes bad :/", file=sys.stderr)
+                return
+        else:
+            target = tuple(frontends.keys())[0]
+        assignment = frontends[target]
+        asyncio.ensure_future(ext.attach_and_notify(
+            target, assignment.device, assignment.options))
 
 
 def compare_device_cache(vm, devices_cache, current_devices):

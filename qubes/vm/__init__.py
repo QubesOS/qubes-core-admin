@@ -426,8 +426,8 @@ class BaseVM(qubes.PropertyHolder):
                 if watched_path == path or (
                             watched_path.endswith('/') and
                             path.startswith(watched_path)):
-                    self.fire_event('domain-qdb-change:' + watched_path,
-                        path=path)
+                    self.fire_event(
+                        'domain-qdb-change:' + watched_path, path=path)
         except qubesdb.DisconnectedError:
             loop.remove_reader(self._qdb_connection_watch.watch_fd())
             self._qdb_connection_watch.close()
