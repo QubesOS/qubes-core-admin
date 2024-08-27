@@ -18,19 +18,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 # USA.
-import itertools
+import importlib
 import asyncio
 import subprocess
-import sys
-
-import gbulb
 
 import qubes
 
 from typing import Type
 
-from qubes.ext.attachment_confirm import confirm_device_attachment
-from qrexec import server
+from qubes import device_protocol
 
 
 def device_list_change(
@@ -70,6 +66,8 @@ def device_list_change(
             continue
         for assignment in front_vm.devices[devclass].get_assigned_devices():
             if (assignment.backend_domain == vm
+                    and assignment.device_identity
+                        == assignment.device.self_identity
                     and assignment.ident in added
                     and assignment.ident not in attached
             ):
@@ -79,27 +77,22 @@ def device_list_change(
 
     for ident, frontends in to_attach.items():
         if len(frontends) > 1:
-            guivm = 'dom0'  # TODO
-
-            assignment = tuple(frontends.values())[0]
-
-            proc = subprocess.Popen(
-                ["/home/user/devel/test.py", guivm,
-                 assignment.backend_domain.name, assignment.ident,
-                 *[f.name for f in frontends.keys()]],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            (target_name, _) = proc.communicate()
-            target_name = target_name.decode()
+            device = tuple(frontends.values())[0].device
+            target_name = confirm_device_attachment(device, frontends)
             for front in frontends:
                 if front.name == target_name:
                     target = front
+                    assignment = frontends[front]
+                    # already asked
+                    if assignment.mode.value == "ask-to-attach":
+                        assignment.mode = device_protocol.AssignmentMode.AUTO
                     break
             else:
-                print("Something really goes bad :/", file=sys.stderr)
                 return
         else:
             target = tuple(frontends.keys())[0]
-        assignment = frontends[target]
+            assignment = frontends[target]
+
         asyncio.ensure_future(ext.attach_and_notify(target, assignment))
 
 
@@ -137,3 +130,17 @@ def compare_device_cache(vm, devices_cache, current_devices):
             if cached_front is not None:
                 detached[dev_id] = cached_front
     return added, attached, detached, removed
+
+
+def confirm_device_attachment(device, frontends) -> str:
+    guivm = 'dom0'  # TODO
+    # TODO: guivm rpc?
+
+    proc = subprocess.Popen(
+        ["attach-confirm", guivm,
+         device.backend_domain.name, device.ident,
+         device.description,
+         *[f.name for f in frontends.keys()]],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (target_name, _) = proc.communicate()
+    return target_name.decode()
