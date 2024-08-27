@@ -393,7 +393,6 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
 
         try:
-            # TODO?
             device = _cache_get(device.backend_domain, device.port_id)
             self.bind_pci_to_pciback(vm.app, device)
             vm.libvirt_domain.attachDevice(
@@ -446,7 +445,6 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
         for assignment in vm.devices['pci'].get_assigned_devices():
-            # TODO?
             device = _cache_get(assignment.backend_domain, assignment.port_id)
             self.bind_pci_to_pciback(vm.app, device)
 
