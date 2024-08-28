@@ -46,7 +46,7 @@ import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
 from qubes.device_protocol import (
-    VirtualDevice, UnknownDevice, DeviceAssignment)
+    VirtualDevice, UnknownDevice, DeviceAssignment, AssignmentMode)
 
 
 class QubesMgmtEventsDispatcher:
@@ -1398,7 +1398,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     # Assign/Unassign action can modify only a persistent state of running VM.
     # For this reason, write=True
-    @qubes.api.method('admin.vm.device.{endpoint}.Set.required',
+    @qubes.api.method('admin.vm.device.{endpoint}.Set.assignment',
         endpoints=(ep.name
             for ep in importlib.metadata.entry_points(group='qubes.devices')),
         scope='local', write=True)
@@ -1412,17 +1412,20 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         """
         devclass = endpoint
 
-        self.enforce(untrusted_payload in (b'True', b'False'))
-        # now is safe to eval, since the value of untrusted_payload is trusted
-        # pylint: disable=eval-used
-        assignment = eval(untrusted_payload)
-        del untrusted_payload
+        allowed_values = {
+            b'required': AssignmentMode.REQUIRED,
+            b'ask-to-attach': AssignmentMode.ASK,
+            b'auto-attach': AssignmentMode.AUTO}
+        try:
+            mode = allowed_values[untrusted_payload]
+        except KeyError:
+            raise qubes.exc.PermissionDenied()
 
         dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
 
-        self.fire_event_for_permission(device=dev, mode=assignment)
+        self.fire_event_for_permission(device=dev, mode=mode)
 
-        await self.dest.devices[devclass].update_required(dev, assignment)
+        await self.dest.devices[devclass].update_assignment(dev, mode)
         self.app.save()
 
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True,

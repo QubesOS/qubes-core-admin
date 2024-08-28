@@ -2992,7 +2992,7 @@ netvm default=True type=vm \n'''
                 b'test-vm1')
         self.assertFalse(self.app.save.called)
 
-    def test_650_vm_device_set_required_true(self):
+    def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(VirtualDevice(Port(
             self.vm, '1234', 'testclass'), device_id='bee'),
             mode='auto-attach', options={'opt1': 'value'})
@@ -3006,24 +3006,25 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.required',
-                b'test-vm1', b'test-vm1+1234:bee', b'True')
+                b'admin.vm.device.testclass.Set.assignment',
+                b'test-vm1', b'test-vm1+1234:bee', b'required')
 
         self.assertIsNone(value)
         dev = DeviceInfo(Port(
             self.vm, '1234', 'testclass'), device_id='bee')
-        required = self.vm.devices['testclass'].get_assigned_devices(
-            required_only=True)
+        required = list(self.vm.devices['testclass'].get_assigned_devices(
+            required_only=True))
         self.assertIn(dev, required)
+        self.assertEqual(required[0].mode.value, "required")
         self.assertEventFired(
             self.emitter,
-            'admin-permission:admin.vm.device.testclass.Set.required')
+            'admin-permission:admin.vm.device.testclass.Set.assignment')
         mock_action.assert_called_once_with(
             self.vm, f'device-assignment-changed:testclass',
             device=assignment.virtual_device)
         self.app.save.assert_called_once_with()
 
-    def test_651_vm_device_set_required_false(self):
+    def test_651_vm_device_set_mode_ask(self):
         assignment = DeviceAssignment(VirtualDevice(Port(
             self.vm, '1234', 'testclass'), device_id='bee'),
             mode='required', options={'opt1': 'value'})
@@ -3037,8 +3038,8 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.required',
-                b'test-vm1', b'test-vm1+1234:bee', b'False')
+                b'admin.vm.device.testclass.Set.assignment',
+                b'test-vm1', b'test-vm1+1234:bee', b'ask-to-attach')
 
         self.assertIsNone(value)
         dev = DeviceInfo(Port(self.vm, '1234', 'testclass'),
@@ -3046,15 +3047,50 @@ netvm default=True type=vm \n'''
         required = self.vm.devices['testclass'].get_assigned_devices(
             required_only=True)
         self.assertNotIn(dev, required)
+        assignments = list(self.vm.devices['testclass'].get_assigned_devices())
+        self.assertEqual(assignments[0].mode.value, "ask-to-attach")
         self.assertEventFired(
             self.emitter,
-            'admin-permission:admin.vm.device.testclass.Set.required')
+            'admin-permission:admin.vm.device.testclass.Set.assignment')
         mock_action.assert_called_once_with(
             self.vm, f'device-assignment-changed:testclass',
             device=assignment.virtual_device)
         self.app.save.assert_called_once_with()
 
-    def test_652_vm_device_set_required_true_unchanged(self):
+    def test_652_vm_device_set_mode_auto(self):
+        assignment = DeviceAssignment(VirtualDevice(Port(
+            self.vm, '1234', 'testclass'), device_id='bee'),
+            mode='required', options={'opt1': 'value'})
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].assign(assignment))
+        mock_action = unittest.mock.Mock()
+        mock_action.return_value = None
+        del mock_action._is_coroutine
+        self.vm.add_handler(f'device-assignment-changed:testclass', mock_action)
+
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(
+                b'admin.vm.device.testclass.Set.assignment',
+                b'test-vm1', b'test-vm1+1234:bee', b'auto-attach')
+
+        self.assertIsNone(value)
+        dev = DeviceInfo(Port(self.vm, '1234', 'testclass'),
+                         device_id='bee')
+        required = self.vm.devices['testclass'].get_assigned_devices(
+            required_only=True)
+        self.assertNotIn(dev, required)
+        assignments = list(self.vm.devices['testclass'].get_assigned_devices())
+        self.assertEqual(assignments[0].mode.value, "auto-attach")
+        self.assertEventFired(
+            self.emitter,
+            'admin-permission:admin.vm.device.testclass.Set.assignment')
+        mock_action.assert_called_once_with(
+            self.vm, f'device-assignment-changed:testclass',
+            device=assignment.virtual_device)
+        self.app.save.assert_called_once_with()
+
+    def test_653_vm_device_set_mode_unchanged(self):
         assignment = DeviceAssignment(VirtualDevice(Port(
             self.vm, '1234', 'testclass'), device_id='bee'),
             mode='required', options={'opt1': 'value'})
@@ -3063,8 +3099,8 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.required',
-                b'test-vm1', b'test-vm1+1234:bee', b'True')
+                b'admin.vm.device.testclass.Set.assignment',
+                b'test-vm1', b'test-vm1+1234:bee', b'required')
         self.assertIsNone(value)
         dev = DeviceInfo(Port(self.vm, '1234', 'testclass'),
                          device_id='bee')
@@ -3073,47 +3109,29 @@ netvm default=True type=vm \n'''
         self.assertIn(dev, required)
         self.app.save.assert_called_once_with()
 
-    def test_653_vm_device_set_required_false_unchanged(self):
-        assignment = DeviceAssignment(VirtualDevice(Port(
-            self.vm, '1234', 'testclass')),
-            mode='auto-attach', options={'opt1': 'value'})
-        self.loop.run_until_complete(
-            self.vm.devices['testclass'].assign(assignment))
-        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
-                'is_halted', lambda _: False):
-            value = self.call_mgmt_func(
-                b'admin.vm.device.testclass.Set.required',
-                b'test-vm1', b'test-vm1+1234', b'False')
-        self.assertIsNone(value)
-        dev = qubes.device_protocol.DeviceInfo(Port(self.vm, '1234', 'testclass'))
-        required = self.vm.devices['testclass'].get_assigned_devices(
-            required_only=True)
-        self.assertNotIn(dev, required)
-        self.app.save.assert_called_once_with()
-
-    def test_654_vm_device_set_persistent_not_assigned(self):
+    def test_654_vm_device_set_mode_not_assigned(self):
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.call_mgmt_func(
-                    b'admin.vm.device.testclass.Set.required',
-                    b'test-vm1', b'test-vm1+1234', b'True')
+                    b'admin.vm.device.testclass.Set.assignment',
+                    b'test-vm1', b'test-vm1+1234', b'required')
         dev = qubes.device_protocol.DeviceInfo(Port(self.vm, '1234', 'testclass'))
         self.assertNotIn(
             dev, self.vm.devices['testclass'].get_assigned_devices())
         self.assertFalse(self.app.save.called)
 
-    def test_655_vm_device_set_persistent_invalid_value(self):
+    def test_655_vm_device_set_mode_invalid_value(self):
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             with self.assertRaises(qubes.exc.PermissionDenied):
                 self.call_mgmt_func(
-                    b'admin.vm.device.testclass.Set.required',
-                    b'test-vm1', b'test-vm1+1234', b'maybe')
+                    b'admin.vm.device.testclass.Set.assignment',
+                    b'test-vm1', b'test-vm1+1234', b'True')
         dev = qubes.device_protocol.DeviceInfo(Port(self.vm, '1234', 'testclass'))
         self.assertNotIn(dev, self.vm.devices['testclass'].get_assigned_devices())
         self.assertFalse(self.app.save.called)
