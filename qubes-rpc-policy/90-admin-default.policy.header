@@ -26,7 +26,7 @@
 !include-service admin.vm.device.mic.Attached * include/admin-local-ro
 !include-service admin.vm.device.mic.Available * include/admin-local-ro
 !include-service admin.vm.device.mic.Detach * include/admin-local-rwx
-!include-service admin.vm.device.mic.Set.required * include/admin-local-rwx
+!include-service admin.vm.device.mic.Set.assignment * include/admin-local-rwx
 !include-service admin.vm.device.mic.Unassign * include/admin-local-rwx
 !include-service admin.vm.device.usb.Assign * include/admin-local-rwx
 !include-service admin.vm.device.usb.Assigned * include/admin-local-ro
@@ -34,6 +34,6 @@
 !include-service admin.vm.device.usb.Attached * include/admin-local-ro
 !include-service admin.vm.device.usb.Available * include/admin-local-ro
 !include-service admin.vm.device.usb.Detach * include/admin-local-rwx
-!include-service admin.vm.device.usb.Set.required * include/admin-local-rwx
+!include-service admin.vm.device.usb.Set.assignment * include/admin-local-rwx
 !include-service admin.vm.device.usb.Unassign * include/admin-local-rwx
 

@@ -64,7 +64,8 @@ from typing import Iterable
 import qubes.exc
 import qubes.utils
 from qubes.device_protocol import (Port, DeviceInfo, UnknownDevice,
-                                   DeviceAssignment, VirtualDevice)
+                                   DeviceAssignment, VirtualDevice,
+                                   AssignmentMode)
 
 
 DEVICE_DENY_LIST = "/etc/qubes/device-deny.list"
@@ -257,14 +258,14 @@ class DeviceCollection:
         assert device_assignment.attach_automatically
         self._set.add(device_assignment)
 
-    async def update_required(self, device: VirtualDevice, required: bool):
+    async def update_assignment(
+            self, device: VirtualDevice, mode: AssignmentMode
+    ):
         """
         Update `required` flag of an already attached device.
 
         :param VirtualDevice device: device for which change required flag
-        :param bool required: new assignment:
-                              `False` -> device will be auto-attached to qube
-                              `True` -> device is required to start qube
+        :param AssignmentMode mode: new assignment mode
         """
         if self._vm.is_halted():
             raise qubes.exc.QubesVMNotStartedError(
@@ -281,11 +282,10 @@ class DeviceCollection:
 
         # be careful to use already present assignment, not the provided one
         # - to not change options as a side effect
-        if assignment.required == required:
+        if assignment.mode == mode:
             return
 
-        new_assignment = assignment.clone(
-            mode='required' if required else 'auto-attach')
+        new_assignment = assignment.clone(mode=mode)
         self._set.discard(assignment)
         self._set.add(new_assignment)
         await self._vm.fire_event_async(
