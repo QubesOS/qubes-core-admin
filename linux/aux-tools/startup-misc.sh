@@ -28,7 +28,36 @@ bind_to_pciback() {
     echo "$sbdf" > /sys/bus/pci/drivers/pciback/bind
 }
 
-if [ -n "$(qvm-features dom0 suspend-s0ix)" ]; then
+# try to figure out desired suspend mode:
+# 1. explicit 'suspend-s0ix' set to '1' or '' take precence
+# 2. otherwise look for `mem_sleep_default` kernel param
+# 3. if none of the above is set, default to S3 if supported
+
+suspend_mode=
+if suspend_s0ix=$(qvm-features dom0 suspend-s0ix); then
+    if [ "$suspend_s0ix" = "1" ]; then
+        suspend_mode=s0ix
+    else
+        suspend_mode=s3
+    fi
+fi
+if [ -z "$suspend_mode" ] && kopt=$(grep -o 'mem_sleep_default=[^ ]*' /proc/cmdline); then
+    # take the last one
+    kopt="$(printf '%s' "$kopt" | tail -n 1)"
+    if [ "$kopt" = "mem_sleep_default=s2idle" ]; then
+        suspend_mode=s0ix
+    elif [ "$kopt" = "mem_sleep_default=deep" ]; then
+        suspend_mode=s3
+    fi
+fi
+if [ -z "$suspend_mode" ] && grep -q deep /sys/power/mem_sleep; then
+    suspend_mode=s3
+fi
+
+# at this point $suspend_mode may still be empty as we don't enable s0ix
+# implicitly (yet)
+
+if [ "$suspend_mode" = "s0ix" ]; then
     # assign thunderbolt root ports to pciback as workaround for suspend
     # issue without PCI hotplut enabled, see
     # https://github.com/QubesOS/qubes-linux-kernel/pull/903 for details
@@ -50,4 +79,7 @@ if [ -n "$(qvm-features dom0 suspend-s0ix)" ]; then
             echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend
         fi
     done
+    echo s2idle > /sys/power/mem_sleep
+elif [ "$suspend_mode" = "s3" ]; then
+    echo deep > /sys/power/mem_sleep
 fi
