@@ -233,9 +233,9 @@ elif [ "$BRAND" = "LENOVO" ] && [ "$PRODUCT_VERSION" = "ThinkPad X230" ] && [[ "
     # NitroPad T430
     CERTIFIED=yes
 elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT_VERSION" = "V560TU" ] && [[ "$BIOS" = "Dasharo"* ]]; then
-    # only Intel AX models are certified
+    # only Intel AX or BE200 models are certified
     wifi=$(lspci -nn | grep -F '[0280]:')
-    if [ -z "$wifi" ] || [[ "$wifi" = *"8086:272b"* ]]; then
+    if [ -z "$wifi" ] || [[ "$wifi" = *"8086:7e40"* ]] || [[ "$wifi" = *"8086:272b"* ]]; then
         CERTIFIED=yes
     fi
 fi
