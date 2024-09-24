@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 import importlib
+import os
 
 import qubes.api
 import qubes.api.internal
@@ -177,10 +178,34 @@ class AdminExtension(qubes.ext.Extension):
 
         # load device deny list
         deny = {}
+        AdminExtension._load_deny_list(deny, DEVICE_DENY_LIST)
+
+        # load drop ins
+        drop_in_path = DEVICE_DENY_LIST + '.d'
+        if os.path.isdir(drop_in_path):
+            for deny_list_name in os.listdir(drop_in_path):
+                deny_list_path = os.path.join(drop_in_path, deny_list_name)
+
+                if os.path.isfile(deny_list_path):
+                    AdminExtension._load_deny_list(deny, deny_list_path)
+
+        # check if any presented interface is on deny list
+        for interface in deny.get(dest.name, set()):
+            pattern = DeviceInterface(interface)
+            for devint in device.interfaces:
+                if pattern.matches(devint):
+                    raise qubes.exc.PermissionDenied()
+
+    @staticmethod
+    def _load_deny_list(deny: dict, path: str) -> None:
         try:
-            with open(DEVICE_DENY_LIST, 'r', encoding="utf-8") as file:
+            with open(path, 'r', encoding="utf-8") as file:
                 for line in file:
                     line = line.strip()
+
+                    # skip comments
+                    if line.startswith('#'):
+                        continue
 
                     if line:
                         name, *values = line.split()
@@ -191,10 +216,3 @@ class AdminExtension(qubes.ext.Extension):
                         deny[name] = deny.get(name, set()).union(set(values))
         except IOError:
             pass
-
-        # check if any presented interface is on deny list
-        for interface in deny.get(dest.name, set()):
-            pattern = DeviceInterface(interface)
-            for devint in device.interfaces:
-                if pattern.matches(devint):
-                    raise qubes.exc.PermissionDenied()
