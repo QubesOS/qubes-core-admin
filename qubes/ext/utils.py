@@ -19,13 +19,20 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
 # USA.
 import asyncio
+import subprocess
+import sys
 
 import qubes
+
+from typing import Type
+
+from qubes import device_protocol
+from qubes.device_protocol import VirtualDevice
 
 
 def device_list_change(
         ext: qubes.ext.Extension, current_devices,
-        vm, path, device_class: qubes.device_protocol.DeviceInfo
+        vm, path, device_class: Type[qubes.device_protocol.DeviceInfo]
 ):
     devclass = device_class.__name__[:-len('Device')].lower()
 
@@ -36,15 +43,15 @@ def device_list_change(
         compare_device_cache(vm, ext.devices_cache, current_devices))
 
     # send events about devices detached/attached outside by themselves
-    for dev_id, front_vm in detached.items():
-        dev = device_class(vm, dev_id)
+    for port_id, front_vm in detached.items():
+        dev = device_class(vm, port_id)
         asyncio.ensure_future(front_vm.fire_event_async(
-            f'device-detach:{devclass}', device=dev))
-    for dev_id in removed:
-        device = device_class(vm, dev_id)
-        vm.fire_event(f'device-removed:{devclass}', device=device)
-    for dev_id in added:
-        device = device_class(vm, dev_id)
+            f'device-detach:{devclass}', port=dev.port))
+    for port_id in removed:
+        device = device_class(vm, port_id)
+        vm.fire_event(f'device-removed:{devclass}', port=device.port)
+    for port_id in added:
+        device = device_class(vm, port_id)
         vm.fire_event(f'device-added:{devclass}', device=device)
     for dev_ident, front_vm in attached.items():
         dev = device_class(vm, dev_ident)
@@ -54,24 +61,55 @@ def device_list_change(
 
     ext.devices_cache[vm.name] = current_devices
 
+    to_attach = {}
     for front_vm in vm.app.domains:
         if not front_vm.is_running():
             continue
-        for assignment in front_vm.devices[devclass].get_assigned_devices():
-            if (assignment.backend_domain == vm
-                    and assignment.ident in added
-                    and assignment.ident not in attached
-            ):
-                asyncio.ensure_future(ext.attach_and_notify(
-                    front_vm, assignment.device, assignment.options))
+        for assignment in reversed(sorted(
+                front_vm.devices[devclass].get_assigned_devices())):
+            for device in assignment.devices:
+                if (assignment.matches(device)
+                        and device.port_id in added
+                        and device.port_id not in attached
+                ):
+                    frontends = to_attach.get(device.port_id, {})
+                    # make it unique
+                    ass = assignment.clone(
+                        device=VirtualDevice(device.port, device.device_id))
+                    curr = frontends.get(front_vm, None)
+                    if curr is None or curr < ass:
+                        # chose the most specific assignment
+                        frontends[front_vm] = ass
+                    to_attach[device.port_id] = frontends
+
+    for port_id, frontends in to_attach.items():
+        if len(frontends) > 1:
+            # unique
+            device = tuple(frontends.values())[0].device
+            target_name = confirm_device_attachment(device, frontends)
+            for front in frontends:
+                if front.name == target_name:
+                    target = front
+                    assignment = frontends[front]
+                    # already asked
+                    if assignment.mode.value == "ask-to-attach":
+                        assignment.mode = device_protocol.AssignmentMode.AUTO
+                    break
+            else:
+                return
+        else:
+            target = tuple(frontends.keys())[0]
+            assignment = frontends[target]
+
+        asyncio.ensure_future(ext.attach_and_notify(target, assignment))
 
 
 def compare_device_cache(vm, devices_cache, current_devices):
     # compare cached devices and current devices, collect:
-    # - newly appeared devices (ident)
-    # - devices attached from a vm to frontend vm (ident: frontend_vm)
-    # - devices detached from frontend vm (ident: frontend_vm)
-    # - disappeared devices, e.g., plugged out (ident)
+    # - newly appeared devices (port_id)
+    # - devices attached from a vm to frontend vm (port_id: frontend_vm)
+    # - devices detached from frontend vm (port_id: frontend_vm)
+    # - disappeared devices, e.g., plugged out (port_id)
     added = set()
     attached = {}
     detached = {}
@@ -100,3 +138,19 @@ def compare_device_cache(vm, devices_cache, current_devices):
             if cached_front is not None:
                 detached[dev_id] = cached_front
     return added, attached, detached, removed
+
+
+def confirm_device_attachment(device, frontends) -> str:
+    try:
+        # pylint: disable=consider-using-with
+        proc = subprocess.Popen(
+            ["attach-confirm", device.backend_domain.name,
+            device.port_id, device.description,
+             *[f.name for f in frontends.keys()]],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        (target_name, _) = proc.communicate()
+        return target_name.decode()
+    except Exception as exc:
+        print("attach-confirm", exc, file=sys.stderr)
+        return ""

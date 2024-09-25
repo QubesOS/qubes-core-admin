@@ -88,7 +88,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.serial == self.img_path:
-                self.assertTrue(dev.ident.startswith('loop'))
+                self.assertTrue(dev.port_id.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
@@ -131,7 +131,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         found = False
         for dev in dev_list:
-            if dev.ident.startswith('loop'):
+            if dev.port_id.startswith('loop'):
                 self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
@@ -162,7 +162,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
         dev_list = list(self.vm.devices['block'])
         for dev in dev_list:
-            if dev.ident.startswith('loop'):
+            if dev.port_id.startswith('loop'):
                 self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
@@ -187,7 +187,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         dev_list = list(self.vm.devices['block'])
         found = False
         for dev in dev_list:
-            if dev.ident.startswith('loop'):
+            if dev.port_id.startswith('loop'):
                 self.assertNotEqual(dev.serial, self.img_path,
                     "Device {} ({}) should not be listed as it is used in "
                     "device-mapper".format(dev, self.img_path)
@@ -219,7 +219,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.serial == self.img_path:
-                self.assertTrue(dev.ident.startswith('loop'))
+                self.assertTrue(dev.port_id.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
                 found = True
@@ -243,10 +243,10 @@ class TC_00_List(qubes.tests.SystemTestCase):
         found = False
         for dev in dev_list:
             if dev.serial == self.img_path:
-                self.assertTrue(dev.ident.startswith('loop'))
+                self.assertTrue(dev.port_id.startswith('loop'))
                 self.assertEqual(dev.mode, 'w')
                 self.assertEqual(dev.size, 1024 * 1024 * 128)
-                self.assertIn(dev.ident + 'p1', [d.ident for d in dev_list])
+                self.assertIn(dev.port_id + 'p1', [d.port_id for d in dev_list])
                 found = True
 
         if not found:
@@ -276,7 +276,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
                     'Device {} ({}) should not be listed because its '
                     'partition is mounted'
                     .format(dev, self.img_path))
-            elif dev.ident.startswith('loop') and dev.ident.endswith('p1'):
+            elif dev.port_id.startswith('loop') and dev.port_id.endswith('p1'):
                 # FIXME: risky assumption that only tests create partitioned
                 # loop devices
                 self.fail(
@@ -320,14 +320,18 @@ class AttachMixin:
         for dev in dev_list:
             if dev.serial == self.img_path:
                 self.device = dev
-                self.device_ident = dev.ident
+                self.device_ident = dev.port_id
                 break
         else:
             self.fail('Device for {} in {} not found'.format(
                 self.img_path, self.backend.serial))
 
     def test_000_attach_reattach(self):
-        ass = qubes.device_protocol.DeviceAssignment(self.backend, self.device_ident)
+        ass = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    self.backend, self.device_ident, 'block')
+            ))
         with self.subTest('attach'):
             self.loop.run_until_complete(
                 self.frontend.devices['block'].attach(ass))
