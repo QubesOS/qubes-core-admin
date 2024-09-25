@@ -40,7 +40,7 @@ def construct_dominfo(id,
     d.memory_actual = memory_actual
     d.memory_current = memory_current
     d.last_target = last_target
-    d.use_hoplug = use_hotplug
+    d.use_hotplug = use_hotplug
     return d
 
 class TC_00_Qmemman_algo(qubes.tests.QubesTestCase):
