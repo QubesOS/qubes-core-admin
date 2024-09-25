@@ -194,7 +194,8 @@ class AdminExtension(qubes.ext.Extension):
             pattern = DeviceInterface(interface)
             for devint in device.interfaces:
                 if pattern.matches(devint):
-                    raise qubes.exc.PermissionDenied()
+                    raise qubes.exc.PermissionDenied(
+                        f"Device exposes a banned interface: {devint}")
 
     @staticmethod
     def _load_deny_list(deny: dict, path: str) -> None:
