@@ -28,7 +28,7 @@ class DomainState:
         self.mem_used = None		# used memory, computed based on meminfo
         self.id = id			    # domain id
         self.last_target = 0		# the last memset target
-        self.use_hoplug = False     # use memory hotplug for mem-set
+        self.use_hotplug = False    # use memory hotplug for mem-set
         self.no_progress = False    # no react to memset
         self.slow_memset_react = False  # slow react to memset (after few
                                         # tries still above target)
