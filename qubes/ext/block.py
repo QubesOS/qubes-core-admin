@@ -235,7 +235,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             p_info = p.backend_domain.devices[p.devclass][p.port_id]
             parent_identity = p_info.device_id
             if p.devclass == 'usb':
-                parent_identity = f'{p.port_id}:{parent_identity}'
+                parent_identity = f'{parent_identity}'
         if self._interface_num:
             # device interface number (not partition)
             self_id = self._interface_num

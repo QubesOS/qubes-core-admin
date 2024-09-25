@@ -260,7 +260,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info.parent_device, parent)
         self.assertEqual(device_info.attachment, front)
         self.assertEqual(device_info.device_id,
-                         '1-1.1:0000:0000::?******:1.0')
+                         '0000:0000::?******:1.0')
         self.assertEqual(
             device_info.data.get('test_frontend_domain', None), None)
         self.assertEqual(device_info.device_node, '/dev/sda')
