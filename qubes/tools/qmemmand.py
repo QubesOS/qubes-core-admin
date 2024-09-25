@@ -163,7 +163,7 @@ class XSWatcher:
 
                 system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
             except:  # pylint: disable=bare-except
-                self.log.exception('Updating meminfo for %d failed', domain_id)
+                self.log.exception('Updating meminfo for %s failed', domain_id)
         self.log.debug('global_lock released')
 
     def watch_loop(self):
