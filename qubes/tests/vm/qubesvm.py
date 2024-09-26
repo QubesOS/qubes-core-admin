@@ -1481,7 +1481,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.app.vmm.offline_mode = False
         dev = qubes.devices.DeviceAssignment(
             dom0, 'sda',
-            {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
+            options={'devtype': 'cdrom', 'read-only': 'yes'},
+            persistent=True)
         self.loop.run_until_complete(vm.devices['block'].attach(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1585,7 +1586,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.app.vmm.offline_mode = False
             dev = qubes.devices.DeviceAssignment(
                 dom0, 'sda',
-                {'devtype': 'cdrom', 'read-only': 'yes'}, persistent=True)
+                options={'devtype': 'cdrom', 'read-only': 'yes'},
+                persistent=True)
             self.loop.run_until_complete(vm.devices['block'].attach(dev))
             libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),

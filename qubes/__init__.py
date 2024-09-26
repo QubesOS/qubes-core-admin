@@ -189,7 +189,7 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
     # internal use only
     _NO_DEFAULT = object()
 
-    def __init__(self, name, setter=None, saver=None, type=None,
+    def __init__(self, name, setter=None, saver=None, type=None, *,
             default=_NO_DEFAULT, write_once=False, load_stage=2, order=0,
             save_via_ref=False, clone=True,
             doc=None):

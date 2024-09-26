@@ -74,6 +74,7 @@ class SinglePropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
 
     # pylint: disable=redefined-builtin,too-few-public-methods
+    # pylint: disable=too-many-positional-arguments
     def __init__(self,
             option_strings,
             dest,

@@ -1490,8 +1490,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def run_service(self, service, source=None, user=None, stubdom=False,
-                    filter_esc=False, autostart=False, gui=False, **kwargs):
+    async def run_service(self, service, source=None, user=None, *,
+            stubdom=False,
+            filter_esc=False, autostart=False, gui=False, **kwargs):
         """Run service on this VM
 
         :param str service: service name

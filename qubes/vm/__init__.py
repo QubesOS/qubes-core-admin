@@ -278,7 +278,7 @@ class BaseVM(qubes.PropertyHolder):
                     device_assignment = qubes.devices.DeviceAssignment(
                         self.app.domains[node.get('backend-domain')],
                         node.get('id'),
-                        options,
+                        options=options,
                         persistent=True
                     )
                     self.devices[devclass].load_persistent(device_assignment)
