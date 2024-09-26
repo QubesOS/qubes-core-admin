@@ -82,7 +82,7 @@ class Volume:
     #: for sparse volumes
     usage = 0
 
-    def __init__(self, name, pool, vid,
+    def __init__(self, name, pool, vid, *,
             revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
             snap_on_start=False, source=None, ephemeral=None, **kwargs):
         ''' Initialize a volume.

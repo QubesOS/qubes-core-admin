@@ -89,7 +89,7 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
         that called this function
     :param options: Directive options for customisation
     :param content: The directive content for customisation
-    """  # pylint: disable=unused-argument
+    """  # pylint: disable=unused-argument,too-many-positional-arguments
 
     if options is None:
         options = {}

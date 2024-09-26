@@ -88,6 +88,7 @@ class BackupHeader:
     int_options = ['version']
 
     def __init__(self,
+            *,
             version=None,
             encrypted=None,
             compressed=None,

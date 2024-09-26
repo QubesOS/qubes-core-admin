@@ -1803,6 +1803,7 @@ class ZFSVolume(qubes.storage.Volume):
         name: str,
         pool: ZFSPool,
         vid: Vid,
+        *,
         revisions_to_keep: int = 1,
         rw: bool = False,
         save_on_stop: bool = False,

@@ -2677,8 +2677,8 @@ netvm default=True type=vm \n'''
     def test_652_vm_device_set_persistent_false(self):
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
-        assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
-            True)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
+            persistent=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         self.vm.add_handler('device-list-attached:testclass',
@@ -2698,8 +2698,8 @@ netvm default=True type=vm \n'''
     def test_653_vm_device_set_persistent_true_unchanged(self):
         self.vm.add_handler('device-list:testclass',
             self.device_list_testclass)
-        assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
-            True)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
+            persistent=True)
         self.loop.run_until_complete(
             self.vm.devices['testclass'].attach(assignment))
         self.vm.add_handler('device-list-attached:testclass',
