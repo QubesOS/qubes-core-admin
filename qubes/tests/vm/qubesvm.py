@@ -141,10 +141,12 @@ class TC_00_setters(qubes.tests.QubesTestCase):
             qubes.vm._setter_qid(self.vm,
                 self.prop, qubes.config.max_qid + 5)
 
-    @unittest.skip('test not implemented')
     def test_020_setter_kernel(self):
-        pass
-
+        self.assertEqual(
+            qubes.vm.qubesvm._setter_kernel(self.vm, self.prop, None), '')
+        with self.assertRaises(ValueError):
+            qubes.vm.qubesvm._setter_kernel(self.vm,
+                self.prop, 'path/in/kernel/property')
 
     def test_030_setter_label_object(self):
         label = TestApp.labels[1]

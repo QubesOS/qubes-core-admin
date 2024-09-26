@@ -820,6 +820,16 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.exc.QubesVMInUseError):
             del self.app.domains[vm]
 
+    def test_207_default_kernel(self):
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            # invalid path check
+            self.app.default_kernel = 'unittest_Evil_Maid_Kernel'
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            # vmlinuz check
+            with mock.patch('os.path.exists') as existence:
+                existence.side_effect = [True, False]
+                self.app.default_kernel = 'unittest_GNU_Hurd_1.0.0'
+
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(

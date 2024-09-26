@@ -458,6 +458,14 @@ class QubesTestCase(unittest.TestCase):
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
 
+        self.kernel_validator_original = qubes.app.validate_kernel
+        def kernel_validator_patched(obj, key, value):
+            if value.startswith('unittest'):
+                self.kernel_validator_original(obj, key, value)
+        self.skip_kernel_validation_patch = unittest.mock.patch(
+            'qubes.app.validate_kernel', kernel_validator_patched)
+        self.skip_kernel_validation_patch.start()
+
     def cleanup_gc(self):
         gc.collect()
         leaked = [obj for obj in gc.get_objects() + gc.garbage
