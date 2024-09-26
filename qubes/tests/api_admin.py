@@ -143,8 +143,8 @@ class TC_00_VMs(AdminAPITestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = pathlib.Path(tmpdir)
             with unittest.mock.patch(
-                    'qubes.ext.admin.AdminExtension._instance.policy_cache.path',
-                    pathlib.Path(tmpdir)):
+                    'qubes.ext.admin.AdminExtension._instance.policy_cache.paths',
+                    [pathlib.Path(tmpdir)]):
                 with (tmpdir / 'admin.policy').open('w') as f:
                     f.write('admin.vm.List * @anyvm @adminvm allow\n')
                     f.write('admin.vm.List * @anyvm test-vm1 allow')
@@ -1243,8 +1243,8 @@ netvm default=True type=vm \n'''
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = pathlib.Path(tmpdir)
             with unittest.mock.patch(
-                    'qubes.ext.admin.AdminExtension._instance.policy_cache.path',
-                    pathlib.Path(tmpdir)):
+                    'qubes.ext.admin.AdminExtension._instance.policy_cache.paths',
+                    [pathlib.Path(tmpdir)]):
                 with (tmpdir / 'admin.policy').open('w') as f:
                     f.write('admin.Events * @anyvm @adminvm allow\n')
                     f.write('admin.Events * @anyvm test-vm1 allow')
