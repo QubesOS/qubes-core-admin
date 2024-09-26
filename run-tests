@@ -22,7 +22,7 @@ fi
 : "${PYTHON:=python3}"
 : "${TESTPYTHONPATH:=test-packages}"
 
-if [ -d ../core-qrexec/qrexec ] && ! $PYTHON -c 'import qrexec' 2>/dev/null; then
+if [ -d ../core-qrexec/qrexec ]; then
     PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}:../core-qrexec
 fi
 
