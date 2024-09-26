@@ -29,6 +29,8 @@ Common part of device API.
 The same in `qubes-core-admin` and `qubes-core-admin-client`,
 should be moved to one place.
 """
+
+
 import string
 import sys
 from enum import Enum
@@ -433,6 +435,7 @@ class DeviceInfo(Device):
             self,
             backend_domain: QubesVM,
             ident: str,
+            *,
             devclass: Optional[str] = None,
             vendor: Optional[str] = None,
             product: Optional[str] = None,
@@ -790,7 +793,7 @@ class DeviceAssignment(Device):
                                and required to start domain.
     """
 
-    def __init__(self, backend_domain, ident, options=None,
+    def __init__(self, backend_domain, ident, *, options=None,
                  frontend_domain=None, devclass=None,
                  required=False, attach_automatically=False):
         super().__init__(backend_domain, ident, devclass)

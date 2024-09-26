@@ -1790,7 +1790,7 @@ netvm default=True type=vm \n'''
     def device_list_single_attached_testclass(self, vm, event, **kwargs):
         if vm is not self.vm:
             return
-        dev = qubes.device_protocol.DeviceInfo(self.vm, '1234', 'testclass')
+        dev = qubes.device_protocol.DeviceInfo(self.vm, '1234', devclass='testclass')
         yield (dev, {'attach_opt': 'value'})
 
     def test_472_vm_device_list_attached(self):
@@ -1823,9 +1823,9 @@ netvm default=True type=vm \n'''
     def device_list_multiple_attached_testclass(self, vm, event, **kwargs):
         if vm is not self.vm:
             return
-        dev = qubes.device_protocol.DeviceInfo(self.vm, '1234', 'testclass')
+        dev = qubes.device_protocol.DeviceInfo(self.vm, '1234', devclass='testclass')
         yield (dev, {'attach_opt': 'value'})
-        dev = qubes.device_protocol.DeviceInfo(self.vm, '4321', 'testclass')
+        dev = qubes.device_protocol.DeviceInfo(self.vm, '4321', devclass='testclass')
         yield (dev, {'attach_opt': 'value'})
 
     def test_474_vm_device_list_attached_specific(self):

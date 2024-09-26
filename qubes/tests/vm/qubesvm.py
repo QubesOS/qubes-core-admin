@@ -1482,7 +1482,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.app.vmm.offline_mode = False
         dev = qubes.device_protocol.DeviceAssignment(
             dom0, 'sda',
-            {'devtype': 'cdrom', 'read-only': 'yes'},
+            options={'devtype': 'cdrom', 'read-only': 'yes'},
             attach_automatically=True, required=True)
         self.loop.run_until_complete(vm.devices['block'].assign(dev))
         libvirt_xml = vm.create_config_file()
@@ -1587,7 +1587,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.app.vmm.offline_mode = False
             dev = qubes.device_protocol.DeviceAssignment(
                 dom0, 'sda',
-                {'devtype': 'cdrom', 'read-only': 'yes'},
+                options={'devtype': 'cdrom', 'read-only': 'yes'},
                  attach_automatically=True, required=True)
             self.loop.run_until_complete(vm.devices['block'].assign(dev))
             libvirt_xml = vm.create_config_file()

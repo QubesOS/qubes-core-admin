@@ -48,7 +48,7 @@ class TestVM(qubes.tests.TestEmitter):
         super(TestVM, self).__init__(*args, **kwargs)
         self.app = app
         self.name = name
-        self.device = TestDevice(self, 'testdev', 'testclass')
+        self.device = TestDevice(self, 'testdev', devclass='testclass')
         self.events_enabled = True
         self.devices = {
             'testclass': qubes.devices.DeviceCollection(self, 'testclass')
