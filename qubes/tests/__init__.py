@@ -45,6 +45,7 @@ import tempfile
 import time
 import traceback
 import unittest
+import unittest.mock
 from distutils import spawn
 
 import gc
