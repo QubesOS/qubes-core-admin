@@ -307,7 +307,7 @@ class DeviceCollection:
                 break
         else:
             raise DeviceNotAssigned(
-                f'device {port.port_id!s} of class {self._bus} not '
+                f'{self._bus} device {port.port_id!s} not '
                 f'attached to {self._vm!s}')
 
         if assignment.required and not self._vm.is_halted():
