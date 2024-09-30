@@ -66,7 +66,7 @@ import qubes.utils
 from qubes.device_protocol import (Port, DeviceInfo, UnknownDevice,
                                    DeviceAssignment, VirtualDevice,
                                    AssignmentMode)
-
+from qubes.exc import ProtocolError
 
 DEVICE_DENY_LIST = "/etc/qubes/device-deny.list"
 
@@ -197,7 +197,7 @@ class DeviceCollection:
         """
 
         if assignment.devclass != self._bus:
-            raise ValueError(
+            raise ProtocolError(
                 f'Trying to attach {assignment.devclass} device '
                 f'when {self._bus} device expected.')
 
@@ -207,10 +207,15 @@ class DeviceCollection:
                 " do you mean `assign`?")
 
         if len(assignment.devices) != 1:
-            raise ValueError(
+            raise ProtocolError(
                 f'Cannot attach ambiguous {assignment.devclass} device.')
 
         device = assignment.device
+
+        if isinstance(device, UnknownDevice):
+            raise ProtocolError(f"{device.devclass} device not recognized "
+                                f"in {device.port_id} port.")
+
         if device in [ass.device for ass in self.get_attached_devices()]:
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
