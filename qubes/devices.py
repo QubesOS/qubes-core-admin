@@ -328,9 +328,7 @@ class DeviceCollection:
         """
         Unassign device from domain.
         """
-        all_ass = []
         for assign in self.get_assigned_devices():
-            all_ass.append(assign)
             if assignment == assign:
                 # load all options
                 assignment = assign
