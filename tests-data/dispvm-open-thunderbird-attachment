@@ -55,7 +55,10 @@ def skip_autoconf(tb):
         welcome = tb.childNamed('Mail Account Setup'
                                 '|Set Up .* Existing Email .*')
         time.sleep(3)
-        welcome.button('Cancel').doActionNamed('press')
+        try:
+            welcome.child('Cancel', roleName='button').doActionNamed('press')
+        except tree.SearchError:
+            welcome.button('Cancel').doActionNamed('press')
     except tree.SearchError:
         pass
 
@@ -85,12 +88,22 @@ def open_attachment(tb, name):
     # resize the window so that button is on screen even on 1024x768
     subprocess.call(["xdotool", "search", "Test Message", "windowsize", "900", "700"])
     time.sleep(1)
-    msg.button(name).click()
+    try:
+        # TB >= 128
+        msg.child(name, roleName='button').click()
+    except tree.SearchError:
+        # TB < 128
+        msg.button(name).click()
     confirm = tb.child(name='Opening ' + name, roleName='frame')
     time.sleep(3)
     confirm.child(name='Open with', roleName='radio button')\
         .doActionNamed('select')
-    confirm.button('OK').doActionNamed('press')
+    try:
+        # TB >= 128
+        confirm.child('OK', roleName='button').doActionNamed('press')
+    except tree.SearchError:
+        # TB < 128
+        confirm.button('OK').doActionNamed('press')
 
 
 def main():
