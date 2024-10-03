@@ -353,6 +353,15 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             pool=pool))
         self.assertVolumesExcludedFromUdev(self.vm)
 
+    def test_206_shutdown_paused(self):
+        vmname = self.make_vm_name('vm')
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        self.shutdown_paused(self.vm)
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init

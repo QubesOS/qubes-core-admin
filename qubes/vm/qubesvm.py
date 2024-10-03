@@ -1365,10 +1365,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             await self.fire_event_async('domain-pre-shutdown',
                                         pre_event=True, force=force)
 
+            if self.is_paused() and not force:
+                raise qubes.exc.QubesVMNotRunningError(self)
+
             if self.__waiter is None:
                 self.__waiter = asyncio.get_running_loop().create_future()
             waiter = self.__waiter
-            self.libvirt_domain.shutdown()
+
+            if self.is_paused():
+                self.libvirt_domain.destroy()
+            else:
+                self.libvirt_domain.shutdown()
 
             if wait:
                 if timeout is None:

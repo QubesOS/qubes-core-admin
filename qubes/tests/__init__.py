@@ -1242,6 +1242,19 @@ class SystemTestCase(QubesTestCase):
             del vm
             self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
+    def shutdown_paused(self, vm, timeout=60):
+        self.loop.run_until_complete(vm.pause())
+        with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+            self.loop.run_until_complete(
+                vm.shutdown(wait=True, timeout=timeout, force=False))
+        try:
+            self.loop.run_until_complete(
+                vm.shutdown(wait=True, timeout=timeout, force=True))
+        except qubes.exc.QubesException:
+            name = vm.name
+            del vm
+            self.fail("Timeout while waiting for VM {} shutdown".format(name))
+
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
         if not os.path.exists('/usr/lib/grub/i386-pc'):
             self.skipTest('grub2 not installed')
