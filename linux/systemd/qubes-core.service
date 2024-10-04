@@ -1,6 +1,6 @@
 [Unit]
 Description=Qubes Dom0 startup setup
-After=qubes-db-dom0.service libvirtd.service xenconsoled.service qubesd.service qubes-qmemman.service
+After=qubes-db-dom0.service libvirtd.service virtxend.socket xenconsoled.service qubesd.service qubes-qmemman.service
 # Cover legacy init.d script
 
 [Service]
