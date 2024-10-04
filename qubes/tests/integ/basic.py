@@ -285,7 +285,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.loop.run_until_complete(self.vm.start())
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'systemctl', 'restart', 'libvirtd'))
+            'systemctl', 'restart', 'virtxend'))
         self.loop.run_until_complete(p.communicate())
         # check if events still works
         self.domain_paused_received = False
@@ -302,7 +302,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # make sure libvirt object is cached
         self.app.domains[0].libvirt_domain.isActive()
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'systemctl', 'restart', 'libvirtd'))
+            'systemctl', 'restart', 'virtxend'))
         self.loop.run_until_complete(p.communicate())
         # trigger reconnect
         with self.assertNotRaises(libvirt.libvirtError):
