@@ -1916,6 +1916,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # fire hooks
         await self.fire_event_async('domain-clone-files', src=src)
 
+    def libvirt_undefine(self):
+        """Undefine domain object in libvirt"""
+        try:
+            if self.libvirt_domain:
+                self.libvirt_domain.undefine()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                # already undefined
+                pass
+        if self._libvirt_domain is not None:
+            self._libvirt_domain = None
+
     #
     # methods for querying domain state
     #

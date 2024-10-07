@@ -527,15 +527,7 @@ class VMCollection:
         if not vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(vm)
         self.app.fire_event('domain-pre-delete', pre_event=True, vm=vm)
-        try:
-            if vm.libvirt_domain:
-                vm.libvirt_domain.undefine()
-            # pylint: disable=protected-access
-            vm._libvirt_domain = None
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                # already undefined
-                pass
+        vm.libvirt_undefine()
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm=vm)
 

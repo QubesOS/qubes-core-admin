@@ -351,6 +351,9 @@ class TestVM(qubes.vm.BaseVM):
     def get_power_state(self):
         return "Halted"
 
+    def libvirt_undefine(self):
+        pass
+
 
 class TestApp(qubes.tests.TestEmitter):
     pass
