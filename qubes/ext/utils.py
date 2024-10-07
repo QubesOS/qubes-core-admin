@@ -148,7 +148,8 @@ async def confirm_device_attachment(device, frontends) -> str:
         # vm names are safe to just join by spaces
         proc = await asyncio.create_subprocess_shell(
             " ".join(["attach-confirm", device.backend_domain.name,
-                      device.port_id, "'" + device.description + "'", *front_names]),
+                      device.port_id, "'" + device.description + "'",
+                      *front_names]),
             stdout=asyncio.subprocess.PIPE
         )
         (target_name, _) = await proc.communicate()
