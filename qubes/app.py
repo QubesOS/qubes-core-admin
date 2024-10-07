@@ -104,12 +104,14 @@ class VirDomainWrapper:
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
             try:
-                return attr(*args, **kwargs)
+                return getattr(self._vm, attrname)(*args, **kwargs)
             except libvirt.libvirtError:
                 if self._reconnect_if_dead():
                     return getattr(self._vm, attrname)(*args, **kwargs)
                 raise
 
+        del wrapper.__wrapped__
+        del attr
         return wrapper
 
 
