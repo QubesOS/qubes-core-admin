@@ -1940,6 +1940,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # already undefined
                 pass
         if self._libvirt_domain is not None:
+            self._libvirt_domain.close()
             self._libvirt_domain = None
 
     #
