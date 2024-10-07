@@ -86,7 +86,8 @@ def device_list_change(
         if len(frontends) > 1:
             # unique
             device = tuple(frontends.values())[0].device
-            target_name = confirm_device_attachment(device, frontends)
+            target_name = asyncio.ensure_future(
+                confirm_device_attachment(device, frontends)).result()
             for front in frontends:
                 if front.name == target_name:
                     target = front
@@ -140,17 +141,21 @@ def compare_device_cache(vm, devices_cache, current_devices):
     return added, attached, detached, removed
 
 
-def confirm_device_attachment(device, frontends) -> str:
+async def confirm_device_attachment(device, frontends) -> str:
     try:
+        front_names = [f.name for f in frontends.keys()]
         # pylint: disable=consider-using-with
-        proc = subprocess.Popen(
-            ["attach-confirm", device.backend_domain.name,
-            device.port_id, device.description,
-             *[f.name for f in frontends.keys()]],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        # vm names are safe to just join by spaces
+        proc = await asyncio.create_subprocess_shell(
+            " ".join(["attach-confirm", device.backend_domain.name,
+                      device.port_id, "'" + device.description + "'", *front_names]),
+            stdout=asyncio.subprocess.PIPE
         )
-        (target_name, _) = proc.communicate()
-        return target_name.decode()
+        (target_name, _) = await proc.communicate()
+        target_name = target_name.decode()
+        if target_name in front_names:
+            return target_name
+        return ""
     except Exception as exc:
         print("attach-confirm", exc, file=sys.stderr)
         return ""

@@ -32,7 +32,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.ext.utils import device_list_change, confirm_device_attachment
+from qubes.ext import utils
 from qubes.storage import Storage
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
@@ -324,7 +324,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         current_devices = dict(
             (dev.port_id, device_attachments.get(dev.port_id, None))
             for dev in self.on_device_list_block(vm, None))
-        device_list_change(self, current_devices, vm, path, BlockDevice)
+        utils.device_list_change(self, current_devices, vm, path, BlockDevice)
 
     @staticmethod
     def get_device_attachments(vm_):
@@ -569,7 +569,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
         # bypass DeviceCollection logic preventing double attach
         device = assignment.device
         if assignment.mode.value == "ask-to-attach":
-            if vm.name != confirm_device_attachment(device, {vm: assignment}):
+            allowed = await utils.confirm_device_attachment(
+                device, {vm: assignment})
+            allowed = allowed.strip()
+            if vm.name != allowed:
                 return
         self.on_device_pre_attached_block(
             vm, 'device-pre-attach:block', device, assignment.options)
