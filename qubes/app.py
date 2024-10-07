@@ -92,6 +92,10 @@ class VirDomainWrapper:
             self._vm = self._connection._conn.lookupByUUID(self._vm.UUID())
         return is_dead
 
+    def close(self):
+        self._vm = None
+        self._connection = None
+
     def __getattr__(self, attrname):
         attr = getattr(self._vm, attrname)
         if not isinstance(attr, collections.abc.Callable):
