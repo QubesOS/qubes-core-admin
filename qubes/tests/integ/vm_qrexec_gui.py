@@ -968,6 +968,8 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
 
         # exclude from memory balancing
         self.testvm1.features['service.meminfo-writer'] = False
+        # prevent Whonix startup notifications from interfering
+        self.testvm1.features['service.whonix-tor-disable'] = True
         await self.testvm1.start()
         await self.wait_for_session(self.testvm1)
 
