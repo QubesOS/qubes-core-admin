@@ -309,24 +309,25 @@ class DeviceCollection:
         """
         Detach device from domain.
         """
-        for assign in self.get_attached_devices():
-            if port.port_id == assign.port_id:
+        for attached in self.get_attached_devices():
+            if port.port_id == attached.port_id:
                 # load all options
-                assignment = assign
                 break
         else:
             raise DeviceNotAssigned(
                 f'{self._bus} device {port.port_id!s} not '
                 f'attached to {self._vm!s}')
 
-        if assignment.required and not self._vm.is_halted():
-            raise qubes.exc.QubesVMNotHaltedError(
-                self._vm,
-                "Can not detach a required device from a non halted qube. "
-                "You need to unassign device first.")
+        for assign in self.get_assigned_devices():
+            if (assign.required and not self._vm.is_halted()
+                    and assign.matches(attached.device)):
+                raise qubes.exc.QubesVMNotHaltedError(
+                    self._vm,
+                    "Can not detach a required device from a non halted qube. "
+                    "You need to unassign device first.")
 
         # use the local object, only one device can match
-        port = assignment.device.port
+        port = attached.device.port
         await self._vm.fire_event_async(
             'device-pre-detach:' + self._bus, pre_event=True, port=port)
 
