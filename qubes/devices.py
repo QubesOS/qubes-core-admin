@@ -250,6 +250,10 @@ class DeviceCollection:
         self._set.add(assignment)
 
         await self._vm.fire_event_async(
+            'device-pre-assign:' + self._bus,
+            pre_event=True, device=device, options=assignment.options)
+
+        await self._vm.fire_event_async(
             'device-assign:' + self._bus,
             device=device, options=assignment.options)
 
@@ -291,6 +295,11 @@ class DeviceCollection:
             return
 
         new_assignment = assignment.clone(mode=mode)
+
+        await self._vm.fire_event_async(
+            'device-pre-assign:' + self._bus,
+            pre_event=True, device=device, options=new_assignment.options)
+
         self._set.discard(assignment)
         self._set.add(new_assignment)
         await self._vm.fire_event_async(
