@@ -636,28 +636,36 @@ class Backup:
                                    os.path.basename(path)
                                ])
                 file_stat = os.stat(path)
-                if stat.S_ISBLK(file_stat.st_mode) or \
-                        file_info.name != os.path.basename(path):
-                    # tar doesn't handle content of block device, use our
-                    # writer
-                    # also use our tar writer when renaming file
-                    assert not stat.S_ISDIR(file_stat.st_mode), \
-                        "Renaming directories not supported"
-                    tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
-                        '--override-name=%s' % (
-                            os.path.join(file_info.subdir, os.path.basename(
-                                file_info.name))),
-                        path]
-                if self.compressed:
-                    tar_cmdline.insert(-2,
-                        "--use-compress-program=%s" % self.compression_filter)
+                fd_to_close = None
+                subprocess_kwargs = {'stdout': subprocess.PIPE}
+                try:
+                    if stat.S_ISBLK(file_stat.st_mode) or \
+                            file_info.name != os.path.basename(path):
+                        # tar doesn't handle content of block device, use our
+                        # writer
+                        # also use our tar writer when renaming file
+                        assert not stat.S_ISDIR(file_stat.st_mode), \
+                            "Renaming directories not supported"
+                        # pylint: disable=line-too-long
+                        fd_to_close = os.open(path, os.O_RDONLY | os.O_NOCTTY | os.O_CLOEXEC)
+                        subprocess_kwargs['stdin'] = fd_to_close
+                        tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
+                            '--override-name=%s' % (
+                                os.path.join(file_info.subdir, os.path.basename(
+                                    file_info.name))),
+                            '/proc/self/fd/0']
+                    if self.compressed:
+                        tar_cmdline.insert(-2,
+                            "--use-compress-program=" + self.compression_filter)
 
-                self.log.debug(" ".join(tar_cmdline))
-
-                # Pipe: tar-sparse | scrypt | tar | backup_target
-                # TODO: log handle stderr
-                tar_sparse = await asyncio.create_subprocess_exec(
-                    *tar_cmdline, stdout=subprocess.PIPE)
+                    # Pipe: tar-sparse | scrypt | tar | backup_target
+                    # TODO: log handle stderr
+                    tar_sparse = await asyncio.create_subprocess_exec(
+                        *tar_cmdline, **subprocess_kwargs)
+                finally:
+                    if fd_to_close is not None:
+                        os.close(fd_to_close)
+                del fd_to_close, subprocess_kwargs
 
                 try:
                     await self._split_and_send(
