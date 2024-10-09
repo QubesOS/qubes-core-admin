@@ -255,7 +255,7 @@ class Port:
     def __lt__(self, other):
         if isinstance(other, Port):
             return (self.backend_name, self.devclass, self.port_id) < \
-                   (self.backend_name, other.devclass, other.port_id)
+                   (other.backend_name, other.devclass, other.port_id)
         raise TypeError(f"Comparing instances of 'Port' and '{type(other)}' "
                         "is not supported")
 
@@ -1167,13 +1167,14 @@ class DeviceAssignment:
     def devices(self) -> List[DeviceInfo]:
         """Get DeviceInfo objects corresponding to this DeviceAssignment"""
         if self.port_id != '*':
-            # could return UnknownDevice
-            return [self.backend_domain.devices[self.devclass][self.port_id]]
+            dv = self.backend_domain.devices[self.devclass][self.port_id]
+            if isinstance(dv, UnknownDevice) or dv.device_id == self.device_id:
+                return [dv]
         result = []
         if self.device_id == "0000:0000::?******":
             return result
         for dev in self.backend_domain.devices[self.devclass]:
-            if dev.device_id == self.device_id:
+            if self.matches(dev):
                 result.append(dev)
         return result
 
