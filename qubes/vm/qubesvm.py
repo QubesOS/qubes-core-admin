@@ -61,6 +61,7 @@ except ImportError:
 MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
 MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
+_vm_uuid_re = re.compile(rb"\A/vm/[0-9a-f]{8}(?:-[0-9a-f]{4}){4}[0-9a-f]{8}\Z")
 
 def _setter_kernel(self, prop, value):
     """ Helper for setting the domain kernel and running sanity checks on it.
@@ -800,6 +801,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.log.exception('libvirt error code: {!r}'.format(
                 e.get_error_code()))
             raise
+
+    @qubes.stateless_property
+    def stubdom_uuid(self):
+        stubdom_xid = self.stubdom_xid
+        if stubdom_xid == -1:
+            return ""
+        stubdom_uuid = self.app.vmm.xs.read(
+            '', '/local/domain/{}/vm'.format(
+                stubdom_xid))
+        assert _vm_uuid_re.match(stubdom_uuid), "Invalid UUID in XenStore"
+        return stubdom_uuid[4:].decode("ascii", "strict")
 
     @qubes.stateless_property
     def stubdom_xid(self):
@@ -1798,9 +1810,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.debug('Starting the qrexec daemon')
         if stubdom:
-            qrexec_args = [str(self.stubdom_xid), self.name + '-dm', 'root']
+            qrexec_args = ["-u", self.stubdom_uuid, "--",
+                           str(self.stubdom_xid), self.name + '-dm', 'root']
         else:
-            qrexec_args = [str(self.xid), self.name, self.default_user]
+            qrexec_args = ["-u", str(self.uuid), "--",
+                           str(self.xid), self.name, self.default_user]
 
         if not self.debug:
             qrexec_args.insert(0, "-q")
