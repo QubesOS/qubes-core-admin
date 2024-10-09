@@ -943,8 +943,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                 ('device-removed:block', frozenset({('port', exp_dev.port)}))],
             1)
 
-    @unittest.mock.patch('subprocess.Popen')
-    def test_070_on_qdb_change_two_fronts_failed(self, mock_confirm):
+    # with `new_callable=Mock` we override async function with synchronous Mock
+    @unittest.mock.patch(
+        'qubes.ext.utils.confirm_device_attachment', new_callable=Mock)
+    def test_070_on_qdb_change_two_fronts_failed(self, _mock_confirm):
         back, front = self.added_assign_setup()
 
         exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
@@ -954,18 +956,20 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._assigned.append(assign)
         back.devices['block']._exposed.append(exp_dev)
 
-        proc = Mock()
-        proc.communicate = Mock()
-        proc.communicate.return_value = (b'nonsense', b'')
-        mock_confirm.return_value = proc
         self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
+
+        with mock.patch('qubes.ext.utils.asyncio.ensure_future') as future:
+            future.return_value = Mock()
+            future.return_value.result = Mock()
+            future.return_value.result.return_value = "nonsense"
             self.ext.on_qdb_change(back, None, None)
-        proc.communicate.assert_called_once()
+
         self.ext.attach_and_notify.assert_not_called()
 
-    @unittest.mock.patch('subprocess.Popen')
-    def test_071_on_qdb_change_two_fronts(self, mock_confirm):
+    # with `new_callable=Mock` we override async function with synchronous Mock
+    @unittest.mock.patch(
+        'qubes.ext.utils.confirm_device_attachment', new_callable=Mock)
+    def test_071_on_qdb_change_two_fronts(self, _mock_confirm):
         back, front = self.added_assign_setup()
 
         exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
@@ -975,16 +979,15 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._assigned.append(assign)
         back.devices['block']._exposed.append(exp_dev)
 
-        proc = Mock()
-        proc.communicate = Mock()
-        proc.communicate.return_value = (b'front-vm', b'')
-        mock_confirm.return_value = proc
         self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
+
+        with mock.patch('asyncio.ensure_future') as future:
+            future.return_value = Mock()
+            future.return_value.result = Mock()
+            future.return_value.result.return_value = "front-vm"
             self.ext.on_qdb_change(back, None, None)
-        proc.communicate.assert_called_once()
-        self.ext.attach_and_notify.assert_called_once_with(
-            front, assign)
+
+        self.ext.attach_and_notify.assert_called_once_with(front, assign)
         # don't ask again
         self.assertEqual(self.ext.attach_and_notify.call_args[0][1].mode.value,
                          'auto-attach')

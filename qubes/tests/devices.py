@@ -73,6 +73,10 @@ class TestVM(qubes.tests.TestEmitter):
     def dev_testclass_list(self, event):
         yield self.device
 
+    @qubes.events.handler('device-get:testclass')
+    def dev_testclass_get(self, event, **kwargs):
+        yield self.device
+
     def is_halted(self):
         return not self.running
 
