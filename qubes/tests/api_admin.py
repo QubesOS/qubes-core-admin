@@ -156,7 +156,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_001_vm_list_single_invalid_name(self):
         with self.assertRaisesRegex(qubes.exc.QubesValueError,
-                                    r"\AVM name contains illegal characters\Z"):
+                                    r"\AVM name cannot start with hyphen, underscore, dot or numbers\Z"):
             self.call_mgmt_func(b'admin.vm.CreateDisposable', b'.test-vm1')
         self.assertFalse(self.app.save.called)
 
