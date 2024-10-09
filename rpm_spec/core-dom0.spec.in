@@ -83,8 +83,8 @@ Requires:       util-linux-core
 %endif
 # udev rules for encrypted volatile volumes and zfs
 Requires:       qubes-core-dom0-linux >= 4.2.6
-# policy (daemon) using changed qubesd socket protocol
-Requires:       qubes-core-qrexec-dom0 >= 4.1.8
+# qrexec-daemon --uuid support
+Requires:       qubes-core-qrexec-dom0 >= 4.3.0
 Requires:       qubes-db-dom0
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
