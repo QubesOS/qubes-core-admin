@@ -1874,8 +1874,14 @@ netvm default=True type=vm \n'''
             "mode='manual' frontend_domain='test-vm1' _attach_opt='value'\n")
         self.assertFalse(self.app.save.called)
 
+    def get_dev(self, *args, **kwargs):
+        yield DeviceInfo(Port(
+            self.vm, '1234', 'testclass'),
+            device_id='0000:0000::t000000',)
+
     def test_480_vm_device_attach(self):
         self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        self.vm.add_handler('device-get:testclass', self.get_dev)
         mock_action = unittest.mock.Mock()
         mock_action.return_value = None
         del mock_action._is_coroutine
@@ -1883,7 +1889,7 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
-                                        b'test-vm1', b'test-vm1+1234:0000:0000::?******')
+                                        b'test-vm1', b'test-vm1+1234:0000:0000::t000000')
         self.assertIsNone(value)
         mock_action.assert_called_once_with(
             self.vm, f'device-attach:testclass',
@@ -1991,6 +1997,7 @@ netvm default=True type=vm \n'''
 
     def test_487_vm_device_attach_options(self):
         self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        self.vm.add_handler('device-get:testclass', self.get_dev)
         mock_attach = unittest.mock.Mock()
         mock_attach.return_value = None
         del mock_attach._is_coroutine
@@ -1998,7 +2005,7 @@ netvm default=True type=vm \n'''
         with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
                 'is_halted', lambda _: False):
             value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
-                b'test-vm1', b'test-vm1+1234:0000:0000::?******',
+                b'test-vm1', b'test-vm1+1234:0000:0000::t000000',
                 b"_option1='value2'")
         self.assertIsNone(value)
         dev = self.vm.devices['testclass']['1234']
