@@ -472,37 +472,35 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         super(TC_30_Gui_daemon, self).setUp()
         self.init_default_template()
 
-    @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
-    def test_000_clipboard(self):
-        testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-                                     name=self.make_vm_name('vm1'), label='red')
-        self.loop.run_until_complete(testvm1.create_on_disk())
-        testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-                                     name=self.make_vm_name('vm2'), label='red')
-        self.loop.run_until_complete(testvm2.create_on_disk())
+    async def _test_clipboard(self, test_string):
+        testvm1 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm1'), label='red')
+        await testvm1.create_on_disk()
+        testvm2 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm2'), label='red')
+        await testvm2.create_on_disk()
         self.app.save()
 
-        self.loop.run_until_complete(asyncio.gather(
+        await asyncio.gather(
             testvm1.start(),
-            testvm2.start()))
-        self.loop.run_until_complete(asyncio.gather(
+            testvm2.start())
+        await asyncio.gather(
             self.wait_for_session(testvm1),
-            self.wait_for_session(testvm2)))
+            self.wait_for_session(testvm2))
+        p = await testvm1.run("cat > /tmp/source.txt", stdin=subprocess.PIPE)
+        await p.communicate(test_string.encode())
         window_title = 'user@{}'.format(testvm1.name)
-        self.loop.run_until_complete(testvm1.run(
-            'zenity --text-info --editable --title={}'.format(window_title)))
+        await testvm1.run(
+            'zenity --text-info '
+            '--filename=/tmp/source.txt '
+            '--editable '
+            '--title={}'.format(window_title))
 
-        self.wait_for_window(window_title)
-        self.loop.run_until_complete(asyncio.sleep(5))
-        test_string = "test{}".format(testvm1.xid)
+        await self.wait_for_window_coro(window_title)
+        await asyncio.sleep(5)
 
-        # Type and copy some text
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'windowactivate', '--sync',
-                               'type', test_string])
-        self.loop.run_until_complete(asyncio.sleep(5))
         # second xdotool call because type --terminator do not work (SEGV)
         # additionally do not use search here, so window stack will be empty
         # and xdotool will use XTEST instead of generating events manually -
@@ -512,7 +510,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
                                'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
                                'Escape'])
 
-        self.wait_for_window(window_title, show=False)
+        await self.wait_for_window_coro(window_title, show=False)
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
@@ -526,17 +524,16 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
 
         # Then paste it to the other window
         window_title = 'user@{}'.format(testvm2.name)
-        p = self.loop.run_until_complete(testvm2.run(
-            'zenity --entry --title={} > /tmp/test.txt'.format(window_title)))
-        self.wait_for_window(window_title)
+        p = await testvm2.run(
+            'zenity --entry --title={} > /tmp/test.txt'.format(window_title))
+        await self.wait_for_window_coro(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
                                'ctrl+shift+v', 'ctrl+v', 'Return', 'alt+o'])
-        self.loop.run_until_complete(p.wait())
+        await p.wait()
 
         # And compare the result
-        (test_output, _) = self.loop.run_until_complete(
-            testvm2.run_for_stdio('cat /tmp/test.txt'))
+        (test_output, _) = await testvm2.run_for_stdio('cat /tmp/test.txt')
         self.assertEqual(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
@@ -548,6 +545,14 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             read().strip()
         self.assertEqual(clipboard_source, "",
                           "Clipboard not wiped after paste - owner")
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_000_clipboard(self):
+        test_string = "test123"
+        self.loop.run_until_complete(self._test_clipboard(test_string))
+
 
 class TC_05_StandaloneVMMixin(object):
     def setUp(self):
