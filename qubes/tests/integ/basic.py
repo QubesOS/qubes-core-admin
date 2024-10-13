@@ -472,7 +472,9 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         super(TC_30_Gui_daemon, self).setUp()
         self.init_default_template()
 
-    async def _test_clipboard(self, test_string):
+    async def _test_clipboard(self, test_string,
+                              set_features=None,
+                              expect_truncated_to=None):
         testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'), label='red')
@@ -482,6 +484,9 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             name=self.make_vm_name('vm2'), label='red')
         await testvm2.create_on_disk()
         self.app.save()
+
+        for feature, value in (set_features or {}).items():
+            testvm1.features[feature] = value
 
         await asyncio.gather(
             testvm1.start(),
@@ -514,6 +519,9 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+
+        if expect_truncated_to is not None:
+            test_string = test_string[:expect_truncated_to]
         self.assertEqual(clipboard_content, test_string,
                           "Clipboard copy operation failed - content")
         clipboard_source = \
@@ -552,6 +560,37 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
     def test_000_clipboard(self):
         test_string = "test123"
         self.loop.run_until_complete(self._test_clipboard(test_string))
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_001_clipboard_64k(self):
+        test_string = "test123abc" * 6400
+        self.loop.run_until_complete(self._test_clipboard(test_string))
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_002_clipboard_200k_truncated(self):
+        test_string = "test123abc" * 20000
+        self.loop.run_until_complete(self._test_clipboard(test_string,
+            expect_truncated_to=0))
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_002_clipboard_200k(self):
+        test_string = "test123abc" * 20000
+        self.loop.run_until_complete(self._test_clipboard(test_string,
+            set_features={"gui-max-clipboard-size": 200_000}))
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_002_clipboard_300k(self):
+        test_string = "test123abc" * 30000
+        self.loop.run_until_complete(self._test_clipboard(test_string,
+            expect_truncated_to=0))
 
 
 class TC_05_StandaloneVMMixin(object):
