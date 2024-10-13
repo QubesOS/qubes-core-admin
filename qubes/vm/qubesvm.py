@@ -1222,8 +1222,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self._update_libvirt_domain()
 
+                free_mem = subprocess.check_output(["xl", "info", "free_memory"]).decode()
+                self.log.debug("free mem before start: %s", free_mem)
+                subprocess.run(["xl", "list"])
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
+                free_mem = subprocess.check_output(["xl", "info", "free_memory"]).decode()
+                self.log.debug("free mem after start: %s", free_mem)
 
                 # the above allocates xid, lets announce that
                 self.fire_event('property-reset:xid', name='xid')
@@ -1239,6 +1244,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     exc = qubes.exc.QubesException(
                         'Failed to start an HVM qube with PCI devices assigned '
                         '- hardware does not support IOMMU/VT-d/AMD-Vi')
+                free_mem = subprocess.check_output(["xl", "info", "free_memory"]).decode()
+                self.log.debug("free mem after failed start: %s", free_mem)
+                subprocess.run(["xl", "list"])
+                subprocess.run(["xl", "info"])
                 self.log.error('Start failed: %s', str(exc))
                 await self.fire_event_async('domain-start-failed',
                                             reason=str(exc))
@@ -1757,6 +1766,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             initial_memory = self.memory
             mem_required = int(initial_memory + stubdom_mem) * 1024 * 1024
 
+        self.log.debug(f"mem required: {mem_required}")
         qmemman_client = qubes.qmemman.client.QMemmanClient()
         try:
             mem_required_with_overhead = mem_required + MEM_OVERHEAD_BASE \
@@ -1767,6 +1777,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 mem_required_with_overhead += self.maxmem * 4096
             got_memory = qmemman_client.request_memory(
                 mem_required_with_overhead)
+            self.log.debug(f"mem required with overhead: {mem_required_with_overhead}")
 
         except IOError as e:
             raise IOError('Failed to connect to qmemman: {!s}'.format(e))
