@@ -146,7 +146,7 @@ async def confirm_device_attachment(device, frontends) -> str:
         # pylint: disable=consider-using-with
         # vm names are safe to just join by spaces
         proc = await asyncio.create_subprocess_shell(
-            " ".join(["attach-confirm", device.backend_domain.name,
+            " ".join(["qubes-device-attach-confirm", device.backend_domain.name,
                       device.port_id, "'" + device.description + "'",
                       *front_names]),
             stdout=asyncio.subprocess.PIPE
@@ -157,5 +157,5 @@ async def confirm_device_attachment(device, frontends) -> str:
             return target_name
         return ""
     except Exception as exc:
-        print("attach-confirm", exc, file=sys.stderr)
+        print(exc, file=sys.stderr)
         return ""
