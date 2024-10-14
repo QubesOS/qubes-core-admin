@@ -152,7 +152,7 @@ async def confirm_device_attachment(device, frontends) -> str:
             stdout=asyncio.subprocess.PIPE
         )
         (target_name, _) = await proc.communicate()
-        target_name = target_name.decode()
+        target_name = target_name.decode(encoding='ascii')
         if target_name in front_names:
             return target_name
         return ""
