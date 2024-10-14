@@ -208,7 +208,6 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_020_update_mode_to_auto(self):
         self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.attach()
         self.assertEqual(
             {self.assignment},
             set(self.collection.get_assigned_devices(required_only=True)))
@@ -221,13 +220,10 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
             set(self.collection.get_assigned_devices(required_only=True)))
         self.assertEqual(
             {self.assignment}, set(self.collection.get_assigned_devices()))
-        self.assertEqual(
-            {self.assignment}, set(self.collection.get_attached_devices()))
 
     def test_021_update_mode_to_ask(self):
         self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.attach()
         self.assertEqual(
             {self.assignment},
             set(self.collection.get_assigned_devices(required_only=True)))
@@ -240,59 +236,29 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
             set(self.collection.get_assigned_devices(required_only=True)))
         self.assertEqual(
             {self.assignment}, set(self.collection.get_assigned_devices()))
-        self.assertEqual(
-            {self.assignment}, set(self.collection.get_attached_devices()))
 
     def test_022_update_mode_to_required(self):
         self.assignment = self.assignment.clone(mode='auto-attach')
-        self.attach()
         self.assertEqual(set(), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
+
         self.assertEqual(
             set(),
             set(self.collection.get_assigned_devices(required_only=True)))
-        self.assertEqual({self.assignment},
-                         set(self.collection.get_attached_devices()))
-        self.assertEqual({self.assignment}
-                         , set(self.collection.get_assigned_devices()))
-        self.assertEqual({self.assignment},
-                         set(self.collection.get_attached_devices()))
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices()))
+
         self.loop.run_until_complete(
             self.collection.update_assignment(
                 self.device, AssignmentMode.REQUIRED))
-        self.assertEqual({self.assignment},
-                         set(self.collection.get_assigned_devices(
-                             required_only=True)))
+
         self.assertEqual(
-            {self.assignment}, set(self.collection.get_attached_devices()))
-
-    def test_023_update_mode_reject_not_running(self):
-        self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
-        self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.assertEqual({self.assignment},
-                         set(self.collection.get_assigned_devices()))
-        self.assertEqual(set(), set(self.collection.get_attached_devices()))
-        with self.assertRaises(qubes.exc.QubesVMNotStartedError):
-            self.loop.run_until_complete(
-                self.collection.update_assignment(
-                    self.device, AssignmentMode.ASK))
-
-    def test_024_update_required_reject_not_attached(self):
-        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
-        self.assertEqual(set(), set(self.collection.get_attached_devices()))
-        self.emitter.running = True
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(
-                self.collection.update_assignment(
-                    self.device, AssignmentMode.REQUIRED))
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(
-                self.collection.update_assignment(
-                    self.device, AssignmentMode.ASK))
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(
-                self.collection.update_assignment(
-                    self.device, AssignmentMode.AUTO))
+            {self.assignment},
+            set(self.collection.get_assigned_devices(required_only=True)))
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices()))
 
     def test_030_assign(self):
         self.emitter.running = True

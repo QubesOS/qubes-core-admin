@@ -206,11 +206,12 @@ class DeviceCollection:
                 self._vm,"VM not running, cannot attach device,"
                 " do you mean `assign`?")
 
-        if len(assignment.devices) != 1:
+        try:
+            device = assignment.device
+        except ProtocolError:
+            # assignment matches no or top many devices
             raise ProtocolError(
                 f'Cannot attach ambiguous {assignment.devclass} device.')
-
-        device = assignment.device
 
         if isinstance(device, UnknownDevice):
             raise ProtocolError(f"{device.devclass} device not recognized "
@@ -271,16 +272,14 @@ class DeviceCollection:
             self, device: VirtualDevice, mode: AssignmentMode
     ):
         """
-        Update `required` flag of an already attached device.
+        Update assignment mode of an already assigned device.
 
         :param VirtualDevice device: device for which change required flag
         :param AssignmentMode mode: new assignment mode
         """
-        if self._vm.is_halted():
-            raise qubes.exc.QubesVMNotStartedError(
-                self._vm,
-                'VM must be running to modify device assignment'
-            )
+        if mode == AssignmentMode.MANUAL:
+            raise qubes.exc.QubesValueError(
+                "Cannot change assignment mode to 'manual'")
         assignments = [a for a in self.get_assigned_devices()
                        if a.virtual_device == device]
         if not assignments:
@@ -289,11 +288,11 @@ class DeviceCollection:
         assert len(assignments) == 1
         assignment = assignments[0]
 
-        # be careful to use already present assignment, not the provided one
-        # - to not change options as a side effect
         if assignment.mode == mode:
             return
 
+        # be careful to use already present assignment, not the provided one
+        # - to not change options as a side effect
         new_assignment = assignment.clone(mode=mode)
 
         await self._vm.fire_event_async(
