@@ -34,7 +34,7 @@ should be moved to one place.
 import string
 import sys
 from enum import Enum
-from typing import Optional, Dict, Any, List, Union, Tuple, Callable
+from typing import Optional, Dict, Any, List, Union, Tuple, Callable, Iterable
 
 import qubes.utils
 
@@ -185,14 +185,14 @@ class DeviceSerializer:
         properties['port'] = expected
 
     @staticmethod
-    def serialize_str(value: str):
+    def serialize_str(value: str) -> str:
         """
         Serialize python string to ensure consistency.
         """
         return "'" + str(value).replace("'", r"\'") + "'"
 
     @staticmethod
-    def deserialize_str(value: str):
+    def deserialize_str(value: str) -> str:
         """
         Deserialize python string to ensure consistency.
         """
@@ -235,7 +235,11 @@ class Port:
         port_id (str): A unique (in backend domain) identifier for the port.
         devclass (str): The class of the port (e.g., 'usb', 'pci').
     """
-    def __init__(self, backend_domain, port_id, devclass):
+    def __init__(self,
+                 backend_domain: Optional[QubesVM],
+                 port_id: str,
+                 devclass: str
+    ):
         self.__backend_domain = backend_domain
         self.__port_id = port_id
         self.__devclass = devclass
@@ -268,7 +272,7 @@ class Port:
     @property
     def backend_name(self) -> str:
         # pylint: disable=missing-function-docstring
-        if self.backend_domain not in (None, "*"):
+        if self.backend_domain is not None:
             return self.backend_domain.name
         return "*"
 
@@ -344,6 +348,17 @@ class Port:
         return self.__devclass is not None
 
 
+class AnyPort(Port):
+    def __init__(self, devclass: str):
+        super().__init__(None, "*", devclass)
+
+    def __repr__(self):
+        return "*"
+
+    def __str__(self):
+        return "*"
+
+
 class VirtualDevice:
     """
     Class of a device connected to *port*.
@@ -357,7 +372,7 @@ class VirtualDevice:
             port: Optional[Port] = None,
             device_id: Optional[str] = None,
     ):
-        assert port is not None or device_id is not None
+        assert not isinstance(port, AnyPort) or device_id is not None
         self.port: Optional[Port] = port
         self._device_id = device_id
 
@@ -373,19 +388,26 @@ class VirtualDevice:
         return VirtualDevice(**attr)
 
     @property
-    def port(self) -> Union[Port, str]:
+    def port(self) -> Port:
         # pylint: disable=missing-function-docstring
         return self._port
 
     @port.setter
     def port(self, value: Union[Port, str, None]):
         # pylint: disable=missing-function-docstring
-        self._port = value if value is not None else '*'
+        if isinstance(value, Port):
+            self._port = value
+            return
+        if isinstance(value, str) and value != '*':
+            raise ValueError("Unsupported value for port")
+        if self.device_id == '*':
+            raise ValueError("Cannot set port to '*' if device_is is '*'")
+        self._port = AnyPort(self.devclass)
 
     @property
     def device_id(self) -> str:
         # pylint: disable=missing-function-docstring
-        if self._device_id is not None:
+        if self.is_device_id_set:
             return self._device_id
         return '*'
 
@@ -397,34 +419,26 @@ class VirtualDevice:
         return self._device_id is not None
 
     @property
-    def backend_domain(self) -> Union[QubesVM, str]:
+    def backend_domain(self) -> Optional[QubesVM]:
         # pylint: disable=missing-function-docstring
-        if self.port != '*' and self.port.backend_domain is not None:
-            return self.port.backend_domain
-        return '*'
+        return self.port.backend_domain
 
     @property
     def backend_name(self) -> str:
         """
         Return backend domain name if any or `*`.
         """
-        if self.port != '*':
-            return self.port.backend_name
-        return '*'
+        return self.port.backend_name
 
     @property
     def port_id(self) -> str:
         # pylint: disable=missing-function-docstring
-        if self.port != '*' and self.port.port_id is not None:
-            return self.port.port_id
-        return '*'
+        return self.port.port_id
 
     @property
     def devclass(self) -> str:
         # pylint: disable=missing-function-docstring
-        if self.port != '*' and self.port.devclass is not None:
-            return self.port.devclass
-        return '*'
+        return self.port.devclass
 
     @property
     def description(self) -> str:
@@ -462,9 +476,11 @@ class VirtualDevice:
         4. *:*
         """
         if isinstance(other, (VirtualDevice, DeviceAssignment)):
-            if self.port == '*' and other.port != '*':
+            if (isinstance(self.port, AnyPort)
+                    and not isinstance(other.port, AnyPort)):
                 return True
-            if self.port != '*' and other.port == '*':
+            if (not isinstance(self.port, AnyPort)
+                    and isinstance(other.port, AnyPort)):
                 return False
             reprs = {self: [self.port], other: [other.port]}
             for obj, obj_repr in reprs.items():
@@ -488,10 +504,10 @@ class VirtualDevice:
     def from_qarg(
             cls,
             representation: str,
-            devclass,
+            devclass: Optional[str],
             domains,
-            blind=False,
-            backend=None,
+            blind: bool = False,
+            backend: Optional[QubesVM] = None,
     ) -> 'VirtualDevice':
         """
         Parse qrexec argument <back_vm>+<port_id>:<device_id> to get device info
@@ -507,8 +523,12 @@ class VirtualDevice:
 
     @classmethod
     def from_str(
-            cls, representation: str, devclass: Optional[str], domains,
-            blind=False, backend=None
+            cls,
+            representation: str,
+            devclass: Optional[str],
+            domains,
+            blind: bool = False,
+            backend: Optional[QubesVM] = None,
     ) -> 'VirtualDevice':
         """
         Parse string <back_vm>+<port_id>:<device_id> to get device info
@@ -528,7 +548,7 @@ class VirtualDevice:
             representation: str,
             devclass: Optional[str],
             get_domain: Callable,
-            backend,
+            backend: Optional[QubesVM],
             sep: str
     ) -> 'VirtualDevice':
         """
