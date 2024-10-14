@@ -1121,6 +1121,26 @@ class DeviceAssignment:
             self.mode = AssignmentMode(mode)
         self.frontend_domain = frontend_domain
 
+    @classmethod
+    def new(
+            cls,
+            backend_domain: QubesVM,
+            port_id: str,
+            devclass: str,
+            device_id: Optional[str] = None,
+            frontend_domain: Optional[QubesVM] = None,
+            options=None,
+            mode: Union[str, AssignmentMode] = "manual",
+    ) -> 'DeviceAssignment':
+        return cls(
+            VirtualDevice(
+                Port(backend_domain, port_id, devclass),
+                device_id),
+            frontend_domain,
+            options,
+            mode
+        )
+
     def clone(self, **kwargs):
         """
         Clone object and substitute attributes with explicitly given.
