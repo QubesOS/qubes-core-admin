@@ -169,7 +169,7 @@ class AdminExtension(qubes.ext.Extension):
     @qubes.ext.handler(*(f'admin-permission:admin.vm.device.{ep.name}.Attach'
         for ep in importlib.metadata.entry_points(group='qubes.devices')))
     def on_device_attach(
-            self, vm, event, dest, arg, device, mode, options, **kwargs
+        self, vm, event, dest, arg, device, devclass, mode, options, **kwargs
     ):
         # pylint: disable=unused-argument
         # ignore auto-attachment

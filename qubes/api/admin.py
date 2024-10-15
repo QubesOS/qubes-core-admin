@@ -1311,15 +1311,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dev = self.load_device_info(devclass)
 
         assignment = qubes.device_protocol.DeviceAssignment.deserialize(
-            untrusted_payload, expected_device=dev
-        )
+            untrusted_payload, expected_device=dev)
 
         self.fire_event_for_permission(
-            device=dev, devclass=devclass,
-            required=assignment.required,
-            attach_automatically=assignment.attach_automatically,
-            options=assignment.options
-        )
+            device=dev, mode=assignment.mode, options=assignment.options,)
 
         await self.dest.devices[devclass].assign(assignment)
         self.app.save()
@@ -1354,7 +1349,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dev = self.load_device_info(devclass)
         assignment = DeviceAssignment(dev)
 
-        self.fire_event_for_permission(device=dev, devclass=devclass)
+        self.fire_event_for_permission(device=dev)
 
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
@@ -1374,10 +1369,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             untrusted_payload, expected_device=dev)
 
         self.fire_event_for_permission(
-            device=dev,
-            mode=assignment.mode.value,
-            options=assignment.options
-        )
+            device=dev, mode=assignment.mode.value, options=assignment.options)
 
         await self.dest.devices[devclass].attach(assignment)
 
@@ -1393,7 +1385,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         devclass = endpoint
         dev = self.load_device_info(devclass)
 
-        self.fire_event_for_permission(device=dev, devclass=devclass)
+        self.fire_event_for_permission(device=dev)
 
         assignment = qubes.device_protocol.DeviceAssignment(dev)
         await self.dest.devices[devclass].detach(assignment)
