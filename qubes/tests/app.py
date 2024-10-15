@@ -815,7 +815,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         # See also qubes.tests.api_admin.
         vm = self.app.add_new_vm(
             'AppVM', name='test-vm', template=self.template, label='red')
-        assignment = mock.Mock(ident='1234')
+        assignment = mock.Mock(port_id='1234')
         vm.get_provided_assignments = lambda: [assignment]
         with self.assertRaises(qubes.exc.QubesVMInUseError):
             del self.app.domains[vm]

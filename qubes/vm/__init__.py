@@ -33,6 +33,7 @@ import lxml.etree
 
 import qubes
 import qubes.devices
+import qubes.device_protocol
 import qubes.events
 import qubes.features
 import qubes.log
@@ -284,14 +285,45 @@ class BaseVM(qubes.PropertyHolder):
                     options[option.get('name')] = str(option.text)
 
                 try:
+                    # backward compatibility: persistent~>required=True
+                    legacy_required = node.get('required', 'absent')
+                    if legacy_required == 'absent':
+                        mode_str = node.get('mode', 'required')
+                        try:
+                            mode = (qubes.device_protocol.
+                                    AssignmentMode(mode_str))
+                        except ValueError:
+                            self.log.error(
+                                "Unrecognized assignment mode, ignoring.")
+                            continue
+                    else:
+                        required = qubes.property.bool(
+                            None, None, legacy_required)
+                        if required:
+                            mode = (qubes.device_protocol.
+                                    AssignmentMode.REQUIRED)
+                        else:
+                            mode = (qubes.device_protocol.
+                                    AssignmentMode.AUTO)
+                    if 'identity' in options:
+                        identity = options.get('identity')
+                        del options['identity']
+                    else:
+                        identity = node.get('identity', '*')
+                    backend_name = node.get('backend-domain', None)
+                    backend = self.app.domains[backend_name] \
+                        if backend_name else None
                     device_assignment = qubes.device_protocol.DeviceAssignment(
-                        self.app.domains[node.get('backend-domain')],
-                        node.get('id'),
+                        qubes.device_protocol.VirtualDevice(
+                            qubes.device_protocol.Port(
+                                backend_domain=backend,
+                                port_id=node.get('id', '*'),
+                                devclass=devclass,
+                            ),
+                            device_id=identity,
+                        ),
                         options=options,
-                        attach_automatically=True,
-                        # backward compatibility: persistent~>required=True
-                        required=qubes.property.bool(
-                            None, None, node.get('required', 'yes')),
+                        mode=mode,
                     )
                     self.devices[devclass].load_assignment(device_assignment)
                 except KeyError:
@@ -345,12 +377,14 @@ class BaseVM(qubes.PropertyHolder):
         for devclass in self.devices:
             devices = lxml.etree.Element('devices')
             devices.set('class', devclass)
-            for device in self.devices[devclass].get_assigned_devices():
+            for assignment in self.devices[devclass].get_assigned_devices():
                 node = lxml.etree.Element('device')
-                node.set('backend-domain', device.backend_domain.name)
-                node.set('id', device.ident)
-                node.set('required', 'yes' if device.required else 'no')
-                for key, val in device.options.items():
+                node.set('backend-domain', str(assignment.backend_name))
+                node.set('id', assignment.port_id)
+                node.set('mode', assignment.mode.value)
+                identity = assignment.device_id or '*'
+                node.set('identity', identity)
+                for key, val in assignment.options.items():
                     option_node = lxml.etree.Element('option')
                     option_node.set('name', key)
                     option_node.text = val
@@ -425,8 +459,8 @@ class BaseVM(qubes.PropertyHolder):
                 if watched_path == path or (
                             watched_path.endswith('/') and
                             path.startswith(watched_path)):
-                    self.fire_event('domain-qdb-change:' + watched_path,
-                        path=path)
+                    self.fire_event(
+                        'domain-qdb-change:' + watched_path, path=path)
         except qubesdb.DisconnectedError:
             loop.remove_reader(self._qdb_connection_watch.watch_fd())
             self._qdb_connection_watch.close()
