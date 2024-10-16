@@ -81,12 +81,14 @@ def device_list_change(
                         frontends[front_vm] = ass
                     to_attach[device.port_id] = frontends
 
+    asyncio.ensure_future(resolve_conflicts_and_attach(ext, to_attach))
+
+async def resolve_conflicts_and_attach(ext, to_attach):
     for port_id, frontends in to_attach.items():
         if len(frontends) > 1:
             # unique
             device = tuple(frontends.values())[0].device
-            target_name = asyncio.ensure_future(
-                confirm_device_attachment(device, frontends)).result()
+            target_name = await confirm_device_attachment(device, frontends)
             for front in frontends:
                 if front.name == target_name:
                     target = front
@@ -101,8 +103,7 @@ def device_list_change(
             target = tuple(frontends.keys())[0]
             assignment = frontends[target]
 
-        asyncio.ensure_future(ext.attach_and_notify(target, assignment))
-
+        await ext.attach_and_notify(target, assignment)
 
 def compare_device_cache(vm, devices_cache, current_devices):
     # compare cached devices and current devices, collect:
