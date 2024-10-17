@@ -20,7 +20,7 @@
 import asyncio
 import unittest
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 import jinja2
 
@@ -675,11 +675,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'sda'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.ext.attach_and_notify.assert_called_once_with(
-            front, assignment)
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
 
     def test_062_on_qdb_change_auto_attached(self):
         back, front = self.added_assign_setup()
@@ -690,11 +691,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'sda'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.ext.attach_and_notify.assert_called_once_with(
-            front, assignment)
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
 
     def test_063_on_qdb_change_ask_to_attached(self):
         back, front = self.added_assign_setup()
@@ -705,11 +707,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'sda'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.ext.attach_and_notify.assert_called_once_with(
-            front, assignment)
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
 
     def test_064_on_qdb_change_multiple_assignments_including_full(self):
         back, front = self.added_assign_setup()
@@ -732,11 +735,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'sda'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
-                         {'pid': 'did'})
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options,{'pid': 'did'})
 
     def test_065_on_qdb_change_multiple_assignments_port_vs_dev(self):
         back, front = self.added_assign_setup()
@@ -755,11 +759,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'sda'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
-                         {'pid': 'any'})
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options, {'pid': 'any'})
 
     def test_066_on_qdb_change_multiple_assignments_dev(self):
         back, front = self.added_assign_setup()
@@ -780,13 +785,16 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._exposed.append(
             qubes.ext.block.BlockDevice(back, 'other'))
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
-                         {'any': 'did'})
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options, {'any': 'did'})
 
-    def test_067_on_qdb_change_attached(self):
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_067_on_qdb_change_attached(self, _confirm):
         # added
         back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
         exp_dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -830,7 +838,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         fire_event_async.assert_called_once_with(
             'device-attach:block', device=exp_dev, options={})
 
-    def test_068_on_qdb_change_changed(self):
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_068_on_qdb_change_changed(self, _confirm):
         # attached to front-vm
         back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
         exp_dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -890,7 +900,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         fire_event_async_2.assert_called_once_with(
             'device-attach:block', device=exp_dev, options={})
 
-    def test_069_on_qdb_change_removed_attached(self):
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_069_on_qdb_change_removed_attached(self, _confirm):
         # attached to front-vm
         back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
         dom0 = TestVM({}, name='dom0',
@@ -943,10 +955,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                 ('device-removed:block', frozenset({('port', exp_dev.port)}))],
             1)
 
-    # with `new_callable=Mock` we override async function with synchronous Mock
-    @unittest.mock.patch(
-        'qubes.ext.utils.confirm_device_attachment', new_callable=Mock)
-    def test_070_on_qdb_change_two_fronts_failed(self, _mock_confirm):
+    def test_070_on_qdb_change_two_fronts(self):
         back, front = self.added_assign_setup()
 
         exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
@@ -956,43 +965,58 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices['block']._assigned.append(assign)
         back.devices['block']._exposed.append(exp_dev)
 
-        self.ext.attach_and_notify = Mock()
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assign, back: assign}})
 
-        with mock.patch('qubes.ext.utils.asyncio.ensure_future') as future:
-            future.return_value = Mock()
-            future.return_value.result = Mock()
-            future.return_value.result.return_value = "nonsense"
-            self.ext.on_qdb_change(back, None, None)
-
-        self.ext.attach_and_notify.assert_not_called()
-
-    # with `new_callable=Mock` we override async function with synchronous Mock
-    @unittest.mock.patch(
-        'qubes.ext.utils.confirm_device_attachment', new_callable=Mock)
-    def test_071_on_qdb_change_two_fronts(self, _mock_confirm):
+    @unittest.mock.patch('asyncio.create_subprocess_shell')
+    def test_071_failed_confirmation(self, shell):
         back, front = self.added_assign_setup()
 
         exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
-        assign = DeviceAssignment(exp_dev, mode='ask-to-attach')
+        assign = DeviceAssignment(exp_dev, mode='auto-attach')
 
         front.devices['block']._assigned.append(assign)
         back.devices['block']._assigned.append(assign)
         back.devices['block']._exposed.append(exp_dev)
 
-        self.ext.attach_and_notify = Mock()
+        proc = AsyncMock()
+        shell.return_value = proc
+        proc.communicate = AsyncMock()
+        proc.communicate.return_value = (b'nonsense', b'')
 
-        with mock.patch('asyncio.ensure_future') as future:
-            future.return_value = Mock()
-            future.return_value.result = Mock()
-            future.return_value.result.return_value = "front-vm"
-            self.ext.on_qdb_change(back, None, None)
+        loop = asyncio.get_event_loop()
+        self.ext.attach_and_notify = AsyncMock()
+        loop.run_until_complete(qubes.ext.utils.resolve_conflicts_and_attach(
+            self.ext, {'sda': {front: assign, back: assign}}))
+        self.ext.attach_and_notify.assert_not_called()
 
+    @unittest.mock.patch('asyncio.create_subprocess_shell')
+    def test_072_successful_confirmation(self, shell):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
+        assign = DeviceAssignment(exp_dev, mode='auto-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        proc = AsyncMock()
+        shell.return_value = proc
+        proc.communicate = AsyncMock()
+        proc.communicate.return_value = (b'front-vm', b'')
+
+        loop = asyncio.get_event_loop()
+        self.ext.attach_and_notify = AsyncMock()
+        loop.run_until_complete(qubes.ext.utils.resolve_conflicts_and_attach(
+            self.ext, {'sda': {front: assign, back: assign}}))
         self.ext.attach_and_notify.assert_called_once_with(front, assign)
-        # don't ask again
-        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].mode.value,
-                         'auto-attach')
 
-    def test_072_on_qdb_change_ask(self):
+    def test_073_on_qdb_change_ask(self):
         back, front = self.added_assign_setup()
 
         exp_dev = qubes.ext.block.BlockDevice(back, 'sda')
@@ -1001,11 +1025,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         front.devices['block']._assigned.append(assign)
         back.devices['block']._exposed.append(exp_dev)
 
-        self.ext.attach_and_notify = Mock()
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back, None, None)
-        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].mode.value,
-                         'ask-to-attach')
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assign}})
 
     def test_080_on_startup_multiple_assignments_including_full(self):
         back, front = self.added_assign_setup()
@@ -1030,8 +1055,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.ext.attach_and_notify = Mock()
         loop = asyncio.get_event_loop()
-        with mock.patch('asyncio.ensure_future'):
-            loop.run_until_complete(self.ext.on_domain_start(front, None))
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
                          {'pid': 'did'})
 
@@ -1054,8 +1080,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.ext.attach_and_notify = Mock()
         loop = asyncio.get_event_loop()
-        with mock.patch('asyncio.ensure_future'):
-            loop.run_until_complete(self.ext.on_domain_start(front, None))
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
                          {'pid': 'any'})
 
@@ -1080,8 +1107,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.ext.attach_and_notify = Mock()
         loop = asyncio.get_event_loop()
-        with mock.patch('asyncio.ensure_future'):
-            loop.run_until_complete(self.ext.on_domain_start(front, None))
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
                          {'any': 'did'})
 
