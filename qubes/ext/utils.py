@@ -28,6 +28,10 @@ from typing import Type
 from qubes import device_protocol
 from qubes.device_protocol import VirtualDevice
 
+from qrexec.server import call_socket_service
+
+SOCKET_PATH = "/var/run/qubes"
+
 
 def device_list_change(
     ext: qubes.ext.Extension,
@@ -158,26 +162,50 @@ def compare_device_cache(vm, devices_cache, current_devices):
 
 async def confirm_device_attachment(device, frontends) -> str:
     try:
-        front_names = [f.name for f in frontends.keys()]
-        # pylint: disable=consider-using-with
-        # vm names are safe to just join by spaces
-        proc = await asyncio.create_subprocess_shell(
-            " ".join(
-                [
-                    "qubes-device-attach-confirm",
-                    device.backend_domain.name,
-                    device.port_id,
-                    "'" + device.description + "'",
-                    *front_names,
-                ]
-            ),
-            stdout=asyncio.subprocess.PIPE,
-        )
-        (target_name, _) = await proc.communicate()
-        target_name = target_name.decode(encoding="ascii")
-        if target_name in front_names:
-            return target_name
-        return ""
+        return await _do_confirm_device_attachment(device, frontends)
     except Exception as exc:
-        print(exc, file=sys.stderr)
+        print(str(exc.__class__.__name__) + ":", str(exc), file=sys.stderr)
         return ""
+
+async def _do_confirm_device_attachment(device, frontends):
+    socket = "device-agent.GUI"
+
+    app = tuple(frontends.keys())[0].app
+    doms = app.domains
+
+    front_names = [f.name for f in frontends.keys()]
+
+    try:
+        guivm = doms["dom0"].guivm.name
+    except AttributeError:
+        guivm = "dom0"
+
+    number_of_targets = len(front_names)
+
+    params = {
+        "source": device.backend_domain.name,
+        "device_name": device.description,
+        "argument": device.port_id,
+        "targets": front_names,
+        "default_target": front_names[0] if number_of_targets == 1 else "",
+        "icons": {
+            dom.name
+            if dom.klass != "DispVM" else f'@dispvm:{dom.name}':
+            dom.icon for dom in doms.values()
+        },
+    }
+
+    socked_call = asyncio.create_task(call_socket_service(
+        guivm, socket, "dom0", params, SOCKET_PATH
+    ))
+
+    while not socked_call.done():
+        await asyncio.sleep(0.1)
+
+    ask_response = await socked_call
+
+    if ask_response.startswith("allow:"):
+        chosen = ask_response[len("allow:"):]
+        if chosen in front_names:
+            return chosen
+    return ""
