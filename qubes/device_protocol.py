@@ -34,13 +34,13 @@ should be moved to one place.
 import string
 import sys
 from enum import Enum
-from typing import Optional, Dict, Any, List, Union, Tuple, Callable, Iterable
+from typing import Optional, Dict, Any, List, Union, Tuple, Callable
 
 import qubes.utils
 
 from qubes.exc import ProtocolError
 
-QubesVM = 'qubes.vm.BaseVM'
+QubesVM = "qubes.vm.BaseVM"
 
 
 class UnexpectedDeviceProperty(qubes.exc.QubesException, ValueError):
@@ -57,14 +57,15 @@ class DeviceSerializer:
     """
     Group of method for serialization of device properties.
     """
+
     ALLOWED_CHARS_KEY = set(
-        string.digits + string.ascii_letters
-        + r"!#$%&()*+,-./:;<>?@[\]^_{|}~")
-    ALLOWED_CHARS_PARAM = ALLOWED_CHARS_KEY.union(set(string.punctuation + ' '))
+        string.digits + string.ascii_letters + r"!#$%&()*+,-./:;<>?@[\]^_{|}~"
+    )
+    ALLOWED_CHARS_PARAM = ALLOWED_CHARS_KEY.union(set(string.punctuation + " "))
 
     @classmethod
     def unpack_properties(
-            cls, untrusted_serialization: bytes
+        cls, untrusted_serialization: bytes
     ) -> Tuple[Dict, Dict]:
         """
         Unpacks basic port properties from a serialized encoded string.
@@ -78,7 +79,8 @@ class DeviceSerializer:
                 names or values.
         """
         ut_decoded = untrusted_serialization.decode(
-            'ascii', errors='strict').strip()
+            "ascii", errors="strict"
+        ).strip()
 
         properties = {}
         options = {}
@@ -91,24 +93,32 @@ class DeviceSerializer:
         ut_key, _, ut_rest = ut_decoded.partition("='")
 
         key = cls.sanitize_str(
-            ut_key.strip(), cls.ALLOWED_CHARS_KEY,
-            error_message='Invalid chars in property name: ')
+            ut_key.strip(),
+            cls.ALLOWED_CHARS_KEY,
+            error_message="Invalid chars in property name: ",
+        )
         keys.append(key)
         while "='" in ut_rest:
             ut_value_key, _, ut_rest = ut_rest.partition("='")
             ut_value, _, ut_key = ut_value_key.rpartition("' ")
             value = cls.sanitize_str(
-                cls.deserialize_str(ut_value), cls.ALLOWED_CHARS_PARAM,
-                error_message='Invalid chars in property value: ')
+                cls.deserialize_str(ut_value),
+                cls.ALLOWED_CHARS_PARAM,
+                error_message="Invalid chars in property value: ",
+            )
             values.append(value)
             key = cls.sanitize_str(
-                ut_key.strip(), cls.ALLOWED_CHARS_KEY,
-                error_message='Invalid chars in property name: ')
+                ut_key.strip(),
+                cls.ALLOWED_CHARS_KEY,
+                error_message="Invalid chars in property name: ",
+            )
             keys.append(key)
         ut_value = ut_rest[:-1]  # ending '
         value = cls.sanitize_str(
-            cls.deserialize_str(ut_value), cls.ALLOWED_CHARS_PARAM,
-            error_message='Invalid chars in property value: ')
+            cls.deserialize_str(ut_value),
+            cls.ALLOWED_CHARS_PARAM,
+            error_message="Invalid chars in property value: ",
+        )
         values.append(value)
 
         for key, value in zip(keys, values):
@@ -126,18 +136,23 @@ class DeviceSerializer:
         Add property `key=value` to serialization.
         """
         if value is None:
-            return b''
+            return b""
         key = cls.sanitize_str(
-            key, cls.ALLOWED_CHARS_KEY,
-            error_message='Invalid chars in property name: ')
+            key,
+            cls.ALLOWED_CHARS_KEY,
+            error_message="Invalid chars in property name: ",
+        )
         value = cls.sanitize_str(
-            cls.serialize_str(value), cls.ALLOWED_CHARS_PARAM,
-            error_message='Invalid chars in property value: ')
-        return key.encode('ascii') + b'=' + value.encode('ascii')
+            cls.serialize_str(value),
+            cls.ALLOWED_CHARS_PARAM,
+            error_message="Invalid chars in property value: ",
+        )
+        return key.encode("ascii") + b"=" + value.encode("ascii")
 
     @staticmethod
     def parse_basic_device_properties(
-            expected_device: 'VirtualDevice', properties: Dict[str, Any]):
+        expected_device: "VirtualDevice", properties: Dict[str, Any]
+    ):
         """
         Validates properties against an expected port configuration.
 
@@ -149,40 +164,44 @@ class DeviceSerializer:
         """
         expected = expected_device.port
         exp_vm_name = expected.backend_name
-        if properties.get('backend_domain', exp_vm_name) != exp_vm_name:
+        if properties.get("backend_domain", exp_vm_name) != exp_vm_name:
             raise UnexpectedDeviceProperty(
                 f"Got device exposed by {properties['backend_domain']}"
-                f"when expected devices from {exp_vm_name}.")
-        properties.pop('backend_domain', None)
+                f"when expected devices from {exp_vm_name}."
+            )
+        properties.pop("backend_domain", None)
 
-        if properties.get('port_id', expected.port_id) != expected.port_id:
+        if properties.get("port_id", expected.port_id) != expected.port_id:
             raise UnexpectedDeviceProperty(
                 f"Got device from port: {properties['port_id']} "
-                f"when expected port: {expected.port_id}.")
-        properties.pop('port_id', None)
+                f"when expected port: {expected.port_id}."
+            )
+        properties.pop("port_id", None)
 
         if not expected.has_devclass:
             expected = Port(
                 expected.backend_domain,
                 expected.port_id,
-                properties.get('devclass', None))
-        if properties.get('devclass', expected.devclass) != expected.devclass:
+                properties.get("devclass", None),
+            )
+        if properties.get("devclass", expected.devclass) != expected.devclass:
             raise UnexpectedDeviceProperty(
                 f"Got {properties['devclass']} device "
-                f"when expected {expected.devclass}.")
-        properties.pop('devclass', None)
+                f"when expected {expected.devclass}."
+            )
+        properties.pop("devclass", None)
 
         expected_devid = expected_device.device_id
         # device id is optional
-        if expected_devid != '*':
-            if properties.get('device_id', expected_devid) != expected_devid:
+        if expected_devid != "*":
+            if properties.get("device_id", expected_devid) != expected_devid:
                 raise UnexpectedDeviceProperty(
                     f"Unrecognized device identity '{properties['device_id']}' "
                     f"expected '{expected_device.device_id}'"
                 )
-        properties['device_id'] = properties.get('device_id', expected_devid)
+        properties["device_id"] = properties.get("device_id", expected_devid)
 
-        properties['port'] = expected
+        properties["port"] = expected
 
     @staticmethod
     def serialize_str(value: str) -> str:
@@ -200,10 +219,10 @@ class DeviceSerializer:
 
     @staticmethod
     def sanitize_str(
-            untrusted_value: str,
-            allowed_chars: set,
-            replace_char: str = None,
-            error_message: str = ""
+        untrusted_value: str,
+        allowed_chars: set,
+        replace_char: str = None,
+        error_message: str = "",
     ) -> str:
         """
         Sanitize given untrusted string.
@@ -235,10 +254,9 @@ class Port:
         port_id (str): A unique (in backend domain) identifier for the port.
         devclass (str): The class of the port (e.g., 'usb', 'pci').
     """
-    def __init__(self,
-                 backend_domain: Optional[QubesVM],
-                 port_id: str,
-                 devclass: str
+
+    def __init__(
+        self, backend_domain: Optional[QubesVM], port_id: str, devclass: str
     ):
         self.__backend_domain = backend_domain
         self.__port_id = port_id
@@ -250,18 +268,23 @@ class Port:
     def __eq__(self, other):
         if isinstance(other, Port):
             return (
-                    self.backend_name == other.backend_name and
-                    self.port_id == other.port_id and
-                    self.devclass == other.devclass
+                self.backend_name == other.backend_name
+                and self.port_id == other.port_id
+                and self.devclass == other.devclass
             )
         return False
 
     def __lt__(self, other):
         if isinstance(other, Port):
-            return (self.backend_name, self.devclass, self.port_id) < \
-                   (other.backend_name, other.devclass, other.port_id)
-        raise TypeError(f"Comparing instances of 'Port' and '{type(other)}' "
-                        "is not supported")
+            return (self.backend_name, self.devclass, self.port_id) < (
+                other.backend_name,
+                other.devclass,
+                other.port_id,
+            )
+        raise TypeError(
+            f"Comparing instances of 'Port' and '{type(other)}' "
+            "is not supported"
+        )
 
     def __repr__(self):
         return f"{self.backend_name}+{self.port_id}"
@@ -278,8 +301,8 @@ class Port:
 
     @classmethod
     def from_qarg(
-            cls, representation: str, devclass, domains, blind=False
-    ) -> 'Port':
+        cls, representation: str, devclass, domains, blind=False
+    ) -> "Port":
         """
         Parse qrexec argument <back_vm>+<port_id> to retrieve Port.
         """
@@ -287,12 +310,12 @@ class Port:
             get_domain = domains.get_blind
         else:
             get_domain = domains.__getitem__
-        return cls._parse(representation, devclass, get_domain, '+')
+        return cls._parse(representation, devclass, get_domain, "+")
 
     @classmethod
     def from_str(
-            cls, representation: str, devclass, domains, blind=False
-    ) -> 'Port':
+        cls, representation: str, devclass, domains, blind=False
+    ) -> "Port":
         """
         Parse string <back_vm>:<port_id> to retrieve Port.
         """
@@ -300,16 +323,12 @@ class Port:
             get_domain = domains.get_blind
         else:
             get_domain = domains.__getitem__
-        return cls._parse(representation, devclass, get_domain, ':')
+        return cls._parse(representation, devclass, get_domain, ":")
 
     @classmethod
     def _parse(
-            cls,
-            representation: str,
-            devclass: str,
-            get_domain: Callable,
-            sep: str
-    ) -> 'Port':
+        cls, representation: str, devclass: str, get_domain: Callable, sep: str
+    ) -> "Port":
         """
         Parse string representation and return instance of Port.
         """
@@ -326,16 +345,16 @@ class Port:
         """
         if self.__port_id is not None:
             return self.__port_id
-        return '*'
+        return "*"
 
     @property
     def backend_domain(self) -> Optional[QubesVM]:
-        """ Which domain exposed this port. (immutable)"""
+        """Which domain exposed this port. (immutable)"""
         return self.__backend_domain
 
     @property
     def devclass(self) -> str:
-        """ Immutable port class such like: 'usb', 'pci' etc.
+        """Immutable port class such like: 'usb', 'pci' etc.
 
         For unknown classes "peripheral" is returned.
         """
@@ -345,10 +364,12 @@ class Port:
 
     @property
     def has_devclass(self):
+        """Returns True if devclass is set."""
         return self.__devclass is not None
 
 
 class AnyPort(Port):
+    """Represents any port in virtual devices ("*")"""
     def __init__(self, devclass: str):
         super().__init__(None, "*", devclass)
 
@@ -367,16 +388,17 @@ class VirtualDevice:
         port (Port): Peripheral device port exposed by vm.
         device_id (str): An identifier for the device.
     """
+
     def __init__(
-            self,
-            port: Optional[Port] = None,
-            device_id: Optional[str] = None,
+        self,
+        port: Optional[Port] = None,
+        device_id: Optional[str] = None,
     ):
         assert not isinstance(port, AnyPort) or device_id is not None
         self.port: Optional[Port] = port
         self._device_id = device_id
 
-    def clone(self, **kwargs) -> 'VirtualDevice':
+    def clone(self, **kwargs) -> "VirtualDevice":
         """
         Clone object and substitute attributes with explicitly given.
         """
@@ -398,9 +420,9 @@ class VirtualDevice:
         if isinstance(value, Port):
             self._port = value
             return
-        if isinstance(value, str) and value != '*':
+        if isinstance(value, str) and value != "*":
             raise ValueError("Unsupported value for port")
-        if self.device_id == '*':
+        if self.device_id == "*":
             raise ValueError("Cannot set port to '*' if device_is is '*'")
         self._port = AnyPort(self.devclass)
 
@@ -409,7 +431,7 @@ class VirtualDevice:
         # pylint: disable=missing-function-docstring
         if self.is_device_id_set:
             return self._device_id
-        return '*'
+        return "*"
 
     @property
     def is_device_id_set(self) -> bool:
@@ -445,8 +467,8 @@ class VirtualDevice:
         """
         Return human-readable description of the device identity.
         """
-        if self.device_id == '*':
-            return 'any device'
+        if self.device_id == "*":
+            return "any device"
         return self.device_id
 
     def __hash__(self):
@@ -455,15 +477,11 @@ class VirtualDevice:
     def __eq__(self, other):
         if isinstance(other, (VirtualDevice, DeviceAssignment)):
             result = (
-                    self.port == other.port
-                    and self.device_id == other.device_id
+                self.port == other.port and self.device_id == other.device_id
             )
             return result
         if isinstance(other, Port):
-            return (
-                    self.port == other
-                    and self.device_id == '*'
-            )
+            return self.port == other and self.device_id == "*"
         return super().__eq__(other)
 
     def __lt__(self, other):
@@ -476,23 +494,26 @@ class VirtualDevice:
         4. *:*
         """
         if isinstance(other, (VirtualDevice, DeviceAssignment)):
-            if (isinstance(self.port, AnyPort)
-                    and not isinstance(other.port, AnyPort)):
+            if isinstance(self.port, AnyPort) and not isinstance(
+                other.port, AnyPort
+            ):
                 return True
-            if (not isinstance(self.port, AnyPort)
-                    and isinstance(other.port, AnyPort)):
+            if not isinstance(self.port, AnyPort) and isinstance(
+                other.port, AnyPort
+            ):
                 return False
             reprs = {self: [self.port], other: [other.port]}
             for obj, obj_repr in reprs.items():
-                if obj.device_id != '*':
+                if obj.device_id != "*":
                     obj_repr.append(obj.device_id)
             return reprs[self] < reprs[other]
         if isinstance(other, Port):
-            _other = VirtualDevice(other, '*')
+            _other = VirtualDevice(other, "*")
             return self < _other
         raise TypeError(
             f"Comparing instances of {type(self)} and '{type(other)}' "
-            "is not supported")
+            "is not supported"
+        )
 
     def __repr__(self):
         return f"{self.port!r}:{self.device_id}"
@@ -502,13 +523,13 @@ class VirtualDevice:
 
     @classmethod
     def from_qarg(
-            cls,
-            representation: str,
-            devclass: Optional[str],
-            domains,
-            blind: bool = False,
-            backend: Optional[QubesVM] = None,
-    ) -> 'VirtualDevice':
+        cls,
+        representation: str,
+        devclass: Optional[str],
+        domains,
+        blind: bool = False,
+        backend: Optional[QubesVM] = None,
+    ) -> "VirtualDevice":
         """
         Parse qrexec argument <back_vm>+<port_id>:<device_id> to get device info
         """
@@ -519,17 +540,17 @@ class VirtualDevice:
                 get_domain = domains.__getitem__
         else:
             get_domain = None
-        return cls._parse(representation, devclass, get_domain, backend, '+')
+        return cls._parse(representation, devclass, get_domain, backend, "+")
 
     @classmethod
     def from_str(
-            cls,
-            representation: str,
-            devclass: Optional[str],
-            domains,
-            blind: bool = False,
-            backend: Optional[QubesVM] = None,
-    ) -> 'VirtualDevice':
+        cls,
+        representation: str,
+        devclass: Optional[str],
+        domains,
+        blind: bool = False,
+        backend: Optional[QubesVM] = None,
+    ) -> "VirtualDevice":
         """
         Parse string <back_vm>+<port_id>:<device_id> to get device info
         """
@@ -540,45 +561,47 @@ class VirtualDevice:
                 get_domain = domains.__getitem__
         else:
             get_domain = None
-        return cls._parse(representation, devclass, get_domain, backend, ':')
+        return cls._parse(representation, devclass, get_domain, backend, ":")
 
     @classmethod
     def _parse(
-            cls,
-            representation: str,
-            devclass: Optional[str],
-            get_domain: Callable,
-            backend: Optional[QubesVM],
-            sep: str
-    ) -> 'VirtualDevice':
+        cls,
+        representation: str,
+        devclass: Optional[str],
+        get_domain: Callable,
+        backend: Optional[QubesVM],
+        sep: str,
+    ) -> "VirtualDevice":
         """
         Parse string representation and return instance of VirtualDevice.
         """
         if backend is None:
             backend_name, identity = representation.split(sep, 1)
-            if backend_name != '*':
+            if backend_name != "*":
                 backend = get_domain(backend_name)
         else:
             identity = representation
-        port_id, _, devid = identity.partition(':')
-        if devid == '':
+        port_id, _, devid = identity.partition(":")
+        if devid == "":
             devid = None
         return cls(
             Port(backend_domain=backend, port_id=port_id, devclass=devclass),
-            device_id=devid
+            device_id=devid,
         )
 
     def serialize(self) -> bytes:
         """
         Serialize an object to be transmitted via Qubes API.
         """
-        properties = b' '.join(
+        properties = b" ".join(
             DeviceSerializer.pack_property(key, value)
             for key, value in (
-                ('device_id', self.device_id),
-                ('port_id', self.port_id),
-                ('devclass', self.devclass),
-                ('backend_domain', self.backend_name)))
+                ("device_id", self.device_id),
+                ("port_id", self.port_id),
+                ("devclass", self.devclass),
+                ("backend_domain", self.backend_name),
+            )
+        )
 
         return properties
 
@@ -590,6 +613,7 @@ class DeviceCategory(Enum):
     Arbitrarily selected interfaces that are important to users,
     thus deserving special recognition such as a custom icon, etc.
     """
+
     # pylint: disable=invalid-name
     Other = "*******"
 
@@ -601,8 +625,14 @@ class DeviceCategory(Enum):
     Scanner = ("p0903**",)
     Microphone = ("m******",)
     # Multimedia = Audio, Video, Displays etc.
-    Multimedia = ("u01****", "u0e****", "u06****", "u10****", "p03****",
-                  "p04****")
+    Multimedia = (
+        "u01****",
+        "u0e****",
+        "u06****",
+        "u10****",
+        "p03****",
+        "p04****",
+    )
     Wireless = ("ue0****", "p0d****")
     Bluetooth = ("ue00101", "p0d11**")
     Mass_Data = ("b******", "u08****", "p01****")
@@ -615,7 +645,7 @@ class DeviceCategory(Enum):
     PCI_USB = ("p0c03**",)
 
     @staticmethod
-    def from_str(interface_encoding: str) -> 'DeviceCategory':
+    def from_str(interface_encoding: str) -> "DeviceCategory":
         """
         Returns `DeviceCategory` from data encoded in string.
         """
@@ -647,29 +677,33 @@ class DeviceInterface:
     """
 
     def __init__(self, interface_encoding: str, devclass: Optional[str] = None):
-        ifc_padded = interface_encoding.ljust(6, '*')
+        ifc_padded = interface_encoding.ljust(6, "*")
         if devclass:
             if len(ifc_padded) > 6:
                 print(
                     f"{interface_encoding=} is too long "
                     f"(is {len(interface_encoding)}, expected max. 6) "
                     f"for given {devclass=}",
-                    file=sys.stderr
+                    file=sys.stderr,
                 )
             ifc_full = devclass[0] + ifc_padded
         else:
             known_devclasses = {
-                'p': 'pci', 'u': 'usb', 'b': 'block', 'm': 'mic'}
+                "p": "pci",
+                "u": "usb",
+                "b": "block",
+                "m": "mic",
+            }
             devclass = known_devclasses.get(interface_encoding[0], None)
             if len(ifc_padded) > 7:
                 print(
                     f"{interface_encoding=} is too long "
                     f"(is {len(interface_encoding)}, expected max. 7)",
-                    file=sys.stderr
+                    file=sys.stderr,
                 )
                 ifc_full = ifc_padded
             elif len(ifc_padded) == 6:
-                ifc_full = '?' + ifc_padded
+                ifc_full = "?" + ifc_padded
             else:
                 ifc_full = ifc_padded
 
@@ -679,17 +713,17 @@ class DeviceInterface:
 
     @property
     def devclass(self) -> Optional[str]:
-        """ Immutable Device class such like: 'usb', 'pci' etc. """
+        """Immutable Device class such like: 'usb', 'pci' etc."""
         return self._devclass
 
     @property
     def category(self) -> DeviceCategory:
-        """ Immutable Device category such like: 'Mouse', 'Mass_Data' etc. """
+        """Immutable Device category such like: 'Mouse', 'Mass_Data' etc."""
         return self._category
 
     @classmethod
-    def unknown(cls) -> 'DeviceInterface':
-        """ Value for unknown device interface. """
+    def unknown(cls) -> "DeviceInterface":
+        """Value for unknown device interface."""
         return cls("?******")
 
     def __repr__(self):
@@ -709,21 +743,32 @@ class DeviceInterface:
         if self.devclass in ("usb", "pci"):
             # try subclass first as in `lspci`
             result = self._load_classes(self.devclass).get(
-                self._interface_encoding[1:-2] + '**', None)
-            if (result is None or result.lower()
-                    in ('none', 'no subclass', 'unused', 'undefined')):
+                self._interface_encoding[1:-2] + "**", None
+            )
+            if result is None or result.lower() in (
+                "none",
+                "no subclass",
+                "unused",
+                "undefined",
+            ):
                 # if not, try interface
                 result = self._load_classes(self.devclass).get(
-                    self._interface_encoding[1:], None)
-            if (result is None or result.lower()
-                    in ('none', 'no subclass', 'unused', 'undefined')):
+                    self._interface_encoding[1:], None
+                )
+            if result is None or result.lower() in (
+                "none",
+                "no subclass",
+                "unused",
+                "undefined",
+            ):
                 # if not, try class
                 result = self._load_classes(self.devclass).get(
-                    self._interface_encoding[1:-4] + '****', None)
+                    self._interface_encoding[1:-4] + "****", None
+                )
             if result is None:
                 result = f"Unclassified {self.devclass} device"
             return result
-        if self.devclass == 'mic':
+        if self.devclass == "mic":
             return "Microphone"
         return repr(self)
 
@@ -737,32 +782,34 @@ class DeviceInterface:
         #       subclass        subclass_name           <-- single tab
         #               prog-if  prog-if_name   <-- two tabs
         result = {}
-        with open(f'/usr/share/hwdata/{bus}.ids',
-                  encoding='utf-8', errors='ignore') as pciids:
+        with open(
+            f"/usr/share/hwdata/{bus}.ids", encoding="utf-8", errors="ignore"
+        ) as pciids:
             # for `class_name` and `subclass_name`
             # pylint: disable=used-before-assignment
             class_id = None
             subclass_id = None
             for line in pciids.readlines():
                 line = line.rstrip()
-                if line.startswith('\t\t') \
-                        and class_id is not None and subclass_id is not None:
-                    (progif_id, _, progif_name) = line[2:].split(' ', 2)
-                    result[class_id + subclass_id + progif_id] = \
-                        progif_name
-                elif line.startswith('\t') and class_id:
-                    (subclass_id, _, subclass_name) = line[1:].split(' ', 2)
+                if (
+                    line.startswith("\t\t")
+                    and class_id is not None
+                    and subclass_id is not None
+                ):
+                    (progif_id, _, progif_name) = line[2:].split(" ", 2)
+                    result[class_id + subclass_id + progif_id] = progif_name
+                elif line.startswith("\t") and class_id:
+                    (subclass_id, _, subclass_name) = line[1:].split(" ", 2)
                     # store both prog-if specific entry and generic one
-                    result[class_id + subclass_id + '**'] = \
-                        subclass_name
-                elif line.startswith('C '):
-                    (_, class_id, _, class_name) = line.split(' ', 3)
-                    result[class_id + '****'] = class_name
+                    result[class_id + subclass_id + "**"] = subclass_name
+                elif line.startswith("C "):
+                    (_, class_id, _, class_name) = line.split(" ", 3)
+                    result[class_id + "****"] = class_name
                     subclass_id = None
 
         return result
 
-    def matches(self, other: 'DeviceInterface') -> bool:
+    def matches(self, other: "DeviceInterface") -> bool:
         """
         Check if this `DeviceInterface` (pattern) matches given one.
 
@@ -777,7 +824,7 @@ class DeviceInterface:
         if len(pattern) != len(candidate):
             return False
         for patt, cand in zip(pattern, candidate):
-            if patt == '*':
+            if patt == "*":
                 continue
             if patt != cand:
                 return False
@@ -785,21 +832,21 @@ class DeviceInterface:
 
 
 class DeviceInfo(VirtualDevice):
-    """ Holds all information about a device """
+    """Holds all information about a device"""
 
     def __init__(
-            self,
-            port: Port,
-            vendor: Optional[str] = None,
-            product: Optional[str] = None,
-            manufacturer: Optional[str] = None,
-            name: Optional[str] = None,
-            serial: Optional[str] = None,
-            interfaces: Optional[List[DeviceInterface]] = None,
-            parent: Optional[Port] = None,
-            attachment: Optional[QubesVM] = None,
-            device_id: Optional[str] = None,
-            **kwargs
+        self,
+        port: Port,
+        vendor: Optional[str] = None,
+        product: Optional[str] = None,
+        manufacturer: Optional[str] = None,
+        name: Optional[str] = None,
+        serial: Optional[str] = None,
+        interfaces: Optional[List[DeviceInterface]] = None,
+        parent: Optional[Port] = None,
+        attachment: Optional[QubesVM] = None,
+        device_id: Optional[str] = None,
+        **kwargs,
     ):
         super().__init__(port, device_id)
 
@@ -941,9 +988,12 @@ class DeviceInfo(VirtualDevice):
         If the device has subdevices (e.g., partitions of a USB stick),
         the subdevices id should be here.
         """
-        return [dev for devclass in self.backend_domain.devices.keys()
-                for dev in self.backend_domain.devices[devclass]
-                if dev.parent_device.port.port_id == self.port_id]
+        return [
+            dev
+            for devclass in self.backend_domain.devices.keys()
+            for dev in self.backend_domain.devices[devclass]
+            if dev.parent_device.port.port_id == self.port_id
+        ]
 
     @property
     def attachment(self) -> Optional[QubesVM]:
@@ -960,46 +1010,57 @@ class DeviceInfo(VirtualDevice):
         # 'attachment', 'interfaces', 'data', 'parent_device'
         # are not string, so they need special treatment
         default = DeviceInfo(self.port)
-        default_attrs = {'vendor', 'product', 'manufacturer', 'name', 'serial'}
-        properties += b' ' + b' '.join(
-            DeviceSerializer.pack_property(key, value) for key, value in (
-                (key, getattr(self, key)) for key in default_attrs
-                if getattr(self, key) != getattr(default, key)))
+        default_attrs = {"vendor", "product", "manufacturer", "name", "serial"}
+        properties += b" " + b" ".join(
+            DeviceSerializer.pack_property(key, value)
+            for key, value in (
+                (key, getattr(self, key))
+                for key in default_attrs
+                if getattr(self, key) != getattr(default, key)
+            )
+        )
 
         if self.attachment:
-            properties += b' ' + DeviceSerializer.pack_property(
-                'attachment', self.attachment.name)
+            properties += b" " + DeviceSerializer.pack_property(
+                "attachment", self.attachment.name
+            )
 
-        properties += b' ' + DeviceSerializer.pack_property(
-            'interfaces',
-            ''.join(repr(ifc) for ifc in self.interfaces))
+        properties += b" " + DeviceSerializer.pack_property(
+            "interfaces", "".join(repr(ifc) for ifc in self.interfaces)
+        )
 
         if self.parent_device is not None:
-            properties += b' ' + DeviceSerializer.pack_property(
-                'parent_port_id', self.parent_device.port_id)
-            properties += b' ' + DeviceSerializer.pack_property(
-                'parent_devclass', self.parent_device.devclass)
+            properties += b" " + DeviceSerializer.pack_property(
+                "parent_port_id", self.parent_device.port_id
+            )
+            properties += b" " + DeviceSerializer.pack_property(
+                "parent_devclass", self.parent_device.devclass
+            )
 
         for key, value in self.data.items():
-            properties += b' ' + DeviceSerializer.pack_property(
-                "_" + key, value)
+            properties += b" " + DeviceSerializer.pack_property(
+                "_" + key, value
+            )
 
         return properties
 
     @classmethod
     def deserialize(
-            cls,
-            serialization: bytes,
-            expected_backend_domain: QubesVM,
-            expected_devclass: Optional[str] = None,
-    ) -> 'DeviceInfo':
+        cls,
+        serialization: bytes,
+        expected_backend_domain: QubesVM,
+        expected_devclass: Optional[str] = None,
+    ) -> "DeviceInfo":
         """
         Recovers a serialized object, see: :py:meth:`serialize`.
         """
-        head, _, rest = serialization.partition(b' ')
+        head, _, rest = serialization.partition(b" ")
         device = VirtualDevice.from_str(
-            head.decode('ascii', errors='ignore'), expected_devclass,
-            domains=None, backend=expected_backend_domain)
+            head.decode("ascii", errors="ignore"),
+            expected_devclass,
+            domains=None,
+            backend=expected_backend_domain,
+        )
 
         try:
             device = cls._deserialize(rest, device)
@@ -1012,42 +1073,44 @@ class DeviceInfo(VirtualDevice):
 
     @classmethod
     def _deserialize(
-            cls,
-            untrusted_serialization: bytes,
-            expected_device: VirtualDevice
-    ) -> 'DeviceInfo':
+        cls, untrusted_serialization: bytes, expected_device: VirtualDevice
+    ) -> "DeviceInfo":
         """
         Actually deserializes the object.
         """
         properties, options = DeviceSerializer.unpack_properties(
-            untrusted_serialization)
+            untrusted_serialization
+        )
         properties.update(options)
 
         DeviceSerializer.parse_basic_device_properties(
-            expected_device, properties)
+            expected_device, properties
+        )
 
-        if 'attachment' not in properties or not properties['attachment']:
-            properties['attachment'] = None
+        if "attachment" not in properties or not properties["attachment"]:
+            properties["attachment"] = None
         else:
             app = expected_device.backend_domain.app
-            properties['attachment'] = app.domains.get_blind(
-                properties['attachment'])
-
-        if 'interfaces' in properties:
-            interfaces = properties['interfaces']
-            interfaces = [
-                DeviceInterface(interfaces[i:i + 7])
-                for i in range(0, len(interfaces), 7)]
-            properties['interfaces'] = interfaces
-
-        if 'parent_ident' in properties:
-            properties['parent'] = Port(
-                backend_domain=expected_device.backend_domain,
-                port_id=properties['parent_ident'],
-                devclass=properties['parent_devclass'],
+            properties["attachment"] = app.domains.get_blind(
+                properties["attachment"]
             )
-            del properties['parent_ident']
-            del properties['parent_devclass']
+
+        if "interfaces" in properties:
+            interfaces = properties["interfaces"]
+            interfaces = [
+                DeviceInterface(interfaces[i : i + 7])
+                for i in range(0, len(interfaces), 7)
+            ]
+            properties["interfaces"] = interfaces
+
+        if "parent_ident" in properties:
+            properties["parent"] = Port(
+                backend_domain=expected_device.backend_domain,
+                port_id=properties["parent_ident"],
+                devclass=properties["parent_devclass"],
+            )
+            del properties["parent_ident"]
+            del properties["parent_devclass"]
 
         return cls(**properties)
 
@@ -1082,7 +1145,7 @@ class UnknownDevice(DeviceInfo):
     """Unknown device - for example, exposed by domain not running currently"""
 
     @staticmethod
-    def from_device(device: VirtualDevice) -> 'UnknownDevice':
+    def from_device(device: VirtualDevice) -> "UnknownDevice":
         """
         Return `UnknownDevice` based on any virtual device.
         """
@@ -1093,6 +1156,7 @@ class AssignmentMode(Enum):
     """
     Device assignment modes
     """
+
     MANUAL = "manual"
     ASK = "ask-to-attach"
     AUTO = "auto-attach"
@@ -1105,11 +1169,11 @@ class DeviceAssignment:
     """
 
     def __init__(
-            self,
-            device: VirtualDevice,
-            frontend_domain=None,
-            options=None,
-            mode: Union[str, AssignmentMode] = "manual",
+        self,
+        device: VirtualDevice,
+        frontend_domain=None,
+        options=None,
+        mode: Union[str, AssignmentMode] = "manual",
     ):
         if isinstance(device, DeviceInfo):
             device = VirtualDevice(device.port, device.device_id)
@@ -1123,22 +1187,21 @@ class DeviceAssignment:
 
     @classmethod
     def new(
-            cls,
-            backend_domain: QubesVM,
-            port_id: str,
-            devclass: str,
-            device_id: Optional[str] = None,
-            frontend_domain: Optional[QubesVM] = None,
-            options=None,
-            mode: Union[str, AssignmentMode] = "manual",
-    ) -> 'DeviceAssignment':
+        cls,
+        backend_domain: QubesVM,
+        port_id: str,
+        devclass: str,
+        device_id: Optional[str] = None,
+        frontend_domain: Optional[QubesVM] = None,
+        options=None,
+        mode: Union[str, AssignmentMode] = "manual",
+    ) -> "DeviceAssignment":
+        """Helper method to create a DeviceAssignment object."""
         return cls(
-            VirtualDevice(
-                Port(backend_domain, port_id, devclass),
-                device_id),
+            VirtualDevice(Port(backend_domain, port_id, devclass), device_id),
             frontend_domain,
             options,
-            mode
+            mode,
         )
 
     def clone(self, **kwargs):
@@ -1166,8 +1229,7 @@ class DeviceAssignment:
     def __eq__(self, other):
         if isinstance(other, (VirtualDevice, DeviceAssignment)):
             result = (
-                    self.port == other.port
-                    and self.device_id == other.device_id
+                self.port == other.port and self.device_id == other.device_id
             )
             return result
         return False
@@ -1179,7 +1241,8 @@ class DeviceAssignment:
             return self.virtual_device < other
         raise TypeError(
             f"Comparing instances of {type(self)} and '{type(other)}' "
-            "is not supported")
+            "is not supported"
+        )
 
     @property
     def backend_domain(self) -> QubesVM:
@@ -1209,10 +1272,13 @@ class DeviceAssignment:
     @property
     def devices(self) -> List[DeviceInfo]:
         """Get DeviceInfo objects corresponding to this DeviceAssignment"""
-        if self.port_id != '*':
-            dv = self.backend_domain.devices[self.devclass][self.port_id]
-            if isinstance(dv, UnknownDevice) or dv.device_id == self.device_id:
-                return [dv]
+        if self.port_id != "*":
+            dev = self.backend_domain.devices[self.devclass][self.port_id]
+            if (
+                isinstance(dev, UnknownDevice)
+                or dev.device_id == self.device_id
+            ):
+                return [dev]
         result = []
         if self.device_id == "0000:0000::?******":
             return result
@@ -1246,14 +1312,12 @@ class DeviceAssignment:
 
     @property
     def frontend_domain(self) -> Optional[QubesVM]:
-        """ Which domain the device is attached/assigned to. """
+        """Which domain the device is attached/assigned to."""
         return self.__frontend_domain
 
     @frontend_domain.setter
-    def frontend_domain(
-        self, frontend_domain: Optional[Union[str, QubesVM]]
-    ):
-        """ Which domain the device is attached/assigned to. """
+    def frontend_domain(self, frontend_domain: Optional[Union[str, QubesVM]]):
+        """Which domain the device is attached/assigned to."""
         if isinstance(frontend_domain, str):
             frontend_domain = self.backend_domain.app.domains[frontend_domain]
         self.__frontend_domain = frontend_domain
@@ -1287,17 +1351,17 @@ class DeviceAssignment:
         return self.mode in (
             AssignmentMode.AUTO,
             AssignmentMode.ASK,
-            AssignmentMode.REQUIRED
+            AssignmentMode.REQUIRED,
         )
 
     @property
     def options(self) -> Dict[str, Any]:
-        """ Device options (same as in the legacy API). """
+        """Device options (same as in the legacy API)."""
         return self.__options
 
     @options.setter
     def options(self, options: Optional[Dict[str, Any]]):
-        """ Device options (same as in the legacy API). """
+        """Device options (same as in the legacy API)."""
         self.__options = options or {}
 
     def serialize(self) -> bytes:
@@ -1305,24 +1369,27 @@ class DeviceAssignment:
         Serialize an object to be transmitted via Qubes API.
         """
         properties = self.virtual_device.serialize()
-        properties += b' ' + DeviceSerializer.pack_property(
-            'mode', self.mode.value)
+        properties += b" " + DeviceSerializer.pack_property(
+            "mode", self.mode.value
+        )
         if self.frontend_domain is not None:
-            properties += b' ' + DeviceSerializer.pack_property(
-                'frontend_domain', self.frontend_domain.name)
+            properties += b" " + DeviceSerializer.pack_property(
+                "frontend_domain", self.frontend_domain.name
+            )
 
         for key, value in self.options.items():
-            properties += b' ' + DeviceSerializer.pack_property(
-                "_" + key, value)
+            properties += b" " + DeviceSerializer.pack_property(
+                "_" + key, value
+            )
 
         return properties
 
     @classmethod
     def deserialize(
-            cls,
-            serialization: bytes,
-            expected_device: VirtualDevice,
-    ) -> 'DeviceAssignment':
+        cls,
+        serialization: bytes,
+        expected_device: VirtualDevice,
+    ) -> "DeviceAssignment":
         """
         Recovers a serialized object, see: :py:meth:`serialize`.
         """
@@ -1334,26 +1401,29 @@ class DeviceAssignment:
 
     @classmethod
     def _deserialize(
-            cls,
-            untrusted_serialization: bytes,
-            expected_device: VirtualDevice,
-    ) -> 'DeviceAssignment':
+        cls,
+        untrusted_serialization: bytes,
+        expected_device: VirtualDevice,
+    ) -> "DeviceAssignment":
         """
         Actually deserializes the object.
         """
         properties, options = DeviceSerializer.unpack_properties(
-            untrusted_serialization)
-        properties['options'] = options
+            untrusted_serialization
+        )
+        properties["options"] = options
 
         DeviceSerializer.parse_basic_device_properties(
-            expected_device, properties)
+            expected_device, properties
+        )
 
         expected_device = expected_device.clone(
-            device_id=properties['device_id'])
+            device_id=properties["device_id"]
+        )
         # we do not need port, we need device
-        del properties['port']
-        del properties['device_id']
-        properties['device'] = expected_device
+        del properties["port"]
+        del properties["device_id"]
+        properties["device"] = expected_device
 
         return cls(**properties)
 
@@ -1365,8 +1435,8 @@ class DeviceAssignment:
             return False
         if self.backend_domain != device.backend_domain:
             return False
-        if self.port_id not in ('*', device.port_id):
+        if self.port_id not in ("*", device.port_id):
             return False
-        if self.device_id not in ('*', device.device_id):
+        if self.device_id not in ("*", device.device_id):
             return False
         return True

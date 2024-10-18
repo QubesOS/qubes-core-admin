@@ -1330,7 +1330,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 _dev.backend_domain].devices[devclass][_dev.port_id]
             if isinstance(dev, UnknownDevice):
                 return _dev
-            if _dev.device_id != '*' and _dev.device_id != dev.device_id:
+            if _dev.device_id not in ('*', dev.device_id):
                 return _dev
             return dev
         except KeyError:
