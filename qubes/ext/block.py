@@ -643,7 +643,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     if front_vm is None:
                         continue
                     dev = BlockDevice(vm, dev_id)
-                    await self._detach_and_notify(vm, dev, options=None)
+                    vm.fire_event(f"device-removed:block", port=dev.port)
+                    await self.detach_and_notify(front_vm, dev.port)
                 continue
             for dev_id, front_vm in self.devices_cache[domain.name].items():
                 if front_vm == vm:
@@ -657,14 +658,19 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     new_cache[domain.name][dev_id] = front_vm
         self.devices_cache = new_cache.copy()
 
-    async def _detach_and_notify(self, vm, device, options):
+    def ensure_detach(self, vm, port):
+        """
+        Run this method if device is no longer detected.
+
+        If usb device which exposes block device is removed a zombie block
+         device may remain in vm xml, so we ensure that it will be removed too.
+        """
+        self.on_device_pre_detached_block(vm, "device-pre-detach:block", port)
+
+    async def detach_and_notify(self, vm, port):
         # bypass DeviceCollection logic preventing double attach
-        self.on_device_pre_detached_block(
-            vm, "device-pre-detach:block", device.port
-        )
-        await vm.fire_event_async(
-            "device-detach:block", port=device.port, options=options
-        )
+        self.on_device_pre_detached_block(vm, "device-pre-detach:block", port)
+        await vm.fire_event_async("device-detach:block", port=port)
 
     @qubes.ext.handler("qubes-close", system=True)
     def on_qubes_close(self, app, event):

@@ -52,6 +52,7 @@ def device_list_change(
     # send events about devices detached/attached outside by themselves
     for port_id, front_vm in detached.items():
         dev = device_class(vm, port_id)
+        ext.ensure_detach(front_vm, dev.port)
         asyncio.ensure_future(
             front_vm.fire_event_async(
                 f"device-detach:{devclass}", port=dev.port
@@ -63,8 +64,8 @@ def device_list_change(
     for port_id in added:
         device = device_class(vm, port_id)
         vm.fire_event(f"device-added:{devclass}", device=device)
-    for dev_ident, front_vm in attached.items():
-        dev = device_class(vm, dev_ident)
+    for port_id, front_vm in attached.items():
+        dev = device_class(vm, port_id)
         # options are unknown, device already attached
         asyncio.ensure_future(
             front_vm.fire_event_async(
@@ -167,6 +168,7 @@ async def confirm_device_attachment(device, frontends) -> str:
         print(str(exc.__class__.__name__) + ":", str(exc), file=sys.stderr)
         return ""
 
+
 async def _do_confirm_device_attachment(device, frontends):
     socket = "device-agent.GUI"
 
@@ -189,15 +191,16 @@ async def _do_confirm_device_attachment(device, frontends):
         "targets": front_names,
         "default_target": front_names[0] if number_of_targets == 1 else "",
         "icons": {
-            dom.name
-            if dom.klass != "DispVM" else f'@dispvm:{dom.name}':
-            dom.icon for dom in doms.values()
+            (
+                dom.name if dom.klass != "DispVM" else f"@dispvm:{dom.name}"
+            ): dom.icon
+            for dom in doms.values()
         },
     }
 
-    socked_call = asyncio.create_task(call_socket_service(
-        guivm, socket, "dom0", params, SOCKET_PATH
-    ))
+    socked_call = asyncio.create_task(
+        call_socket_service(guivm, socket, "dom0", params, SOCKET_PATH)
+    )
 
     while not socked_call.done():
         await asyncio.sleep(0.1)
@@ -205,7 +208,7 @@ async def _do_confirm_device_attachment(device, frontends):
     ask_response = await socked_call
 
     if ask_response.startswith("allow:"):
-        chosen = ask_response[len("allow:"):]
+        chosen = ask_response[len("allow:") :]
         if chosen in front_names:
             return chosen
     return ""
