@@ -20,6 +20,7 @@
 # pylint: disable=global-statement
 
 import configparser
+import functools
 import socketserver
 import logging
 import logging.handlers
@@ -41,15 +42,6 @@ SOCK_PATH = '/var/run/qubes/qmemman.sock'
 
 system_state = qubes.qmemman.systemstate.SystemState()
 global_lock = threading.Lock()
-# If XSWatcher will
-# handle meminfo event before @introduceDomain, it will use
-# incomplete domain list for that and may redistribute memory
-# allocated to some VM, but not yet used (see #1389).
-# To fix that, system_state should be updated (refresh domain
-# list) before processing other changes, every time some process requested
-# memory for a new VM, before releasing the lock. Then XS_Watcher will check
-# this flag before processing other event.
-force_refresh_domain_list = False
 
 def only_in_first_list(list1, list2):
     ret = []
@@ -153,10 +145,6 @@ class XSWatcher:
         with global_lock:
             self.log.debug('global_lock acquired')
             try:
-                global force_refresh_domain_list
-                if force_refresh_domain_list:
-                    self.domain_list_changed(refresh_only=True)
-                    force_refresh_domain_list = False
                 if domain_id not in self.watch_token_dict:
                     # domain just destroyed
                     return
@@ -184,6 +172,10 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
     client.
     """
 
+    def __init__(self, watcher: XSWatcher, request, client_address, server):
+        self.watcher = watcher
+        super().__init__(request, client_address, server)
+
     def handle(self):
         self.log = logging.getLogger('qmemman.daemon.reqhandler')
 
@@ -196,8 +188,10 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 if len(self.data) == 0:
                     self.log.info('client disconnected, resuming membalance')
                     if got_lock:
-                        global force_refresh_domain_list
-                        force_refresh_domain_list = True
+                        # got_lock = True means some VM may have been just created
+                        # ensure next watch or client request handler will use
+                        # updated domain list
+                        self.watcher.domain_list_changed(refresh_only=True)
                     return
 
                 # XXX something is wrong here: return without release?
@@ -290,7 +284,11 @@ def main():
     # Initialize the connection to Xen and to XenStore
     system_state.init()
 
-    server = socketserver.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
+    watcher = XSWatcher()
+    server = socketserver.UnixStreamServer(
+        SOCK_PATH,
+        functools.partial(QMemmanReqHandler, watcher)
+    )
     os.umask(0o077)
 
     # notify systemd
@@ -305,4 +303,4 @@ def main():
         sock.close()
 
     threading.Thread(target=server.serve_forever).start()
-    XSWatcher().watch_loop()
+    watcher.watch_loop()
