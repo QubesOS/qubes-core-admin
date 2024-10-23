@@ -86,11 +86,11 @@ class XSWatcher:
 
         got_lock = False
         if not refresh_only:
-            self.log.debug('acquiring global_lock')
+            self.log.info('acquiring global_lock - list changed')
             # pylint: disable=consider-using-with
             global_lock.acquire()
             got_lock = True
-            self.log.debug('global_lock acquired')
+            self.log.info('global_lock acquired - list changed')
         try:
             curr = self.handle.ls('', '/local/domain')
             if curr is None:
@@ -125,7 +125,7 @@ class XSWatcher:
         finally:
             if got_lock:
                 global_lock.release()
-                self.log.debug('global_lock released')
+                self.log.info('global_lock released - list changed')
 
         if not refresh_only:
             try:
@@ -141,9 +141,9 @@ class XSWatcher:
         if untrusted_meminfo_key is None or untrusted_meminfo_key == b'':
             return
 
-        self.log.debug('acquiring global_lock')
+        self.log.info('acquiring global_lock - meminfo changed')
         with global_lock:
-            self.log.debug('global_lock acquired')
+            self.log.info('global_lock acquired - meminfo changed')
             try:
                 if domain_id not in self.watch_token_dict:
                     # domain just destroyed
@@ -152,7 +152,7 @@ class XSWatcher:
                 system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
             except:  # pylint: disable=bare-except
                 self.log.exception('Updating meminfo for %s failed', domain_id)
-        self.log.debug('global_lock released')
+        self.log.info('global_lock released - meminfo changed')
 
     def watch_loop(self):
         self.log.debug('watch_loop()')
@@ -184,7 +184,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
             # self.request is the TCP socket connected to the client
             while True:
                 self.data = self.request.recv(1024).strip()
-                self.log.debug('data=%r', self.data)
+                self.log.info('data=%r', self.data)
                 if len(self.data) == 0:
                     self.log.info('client disconnected, resuming membalance')
                     if got_lock:
@@ -199,10 +199,10 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                     self.log.warning('Second request over qmemman.sock?')
                     return
 
-                self.log.debug('acquiring global_lock')
+                self.log.info('acquiring global_lock - handle')
                 # pylint: disable=consider-using-with
                 global_lock.acquire()
-                self.log.debug('global_lock acquired')
+                self.log.info('global_lock acquired - handle')
 
                 got_lock = True
                 if (self.data.isdigit() and
@@ -218,7 +218,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
         finally:
             if got_lock:
                 global_lock.release()
-                self.log.debug('global_lock released')
+                self.log.info('global_lock released - handle')
 
 
 parser = qubes.tools.QubesArgumentParser(want_app=False)
