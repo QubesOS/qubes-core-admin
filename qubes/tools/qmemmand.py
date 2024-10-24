@@ -120,19 +120,18 @@ class XSWatcher:
                                     self.watch_token_dict[i])
                 self.watch_token_dict.pop(i)
                 system_state.del_domain(i)
+
+            if not refresh_only:
+                try:
+                    system_state.do_balance()
+                except:  # pylint: disable=bare-except
+                    self.log.exception('do_balance() failed')
         except:  # pylint: disable=bare-except
             self.log.exception('Updating domain list failed')
         finally:
             if got_lock:
                 global_lock.release()
                 self.log.info('global_lock released - list changed')
-
-        if not refresh_only:
-            try:
-                system_state.do_balance()
-            except:  # pylint: disable=bare-except
-                self.log.exception('do_balance() failed')
-
 
     def meminfo_changed(self, domain_id):
         self.log.debug('meminfo_changed(domain_id={!r})'.format(domain_id))
