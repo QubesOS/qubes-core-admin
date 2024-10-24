@@ -512,9 +512,10 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         # and xdotool will use XTEST instead of generating events manually -
         # this will be much better - at least because events will have
         # correct timestamp (so gui-daemon would not drop the copy request)
-        subprocess.check_call(['xdotool',
-                               'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
-                               'Escape'])
+        subprocess.check_call(['xdotool', 'key', 'ctrl+a', 'ctrl+c'])
+        # wait a bit to let the zenity actually copy
+        await asyncio.sleep(1)
+        subprocess.check_call(['xdotool', 'key',  'ctrl+shift+c', 'Escape'])
 
         await self.wait_for_window_coro(window_title, show=False)
 
