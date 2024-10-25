@@ -1328,33 +1328,60 @@ class SystemTestCase(QubesTestCase):
 
     def create_bootable_iso(self):
         """Create simple bootable ISO image.
-        Type 'poweroff' to it to terminate that VM.
+        Type 'halt' to it to terminate that VM.
         """
-        isolinux_cfg = (
-            'prompt 1\n'
-            'label poweroff\n'
-            '   kernel poweroff.c32\n'
-        )
         output_fd, output_path = tempfile.mkstemp('.iso')
         with tempfile.TemporaryDirectory() as tmp_dir:
+            f = os.open(tmp_dir, os.O_RDONLY|os.O_DIRECTORY)
             try:
-                shutil.copy('/usr/share/syslinux/isolinux.bin', tmp_dir)
-                shutil.copy('/usr/share/syslinux/ldlinux.c32', tmp_dir)
-                shutil.copy('/usr/share/syslinux/poweroff.c32', tmp_dir)
-                with open(os.path.join(tmp_dir, 'isolinux.cfg'), 'w') as cfg:
-                    cfg.write(isolinux_cfg)
-                subprocess.check_call(['genisoimage', '-o', output_path,
-                                       '-c', 'boot.cat',
-                                       '-b', 'isolinux.bin',
+                os.mkdir('os', mode=0o755, dir_fd=f)
+                os.mkdir('iso', mode=0o755, dir_fd=f)
+                os.mkdir('os/images', mode=0o755, dir_fd=f)
+                os.mkdir('os/EFI', mode=0o755, dir_fd=f)
+                os.mkdir('os/EFI/BOOT', mode=0o755, dir_fd=f)
+                with open(f'/proc/self/fd/{f}/os/images/boot_hybrid.img', 'wb') as v:
+                    subprocess.check_call(['grub2-mkimage',
+                                           '-O', 'i386-pc-eltorito',
+                                           '-d', '/usr/lib/grub/i386-pc',
+                                           '-p', '/boot/grub2',
+                                           'iso9660', 'biosdisk', 'halt'], stdout=v)
+                with open(f'/proc/self/fd/{f}/os/EFI/BOOT/BOOTX64.EFI', 'wb') as v:
+                    subprocess.check_call(['grub2-mkimage',
+                                           '-O', 'x86_64-efi',
+                                           '-d', '/usr/lib/grub/x86_64-efi',
+                                           '-p', '/boot/grub2',
+                                           'iso9660', 'disk', 'halt'], stdout=v)
+                graft_path = '.=' + os.path.join(tmp_dir, "os").replace("\\", "\\\\").replace("=", "\\=")
+                efiboot_img = os.path.join(tmp_dir, 'os/images/efiboot.img')
+                subprocess.check_call(['sudo', 'mkefiboot', '--label=ANACONDA',
+                                       os.path.join(tmp_dir, 'os/EFI/BOOT'),
+                                       efiboot_img])
+                subprocess.check_call(['sudo', 'chmod', '-R', 'go+rX', tmp_dir])
+                subprocess.check_call(['xorrisofs',
+                                       '-o', output_path,
+                                       '--grub2-mbr', 'os/images/boot_hybrid.img',
+                                       '--mbr-force-bootable',
+                                       '--gpt-iso-bootable',
+                                       '-partition_offset', '16',
+                                       '-append_partition', '2', '0xef', efiboot_img,
+                                       '-iso_mbr_part_type', 'EBD0A0A2-B9E5-4433-87C0-68B6B72699C7',
+                                       '-appended_part_as_gpt',
+                                       '-c', 'boot.cat', '--boot-catalog-hide',
+                                       '-eltorito-boot', 'images/boot_hybrid.img',
                                        '-no-emul-boot',
                                        '-boot-load-size', '4',
                                        '-boot-info-table',
-                                       '-q',
-                                       tmp_dir])
-            except FileNotFoundError:
-                self.skipTest('syslinux or genisoimage not installed')
-        os.close(output_fd)
-        self.addCleanup(os.unlink, output_path)
+                                       '--grub2-boot-info',
+                                       '-eltorito-alt-boot',
+                                       '-e', '--interval:appended_partition_2:all::',
+                                       '-no-emul-boot',
+                                       '-graft-points', graft_path,
+                                       'boot/grub2/i386-pc=/usr/lib/grub/i386-pc',
+                                       'boot/grub2/x86_64-efi=/usr/lib/grub/x86_64-efi'],
+                                      cwd=tmp_dir)
+                self.addCleanup(os.unlink, output_path)
+            finally:
+                os.close(f)
         return output_path
 
     def create_local_file(self, filename, content, mode='w'):
