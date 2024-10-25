@@ -168,7 +168,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         return [qubes.device_protocol.DeviceInterface("******", "block")]
 
     @property
-    def parent_device(self) -> Optional[qubes.device_protocol.Port]:
+    def parent_device(self) -> Optional[qubes.device_protocol.DeviceInfo]:
         """
         The parent device, if any.
 
@@ -192,9 +192,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not parent_ident:
                 return None
             try:
-                self._parent = (self.backend_domain.devices)[devclass][
-                    parent_ident
-                ]
+                self._parent = self.backend_domain.devices[
+                    devclass][parent_ident]
             except KeyError:
                 self._parent = qubes.device_protocol.UnknownDevice(
                     qubes.device_protocol.Port(
