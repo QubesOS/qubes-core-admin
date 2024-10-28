@@ -6,6 +6,7 @@ checks:pylint:
   script:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec python3 -m pylint qubes
   stage: checks
+
 checks:tests:
   after_script:
   - ci/codecov-wrapper -F unittests
@@ -37,6 +38,21 @@ checks:tests:
   stage: checks
   tags:
   - vm-kvm
+
+mypy:
+  stage: checks
+  image: fedora:40
+  tags:
+    - docker
+  before_script:
+    - sudo dnf install -y python3-mypy python3-pip
+    - sudo python3 -m pip install lxml-stubs types-docutils types-pywin32
+  script:
+    - mypy --install-types --non-interactive --ignore-missing-imports --exclude tests/ --junit-xml mypy.xml qubes
+  artifacts:
+    reports:
+      junit: mypy.xml
+
 include:
 - file: /r4.3/gitlab-base.yml
   project: QubesOS/qubes-continuous-integration

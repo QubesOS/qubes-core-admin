@@ -224,7 +224,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
 
         Every device should have at least one interface.
         """
-        if self._interfaces is None:
+        if self._interfaces is None and self.backend_domain:
             if self.backend_domain.app.vmm.offline_mode:
                 # don't cache this value
                 return [
@@ -245,7 +245,8 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
                     interface_encoding, devclass="pci"
                 )
             ]
-        return self._interfaces
+        return self._interfaces or []
+
 
     @property
     def parent_device(self) -> Optional[qubes.device_protocol.DeviceInfo]:
@@ -275,7 +276,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             )
         return self._description
 
-    @property
+    @property  # type: ignore[misc]
     def device_id(self) -> str:
         """
         Get identification of the device not related to port.
@@ -299,15 +300,17 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         unknown = "unknown"
         result = {
             "vendor": unknown,
-            "vendor ID": "0000",
-            "product": unknown,
-            "product ID": "0000",
-            "manufacturer": unknown,
-            "name": unknown,
-            "serial": unknown,
+              "vendor ID": "0000",
+              "product": unknown,
+              "product ID": "0000",
+              "manufacturer": unknown,
+              "name": unknown,
+              "serial": unknown
         }
+
         if (
-            not self.backend_domain.is_running()
+            not self.backend_domain
+            or not self.backend_domain.is_running()
             or self.backend_domain.app.vmm.offline_mode
         ):
             # don't cache these values
@@ -320,18 +323,19 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
 
         # Data successfully loaded, cache these values
         hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
+
+
         self._vendor = result["vendor"] = hostdev_xml.findtext(
-            "capability/vendor"
-        )
-        self._vendor_id = result["vendor ID"] = hostdev_xml.xpath(
-            "//vendor/@id"
-        )[0]
+            "capability/vendor") or unknown
         self._product = result["product"] = hostdev_xml.findtext(
-            "capability/product"
-        )
-        self._product_id = result["product ID"] = hostdev_xml.xpath(
-            "//product/@id"
-        )[0]
+            "capability/product") or unknown
+
+        vendor = hostdev_xml.xpath("//vendor/@id") or []
+        if vendor and isinstance(vendor, List):
+            self._vendor_id = result["vendor ID"] = str(vendor[0])
+        product = hostdev_xml.xpath("//product/@id") or []
+        if product and isinstance(product, List):
+            self._product_id = result["product ID"] = str(product[0])
         return result
 
     @property

@@ -20,15 +20,12 @@
 # USA.
 import asyncio
 import sys
+from typing import Type, Dict
 
-import qubes
-
-from typing import Type
-
+import qubes.ext
+from qrexec.server import call_socket_service
 from qubes import device_protocol
 from qubes.device_protocol import VirtualDevice
-
-from qrexec.server import call_socket_service
 
 SOCKET_PATH = "/var/run/qubes"
 
@@ -75,7 +72,7 @@ def device_list_change(
 
     ext.devices_cache[vm.name] = current_devices
 
-    to_attach = {}
+    to_attach: Dict[str, Dict] = {}
     for front_vm in vm.app.domains:
         if not front_vm.is_running():
             continue

@@ -169,7 +169,7 @@ class AdminExtension(qubes.ext.Extension):
     @qubes.ext.handler(*(f'admin-permission:admin.vm.device.{ep.name}.Attach'
         for ep in importlib.metadata.entry_points(group='qubes.devices')))
     def on_device_attach(
-        self, vm, event, dest, arg, device, mode, options, **kwargs
+        self, vm, event, dest, arg, device, mode, **kwargs
     ):
         # pylint: disable=unused-argument,too-many-positional-arguments
         # ignore auto-attachment
@@ -210,9 +210,8 @@ class AdminExtension(qubes.ext.Extension):
 
                     if line:
                         name, *values = line.split()
-
                         values = ' '.join(values).replace(',', ' ').split()
-                        values = {v for v in values if len(v) > 0}
+                        values = [v for v in values if len(v) > 0]
 
                         deny[name] = deny.get(name, set()).union(set(values))
         except IOError:

@@ -21,7 +21,6 @@
 
 """ Qubes block devices extensions """
 import asyncio
-import collections
 import re
 import string
 import sys
@@ -34,6 +33,7 @@ import qubes.devices
 import qubes.ext
 from qubes.ext import utils
 from qubes.storage import Storage
+from qubes.vm.qubesvm import QubesVM
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
 device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
@@ -109,7 +109,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
 
     @property
     def manufacturer(self) -> str:
-        if self.parent_device:
+        if self.parent_device is not None:
             return f"sub-device of {self.parent_device.port}"
         return f"hosted by {self.backend_domain!s}"
 
@@ -176,7 +176,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         partition of an usb stick), the parent device id should be here.
         """
         if self._parent is None:
-            if not self.backend_domain.is_running():
+            if not self.backend_domain or not self.backend_domain.is_running():
                 return None
             untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
                 f"/qubes-block-devices/{self.port_id}/parent"
@@ -204,11 +204,11 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         return self._parent
 
     @property
-    def attachment(self) -> Optional["qubes.vm.BaseVM"]:
+    def attachment(self) -> Optional[QubesVM]:
         """
         Warning: this property is time-consuming, do not run in loop!
         """
-        if not self.backend_domain.is_running():
+        if not self.backend_domain or not self.backend_domain.is_running():
             return None
         for vm in self.backend_domain.app.domains:
             if not vm.is_running():
@@ -234,14 +234,14 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
                 return True
         return False
 
-    @property
+    @property  # type: ignore[misc]
     def device_id(self) -> str:
         """
         Get identification of a device not related to port.
         """
         parent_identity = ""
         p = self.parent_device
-        if p is not None:
+        if p is not None and p.backend_domain:
             p_info = p.backend_domain.devices[p.devclass][p.port_id]
             parent_identity = p_info.device_id
             if p.devclass == "usb":
@@ -304,9 +304,6 @@ def _try_get_block_device_info(app, disk):
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
-    def __init__(self):
-        super().__init__()
-        self.devices_cache = collections.defaultdict(dict)
 
     @qubes.ext.handler("domain-init", "domain-load")
     def on_domain_init_load(self, vm, event):

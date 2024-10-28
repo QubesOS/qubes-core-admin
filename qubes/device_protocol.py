@@ -35,12 +35,15 @@ import string
 import sys
 from enum import Enum
 from typing import Optional, Dict, Any, List, Union, Tuple, Callable
+from typing import TYPE_CHECKING
 
 import qubes.utils
-
 from qubes.exc import ProtocolError
 
-QubesVM = "qubes.vm.BaseVM"
+if TYPE_CHECKING:
+    from qubes.vm.qubesvm import QubesVM
+else:
+    QubesVM = "qubes.vm.qubesvm.QubesVM"
 
 
 class UnexpectedDeviceProperty(qubes.exc.QubesException, ValueError):
@@ -82,8 +85,8 @@ class DeviceSerializer:
             "ascii", errors="strict"
         ).strip()
 
-        properties = {}
-        options = {}
+        properties: Dict[str, str] = {}
+        options: Dict[str, str] = {}
 
         if not ut_decoded:
             return properties, options
@@ -221,7 +224,7 @@ class DeviceSerializer:
     def sanitize_str(
         untrusted_value: str,
         allowed_chars: set,
-        replace_char: str = None,
+        replace_char: Optional[str] = None,
         error_message: str = "",
     ) -> str:
         """
@@ -256,7 +259,10 @@ class Port:
     """
 
     def __init__(
-        self, backend_domain: Optional[QubesVM], port_id: str, devclass: str
+        self,
+        backend_domain: Optional[QubesVM],
+        port_id: str,
+        devclass: Optional[str],
     ):
         self.__backend_domain = backend_domain
         self.__port_id = port_id
@@ -370,6 +376,7 @@ class Port:
 
 class AnyPort(Port):
     """Represents any port in virtual devices ("*")"""
+
     def __init__(self, devclass: str):
         super().__init__(None, "*", devclass)
 
@@ -395,14 +402,14 @@ class VirtualDevice:
         device_id: Optional[str] = None,
     ):
         assert not isinstance(port, AnyPort) or device_id is not None
-        self.port: Optional[Port] = port
+        self.port: Optional[Port] = port  # type: ignore
         self._device_id = device_id
 
     def clone(self, **kwargs) -> "VirtualDevice":
         """
         Clone object and substitute attributes with explicitly given.
         """
-        attr = {
+        attr: Dict[str, Any] = {
             "port": self.port,
             "device_id": self.device_id,
         }
@@ -429,7 +436,7 @@ class VirtualDevice:
     @property
     def device_id(self) -> str:
         # pylint: disable=missing-function-docstring
-        if self.is_device_id_set:
+        if self._device_id is not None and self.is_device_id_set:
             return self._device_id
         return "*"
 
@@ -467,7 +474,7 @@ class VirtualDevice:
         """
         Return human-readable description of the device identity.
         """
-        if self.device_id == "*":
+        if not self.device_id or self.device_id == "*":
             return "any device"
         return self.device_id
 
@@ -581,12 +588,11 @@ class VirtualDevice:
                 backend = get_domain(backend_name)
         else:
             identity = representation
+
         port_id, _, devid = identity.partition(":")
-        if devid == "":
-            devid = None
         return cls(
             Port(backend_domain=backend, port_id=port_id, devclass=devclass),
-            device_id=devid,
+            device_id=devid or None,
         )
 
     def serialize(self) -> bytes:
@@ -849,7 +855,7 @@ class DeviceInfo(VirtualDevice):
         name: Optional[str] = None,
         serial: Optional[str] = None,
         interfaces: Optional[List[DeviceInterface]] = None,
-        parent: Optional[Port] = None,
+        parent: Optional["DeviceInfo"] = None,
         attachment: Optional[QubesVM] = None,
         device_id: Optional[str] = None,
         **kwargs,
@@ -1002,6 +1008,8 @@ class DeviceInfo(VirtualDevice):
         If the device has subdevices (e.g., partitions of a USB stick),
         the subdevices id should be here.
         """
+        if not self.backend_domain:
+            return []
         return [
             dev
             for devclass in self.backend_domain.devices.keys()
@@ -1103,7 +1111,7 @@ class DeviceInfo(VirtualDevice):
 
         if "attachment" not in properties or not properties["attachment"]:
             properties["attachment"] = None
-        else:
+        elif expected_device.backend_domain:
             app = expected_device.backend_domain.app
             properties["attachment"] = app.domains.get_blind(
                 properties["attachment"]
@@ -1260,7 +1268,7 @@ class DeviceAssignment:
         )
 
     @property
-    def backend_domain(self) -> QubesVM:
+    def backend_domain(self) -> Optional[QubesVM]:
         # pylint: disable=missing-function-docstring
         return self.virtual_device.backend_domain
 
@@ -1287,6 +1295,9 @@ class DeviceAssignment:
     @property
     def devices(self) -> List[DeviceInfo]:
         """Get DeviceInfo objects corresponding to this DeviceAssignment"""
+        result: List[DeviceInfo] = []
+        if not self.backend_domain:
+            return result
         if self.port_id != "*":
             dev = self.backend_domain.devices[self.devclass][self.port_id]
             if (
@@ -1294,7 +1305,6 @@ class DeviceAssignment:
                 or self.device_id in (dev.device_id, "*")
             ):
                 return [dev]
-        result = []
         if self.device_id == "0000:0000::?******":
             return result
         for dev in self.backend_domain.devices[self.devclass]:
@@ -1334,8 +1344,13 @@ class DeviceAssignment:
     def frontend_domain(self, frontend_domain: Optional[Union[str, QubesVM]]):
         """Which domain the device is attached/assigned to."""
         if isinstance(frontend_domain, str):
-            frontend_domain = self.backend_domain.app.domains[frontend_domain]
-        self.__frontend_domain = frontend_domain
+            if not self.backend_domain:
+                raise ProtocolError("Cannot determine backend domain")
+            self.__frontend_domain: Optional[QubesVM] = (
+                self.backend_domain.app.domains[frontend_domain]
+            )
+        else:
+            self.__frontend_domain = frontend_domain
 
     @property
     def attached(self) -> bool:

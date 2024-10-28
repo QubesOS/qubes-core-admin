@@ -24,7 +24,7 @@ Extensions provide additional features (like application menus) found only on
 some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
 '''
-
+import collections
 import importlib.metadata
 import qubes.events
 
@@ -53,6 +53,13 @@ class Extension:
 
         return cls._instance
 
+    def __init__(self):
+        #: This is to be implemented in extension handling devices
+        self.devices_cache = collections.defaultdict(dict)
+
+    #: This is to be implemented in extension handling devices
+    def ensure_detach(self, vm, port):
+        pass
 
 def get_extensions():
     return set(ext.load()()
