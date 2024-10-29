@@ -1178,9 +1178,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qmemman_client = None
             try:
                 for devclass in self.devices:
-                    for ass in self.devices[devclass].get_assigned_devices():
-                        if not ass.required:
-                            continue
+                    for ass in self.devices[devclass].get_assigned_devices(
+                            required_only=True):
                         for device in ass.devices:
                             if not isinstance(
                                 device, qubes.device_protocol.UnknownDevice

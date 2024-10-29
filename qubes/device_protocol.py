@@ -1289,7 +1289,7 @@ class DeviceAssignment:
             dev = self.backend_domain.devices[self.devclass][self.port_id]
             if (
                 isinstance(dev, UnknownDevice)
-                or dev.device_id == self.device_id
+                or self.device_id in (dev.device_id, "*")
             ):
                 return [dev]
         result = []
