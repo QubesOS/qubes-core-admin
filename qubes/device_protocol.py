@@ -635,7 +635,7 @@ class DeviceCategory(Enum):
     )
     Wireless = ("ue0****", "p0d****")
     Bluetooth = ("ue00101", "p0d11**")
-    Mass_Data = ("b******", "u08****", "p01****")
+    Storage = ("b******", "u08****", "p01****")
     Network = ("p02****",)
     Memory = ("p05****",)
     PCI_Bridge = ("p06****",)
@@ -750,6 +750,7 @@ class DeviceInterface:
                 "no subclass",
                 "unused",
                 "undefined",
+                "vendor specific subclass",
             ):
                 # if not, try interface
                 result = self._load_classes(self.devclass).get(
@@ -757,7 +758,6 @@ class DeviceInterface:
                 )
             if result is None or result.lower() in (
                 "none",
-                "no subclass",
                 "unused",
                 "undefined",
             ):
@@ -765,8 +765,13 @@ class DeviceInterface:
                 result = self._load_classes(self.devclass).get(
                     self._interface_encoding[1:-4] + "****", None
                 )
-            if result is None:
-                result = f"Unclassified {self.devclass} device"
+            if result is None or result.lower() in (
+                "none",
+                "unused",
+                "undefined",
+                "vendor specific class",
+            ):
+                result = f"{self.devclass.upper()} device"
             return result
         if self.devclass == "mic":
             return "Microphone"
@@ -954,9 +959,17 @@ class DeviceInfo(VirtualDevice):
         else:
             vendor = "unknown vendor"
 
-        cat = self.interfaces[0].category.name
-        if cat == "Other":
-            cat = str(self.interfaces[0])
+        for interface in self.interfaces:
+            if interface.category.name != "Other":
+                cat = interface.category.name
+                break
+        else:
+            for interface in self.interfaces:
+                if str(interface) != f"{self.devclass.upper()} device":
+                    cat = str(interface)
+                    break
+            else:
+                cat = f"{self.devclass.upper()} device"
         return f"{cat}: {vendor} {prod}"
 
     @property
