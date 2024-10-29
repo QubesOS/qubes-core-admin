@@ -1,5 +1,7 @@
 [Unit]
 Description=Qubes OS daemon
+After=qubes-db-dom0.service libvirtd.service virtxend.service virtnodedevd.service qubes-qmemman.service
+After=remote-fs.target
 Before=systemd-user-sessions.service
 
 [Service]
