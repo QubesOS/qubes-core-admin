@@ -92,6 +92,9 @@ class TestQubesDB(object):
     def write(self, path, value):
         self.data[path] = value
 
+    def read(self, path):
+        return self.data[path]
+
     def rm(self, path):
         if path.endswith('/'):
             for key in [x for x in self.data if x.startswith(path)]:
@@ -1303,6 +1306,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
+        hostdev_details = unittest.mock.Mock(**{
+                'XMLDesc.return_value': """
+<device>
+  <name>pci_0000_00_00_0</name>
+  <path>/sys/devices/pci0000:00/0000:00:00.0</path>
+  <parent>computer</parent>
+  <capability type='pci'>
+    <class>0x060000</class>
+    <domain>0</domain>
+    <bus>0</bus>
+    <slot>0</slot>
+    <function>0</function>
+    <product id='0x0000'>Unknown</product>
+    <vendor id='0x8086'>Intel Corporation</vendor>
+  </capability>
+</device>""",
+            })
+        self.app.vmm.libvirt_mock = unittest.mock.Mock(**{
+            'nodeDeviceLookupByName.return_value': hostdev_details
+        })
         dom0 = self.get_vm(name='dom0', qid=0)
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
@@ -1321,8 +1344,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             ),
             mode='required',
         )
-        vm.devices['pci']._set.add(
-            assignment)
+        vm.devices['pci']._set.add(assignment)
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
@@ -1391,6 +1413,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
+        hostdev_details = unittest.mock.Mock(**{
+            'XMLDesc.return_value': """
+        <device>
+          <name>pci_0000_00_00_0</name>
+          <path>/sys/devices/pci0000:00/0000:00:00.0</path>
+          <parent>computer</parent>
+          <capability type='pci'>
+            <class>0x060000</class>
+            <domain>0</domain>
+            <bus>0</bus>
+            <slot>0</slot>
+            <function>0</function>
+            <product id='0x0000'>Unknown</product>
+            <vendor id='0x8086'>Intel Corporation</vendor>
+          </capability>
+        </device>""",
+        })
+        self.app.vmm.libvirt_mock = unittest.mock.Mock(**{
+            'nodeDeviceLookupByName.return_value': hostdev_details
+        })
         dom0 = self.get_vm(name='dom0', qid=0)
         dom0.features['suspend-s0ix'] = True
         vm = self.get_vm(uuid=my_uuid)
@@ -1478,6 +1520,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/desc': b'Test device',
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda/parent': b'',
         }
         test_qdb = TestQubesDB(qdb)
         dom0 = qubes.vm.adminvm.AdminVM(self.app, None)
@@ -1573,6 +1616,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/desc': b'Test device',
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda/parent': b'',
         }
         test_qdb = TestQubesDB(qdb)
         dom0 = qubes.vm.adminvm.AdminVM(self.app, None)

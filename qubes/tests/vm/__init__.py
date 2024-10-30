@@ -29,6 +29,7 @@ class TestVMM(object):
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
         self.xs = unittest.mock.Mock()
+        self.libvirt_mock = unittest.mock.Mock()
 
     @property
     def libvirt_conn(self):
@@ -36,10 +37,9 @@ class TestVMM(object):
             import libvirt
             raise libvirt.libvirtError('phony error')
         else:
-            libvirt_mock = unittest.mock.Mock()
-            vm_mock = libvirt_mock.lookupByUUID.return_value
+            vm_mock = self.libvirt_mock.lookupByUUID.return_value
             vm_mock.isActive.return_value = False
-            return libvirt_mock
+            return self.libvirt_mock
 
 class TestHost(object):
     # pylint: disable=too-few-public-methods

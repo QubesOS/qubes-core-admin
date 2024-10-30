@@ -171,7 +171,7 @@ class AdminExtension(qubes.ext.Extension):
     def on_device_attach(
         self, vm, event, dest, arg, device, mode, options, **kwargs
     ):
-        # pylint: disable=unused-argument
+        # pylint: disable=unused-argument,too-many-positional-arguments
         # ignore auto-attachment
         if mode != 'manual':
             return
