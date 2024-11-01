@@ -42,7 +42,11 @@
                      and SeaBIOS based on the loader type. This has nothing to
                      do with the hvmloader binary.
                 -->
-                <loader type="{{ "pflash" if vm.features.check_with_template('uefi', False) else "rom" }}">hvmloader</loader>
+                {% if vm.features.check_with_template('uefi', False) -%}
+                <loader type="pflash">/usr/share/edk2/xen/OVMF.fd</loader>
+                {% else -%}
+                <loader type="rom">hvmloader</loader>
+                {% endif -%}
                 <boot dev="cdrom" />
                 <boot dev="hd" />
             {% else %}
