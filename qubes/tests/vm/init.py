@@ -28,6 +28,8 @@ import qubes.events
 import qubes.vm
 
 import qubes.tests
+from qubes.device_protocol import Port
+
 
 class TestVMM(object):
     def __init__(self):
@@ -118,7 +120,9 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         self.assertTrue(
             list(vm.devices['pci'].get_assigned_devices())[0].matches(
-                qubes.ext.pci.PCIDevice(vm, '00_11.22', )))
+                qubes.ext.pci.PCIDevice(Port(vm, '00_11.22', "pci"))
+            )
+        )
 
         assignments = list(vm.devices['pci'].get_assigned_devices())
         self.assertEqual(len(assignments), 1)

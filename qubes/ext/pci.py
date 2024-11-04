@@ -34,6 +34,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
+from qubes.device_protocol import Port
 
 #: cache of PCI device classes
 pci_classes = None
@@ -161,7 +162,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         r"(?P<function>[0-9a-f]+)\Z"
     )
 
-    def __init__(self, backend_domain, port_id, libvirt_name=None):
+    def __init__(self, port: Port, libvirt_name=None):
         if libvirt_name:
             dev_match = self._libvirt_regex.match(libvirt_name)
             if not dev_match:
@@ -169,23 +170,27 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             port_id = "{bus}_{device}.{function}".format(
                 **dev_match.groupdict()
             )
+            port = Port(
+                backend_domain=port.backend_domain,
+                port_id=port_id,
+                devclass="pci",
+            )
 
-        port = qubes.device_protocol.Port(
-            backend_domain=backend_domain, port_id=port_id, devclass="pci"
-        )
         super().__init__(port)
 
-        dev_match = self.regex.match(port_id)
+        dev_match = self.regex.match(port.port_id)
         if not dev_match:
-            raise ValueError("Invalid device identifier: {!r}".format(port_id))
+            raise ValueError(
+                "Invalid device identifier: {!r}".format(port.port_id)
+            )
 
         for group in self.regex.groupindex:
             setattr(self, group, dev_match.group(group))
 
         # lazy loading
-        self._description = None
-        self._vendor_id = None
-        self._product_id = None
+        self._description: Optional[str] = None
+        self._vendor_id: Optional[str] = None
+        self._product_id: Optional[str] = None
 
     @property
     def vendor(self) -> str:
@@ -247,7 +252,6 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             ]
         return self._interfaces or []
 
-
     @property
     def parent_device(self) -> Optional[qubes.device_protocol.DeviceInfo]:
         """
@@ -300,12 +304,12 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         unknown = "unknown"
         result = {
             "vendor": unknown,
-              "vendor ID": "0000",
-              "product": unknown,
-              "product ID": "0000",
-              "manufacturer": unknown,
-              "name": unknown,
-              "serial": unknown
+            "vendor ID": "0000",
+            "product": unknown,
+            "product ID": "0000",
+            "manufacturer": unknown,
+            "name": unknown,
+            "serial": unknown,
         }
 
         if (
@@ -324,11 +328,12 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         # Data successfully loaded, cache these values
         hostdev_xml = lxml.etree.fromstring(hostdev_details.XMLDesc())
 
-
-        self._vendor = result["vendor"] = hostdev_xml.findtext(
-            "capability/vendor") or unknown
-        self._product = result["product"] = hostdev_xml.findtext(
-            "capability/product") or unknown
+        self._vendor = result["vendor"] = (
+            hostdev_xml.findtext("capability/vendor") or unknown
+        )
+        self._product = result["product"] = (
+            hostdev_xml.findtext("capability/product") or unknown
+        )
 
         vendor = hostdev_xml.xpath("//vendor/@id") or []
         if vendor and isinstance(vendor, List):
@@ -365,7 +370,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
             xml_desc = lxml.etree.fromstring(dev.XMLDesc())
             libvirt_name = xml_desc.findtext("name")
             try:
-                yield PCIDevice(vm, None, libvirt_name=libvirt_name)
+                yield PCIDevice(
+                    Port(backend_domain=vm, port_id=None, devclass="pci"),
+                    libvirt_name=libvirt_name,
+                )
             except UnsupportedDevice:
                 if libvirt_name not in unsupported_devices_warned:
                     vm.log.warning("Unsupported device: %s", libvirt_name)
@@ -397,7 +405,13 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield (PCIDevice(vm.app.domains[0], port_id), {})
+            yield PCIDevice(
+                Port(
+                    backend_domain=vm.app.domains[0],
+                    port_id=port_id,
+                    devclass="pci",
+                )
+            ), {}
 
     @qubes.ext.handler("device-pre-attach:pci")
     def on_device_pre_attached_pci(self, vm, event, device, options):
@@ -538,4 +552,4 @@ class PCIDeviceExtension(qubes.ext.Extension):
 @functools.lru_cache(maxsize=None)
 def _cache_get(vm, port_id):
     """Caching wrapper around `PCIDevice(vm, port_id)`."""
-    return PCIDevice(vm, port_id)
+    return PCIDevice(Port(vm, port_id, "pci"))

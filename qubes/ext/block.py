@@ -34,6 +34,7 @@ import qubes.ext
 from qubes.ext import utils
 from qubes.storage import Storage
 from qubes.vm.qubesvm import QubesVM
+from qubes.devices import Port
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
 device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
@@ -47,16 +48,20 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 
 
 class BlockDevice(qubes.device_protocol.DeviceInfo):
-    def __init__(self, backend_domain, port_id):
-        port = qubes.device_protocol.Port(
-            backend_domain=backend_domain, port_id=port_id, devclass="block"
-        )
+
+    def __init__(self, port: qubes.device_protocol.Port):
+        if port.devclass != "block":
+            raise qubes.exc.QubesValueError(
+                f"Incompatible device class for input port: {port.devclass}"
+            )
+
+        # init parent class
         super().__init__(port)
 
         # lazy loading
-        self._mode = None
-        self._size = None
-        self._interface_num = None
+        self._mode: Optional[str] = None
+        self._size: Optional[int] = None
+        self._interface_num: Optional[str] = None
 
     @property
     def name(self):
@@ -192,8 +197,9 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not parent_ident:
                 return None
             try:
-                self._parent = self.backend_domain.devices[
-                    devclass][parent_ident]
+                self._parent = self.backend_domain.devices[devclass][
+                    parent_ident
+                ]
             except KeyError:
                 self._parent = qubes.device_protocol.UnknownDevice(
                     qubes.device_protocol.Port(
@@ -250,7 +256,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             # device interface number (not partition)
             self_id = self._interface_num
         else:
-            self_id = self._get_possible_partition_number()
+            self_id = str(self._get_possible_partition_number())
         return f"{parent_identity}:{self_id}"
 
     def _get_possible_partition_number(self) -> Optional[int]:
@@ -372,7 +378,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         )
         if not untrusted_qubes_device_attrs:
             return None
-        return BlockDevice(vm, port_id)
+        return BlockDevice(
+            Port(backend_domain=vm, port_id=port_id, devclass="block")
+        )
 
     @qubes.ext.handler("device-list:block")
     def on_device_list_block(self, vm, event):
@@ -462,7 +470,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             port_id = port_id.replace("/", "_")
 
-            yield (BlockDevice(backend_domain, port_id), options)
+            yield BlockDevice(Port(backend_domain, port_id, "block")), options
 
     @staticmethod
     def find_unused_frontend(vm, devtype="disk"):
@@ -638,13 +646,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 for dev_id, front_vm in self.devices_cache[domain.name].items():
                     if front_vm is None:
                         continue
-                    dev = BlockDevice(vm, dev_id)
+                    dev = BlockDevice(Port(vm, dev_id, "block"))
                     vm.fire_event("device-removed:block", port=dev.port)
                     await self.detach_and_notify(front_vm, dev.port)
                 continue
             for dev_id, front_vm in self.devices_cache[domain.name].items():
                 if front_vm == vm:
-                    dev = BlockDevice(vm, dev_id)
+                    dev = BlockDevice(Port(vm, dev_id, "block"))
                     asyncio.ensure_future(
                         front_vm.fire_event_async(
                             "device-detach:block", port=dev.port

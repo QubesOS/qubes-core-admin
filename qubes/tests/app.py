@@ -70,6 +70,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.app = TestApp()
         self.app.vmm = mock.Mock()
         self.qubes_host = qubes.app.QubesHost(self.app)
+        self.maxDiff = None
 
     def test_000_get_vm_stats_single(self):
         self.app.vmm.configure_mock(**{

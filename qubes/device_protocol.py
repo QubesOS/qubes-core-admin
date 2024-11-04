@@ -261,7 +261,7 @@ class Port:
     def __init__(
         self,
         backend_domain: Optional[QubesVM],
-        port_id: str,
+        port_id: Optional[str],
         devclass: Optional[str],
     ):
         self.__backend_domain = backend_domain
@@ -1302,7 +1302,7 @@ class DeviceAssignment:
             dev = self.backend_domain.devices[self.devclass][self.port_id]
             if (
                 isinstance(dev, UnknownDevice)
-                or self.device_id in (dev.device_id, "*")
+                or (dev and self.device_id in (dev.device_id, "*"))
             ):
                 return [dev]
         if self.device_id == "0000:0000::?******":

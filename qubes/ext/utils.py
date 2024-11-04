@@ -25,7 +25,7 @@ from typing import Type, Dict
 import qubes.ext
 from qrexec.server import call_socket_service
 from qubes import device_protocol
-from qubes.device_protocol import VirtualDevice
+from qubes.device_protocol import VirtualDevice, Port
 
 SOCKET_PATH = "/var/run/qubes"
 
@@ -48,25 +48,33 @@ def device_list_change(
 
     # send events about devices detached/attached outside by themselves
     for port_id, front_vm in detached.items():
-        dev = device_class(vm, port_id)
-        ext.ensure_detach(front_vm, dev.port)
+        device = device_class(
+            Port(backend_domain=vm, port_id=port_id, devclass=devclass)
+        )
+        ext.ensure_detach(front_vm, device.port)
         asyncio.ensure_future(
             front_vm.fire_event_async(
-                f"device-detach:{devclass}", port=dev.port
+                f"device-detach:{devclass}", port=device.port
             )
         )
     for port_id in removed:
-        device = device_class(vm, port_id)
+        device = device_class(
+            Port(backend_domain=vm, port_id=port_id, devclass=devclass)
+        )
         vm.fire_event(f"device-removed:{devclass}", port=device.port)
     for port_id in added:
-        device = device_class(vm, port_id)
+        device = device_class(
+            Port(backend_domain=vm, port_id=port_id, devclass=devclass)
+        )
         vm.fire_event(f"device-added:{devclass}", device=device)
     for port_id, front_vm in attached.items():
-        dev = device_class(vm, port_id)
+        device = device_class(
+            Port(backend_domain=vm, port_id=port_id, devclass=devclass)
+        )
         # options are unknown, device already attached
         asyncio.ensure_future(
             front_vm.fire_event_async(
-                f"device-attach:{devclass}", device=dev, options={}
+                f"device-attach:{devclass}", device=device, options={}
             )
         )
 
