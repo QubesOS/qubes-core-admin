@@ -221,14 +221,17 @@ def _parse_lvm_cache(lvm_output):
             size, usage_percent = row['lv_size'], row['data_percent']
         except KeyError:
             continue
-        if '' in [pool_name, name, size, usage_percent]:
+        if '' in [pool_name, name, size]:
             continue
         pool_lv, attr, origin = row['pool_lv'], row['lv_attr'], row['origin']
         metadata_size = row['lv_metadata_size']
         metadata_percent = row['metadata_percent']
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
-        usage = int(size / 100 * float(usage_percent))
+        if usage_percent:
+            usage = int(size / 100 * float(usage_percent))
+        else:
+            usage = 0
         if metadata_size:
             metadata_size = int(metadata_size[:-1])
             metadata_usage = int(metadata_size / 100 * float(metadata_percent))
@@ -384,6 +387,18 @@ class ThinVolume(qubes.storage.Volume):
             except qubes.storage.StoragePoolException:
                 pass
 
+    async def _activate(self):
+        """
+        Ensure the volume is active.
+
+        :return: None
+        """
+        vol_info = size_cache[self._vid_current]
+        if vol_info['attr'][4] == 'a':
+            return
+        cmd = ["activate", self._vid_current]
+        await qubes_lvm_coro(cmd, self.log)
+
     async def _commit(self, vid_to_commit=None, keep=False):
         '''
         Commit temporary volume into current one. By default
@@ -407,7 +422,7 @@ class ThinVolume(qubes.storage.Volume):
             vid_to_commit = self._vid_snap
 
         assert self._lock.locked()
-        if not os.path.exists('/dev/' + vid_to_commit):
+        if vid_to_commit not in size_cache:
             # nothing to commit
             return False
 
@@ -453,7 +468,7 @@ class ThinVolume(qubes.storage.Volume):
     async def remove(self):
         assert self.vid
         try:
-            if os.path.exists('/dev/' + self._vid_snap):
+            if self._vid_snap in size_cache:
                 cmd = ['remove', self._vid_snap]
                 await qubes_lvm_coro(cmd, self.log)
         except AttributeError:
@@ -499,12 +514,14 @@ class ThinVolume(qubes.storage.Volume):
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
             # pylint: disable=protected-access
             await self._commit(src_volume._vid_current, keep=True)
+            await reset_cache_coro()
         else:
             cmd = ['create',
                    self.pool._pool_id,  # pylint: disable=protected-access
                    self._vid_import.split('/')[1],
                    str(src_volume.size)]
             await qubes_lvm_coro(cmd, self.log)
+            await reset_cache_coro()
             src_path = await qubes.utils.coro_maybe(src_volume.export())
             try:
                 cmd = [_dd, 'if=' + src_path, 'of=/dev/' + self._vid_import,
@@ -525,6 +542,7 @@ class ThinVolume(qubes.storage.Volume):
                     'Failed to import volume {!r}, dd exit code: {}'.format(
                         src_volume, p.returncode))
             await self._commit(self._vid_import)
+            await reset_cache_coro()
 
         return self
 
@@ -552,14 +570,15 @@ class ThinVolume(qubes.storage.Volume):
                 'No import operation in progress on {}'.format(self.vid))
         if success:
             await self._commit(self._vid_import)
+            await reset_cache_coro()
         else:
             cmd = ['remove', self._vid_import]
             await qubes_lvm_coro(cmd, self.log)
+            await reset_cache_coro()
 
     def abort_if_import_in_progress(self):
         try:
-            devpath = '/dev/' + self._vid_import
-            if os.path.exists(devpath):
+            if self._vid_import in size_cache:
                 raise qubes.storage.StoragePoolException(
                     'Import operation in progress on {}'.format(self.vid))
         except AttributeError:  # self._vid_import
@@ -568,7 +587,7 @@ class ThinVolume(qubes.storage.Volume):
 
     def is_dirty(self):
         if self.save_on_stop:
-            return os.path.exists('/dev/' + self._vid_snap)
+            return self._vid_snap in size_cache
         return False
 
     def is_outdated(self):
@@ -673,6 +692,8 @@ class ThinVolume(qubes.storage.Volume):
             if self.snap_on_start or self.save_on_stop:
                 if not self.save_on_stop or not self.is_dirty():
                     await self._snapshot()
+                else:
+                    await self._activate()
             else:
                 await self._reset()
         finally:
@@ -706,10 +727,7 @@ class ThinVolume(qubes.storage.Volume):
         else:
             vid = self._vid_current
         try:
-            vol_info = size_cache[vid]
-            if vol_info['attr'][4] != 'a':
-                raise qubes.storage.StoragePoolException(
-                    'volume {} not active'.format(vid))
+            size_cache[vid]
         except KeyError:
             raise qubes.storage.StoragePoolException(
                 'volume {} missing'.format(vid))
