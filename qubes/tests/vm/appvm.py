@@ -147,6 +147,10 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         vm = self.get_vm()
         with self.assertRaises(qubes.exc.QubesValueError):
             vm.template = qubes.property.DEFAULT
+        self.app.default_template = self.template
+        with self.assertRaises(qubes.exc.QubesValueError):
+            vm.template = qubes.property.DEFAULT
+        del self.app.default_template
 
     def test_500_property_migrate_template_for_dispvms(self):
         xml_template = '''

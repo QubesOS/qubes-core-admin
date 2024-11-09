@@ -120,6 +120,11 @@ class AppVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
         '''Forbid deleting template of running VM
         '''  # pylint: disable=unused-argument
+        default_template = getattr(self.app, 'default_template', None)
+        if default_template is not None:
+            raise qubes.exc.QubesValueError('Cannot unset template. ' \
+                'You can set it to the current default ' \
+                f'({default_template.name}) instead')
         raise qubes.exc.QubesValueError('Cannot unset template')
 
     @qubes.events.handler('property-pre-set:template')
