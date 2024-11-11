@@ -354,7 +354,7 @@ class QubesHost:
         """Measure cpu usage for all domains at once.
 
         If previous measurements are given, CPU usage will be given in
-        percents of time. Otherwise only absolute value (seconds).
+        percents of time. Otherwise, only absolute value (seconds).
 
         Return a tuple of (measurements_time, measurements),
         where measurements is a dictionary with key: domid, value: dict:
@@ -404,19 +404,21 @@ class QubesHost:
             domid = vm['domid']
             current[domid] = {}
             current[domid]['memory_kb'] = vm['mem_kb']
-            current[domid]['cpu_time'] = int(vm['cpu_time'])
+            current[domid]['cpu_time'] = round(vm['cpu_time'])
             vcpus = max(vm['online_vcpus'], 1)
             if domid in previous:
-                current[domid]['cpu_usage_raw'] = int(
+                current[domid]['cpu_usage_raw'] = round(
                     (current[domid]['cpu_time'] - previous[domid]['cpu_time'])
-                    / 1000 ** 3 * 100 / (current_time - previous_time))
+                    / 1000 ** 3 * 100 / (current_time - previous_time)
+                )
                 if current[domid]['cpu_usage_raw'] < 0:
                     # VM has been rebooted
                     current[domid]['cpu_usage_raw'] = 0
             else:
                 current[domid]['cpu_usage_raw'] = 0
-            current[domid]['cpu_usage'] = \
-                int(current[domid]['cpu_usage_raw'] / vcpus)
+            current[domid]['cpu_usage'] = round(
+                current[domid]['cpu_usage_raw'] / vcpus
+            )
 
         return current_time, current
 

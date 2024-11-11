@@ -119,20 +119,20 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         expected_info = {
             0: {
                 'cpu_time': 243951379111104,
-                'cpu_usage': 9,
-                'cpu_usage_raw': 79,
+                'cpu_usage': 10,
+                'cpu_usage_raw': 80,
                 'memory_kb': 3733212,
             },
             1: {
                 'cpu_time': 2849496569205,
-                'cpu_usage': 99,
-                'cpu_usage_raw': 99,
+                'cpu_usage': 100,
+                'cpu_usage_raw': 100,
                 'memory_kb': 303916,
             },
             11: {
                 'cpu_time': 249658663079978,
                 'cpu_usage': 12,
-                'cpu_usage_raw': 99,
+                'cpu_usage_raw': 100,
                 'memory_kb': 3782668,
             },
         }
