@@ -28,8 +28,7 @@ import os
 import os.path
 import string
 import subprocess
-import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncio
 from typing import Dict, Tuple, Union
@@ -1013,7 +1012,9 @@ def driver_parameters(name):
 
 def isodate(seconds):
     ''' Helper method which returns an iso date '''
-    return datetime.utcfromtimestamp(seconds).isoformat("T")
+    return datetime.fromtimestamp(
+        seconds, tz=timezone.utc
+    ).isoformat().replace("+00:00", "")
 
 def search_pool_containing_dir(pools, dir_path):
     ''' Helper function looking for a pool containing given directory.
