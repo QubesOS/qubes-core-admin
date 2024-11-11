@@ -191,7 +191,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         })
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
-    def test_010_iommu_supported(self):
+    def test_012_iommu_supported(self):
         self.app.vmm.configure_mock(**{
             'xc.physinfo.return_value': {
                 'hw_caps': '...',
