@@ -37,7 +37,7 @@ checks:tests:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   stage: checks
   tags:
-  - vm-kvm
+  - vm
 
 mypy:
   stage: checks
