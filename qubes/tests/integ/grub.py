@@ -157,7 +157,7 @@ class GrubBase(object):
                      'grub-xen package not installed')
 class TC_40_PVGrub(GrubBase):
     virt_mode = 'pv'
-    kernel = 'pvgrub2'
+    kernel = None
 
     def setUp(self):
         if 'fedora' in self.template:
@@ -176,7 +176,7 @@ class TC_41_HVMGrub(GrubBase):
                      'grub2-xen-pvh package not installed')
 class TC_42_PVHGrub(GrubBase):
     virt_mode = 'pvh'
-    kernel = 'pvgrub2-pvh'
+    kernel = None
 
 def create_testcases_for_templates():
     yield from qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
