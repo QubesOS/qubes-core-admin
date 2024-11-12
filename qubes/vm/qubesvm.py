@@ -1171,9 +1171,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                 '{} device {} not available'.format(
                                     devclass, dev))
 
-                if self.virt_mode == 'pvh' and not self.kernel:
-                    raise qubes.exc.QubesException(
-                        'virt_mode PVH require kernel to be set')
                 await self.storage.verify()
 
                 if self.netvm is not None:
