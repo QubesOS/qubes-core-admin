@@ -100,8 +100,10 @@ Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
 
-# qubesd socket protocol
-Conflicts:      python3-qubesadmin < 4.1.6
+# devices API change
+Conflicts:      python3-qubesadmin < 4.3.7
+Conflicts:      qubes-usb-proxy-dom0 < 4.3.0
+Conflicts:      qubes-audio-dom0 < 4.3.5
 
 # Required for qvm-console* tools
 Requires:       socat
