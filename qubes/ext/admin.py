@@ -16,6 +16,8 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+import importlib
+import os
 
 import qubes.api
 import qubes.api.internal
@@ -23,6 +25,9 @@ import qubes.exc
 import qubes.ext
 import qubes.vm.adminvm
 from qrexec.policy import utils, parser
+
+from qubes.device_protocol import DeviceInterface
+from qubes.devices import DEVICE_DENY_LIST
 
 
 class JustEvaluateAskResolution(parser.AskResolution):
@@ -160,3 +165,54 @@ class AdminExtension(qubes.ext.Extension):
         tag_with = created_by.features.get('tag-created-vm-with', '')
         for tag_with_single in tag_with.split():
             vm.tags.add(tag_with_single)
+
+    @qubes.ext.handler(*(f'admin-permission:admin.vm.device.{ep.name}.Attach'
+        for ep in importlib.metadata.entry_points(group='qubes.devices')))
+    def on_device_attach(
+        self, vm, event, dest, arg, device, mode, **kwargs
+    ):
+        # pylint: disable=unused-argument,too-many-positional-arguments
+        # ignore auto-attachment
+        if mode != 'manual':
+            return
+
+        # load device deny list
+        deny = {}
+        AdminExtension._load_deny_list(deny, DEVICE_DENY_LIST)
+
+        # load drop ins
+        drop_in_path = DEVICE_DENY_LIST + '.d'
+        if os.path.isdir(drop_in_path):
+            for deny_list_name in os.listdir(drop_in_path):
+                deny_list_path = os.path.join(drop_in_path, deny_list_name)
+
+                if os.path.isfile(deny_list_path):
+                    AdminExtension._load_deny_list(deny, deny_list_path)
+
+        # check if any presented interface is on deny list
+        for interface in deny.get(dest.name, set()):
+            pattern = DeviceInterface(interface)
+            for devint in device.interfaces:
+                if pattern.matches(devint):
+                    raise qubes.exc.PermissionDenied(
+                        f"Device exposes a banned interface: {devint}")
+
+    @staticmethod
+    def _load_deny_list(deny: dict, path: str) -> None:
+        try:
+            with open(path, 'r', encoding="utf-8") as file:
+                for line in file:
+                    line = line.strip()
+
+                    # skip comments
+                    if line.startswith('#'):
+                        continue
+
+                    if line:
+                        name, *values = line.split()
+                        values = ' '.join(values).replace(',', ' ').split()
+                        values = [v for v in values if len(v) > 0]
+
+                        deny[name] = deny.get(name, set()).union(set(values))
+        except IOError:
+            pass

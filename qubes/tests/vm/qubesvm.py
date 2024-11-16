@@ -92,6 +92,9 @@ class TestQubesDB(object):
     def write(self, path, value):
         self.data[path] = value
 
+    def read(self, path):
+        return self.data[path]
+
     def rm(self, path):
         if path.endswith('/'):
             for key in [x for x in self.data if x.startswith(path)]:
@@ -1303,6 +1306,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
+        hostdev_details = unittest.mock.Mock(**{
+                'XMLDesc.return_value': """
+<device>
+  <name>pci_0000_00_00_0</name>
+  <path>/sys/devices/pci0000:00/0000:00:00.0</path>
+  <parent>computer</parent>
+  <capability type='pci'>
+    <class>0x060000</class>
+    <domain>0</domain>
+    <bus>0</bus>
+    <slot>0</slot>
+    <function>0</function>
+    <product id='0x0000'>Unknown</product>
+    <vendor id='0x8086'>Intel Corporation</vendor>
+  </capability>
+</device>""",
+            })
+        self.app.vmm.libvirt_mock = unittest.mock.Mock(**{
+            'nodeDeviceLookupByName.return_value': hostdev_details
+        })
         dom0 = self.get_vm(name='dom0', qid=0)
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
@@ -1310,16 +1333,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.kernel = None
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
-        assignment = qubes.devices.DeviceAssignment(
-            vm,  # this is violation of API, but for PCI the argument
-            #  is unused
-            '00_00.0',
-            devclass='pci',
-            attach_automatically=True,
-            required=True,
+        assignment = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    backend_domain=vm,  # this is violation of API,
+                                        # but for PCI the argument is unused
+                    port_id='00_00.0',
+                    devclass="pci",
+                )
+            ),
+            mode='required',
         )
-        vm.devices['pci']._set.add(
-            assignment)
+        vm.devices['pci']._set.add(assignment)
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
@@ -1388,6 +1413,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
+        hostdev_details = unittest.mock.Mock(**{
+            'XMLDesc.return_value': """
+        <device>
+          <name>pci_0000_00_00_0</name>
+          <path>/sys/devices/pci0000:00/0000:00:00.0</path>
+          <parent>computer</parent>
+          <capability type='pci'>
+            <class>0x060000</class>
+            <domain>0</domain>
+            <bus>0</bus>
+            <slot>0</slot>
+            <function>0</function>
+            <product id='0x0000'>Unknown</product>
+            <vendor id='0x8086'>Intel Corporation</vendor>
+          </capability>
+        </device>""",
+        })
+        self.app.vmm.libvirt_mock = unittest.mock.Mock(**{
+            'nodeDeviceLookupByName.return_value': hostdev_details
+        })
         dom0 = self.get_vm(name='dom0', qid=0)
         dom0.features['suspend-s0ix'] = True
         vm = self.get_vm(uuid=my_uuid)
@@ -1397,11 +1442,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # even with meminfo-writer enabled, should have memory==maxmem
         vm.features['service.meminfo-writer'] = True
         assignment = qubes.device_protocol.DeviceAssignment(
-            vm,  # this is a violation of API, but for PCI the argument
-            #  is unused
-            '00_00.0',
-            devclass='pci',
-            attach_automatically=True, required=True)
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    backend_domain=vm,  # this is violation of API,
+                    # but for PCI the argument is unused
+                    port_id='00_00.0',
+                    devclass="pci",
+                ),
+            ),
+            mode='required')
         vm.devices['pci']._set.add(
             assignment)
         libvirt_xml = vm.create_config_file()
@@ -1471,6 +1520,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/desc': b'Test device',
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda/parent': b'',
         }
         test_qdb = TestQubesDB(qdb)
         dom0 = qubes.vm.adminvm.AdminVM(self.app, None)
@@ -1483,9 +1533,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         dom0.events_enabled = True
         self.app.vmm.offline_mode = False
         dev = qubes.device_protocol.DeviceAssignment(
-            dom0, 'sda',
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    backend_domain=dom0,
+                    port_id='sda',
+                    devclass="block",
+                )
+            ),
             options={'devtype': 'cdrom', 'read-only': 'yes'},
-            attach_automatically=True, required=True)
+            mode='required')
         self.loop.run_until_complete(vm.devices['block'].assign(dev))
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1560,6 +1616,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/desc': b'Test device',
             '/qubes-block-devices/sda/size': b'1024000',
             '/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda/parent': b'',
         }
         test_qdb = TestQubesDB(qdb)
         dom0 = qubes.vm.adminvm.AdminVM(self.app, None)
@@ -1588,9 +1645,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             dom0.events_enabled = True
             self.app.vmm.offline_mode = False
             dev = qubes.device_protocol.DeviceAssignment(
-                dom0, 'sda',
+                qubes.device_protocol.VirtualDevice(
+                    qubes.device_protocol.Port(
+                        backend_domain=dom0,
+                        port_id='sda',
+                        devclass="block",
+                    )
+                ),
                 options={'devtype': 'cdrom', 'read-only': 'yes'},
-                 attach_automatically=True, required=True)
+                mode='required')
             self.loop.run_until_complete(vm.devices['block'].assign(dev))
             libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
@@ -1874,23 +1937,37 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 'options': {'frontend-dev': 'xvdl'},
                 'device.device_node': '/dev/sdb',
                 'device.backend_domain.name': 'dom0',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/sdb',
+                    'backend_domain.name': 'dom0',})]
             }),
             unittest.mock.Mock(**{
                 'options': {'devtype': 'cdrom'},
                 'device.device_node': '/dev/sda',
                 'device.backend_domain.name': 'dom0',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/sda',
+                    'backend_domain.name': 'dom0', })]
             }),
             unittest.mock.Mock(**{
                 'options': {'read-only': True},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend0',
                 'device.backend_domain.features.check_with_template.return_value': '4.2',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/loop0',
+                    'backend_domain.name': 'backend0',
+                    'backend_domain.features.check_with_template.return_value': '4.2'})]
             }),
             unittest.mock.Mock(**{
                 'options': {},
                 'device.device_node': '/dev/loop0',
                 'device.backend_domain.name': 'backend1',
                 'device.backend_domain.features.check_with_template.return_value': '4.2',
+                'devices': [unittest.mock.Mock(**{
+                    'device_node': '/dev/loop0',
+                    'backend_domain.name': 'backend1',
+                    'backend_domain.features.check_with_template.return_value': '4.2'})]
             }),
         ]
         vm.devices['block'].get_assigned_devices = \

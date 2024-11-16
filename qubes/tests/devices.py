@@ -1,4 +1,5 @@
 # pylint: disable=protected-access,pointless-statement
+import sys
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
@@ -21,8 +22,9 @@
 #
 
 import qubes.devices
-from qubes.device_protocol import (Device, DeviceInfo, DeviceAssignment,
-                                   DeviceInterface, UnknownDevice)
+from qubes.device_protocol import (Port, DeviceInfo, DeviceAssignment,
+                                   DeviceInterface, UnknownDevice,
+                                   VirtualDevice, AssignmentMode)
 
 import qubes.tests
 
@@ -48,7 +50,8 @@ class TestVM(qubes.tests.TestEmitter):
         super(TestVM, self).__init__(*args, **kwargs)
         self.app = app
         self.name = name
-        self.device = TestDevice(self, 'testdev', devclass='testclass')
+        self.device = TestDevice(
+            Port(self, 'testport', devclass='testclass'), device_id='testdev')
         self.events_enabled = True
         self.devices = {
             'testclass': qubes.devices.DeviceCollection(self, 'testclass')
@@ -68,6 +71,10 @@ class TestVM(qubes.tests.TestEmitter):
 
     @qubes.events.handler('device-list:testclass')
     def dev_testclass_list(self, event):
+        yield self.device
+
+    @qubes.events.handler('device-get:testclass')
+    def dev_testclass_get(self, event, **kwargs):
         yield self.device
 
     def is_halted(self):
@@ -90,12 +97,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.app.domains['vm'] = self.emitter
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
-        self.assignment = DeviceAssignment(
-            backend_domain=self.device.backend_domain,
-            ident=self.device.ident,
-            attach_automatically=True,
-            required=True,
-        )
+        self.assignment = DeviceAssignment(self.device, mode='required')
 
     def attach(self):
         self.emitter.running = True
@@ -124,20 +126,21 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_003_detach(self):
         self.attach()
-        self.loop.run_until_complete(self.collection.detach(self.assignment))
+        self.loop.run_until_complete(self.collection.detach(
+            self.assignment.port))
         self.assertEventFired(self.emitter, 'device-pre-detach:testclass')
         self.assertEventFired(self.emitter, 'device-detach:testclass')
 
     def test_004_detach_from_halted(self):
         with self.assertRaises(LookupError):
             self.loop.run_until_complete(
-                self.collection.detach(self.assignment))
+                self.collection.detach(self.assignment.port))
 
     def test_010_empty_detach(self):
         self.emitter.running = True
         with self.assertRaises(LookupError):
             self.loop.run_until_complete(
-                self.collection.detach(self.assignment))
+                self.collection.detach(self.assignment.port))
 
     def test_011_empty_unassign(self):
         for _ in range(2):
@@ -154,12 +157,13 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_013_double_detach(self):
         self.attach()
-        self.loop.run_until_complete(self.collection.detach(self.assignment))
+        self.loop.run_until_complete(self.collection.detach(
+            self.assignment.port))
         self.detach()
 
         with self.assertRaises(qubes.devices.DeviceNotAssigned):
             self.loop.run_until_complete(
-                self.collection.detach(self.assignment))
+                self.collection.detach(self.assignment.port))
 
     def test_014_double_assign(self):
         self.loop.run_until_complete(self.collection.assign(self.assignment))
@@ -179,95 +183,92 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_016_list_assigned(self):
         self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.assertEqual({self.device},
+        self.assertEqual({self.assignment},
                          set(self.collection.get_assigned_devices()))
         self.assertEqual(set([]),
                          set(self.collection.get_attached_devices()))
-        self.assertEqual({self.device},
+        self.assertEqual({self.assignment},
                          set(self.collection.get_dedicated_devices()))
 
     def test_017_list_attached(self):
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.attach()
-        self.assertEqual({self.device},
+        self.assertEqual({self.assignment},
                          set(self.collection.get_attached_devices()))
         self.assertEqual(set([]),
                          set(self.collection.get_assigned_devices()))
-        self.assertEqual({self.device},
+        self.assertEqual({self.assignment},
                          set(self.collection.get_dedicated_devices()))
         self.assertEventFired(self.emitter, 'device-list-attached:testclass')
 
     def test_018_list_available(self):
-        self.assertEqual({self.device}, set(self.collection))
+        self.assertEqual({self.assignment}, set(self.collection))
         self.assertEventFired(self.emitter, 'device-list:testclass')
 
-    def test_020_update_required_to_false(self):
+    def test_020_update_mode_to_auto(self):
         self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.attach()
         self.assertEqual(
-            {self.device},
+            {self.assignment},
             set(self.collection.get_assigned_devices(required_only=True)))
         self.assertEqual(
-            {self.device}, set(self.collection.get_assigned_devices()))
+            {self.assignment}, set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(
-            self.collection.update_required(self.device, False))
-        self.assertEqual(
-            {self.device}, set(self.collection.get_assigned_devices()))
-        self.assertEqual(
-            {self.device}, set(self.collection.get_attached_devices()))
-
-    def test_021_update_required_to_true(self):
-        self.assignment.required = False
-        self.attach()
-        self.assertEqual(set(), set(self.collection.get_assigned_devices()))
-        self.loop.run_until_complete(self.collection.assign(self.assignment))
+            self.collection.update_assignment(self.device, AssignmentMode.AUTO))
         self.assertEqual(
             set(),
             set(self.collection.get_assigned_devices(required_only=True)))
-        self.assertEqual({self.device},
-                         set(self.collection.get_attached_devices()))
-        self.assertEqual({self.device}
-                         , set(self.collection.get_assigned_devices()))
-        self.assertEqual({self.device},
-                         set(self.collection.get_attached_devices()))
-        self.loop.run_until_complete(
-            self.collection.update_required(self.device, True))
-        self.assertEqual({self.device},
-                         set(self.collection.get_assigned_devices()))
-        self.assertEqual({self.device},
-                         set(self.collection.get_attached_devices()))
+        self.assertEqual(
+            {self.assignment}, set(self.collection.get_assigned_devices()))
 
-    def test_022_update_required_reject_not_running(self):
+    def test_021_update_mode_to_ask(self):
         self.assertEqual(set([]), set(self.collection.get_assigned_devices()))
         self.loop.run_until_complete(self.collection.assign(self.assignment))
-        self.assertEqual({self.device},
-                         set(self.collection.get_assigned_devices()))
-        self.assertEqual(set(), set(self.collection.get_attached_devices()))
-        with self.assertRaises(qubes.exc.QubesVMNotStartedError):
-            self.loop.run_until_complete(
-                self.collection.update_required(self.device, False))
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices(required_only=True)))
+        self.assertEqual(
+            {self.assignment}, set(self.collection.get_assigned_devices()))
+        self.loop.run_until_complete(
+            self.collection.update_assignment(self.device, AssignmentMode.ASK))
+        self.assertEqual(
+            set(),
+            set(self.collection.get_assigned_devices(required_only=True)))
+        self.assertEqual(
+            {self.assignment}, set(self.collection.get_assigned_devices()))
 
-    def test_023_update_required_reject_not_attached(self):
+    def test_022_update_mode_to_required(self):
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.assertEqual(set(), set(self.collection.get_assigned_devices()))
-        self.assertEqual(set(), set(self.collection.get_attached_devices()))
-        self.emitter.running = True
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(
-                self.collection.update_required(self.device, True))
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(
-                self.collection.update_required(self.device, False))
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+
+        self.assertEqual(
+            set(),
+            set(self.collection.get_assigned_devices(required_only=True)))
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices()))
+
+        self.loop.run_until_complete(
+            self.collection.update_assignment(
+                self.device, AssignmentMode.REQUIRED))
+
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices(required_only=True)))
+        self.assertEqual(
+            {self.assignment},
+            set(self.collection.get_assigned_devices()))
 
     def test_030_assign(self):
         self.emitter.running = True
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.assertEventFired(self.emitter, 'device-assign:testclass')
         self.assertEventNotFired(self.emitter, 'device-unassign:testclass')
 
     def test_031_assign_to_halted(self):
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.assertEventFired(self.emitter, 'device-assign:testclass')
         self.assertEventNotFired(self.emitter, 'device-unassign:testclass')
@@ -284,7 +285,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEventNotFired(self.emitter, 'device-unassign:testclass')
 
     def test_034_unassign_from_halted(self):
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.loop.run_until_complete(self.collection.unassign(self.assignment))
         self.assertEventFired(self.emitter, 'device-assign:testclass')
@@ -292,7 +293,30 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_035_unassign(self):
         self.emitter.running = True
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        self.loop.run_until_complete(self.collection.unassign(self.assignment))
+        self.assertEventFired(self.emitter, 'device-assign:testclass')
+        self.assertEventFired(self.emitter, 'device-unassign:testclass')
+
+    def test_036_assign_unassign_port(self):
+        self.emitter.running = True
+        device = self.assignment.virtual_device
+        device = device.clone(port=Port(
+            device.backend_domain, '*', device.devclass))
+        self.assignment = self.assignment.clone(
+            mode='ask-to-attach', device=device)
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        self.loop.run_until_complete(self.collection.unassign(self.assignment))
+        self.assertEventFired(self.emitter, 'device-assign:testclass')
+        self.assertEventFired(self.emitter, 'device-unassign:testclass')
+
+    def test_037_assign_unassign_device(self):
+        self.emitter.running = True
+        device = self.assignment.virtual_device
+        device = device.clone(device_id="*")
+        self.assignment = self.assignment.clone(
+            mode='ask-to-attach', device=device)
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.loop.run_until_complete(self.collection.unassign(self.assignment))
         self.assertEventFired(self.emitter, 'device-assign:testclass')
@@ -303,13 +327,13 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.attach()
         with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
             self.loop.run_until_complete(
-                self.collection.detach(self.assignment))
+                self.collection.detach(self.assignment.port))
 
     def test_041_detach_required_from_halted(self):
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         with self.assertRaises(LookupError):
             self.loop.run_until_complete(
-                self.collection.detach(self.assignment))
+                self.collection.detach(self.assignment.port))
 
     def test_042_unassign_required(self):
         self.emitter.running = True
@@ -319,10 +343,11 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEventFired(self.emitter, 'device-unassign:testclass')
 
     def test_043_detach_assigned(self):
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode='auto-attach')
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.attach()
-        self.loop.run_until_complete(self.collection.detach(self.assignment))
+        self.loop.run_until_complete(self.collection.detach(
+            self.assignment.port))
         self.assertEventFired(self.emitter, 'device-assign:testclass')
         self.assertEventFired(self.emitter, 'device-pre-detach:testclass')
         self.assertEventFired(self.emitter, 'device-detach:testclass')
@@ -339,11 +364,9 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
         self.assertEqual(self.manager, {})
 
     def test_001_missing(self):
-        device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = DeviceAssignment(
-            backend_domain=device.backend_domain,
-            ident=device.ident,
-            attach_automatically=True, required=True)
+        device = TestDevice(
+            Port(self.emitter.app.domains['vm'], 'testdev', 'testclass'))
+        assignment = DeviceAssignment(device, mode='required')
         self.loop.run_until_complete(
             self.manager['testclass'].assign(assignment))
         self.assertEqual(
@@ -358,9 +381,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_010_serialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 port_id="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="",
@@ -370,11 +393,11 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
                         DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
+            device_id='0000:0000::?******',
         )
         actual = device.serialize()
         expected = (
-            b"manufacturer='unknown' self_identity='0000:0000::?******' "
-            b"serial='unknown' ident='1-1.1.1' product='Qubes' "
+            b"device_id='0000:0000::?******' port_id='1-1.1.1' product='Qubes' "
             b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
             b"backend_domain='vm' interfaces=' ******u03**01' "
             b"_additional_info='' _date='06.12.23'")
@@ -386,9 +409,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_011_serialize_with_parent(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 port_id="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="",
@@ -398,16 +421,16 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
                         DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
-            parent=Device(self.vm, '1-1.1', 'pci')
+            parent=Port(self.vm, '1-1.1', 'pci'),
+            device_id='0000:0000::?******',
         )
         actual = device.serialize()
         expected = (
-            b"manufacturer='unknown' self_identity='0000:0000::?******' "
-            b"serial='unknown' ident='1-1.1.1' product='Qubes' "
+            b"device_id='0000:0000::?******' port_id='1-1.1.1' product='Qubes' "
             b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
             b"backend_domain='vm' interfaces=' ******u03**01' "
             b"_additional_info='' _date='06.12.23' "
-            b"parent_ident='1-1.1' parent_devclass='pci'")
+            b"parent_port_id='1-1.1' parent_devclass='pci'")
         expected = set(expected.replace(b"Some untrusted garbage",
                                         b"Some_untrusted_garbage").split(b" "))
         actual = set(actual.replace(b"Some untrusted garbage",
@@ -416,9 +439,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
 
     def test_012_invalid_serialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus?",
+            Port(backend_domain=self.vm,
+                 port_id="1-1.1.1",
+                 devclass="testclass"),
             vendor="malicious",
             product="suspicious",
             manufacturer="",
@@ -430,17 +453,16 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
     def test_020_deserialize(self):
         serialized = (
             b"1-1.1.1 "
-            b"manufacturer='unknown' self_identity='0000:0000::?******' "
-            b"serial='unknown' ident='1-1.1.1' product='Qubes' "
+            b"device_id='0000:0000::?******' port_id='1-1.1.1' product='Qubes' "
             b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
             b"backend_domain='vm' interfaces=' ******u03**01' "
             b"_additional_info='' _date='06.12.23' "
             b"parent_ident='1-1.1' parent_devclass='None'")
         actual = DeviceInfo.deserialize(serialized, self.vm)
         expected = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            Port(backend_domain=self.vm,
+                 port_id="1-1.1.1",
+                 devclass="bus"),
             vendor="ITL",
             product="Qubes",
             manufacturer="unknown",
@@ -450,10 +472,11 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
                         DeviceInterface("u03**01")],
             additional_info="",
             date="06.12.23",
+            device_id='0000:0000::?******',
         )
 
         self.assertEqual(actual.backend_domain, expected.backend_domain)
-        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.port_id, expected.port_id)
         self.assertEqual(actual.devclass, expected.devclass)
         self.assertEqual(actual.vendor, expected.vendor)
         self.assertEqual(actual.product, expected.product)
@@ -461,14 +484,14 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
         self.assertEqual(actual.name, expected.name)
         self.assertEqual(actual.serial, expected.serial)
         self.assertEqual(repr(actual.interfaces), repr(expected.interfaces))
-        self.assertEqual(actual.self_identity, expected.self_identity)
+        self.assertEqual(actual.device_id, expected.device_id)
         self.assertEqual(actual.data, expected.data)
 
     def test_021_invalid_deserialize(self):
         serialized = (
             b"1-1.1.1 "
-            b"manufacturer='unknown' self_identity='0000:0000::?******' "
-            b"serial='unknown' ident='1-1.1.1' product='Qubes' "
+            b"manufacturer='unknown' device_id='0000:0000::?******' "
+            b"serial='unknown' port_id='1-1.1.1' product='Qubes' "
             b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
             b"backend_domain='vm' interfaces=' ******u03**01' "
             b"_additional_info='' _date='06.12.23' "
@@ -476,14 +499,14 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
         actual = DeviceInfo.deserialize(serialized, self.vm)
         self.assertIsInstance(actual, UnknownDevice)
         self.assertEqual(actual.backend_domain, self.vm)
-        self.assertEqual(actual.ident, '1-1.1.1')
+        self.assertEqual(actual.port_id, '1-1.1.1')
         self.assertEqual(actual.devclass, 'peripheral')
 
     def test_030_serialize_and_deserialize(self):
         device = DeviceInfo(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus?",
+            Port(backend_domain=self.vm,
+                 port_id="1-1.1.1",
+                 devclass="testclass"),
             vendor="malicious",
             product="suspicious",
             manufacturer="",
@@ -496,7 +519,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
         serialized = device.serialize()
         deserialized = DeviceInfo.deserialize(b'1-1.1.1 ' + serialized, self.vm)
         self.assertEqual(deserialized.backend_domain, device.backend_domain)
-        self.assertEqual(deserialized.ident, device.ident)
+        self.assertEqual(deserialized.port_id, device.port_id)
         self.assertEqual(deserialized.devclass, device.devclass)
         self.assertEqual(deserialized.vendor, device.vendor)
         self.assertEqual(deserialized.product, device.product)
@@ -515,70 +538,77 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
         self.vm = TestVM(self.app, 'vm')
 
     def test_010_serialize(self):
-        assignment = DeviceAssignment(
+        assignment = DeviceAssignment(VirtualDevice(Port(
             backend_domain=self.vm,
-            ident="1-1.1.1",
+            port_id="1-1.1.1",
             devclass="bus",
-        )
+        )))
         actual = assignment.serialize()
         expected = (
-            b"ident='1-1.1.1' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='no'")
+            b"device_id='*' port_id='1-1.1.1' devclass='bus' "
+            b"backend_domain='vm' mode='manual'")
         expected = set(expected.split(b" "))
         actual = set(actual.split(b" "))
         self.assertEqual(actual, expected)
 
     def test_011_serialize_required(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
-            attach_automatically=True,
-            required=True,
+            VirtualDevice(Port(
+                backend_domain=self.vm,
+                port_id="1-1.1.1",
+                devclass="bus",
+            )),
+            mode='required',
         )
         actual = assignment.serialize()
         expected = (
-            b"ident='1-1.1.1' devclass='bus' "
-            b"backend_domain='vm' required='yes' attach_automatically='yes'")
+            b"device_id='*' port_id='1-1.1.1' devclass='bus' "
+            b"backend_domain='vm' mode='required'")
         expected = set(expected.split(b" "))
         actual = set(actual.split(b" "))
         self.assertEqual(actual, expected)
 
     def test_012_serialize_fronted(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            VirtualDevice(Port(
+                backend_domain=self.vm,
+                port_id="1-1.1.1",
+                devclass="bus",
+            )),
             frontend_domain=self.vm,
         )
         actual = assignment.serialize()
         expected = (
-            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='no'")
+            b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
+            b"devclass='bus' backend_domain='vm' mode='manual'")
         expected = set(expected.split(b" "))
         actual = set(actual.split(b" "))
         self.assertEqual(actual, expected)
 
     def test_013_serialize_options(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            VirtualDevice(Port(
+                backend_domain=self.vm,
+                port_id="1-1.1.1",
+                devclass="bus",
+            )),
             options={'read-only': 'yes'},
         )
         actual = assignment.serialize()
         expected = (
-            b"ident='1-1.1.1' _read-only='yes' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='no'")
+            b"device_id='*' port_id='1-1.1.1' _read-only='yes' devclass='bus' "
+            b"backend_domain='vm' mode='manual'")
         expected = set(expected.split(b" "))
         actual = set(actual.split(b" "))
         self.assertEqual(actual, expected)
 
     def test_014_invalid_serialize(self):
         assignment = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            VirtualDevice(Port(
+                backend_domain=self.vm,
+                port_id="1-1.1.1",
+                devclass="bus",
+            )),
             options={"read'only": 'yes'},
         )
         with self.assertRaises(qubes.exc.ProtocolError):
@@ -586,23 +616,24 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_020_deserialize(self):
         serialized = (
-            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
+            b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"_read-only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         expected = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            VirtualDevice(Port(
+                backend_domain=self.vm,
+                port_id="1-1.1.1",
+                devclass="bus",
+            )),
             frontend_domain=self.vm,
-            attach_automatically=True,
-            required=False,
+            mode='auto-attach',
             options={'read-only': 'yes'},
         )
 
         self.assertEqual(actual.backend_domain, expected.backend_domain)
-        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.port_id, expected.port_id)
         self.assertEqual(actual.devclass, expected.devclass)
         self.assertEqual(actual.frontend_domain, expected.frontend_domain)
         self.assertEqual(actual.attach_automatically, expected.attach_automatically)
@@ -611,37 +642,34 @@ class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
 
     def test_021_invalid_deserialize(self):
         serialized = (
-            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
+            b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"_read'only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
     def test_022_invalid_deserialize_2(self):
         serialized = (
-            b"ident='1-1.1.1' frontend_domain='vm' devclass='bus' "
-            b"backend_domain='vm' required='no' attach_automatically='yes' "
+            b"device_id='*' port_id='1-1.1.1' frontend_domain='vm' "
+            b"devclass='bus' backend_domain='vm' mode='auto-attach' "
             b"read-only='yes'")
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         with self.assertRaises(qubes.exc.ProtocolError):
             _ = DeviceAssignment.deserialize(serialized, expected_device)
 
     def test_030_serialize_and_deserialize(self):
+        expected_device = VirtualDevice(Port(self.vm, '1-1.1.1', 'bus'))
         expected = DeviceAssignment(
-            backend_domain=self.vm,
-            ident="1-1.1.1",
-            devclass="bus",
+            expected_device,
             frontend_domain=self.vm,
-            attach_automatically=True,
-            required=False,
+            mode='auto-attach',
             options={'read-only': 'yes'},
         )
         serialized = expected.serialize()
-        expected_device = Device(self.vm, '1-1.1.1', 'bus')
         actual = DeviceAssignment.deserialize(serialized, expected_device)
         self.assertEqual(actual.backend_domain, expected.backend_domain)
-        self.assertEqual(actual.ident, expected.ident)
+        self.assertEqual(actual.port_id, expected.port_id)
         self.assertEqual(actual.devclass, expected.devclass)
         self.assertEqual(actual.frontend_domain, expected.frontend_domain)
         self.assertEqual(actual.attach_automatically,

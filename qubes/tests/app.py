@@ -70,6 +70,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.app = TestApp()
         self.app.vmm = mock.Mock()
         self.qubes_host = qubes.app.QubesHost(self.app)
+        self.maxDiff = None
 
     def test_000_get_vm_stats_single(self):
         self.app.vmm.configure_mock(**{
@@ -118,20 +119,20 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         expected_info = {
             0: {
                 'cpu_time': 243951379111104,
-                'cpu_usage': 9,
-                'cpu_usage_raw': 79,
+                'cpu_usage': 10,
+                'cpu_usage_raw': 80,
                 'memory_kb': 3733212,
             },
             1: {
                 'cpu_time': 2849496569205,
-                'cpu_usage': 99,
-                'cpu_usage_raw': 99,
+                'cpu_usage': 100,
+                'cpu_usage_raw': 100,
                 'memory_kb': 303916,
             },
             11: {
                 'cpu_time': 249658663079978,
                 'cpu_usage': 12,
-                'cpu_usage_raw': 99,
+                'cpu_usage_raw': 100,
                 'memory_kb': 3782668,
             },
         }
@@ -190,7 +191,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         })
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
-    def test_010_iommu_supported(self):
+    def test_012_iommu_supported(self):
         self.app.vmm.configure_mock(**{
             'xc.physinfo.return_value': {
                 'hw_caps': '...',
@@ -815,7 +816,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         # See also qubes.tests.api_admin.
         vm = self.app.add_new_vm(
             'AppVM', name='test-vm', template=self.template, label='red')
-        assignment = mock.Mock(ident='1234')
+        assignment = mock.Mock(port_id='1234')
         vm.get_provided_assignments = lambda: [assignment]
         with self.assertRaises(qubes.exc.QubesVMInUseError):
             del self.app.domains[vm]

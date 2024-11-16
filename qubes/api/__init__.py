@@ -135,7 +135,7 @@ class AbstractQubesAPI:
     '''
 
     #: the preferred socket location (to be overridden in child's class)
-    SOCKNAME = None
+    SOCKNAME = ""
 
     app: qubes.Qubes
     src: qubes.vm.qubesvm.QubesVM
@@ -144,7 +144,7 @@ class AbstractQubesAPI:
                  src: bytes,
                  method_name: bytes,
                  dest: bytes,
-                 arg: qubes.Qubes,
+                 arg: bytes,
                  send_event: Any = None) -> None:
         #: :py:class:`qubes.Qubes` object
         self.app = app

@@ -18,14 +18,25 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 import asyncio
+import unittest
 from unittest import mock
+from unittest.mock import Mock, AsyncMock
 
 import jinja2
 
 import qubes.tests
 import qubes.ext.block
-from qubes.device_protocol import DeviceInterface, Device, DeviceInfo, \
-    DeviceAssignment
+from qubes.device_protocol import DeviceInterface, Port, DeviceInfo, \
+    DeviceAssignment, VirtualDevice
+
+
+def async_test(f):
+    def wrapper(*args, **kwargs):
+        coro = asyncio.coroutine(f)
+        future = coro(*args, **kwargs)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(future)
+    return wrapper
 
 modules_disk = '''
     <disk type='block' device='disk'>
@@ -135,9 +146,14 @@ class TestDeviceCollection(object):
     def get_assigned_devices(self):
         return self._assigned
 
-    def __getitem__(self, ident):
+    def get_exposed_devices(self):
+        yield from self._exposed
+
+    __iter__ = get_exposed_devices
+
+    def __getitem__(self, port_id):
         for dev in self._exposed:
-            if dev.ident == ident:
+            if dev.port_id == port_id:
                 return dev
 
 
@@ -147,6 +163,8 @@ class TestVM(qubes.tests.TestEmitter):
             *args, **kwargs):
         super(TestVM, self).__init__(*args, **kwargs)
         self.name = name
+        self.klass = "AdminVM" if name == "dom0" else "AppVM"
+        self.icon = "red"
         self.untrusted_qdb = TestQubesDB(qdb)
         self.libvirt_domain = mock.Mock()
         self.features = mock.Mock()
@@ -165,12 +183,25 @@ class TestVM(qubes.tests.TestEmitter):
             'testclass': TestDeviceCollection(self, 'testclass')
         }
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __eq__(self, other):
         if isinstance(other, TestVM):
             return self.name == other.name
 
     def __str__(self):
         return self.name
+
+
+def get_qdb(mode):
+    result = {
+        '/qubes-block-devices/sda': b'',
+        '/qubes-block-devices/sda/desc': b'Test device',
+        '/qubes-block-devices/sda/size': b'1024000',
+        '/qubes-block-devices/sda/mode': mode.encode(),
+    }
+    return result
 
 
 class TC_00_Block(qubes.tests.QubesTestCase):
@@ -187,7 +218,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '/qubes-block-devices/sda/mode': b'w',
             '/qubes-block-devices/sda/parent': b'1-1.1:1.0',
             }, domain_xml=domain_xml_template.format(""))
-        parent = DeviceInfo(vm, '1-1.1', devclass='usb')
+        parent = DeviceInfo(Port(vm, '1-1.1', devclass='usb'),
+                            device_id='0000:0000::?******')
         vm.devices['usb'] = TestDeviceCollection(backend_vm=vm, devclass='usb')
         vm.devices['usb']._exposed.append(parent)
         vm.is_running = lambda: True
@@ -215,7 +247,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         device_info = self.ext.device_get(vm, 'sda')
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
         self.assertEqual(device_info.backend_domain, vm)
-        self.assertEqual(device_info.ident, 'sda')
+        self.assertEqual(device_info.port_id, 'sda')
         self.assertEqual(device_info.name, 'device')
         self.assertEqual(device_info._name, 'device')
         self.assertEqual(device_info.serial, 'Test')
@@ -227,11 +259,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(device_info.device_node, '/dev/sda')
         self.assertEqual(device_info.interfaces,
                          [DeviceInterface("b******")])
-        self.assertEqual(device_info.parent_device,
-                         Device(vm, '1-1.1', devclass='usb'))
+        self.assertEqual(device_info.parent_device, parent)
         self.assertEqual(device_info.attachment, front)
-        self.assertEqual(device_info.self_identity,
-                         '1-1.1:0000:0000::?******:1.0')
+        self.assertEqual(device_info.device_id,
+                         '0000:0000::?******:1.0')
         self.assertEqual(
             device_info.data.get('test_frontend_domain', None), None)
         self.assertEqual(device_info.device_node, '/dev/sda')
@@ -246,7 +277,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         device_info = self.ext.device_get(vm, 'mapper_dmroot')
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
         self.assertEqual(device_info.backend_domain, vm)
-        self.assertEqual(device_info.ident, 'mapper_dmroot')
+        self.assertEqual(device_info.port_id, 'mapper_dmroot')
         self.assertEqual(device_info._name, None)
         self.assertEqual(device_info.name, 'unknown')
         self.assertEqual(device_info.serial, 'Test device')
@@ -314,13 +345,13 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         devices = sorted(list(self.ext.on_device_list_block(vm, '')))
         self.assertEqual(len(devices), 2)
         self.assertEqual(devices[0].backend_domain, vm)
-        self.assertEqual(devices[0].ident, 'sda')
+        self.assertEqual(devices[0].port_id, 'sda')
         self.assertEqual(devices[0].serial, 'Test device')
         self.assertEqual(devices[0].name, 'unknown')
         self.assertEqual(devices[0].size, 1024000)
         self.assertEqual(devices[0].mode, 'w')
         self.assertEqual(devices[1].backend_domain, vm)
-        self.assertEqual(devices[1].ident, 'sdb')
+        self.assertEqual(devices[1].port_id, 'sdb')
         self.assertEqual(devices[1].serial, 'Test device')
         self.assertEqual(devices[1].name, '2')
         self.assertEqual(devices[1].size, 2048000)
@@ -333,8 +364,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_012_devices_list_invalid_ident(self):
         vm = TestVM({
-            '/qubes-block-devices/invalid ident': b'',
-            '/qubes-block-devices/invalid+ident': b'',
+            '/qubes-block-devices/invalid port_id': b'',
+            '/qubes-block-devices/invalid+port_id': b'',
             '/qubes-block-devices/invalid#': b'',
         })
         devices = sorted(list(self.ext.on_device_list_block(vm, '')))
@@ -389,7 +420,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dev = devices[0][0]
         options = devices[0][1]
         self.assertEqual(dev.backend_domain, vm.app.domains['sys-usb'])
-        self.assertEqual(dev.ident, 'sda')
+        self.assertEqual(dev.port_id, 'sda')
         self.assertEqual(dev.attachment, None)
         self.assertEqual(options['frontend-dev'], 'xvdi')
         self.assertEqual(options['read-only'], 'yes')
@@ -412,7 +443,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dev = devices[0][0]
         options = devices[0][1]
         self.assertEqual(dev.backend_domain, vm.app.domains['dom0'])
-        self.assertEqual(dev.ident, 'sda')
+        self.assertEqual(dev.port_id, 'sda')
         self.assertEqual(options['frontend-dev'], 'xvdi')
         self.assertEqual(options['read-only'], 'no')
 
@@ -434,20 +465,15 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dev = devices[0][0]
         options = devices[0][1]
         self.assertEqual(dev.backend_domain, vm.app.domains['sys-usb'])
-        self.assertEqual(dev.ident, 'sr0')
+        self.assertEqual(dev.port_id, 'sr0')
         self.assertEqual(options['frontend-dev'], 'xvdi')
         self.assertEqual(options['read-only'], 'yes')
         self.assertEqual(options['devtype'], 'cdrom')
 
     def test_040_attach(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', "block"))
         self.ext.on_device_pre_attached_block(vm, '', dev, {})
         device_xml = (
             '<disk type="block" device="disk">\n'
@@ -460,14 +486,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_041_attach_frontend(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         self.ext.on_device_pre_attached_block(vm, '', dev,
             {'frontend-dev': 'xvdj'})
         device_xml = (
@@ -481,14 +502,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_042_attach_read_only(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         self.ext.on_device_pre_attached_block(vm, '', dev,
             {'read-only': 'yes'})
         device_xml = (
@@ -503,69 +519,44 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_043_attach_invalid_option(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         with self.assertRaises(qubes.exc.QubesValueError):
             self.ext.on_device_pre_attached_block(vm, '', dev,
                 {'no-such-option': '123'})
         self.assertFalse(vm.libvirt_domain.attachDevice.called)
 
     def test_044_attach_invalid_option2(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         with self.assertRaises(qubes.exc.QubesValueError):
             self.ext.on_device_pre_attached_block(vm, '', dev,
                 {'read-only': 'maybe'})
         self.assertFalse(vm.libvirt_domain.attachDevice.called)
 
     def test_045_attach_backend_not_running(self):
-        back_vm = TestVM(name='sys-usb', running=False, qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'w',
-        })
+        back_vm = TestVM(name='sys-usb', running=False, qdb=get_qdb(mode='w'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.ext.on_device_pre_attached_block(vm, '', dev, {})
         self.assertFalse(vm.libvirt_domain.attachDevice.called)
 
     def test_046_attach_ro_dev_rw(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         with self.assertRaises(qubes.exc.QubesValueError):
             self.ext.on_device_pre_attached_block(vm, '', dev,
                 {'read-only': 'no'})
         self.assertFalse(vm.libvirt_domain.attachDevice.called)
 
     def test_047_attach_read_only_auto(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         self.ext.on_device_pre_attached_block(vm, '', dev, {})
         device_xml = (
             '<disk type="block" device="disk">\n'
@@ -579,14 +570,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_048_attach_cdrom_xvdi(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(modules_disk))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         self.ext.on_device_pre_attached_block(vm, '', dev, {'devtype': 'cdrom'})
         device_xml = (
             '<disk type="block" device="cdrom">\n'
@@ -600,14 +586,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_048_attach_cdrom_xvdd(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
         self.ext.on_device_pre_attached_block(vm, '', dev, {'devtype': 'cdrom'})
         device_xml = (
             '<disk type="block" device="cdrom">\n'
@@ -621,12 +602,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
 
     def test_050_detach(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         device_xml = (
             '<disk type="block" device="disk">\n'
             '    <driver name="phy" />\n'
@@ -639,55 +615,44 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm = TestVM({}, domain_xml=domain_xml_template.format(device_xml))
         vm.app.domains['test-vm'] = vm
         vm.app.domains['sys-usb'] = TestVM({}, name='sys-usb')
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
-        self.ext.on_device_pre_detached_block(vm, '', dev)
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
+        self.ext.on_device_pre_detached_block(vm, '', dev.port)
         vm.libvirt_domain.detachDevice.assert_called_once_with(device_xml)
 
     def test_051_detach_not_attached(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        })
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'))
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         vm.app.domains['test-vm'] = vm
         vm.app.domains['sys-usb'] = TestVM({}, name='sys-usb')
-        dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
-        self.ext.on_device_pre_detached_block(vm, '', dev)
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
+        self.ext.on_device_pre_detached_block(vm, '', dev.port)
         self.assertFalse(vm.libvirt_domain.detachDevice.called)
 
     def test_060_on_qdb_change_added(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'),
+                         domain_xml=domain_xml_template.format(""))
+        exp_dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
 
         self.ext.on_qdb_change(back_vm, None, None)
 
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': None}})
         self.assertEqual(
             back_vm.fired_events[
-                ('device-added:block', frozenset({('device', exp_dev)}))],1)
+                ('device-added:block', frozenset({('device', exp_dev)}))], 1)
 
-    def test_061_on_qdb_change_auto_attached(self):
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
-        front = TestVM({}, domain_xml=domain_xml_template.format(""),
+    @staticmethod
+    def added_assign_setup(attached_device=""):
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'),
+                         domain_xml=domain_xml_template.format(""))
+        front = TestVM({}, domain_xml=domain_xml_template.format(
+            attached_device),
                        name='front-vm')
         dom0 = TestVM({}, name='dom0',
                       domain_xml=domain_xml_template.format(""))
         back_vm.app.domains['sys-usb'] = back_vm
         back_vm.app.domains['front-vm'] = front
         back_vm.app.domains[0] = dom0
+        back_vm.app.domains['dom0'] = dom0
         front.app = back_vm.app
         dom0.app = back_vm.app
 
@@ -702,30 +667,142 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         dom0.devices['block'] = TestDeviceCollection(
             backend_vm=dom0, devclass='block')
 
-        front.devices['block']._assigned.append(
-            DeviceAssignment.from_device(exp_dev))
-        back_vm.devices['block']._exposed.append(
-            qubes.ext.block.BlockDevice(back_vm, 'sda'))
+        return back_vm, front
 
-        # In the case of block devices it is the same,
-        # but notify_auto_attached is synchronous
-        self.ext.attach_and_notify = self.ext.notify_auto_attached
-        with mock.patch('asyncio.ensure_future'):
-            self.ext.on_qdb_change(back_vm, None, None)
-        self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front}})
-        fire_event_async.assert_called_once_with(
-            'device-attach:block', device=exp_dev,
-            options={'read-only': 'yes', 'frontend-dev': 'xvdi'})
+    def test_061_on_qdb_change_required(self):
+        back, front = self.added_assign_setup()
 
-    def test_062_on_qdb_change_attached(self):
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assignment = DeviceAssignment(exp_dev, mode='required')
+        front.devices['block']._assigned.append(assignment)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
+
+    def test_062_on_qdb_change_auto_attached(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assignment = DeviceAssignment(exp_dev)
+        front.devices['block']._assigned.append(assignment)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
+
+    def test_063_on_qdb_change_ask_to_attached(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assignment = DeviceAssignment(exp_dev, mode='ask-to-attach')
+        front.devices['block']._assigned.append(assignment)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assignment}})
+
+    def test_064_on_qdb_change_multiple_assignments_including_full(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        full_assig = DeviceAssignment(VirtualDevice(
+            exp_dev.port, exp_dev.device_id), mode='auto-attach',
+            options={'pid': 'did'})
+        port_assign = DeviceAssignment(VirtualDevice(
+            exp_dev.port, '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach',
+            options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        front.devices['block']._assigned.append(full_assig)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options,{'pid': 'did'})
+
+    def test_065_on_qdb_change_multiple_assignments_port_vs_dev(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        port_assign = DeviceAssignment(VirtualDevice(
+            exp_dev.port, '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach',
+            options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options, {'pid': 'any'})
+
+    def test_066_on_qdb_change_multiple_assignments_dev(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        port_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, 'other', 'block'),
+            '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach', options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        )
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'other', 'block'))
+        )
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            self.assertEqual(
+                resolver.call_args[0][1]['sda'][front].options, {'any': 'did'})
+
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_067_on_qdb_change_attached(self, _confirm):
         # added
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
+        exp_dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
 
         self.ext.devices_cache = {'sys-usb': {'sda': None}}
 
@@ -766,15 +843,12 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         fire_event_async.assert_called_once_with(
             'device-attach:block', device=exp_dev, options={})
 
-    def test_063_on_qdb_change_changed(self):
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_068_on_qdb_change_changed(self, _confirm):
         # attached to front-vm
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        }, domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
+        exp_dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
 
         front = TestVM({}, name='front-vm')
         dom0 = TestVM({}, name='dom0',
@@ -827,21 +901,18 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {'sda': front_2}})
         fire_event_async.assert_called_with(
-            'device-detach:block', device=exp_dev)
+            'device-detach:block', port=exp_dev.port)
         fire_event_async_2.assert_called_once_with(
             'device-attach:block', device=exp_dev, options={})
 
-    def test_064_on_qdb_change_removed_attached(self):
+    @unittest.mock.patch(
+        'qubes.ext.utils.resolve_conflicts_and_attach', new_callable=Mock)
+    def test_069_on_qdb_change_removed_attached(self, _confirm):
         # attached to front-vm
-        back_vm = TestVM(name='sys-usb', qdb={
-            '/qubes-block-devices/sda': b'',
-            '/qubes-block-devices/sda/desc': b'Test device',
-            '/qubes-block-devices/sda/size': b'1024000',
-            '/qubes-block-devices/sda/mode': b'r',
-        }, domain_xml=domain_xml_template.format(""))
+        back_vm = TestVM(name='sys-usb', qdb=get_qdb(mode='r'), domain_xml=domain_xml_template.format(""))
         dom0 = TestVM({}, name='dom0',
                       domain_xml=domain_xml_template.format(""))
-        exp_dev = Device(back_vm, 'sda', 'block')
+        exp_dev = qubes.ext.block.BlockDevice(Port(back_vm, 'sda', 'block'))
 
         disk = '''
             <disk type="block" device="disk">
@@ -853,7 +924,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             </disk>
             '''
         front = TestVM({}, domain_xml=domain_xml_template.format(disk),
-                         name='front')
+                       name='front')
         self.ext.devices_cache = {'sys-usb': {'sda': front}}
 
         back_vm.app.vmm.configure_mock(**{'offline_mode': False})
@@ -883,8 +954,189 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             self.ext.on_qdb_change(back_vm, None, None)
         self.assertEqual(self.ext.devices_cache, {'sys-usb': {}})
         fire_event_async.assert_called_with(
-            'device-detach:block', device=exp_dev)
+            'device-detach:block', port=exp_dev.port)
         self.assertEqual(
             back_vm.fired_events[
-                ('device-removed:block', frozenset({('device', exp_dev)}))],
+                ('device-removed:block', frozenset({('port', exp_dev.port)}))],
             1)
+
+    def test_070_on_qdb_change_two_fronts(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assign = DeviceAssignment(exp_dev, mode='auto-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assign, back: assign}})
+
+    # call_socket_service returns coroutine
+    @unittest.mock.patch(
+        'qubes.ext.utils.call_socket_service', new_callable=AsyncMock)
+    def test_071_failed_confirmation(self, socket):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assign = DeviceAssignment(exp_dev, mode='auto-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        socket.return_value = "allow:nonsense"
+
+        loop = asyncio.get_event_loop()
+        self.ext.attach_and_notify = AsyncMock()
+        loop.run_until_complete(qubes.ext.utils.resolve_conflicts_and_attach(
+            self.ext, {'sda': {front: assign, back: assign}}))
+        self.ext.attach_and_notify.assert_not_called()
+
+    # call_socket_service returns coroutine
+    @unittest.mock.patch(
+        'qubes.ext.utils.call_socket_service', new_callable=AsyncMock)
+    def test_072_successful_confirmation(self, socket):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assign = DeviceAssignment(exp_dev, mode='auto-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        socket.return_value = "allow:front-vm"
+
+        loop = asyncio.get_event_loop()
+        self.ext.attach_and_notify = AsyncMock()
+        loop.run_until_complete(qubes.ext.utils.resolve_conflicts_and_attach(
+            self.ext, {'sda': {front: assign, back: assign}}))
+        self.ext.attach_and_notify.assert_called_once_with(front, assign)
+
+    def test_073_on_qdb_change_ask(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assign = DeviceAssignment(exp_dev, mode='ask-to-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        resolver_path = 'qubes.ext.utils.resolve_conflicts_and_attach'
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch('asyncio.ensure_future'):
+                self.ext.on_qdb_change(back, None, None)
+            resolver.assert_called_once_with(
+                self.ext, {'sda': {front: assign}})
+
+    def test_080_on_startup_multiple_assignments_including_full(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        full_assig = DeviceAssignment(VirtualDevice(
+            exp_dev.port, exp_dev.device_id), mode='auto-attach',
+            options={'pid': 'did'})
+        port_assign = DeviceAssignment(VirtualDevice(
+            exp_dev.port, '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach',
+            options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        front.devices['block']._assigned.append(full_assig)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
+        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
+                         {'pid': 'did'})
+
+    def test_081_on_startup_multiple_assignments_port_vs_dev(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        port_assign = DeviceAssignment(VirtualDevice(
+            exp_dev.port, '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach',
+            options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+
+        self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
+        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
+                         {'pid': 'any'})
+
+    def test_082_on_startup_multiple_assignments_dev(self):
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        port_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, 'other', 'block'),
+            '*'), mode='auto-attach',
+            options={'pid': 'any'})
+        dev_assign = DeviceAssignment(VirtualDevice(Port(
+            exp_dev.backend_domain, '*', 'block'),
+            exp_dev.device_id), mode='auto-attach', options={'any': 'did'})
+
+        front.devices['block']._assigned.append(dev_assign)
+        front.devices['block']._assigned.append(port_assign)
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'sda', 'block')))
+        back.devices['block']._exposed.append(
+            qubes.ext.block.BlockDevice(Port(back, 'other', 'block')))
+
+        self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
+        with mock.patch('asyncio.wait'):
+            with mock.patch('asyncio.ensure_future'):
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
+        self.assertEqual(self.ext.attach_and_notify.call_args[0][1].options,
+                         {'any': 'did'})
+
+    def test_083_on_startup_already_attached(self):
+        disk = '''
+                <disk type="block" device="disk">
+                    <driver name="phy" />
+                    <source dev="/dev/sda" />
+                    <target dev="xvdi" />
+                    <readonly />
+                    <backenddomain name="sys-usb" />
+                </disk>
+                '''
+        back, front = self.added_assign_setup(disk)
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, 'sda', 'block'))
+        assign = DeviceAssignment(VirtualDevice(
+            exp_dev.port, exp_dev.device_id), mode='auto-attach')
+
+        front.devices['block']._assigned.append(assign)
+        back.devices['block']._exposed.append(exp_dev)
+
+        self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
+        with mock.patch('asyncio.ensure_future'):
+            loop.run_until_complete(self.ext.on_domain_start(front, None))
+        self.ext.attach_and_notify.assert_not_called()

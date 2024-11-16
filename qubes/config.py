@@ -28,7 +28,26 @@
 
 import os.path
 
+from typing import TypedDict, Dict
+
+class PoolConfig(TypedDict, total=False):
+    dir_path: str
+    name: str
+    driver: str
+
+class Defaults(TypedDict):
+    libvirt_uri: str
+    memory: int
+    hvm_memory: int
+    kernelopts: str
+    kernelopts_pcidevs: str
+    kernelopts_common: str
+    private_img_size: int
+    root_img_size: int
+    pool_configs: Dict[str, PoolConfig]
+
 qubes_base_dir = "/var/lib/qubes"
+
 system_path = {
     'qrexec_daemon_path': '/usr/sbin/qrexec-daemon',
     'qrexec_client_path': '/usr/bin/qrexec-client',
@@ -48,7 +67,7 @@ system_path = {
     'dom0_services_dir': '/var/run/qubes-service',
 }
 
-defaults = {
+defaults: Defaults = {
     'libvirt_uri': 'xen:///',
     'memory': 400,
     'hvm_memory': 400,
@@ -67,8 +86,9 @@ defaults = {
             'name': 'varlibqubes'
         },
         'linux-kernel': {
-            'dir_path': os.path.join(qubes_base_dir,
-                                     system_path['qubes_kernels_base_dir']),
+            'dir_path': os.path.join(
+                qubes_base_dir, system_path['qubes_kernels_base_dir']
+            ),
             'driver': 'linux-kernel',
             'name': 'linux-kernel'
         }

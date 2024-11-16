@@ -160,10 +160,11 @@
 
             {# start external devices from xvdi #}
             {% set counter = {'i': 4} %}
-            {% for assignment in vm.devices.block.get_assigned_devices(False) %}
-                {% set device = assignment.device %}
-                {% set options = assignment.options %}
-                {% include 'libvirt/devices/block.xml' %}
+            {% for assignment in vm.devices.block.get_assigned_devices(True) %}
+                {% for device in assignment.devices %}
+                    {% set options = assignment.options %}
+                    {% include 'libvirt/devices/block.xml' %}
+                {% endfor %}
             {% endfor %}
 
             {% if vm.netvm %}
@@ -171,11 +172,12 @@
             {% endif %}
 
             {% for assignment in vm.devices.pci.get_assigned_devices(True) %}
-                {% set device = assignment.device %}
-                {% set options = assignment.options %}
-                {% set power_mgmt =
-                    vm.app.domains[0].features.get('suspend-s0ix', False) %}
-                {% include 'libvirt/devices/pci.xml' %}
+                {% for device in assignment.devices %}
+                    {% set options = assignment.options %}
+                    {% set power_mgmt =
+                        vm.app.domains[0].features.get('suspend-s0ix', False) %}
+                    {% include 'libvirt/devices/pci.xml' %}
+                {% endfor %}
             {% endfor %}
 
             {% if vm.virt_mode == 'hvm' %}

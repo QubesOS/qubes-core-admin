@@ -271,14 +271,18 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             await asyncio.sleep(0.5)
 
     def attach_mic(self):
-        deva = qubes.device_protocol.DeviceAssignment(self.app.domains[0], 'mic')
+        deva = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(self.app.domains[0], 'mic', 'mic')))
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].attach(deva)
         )
         self.loop.run_until_complete(self.retrieve_audio_input(self.testvm1, b"1"))
 
     def detach_mic(self):
-        deva = qubes.device_protocol.DeviceAssignment(self.app.domains[0], 'mic')
+        deva = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(self.app.domains[0], 'mic', 'mic')))
         self.loop.run_until_complete(
             self.testvm1.devices['mic'].detach(deva)
         )
