@@ -23,7 +23,7 @@
 import qubes.ext
 import qubes.config
 
-PREFIX = 'vm-config.'
+PREFIX = "vm-config."
 
 
 class VMConfig(qubes.ext.Extension):
@@ -31,48 +31,48 @@ class VMConfig(qubes.ext.Extension):
     /vm-config/ tree.
     """
 
-    @qubes.ext.handler('domain-qdb-create')
+    @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
         """Actually export features"""
         # pylint: disable=unused-argument
         for feature, value in vm.features.items():
             if not feature.startswith(PREFIX):
                 continue
-            config = feature[len(PREFIX):]
+            config = feature[len(PREFIX) :]
 
-            vm.untrusted_qdb.write('/vm-config/{}'.format(config),
-                                   str(value))
+            vm.untrusted_qdb.write("/vm-config/{}".format(config), str(value))
 
-    @qubes.ext.handler('domain-feature-set:*')
+    @qubes.ext.handler("domain-feature-set:*")
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         """Update /vm-config/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
 
         if not feature.startswith(PREFIX):
             return
-        config = feature[len(PREFIX):]
+        config = feature[len(PREFIX) :]
         # qubesdb keys are limited to 63 bytes, and "/vm-config/" is
         # 11 bytes.  That leaves 52 for the config name.
         if len(config) > 52:
             raise qubes.exc.QubesValueError(
-                    'VM config name must not exceed 46 bytes')
+                "VM config name must not exceed 46 bytes"
+            )
         # The empty string is not a valid file name.
         if not config:
-            raise qubes.exc.QubesValueError('Empty config name not allowed')
+            raise qubes.exc.QubesValueError("Empty config name not allowed")
         # Require config names to start with an ASCII letter.  This implicitly
         # rejects names which start with '-' (which could be interpreted as an
         # option) or are '.' or '..'.
-        if not (('a' <= config[0] <= 'z') or ('A' <= config[0] <= 'Z')):
+        if not (("a" <= config[0] <= "z") or ("A" <= config[0] <= "Z")):
             raise qubes.exc.QubesValueError(
-                    'Config name must start with an ASCII letter')
+                "Config name must start with an ASCII letter"
+            )
 
         if not vm.is_running():
             return
 
-        vm.untrusted_qdb.write('/vm-config/' + config,
-                               str(value))
+        vm.untrusted_qdb.write("/vm-config/" + config, str(value))
 
-    @qubes.ext.handler('domain-feature-delete:*')
+    @qubes.ext.handler("domain-feature-delete:*")
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /vm-config/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
@@ -80,6 +80,6 @@ class VMConfig(qubes.ext.Extension):
             return
         if not feature.startswith(PREFIX):
             return
-        config = feature[len(PREFIX):]
+        config = feature[len(PREFIX) :]
 
-        vm.untrusted_qdb.rm('/vm-config/{}'.format(config))
+        vm.untrusted_qdb.rm("/vm-config/{}".format(config))

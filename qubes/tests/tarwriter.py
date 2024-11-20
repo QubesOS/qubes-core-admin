@@ -49,20 +49,24 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
             expected_name = self.input_path
         with self.assertNotRaises(subprocess.CalledProcessError):
             tar_output = subprocess.check_output(
-                ['tar', 'xvf', self.output_path],
+                ["tar", "xvf", self.output_path],
                 cwd=self.extract_dir,
-                stderr=subprocess.STDOUT)
-        expected_output = expected_name + '\n'
-        if expected_name[0] == '/':
+                stderr=subprocess.STDOUT,
+            )
+        expected_output = expected_name + "\n"
+        if expected_name[0] == "/":
             expected_output = (
-                'tar: Removing leading `/\' from member names\n' +
-                expected_output)
+                "tar: Removing leading `/' from member names\n"
+                + expected_output
+            )
         self.assertEqual(tar_output.decode(), expected_output)
-        extracted_path = os.path.join(self.extract_dir,
-            expected_name.lstrip('/'))
+        extracted_path = os.path.join(
+            self.extract_dir, expected_name.lstrip("/")
+        )
         with self.assertNotRaises(subprocess.CalledProcessError):
             subprocess.check_call(
-                ['diff', '-q', self.input_path, extracted_path])
+                ["diff", "-q", self.input_path, extracted_path]
+            )
         # make sure the file is still sparse
         orig_stat = os.stat(self.input_path)
         extracted_stat = os.stat(extracted_path)
@@ -70,15 +74,15 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
         self.assertEqual(orig_stat.st_size, extracted_stat.st_size)
 
     def write_sparse_chunks(self, num_chunks):
-        with open(self.input_path, 'w') as f:
+        with open(self.input_path, "w") as f:
             for i in range(num_chunks):
                 f.seek(8192 * i)
-                f.write('a' * 4096)
+                f.write("a" * 4096)
 
     def test_000_simple(self):
         self.write_sparse_chunks(1)
-        with open(self.input_path, 'w') as f:
-            f.write('a' * 4096)
+        with open(self.input_path, "w") as f:
+            f.write("a" * 4096)
         qubes.tarwriter.main([self.input_path, self.output_path])
         self.assertTarExtractable()
 
@@ -128,9 +132,15 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
 
     def test_010_override_name(self):
         self.write_sparse_chunks(1)
-        qubes.tarwriter.main(['--override-name',
-            'different-name', self.input_path, self.output_path])
-        self.assertTarExtractable(expected_name='different-name')
+        qubes.tarwriter.main(
+            [
+                "--override-name",
+                "different-name",
+                self.input_path,
+                self.output_path,
+            ]
+        )
+        self.assertTarExtractable(expected_name="different-name")
 
     def test_011_empty(self):
         self.write_sparse_chunks(0)
@@ -139,8 +149,9 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
 
     def test_012_gzip(self):
         self.write_sparse_chunks(0)
-        qubes.tarwriter.main([
-            '--use-compress-program=gzip', self.input_path, self.output_path])
+        qubes.tarwriter.main(
+            ["--use-compress-program=gzip", self.input_path, self.output_path]
+        )
         with self.assertNotRaises(subprocess.CalledProcessError):
-            subprocess.check_call(['gzip', '--test', self.output_path])
+            subprocess.check_call(["gzip", "--test", self.output_path])
         self.assertTarExtractable()

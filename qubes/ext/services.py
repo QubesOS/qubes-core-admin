@@ -34,34 +34,43 @@ class ServicesExtension(qubes.ext.Extension):
     def add_dom0_service(vm, service):
         try:
             os.makedirs(
-                qubes.config.system_path['dom0_services_dir'], exist_ok=True)
-            service = '{}/{}'.format(
-                qubes.config.system_path['dom0_services_dir'], service)
+                qubes.config.system_path["dom0_services_dir"], exist_ok=True
+            )
+            service = "{}/{}".format(
+                qubes.config.system_path["dom0_services_dir"], service
+            )
             if not os.path.exists(service):
                 os.mknod(service)
         except PermissionError:
-            vm.log.warning("Cannot write to {}".format(
-                qubes.config.system_path['dom0_services_dir']))
+            vm.log.warning(
+                "Cannot write to {}".format(
+                    qubes.config.system_path["dom0_services_dir"]
+                )
+            )
 
     @staticmethod
     def remove_dom0_service(vm, service):
         try:
-            service = '{}/{}'.format(
-                qubes.config.system_path['dom0_services_dir'], service)
+            service = "{}/{}".format(
+                qubes.config.system_path["dom0_services_dir"], service
+            )
             if os.path.exists(service):
                 os.remove(service)
         except PermissionError:
-            vm.log.warning("Cannot write to {}".format(
-                qubes.config.system_path['dom0_services_dir']))
+            vm.log.warning(
+                "Cannot write to {}".format(
+                    qubes.config.system_path["dom0_services_dir"]
+                )
+            )
 
-    @qubes.ext.handler('domain-qdb-create')
+    @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
         """Actually export features"""
         # pylint: disable=unused-argument
         for feature, value in vm.features.items():
-            if not feature.startswith('service.'):
+            if not feature.startswith("service."):
                 continue
-            service = feature[len('service.'):]
+            service = feature[len("service.") :]
             if not service:
                 vm.log.warning("Empty service name, ignoring: " + service)
                 continue
@@ -69,44 +78,49 @@ class ServicesExtension(qubes.ext.Extension):
                 vm.log.warning("Too long service name, ignoring: " + service)
                 continue
             # forcefully convert to '0' or '1'
-            vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
-                                   str(int(bool(value))))
+            vm.untrusted_qdb.write(
+                "/qubes-service/{}".format(service), str(int(bool(value)))
+            )
 
         # always set meminfo-writer according to maxmem
-        vm.untrusted_qdb.write('/qubes-service/meminfo-writer',
-                               '1' if vm.maxmem > 0 else '0')
+        vm.untrusted_qdb.write(
+            "/qubes-service/meminfo-writer", "1" if vm.maxmem > 0 else "0"
+        )
 
-    @qubes.ext.handler('domain-feature-pre-set:*')
-    def on_domain_feature_pre_set(self, vm, event, feature,
-            value, oldvalue=None):
+    @qubes.ext.handler("domain-feature-pre-set:*")
+    def on_domain_feature_pre_set(
+        self, vm, event, feature, value, oldvalue=None
+    ):
         """Check if service name is compatible with QubesDB"""
         # pylint: disable=unused-argument
-        if not feature.startswith('service.'):
+        if not feature.startswith("service."):
             return
-        service = feature[len('service.'):]
+        service = feature[len("service.") :]
         if not service:
-            raise qubes.exc.QubesValueError(
-                    'Service name cannot be empty')
+            raise qubes.exc.QubesValueError("Service name cannot be empty")
 
-        if '/' in service:
+        if "/" in service:
             raise qubes.exc.QubesValueError(
-                    'Service name cannot contain a slash')
+                "Service name cannot contain a slash"
+            )
 
-        if service in ('.', '..'):
+        if service in (".", ".."):
             raise qubes.exc.QubesValueError(
-                    'Service name cannot be "." or ".."')
+                'Service name cannot be "." or ".."'
+            )
 
         if len(service) > 48:
             raise qubes.exc.QubesValueError(
-                    'Service name must not exceed 48 bytes')
+                "Service name must not exceed 48 bytes"
+            )
 
-    @qubes.ext.handler('domain-feature-set:*')
+    @qubes.ext.handler("domain-feature-set:*")
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         """Update /qubes-service/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
 
         # TODO: remove this compatibility hack in Qubes 4.1
-        if feature == 'service.meminfo-writer':
+        if feature == "service.meminfo-writer":
             # if someone try to enable meminfo-writer ...
             if value:
                 # ... reset maxmem to default
@@ -116,16 +130,17 @@ class ServicesExtension(qubes.ext.Extension):
                 vm.maxmem = 0
             # in any case, remove the entry, as it does not indicate memory
             # balancing state anymore
-            del vm.features['service.meminfo-writer']
+            del vm.features["service.meminfo-writer"]
 
         if not vm.is_running():
             return
-        if not feature.startswith('service.'):
+        if not feature.startswith("service."):
             return
-        service = feature[len('service.'):]
+        service = feature[len("service.") :]
         # forcefully convert to '0' or '1'
-        vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
-                               str(int(bool(value))))
+        vm.untrusted_qdb.write(
+            "/qubes-service/{}".format(service), str(int(bool(value)))
+        )
 
         if vm.name == "dom0":
             if str(int(bool(value))) == "1":
@@ -133,59 +148,60 @@ class ServicesExtension(qubes.ext.Extension):
             else:
                 self.remove_dom0_service(vm, service)
 
-    @qubes.ext.handler('domain-feature-delete:*')
+    @qubes.ext.handler("domain-feature-delete:*")
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /qubes-service/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
-        if not feature.startswith('service.'):
+        if not feature.startswith("service."):
             return
-        service = feature[len('service.'):]
+        service = feature[len("service.") :]
         # this one is excluded from user control
-        if service == 'meminfo-writer':
+        if service == "meminfo-writer":
             return
-        vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
+        vm.untrusted_qdb.rm("/qubes-service/{}".format(service))
 
         if vm.name == "dom0":
             self.remove_dom0_service(vm, service)
 
-    @qubes.ext.handler('domain-load')
+    @qubes.ext.handler("domain-load")
     def on_domain_load(self, vm, event):
         """Migrate meminfo-writer service into maxmem"""
         # pylint: disable=unused-argument
-        if 'service.meminfo-writer' in vm.features:
+        if "service.meminfo-writer" in vm.features:
             # if was set to false, force maxmem=0
             # otherwise, simply ignore as the default is fine
-            if not vm.features['service.meminfo-writer']:
+            if not vm.features["service.meminfo-writer"]:
                 vm.maxmem = 0
-            del vm.features['service.meminfo-writer']
+            del vm.features["service.meminfo-writer"]
 
         if vm.name == "dom0":
             for feature, value in vm.features.items():
-                if not feature.startswith('service.'):
+                if not feature.startswith("service."):
                     continue
-                service = feature[len('service.'):]
+                service = feature[len("service.") :]
                 if str(int(bool(value))) == "1":
                     self.add_dom0_service(vm, service)
                 else:
                     self.remove_dom0_service(vm, service)
 
-    @qubes.ext.handler('features-request')
+    @qubes.ext.handler("features-request")
     def supported_services(self, vm, event, untrusted_features):
         """Handle advertisement of supported services"""
         # pylint: disable=unused-argument
 
-        if getattr(vm, 'template', None):
+        if getattr(vm, "template", None):
             vm.log.warning(
-                'Ignoring qubes.FeaturesRequest from template-based VM')
+                "Ignoring qubes.FeaturesRequest from template-based VM"
+            )
             return
 
         new_supported_services = set()
         for requested_service in untrusted_features:
-            if not requested_service.startswith('supported-service.'):
+            if not requested_service.startswith("supported-service."):
                 continue
-            if untrusted_features[requested_service] == '1':
+            if untrusted_features[requested_service] == "1":
                 # only allow to advertise service as supported, lack of entry
                 #  means service is not supported
                 new_supported_services.add(requested_service)
@@ -197,19 +213,28 @@ class ServicesExtension(qubes.ext.Extension):
             return
 
         old_supported_services = set(
-            feat for feat in vm.features
-            if feat.startswith('supported-service.') and vm.features[feat])
+            feat
+            for feat in vm.features
+            if feat.startswith("supported-service.") and vm.features[feat]
+        )
 
         for feature in new_supported_services.difference(
-                old_supported_services):
+            old_supported_services
+        ):
             vm.features[feature] = True
-            if feature == 'supported-service.apparmor' and \
-               not 'apparmor' in vm.features:
-                vm.features['apparmor'] = True
+            if (
+                feature == "supported-service.apparmor"
+                and not "apparmor" in vm.features
+            ):
+                vm.features["apparmor"] = True
 
         for feature in old_supported_services.difference(
-                new_supported_services):
+            new_supported_services
+        ):
             del vm.features[feature]
-            if feature == 'supported-service.apparmor' and \
-               'apparmor' in vm.features and vm.features['apparmor'] == '1':
-                del vm.features['apparmor']
+            if (
+                feature == "supported-service.apparmor"
+                and "apparmor" in vm.features
+                and vm.features["apparmor"] == "1"
+            ):
+                del vm.features["apparmor"]

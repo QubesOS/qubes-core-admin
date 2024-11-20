@@ -103,7 +103,7 @@ class AUDIO(qubes.ext.Extension):
                 user="root",
                 stubdom=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
         except subprocess.CalledProcessError as e:
             msg = f"{qube}: failed to set stubdom AudioVM domid: {str(e)}"
@@ -117,12 +117,16 @@ class AUDIO(qubes.ext.Extension):
         if newvalue == oldvalue:
             return
         has_stubdom_qrexec = subject.features.check_with_template(
-            'stubdom-qrexec', None)
+            "stubdom-qrexec", None
+        )
         has_audio_model = subject.features.check_with_template(
-            'audio-model', None)
+            "audio-model", None
+        )
         if has_audio_model and not has_stubdom_qrexec:
-            subject.log.warning("Cannot change dynamically audiovm: qrexec"
-                                " is not available (stubdom-qrexec feature)")
+            subject.log.warning(
+                "Cannot change dynamically audiovm: qrexec"
+                " is not available (stubdom-qrexec feature)"
+            )
         if has_audio_model and has_stubdom_qrexec:
             asyncio.ensure_future(
                 self.set_stubdom_audiovm_domid(subject, newvalue)
@@ -134,7 +138,7 @@ class AUDIO(qubes.ext.Extension):
 
     @qubes.ext.handler("property-set:default_audiovm", system=True)
     def on_property_set_default_audiovm(
-            self, app, event, name, newvalue, oldvalue=None
+        self, app, event, name, newvalue, oldvalue=None
     ):
         for vm in app.domains:
             if hasattr(vm, "audiovm") and vm.property_is_default("audiovm"):

@@ -25,7 +25,7 @@ from qubes.device_protocol import DeviceInterface
 
 
 class TestVM(object):
-    def __init__(self, running=True, name='dom0', qid=0):
+    def __init__(self, running=True, name="dom0", qid=0):
         self.name = name
         self.qid = qid
         self.is_running = lambda: running
@@ -122,36 +122,48 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         super().setUp()
         self.ext = qubes.ext.pci.PCIDeviceExtension()
 
-    @mock.patch('builtins.open', new=mock_file_open)
+    @mock.patch("builtins.open", new=mock_file_open)
     def test_000_unsupported_device(self):
         vm = TestVM()
-        vm.app.configure_mock(**{
-            'vmm.offline_mode': False,
-            'vmm.libvirt_conn.nodeDeviceLookupByName.return_value':
-                mock.Mock(**{"XMLDesc.return_value":
-                                 PCI_XML.format(*["0000"] * 3)
-                             }),
-            'vmm.libvirt_conn.listAllDevices.return_value':
-                [mock.Mock(**{"XMLDesc.return_value":
-                                  PCI_XML.format(*["0000"] * 3),
-                              "listCaps.return_value": ["pci"]
-                              }),
-                 mock.Mock(**{"XMLDesc.return_value":
-                                  PCI_XML.format(*["1000"] * 3),
-                              "listCaps.return_value": ["pci"]
-                              }),
-                 ]
-        })
-        devices = list(self.ext.on_device_list_pci(vm, 'device-list:pci'))
+        vm.app.configure_mock(
+            **{
+                "vmm.offline_mode": False,
+                "vmm.libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
+                    **{"XMLDesc.return_value": PCI_XML.format(*["0000"] * 3)}
+                ),
+                "vmm.libvirt_conn.listAllDevices.return_value": [
+                    mock.Mock(
+                        **{
+                            "XMLDesc.return_value": PCI_XML.format(
+                                *["0000"] * 3
+                            ),
+                            "listCaps.return_value": ["pci"],
+                        }
+                    ),
+                    mock.Mock(
+                        **{
+                            "XMLDesc.return_value": PCI_XML.format(
+                                *["1000"] * 3
+                            ),
+                            "listCaps.return_value": ["pci"],
+                        }
+                    ),
+                ],
+            }
+        )
+        devices = list(self.ext.on_device_list_pci(vm, "device-list:pci"))
         self.assertEqual(len(devices), 1)
         self.assertEqual(devices[0].port_id, "00_14.0")
         self.assertEqual(devices[0].vendor, "Intel Corporation")
-        self.assertEqual(devices[0].product,
-                         "9 Series Chipset Family USB xHCI Controller")
+        self.assertEqual(
+            devices[0].product, "9 Series Chipset Family USB xHCI Controller"
+        )
         self.assertEqual(devices[0].interfaces, [DeviceInterface("p0c0330")])
         self.assertEqual(devices[0].parent_device, None)
         self.assertEqual(devices[0].libvirt_name, "pci_0000_00_14_0")
-        self.assertEqual(devices[0].description,
-                         "USB controller: Intel Corporation 9 Series "
-                         "Chipset Family USB xHCI Controller")
+        self.assertEqual(
+            devices[0].description,
+            "USB controller: Intel Corporation 9 Series "
+            "Chipset Family USB xHCI Controller",
+        )
         self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")

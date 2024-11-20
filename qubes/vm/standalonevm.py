@@ -23,40 +23,42 @@ import qubes.vm.mix.dvmtemplate
 import qubes.vm.qubesvm
 import qubes.config
 
-class StandaloneVM(qubes.vm.mix.dvmtemplate.DVMTemplateMixin,
-        qubes.vm.qubesvm.QubesVM):
-    '''Standalone Application VM'''
+
+class StandaloneVM(
+    qubes.vm.mix.dvmtemplate.DVMTemplateMixin, qubes.vm.qubesvm.QubesVM
+):
+    """Standalone Application VM"""
 
     def __init__(self, *args, **kwargs):
         self.volume_config = {
-            'root': {
-                'name': 'root',
-                'snap_on_start': False,
-                'save_on_stop': True,
-                'rw': True,
-                'source': None,
-                'size': qubes.config.defaults['root_img_size'],
+            "root": {
+                "name": "root",
+                "snap_on_start": False,
+                "save_on_stop": True,
+                "rw": True,
+                "source": None,
+                "size": qubes.config.defaults["root_img_size"],
             },
-            'private': {
-                'name': 'private',
-                'snap_on_start': False,
-                'save_on_stop': True,
-                'rw': True,
-                'source': None,
-                'size': qubes.config.defaults['private_img_size'],
+            "private": {
+                "name": "private",
+                "snap_on_start": False,
+                "save_on_stop": True,
+                "rw": True,
+                "source": None,
+                "size": qubes.config.defaults["private_img_size"],
             },
-            'volatile': {
-                'name': 'volatile',
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': True,
-                'size': qubes.config.defaults['root_img_size'],
+            "volatile": {
+                "name": "volatile",
+                "snap_on_start": False,
+                "save_on_stop": False,
+                "rw": True,
+                "size": qubes.config.defaults["root_img_size"],
             },
-            'kernel': {
-                'name': 'kernel',
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': False,
-            }
+            "kernel": {
+                "name": "kernel",
+                "snap_on_start": False,
+                "save_on_stop": False,
+                "rw": False,
+            },
         }
         super().__init__(*args, **kwargs)

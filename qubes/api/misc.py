@@ -30,11 +30,11 @@ import qubes.vm.dispvm
 
 
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
-    SOCKNAME = '/var/run/qubesd.misc.sock'
+    SOCKNAME = "/var/run/qubesd.misc.sock"
 
-    @qubes.api.method('qubes.FeaturesRequest', no_payload=True)
+    @qubes.api.method("qubes.FeaturesRequest", no_payload=True)
     async def qubes_features_request(self):
-        """ qubes.FeaturesRequest handler
+        """qubes.FeaturesRequest handler
 
         VM (mostly templates) can request some features from dom0 for itself.
         Then dom0 (qubesd extension) may respect this request or ignore it.
@@ -45,52 +45,64 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         appropriate extensions. Requests not explicitly handled by some
         extension are ignored.
         """
-        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.dest.name == "dom0")
         self.enforce(not self.arg)
 
-        prefix = '/features-request/'
+        prefix = "/features-request/"
 
         keys = self.src.untrusted_qdb.list(prefix)
-        untrusted_features = {key[len(prefix):]:
-            self.src.untrusted_qdb.read(key).decode('ascii', errors='strict')
-                for key in keys}
+        untrusted_features = {
+            key[len(prefix) :]: self.src.untrusted_qdb.read(key).decode(
+                "ascii", errors="strict"
+            )
+            for key in keys
+        }
 
-        safe_set = string.ascii_letters + string.digits + '-._'
+        safe_set = string.ascii_letters + string.digits + "-._"
         for untrusted_key in untrusted_features:
             untrusted_value = untrusted_features[untrusted_key]
             self.enforce(all((c in safe_set) for c in untrusted_value))
 
-        await self.src.fire_event_async('features-request',
-            untrusted_features=untrusted_features)
+        await self.src.fire_event_async(
+            "features-request", untrusted_features=untrusted_features
+        )
         self.app.save()
 
-    @qubes.api.method('qubes.NotifyTools', no_payload=True)
+    @qubes.api.method("qubes.NotifyTools", no_payload=True)
     async def qubes_notify_tools(self):
         """
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
         """
-        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.dest.name == "dom0")
         self.enforce(not self.arg)
 
         untrusted_features = {}
         safe_set = string.ascii_letters + string.digits
-        expected_features = ('qrexec', 'gui', 'gui-emulated', 'default-user',
-            'os')
+        expected_features = (
+            "qrexec",
+            "gui",
+            "gui-emulated",
+            "default-user",
+            "os",
+        )
         for feature in expected_features:
             untrusted_value = self.src.untrusted_qdb.read(
-                '/qubes-tools/' + feature)
+                "/qubes-tools/" + feature
+            )
             if untrusted_value:
-                untrusted_value = untrusted_value.decode('ascii',
-                    errors='strict')
+                untrusted_value = untrusted_value.decode(
+                    "ascii", errors="strict"
+                )
                 self.enforce(all((c in safe_set) for c in untrusted_value))
                 untrusted_features[feature] = untrusted_value
             del untrusted_value
 
-        await self.src.fire_event_async('features-request',
-            untrusted_features=untrusted_features)
+        await self.src.fire_event_async(
+            "features-request", untrusted_features=untrusted_features
+        )
         self.app.save()
 
-    @qubes.api.method('qubes.NotifyUpdates')
+    @qubes.api.method("qubes.NotifyUpdates")
     async def qubes_notify_updates(self, untrusted_payload):
         """
         Receive VM notification about updates availability
@@ -106,10 +118,12 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         del untrusted_update_count
 
         # look for the nearest updateable VM up in the template chain
-        updateable_template = getattr(self.src, 'template', None)
-        while updateable_template is not None and \
-                not updateable_template.updateable:
-            updateable_template = getattr(updateable_template, 'template', None)
+        updateable_template = getattr(self.src, "template", None)
+        while (
+            updateable_template is not None
+            and not updateable_template.updateable
+        ):
+            updateable_template = getattr(updateable_template, "template", None)
 
         if self.src.updateable:
             # Just trust information from VM itself
@@ -131,9 +145,9 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
     @staticmethod
     def _feature_of_update(qube, new_updates_available):
-        current_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        old_updates_available = qube.features.get('updates-available', False)
+        current_date = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        old_updates_available = qube.features.get("updates-available", False)
         if old_updates_available and not new_updates_available:
-            qube.features['last-update'] = current_date
-        qube.features['updates-available'] = new_updates_available
-        qube.features['last-updates-check'] = current_date
+            qube.features["last-update"] = current_date
+        qube.features["updates-available"] = new_updates_available
+        qube.features["last-updates-check"] = current_date

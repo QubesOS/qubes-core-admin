@@ -24,8 +24,9 @@ from . import vm as _vm
 
 _NO_DEFAULT = object()
 
+
 class Features(dict):
-    '''Manager of the features.
+    """Manager of the features.
 
     Features can have three distinct values: no value (not present in mapping,
     which is closest thing to :py:obj:`None`), empty string (which is
@@ -38,7 +39,7 @@ class Features(dict):
     This class inherits from dict, but has most of the methods that manipulate
     the item disarmed (they raise NotImplementedError). The ones that are left
     fire appropriate events on the qube that owns an instance of this class.
-    '''
+    """
 
     #
     # Those are the methods that affect contents. Either disarm them or make
@@ -51,13 +52,13 @@ class Features(dict):
         self.update(other, **kwargs)
 
     def __delitem__(self, key):
-        self.subject.fire_event('domain-feature-pre-delete:' + key, feature=key)
+        self.subject.fire_event("domain-feature-pre-delete:" + key, feature=key)
         super().__delitem__(key)
-        self.subject.fire_event('domain-feature-delete:' + key, feature=key)
+        self.subject.fire_event("domain-feature-delete:" + key, feature=key)
 
     def __setitem__(self, key, value):
         if value is None or isinstance(value, bool):
-            value = '1' if value else ''
+            value = "1" if value else ""
         else:
             value = str(value)
         try:
@@ -66,46 +67,58 @@ class Features(dict):
         except KeyError:
             has_oldvalue = False
         if has_oldvalue:
-            self.subject.fire_event('domain-feature-pre-set:' + key,
+            self.subject.fire_event(
+                "domain-feature-pre-set:" + key,
                 pre_event=True,
-                feature=key, value=value, oldvalue=oldvalue)
+                feature=key,
+                value=value,
+                oldvalue=oldvalue,
+            )
         else:
-            self.subject.fire_event('domain-feature-pre-set:' + key,
+            self.subject.fire_event(
+                "domain-feature-pre-set:" + key,
                 pre_event=True,
-                feature=key, value=value)
+                feature=key,
+                value=value,
+            )
         super().__setitem__(key, value)
         if has_oldvalue:
-            self.subject.fire_event('domain-feature-set:' + key, feature=key,
-                value=value, oldvalue=oldvalue)
+            self.subject.fire_event(
+                "domain-feature-set:" + key,
+                feature=key,
+                value=value,
+                oldvalue=oldvalue,
+            )
         else:
-            self.subject.fire_event('domain-feature-set:' + key, feature=key,
-                value=value)
+            self.subject.fire_event(
+                "domain-feature-set:" + key, feature=key, value=value
+            )
 
     def clear(self):
         for key in tuple(self):
             del self[key]
 
     def pop(self, _key, _default=None):
-        '''Not implemented
+        """Not implemented
         :raises: NotImplementedError
-        '''
+        """
         raise NotImplementedError()
 
     def popitem(self):
-        '''Not implemented
+        """Not implemented
         :raises: NotImplementedError
-        '''
+        """
         raise NotImplementedError()
 
     def setdefault(self, _key, _default=None):
-        '''Not implemented
+        """Not implemented
         :raises: NotImplementedError
-        '''
+        """
         raise NotImplementedError()
 
     def update(self, other=None, **kwargs):
         if other is not None:
-            if hasattr(other, 'keys'):
+            if hasattr(other, "keys"):
                 for key in other:
                     self[key] = other[key]
             else:
@@ -119,9 +132,16 @@ class Features(dict):
     # end of overriding
     #
 
-    def _recursive_check(self, attr=None, *, feature, default,
-            check_adminvm=False, check_app=False):
-        '''Recursive search for a feature.
+    def _recursive_check(
+        self,
+        attr=None,
+        *,
+        feature,
+        default,
+        check_adminvm=False,
+        check_app=False
+    ):
+        """Recursive search for a feature.
 
         Traverse domains along one attribute, like
         :py:attr:`qubes.vm.qubesvm.QubesVM.netvm` or
@@ -136,13 +156,15 @@ class Features(dict):
 
         If `check_app` is true, also the app feature is checked. This is not
         implemented, as app does not have features yet.
-        '''
+        """
         if check_app:
-            raise NotImplementedError('app does not have features yet')
+            raise NotImplementedError("app does not have features yet")
 
-        assert isinstance(self.subject, _vm.BaseVM), (
-            'recursive checks do not work for {}'.format(
-                type(self.subject).__name__))
+        assert isinstance(
+            self.subject, _vm.BaseVM
+        ), "recursive checks do not work for {}".format(
+            type(self.subject).__name__
+        )
 
         subject = self.subject
         while subject is not None:
@@ -154,7 +176,7 @@ class Features(dict):
                 subject = getattr(subject, attr, None)
 
         if check_adminvm:
-            adminvm = self.subject.app.domains['dom0']
+            adminvm = self.subject.app.domains["dom0"]
             if adminvm not in (None, self.subject):
                 try:
                     return adminvm.features[feature]
@@ -169,26 +191,28 @@ class Features(dict):
         raise KeyError(feature)
 
     def check_with_template(self, feature, default=_NO_DEFAULT):
-        '''Check for the specified feature; if this VM does not have it,
-         it checks with its template.'''
-        return self._recursive_check('template',
-            feature=feature, default=default)
+        """Check for the specified feature; if this VM does not have it,
+        it checks with its template."""
+        return self._recursive_check(
+            "template", feature=feature, default=default
+        )
 
     def check_with_netvm(self, feature, default=_NO_DEFAULT):
-        '''Check for the specified feature; if this VM does not have it,
-         it checks with its netvm.'''
-        return self._recursive_check('netvm',
-            feature=feature, default=default)
+        """Check for the specified feature; if this VM does not have it,
+        it checks with its netvm."""
+        return self._recursive_check("netvm", feature=feature, default=default)
 
     def check_with_adminvm(self, feature, default=_NO_DEFAULT):
-        '''Check for the specified feature; if this VM does not have it,
-         it checks with the AdminVM.'''
-        return self._recursive_check(check_adminvm=True,
-            feature=feature, default=default)
+        """Check for the specified feature; if this VM does not have it,
+        it checks with the AdminVM."""
+        return self._recursive_check(
+            check_adminvm=True, feature=feature, default=default
+        )
 
     def check_with_template_and_adminvm(self, feature, default=_NO_DEFAULT):
-        '''Check for the specified feature; if this VM does not have it,
-         it checks with its template. If the template does not have it, it
-         checks with the AdminVM.'''
-        return self._recursive_check('template', check_adminvm=True,
-            feature=feature, default=default)
+        """Check for the specified feature; if this VM does not have it,
+        it checks with its template. If the template does not have it, it
+        checks with the AdminVM."""
+        return self._recursive_check(
+            "template", check_adminvm=True, feature=feature, default=default
+        )

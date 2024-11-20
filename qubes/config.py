@@ -24,16 +24,18 @@
 # make a real /etc/qubes/master.conf or whatever
 #
 
-'''Constants which can be configured in one place'''
+"""Constants which can be configured in one place"""
 
 import os.path
 
 from typing import TypedDict, Dict
 
+
 class PoolConfig(TypedDict, total=False):
     dir_path: str
     name: str
     driver: str
+
 
 class Defaults(TypedDict):
     libvirt_uri: str
@@ -46,52 +48,47 @@ class Defaults(TypedDict):
     root_img_size: int
     pool_configs: Dict[str, PoolConfig]
 
+
 qubes_base_dir = "/var/lib/qubes"
 
 system_path = {
-    'qrexec_daemon_path': '/usr/sbin/qrexec-daemon',
-    'qrexec_client_path': '/usr/bin/qrexec-client',
-    'qrexec_rpc_multiplexer': '/usr/lib/qubes/qubes-rpc-multiplexer',
-    'qubesdb_daemon_path': '/usr/sbin/qubesdb-daemon',
-
+    "qrexec_daemon_path": "/usr/sbin/qrexec-daemon",
+    "qrexec_client_path": "/usr/bin/qrexec-client",
+    "qrexec_rpc_multiplexer": "/usr/lib/qubes/qubes-rpc-multiplexer",
+    "qubesdb_daemon_path": "/usr/sbin/qubesdb-daemon",
     # Relative to qubes_base_dir
-    'qubes_appvms_dir': 'appvms',
-    'qubes_templates_dir': 'vm-templates',
-    'qubes_store_filename': 'qubes.xml',
-    'qubes_kernels_base_dir': 'vm-kernels',
-
+    "qubes_appvms_dir": "appvms",
+    "qubes_templates_dir": "vm-templates",
+    "qubes_store_filename": "qubes.xml",
+    "qubes_kernels_base_dir": "vm-kernels",
     # qubes_icon_dir is obsolete
     # use QIcon.fromTheme() where applicable
-    'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
-
-    'dom0_services_dir': '/var/run/qubes-service',
+    "qubes_icon_dir": "/usr/share/icons/hicolor/128x128/devices",
+    "dom0_services_dir": "/var/run/qubes-service",
 }
 
 defaults: Defaults = {
-    'libvirt_uri': 'xen:///',
-    'memory': 400,
-    'hvm_memory': 400,
-    'kernelopts': "swiotlb=2048",
-    'kernelopts_pcidevs': "",
-    'kernelopts_common': ('root=/dev/mapper/dmroot ro nomodeset console=hvc0 '
-             'rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 '),
-
-    'private_img_size': 2*1024*1024*1024,
-    'root_img_size': 10*1024*1024*1024,
-
-    'pool_configs': {
+    "libvirt_uri": "xen:///",
+    "memory": 400,
+    "hvm_memory": 400,
+    "kernelopts": "swiotlb=2048",
+    "kernelopts_pcidevs": "",
+    "kernelopts_common": (
+        "root=/dev/mapper/dmroot ro nomodeset console=hvc0 "
+        "rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 "
+    ),
+    "private_img_size": 2 * 1024 * 1024 * 1024,
+    "root_img_size": 10 * 1024 * 1024 * 1024,
+    "pool_configs": {
         # create file(-reflink) pool even when the default one is LVM
-        'varlibqubes': {
-            'dir_path': qubes_base_dir,
-            'name': 'varlibqubes'
-        },
-        'linux-kernel': {
-            'dir_path': os.path.join(
-                qubes_base_dir, system_path['qubes_kernels_base_dir']
+        "varlibqubes": {"dir_path": qubes_base_dir, "name": "varlibqubes"},
+        "linux-kernel": {
+            "dir_path": os.path.join(
+                qubes_base_dir, system_path["qubes_kernels_base_dir"]
             ),
-            'driver': 'linux-kernel',
-            'name': 'linux-kernel'
-        }
+            "driver": "linux-kernel",
+            "name": "linux-kernel",
+        },
     },
 }
 
@@ -103,9 +100,9 @@ max_dispid = 10000
 max_default_label = 8
 
 #: profiles for admin.backup.* calls
-backup_profile_dir = '/etc/qubes/backup'
+backup_profile_dir = "/etc/qubes/backup"
 
 #: site-local prefix for all VMs
-qubes_ipv6_prefix = 'fd09:24ef:4179:0000'
+qubes_ipv6_prefix = "fd09:24ef:4179:0000"
 
 suspend_timeout = 60

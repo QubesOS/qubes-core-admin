@@ -33,29 +33,34 @@ import qubes.vm.adminvm
 
 import qubes.tests
 
+
 class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         try:
             self.app = qubes.tests.vm.TestApp()
             with unittest.mock.patch.object(
-                    qubes.vm.adminvm.AdminVM, 'start_qdb_watch') as mock_qdb:
-                self.vm = qubes.vm.adminvm.AdminVM(self.app,
-                    xml=None)
+                qubes.vm.adminvm.AdminVM, "start_qdb_watch"
+            ) as mock_qdb:
+                self.vm = qubes.vm.adminvm.AdminVM(self.app, xml=None)
                 mock_qdb.assert_called_once_with()
                 self.addCleanup(self.cleanup_adminvm)
         except:  # pylint: disable=bare-except
-            if self.id().endswith('.test_000_init'):
+            if self.id().endswith(".test_000_init"):
                 raise
-            self.skipTest('setup failed')
+            self.skipTest("setup failed")
 
     def tearDown(self) -> None:
         self.app.domains.clear()
 
     def add_vm(self, name, cls=qubes.vm.qubesvm.QubesVM, **kwargs):
-        vm = cls(self.app, None,
-                 qid=kwargs.pop('qid', 1), name=qubes.tests.VMPREFIX + name,
-                 **kwargs)
+        vm = cls(
+            self.app,
+            None,
+            qid=kwargs.pop("qid", 1),
+            name=qubes.tests.VMPREFIX + name,
+            **kwargs
+        )
         self.app.domains[vm.qid] = vm
         self.app.domains[vm.uuid] = vm
         self.app.domains[vm.name] = vm
@@ -74,28 +79,31 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         pass
 
     def test_001_property_icon(self):
-        self.assertEqual(self.vm.icon, 'adminvm-black')
+        self.assertEqual(self.vm.icon, "adminvm-black")
 
     def test_100_xid(self):
         self.assertEqual(self.vm.xid, 0)
 
     def test_101_libvirt_domain(self):
-        with unittest.mock.patch.object(self.app, 'vmm') as mock_vmm:
+        with unittest.mock.patch.object(self.app, "vmm") as mock_vmm:
             self.assertIsNotNone(self.vm.libvirt_domain)
-            self.assertEqual(mock_vmm.mock_calls, [
-                ('libvirt_conn.lookupByID', (0,), {}),
-            ])
+            self.assertEqual(
+                mock_vmm.mock_calls,
+                [
+                    ("libvirt_conn.lookupByID", (0,), {}),
+                ],
+            )
 
     def test_300_is_running(self):
         self.assertTrue(self.vm.is_running())
 
     def test_301_get_power_state(self):
-        self.assertEqual(self.vm.get_power_state(), 'Running')
+        self.assertEqual(self.vm.get_power_state(), "Running")
 
     def test_302_get_mem(self):
         self.assertGreater(self.vm.get_mem(), 0)
 
-    @unittest.skip('mock object does not support this')
+    @unittest.skip("mock object does not support this")
     def test_303_get_mem_static_max(self):
         self.assertGreater(self.vm.get_mem_static_max(), 0)
 
@@ -103,14 +111,14 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.exc.QubesException):
             self.vm.start()
 
-    @unittest.skip('this functionality is undecided')
+    @unittest.skip("this functionality is undecided")
     def test_311_suspend(self):
         with self.assertRaises(qubes.exc.QubesException):
             self.vm.suspend()
 
-    @unittest.mock.patch('asyncio.create_subprocess_exec')
+    @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
-        self.add_vm('vm')
+        self.add_vm("vm")
 
         # if there is a user in 'qubes' group, it should be used by default
         try:
@@ -120,78 +128,102 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         except (KeyError, IndexError):
             command_prefix = []
 
-
-        with self.subTest('running'):
-            self.loop.run_until_complete(self.vm.run_service('test.service'))
+        with self.subTest("running"):
+            self.loop.run_until_complete(self.vm.run_service("test.service"))
             mock_subprocess.assert_called_once_with(
                 *command_prefix,
-                '/usr/lib/qubes/qubes-rpc-multiplexer',
-                'test.service', 'dom0', 'name', 'dom0')
+                "/usr/lib/qubes/qubes-rpc-multiplexer",
+                "test.service",
+                "dom0",
+                "name",
+                "dom0"
+            )
 
         mock_subprocess.reset_mock()
-        with self.subTest('other_user'):
+        with self.subTest("other_user"):
             self.loop.run_until_complete(
-                self.vm.run_service('test.service', user='other'))
+                self.vm.run_service("test.service", user="other")
+            )
             mock_subprocess.assert_called_once_with(
-                'runuser', '-u', 'other', '--',
-                '/usr/lib/qubes/qubes-rpc-multiplexer',
-                'test.service', 'dom0', 'name', 'dom0')
+                "runuser",
+                "-u",
+                "other",
+                "--",
+                "/usr/lib/qubes/qubes-rpc-multiplexer",
+                "test.service",
+                "dom0",
+                "name",
+                "dom0",
+            )
 
             mock_subprocess.reset_mock()
-        with self.subTest('other_source'):
+        with self.subTest("other_source"):
             self.loop.run_until_complete(
-                self.vm.run_service('test.service', source='test-inst-vm'))
+                self.vm.run_service("test.service", source="test-inst-vm")
+            )
             mock_subprocess.assert_called_once_with(
                 *command_prefix,
-                '/usr/lib/qubes/qubes-rpc-multiplexer',
-                'test.service', 'test-inst-vm', 'name', 'dom0')
+                "/usr/lib/qubes/qubes-rpc-multiplexer",
+                "test.service",
+                "test-inst-vm",
+                "name",
+                "dom0"
+            )
 
-    @unittest.mock.patch('qubes.vm.adminvm.AdminVM.run_service')
+    @unittest.mock.patch("qubes.vm.adminvm.AdminVM.run_service")
     def test_710_run_service_for_stdio(self, mock_run_service):
         communicate_mock = mock_run_service.return_value.communicate
-        communicate_mock.return_value = (b'stdout', b'stderr')
+        communicate_mock.return_value = (b"stdout", b"stderr")
         mock_run_service.return_value.returncode = 0
 
-        with self.subTest('default'):
+        with self.subTest("default"):
             value = self.loop.run_until_complete(
-                self.vm.run_service_for_stdio('test.service'))
+                self.vm.run_service_for_stdio("test.service")
+            )
             mock_run_service.assert_called_once_with(
-                'test.service',
+                "test.service",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE)
+                stdin=subprocess.PIPE,
+            )
             communicate_mock.assert_called_once_with(input=None)
-            self.assertEqual(value, (b'stdout', b'stderr'))
+            self.assertEqual(value, (b"stdout", b"stderr"))
 
         mock_run_service.reset_mock()
         communicate_mock.reset_mock()
-        with self.subTest('with_input'):
+        with self.subTest("with_input"):
             value = self.loop.run_until_complete(
-                self.vm.run_service_for_stdio('test.service', input=b'abc'))
+                self.vm.run_service_for_stdio("test.service", input=b"abc")
+            )
             mock_run_service.assert_called_once_with(
-                'test.service',
+                "test.service",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE)
-            communicate_mock.assert_called_once_with(input=b'abc')
-            self.assertEqual(value, (b'stdout', b'stderr'))
+                stdin=subprocess.PIPE,
+            )
+            communicate_mock.assert_called_once_with(input=b"abc")
+            self.assertEqual(value, (b"stdout", b"stderr"))
 
         mock_run_service.reset_mock()
         communicate_mock.reset_mock()
-        with self.subTest('error'):
+        with self.subTest("error"):
             mock_run_service.return_value.returncode = 1
             with self.assertRaises(subprocess.CalledProcessError) as exc:
                 self.loop.run_until_complete(
-                    self.vm.run_service_for_stdio('test.service'))
+                    self.vm.run_service_for_stdio("test.service")
+                )
             mock_run_service.assert_called_once_with(
-                'test.service',
+                "test.service",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE)
+                stdin=subprocess.PIPE,
+            )
             communicate_mock.assert_called_once_with(input=None)
             self.assertEqual(exc.exception.returncode, 1)
-            self.assertEqual(exc.exception.output, b'stdout')
-            self.assertEqual(exc.exception.stderr, b'stderr')
+            self.assertEqual(exc.exception.output, b"stdout")
+            self.assertEqual(exc.exception.stderr, b"stderr")
 
     def test_711_adminvm_ordering(self):
-        assert(self.vm < qubes.vm.qubesvm.QubesVM(self.app, None, qid=1, name="dom0"))
+        assert self.vm < qubes.vm.qubesvm.QubesVM(
+            self.app, None, qid=1, name="dom0"
+        )

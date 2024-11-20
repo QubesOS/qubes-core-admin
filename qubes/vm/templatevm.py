@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-''' This module contains the TemplateVM implementation '''
+""" This module contains the TemplateVM implementation """
 
 import qubes
 import qubes.config
@@ -30,86 +30,92 @@ from qubes.vm.qubesvm import QubesVM
 
 
 class TemplateVM(QubesVM):
-    '''Template for AppVM'''
+    """Template for AppVM"""
 
-    dir_path_prefix = qubes.config.system_path['qubes_templates_dir']
+    dir_path_prefix = qubes.config.system_path["qubes_templates_dir"]
 
     @property
     def appvms(self):
-        ''' Returns a generator containing all domains based on the current
-            TemplateVM.
-        '''
+        """Returns a generator containing all domains based on the current
+        TemplateVM.
+        """
         for vm in self.app.domains:
-            if hasattr(vm, 'template') and vm.template is self:
+            if hasattr(vm, "template") and vm.template is self:
                 yield vm
 
-    netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
+    netvm = qubes.VMProperty(
+        "netvm",
+        load_stage=4,
+        allow_none=True,
         default=None,
         # pylint: disable=protected-access
         setter=qubes.vm.qubesvm.QubesVM.netvm._setter,
-        doc='VM that provides network connection to this domain. When '
-            '`None`, machine is disconnected.')
+        doc="VM that provides network connection to this domain. When "
+        "`None`, machine is disconnected.",
+    )
 
     def __init__(self, *args, **kwargs):
-        assert 'template' not in kwargs, "A TemplateVM can not have a template"
+        assert "template" not in kwargs, "A TemplateVM can not have a template"
         self.volume_config = {
-            'root': {
-                'name': 'root',
-                'snap_on_start': False,
-                'save_on_stop': True,
-                'rw': True,
-                'source': None,
-                'size': defaults['root_img_size'],
+            "root": {
+                "name": "root",
+                "snap_on_start": False,
+                "save_on_stop": True,
+                "rw": True,
+                "source": None,
+                "size": defaults["root_img_size"],
             },
-            'private': {
-                'name': 'private',
-                'snap_on_start': False,
-                'save_on_stop': True,
-                'rw': True,
-                'source': None,
-                'size': defaults['private_img_size'],
+            "private": {
+                "name": "private",
+                "snap_on_start": False,
+                "save_on_stop": True,
+                "rw": True,
+                "source": None,
+                "size": defaults["private_img_size"],
                 # For historic reasons, the private VM volume needed to have
                 # this value set to
                 # 'revisions_to_keep': 0,
                 # but now it is fine to simply use whatever the pool driver
                 # uses as default.
             },
-            'volatile': {
-                'name': 'volatile',
-                'size': defaults['root_img_size'],
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': True,
+            "volatile": {
+                "name": "volatile",
+                "size": defaults["root_img_size"],
+                "snap_on_start": False,
+                "save_on_stop": False,
+                "rw": True,
             },
-            'kernel': {
-                'name': 'kernel',
-                'snap_on_start': False,
-                'save_on_stop': False,
-                'rw': False
-            }
+            "kernel": {
+                "name": "kernel",
+                "snap_on_start": False,
+                "save_on_stop": False,
+                "rw": False,
+            },
         }
         super().__init__(*args, **kwargs)
 
-    @qubes.events.handler('property-set:default_user',
-                          'property-set:kernel',
-                          'property-set:kernelopts',
-                          'property-set:vcpus',
-                          'property-set:memory',
-                          'property-set:maxmem',
-                          'property-set:qrexec_timeout',
-                          'property-set:shutdown_timeout',
-                          'property-set:management_dispvm')
+    @qubes.events.handler(
+        "property-set:default_user",
+        "property-set:kernel",
+        "property-set:kernelopts",
+        "property-set:vcpus",
+        "property-set:memory",
+        "property-set:maxmem",
+        "property-set:qrexec_timeout",
+        "property-set:shutdown_timeout",
+        "property-set:management_dispvm",
+    )
     def on_property_set_child(self, _event, name, newvalue, oldvalue=None):
         """Send event about default value change to child VMs
-           (which use default inherited from the template).
+        (which use default inherited from the template).
 
-           This handler is supposed to be set for properties using
-           `_default_with_template()` function for the default value.
-           """
+        This handler is supposed to be set for properties using
+        `_default_with_template()` function for the default value.
+        """
         if newvalue == oldvalue:
             return
 
         for vm in self.appvms:
             if not vm.property_is_default(name):
                 continue
-            vm.fire_event('property-reset:' + name, name=name)
+            vm.fire_event("property-reset:" + name, name=name)

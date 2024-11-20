@@ -18,23 +18,24 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-'''Qubes extensions.
+"""Qubes extensions.
 
 Extensions provide additional features (like application menus) found only on
 some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
-'''
+"""
 import collections
 import importlib.metadata
 import qubes.events
 
 
 class Extension:
-    '''Base class for all extensions'''
+    """Base class for all extensions"""
+
     # pylint: disable=too-few-public-methods
 
     def __new__(cls):
-        if '_instance' not in cls.__dict__:
+        if "_instance" not in cls.__dict__:
             cls._instance = super(Extension, cls).__new__(cls)
 
             for name in cls.__dict__:
@@ -61,13 +62,16 @@ class Extension:
     def ensure_detach(self, vm, port):
         pass
 
+
 def get_extensions():
-    return set(ext.load()()
-        for ext in importlib.metadata.entry_points(group='qubes.ext'))
+    return set(
+        ext.load()()
+        for ext in importlib.metadata.entry_points(group="qubes.ext")
+    )
 
 
 def handler(*events, **kwargs):
-    '''Event handler decorator factory.
+    """Event handler decorator factory.
 
     To hook an event, decorate a method in your plugin class with this
     decorator. You may hook both per-vm-class and global events.
@@ -80,15 +84,15 @@ def handler(*events, **kwargs):
     :param type vm: VM to hook (leave as None to hook all VMs)
     :param bool system: when :py:obj:`True`, hook is system-wide (not attached \
         to any VM)
-    '''
+    """
 
     def decorator(func):
         func.ha_events = events
 
-        if kwargs.get('system', False):
+        if kwargs.get("system", False):
             func.ha_vm = None
-        elif 'vm' in kwargs:
-            func.ha_vm = kwargs['vm']
+        elif "vm" in kwargs:
+            func.ha_vm = kwargs["vm"]
         else:
             func.ha_vm = qubes.vm.BaseVM
 

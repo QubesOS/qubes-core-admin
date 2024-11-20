@@ -32,121 +32,141 @@ class GUI(qubes.ext.Extension):
     @staticmethod
     def attached_vms(vm):
         for domain in vm.app.domains:
-            if getattr(domain, 'guivm', None) and domain.guivm == vm:
+            if getattr(domain, "guivm", None) and domain.guivm == vm:
                 yield domain
 
-    @qubes.ext.handler('domain-pre-shutdown')
+    @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
-        attached_vms = [domain for domain in self.attached_vms(vm) if
-                        domain.is_running()]
-        if attached_vms and not kwargs.get('force', False):
+        attached_vms = [
+            domain for domain in self.attached_vms(vm) if domain.is_running()
+        ]
+        if attached_vms and not kwargs.get("force", False):
             raise qubes.exc.QubesVMError(
-                self, 'There are running VMs using this VM as GuiVM: '
-                      '{}'.format(', '.join(vm.name for vm in attached_vms)))
+                self,
+                "There are running VMs using this VM as GuiVM: "
+                "{}".format(", ".join(vm.name for vm in attached_vms)),
+            )
 
     @staticmethod
     def send_gui_mode(vm):
-        vm.run_service('qubes.SetGuiMode',
-                       input=('SEAMLESS'
-                              if vm.features.get('gui-seamless', False)
-                              else 'FULLSCREEN'))
+        vm.run_service(
+            "qubes.SetGuiMode",
+            input=(
+                "SEAMLESS"
+                if vm.features.get("gui-seamless", False)
+                else "FULLSCREEN"
+            ),
+        )
 
-    @qubes.ext.handler('domain-init', 'domain-load')
+    @qubes.ext.handler("domain-init", "domain-load")
     def on_domain_init_load(self, vm, event):
-        if getattr(vm, 'guivm', None):
-            if 'guivm-' + vm.guivm.name not in vm.tags:
-                self.on_property_set(vm, event, name='guivm', newvalue=vm.guivm)
+        if getattr(vm, "guivm", None):
+            if "guivm-" + vm.guivm.name not in vm.tags:
+                self.on_property_set(vm, event, name="guivm", newvalue=vm.guivm)
 
-    @qubes.ext.handler('property-reset:guivm')
+    @qubes.ext.handler("property-reset:guivm")
     def on_property_reset(self, subject, event, name, oldvalue=None):
-        newvalue = getattr(subject, 'guivm', None)
+        newvalue = getattr(subject, "guivm", None)
         self.on_property_set(subject, event, name, newvalue, oldvalue)
 
-    @qubes.ext.handler('property-set:guivm')
+    @qubes.ext.handler("property-set:guivm")
     def on_property_set(self, subject, event, name, newvalue, oldvalue=None):
         # Clean other 'guivm-XXX' tags.
         # gui-daemon can connect to only one domain
         tags_list = list(subject.tags)
         for tag in tags_list:
-            if tag.startswith('guivm-'):
+            if tag.startswith("guivm-"):
                 subject.tags.remove(tag)
 
         if newvalue:
-            guivm = 'guivm-' + newvalue.name
+            guivm = "guivm-" + newvalue.name
             subject.tags.add(guivm)
 
-    @qubes.ext.handler('domain-qdb-create')
+    @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
-        for feature in ('gui-videoram-overhead', 'gui-videoram-min'):
+        for feature in ("gui-videoram-overhead", "gui-videoram-min"):
             try:
                 vm.untrusted_qdb.write(
-                    '/qubes-{}'.format(feature),
-                    vm.features.check_with_template_and_adminvm(
-                        feature))
+                    "/qubes-{}".format(feature),
+                    vm.features.check_with_template_and_adminvm(feature),
+                )
             except KeyError:
                 pass
 
         # Add GuiVM Xen ID for gui-daemon
-        if getattr(vm, 'guivm', None):
+        if getattr(vm, "guivm", None):
             if vm != vm.guivm:
-                vm.untrusted_qdb.write('/keyboard-layout', vm.keyboard_layout)
+                vm.untrusted_qdb.write("/keyboard-layout", vm.keyboard_layout)
 
                 if vm.guivm.is_running():
-                    vm.untrusted_qdb.write('/qubes-gui-domain-xid',
-                                           str(vm.guivm.xid))
+                    vm.untrusted_qdb.write(
+                        "/qubes-gui-domain-xid", str(vm.guivm.xid)
+                    )
 
         # Set GuiVM prefix
-        guivm_windows_prefix = vm.features.get('guivm-windows-prefix', 'GuiVM')
-        if vm.features.get('service.guivm', None):
-            vm.untrusted_qdb.write('/guivm-windows-prefix',
-                                   guivm_windows_prefix)
+        guivm_windows_prefix = vm.features.get("guivm-windows-prefix", "GuiVM")
+        if vm.features.get("service.guivm", None):
+            vm.untrusted_qdb.write(
+                "/guivm-windows-prefix", guivm_windows_prefix
+            )
 
-    @qubes.ext.handler('property-set:default_guivm', system=True)
-    def on_property_set_default_guivm(self, app, event, name, newvalue,
-                                      oldvalue=None):
+    @qubes.ext.handler("property-set:default_guivm", system=True)
+    def on_property_set_default_guivm(
+        self, app, event, name, newvalue, oldvalue=None
+    ):
         for vm in app.domains:
-            if hasattr(vm, 'guivm') and vm.property_is_default('guivm'):
-                vm.fire_event('property-set:guivm',
-                              name='guivm', newvalue=newvalue,
-                              oldvalue=oldvalue)
+            if hasattr(vm, "guivm") and vm.property_is_default("guivm"):
+                vm.fire_event(
+                    "property-set:guivm",
+                    name="guivm",
+                    newvalue=newvalue,
+                    oldvalue=oldvalue,
+                )
 
-    @qubes.ext.handler('domain-start')
+    @qubes.ext.handler("domain-start")
     async def on_domain_start(self, vm, event, **kwargs):
-        attached_vms = [domain for domain in self.attached_vms(vm) if
-                        domain.is_running()]
+        attached_vms = [
+            domain for domain in self.attached_vms(vm) if domain.is_running()
+        ]
         for attached_vm in attached_vms:
-            attached_vm.untrusted_qdb.write('/qubes-gui-domain-xid',
-                                            str(vm.xid))
-        if vm.features.get('input-dom0-proxy', None):
+            attached_vm.untrusted_qdb.write(
+                "/qubes-gui-domain-xid", str(vm.xid)
+            )
+        if vm.features.get("input-dom0-proxy", None):
             await asyncio.create_subprocess_exec(
-                '/usr/bin/qubes-input-trigger', '--all', '--dom0')
+                "/usr/bin/qubes-input-trigger", "--all", "--dom0"
+            )
 
-    @qubes.ext.handler('property-reset:keyboard_layout')
+    @qubes.ext.handler("property-reset:keyboard_layout")
     def on_keyboard_reset(self, vm, event, name, oldvalue=None):
         if not vm.is_running():
             return
         kbd_layout = vm.keyboard_layout
 
-        vm.untrusted_qdb.write('/keyboard-layout', kbd_layout)
+        vm.untrusted_qdb.write("/keyboard-layout", kbd_layout)
 
-    @qubes.ext.handler('property-set:keyboard_layout')
+    @qubes.ext.handler("property-set:keyboard_layout")
     def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
         for domain in vm.app.domains:
-            if getattr(domain, 'guivm', None) == vm and \
-                    domain.property_is_default('keyboard_layout'):
-                domain.fire_event('property-reset:keyboard_layout',
-                                  name='keyboard_layout', oldvalue=oldvalue)
+            if getattr(
+                domain, "guivm", None
+            ) == vm and domain.property_is_default("keyboard_layout"):
+                domain.fire_event(
+                    "property-reset:keyboard_layout",
+                    name="keyboard_layout",
+                    oldvalue=oldvalue,
+                )
 
         if vm.is_running():
-            vm.untrusted_qdb.write('/keyboard-layout', newvalue)
+            vm.untrusted_qdb.write("/keyboard-layout", newvalue)
 
-    @qubes.ext.handler('domain-tag-add:created-by-*')
+    @qubes.ext.handler("domain-tag-add:created-by-*")
     def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
-        '''Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
-           features
-        '''
+        """Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
+        features
+        """
         # pylint: disable=unused-argument
-        created_by = vm.app.domains[tag.partition('created-by-')[2]]
-        if created_by.features.get('set-created-guivm', None):
-            guivm = vm.app.domains[created_by.features['set-created-guivm']]
+        created_by = vm.app.domains[tag.partition("created-by-")[2]]
+        if created_by.features.get("set-created-guivm", None):
+            guivm = vm.app.domains[created_by.features["set-created-guivm"]]
             vm.guivm = guivm

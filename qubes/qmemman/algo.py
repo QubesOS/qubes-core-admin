@@ -29,7 +29,7 @@ CACHE_FACTOR = 1.3
 MIN_PREFMEM = 200 * 1024 * 1024
 DOM0_MEM_BOOST = 350 * 1024 * 1024
 
-log = logging.getLogger('qmemman.daemon.algo')
+log = logging.getLogger("qmemman.daemon.algo")
 
 
 # untrusted meminfo size is taken from xenstore key, thus its size is limited
@@ -53,11 +53,19 @@ def refresh_meminfo_for_domain(domain, untrusted_xenstore_key):
 def prefmem(domain):
     # dom0 is special, as it must have large cache, for vbds. Thus, give it
     # a special boost
-    if domain.id == '0':
-        return int(min(domain.mem_used * CACHE_FACTOR + DOM0_MEM_BOOST,
-            domain.memory_maximum))
-    return int(max(min(domain.mem_used * CACHE_FACTOR, domain.memory_maximum),
-        MIN_PREFMEM))
+    if domain.id == "0":
+        return int(
+            min(
+                domain.mem_used * CACHE_FACTOR + DOM0_MEM_BOOST,
+                domain.memory_maximum,
+            )
+        )
+    return int(
+        max(
+            min(domain.mem_used * CACHE_FACTOR, domain.memory_maximum),
+            MIN_PREFMEM,
+        )
+    )
 
 
 def memory_needed(domain):
@@ -72,8 +80,11 @@ def memory_needed(domain):
 # to "xm memset" equivalent in order to obtain "memsize" of memory
 # return empty list when the request cannot be satisfied
 def balloon(memsize, domain_dictionary):
-    log.debug('balloon(memsize={!r}, domain_dictionary={!r})'.format(
-        memsize, domain_dictionary))
+    log.debug(
+        "balloon(memsize={!r}, domain_dictionary={!r})".format(
+            memsize, domain_dictionary
+        )
+    )
     REQ_SAFETY_NET_FACTOR = 1.05
     donors = list()
     request = list()
@@ -85,12 +96,15 @@ def balloon(memsize, domain_dictionary):
             continue
         need = memory_needed(domain_dictionary[i])
         if need < 0:
-            log.info('balloon: dom {} has actual memory {}'.format(i,
-                domain_dictionary[i].memory_actual))
+            log.info(
+                "balloon: dom {} has actual memory {}".format(
+                    i, domain_dictionary[i].memory_actual
+                )
+            )
             donors.append((i, -need))
             available -= need
 
-    log.info('req={} avail={} donors={!r}'.format(memsize, available, donors))
+    log.info("req={} avail={} donors={!r}".format(memsize, available, donors))
 
     if available < memsize:
         return []
@@ -98,7 +112,7 @@ def balloon(memsize, domain_dictionary):
     for donors_iter in donors:
         dom_id, mem = donors_iter
         memborrowed = mem * scale * REQ_SAFETY_NET_FACTOR
-        log.info('borrow {} from {}'.format(memborrowed, dom_id))
+        log.info("borrow {} from {}".format(memborrowed, dom_id))
         memtarget = int(domain_dictionary[dom_id].memory_actual - memborrowed)
         request.append((dom_id, memtarget))
     return request
@@ -111,11 +125,15 @@ def balloon(memsize, domain_dictionary):
 
 # redistribute positive "total_available_memory" of memory between domains,
 # proportionally to prefmem
-def balance_when_enough_memory(domain_dictionary,
-        xen_free_memory, total_mem_pref, total_available_memory):
-    log.info('balance_when_enough_memory(xen_free_memory={!r}, '
-             'total_mem_pref={!r}, total_available_memory={!r})'.format(
-        xen_free_memory, total_mem_pref, total_available_memory))
+def balance_when_enough_memory(
+    domain_dictionary, xen_free_memory, total_mem_pref, total_available_memory
+):
+    log.info(
+        "balance_when_enough_memory(xen_free_memory={!r}, "
+        "total_mem_pref={!r}, total_available_memory={!r})".format(
+            xen_free_memory, total_mem_pref, total_available_memory
+        )
+    )
 
     target_memory = {}
     # memory not assigned because of static max
@@ -128,8 +146,9 @@ def balance_when_enough_memory(domain_dictionary,
             continue
         # distribute total_available_memory proportionally to mempref
         scale = 1.0 * prefmem(domain_dictionary[i]) / total_mem_pref
-        target_nonint = prefmem(
-            domain_dictionary[i]) + scale * total_available_memory
+        target_nonint = (
+            prefmem(domain_dictionary[i]) + scale * total_available_memory
+        )
         # prevent rounding errors
         target = int(0.999 * target_nonint)
         # do not try to give more memory than static max
@@ -142,8 +161,11 @@ def balance_when_enough_memory(domain_dictionary,
         target_memory[i] = target
     # distribute left memory across all acceptors
     while left_memory > 0 and acceptors_count > 0:
-        log.info('left_memory={} acceptors_count={}'.format(
-            left_memory, acceptors_count))
+        log.info(
+            "left_memory={} acceptors_count={}".format(
+                left_memory, acceptors_count
+            )
+        )
 
         new_left_memory = 0
         new_acceptors_count = acceptors_count
@@ -152,8 +174,11 @@ def balance_when_enough_memory(domain_dictionary,
             if target < domain_dictionary[i].memory_maximum:
                 memory_bonus = int(0.999 * (left_memory / acceptors_count))
                 if target + memory_bonus >= domain_dictionary[i].memory_maximum:
-                    new_left_memory += target + memory_bonus - \
-                                       domain_dictionary[i].memory_maximum
+                    new_left_memory += (
+                        target
+                        + memory_bonus
+                        - domain_dictionary[i].memory_maximum
+                    )
                     target = domain_dictionary[i].memory_maximum
                     new_acceptors_count -= 1
                 else:
@@ -180,11 +205,19 @@ def balance_when_enough_memory(domain_dictionary,
 
 # when not enough mem to make everyone be above prefmem, make donors be at
 # prefmem, and redistribute anything left between acceptors
-def balance_when_low_on_memory(domain_dictionary,
-        xen_free_memory, total_mem_pref_acceptors, donors, acceptors):
-    log.info('balance_when_low_on_memory(xen_free_memory={!r}, '
-        'total_mem_pref_acceptors={!r}, donors={!r}, acceptors={!r})'.format(
-         xen_free_memory, total_mem_pref_acceptors, donors, acceptors))
+def balance_when_low_on_memory(
+    domain_dictionary,
+    xen_free_memory,
+    total_mem_pref_acceptors,
+    donors,
+    acceptors,
+):
+    log.info(
+        "balance_when_low_on_memory(xen_free_memory={!r}, "
+        "total_mem_pref_acceptors={!r}, donors={!r}, acceptors={!r})".format(
+            xen_free_memory, total_mem_pref_acceptors, donors, acceptors
+        )
+    )
     donors_rq = list()
     acceptors_rq = list()
     squeezed_mem = xen_free_memory
@@ -201,11 +234,13 @@ def balance_when_low_on_memory(domain_dictionary,
         return donors_rq
     for i in acceptors:
         scale = 1.0 * prefmem(domain_dictionary[i]) / total_mem_pref_acceptors
-        target_nonint = \
+        target_nonint = (
             domain_dictionary[i].memory_actual + scale * squeezed_mem
+        )
         # do not try to give more memory than static max
-        target = \
-            min(int(0.999 * target_nonint), domain_dictionary[i].memory_maximum)
+        target = min(
+            int(0.999 * target_nonint), domain_dictionary[i].memory_maximum
+        )
         acceptors_rq.append((i, target))
     # print 'balance(low): xen_free_memory=', xen_free_memory, 'requests:',
     # donors_rq + acceptors_rq
@@ -217,8 +252,11 @@ def balance_when_low_on_memory(domain_dictionary,
 # return the list of (domain, memory_target) pairs to be passed to
 # "xm memset" equivalent
 def balance(xen_free_memory, domain_dictionary):
-    log.debug('balance(xen_free_memory={!r}, domain_dictionary={!r})'.format(
-        xen_free_memory, domain_dictionary))
+    log.debug(
+        "balance(xen_free_memory={!r}, domain_dictionary={!r})".format(
+            xen_free_memory, domain_dictionary
+        )
+    )
 
     # sum of all memory requirements - in other words, the difference between
     # memory required to be added to domains (acceptors) to make them be
@@ -245,8 +283,11 @@ def balance(xen_free_memory, domain_dictionary):
         # print 'domain' , i, 'act/pref', \
         #  domain_dictionary[i].memory_actual, prefmem(domain_dictionary[i]), \
         #  'need=', need
-        if need < 0 or domain_dictionary[i].memory_actual >= \
-                domain_dictionary[i].memory_maximum:
+        if (
+            need < 0
+            or domain_dictionary[i].memory_actual
+            >= domain_dictionary[i].memory_maximum
+        ):
             donors.append(i)
         else:
             acceptors.append(i)
@@ -256,8 +297,17 @@ def balance(xen_free_memory, domain_dictionary):
 
     total_available_memory = xen_free_memory - total_memory_needed
     if total_available_memory > 0:
-        return balance_when_enough_memory(domain_dictionary, xen_free_memory,
-            total_mem_pref, total_available_memory)
+        return balance_when_enough_memory(
+            domain_dictionary,
+            xen_free_memory,
+            total_mem_pref,
+            total_available_memory,
+        )
     else:
-        return balance_when_low_on_memory(domain_dictionary, xen_free_memory,
-            total_mem_pref_acceptors, donors, acceptors)
+        return balance_when_low_on_memory(
+            domain_dictionary,
+            xen_free_memory,
+            total_mem_pref_acceptors,
+            donors,
+            acceptors,
+        )

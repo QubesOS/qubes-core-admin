@@ -22,6 +22,7 @@
 import io
 import sys
 
+
 class StdoutBuffer(object):
     def __init__(self):
         self.stdout = io.StringIO()

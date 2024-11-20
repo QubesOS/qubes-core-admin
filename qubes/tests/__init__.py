@@ -67,21 +67,23 @@ import qubes.tests.never_awaited
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
-XMLPATH = '/var/lib/qubes/qubes-test.xml'
-CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
-TEMPLATE = 'fedora-23'
-VMPREFIX = 'test-inst-'
-CLSVMPREFIX = 'test-cls-'
+XMLPATH = "/var/lib/qubes/qubes-test.xml"
+CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
+TEMPLATE = "fedora-23"
+VMPREFIX = "test-inst-"
+CLSVMPREFIX = "test-cls-"
 
-if 'DEFAULT_LVM_POOL' in os.environ.keys():
-    DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
+if "DEFAULT_LVM_POOL" in os.environ.keys():
+    DEFAULT_LVM_POOL = os.environ["DEFAULT_LVM_POOL"]
 else:
-    DEFAULT_LVM_POOL = 'qubes_dom0/vm-pool'
+    DEFAULT_LVM_POOL = "qubes_dom0/vm-pool"
 
-POOL_CONF = {'name': 'test-lvm',
-             'driver': 'lvm_thin',
-             'volume_group': DEFAULT_LVM_POOL.split('/')[0],
-             'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
+POOL_CONF = {
+    "name": "test-lvm",
+    "driver": "lvm_thin",
+    "volume_group": DEFAULT_LVM_POOL.split("/")[0],
+    "thin_pool": DEFAULT_LVM_POOL.split("/")[1],
+}
 
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
 in_dom0 = False
@@ -93,7 +95,7 @@ in_git = False
 try:
     import libvirt
 
-    libvirt.openReadOnly(qubes.config.defaults['libvirt_uri']).close()
+    libvirt.openReadOnly(qubes.config.defaults["libvirt_uri"]).close()
     in_dom0 = True
 except libvirt.libvirtError:
     pass
@@ -104,9 +106,13 @@ if in_dom0:
 libvirt_event_impl = None
 
 try:
-    in_git = subprocess.check_output(
-        ['git', 'rev-parse', '--show-toplevel'], stderr=subprocess.DEVNULL
-    ).decode().strip()
+    in_git = (
+        subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL
+        )
+        .decode()
+        .strip()
+    )
 except subprocess.CalledProcessError:
     # git returned nonzero, we are outside git repo
     pass
@@ -124,7 +130,7 @@ def skipUnlessDom0(test_item):
     working dom0. This is checked by connecting to libvirt.
     """
 
-    return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
+    return unittest.skipUnless(in_dom0, "outside dom0")(test_item)
 
 
 def skipUnlessGit(test_item):
@@ -134,7 +140,7 @@ def skipUnlessGit(test_item):
     correctness of example code that won't get included in RPM.
     """
 
-    return unittest.skipUnless(in_git, 'outside git tree')(test_item)
+    return unittest.skipUnless(in_git, "outside git tree")(test_item)
 
 
 def skipUnlessEnv(varname):
@@ -145,7 +151,7 @@ def skipUnlessEnv(varname):
     Other require their own, custom variables.
     """
 
-    return unittest.skipUnless(os.getenv(varname), 'no {} set'.format(varname))
+    return unittest.skipUnless(os.getenv(varname), "no {} set".format(varname))
 
 
 class TestEmitter(qubes.events.Emitter):
@@ -175,10 +181,14 @@ class TestEmitter(qubes.events.Emitter):
     def fire_event(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event(event, **kwargs)
         ev_kwargs = frozenset(
-            (key,
-             frozenset(value.items()) if isinstance(value, dict)
-             else tuple(value) if isinstance(value, list)
-             else value)
+            (
+                key,
+                (
+                    frozenset(value.items())
+                    if isinstance(value, dict)
+                    else tuple(value) if isinstance(value, list) else value
+                ),
+            )
             for key, value in kwargs.items()
         )
         self.fired_events[(event, ev_kwargs)] += 1
@@ -186,10 +196,13 @@ class TestEmitter(qubes.events.Emitter):
 
     async def fire_event_async(self, event, pre_event=False, **kwargs):
         effects = await super(TestEmitter, self).fire_event_async(
-            event, pre_event=pre_event, **kwargs)
+            event, pre_event=pre_event, **kwargs
+        )
         ev_kwargs = frozenset(
-            (key,
-             frozenset(value.items()) if isinstance(value, dict) else value)
+            (
+                key,
+                frozenset(value.items()) if isinstance(value, dict) else value,
+            )
             for key, value in kwargs.items()
         )
         self.fired_events[(event, ev_kwargs)] += 1
@@ -241,15 +254,17 @@ def wait_on_fail(func):
         try:
             func(self, *args, **kwargs)
         except:
-            print('FAIL\n')
+            print("FAIL\n")
             traceback.print_exc()
-            print('Press return to continue:', end='')
+            print("Press return to continue:", end="")
             sys.stdout.flush()
             reader = asyncio.StreamReader(loop=self.loop)
             transport, protocol = self.loop.run_until_complete(
                 self.loop.connect_read_pipe(
                     lambda: asyncio.StreamReaderProtocol(reader),
-                    os.fdopen(os.dup(sys.stdin.fileno()))))
+                    os.fdopen(os.dup(sys.stdin.fileno())),
+                )
+            )
             self.loop.run_until_complete(reader.readline())
             transport.close()
             raise
@@ -265,7 +280,7 @@ class _AssertNotRaisesContext(object):
 
     def __init__(self, expected, test_case, expected_regexp=None):
         if expected_regexp is not None:
-            raise NotImplementedError('expected_regexp is unsupported')
+            raise NotImplementedError("expected_regexp is unsupported")
 
         self.expected = expected
         self.exception = None
@@ -282,7 +297,9 @@ class _AssertNotRaisesContext(object):
         if issubclass(exc_type, self.expected):
             raise self.failureException(
                 "{!r} raised, traceback:\n{!s}".format(
-                    exc_value, ''.join(traceback.format_tb(tb))))
+                    exc_value, "".join(traceback.format_tb(tb))
+                )
+            )
         else:
             # pass through
             return False
@@ -310,9 +327,11 @@ class _QrexecPolicyContext(object):
         else:
             arg = "*"
 
-        self._filename = pathlib.Path("/etc/qubes/policy.d") / f"10-test-{id(self)}.policy"
+        self._filename = (
+            pathlib.Path("/etc/qubes/policy.d") / f"10-test-{id(self)}.policy"
+        )
         if action is None:
-            action = 'allow' if allow else 'deny'
+            action = "allow" if allow else "deny"
         self._rule = f"{service} {arg} {source} {destination} {action}\n"
         self._did_create = False
         self._handle = None
@@ -320,14 +339,16 @@ class _QrexecPolicyContext(object):
     def open(self):
         assert self._handle is None
         if self._filename.exists():
-            raise FileExistsError(f"Policy file {self._filename!s} already exists, clean it up")
-        self._handle = self._filename.open('w+')
+            raise FileExistsError(
+                f"Policy file {self._filename!s} already exists, clean it up"
+            )
+        self._handle = self._filename.open("w+")
 
     def save(self, rules):
         assert self._handle is not None
         self._handle.truncate(0)
         self._handle.seek(0)
-        self._handle.write(''.join(rules))
+        self._handle.write("".join(rules))
         self._handle.flush()
 
     def close(self):
@@ -385,6 +406,7 @@ class _clear_ex_info(contextlib.ContextDecorator):
     """Remove local variables reference from tracebacks to allow garbage
     collector to clean all Qubes*() objects, otherwise file descriptors
     held by them will leak"""
+
     def __init__(self, result_callback=None):
         self._result_callback = result_callback
 
@@ -407,28 +429,33 @@ class _clear_ex_info(contextlib.ContextDecorator):
 
 
 class QubesTestCase(unittest.TestCase):
-    """Base class for Qubes unit tests.
-    """
+    """Base class for Qubes unit tests."""
 
-    _callSetUp      = never_awaited.detect()(unittest.TestCase._callSetUp)
+    _callSetUp = never_awaited.detect()(unittest.TestCase._callSetUp)
     _callTestMethod = never_awaited.detect()(unittest.TestCase._callTestMethod)
-    _callTearDown   = never_awaited.detect()(unittest.TestCase._callTearDown)
-    _callCleanup    = never_awaited.detect()(unittest.TestCase._callCleanup)
+    _callTearDown = never_awaited.detect()(unittest.TestCase._callTearDown)
+    _callCleanup = never_awaited.detect()(unittest.TestCase._callCleanup)
 
-    def __init__(self, methodName='runTest'):
+    def __init__(self, methodName="runTest"):
         try:
             test_method = getattr(self, methodName)
-            setattr(self, methodName, _clear_ex_info(self.set_result)(test_method))
+            setattr(
+                self, methodName, _clear_ex_info(self.set_result)(test_method)
+            )
         except AttributeError:
             pass
         super(QubesTestCase, self).__init__(methodName)
         self.longMessage = True
-        self.log = logging.getLogger('{}.{}.{}'.format(
-            self.__class__.__module__,
-            self.__class__.__name__,
-            self._testMethodName))
-        self.addTypeEqualityFunc(qubes.devices.DeviceManager,
-                                 self.assertDevicesEqual)
+        self.log = logging.getLogger(
+            "{}.{}.{}".format(
+                self.__class__.__module__,
+                self.__class__.__name__,
+                self._testMethodName,
+            )
+        )
+        self.addTypeEqualityFunc(
+            qubes.devices.DeviceManager, self.assertDevicesEqual
+        )
 
         # decorate methods here, to catch also any overriden methods in subclasses
         self.setUp = _clear_ex_info()(self.setUp)
@@ -447,10 +474,11 @@ class QubesTestCase(unittest.TestCase):
         self._success = success
 
     def __str__(self):
-        return '{}/{}/{}'.format(
+        return "{}/{}/{}".format(
             self.__class__.__module__,
             self.__class__.__name__,
-            self._testMethodName)
+            self._testMethodName,
+        )
 
     def setUp(self):
         super().setUp()
@@ -460,27 +488,42 @@ class QubesTestCase(unittest.TestCase):
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel
+
         def kernel_validator_patched(obj, key, value):
-            if value.startswith('unittest'):
+            if value.startswith("unittest"):
                 self.kernel_validator_original(obj, key, value)
+
         self.skip_kernel_validation_patch = unittest.mock.patch(
-            'qubes.app.validate_kernel', kernel_validator_patched)
+            "qubes.app.validate_kernel", kernel_validator_patched
+        )
         self.skip_kernel_validation_patch.start()
 
     def cleanup_gc(self):
         gc.collect()
-        leaked = [obj for obj in gc.get_objects() + gc.garbage
-                  if isinstance(obj,
-                                (qubes.Qubes, qubes.vm.BaseVM,
-                                 libvirt.virConnect, libvirt.virDomain))]
+        leaked = [
+            obj
+            for obj in gc.get_objects() + gc.garbage
+            if isinstance(
+                obj,
+                (
+                    qubes.Qubes,
+                    qubes.vm.BaseVM,
+                    libvirt.virConnect,
+                    libvirt.virDomain,
+                ),
+            )
+        ]
 
         if leaked:
             try:
                 import objgraph
-                objgraph.show_backrefs(leaked,
-                                       max_depth=15, extra_info=extra_info,
-                                       filename='/tmp/objgraph-{}.png'.format(
-                                           self.id()))
+
+                objgraph.show_backrefs(
+                    leaked,
+                    max_depth=15,
+                    extra_info=extra_info,
+                    filename="/tmp/objgraph-{}.png".format(self.id()),
+                )
             except ImportError:
                 pass
 
@@ -505,10 +548,11 @@ class QubesTestCase(unittest.TestCase):
         # Check for unfinished libvirt business.
         if libvirt_event_impl is not None:
             try:
-                self.loop.run_until_complete(asyncio.wait_for(
-                    libvirt_event_impl.drain(), timeout=30))
+                self.loop.run_until_complete(
+                    asyncio.wait_for(libvirt_event_impl.drain(), timeout=30)
+                )
             except asyncio.TimeoutError:
-                raise AssertionError('libvirt event impl drain timeout')
+                raise AssertionError("libvirt event impl drain timeout")
 
         # this is stupid, but apparently it requires two passes
         # to cleanup SIGCHLD handlers
@@ -525,40 +569,42 @@ class QubesTestCase(unittest.TestCase):
         # NOTE the loop has a pipe for self-interrupting, created once per
         # lifecycle, and it is unwatched only at loop.close(); so we cannot just
         # check selector for non-emptiness
-        assert len(self.loop._selector.get_map()) \
-               == int(self.loop._ssock is not None), \
-               f"unexpected selector map entries: " \
-               f"{dict(self.loop._selector.get_map())!r}"
+        assert len(self.loop._selector.get_map()) == int(
+            self.loop._ssock is not None
+        ), (
+            f"unexpected selector map entries: "
+            f"{dict(self.loop._selector.get_map())!r}"
+        )
 
         del self.loop
 
     def success(self):
-        """Check if test was successful during tearDown """
+        """Check if test was successful during tearDown"""
 
         return self._success
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
-           by callableObj when invoked with arguments args and keyword
-           arguments kwargs. If a different type of exception is
-           raised, it will not be caught, and the test case will be
-           deemed to have suffered an error, exactly as for an
-           unexpected exception.
+        by callableObj when invoked with arguments args and keyword
+        arguments kwargs. If a different type of exception is
+        raised, it will not be caught, and the test case will be
+        deemed to have suffered an error, exactly as for an
+        unexpected exception.
 
-           If called with callableObj omitted or None, will return a
-           context object used like this::
+        If called with callableObj omitted or None, will return a
+        context object used like this::
 
-                with self.assertRaises(SomeException):
-                    do_something()
+             with self.assertRaises(SomeException):
+                 do_something()
 
-           The context manager keeps a reference to the exception as
-           the 'exception' attribute. This allows you to inspect the
-           exception after the assertion::
+        The context manager keeps a reference to the exception as
+        the 'exception' attribute. This allows you to inspect the
+        exception after the assertion::
 
-               with self.assertRaises(SomeException) as cm:
-                   do_something()
-               the_exception = cm.exception
-               self.assertEqual(the_exception.error_code, 3)
+            with self.assertRaises(SomeException) as cm:
+                do_something()
+            the_exception = cm.exception
+            self.assertEqual(the_exception.error_code, 3)
         """
         context = _AssertNotRaisesContext(excClass, self)
         if callableObj is None:
@@ -566,7 +612,7 @@ class QubesTestCase(unittest.TestCase):
         with context:
             callableObj(*args, **kwargs)
 
-    def assertXMLEqual(self, xml1, xml2, msg=''):
+    def assertXMLEqual(self, xml1, xml2, msg=""):
         """Check for equality of two XML objects.
 
         :param xml1: first element
@@ -576,7 +622,7 @@ class QubesTestCase(unittest.TestCase):
         """
 
         self.assertEqual(xml1.tag, xml2.tag)
-        msg += '/' + str(xml1.tag)
+        msg += "/" + str(xml1.tag)
 
         if xml1.text is not None and xml2.text is not None:
             self.assertEqual(xml1.text.strip(), xml2.text.strip(), msg)
@@ -586,7 +632,7 @@ class QubesTestCase(unittest.TestCase):
         for key in xml1.keys():
             self.assertEqual(xml1.get(key), xml2.get(key), msg)
 
-        self.assertEqual(len(xml1), len(xml2), msg + ' children count')
+        self.assertEqual(len(xml1), len(xml2), msg + " children count")
         for child1, child2 in zip(xml1, xml2):
             self.assertXMLEqual(child1, child2, msg=msg)
 
@@ -597,7 +643,8 @@ class QubesTestCase(unittest.TestCase):
                 [str(dev) for dev in devices1[dev_class]],
                 [str(dev) for dev in devices2[dev_class]],
                 "Devices of class {} differs{}".format(
-                    dev_class, (": " + msg) if msg else "")
+                    dev_class, (": " + msg) if msg else ""
+                ),
             )
 
     def assertEventFired(self, subject, event, kwargs=None):
@@ -617,14 +664,21 @@ class QubesTestCase(unittest.TestCase):
                 continue
             if kwargs is not None:
                 ev_kwargs = dict(ev_kwargs)
-                if any(ev_kwargs.get(k, will_not_match) != v
-                       for k, v in kwargs.items()):
+                if any(
+                    ev_kwargs.get(k, will_not_match) != v
+                    for k, v in kwargs.items()
+                ):
                     continue
 
             return
 
-        self.fail('event {!r} {}did not fire on {!r}'.format(
-            event, ('' if kwargs is None else '{!r} '.format(kwargs)), subject))
+        self.fail(
+            "event {!r} {}did not fire on {!r}".format(
+                event,
+                ("" if kwargs is None else "{!r} ".format(kwargs)),
+                subject,
+            )
+        )
 
     def assertEventNotFired(self, subject, event, kwargs=None):
         """Check whether event was fired on given emitter. Fail if it did.
@@ -642,14 +696,19 @@ class QubesTestCase(unittest.TestCase):
                 continue
             if kwargs is not None:
                 ev_kwargs = dict(ev_kwargs)
-                if any(ev_kwargs.get(k, will_not_match) != v
-                       for k, v in kwargs.items()):
+                if any(
+                    ev_kwargs.get(k, will_not_match) != v
+                    for k, v in kwargs.items()
+                ):
                     continue
 
-            self.fail('event {!r} {}did fire on {!r}'.format(
-                event,
-                ('' if kwargs is None else '{!r} '.format(kwargs)),
-                subject))
+            self.fail(
+                "event {!r} {}did fire on {!r}".format(
+                    event,
+                    ("" if kwargs is None else "{!r} ".format(kwargs)),
+                    subject,
+                )
+            )
 
         return
 
@@ -679,9 +738,9 @@ class QubesTestCase(unittest.TestCase):
 
         elif file is not None and schema is None:
             if not os.path.isabs(file):
-                basedirs = ['/usr/share/doc/qubes/relaxng']
+                basedirs = ["/usr/share/doc/qubes/relaxng"]
                 if in_git:
-                    basedirs.insert(0, os.path.join(in_git, 'relaxng'))
+                    basedirs.insert(0, os.path.join(in_git, "relaxng"))
                 for basedir in basedirs:
                     abspath = os.path.join(basedir, file)
                     if os.path.exists(abspath):
@@ -690,8 +749,10 @@ class QubesTestCase(unittest.TestCase):
             relaxng = lxml.etree.RelaxNG(file=file)
 
         else:
-            raise TypeError("There should be excactly one of 'file' and "
-                            "'schema' arguments specified.")
+            raise TypeError(
+                "There should be excactly one of 'file' and "
+                "'schema' arguments specified."
+            )
 
         # We have to be extra careful here in case someone messed up with
         # self.failureException. It should by default be AssertionError, just
@@ -731,39 +792,46 @@ class SystemTestCase(QubesTestCase):
     :py:meth:`TestCase.tearDownClass` implementation itself.
     """
 
-    def __init__(self, methodName='runTest'):
-        if os.environ.get('QUBES_TEST_WAIT_ON_FAIL', None) == '1':
-            setattr(self, methodName,
-                lambda: wait_on_fail(getattr(self.__class__, methodName))(self))
+    def __init__(self, methodName="runTest"):
+        if os.environ.get("QUBES_TEST_WAIT_ON_FAIL", None) == "1":
+            setattr(
+                self,
+                methodName,
+                lambda: wait_on_fail(getattr(self.__class__, methodName))(self),
+            )
         super().__init__(methodName=methodName)
 
     # noinspection PyAttributeOutsideInit
     def setUp(self):
         if not in_dom0:
-            self.skipTest('outside dom0')
+            self.skipTest("outside dom0")
         super(SystemTestCase, self).setUp()
         self.remove_test_vms()
 
         global ha_syslog
         if ha_syslog is None:
-            ha_syslog = logging.handlers.SysLogHandler('/dev/log')
+            ha_syslog = logging.handlers.SysLogHandler("/dev/log")
             ha_syslog.setFormatter(
-                logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+                logging.Formatter("%(name)s[%(process)d]: %(message)s")
+            )
             logging.root.addHandler(ha_syslog)
 
-        self.log.critical('starting')
+        self.log.critical("starting")
 
         # need some information from the real qubes.xml - at least installed
         # templates; should not be used for testing, only to initialize self.app
-        self.host_app = qubes.Qubes(os.path.join(
-            qubes.config.qubes_base_dir,
-            qubes.config.system_path['qubes_store_filename']))
+        self.host_app = qubes.Qubes(
+            os.path.join(
+                qubes.config.qubes_base_dir,
+                qubes.config.system_path["qubes_store_filename"],
+            )
+        )
         if os.path.exists(CLASS_XMLPATH):
             shutil.copy(CLASS_XMLPATH, XMLPATH)
         else:
             shutil.copy(self.host_app.store, XMLPATH)
         self.app = qubes.Qubes(XMLPATH)
-        os.environ['QUBES_XML_PATH'] = XMLPATH
+        os.environ["QUBES_XML_PATH"] = XMLPATH
         self.app.register_event_handlers()
 
         self.qubesd = self.loop.run_until_complete(
@@ -771,18 +839,22 @@ class SystemTestCase(QubesTestCase):
                 qubes.api.admin.QubesAdminAPI,
                 qubes.api.internal.QubesInternalAPI,
                 qubes.api.misc.QubesMiscAPI,
-                app=self.app, debug=True))
+                app=self.app,
+                debug=True,
+            )
+        )
 
         self.addCleanup(self.cleanup_app)
 
-        self.app.add_handler('domain-delete', self.close_qdb_on_remove)
+        self.app.add_handler("domain-delete", self.close_qdb_on_remove)
 
     def close_qdb_on_remove(self, app, event, vm, **kwargs):
         # only close QubesDB connection, do not perform other (destructive)
         # actions of vm.close()
         if vm._qdb_connection_watch is not None:
             asyncio.get_event_loop().remove_reader(
-                vm._qdb_connection_watch.watch_fd())
+                vm._qdb_connection_watch.watch_fd()
+            )
             vm._qdb_connection_watch.close()
             vm._qdb_connection_watch = None
 
@@ -800,8 +872,14 @@ class SystemTestCase(QubesTestCase):
             server.close_clients()
         del server
 
-        self.loop.run_until_complete(asyncio.wait([
-            self.loop.create_task(server.wait_closed()) for server in self.qubesd]))
+        self.loop.run_until_complete(
+            asyncio.wait(
+                [
+                    self.loop.create_task(server.wait_closed())
+                    for server in self.qubesd
+                ]
+            )
+        )
         del self.qubesd
 
         # remove all references to any complex qubes objects, to release
@@ -814,7 +892,7 @@ class SystemTestCase(QubesTestCase):
         del self.host_app
         for attr in dir(self):
             obj_type = type(getattr(self, attr))
-            if obj_type.__module__.startswith('qubes'):
+            if obj_type.__module__.startswith("qubes"):
                 delattr(self, attr)
 
         # then trigger garbage collector to really destroy those objects
@@ -830,17 +908,18 @@ class SystemTestCase(QubesTestCase):
 
     def init_networking(self):
         if not self.app.default_template:
-            self.skipTest('Default template required for testing networking')
+            self.skipTest("Default template required for testing networking")
         default_netvm = self.host_app.default_netvm
         # if testing Whonix Workstation based VMs, try to use sys-whonix instead
-        if self.app.default_template.name.startswith('whonix-w'):
-            if 'sys-whonix' in self.host_app.domains:
-                default_netvm = self.host_app.domains['sys-whonix']
+        if self.app.default_template.name.startswith("whonix-w"):
+            if "sys-whonix" in self.host_app.domains:
+                default_netvm = self.host_app.domains["sys-whonix"]
         if default_netvm is None:
-            self.skipTest('Default netvm required')
+            self.skipTest("Default netvm required")
         if not default_netvm.is_running():
-            self.skipTest('VM {} required to be running'.format(
-                default_netvm.name))
+            self.skipTest(
+                "VM {} required to be running".format(default_netvm.name)
+            )
 
         self.app.default_netvm = str(default_netvm)
 
@@ -852,51 +931,65 @@ class SystemTestCase(QubesTestCase):
         await vm.start()
         try:
             await vm.run_for_stdio(
-                'systemctl is-system-running --wait', user='root')
+                "systemctl is-system-running --wait", user="root"
+            )
         except subprocess.CalledProcessError:
             # don't fail the whole test if some service fails to start,
             # we have separate tests for detecting this
             pass
         await vm.run_for_stdio(
-            'cat > {0}'.format('/usr/local/etc/torrc.d/40_tor_control_panel.conf'),
-            user='root', input=b'DisableNetwork 0\n')
+            "cat > {0}".format(
+                "/usr/local/etc/torrc.d/40_tor_control_panel.conf"
+            ),
+            user="root",
+            input=b"DisableNetwork 0\n",
+        )
         await vm.run_for_stdio(
-            'systemctl restart tor@default.service', user='root')
+            "systemctl restart tor@default.service", user="root"
+        )
         try:
-            await vm.run_for_stdio(
-                'pkill -f setup-wizard-dist', user='root')
+            await vm.run_for_stdio("pkill -f setup-wizard-dist", user="root")
         except subprocess.CalledProcessError:
             pass
         await vm.run_for_stdio(
-            'timeout=120; while ! tor-circuit-established-check; do'
-            ' sleep 1;'
-            ' timeout=$(( timeout - 1 ));'
-            ' [ $timeout -gt 0 ] || exit 1; '
-            'done')
-
+            "timeout=120; while ! tor-circuit-established-check; do"
+            " sleep 1;"
+            " timeout=$(( timeout - 1 ));"
+            " [ $timeout -gt 0 ] || exit 1; "
+            "done"
+        )
 
     def _find_pool(self, volume_group, thin_pool):
-        """ Returns the pool matching the specified ``volume_group`` &
-            ``thin_pool``, or None.
+        """Returns the pool matching the specified ``volume_group`` &
+        ``thin_pool``, or None.
         """
-        pools = [p for p in self.app.pools
-                 if issubclass(p.__class__, qubes.storage.lvm.ThinPool)]
+        pools = [
+            p
+            for p in self.app.pools
+            if issubclass(p.__class__, qubes.storage.lvm.ThinPool)
+        ]
         for pool in pools:
-            if pool.volume_group == volume_group \
-                    and pool.thin_pool == thin_pool:
+            if (
+                pool.volume_group == volume_group
+                and pool.thin_pool == thin_pool
+            ):
                 return pool
         return None
 
     def init_lvm_pool(self):
-        volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
-        path = "/dev/mapper/{!s}-{!s}".format(volume_group, thin_pool.replace('-', '--'))
+        volume_group, thin_pool = DEFAULT_LVM_POOL.split("/", 1)
+        path = "/dev/mapper/{!s}-{!s}".format(
+            volume_group, thin_pool.replace("-", "--")
+        )
         if not os.path.exists(path):
-            self.skipTest('LVM thin pool {!r} does not exist'.
-                          format(DEFAULT_LVM_POOL))
+            self.skipTest(
+                "LVM thin pool {!r} does not exist".format(DEFAULT_LVM_POOL)
+            )
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
             self.pool = self.loop.run_until_complete(
-                self.app.add_pool(**POOL_CONF))
+                self.app.add_pool(**POOL_CONF)
+            )
             self.created_pool = True
 
     def _remove_vm_qubes(self, vm):
@@ -922,7 +1015,7 @@ class SystemTestCase(QubesTestCase):
         # Now ensure it really went away. This may not have happened,
         # for example if vm.libvirt_domain malfunctioned.
         try:
-            conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
+            conn = libvirt.open(qubes.config.defaults["libvirt_uri"])
         except:  # pylint: disable=bare-except
             pass
         else:
@@ -946,11 +1039,12 @@ class SystemTestCase(QubesTestCase):
 
     @staticmethod
     def _remove_vm_disk(vmname):
-        for dirspec in (
-                'qubes_appvms_dir',
-                'qubes_templates_dir'):
-            dirpath = os.path.join(qubes.config.qubes_base_dir,
-                                   qubes.config.system_path[dirspec], vmname)
+        for dirspec in ("qubes_appvms_dir", "qubes_templates_dir"):
+            dirpath = os.path.join(
+                qubes.config.qubes_base_dir,
+                qubes.config.system_path[dirspec],
+                vmname,
+            )
             if os.path.exists(dirpath):
                 if os.path.isdir(dirpath):
                     shutil.rmtree(dirpath)
@@ -959,21 +1053,33 @@ class SystemTestCase(QubesTestCase):
 
     @staticmethod
     def _remove_vm_disk_lvm(prefix=VMPREFIX):
-        """ Remove LVM volumes with given prefix
+        """Remove LVM volumes with given prefix
 
         This is "a bit" drastic, as it removes volumes regardless of volume
         group, thin pool etc. But we assume no important data on test system.
         """
         try:
             volumes = subprocess.check_output(
-                ['lvs', '--noheadings', '-o', 'vg_name,name',
-                 '--separator', '/']).decode()
-            if ('/vm-' + prefix) not in volumes:
+                [
+                    "lvs",
+                    "--noheadings",
+                    "-o",
+                    "vg_name,name",
+                    "--separator",
+                    "/",
+                ]
+            ).decode()
+            if ("/vm-" + prefix) not in volumes:
                 return
-            subprocess.check_call(['sudo', 'lvremove', '-f'] +
-                                  [vol.strip() for vol in volumes.splitlines()
-                                   if ('/vm-' + prefix) in vol],
-                                  stdout=subprocess.DEVNULL)
+            subprocess.check_call(
+                ["sudo", "lvremove", "-f"]
+                + [
+                    vol.strip()
+                    for vol in volumes.splitlines()
+                    if ("/vm-" + prefix) in vol
+                ],
+                stdout=subprocess.DEVNULL,
+            )
         except subprocess.CalledProcessError:
             pass
 
@@ -984,12 +1090,14 @@ class SystemTestCase(QubesTestCase):
         # workaround for https://phabricator.whonix.org/T930
         # unregister all the VMs from sys-whonix, otherwise it will start them
         # again (possibly in further test)
-        if hasattr(self, 'app') and 'whonix' in self.app.default_netvm.name:
+        if hasattr(self, "app") and "whonix" in self.app.default_netvm.name:
             for vm in vms:
                 try:
                     self.loop.run_until_complete(
                         self.app.default_netvm.run_service_for_stdio(
-                            'whonix.NewStatus+{}_shutdown'.format(vm.name)))
+                            "whonix.NewStatus+{}_shutdown".format(vm.name)
+                        )
+                    )
                 except:
                     pass
 
@@ -1040,7 +1148,7 @@ class SystemTestCase(QubesTestCase):
             vm = vms.pop(0)
             # make sure that all connected VMs are going to be removed,
             # otherwise this will loop forever
-            child_vms = list(getattr(vm, 'appvms', []))
+            child_vms = list(getattr(vm, "appvms", []))
             assert all(x in vms for x in child_vms)
             if child_vms:
                 # if still something use this VM, put it at the end of queue
@@ -1076,16 +1184,23 @@ class SystemTestCase(QubesTestCase):
                     host_app = self.host_app
                 except AttributeError:
                     host_app = qubes.Qubes()
-                self.remove_vms([vm for vm in app.domains
-                                 if any(
-                        vm.name.startswith(prefix) for prefix in prefixes) or
-                                 (isinstance(vm,
-                                             qubes.vm.dispvm.DispVM) and vm.name
-                                  not in host_app.domains)])
-                if not hasattr(self, 'host_app'):
+                self.remove_vms(
+                    [
+                        vm
+                        for vm in app.domains
+                        if any(
+                            vm.name.startswith(prefix) for prefix in prefixes
+                        )
+                        or (
+                            isinstance(vm, qubes.vm.dispvm.DispVM)
+                            and vm.name not in host_app.domains
+                        )
+                    ]
+                )
+                if not hasattr(self, "host_app"):
                     host_app.close()
                 del host_app
-                if not hasattr(self, 'app'):
+                if not hasattr(self, "app"):
                     app.close()
                 del app
             except qubes.exc.QubesException:
@@ -1093,7 +1208,7 @@ class SystemTestCase(QubesTestCase):
             os.unlink(xmlpath)
 
         # now remove what was only in libvirt
-        conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
+        conn = libvirt.open(qubes.config.defaults["libvirt_uri"])
         for dom in conn.listAllDomains():
             if any(dom.name().startswith(prefix) for prefix in prefixes):
                 self._remove_vm_libvirt(dom)
@@ -1101,11 +1216,10 @@ class SystemTestCase(QubesTestCase):
 
         # finally remove anything that is left on disk
         vmnames = set()
-        for dirspec in (
-                'qubes_appvms_dir',
-                'qubes_templates_dir'):
-            dirpath = os.path.join(qubes.config.qubes_base_dir,
-                                   qubes.config.system_path[dirspec])
+        for dirspec in ("qubes_appvms_dir", "qubes_templates_dir"):
+            dirpath = os.path.join(
+                qubes.config.qubes_base_dir, qubes.config.system_path[dirspec]
+            )
             if not os.path.exists(dirpath):
                 continue
             for name in os.listdir(dirpath):
@@ -1116,8 +1230,9 @@ class SystemTestCase(QubesTestCase):
         for prefix in prefixes:
             self._remove_vm_disk_lvm(prefix)
 
-    def qrexec_policy(self, service, source, destination, allow=True,
-                      action=None):
+    def qrexec_policy(
+        self, service, source, destination, allow=True, action=None
+    ):
         """
         Allow qrexec calls for duration of the test
         :param service: service name
@@ -1128,8 +1243,9 @@ class SystemTestCase(QubesTestCase):
         :return:
         """
 
-        return _QrexecPolicyContext(service, source, destination,
-                                    allow=allow, action=action)
+        return _QrexecPolicyContext(
+            service, source, destination, allow=allow, action=action
+        )
 
     async def wait_for_window_hide_coro(self, title, winid, timeout=30):
         """
@@ -1138,17 +1254,30 @@ class SystemTestCase(QubesTestCase):
         :return:
         """
         wait_count = 0
-        while subprocess.call(['xdotool', 'getwindowname', str(winid)],
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.STDOUT) == 0:
+        while (
+            subprocess.call(
+                ["xdotool", "getwindowname", str(winid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+            == 0
+        ):
             wait_count += 1
             if wait_count > timeout * 10:
-                self.fail("Timeout while waiting for {}({}) window to "
-                          "disappear".format(title, winid))
+                self.fail(
+                    "Timeout while waiting for {}({}) window to "
+                    "disappear".format(title, winid)
+                )
             await asyncio.sleep(0.1)
 
-    async def wait_for_window_coro(self, title, search_class=False,
-                                   include_tray=True, timeout=30, show=True):
+    async def wait_for_window_coro(
+        self,
+        title,
+        search_class=False,
+        include_tray=True,
+        timeout=30,
+        show=True,
+    ):
         """
         Wait for a window with a given title. Depending on show parameter,
         it will wait for either window to show or to disappear.
@@ -1162,41 +1291,44 @@ class SystemTestCase(QubesTestCase):
         :return: window id of found window, if show=True
         """
 
-        xdotool_search = ['xdotool', 'search', '--onlyvisible']
+        xdotool_search = ["xdotool", "search", "--onlyvisible"]
         if search_class:
-            xdotool_search.append('--class')
+            xdotool_search.append("--class")
         else:
-            xdotool_search.append('--name')
+            xdotool_search.append("--name")
         if not include_tray:
-            xdotool_search.extend(('--maxdepth', '2'))
+            xdotool_search.extend(("--maxdepth", "2"))
         if show:
-            xdotool_search.append('--sync')
+            xdotool_search.append("--sync")
         if not show:
             try:
-                winid = subprocess.check_output(xdotool_search + [title],
-                                                stderr=subprocess.DEVNULL).decode()
+                winid = subprocess.check_output(
+                    xdotool_search + [title], stderr=subprocess.DEVNULL
+                ).decode()
             except subprocess.CalledProcessError:
                 # already gone
                 return
-            await self.wait_for_window_hide_coro(winid, title,
-                                                      timeout=timeout)
+            await self.wait_for_window_hide_coro(winid, title, timeout=timeout)
             return
 
         winid = None
         while not winid:
             p = await asyncio.create_subprocess_exec(
-                *xdotool_search, title,
-                stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
+                *xdotool_search,
+                title,
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+            )
             try:
-                (winid, _) = await asyncio.wait_for(
-                    p.communicate(), timeout)
+                (winid, _) = await asyncio.wait_for(p.communicate(), timeout)
                 # don't check exit code, getting winid on stdout is enough
                 # indicator of success; specifically ignore xdotool failing
                 # with BadWindow or such - when some window appears only for a
                 # moment by xdotool didn't manage to get its properties
             except asyncio.TimeoutError:
                 self.fail(
-                    "Timeout while waiting for {} window to show".format(title))
+                    "Timeout while waiting for {} window to show".format(title)
+                )
         return winid.decode().strip()
 
     def wait_for_window(self, *args, **kwargs):
@@ -1213,7 +1345,8 @@ class SystemTestCase(QubesTestCase):
         :return: window id of found window, if show=True
         """
         return self.loop.run_until_complete(
-            self.wait_for_window_coro(*args, **kwargs))
+            self.wait_for_window_coro(*args, **kwargs)
+        )
 
     def enter_keys_in_window(self, title, keys):
         """
@@ -1228,15 +1361,22 @@ class SystemTestCase(QubesTestCase):
         # 'xdotool search --sync' sometimes crashes on some race when
         # accessing window properties
         self.wait_for_window(title)
-        command = ['xdotool', 'search', '--name', title,
-                   'windowactivate', '--sync',
-                   'key'] + keys
+        command = [
+            "xdotool",
+            "search",
+            "--name",
+            title,
+            "windowactivate",
+            "--sync",
+            "key",
+        ] + keys
         subprocess.check_call(command)
 
     def shutdown_and_wait(self, vm, timeout=60):
         try:
             self.loop.run_until_complete(
-                vm.shutdown(wait=True, timeout=timeout))
+                vm.shutdown(wait=True, timeout=timeout)
+            )
         except qubes.exc.QubesException:
             name = vm.name
             del vm
@@ -1246,50 +1386,65 @@ class SystemTestCase(QubesTestCase):
         self.loop.run_until_complete(vm.pause())
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.loop.run_until_complete(
-                vm.shutdown(wait=True, timeout=timeout, force=False))
+                vm.shutdown(wait=True, timeout=timeout, force=False)
+            )
         try:
             self.loop.run_until_complete(
-                vm.shutdown(wait=True, timeout=timeout, force=True))
+                vm.shutdown(wait=True, timeout=timeout, force=True)
+            )
         except qubes.exc.QubesException:
             name = vm.name
             del vm
             self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
-        if not os.path.exists('/usr/lib/grub/i386-pc'):
-            self.skipTest('grub2 not installed')
-        if not spawn.find_executable('grub2-install'):
-            self.skipTest('grub2-tools not installed')
-        if not spawn.find_executable('dracut'):
-            self.skipTest('dracut not installed')
+        if not os.path.exists("/usr/lib/grub/i386-pc"):
+            self.skipTest("grub2 not installed")
+        if not spawn.find_executable("grub2-install"):
+            self.skipTest("grub2-tools not installed")
+        if not spawn.find_executable("dracut"):
+            self.skipTest("dracut not installed")
         # create a single partition
-        p = subprocess.Popen(['sfdisk', '-q', '-L', vm.storage.root_img],
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.STDOUT)
-        p.communicate('2048,\n')
-        assert p.returncode == 0, 'sfdisk failed'
+        p = subprocess.Popen(
+            ["sfdisk", "-q", "-L", vm.storage.root_img],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+        )
+        p.communicate("2048,\n")
+        assert p.returncode == 0, "sfdisk failed"
         # TODO: check if root_img is really file, not already block device
-        p = subprocess.Popen(['sudo', 'losetup', '-f', '-P', '--show',
-                              vm.storage.root_img], stdout=subprocess.PIPE)
+        p = subprocess.Popen(
+            ["sudo", "losetup", "-f", "-P", "--show", vm.storage.root_img],
+            stdout=subprocess.PIPE,
+        )
         (loopdev, _) = p.communicate()
         loopdev = loopdev.strip()
-        looppart = loopdev + 'p1'
-        assert p.returncode == 0, 'losetup failed'
-        subprocess.check_call(['sudo', 'mkfs.ext2', '-q', '-F', looppart])
+        looppart = loopdev + "p1"
+        assert p.returncode == 0, "losetup failed"
+        subprocess.check_call(["sudo", "mkfs.ext2", "-q", "-F", looppart])
         mountpoint = tempfile.mkdtemp()
-        subprocess.check_call(['sudo', 'mount', looppart, mountpoint])
+        subprocess.check_call(["sudo", "mount", looppart, mountpoint])
         try:
-            subprocess.check_call(['sudo', 'grub2-install',
-                                   '--target', 'i386-pc',
-                                   '--modules', 'part_msdos ext2',
-                                   '--boot-directory', mountpoint, loopdev],
-                                  stderr=subprocess.DEVNULL
-                                  )
-            grub_cfg = '{}/grub2/grub.cfg'.format(mountpoint)
             subprocess.check_call(
-                ['sudo', 'chown', '-R', os.getlogin(), mountpoint])
-            with open(grub_cfg, 'w') as f:
+                [
+                    "sudo",
+                    "grub2-install",
+                    "--target",
+                    "i386-pc",
+                    "--modules",
+                    "part_msdos ext2",
+                    "--boot-directory",
+                    mountpoint,
+                    loopdev,
+                ],
+                stderr=subprocess.DEVNULL,
+            )
+            grub_cfg = "{}/grub2/grub.cfg".format(mountpoint)
+            subprocess.check_call(
+                ["sudo", "chown", "-R", os.getlogin(), mountpoint]
+            )
+            with open(grub_cfg, "w") as f:
                 f.write(
                     "set timeout=1\n"
                     "menuentry 'Default' {\n"
@@ -1299,117 +1454,180 @@ class SystemTestCase(QubesTestCase):
                     "  initrd /initrd\n"
                     "}"
                 )
-            p = subprocess.Popen(['uname', '-r'], stdout=subprocess.PIPE)
+            p = subprocess.Popen(["uname", "-r"], stdout=subprocess.PIPE)
             (kernel_version, _) = p.communicate()
             kernel_version = kernel_version.strip()
-            kernel = '/boot/vmlinuz-{}'.format(kernel_version)
-            shutil.copy(kernel, os.path.join(mountpoint, 'vmlinuz'))
-            init_path = os.path.join(mountpoint, 'init')
-            with open(init_path, 'w') as f:
+            kernel = "/boot/vmlinuz-{}".format(kernel_version)
+            shutil.copy(kernel, os.path.join(mountpoint, "vmlinuz"))
+            init_path = os.path.join(mountpoint, "init")
+            with open(init_path, "w") as f:
                 f.write(init_script)
             os.chmod(init_path, 0o755)
             dracut_args = [
-                '--kver', kernel_version,
-                '--include', init_path,
-                '/usr/lib/dracut/hooks/pre-pivot/initscript.sh',
-                '--no-hostonly', '--nolvmconf', '--nomdadmconf',
+                "--kver",
+                kernel_version,
+                "--include",
+                init_path,
+                "/usr/lib/dracut/hooks/pre-pivot/initscript.sh",
+                "--no-hostonly",
+                "--nolvmconf",
+                "--nomdadmconf",
             ]
             if extra_files:
-                dracut_args += ['--install', ' '.join(extra_files)]
+                dracut_args += ["--install", " ".join(extra_files)]
             subprocess.check_call(
-                ['dracut'] + dracut_args + [os.path.join(mountpoint,
-                                                         'initrd')],
-                stderr=subprocess.DEVNULL
+                ["dracut"] + dracut_args + [os.path.join(mountpoint, "initrd")],
+                stderr=subprocess.DEVNULL,
             )
         finally:
-            subprocess.check_call(['sudo', 'umount', mountpoint])
+            subprocess.check_call(["sudo", "umount", mountpoint])
             shutil.rmtree(mountpoint)
-            subprocess.check_call(['sudo', 'losetup', '-d', loopdev])
+            subprocess.check_call(["sudo", "losetup", "-d", loopdev])
 
     def create_bootable_iso(self):
         """Create simple bootable ISO image.
         Type 'halt' to it to terminate that VM.
         """
-        output_fd, output_path = tempfile.mkstemp('.iso')
+        output_fd, output_path = tempfile.mkstemp(".iso")
         with tempfile.TemporaryDirectory() as tmp_dir:
-            f = os.open(tmp_dir, os.O_RDONLY|os.O_DIRECTORY)
+            f = os.open(tmp_dir, os.O_RDONLY | os.O_DIRECTORY)
             try:
-                os.mkdir('os', mode=0o755, dir_fd=f)
-                os.mkdir('iso', mode=0o755, dir_fd=f)
-                os.mkdir('os/images', mode=0o755, dir_fd=f)
-                os.mkdir('os/EFI', mode=0o755, dir_fd=f)
-                os.mkdir('os/EFI/BOOT', mode=0o755, dir_fd=f)
-                with open(f'/proc/self/fd/{f}/os/images/boot_hybrid.img', 'wb') as v:
-                    subprocess.check_call(['grub2-mkimage',
-                                           '-O', 'i386-pc-eltorito',
-                                           '-d', '/usr/lib/grub/i386-pc',
-                                           '-p', '/boot/grub2',
-                                           'iso9660', 'biosdisk', 'halt'], stdout=v)
-                with open(f'/proc/self/fd/{f}/os/EFI/BOOT/BOOTX64.EFI', 'wb') as v:
-                    subprocess.check_call(['grub2-mkimage',
-                                           '-O', 'x86_64-efi',
-                                           '-d', '/usr/lib/grub/x86_64-efi',
-                                           '-p', '/boot/grub2',
-                                           'iso9660', 'disk', 'halt'], stdout=v)
-                graft_path = '.=' + os.path.join(tmp_dir, "os").replace("\\", "\\\\").replace("=", "\\=")
-                efiboot_img = os.path.join(tmp_dir, 'os/images/efiboot.img')
-                subprocess.check_call(['sudo', 'mkefiboot', '--label=ANACONDA',
-                                       os.path.join(tmp_dir, 'os/EFI/BOOT'),
-                                       efiboot_img])
-                subprocess.check_call(['sudo', 'chmod', '-R', 'go+rX', tmp_dir])
-                subprocess.check_call(['xorrisofs',
-                                       '-o', output_path,
-                                       '--grub2-mbr', 'os/images/boot_hybrid.img',
-                                       '--mbr-force-bootable',
-                                       '--gpt-iso-bootable',
-                                       '-partition_offset', '16',
-                                       '-append_partition', '2', '0xef', efiboot_img,
-                                       '-iso_mbr_part_type', 'EBD0A0A2-B9E5-4433-87C0-68B6B72699C7',
-                                       '-appended_part_as_gpt',
-                                       '-c', 'boot.cat', '--boot-catalog-hide',
-                                       '-eltorito-boot', 'images/boot_hybrid.img',
-                                       '-no-emul-boot',
-                                       '-boot-load-size', '4',
-                                       '-boot-info-table',
-                                       '--grub2-boot-info',
-                                       '-eltorito-alt-boot',
-                                       '-e', '--interval:appended_partition_2:all::',
-                                       '-no-emul-boot',
-                                       '-graft-points', graft_path,
-                                       'boot/grub2/i386-pc=/usr/lib/grub/i386-pc',
-                                       'boot/grub2/x86_64-efi=/usr/lib/grub/x86_64-efi'],
-                                      cwd=tmp_dir)
+                os.mkdir("os", mode=0o755, dir_fd=f)
+                os.mkdir("iso", mode=0o755, dir_fd=f)
+                os.mkdir("os/images", mode=0o755, dir_fd=f)
+                os.mkdir("os/EFI", mode=0o755, dir_fd=f)
+                os.mkdir("os/EFI/BOOT", mode=0o755, dir_fd=f)
+                with open(
+                    f"/proc/self/fd/{f}/os/images/boot_hybrid.img", "wb"
+                ) as v:
+                    subprocess.check_call(
+                        [
+                            "grub2-mkimage",
+                            "-O",
+                            "i386-pc-eltorito",
+                            "-d",
+                            "/usr/lib/grub/i386-pc",
+                            "-p",
+                            "/boot/grub2",
+                            "iso9660",
+                            "biosdisk",
+                            "halt",
+                        ],
+                        stdout=v,
+                    )
+                with open(
+                    f"/proc/self/fd/{f}/os/EFI/BOOT/BOOTX64.EFI", "wb"
+                ) as v:
+                    subprocess.check_call(
+                        [
+                            "grub2-mkimage",
+                            "-O",
+                            "x86_64-efi",
+                            "-d",
+                            "/usr/lib/grub/x86_64-efi",
+                            "-p",
+                            "/boot/grub2",
+                            "iso9660",
+                            "disk",
+                            "halt",
+                        ],
+                        stdout=v,
+                    )
+                graft_path = ".=" + os.path.join(tmp_dir, "os").replace(
+                    "\\", "\\\\"
+                ).replace("=", "\\=")
+                efiboot_img = os.path.join(tmp_dir, "os/images/efiboot.img")
+                subprocess.check_call(
+                    [
+                        "sudo",
+                        "mkefiboot",
+                        "--label=ANACONDA",
+                        os.path.join(tmp_dir, "os/EFI/BOOT"),
+                        efiboot_img,
+                    ]
+                )
+                subprocess.check_call(["sudo", "chmod", "-R", "go+rX", tmp_dir])
+                subprocess.check_call(
+                    [
+                        "xorrisofs",
+                        "-o",
+                        output_path,
+                        "--grub2-mbr",
+                        "os/images/boot_hybrid.img",
+                        "--mbr-force-bootable",
+                        "--gpt-iso-bootable",
+                        "-partition_offset",
+                        "16",
+                        "-append_partition",
+                        "2",
+                        "0xef",
+                        efiboot_img,
+                        "-iso_mbr_part_type",
+                        "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7",
+                        "-appended_part_as_gpt",
+                        "-c",
+                        "boot.cat",
+                        "--boot-catalog-hide",
+                        "-eltorito-boot",
+                        "images/boot_hybrid.img",
+                        "-no-emul-boot",
+                        "-boot-load-size",
+                        "4",
+                        "-boot-info-table",
+                        "--grub2-boot-info",
+                        "-eltorito-alt-boot",
+                        "-e",
+                        "--interval:appended_partition_2:all::",
+                        "-no-emul-boot",
+                        "-graft-points",
+                        graft_path,
+                        "boot/grub2/i386-pc=/usr/lib/grub/i386-pc",
+                        "boot/grub2/x86_64-efi=/usr/lib/grub/x86_64-efi",
+                    ],
+                    cwd=tmp_dir,
+                )
                 self.addCleanup(os.unlink, output_path)
             finally:
                 os.close(f)
         return output_path
 
-    def create_local_file(self, filename, content, mode='w'):
+    def create_local_file(self, filename, content, mode="w"):
         with open(filename, mode) as file:
             file.write(content)
         self.addCleanup(os.unlink, filename)
 
     def create_remote_file(self, vm, filename, content, mode=0o755):
-        self.loop.run_until_complete(vm.run_for_stdio(
-            'cat > {0}; chmod {1:o} {0}'.format(shlex.quote(filename), mode),
-            user='root', input=content.encode('utf-8')))
+        self.loop.run_until_complete(
+            vm.run_for_stdio(
+                "cat > {0}; chmod {1:o} {0}".format(
+                    shlex.quote(filename), mode
+                ),
+                user="root",
+                input=content.encode("utf-8"),
+            )
+        )
 
     async def wait_for_session(self, vm):
         timeout = vm.qrexec_timeout
-        if getattr(vm, 'template', None) and 'whonix-w' in vm.template.name:
+        if getattr(vm, "template", None) and "whonix-w" in vm.template.name:
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
             timeout = 120
         try:
             await asyncio.wait_for(
                 vm.run_service_for_stdio(
-                    'qubes.WaitForSession', input=vm.default_user.encode()),
-                timeout=timeout)
+                    "qubes.WaitForSession", input=vm.default_user.encode()
+                ),
+                timeout=timeout,
+            )
         except asyncio.TimeoutError:
             # collect some more info
-            stdout, _ = await vm.run_for_stdio('cat .xsession-errors')
-            self.log.error("VM {} xsession-errors on timeout: {}".format(
-                           vm.name, stdout.decode()))
+            stdout, _ = await vm.run_for_stdio("cat .xsession-errors")
+            self.log.error(
+                "VM {} xsession-errors on timeout: {}".format(
+                    vm.name, stdout.decode()
+                )
+            )
             raise
 
     async def start_vm(self, vm):
@@ -1425,15 +1643,17 @@ def list_templates():
     """Returns tuple of template names available in the system."""
     global _templates
     if _templates is None:
-        if 'QUBES_TEST_TEMPLATES' in os.environ:
-            _templates = os.environ['QUBES_TEST_TEMPLATES'].split()
+        if "QUBES_TEST_TEMPLATES" in os.environ:
+            _templates = os.environ["QUBES_TEST_TEMPLATES"].split()
     if _templates is None:
         try:
             app = qubes.Qubes()
-            _templates = tuple(vm.name for vm in app.domains
-                               if isinstance(vm,
-                                             qubes.vm.templatevm.TemplateVM) and
-                               vm.features.get('os', None) != 'Windows')
+            _templates = tuple(
+                vm.name
+                for vm in app.domains
+                if isinstance(vm, qubes.vm.templatevm.TemplateVM)
+                and vm.features.get("os", None) != "Windows"
+            )
             app.close()
             del app
         except OSError:
@@ -1475,14 +1695,14 @@ def create_testcases_for_templates(name, *bases, module, **kwds):
     # implicit!
 
     for template in list_templates():
-        clsname = name + '_' + template
+        clsname = name + "_" + template
         if hasattr(module, clsname):
             continue
-        cls = type(clsname, bases, {'template': template, **kwds})
+        cls = type(clsname, bases, {"template": template, **kwds})
         cls.__module__ = module.__name__
         # XXX I wonder what other __dunder__ attrs did I miss
         setattr(module, clsname, cls)
-        yield '.'.join((module.__name__, clsname))
+        yield ".".join((module.__name__, clsname))
 
 
 def maybe_create_testcases_on_import(create_testcases_gen):
@@ -1496,8 +1716,10 @@ def maybe_create_testcases_on_import(create_testcases_gen):
      create test cases without opening qubes.xml)
      - QUBES_TEST_LOAD_ALL present in the environment
     """
-    if 'QUBES_TEST_TEMPLATES' in os.environ or \
-            'QUBES_TEST_LOAD_ALL' in os.environ:
+    if (
+        "QUBES_TEST_TEMPLATES" in os.environ
+        or "QUBES_TEST_LOAD_ALL" in os.environ
+    ):
         list(create_testcases_gen())
 
 
@@ -1517,7 +1739,7 @@ def extra_info(obj):
     if isinstance(obj, unittest.TestCase):
         return obj.id()
 
-    return ''
+    return ""
 
 
 def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
@@ -1532,7 +1754,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.devices_block",
         "qubes.tests.devices_pci",
         "qubes.tests.firewall",
-        'qubes.tests.qmemman',
+        "qubes.tests.qmemman",
         "qubes.tests.init",
         "qubes.tests.vm.init",
         "qubes.tests.storage",
@@ -1558,39 +1780,39 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
     ):
         tests.addTests(loader.loadTestsFromName(modname))
 
-    tests.addTests(loader.discover(
-        os.path.join(os.path.dirname(__file__), 'tools')))
+    tests.addTests(
+        loader.discover(os.path.join(os.path.dirname(__file__), "tools"))
+    )
 
     if not in_dom0:
         return tests
 
     for modname in (
-            'qrexec.tests',
-            'qrexec.tests.cli',
-            'qrexec.tests.gtkhelpers',
-            'qrexec.tests.rpcconfirmation',
-            # integration tests
-            'qubes.tests.integ.basic',
-            'qubes.tests.integ.storage',
-            'qubes.tests.integ.grub',
-            'qubes.tests.integ.devices_block',
-            'qubes.tests.integ.devices_pci',
-            'qubes.tests.integ.qrexec',
-            'qubes.tests.integ.dom0_update',
-            'qubes.tests.integ.vm_update',
-            'qubes.tests.integ.network',
-            'qubes.tests.integ.network_ipv6',
-            'qubes.tests.integ.dispvm',
-            'qubes.tests.integ.vm_qrexec_gui',
-            'qubes.tests.integ.audio',
-            'qubes.tests.integ.mime',
-            'qubes.tests.integ.salt',
-            'qubes.tests.integ.backup',
-            'qubes.tests.integ.backupcompatibility',
-            'qubes.tests.integ.backupdispvm',
-
-            # external modules
-            'qubes.tests.extra',
+        "qrexec.tests",
+        "qrexec.tests.cli",
+        "qrexec.tests.gtkhelpers",
+        "qrexec.tests.rpcconfirmation",
+        # integration tests
+        "qubes.tests.integ.basic",
+        "qubes.tests.integ.storage",
+        "qubes.tests.integ.grub",
+        "qubes.tests.integ.devices_block",
+        "qubes.tests.integ.devices_pci",
+        "qubes.tests.integ.qrexec",
+        "qubes.tests.integ.dom0_update",
+        "qubes.tests.integ.vm_update",
+        "qubes.tests.integ.network",
+        "qubes.tests.integ.network_ipv6",
+        "qubes.tests.integ.dispvm",
+        "qubes.tests.integ.vm_qrexec_gui",
+        "qubes.tests.integ.audio",
+        "qubes.tests.integ.mime",
+        "qubes.tests.integ.salt",
+        "qubes.tests.integ.backup",
+        "qubes.tests.integ.backupcompatibility",
+        "qubes.tests.integ.backupdispvm",
+        # external modules
+        "qubes.tests.extra",
     ):
         tests.addTests(loader.loadTestsFromName(modname))
 

@@ -20,54 +20,59 @@
 
 import qubes.events
 
+
 class DVMTemplateMixin(qubes.events.Emitter):
-    '''VM class capable of being DVM template'''
+    """VM class capable of being DVM template"""
+
     # pylint doesn't see event handlers being registered via decorator
     # pylint: disable=unused-private-member
 
-    template_for_dispvms = qubes.property('template_for_dispvms',
+    template_for_dispvms = qubes.property(
+        "template_for_dispvms",
         type=bool,
         default=False,
-        doc='Should this VM be allowed to start as Disposable VM')
+        doc="Should this VM be allowed to start as Disposable VM",
+    )
 
-    @qubes.events.handler('property-pre-set:template_for_dispvms')
-    def __on_pre_set_dvmtemplate(self, event, name,
-            newvalue, oldvalue=None):
+    @qubes.events.handler("property-pre-set:template_for_dispvms")
+    def __on_pre_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         if newvalue:
             return
         if any(self.dispvms):
-            raise qubes.exc.QubesVMInUseError(self,
-                'Cannot change template_for_dispvms to False while there are '
-                'some DispVMs based on this DVM template')
+            raise qubes.exc.QubesVMInUseError(
+                self,
+                "Cannot change template_for_dispvms to False while there are "
+                "some DispVMs based on this DVM template",
+            )
 
-    @qubes.events.handler('property-pre-del:template_for_dispvms')
-    def __on_pre_del_dvmtemplate(self, event, name,
-            oldvalue=None):
-        self.__on_pre_set_dvmtemplate(
-            event, name, False, oldvalue)
+    @qubes.events.handler("property-pre-del:template_for_dispvms")
+    def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None):
+        self.__on_pre_set_dvmtemplate(event, name, False, oldvalue)
 
-    @qubes.events.handler('property-pre-set:template')
-    def __on_pre_property_set_template(self, event, name, newvalue,
-            oldvalue=None):
+    @qubes.events.handler("property-pre-set:template")
+    def __on_pre_property_set_template(
+        self, event, name, newvalue, oldvalue=None
+    ):
         # pylint: disable=unused-argument
         for vm in self.dispvms:
             if vm.is_running():
-                raise qubes.exc.QubesVMNotHaltedError(self,
-                    'Cannot change template while there are running DispVMs '
-                    'based on this DVM template')
+                raise qubes.exc.QubesVMNotHaltedError(
+                    self,
+                    "Cannot change template while there are running DispVMs "
+                    "based on this DVM template",
+                )
 
-    @qubes.events.handler('property-set:template')
-    def __on_property_set_template(self, event, name, newvalue,
-            oldvalue=None):
+    @qubes.events.handler("property-set:template")
+    def __on_property_set_template(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         pass
 
     @property
     def dispvms(self):
-        ''' Returns a generator containing all Disposable VMs based on the
+        """Returns a generator containing all Disposable VMs based on the
         current AppVM.
-        '''
+        """
         for vm in self.app.domains:
-            if getattr(vm, 'template', None) == self:
+            if getattr(vm, "template", None) == self:
                 yield vm

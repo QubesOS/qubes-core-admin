@@ -25,26 +25,28 @@ import qubes.config
 
 # pylint: disable=too-few-public-methods
 
+
 class SupportedFeaturesExtension(qubes.ext.Extension):
     """This extension handles VM announcing non-service features as
-        'supported-feature.*' features.
+    'supported-feature.*' features.
     """
 
-    @qubes.ext.handler('features-request')
+    @qubes.ext.handler("features-request")
     def supported_features(self, vm, event, untrusted_features):
         """Handle advertisement of supported features"""
         # pylint: disable=unused-argument
 
-        if getattr(vm, 'template', None):
+        if getattr(vm, "template", None):
             vm.log.warning(
-                'Ignoring qubes.FeaturesRequest from template-based VM')
+                "Ignoring qubes.FeaturesRequest from template-based VM"
+            )
             return
 
         new_supported_features = set()
         for requested_feature in untrusted_features:
-            if not requested_feature.startswith('supported-feature.'):
+            if not requested_feature.startswith("supported-feature."):
                 continue
-            if untrusted_features[requested_feature] == '1':
+            if untrusted_features[requested_feature] == "1":
                 # only allow to advertise feature as supported, lack of entry
                 #  means feature is not supported
                 new_supported_features.add(requested_feature)
@@ -56,27 +58,31 @@ class SupportedFeaturesExtension(qubes.ext.Extension):
             return
 
         old_supported_features = set(
-            feat for feat in vm.features
-            if feat.startswith('supported-feature.') and vm.features[feat])
+            feat
+            for feat in vm.features
+            if feat.startswith("supported-feature.") and vm.features[feat]
+        )
 
         for feature in new_supported_features.difference(
-                old_supported_features):
+            old_supported_features
+        ):
             vm.features[feature] = True
 
         for feature in old_supported_features.difference(
-                new_supported_features):
+            new_supported_features
+        ):
             del vm.features[feature]
 
-    @qubes.ext.handler('features-request')
+    @qubes.ext.handler("features-request")
     def supported_rpc(self, vm, event, untrusted_features):
         """Handle advertisement of supported rpc services"""
         # pylint: disable=unused-argument
 
         new_supported_rpc = set()
         for requested_feature in untrusted_features:
-            if not requested_feature.startswith('supported-rpc.'):
+            if not requested_feature.startswith("supported-rpc."):
                 continue
-            if untrusted_features[requested_feature] == '1':
+            if untrusted_features[requested_feature] == "1":
                 # only allow to advertise feature as supported, lack of entry
                 #  means feature is not supported
                 new_supported_rpc.add(requested_feature)
@@ -88,13 +94,13 @@ class SupportedFeaturesExtension(qubes.ext.Extension):
             return
 
         old_supported_rpc = set(
-            feat for feat in vm.features
-            if feat.startswith('supported-rpc.') and vm.features[feat])
+            feat
+            for feat in vm.features
+            if feat.startswith("supported-rpc.") and vm.features[feat]
+        )
 
-        for feature in new_supported_rpc.difference(
-                old_supported_rpc):
+        for feature in new_supported_rpc.difference(old_supported_rpc):
             vm.features[feature] = True
 
-        for feature in old_supported_rpc.difference(
-                new_supported_rpc):
+        for feature in old_supported_rpc.difference(new_supported_rpc):
             del vm.features[feature]

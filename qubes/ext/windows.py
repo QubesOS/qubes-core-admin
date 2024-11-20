@@ -21,62 +21,64 @@
 import qubes.ext
 import qubes.utils
 
+
 class WindowsFeatures(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
-    @qubes.ext.handler('features-request')
+    @qubes.ext.handler("features-request")
     def qubes_features_request(self, vm, event, untrusted_features):
-        '''Handle features provided requested by Qubes Windows Tools'''
+        """Handle features provided requested by Qubes Windows Tools"""
         # pylint: disable=unused-argument
-        if getattr(vm, 'template', None):
-            vm.log.warning(
-                'Ignoring qubes.NotifyTools for template-based VM')
+        if getattr(vm, "template", None):
+            vm.log.warning("Ignoring qubes.NotifyTools for template-based VM")
             return
 
         guest_os = None
-        if 'os' in untrusted_features:
-            if untrusted_features['os'] in ['Windows', 'Linux']:
-                guest_os = untrusted_features['os']
+        if "os" in untrusted_features:
+            if untrusted_features["os"] in ["Windows", "Linux"]:
+                guest_os = untrusted_features["os"]
 
         qrexec = None
-        if 'qrexec' in untrusted_features:
-            if untrusted_features['qrexec'] == '1':
+        if "qrexec" in untrusted_features:
+            if untrusted_features["qrexec"] == "1":
                 # qrexec feature is set by CoreFeatures extension
                 qrexec = True
 
         del untrusted_features
 
         if guest_os:
-            vm.features['os'] = guest_os
-        if guest_os == 'Windows' and qrexec:
-            vm.features['rpc-clipboard'] = True
-            setattr(vm, 'maxmem', 0)
-            setattr(vm, 'qrexec_timeout', 6000)
-            if vm.features.check_with_template('stubdom-qrexec', None) is None:
-                vm.features['stubdom-qrexec'] = True
-            if vm.features.check_with_template('audio-model', None) is None:
-                vm.features['audio-model'] = 'ich6'
-            if vm.features.check_with_template('timezone', None) is None:
-                vm.features['timezone'] = 'localtime'
-            if vm.features.check_with_template('no-monitor-layout',
-                                               None) is None:
-                vm.features['no-monitor-layout'] = True
+            vm.features["os"] = guest_os
+        if guest_os == "Windows" and qrexec:
+            vm.features["rpc-clipboard"] = True
+            setattr(vm, "maxmem", 0)
+            setattr(vm, "qrexec_timeout", 6000)
+            if vm.features.check_with_template("stubdom-qrexec", None) is None:
+                vm.features["stubdom-qrexec"] = True
+            if vm.features.check_with_template("audio-model", None) is None:
+                vm.features["audio-model"] = "ich6"
+            if vm.features.check_with_template("timezone", None) is None:
+                vm.features["timezone"] = "localtime"
+            if (
+                vm.features.check_with_template("no-monitor-layout", None)
+                is None
+            ):
+                vm.features["no-monitor-layout"] = True
 
-    @qubes.ext.handler('domain-create-on-disk')
+    @qubes.ext.handler("domain-create-on-disk")
     async def on_domain_create_on_disk(self, vm, _event, **kwargs):
         # pylint: disable=unused-argument
-        if getattr(vm, 'template', None) is None:
+        if getattr(vm, "template", None) is None:
             # handle only template-based vms
             return
 
         template = vm.template
-        if template.features.check_with_template('os', None) != 'Windows':
+        if template.features.check_with_template("os", None) != "Windows":
             # ignore non-windows templates
             return
 
-        if vm.volumes['private'].save_on_stop:
+        if vm.volumes["private"].save_on_stop:
             # until windows tools get ability to prepare private.img on its own,
             # copy one from the template
-            vm.log.info('Windows template - cloning private volume')
+            vm.log.info("Windows template - cloning private volume")
             await qubes.utils.coro_maybe(
-                vm.volumes['private'].import_volume(
-                    template.volumes['private']))
+                vm.volumes["private"].import_volume(template.volumes["private"])
+            )

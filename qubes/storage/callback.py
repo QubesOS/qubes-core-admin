@@ -29,12 +29,17 @@ from qubes.utils import coro_maybe
 
 import qubes.storage
 
+
 class UnhandledSignalException(qubes.storage.StoragePoolException):
     def __init__(self, pool, signal):
-        super().__init__('The pool %s failed to handle the signal %s, likely because it was run from synchronous code.' % (pool.name, signal))
+        super().__init__(
+            "The pool %s failed to handle the signal %s, likely because it was run from synchronous code."
+            % (pool.name, signal)
+        )
+
 
 class CallbackPool(qubes.storage.Pool):
-    ''' Proxy storage pool driver adding callback functionality to other pool drivers.
+    """Proxy storage pool driver adding callback functionality to other pool drivers.
 
     This way, users can extend storage pool drivers with custom functionality using the programming language of their choice.
 
@@ -181,10 +186,10 @@ class CallbackPool(qubes.storage.Pool):
     ls /mnt/
     ls /mnt/ram/ (should be empty)
     ```
-    '''
+    """
 
     def __init__(self, *, name, conf_id):
-        '''Constructor.
+        """Constructor.
         :param conf_id: Identifier as found inside the user-controlled configuration at `/etc/qubes_callback.json`.
                        Non-ASCII, non-alphanumeric characters may be disallowed.
                        **Security Note**: Depending on your RPC policy (admin.pool.Add) this constructor and its parameters
@@ -192,66 +197,100 @@ class CallbackPool(qubes.storage.Pool):
                        not to pick easily guessable `conf_id` values for your configuration as untrusted VMs may otherwise
                        execute callbacks meant for other pools.
         :raise StoragePoolException: For user configuration issues.
-        '''
-        #NOTE: attribute names **must** start with `_cb_` unless they are meant to be stored as self._cb_impl attributes
-        self._cb_ctor_done = False #: Boolean to indicate whether or not `__init__` successfully ran through.
-        self._cb_log = logging.getLogger('qubes.storage.callback') #: Logger instance.
+        """
+        # NOTE: attribute names **must** start with `_cb_` unless they are meant to be stored as self._cb_impl attributes
+        self._cb_ctor_done = False  #: Boolean to indicate whether or not `__init__` successfully ran through.
+        self._cb_log = logging.getLogger(
+            "qubes.storage.callback"
+        )  #: Logger instance.
         if not isinstance(conf_id, str):
-            raise qubes.storage.StoragePoolException('conf_id is no String. VM attack?!')
-        self._cb_conf_id = conf_id #: Configuration ID as passed to `__init__()`.
+            raise qubes.storage.StoragePoolException(
+                "conf_id is no String. VM attack?!"
+            )
+        self._cb_conf_id = (
+            conf_id  #: Configuration ID as passed to `__init__()`.
+        )
 
-        config_path = '/etc/qubes_callback.json'
-        with open(config_path, encoding='utf-8') as json_file:
+        config_path = "/etc/qubes_callback.json"
+        with open(config_path, encoding="utf-8") as json_file:
             conf_all = json.load(json_file)
         if not isinstance(conf_all, dict):
-            raise qubes.storage.StoragePoolException('The file %s is supposed to define a dict.' % config_path)
+            raise qubes.storage.StoragePoolException(
+                "The file %s is supposed to define a dict." % config_path
+            )
 
         try:
-            self._cb_conf = conf_all[self._cb_conf_id] #: Dictionary holding all configuration for the given _cb_conf_id.
+            self._cb_conf = conf_all[
+                self._cb_conf_id
+            ]  #: Dictionary holding all configuration for the given _cb_conf_id.
         except KeyError:
-            #we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
-            raise qubes.storage.StoragePoolException('The specified conf_id %s could not be found inside %s.' % (self._cb_conf_id, config_path))
+            # we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
+            raise qubes.storage.StoragePoolException(
+                "The specified conf_id %s could not be found inside %s."
+                % (self._cb_conf_id, config_path)
+            )
 
         try:
-            bdriver = self._cb_conf['bdriver']
+            bdriver = self._cb_conf["bdriver"]
         except KeyError:
-            raise qubes.storage.StoragePoolException('Missing bdriver for the conf_id %s inside %s.' % (self._cb_conf_id, config_path))
+            raise qubes.storage.StoragePoolException(
+                "Missing bdriver for the conf_id %s inside %s."
+                % (self._cb_conf_id, config_path)
+            )
 
-        self._cb_cmd_arg = json.dumps(self._cb_conf, sort_keys=True, indent=2) #: Full configuration as string in the format required by _callback().
+        self._cb_cmd_arg = json.dumps(
+            self._cb_conf, sort_keys=True, indent=2
+        )  #: Full configuration as string in the format required by _callback().
 
         try:
-            cls = qubes.utils.get_entry_point_one(qubes.storage.STORAGE_ENTRY_POINT, bdriver)
+            cls = qubes.utils.get_entry_point_one(
+                qubes.storage.STORAGE_ENTRY_POINT, bdriver
+            )
         except KeyError:
-            raise qubes.storage.StoragePoolException('The driver %s was not found on your system.' % bdriver)
+            raise qubes.storage.StoragePoolException(
+                "The driver %s was not found on your system." % bdriver
+            )
 
         if not issubclass(cls, qubes.storage.Pool):
-            raise qubes.storage.StoragePoolException('The class %s must be a subclass of qubes.storage.Pool.' % cls)
+            raise qubes.storage.StoragePoolException(
+                "The class %s must be a subclass of qubes.storage.Pool." % cls
+            )
 
-        self._cb_requires_init = self._check_init() #: Boolean indicating whether late storage initialization yet has to be done or not.
-        self._cb_init_lock = asyncio.Lock() #: Lock ensuring that late storage initialization is only run exactly once.
-        bdriver_args = self._cb_conf.get('bdriver_args', {})
-        self._cb_impl = cls(name=name, **bdriver_args) #: Instance of the backend pool driver.
+        self._cb_requires_init = (
+            self._check_init()
+        )  #: Boolean indicating whether late storage initialization yet has to be done or not.
+        self._cb_init_lock = (
+            asyncio.Lock()
+        )  #: Lock ensuring that late storage initialization is only run exactly once.
+        bdriver_args = self._cb_conf.get("bdriver_args", {})
+        self._cb_impl = cls(
+            name=name, **bdriver_args
+        )  #: Instance of the backend pool driver.
 
-        super().__init__(name=name,
-                         revisions_to_keep=int(bdriver_args.get('revisions_to_keep', 1)),
-                         ephemeral_volatile=bool(bdriver_args.get('ephemeral_volatile', False)))
+        super().__init__(
+            name=name,
+            revisions_to_keep=int(bdriver_args.get("revisions_to_keep", 1)),
+            ephemeral_volatile=bool(
+                bdriver_args.get("ephemeral_volatile", False)
+            ),
+        )
         self._cb_ctor_done = True
 
     def _check_init(self):
-        ''' Whether or not this object requires late storage initialization via callback. '''
-        cmd = self._cb_conf.get('pre_sinit')
+        """Whether or not this object requires late storage initialization via callback."""
+        cmd = self._cb_conf.get("pre_sinit")
         if not cmd:
-            cmd = self._cb_conf.get('cmd')
-        return bool(cmd and cmd != '-')
+            cmd = self._cb_conf.get("cmd")
+        return bool(cmd and cmd != "-")
 
     async def _init(self, callback=True):
-        ''' Late storage initialization on first use for e.g. decryption on first usage request.
+        """Late storage initialization on first use for e.g. decryption on first usage request.
         :param callback: Whether to trigger the `pre_sinit` callback or not.
-        '''
+        """
         async with self._cb_init_lock:
             if self._cb_requires_init:
                 if callback:
-                    await self._callback('pre_sinit')
+                    await self._callback("pre_sinit")
                 self._cb_requires_init = False
 
     async def _assert_initialized(self, **kwargs):
@@ -259,51 +298,86 @@ class CallbackPool(qubes.storage.Pool):
             await self._init(**kwargs)
 
     async def _callback(self, cb, cb_args=None):
-        '''Run a callback.
+        """Run a callback.
         :param cb: Callback identifier string.
         :param cb_args: Optional list of arguments to pass to the command as last arguments.
                         Only passed on for the generic command specified as `cmd`, not for `on_xyz` callbacks.
         :return: Nothing.
-        '''
+        """
         if self._cb_ctor_done:
             cmd = self._cb_conf.get(cb)
-            args = [] #on_xyz callbacks should never receive arguments
+            args = []  # on_xyz callbacks should never receive arguments
             if not cmd:
                 if cb_args is None:
                     cb_args = []
-                cmd = self._cb_conf.get('cmd')
-                args = [self.name, self._cb_conf['bdriver'], cb, self._cb_conf_id, self._cb_cmd_arg, *cb_args]
-            if cmd and cmd != '-':
-                args = ' '.join(quote(str(a)) for a in args)
-                cmd = ' '.join(filter(None, [cmd, args]))
-                self._cb_log.info('callback driver executing (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, cmd)
-                cmd_arr = ['/bin/bash', '-c', cmd]
-                proc = await asyncio.create_subprocess_exec(*cmd_arr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                cmd = self._cb_conf.get("cmd")
+                args = [
+                    self.name,
+                    self._cb_conf["bdriver"],
+                    cb,
+                    self._cb_conf_id,
+                    self._cb_cmd_arg,
+                    *cb_args,
+                ]
+            if cmd and cmd != "-":
+                args = " ".join(quote(str(a)) for a in args)
+                cmd = " ".join(filter(None, [cmd, args]))
+                self._cb_log.info(
+                    "callback driver executing (%s, %s %s): %s",
+                    self._cb_conf_id,
+                    cb,
+                    cb_args,
+                    cmd,
+                )
+                cmd_arr = ["/bin/bash", "-c", cmd]
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd_arr, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
                 stdout, stderr = await proc.communicate()
                 encoding = locale.getpreferredencoding()
                 stdout = stdout.decode(encoding)
                 stderr = stderr.decode(encoding)
                 if proc.returncode != 0:
-                    raise subprocess.CalledProcessError(returncode=proc.returncode, cmd=cmd, output=stdout, stderr=stderr)
-                self._cb_log.debug('callback driver stdout (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stdout)
-                self._cb_log.debug('callback driver stderr (%s, %s %s): %s', self._cb_conf_id, cb, cb_args, stderr)
-                if self._cb_conf.get('signal_back', False) is True:
+                    raise subprocess.CalledProcessError(
+                        returncode=proc.returncode,
+                        cmd=cmd,
+                        output=stdout,
+                        stderr=stderr,
+                    )
+                self._cb_log.debug(
+                    "callback driver stdout (%s, %s %s): %s",
+                    self._cb_conf_id,
+                    cb,
+                    cb_args,
+                    stdout,
+                )
+                self._cb_log.debug(
+                    "callback driver stderr (%s, %s %s): %s",
+                    self._cb_conf_id,
+                    cb,
+                    cb_args,
+                    stderr,
+                )
+                if self._cb_conf.get("signal_back", False) is True:
                     await self._process_signals(stdout)
 
     async def _process_signals(self, out):
-        '''Process any signals found inside a string.
+        """Process any signals found inside a string.
         :param out: String to check for signals. Each signal must be on a dedicated line.
                     They are executed in the order they are found. Callbacks are not triggered.
-        '''
+        """
         for line in out.splitlines():
-            if line == 'SIGNAL_setup':
-                self._cb_log.info('callback driver processing SIGNAL_setup for %s', self._cb_conf_id)
-                #NOTE: calling our own methods may lead to a deadlock / qubesd freeze due to `self._assert_initialized()` / `self._cb_init_lock`
+            if line == "SIGNAL_setup":
+                self._cb_log.info(
+                    "callback driver processing SIGNAL_setup for %s",
+                    self._cb_conf_id,
+                )
+                # NOTE: calling our own methods may lead to a deadlock / qubesd freeze due to `self._assert_initialized()` / `self._cb_init_lock`
                 await coro_maybe(self._cb_impl.setup())
 
     @property
     def backend_class(self):
-        '''Class of the first non-CallbackPool backend Pool.'''
+        """Class of the first non-CallbackPool backend Pool."""
         if isinstance(self._cb_impl, CallbackPool):
             return self._cb_impl.backend_class
         return self._cb_impl.__class__
@@ -311,25 +385,27 @@ class CallbackPool(qubes.storage.Pool):
     @property
     def config(self):
         return {
-            'name': self.name,
-            'driver': 'callback',
-            'conf_id': self._cb_conf_id,
+            "name": self.name,
+            "driver": "callback",
+            "conf_id": self._cb_conf_id,
         }
 
     async def destroy(self):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.destroy())
-        await self._callback('post_destroy')
+        await self._callback("post_destroy")
         return ret
 
     def init_volume(self, vm, volume_config):
         ret = CallbackVolume(self, self._cb_impl.init_volume(vm, volume_config))
-        volume_config['pool'] = self
+        volume_config["pool"] = self
         return ret
 
     async def setup(self):
-        await self._assert_initialized(callback=False) #setup is assumed to include storage initialization
-        await self._callback('pre_setup')
+        await self._assert_initialized(
+            callback=False
+        )  # setup is assumed to include storage initialization
+        await self._callback("pre_setup")
         return await coro_maybe(self._cb_impl.setup())
 
     @property
@@ -367,8 +443,8 @@ class CallbackPool(qubes.storage.Pool):
             return {}
         return self._cb_impl.usage_details
 
-    #shadow all qubes.storage.Pool class attributes as instance properties
-    #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackPool.private_img_size will return a property object, Pool.private_img_size the actual value
+    # shadow all qubes.storage.Pool class attributes as instance properties
+    # NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackPool.private_img_size will return a property object, Pool.private_img_size the actual value
     @property
     def private_img_size(self):
         return self._cb_impl.private_img_size
@@ -385,109 +461,120 @@ class CallbackPool(qubes.storage.Pool):
     def root_img_size(self, root_img_size):
         self._cb_impl.root_img_size = root_img_size
 
-    #remaining method & attribute delegation ("delegation pattern")
-    #Convention: The methods of this object have priority over the delegated object's methods. All attributes are
+    # remaining method & attribute delegation ("delegation pattern")
+    # Convention: The methods of this object have priority over the delegated object's methods. All attributes are
     #           passed to the delegated object unless their name starts with '_cb_'.
     def __getattr__(self, name):
-        #NOTE: This method is only called when an attribute cannot be resolved locally (not part of the instance,
+        # NOTE: This method is only called when an attribute cannot be resolved locally (not part of the instance,
         #       not part of the class tree). It is also called for methods that cannot be resolved.
         return getattr(self._cb_impl, name)
 
     def __setattr__(self, name, value):
-        #NOTE: This method is called on every attribute assignment.
-        if name.startswith('_cb_'):
+        # NOTE: This method is called on every attribute assignment.
+        if name.startswith("_cb_"):
             super().__setattr__(name, value)
         else:
             setattr(self._cb_impl, name, value)
 
     def __delattr__(self, name):
-        if name.startswith('_cb_'):
+        if name.startswith("_cb_"):
             super().__delattr__(name)
         else:
             delattr(self._cb_impl, name)
 
-class CallbackVolume(qubes.storage.Volume):
-    ''' Proxy volume adding callback functionality to other volumes.
 
-        Required to support the `pre_sinit` and other callbacks.
-    '''
+class CallbackVolume(qubes.storage.Volume):
+    """Proxy volume adding callback functionality to other volumes.
+
+    Required to support the `pre_sinit` and other callbacks.
+    """
 
     def __init__(self, pool, impl):
-        '''Constructor.
+        """Constructor.
         :param pool: `CallbackPool` of this volume
         :param impl: `qubes.storage.Volume` object to wrap
-        '''
+        """
         # pylint: disable=super-init-not-called
-        #NOTE: we must *not* call super().__init__() as it would prevent attribute delegation
-        assert isinstance(impl, qubes.storage.Volume), 'impl must be a qubes.storage.Volume instance. Found a %s instance.' % impl.__class__
-        assert isinstance(pool, CallbackPool), 'pool must use a qubes.storage.CallbackPool instance. Found a %s instance.' % pool.__class__
-        impl.pool = pool #enforce the CallbackPool instance as the parent pool of the volume
-        self._cb_pool = pool #: CallbackPool instance the Volume belongs to.
-        self._cb_impl = impl #: Backend volume implementation instance.
+        # NOTE: we must *not* call super().__init__() as it would prevent attribute delegation
+        assert isinstance(impl, qubes.storage.Volume), (
+            "impl must be a qubes.storage.Volume instance. Found a %s instance."
+            % impl.__class__
+        )
+        assert isinstance(pool, CallbackPool), (
+            "pool must use a qubes.storage.CallbackPool instance. Found a %s instance."
+            % pool.__class__
+        )
+        impl.pool = pool  # enforce the CallbackPool instance as the parent pool of the volume
+        self._cb_pool = pool  #: CallbackPool instance the Volume belongs to.
+        self._cb_impl = impl  #: Backend volume implementation instance.
 
     async def _assert_initialized(self, **kwargs):
-        await self._cb_pool._assert_initialized(**kwargs) # pylint: disable=protected-access
+        await self._cb_pool._assert_initialized(
+            **kwargs
+        )  # pylint: disable=protected-access
 
     async def _callback(self, cb, cb_args=None, **kwargs):
         if cb_args is None:
             cb_args = []
         vol_args = [self.name, self.vid, self.source, *cb_args]
-        await self._cb_pool._callback(cb, cb_args=vol_args, **kwargs) # pylint: disable=protected-access
+        await self._cb_pool._callback(
+            cb, cb_args=vol_args, **kwargs
+        )  # pylint: disable=protected-access
 
     @property
     def backend_class(self):
-        '''Class of the first non-CallbackVolume backend Volume.'''
+        """Class of the first non-CallbackVolume backend Volume."""
         if isinstance(self._cb_impl, CallbackVolume):
             return self._cb_impl.backend_class
         return self._cb_impl.__class__
 
     async def create(self):
         await self._assert_initialized()
-        await self._callback('pre_volume_create')
+        await self._callback("pre_volume_create")
         ret = await coro_maybe(self._cb_impl.create())
-        await self._callback('post_volume_create')
+        await self._callback("post_volume_create")
         return ret
 
     async def remove(self):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.remove())
-        await self._callback('post_volume_remove')
+        await self._callback("post_volume_remove")
         return ret
 
     async def resize(self, size):
         await self._assert_initialized()
-        await self._callback('pre_volume_resize', cb_args=[size])
+        await self._callback("pre_volume_resize", cb_args=[size])
         return await coro_maybe(self._cb_impl.resize(size))
 
     async def start(self):
         await self._assert_initialized()
-        await self._callback('pre_volume_start')
+        await self._callback("pre_volume_start")
         ret = await coro_maybe(self._cb_impl.start())
-        await self._callback('post_volume_start')
+        await self._callback("post_volume_start")
         return ret
 
     async def stop(self):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.stop())
-        await self._callback('post_volume_stop')
+        await self._callback("post_volume_stop")
         return ret
 
     async def import_data(self, size):
         await self._assert_initialized()
-        await self._callback('pre_volume_import_data', cb_args=[size])
+        await self._callback("pre_volume_import_data", cb_args=[size])
         return await coro_maybe(self._cb_impl.import_data(size))
 
     async def import_data_end(self, success):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.import_data_end(success))
-        await self._callback('post_volume_import_data_end', cb_args=[success])
+        await self._callback("post_volume_import_data_end", cb_args=[success])
         return ret
 
     async def import_volume(self, src_volume):
         await self._assert_initialized()
-        await self._callback('pre_volume_import', cb_args=[src_volume.vid])
+        await self._callback("pre_volume_import", cb_args=[src_volume.vid])
         ret = await coro_maybe(self._cb_impl.import_volume(src_volume))
-        await self._callback('post_volume_import', cb_args=[src_volume.vid])
+        await self._callback("post_volume_import", cb_args=[src_volume.vid])
         return ret
 
     def is_dirty(self):
@@ -528,13 +615,13 @@ class CallbackVolume(qubes.storage.Volume):
 
     async def export(self):
         await self._assert_initialized()
-        await self._callback('pre_volume_export')
+        await self._callback("pre_volume_export")
         return await coro_maybe(self._cb_impl.export())
 
     async def export_end(self, path):
         await self._assert_initialized()
         ret = await coro_maybe(self._cb_impl.export_end(path))
-        await self._callback('post_volume_export_end', cb_args=[path])
+        await self._callback("post_volume_export_end", cb_args=[path])
         return ret
 
     async def verify(self):
@@ -545,8 +632,8 @@ class CallbackVolume(qubes.storage.Volume):
         await self._assert_initialized()
         return await coro_maybe(self._cb_impl.revert(revision=revision))
 
-    #shadow all qubes.storage.Volume class attributes as instance properties
-    #NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
+    # shadow all qubes.storage.Volume class attributes as instance properties
+    # NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
     @property
     def devtype(self):
         return self._cb_impl.devtype
@@ -579,18 +666,18 @@ class CallbackVolume(qubes.storage.Volume):
     def usage(self, usage):
         self._cb_impl.usage = usage
 
-    #remaining method & attribute delegation
+    # remaining method & attribute delegation
     def __getattr__(self, name):
         return getattr(self._cb_impl, name)
 
     def __setattr__(self, name, value):
-        if name.startswith('_cb_'):
+        if name.startswith("_cb_"):
             super().__setattr__(name, value)
         else:
             setattr(self._cb_impl, name, value)
 
     def __delattr__(self, name):
-        if name.startswith('_cb_'):
+        if name.startswith("_cb_"):
             super().__delattr__(name)
         else:
             delattr(self._cb_impl, name)

@@ -57,11 +57,14 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertIsInstance(self.app, qubes.Qubes)
 
     def test_100_qvm_create(self):
-        vmname = self.make_vm_name('appvm')
+        vmname = self.make_vm_name("appvm")
 
-        vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
 
         self.assertIsNotNone(vm)
         self.assertEqual(vm.name, vmname)
@@ -75,39 +78,56 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         flag = set()
 
         def handler(vm, event, path):
-            if path == '/test-watch-path':
+            if path == "/test-watch-path":
                 flag.add(True)
 
         vm = self.app.domains[0]
-        vm.watch_qdb_path('/test-watch-path')
-        vm.add_handler('domain-qdb-change:/test-watch-path', handler)
+        vm.watch_qdb_path("/test-watch-path")
+        vm.add_handler("domain-qdb-change:/test-watch-path", handler)
         self.assertFalse(flag)
-        vm.untrusted_qdb.write('/test-watch-path', 'test-value')
+        vm.untrusted_qdb.write("/test-watch-path", "test-value")
         self.loop.run_until_complete(asyncio.sleep(0.1))
         self.assertTrue(flag)
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'), "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_120_start_standalone_with_cdrom_dom0(self):
-        vmname = self.make_vm_name('appvm')
-        self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
+        vmname = self.make_vm_name("appvm")
+        self.vm = self.app.add_new_vm("StandaloneVM", label="red", name=vmname)
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.vm.kernel = None
-        self.vm.virt_mode = 'hvm'
+        self.vm.virt_mode = "hvm"
 
         iso_path = self.create_bootable_iso()
         # start the VM using qvm-start tool, to test --cdrom option there
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'qvm-start', '--cdrom=dom0:' + iso_path, self.vm.name,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec(
+                "qvm-start",
+                "--cdrom=dom0:" + iso_path,
+                self.vm.name,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        )
         (stdout, _) = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
         self.assertTrue(self.vm.is_running())
         # Type 'halt'
-        subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', '--window', '%1', 'halt\r'])
+        subprocess.check_call(
+            [
+                "xdotool",
+                "search",
+                "--name",
+                self.vm.name,
+                "type",
+                "--window",
+                "%1",
+                "halt\r",
+            ]
+        )
         for _ in range(10):
             if not self.vm.is_running():
                 break
@@ -115,65 +135,91 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertFalse(self.vm.is_running())
 
     def test_121_start_uefi(self):
-        vmname = self.make_vm_name('appvm')
-        self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
+        vmname = self.make_vm_name("appvm")
+        self.vm = self.app.add_new_vm("StandaloneVM", label="red", name=vmname)
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.vm.kernel = None
-        self.vm.virt_mode = 'hvm'
+        self.vm.virt_mode = "hvm"
         self.vm.features["uefi"] = "1"
         iso_path = self.create_bootable_iso()
         # start the VM using qvm-start tool, to test --cdrom option there
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'qvm-start', '--cdrom=dom0:' + iso_path, self.vm.name,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec(
+                "qvm-start",
+                "--cdrom=dom0:" + iso_path,
+                self.vm.name,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        )
         (stdout, _) = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
         self.assertTrue(self.vm.is_running())
         # Type 'halt'
-        subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', '--window', '%1', 'halt\r'])
+        subprocess.check_call(
+            [
+                "xdotool",
+                "search",
+                "--name",
+                self.vm.name,
+                "type",
+                "--window",
+                "%1",
+                "halt\r",
+            ]
+        )
         for _ in range(10):
             if not self.vm.is_running():
                 break
             self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
-
     def test_130_autostart_disable_on_remove(self):
-        vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm'),
+        vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("vm"),
             template=self.app.default_template,
-            label='red')
+            label="red",
+        )
 
         self.assertIsNotNone(vm)
         self.loop.run_until_complete(vm.create_on_disk())
         vm.autostart = True
-        self.assertTrue(os.path.exists(
-            '/etc/systemd/system/multi-user.target.wants/'
-            'qubes-vm@{}.service'.format(vm.name)),
-            "systemd service not enabled by autostart=True")
+        self.assertTrue(
+            os.path.exists(
+                "/etc/systemd/system/multi-user.target.wants/"
+                "qubes-vm@{}.service".format(vm.name)
+            ),
+            "systemd service not enabled by autostart=True",
+        )
         del self.app.domains[vm]
         self.loop.run_until_complete(vm.remove_from_disk())
-        self.assertFalse(os.path.exists(
-            '/etc/systemd/system/multi-user.target.wants/'
-            'qubes-vm@{}.service'.format(vm.name)),
-            "systemd service not disabled on domain remove")
+        self.assertFalse(
+            os.path.exists(
+                "/etc/systemd/system/multi-user.target.wants/"
+                "qubes-vm@{}.service".format(vm.name)
+            ),
+            "systemd service not disabled on domain remove",
+        )
 
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
-        '''Simulate domain crash just after startup'''
+        """Simulate domain crash just after startup"""
         vm.libvirt_domain.destroy()
 
     def test_200_shutdown_event_race(self):
-        '''Regression test for 3164'''
-        vmname = self.make_vm_name('appvm')
+        """Regression test for 3164"""
+        vmname = self.make_vm_name("appvm")
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         # help the luck a little - don't wait for qrexec to easier win the race
-        self.vm.features['qrexec'] = False
+        self.vm.features["qrexec"] = False
         self.loop.run_until_complete(self.vm.create_on_disk())
         # another way to help the luck a little - make sure the private
         # volume is first in (normally unordered) dict - this way if any
@@ -181,7 +227,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # before (preventing private volume action)
         old_volumes = self.vm.volumes
         self.vm.volumes = collections.OrderedDict()
-        self.vm.volumes['private'] = old_volumes.pop('private')
+        self.vm.volumes["private"] = old_volumes.pop("private")
         self.vm.volumes.update(old_volumes.items())
         del old_volumes
 
@@ -193,7 +239,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
 
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
-        self.vm.add_handler('domain-start', self._test_200_on_domain_start)
+        self.vm.add_handler("domain-start", self._test_200_on_domain_start)
         self.loop.run_until_complete(self.vm.start())
 
         # and give a chance for both domain-shutdown handlers to execute
@@ -204,43 +250,49 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(self.vm.storage.verify())
 
     def _test_201_on_domain_pre_start(self, vm, event, **_kwargs):
-        '''Simulate domain crash just after startup'''
+        """Simulate domain crash just after startup"""
         if not self.domain_shutdown_handled and not self.test_failure_reason:
-            self.test_failure_reason = \
-                'domain-shutdown event was not dispatched before subsequent ' \
-                'start'
+            self.test_failure_reason = (
+                "domain-shutdown event was not dispatched before subsequent "
+                "start"
+            )
         self.domain_shutdown_handled = False
 
     def _test_201_domain_shutdown_handler(self, vm, event, **kwargs):
         if self.domain_shutdown_handled and not self.test_failure_reason:
-            self.test_failure_reason = 'domain-shutdown event received twice'
+            self.test_failure_reason = "domain-shutdown event received twice"
         self.domain_shutdown_handled = True
 
     def test_201_shutdown_event_race(self):
-        '''Regression test for 3164 - pure events edition'''
-        vmname = self.make_vm_name('appvm')
+        """Regression test for 3164 - pure events edition"""
+        vmname = self.make_vm_name("appvm")
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         # help the luck a little - don't wait for qrexec to easier win the race
-        self.vm.features['qrexec'] = False
+        self.vm.features["qrexec"] = False
         self.loop.run_until_complete(self.vm.create_on_disk())
 
         # do not throw exception from inside event handler - test framework
         # will not recover from it (various objects leaks)
         self.test_failure_reason = None
         self.domain_shutdown_handled = False
-        self.vm.add_handler('domain-shutdown',
-            self._test_201_domain_shutdown_handler)
+        self.vm.add_handler(
+            "domain-shutdown", self._test_201_domain_shutdown_handler
+        )
 
         self.loop.run_until_complete(self.vm.start())
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
-        self.vm.add_handler('domain-pre-start',
-            self._test_201_on_domain_pre_start)
+        self.vm.add_handler(
+            "domain-pre-start", self._test_201_on_domain_pre_start
+        )
 
         # kill it the way it does not give a chance for domain-shutdown it
         # execute
@@ -248,13 +300,13 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
 
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
-        self.vm.add_handler('domain-start', self._test_200_on_domain_start)
+        self.vm.add_handler("domain-start", self._test_200_on_domain_start)
         self.loop.run_until_complete(self.vm.start())
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
-        while self.vm.get_power_state() != 'Halted':
+        while self.vm.get_power_state() != "Halted":
             self.loop.run_until_complete(asyncio.sleep(1))
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(3))
@@ -265,19 +317,24 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
-        self.assertTrue(self.domain_shutdown_handled,
-            'second domain-shutdown event was not dispatched after domain '
-            'shutdown')
+        self.assertTrue(
+            self.domain_shutdown_handled,
+            "second domain-shutdown event was not dispatched after domain "
+            "shutdown",
+        )
 
     def _check_udev_for_uuid(self, uuid_value):
-        udev_data_path = '/run/udev/data'
+        udev_data_path = "/run/udev/data"
         for udev_item in os.listdir(udev_data_path):
             # check only block devices
-            if not udev_item.startswith('b'):
+            if not udev_item.startswith("b"):
                 continue
             with open(os.path.join(udev_data_path, udev_item)) as udev_file:
-                self.assertNotIn(uuid_value, udev_file.read(),
-                    'udev parsed filesystem UUID! ' + udev_item)
+                self.assertNotIn(
+                    uuid_value,
+                    udev_file.read(),
+                    "udev parsed filesystem UUID! " + udev_item,
+                )
 
     def assertVolumesExcludedFromUdev(self, vm):
         try:
@@ -286,7 +343,8 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(self.wait_for_session(vm))
             # get private volume UUID
             private_uuid, _ = self.loop.run_until_complete(
-                vm.run_for_stdio('blkid -o value /dev/xvdb', user='root'))
+                vm.run_for_stdio("blkid -o value /dev/xvdb", user="root")
+            )
             private_uuid = private_uuid.decode().splitlines()[0]
 
             # now check if dom0 udev know about it - it shouldn't
@@ -304,32 +362,39 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.domain_paused_received = True
 
     def test_140_libvirt_events_reconnect(self):
-        vmname = self.make_vm_name('vm')
+        vmname = self.make_vm_name("vm")
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.loop.run_until_complete(self.vm.start())
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'systemctl', 'restart', 'virtxend'))
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("systemctl", "restart", "virtxend")
+        )
         self.loop.run_until_complete(p.communicate())
         # check if events still works
         self.domain_paused_received = False
-        self.vm.add_handler('domain-paused', self._test_140_on_domain_paused)
+        self.vm.add_handler("domain-paused", self._test_140_on_domain_paused)
         self.loop.run_until_complete(self.vm.pause())
         self.loop.run_until_complete(self.vm.kill())
         self.loop.run_until_complete(asyncio.sleep(1))
-        self.assertTrue(self.domain_paused_received,
-            'event not received after libvirt restart')
+        self.assertTrue(
+            self.domain_paused_received,
+            "event not received after libvirt restart",
+        )
 
     def test_141_libvirt_objects_reconnect(self):
-        vmname = self.make_vm_name('vm')
+        vmname = self.make_vm_name("vm")
 
         # make sure libvirt object is cached
         self.app.domains[0].libvirt_domain.isActive()
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'systemctl', 'restart', 'virtxend'))
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("systemctl", "restart", "virtxend")
+        )
         self.loop.run_until_complete(p.communicate())
         # trigger reconnect
         with self.assertNotRaises(libvirt.libvirtError):
@@ -340,51 +405,63 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.app.domains[0].libvirt_domain.isActive()
 
     def test_202_udev_block_exclude_default(self):
-        '''Check if VM images are excluded from udev parsing -
-        default volume pool'''
-        vmname = self.make_vm_name('appvm')
+        """Check if VM images are excluded from udev parsing -
+        default volume pool"""
+        vmname = self.make_vm_name("appvm")
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.assertVolumesExcludedFromUdev(self.vm)
 
     def test_203_udev_block_exclude_varlibqubes(self):
-        '''Check if VM images are excluded from udev parsing -
-        varlibqubes pool'''
-        vmname = self.make_vm_name('appvm')
+        """Check if VM images are excluded from udev parsing -
+        varlibqubes pool"""
+        vmname = self.make_vm_name("appvm")
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
-        self.loop.run_until_complete(self.vm.create_on_disk(
-            pool=self.app.pools['varlibqubes']))
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(
+            self.vm.create_on_disk(pool=self.app.pools["varlibqubes"])
+        )
         self.assertVolumesExcludedFromUdev(self.vm)
 
     def test_204_udev_block_exclude_custom_file(self):
-        '''Check if VM images are excluded from udev parsing -
-        custom file pool'''
-        vmname = self.make_vm_name('appvm')
+        """Check if VM images are excluded from udev parsing -
+        custom file pool"""
+        vmname = self.make_vm_name("appvm")
 
-        pool_path = tempfile.mkdtemp(
-            prefix='qubes-pool-', dir='/var/tmp')
+        pool_path = tempfile.mkdtemp(prefix="qubes-pool-", dir="/var/tmp")
         self.addCleanup(shutil.rmtree, pool_path)
         pool = self.loop.run_until_complete(
-            self.app.add_pool('test-filep', dir_path=pool_path, driver='file'))
+            self.app.add_pool("test-filep", dir_path=pool_path, driver="file")
+        )
 
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
-        self.loop.run_until_complete(self.vm.create_on_disk(
-            pool=pool))
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk(pool=pool))
         self.assertVolumesExcludedFromUdev(self.vm)
 
     def test_206_shutdown_paused(self):
-        vmname = self.make_vm_name('vm')
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=self.app.default_template,
-            label='red')
+        vmname = self.make_vm_name("vm")
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.loop.run_until_complete(self.vm.start())
         self.shutdown_paused(self.vm)
@@ -395,10 +472,13 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_01_Properties, self).setUp()
         self.init_default_template()
-        self.vmname = self.make_vm_name('appvm')
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=self.vmname,
-                                      template=self.app.default_template,
-                                      label='red')
+        self.vmname = self.make_vm_name("appvm")
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.vmname,
+            template=self.app.default_template,
+            label="red",
+        )
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.addCleanup(self.cleanup_props)
 
@@ -408,16 +488,20 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
     def test_020_name_conflict_app(self):
         # TODO decide what exception should be here
         with self.assertRaises((qubes.exc.QubesException, ValueError)):
-            self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-                name=self.vmname, template=self.app.default_template,
-                label='red')
+            self.vm2 = self.app.add_new_vm(
+                qubes.vm.appvm.AppVM,
+                name=self.vmname,
+                template=self.app.default_template,
+                label="red",
+            )
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
     def test_021_name_conflict_template(self):
         # TODO decide what exception should be here
         with self.assertRaises((qubes.exc.QubesException, ValueError)):
-            self.vm2 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
-                name=self.vmname, label='red')
+            self.vm2 = self.app.add_new_vm(
+                qubes.vm.templatevm.TemplateVM, name=self.vmname, label="red"
+            )
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
 
@@ -426,8 +510,8 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
 
     def setUp(self):
         super(TC_03_QvmRevertTemplateChanges, self).setUp()
-        if self.app.default_pool.driver == 'file':
-            self.skipTest('file pool does not support reverting')
+        if self.app.default_pool.driver == "file":
+            self.skipTest("file pool does not support reverting")
         self.init_default_template()
 
     def cleanup_template(self):
@@ -437,26 +521,32 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.test_template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM,
             name=self.make_vm_name("pv-clone"),
-            label='red'
+            label="red",
         )
         self.addCleanup(self.cleanup_template)
         self.test_template.clone_properties(self.app.default_template)
         self.test_template.features.update(self.app.default_template.features)
         self.test_template.tags.update(self.app.default_template.tags)
         self.loop.run_until_complete(
-            self.test_template.clone_disk_files(self.app.default_template))
-        self.test_template.volumes['root'].revisions_to_keep = 3
+            self.test_template.clone_disk_files(self.app.default_template)
+        )
+        self.test_template.volumes["root"].revisions_to_keep = 3
         self.app.save()
 
     def get_rootimg_checksum(self):
         path = self.loop.run_until_complete(
-            self.test_template.storage.export('root'))
+            self.test_template.storage.export("root")
+        )
         try:
-            return subprocess.check_output(['sha1sum', path]).\
-                decode().split(' ')[0]
+            return (
+                subprocess.check_output(["sha1sum", path])
+                .decode()
+                .split(" ")[0]
+            )
         finally:
             self.loop.run_until_complete(
-                self.test_template.storage.export_end('root', path))
+                self.test_template.storage.export_end("root", path)
+            )
 
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()
@@ -465,12 +555,14 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.shutdown_and_wait(self.test_template)
         checksum_changed = self.get_rootimg_checksum()
         if checksum_before == checksum_changed:
-            self.log.warning("template not modified, test result will be "
-                             "unreliable")
-        self.assertNotEqual(self.test_template.volumes['root'].revisions, {})
-        revert_cmd = ['qvm-volume', 'revert', self.test_template.name + ':root']
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            *revert_cmd))
+            self.log.warning(
+                "template not modified, test result will be " "unreliable"
+            )
+        self.assertNotEqual(self.test_template.volumes["root"].revisions, {})
+        revert_cmd = ["qvm-volume", "revert", self.test_template.name + ":root"]
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec(*revert_cmd)
+        )
         self.loop.run_until_complete(p.wait())
         self.assertEqual(p.returncode, 0)
         del p
@@ -485,7 +577,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.setup_template()
         self._do_test()
 
-    @unittest.skip('TODO: some non-linux system')
+    @unittest.skip("TODO: some non-linux system")
     def test_001_revert_non_linux(self):
         """
         Test qvm-revert-template-changes for HVM template
@@ -494,42 +586,45 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.setup_template()
         self._do_test()
 
+
 class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_30_Gui_daemon, self).setUp()
         self.init_default_template()
 
-    async def _test_clipboard(self, test_string,
-                              set_features=None,
-                              expect_content=None,
-                              expect_source_name=None):
+    async def _test_clipboard(
+        self,
+        test_string,
+        set_features=None,
+        expect_content=None,
+        expect_source_name=None,
+    ):
         testvm1 = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm1'), label='red')
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm1"), label="red"
+        )
         await testvm1.create_on_disk()
         testvm2 = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm2'), label='red')
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm2"), label="red"
+        )
         await testvm2.create_on_disk()
         self.app.save()
 
         for feature, value in (set_features or {}).items():
             testvm1.features[feature] = value
 
+        await asyncio.gather(testvm1.start(), testvm2.start())
         await asyncio.gather(
-            testvm1.start(),
-            testvm2.start())
-        await asyncio.gather(
-            self.wait_for_session(testvm1),
-            self.wait_for_session(testvm2))
+            self.wait_for_session(testvm1), self.wait_for_session(testvm2)
+        )
         p = await testvm1.run("cat > /tmp/source.txt", stdin=subprocess.PIPE)
         await p.communicate(test_string.encode())
-        window_title = 'user@{}'.format(testvm1.name)
+        window_title = "user@{}".format(testvm1.name)
         await testvm1.run(
-            'zenity --text-info '
-            '--filename=/tmp/source.txt '
-            '--editable '
-            '--title={}'.format(window_title))
+            "zenity --text-info "
+            "--filename=/tmp/source.txt "
+            "--editable "
+            "--title={}".format(window_title)
+        )
 
         await self.wait_for_window_coro(window_title)
         await asyncio.sleep(5)
@@ -539,90 +634,127 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         # and xdotool will use XTEST instead of generating events manually -
         # this will be much better - at least because events will have
         # correct timestamp (so gui-daemon would not drop the copy request)
-        subprocess.check_call(['xdotool', 'key', 'ctrl+a', 'ctrl+c'])
+        subprocess.check_call(["xdotool", "key", "ctrl+a", "ctrl+c"])
         # wait a bit to let the zenity actually copy
         await asyncio.sleep(1)
-        subprocess.check_call(['xdotool', 'key',  'ctrl+shift+c', 'Escape'])
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+c", "Escape"])
 
         await self.wait_for_window_coro(window_title, show=False)
 
-        clipboard_content = \
-            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        clipboard_content = (
+            open("/var/run/qubes/qubes-clipboard.bin", "r").read().strip()
+        )
 
         if expect_content is not None:
             test_string = expect_content
-        self.assertEqual(clipboard_content, test_string,
-                          "Clipboard copy operation failed - content")
+        self.assertEqual(
+            clipboard_content,
+            test_string,
+            "Clipboard copy operation failed - content",
+        )
         if expect_source_name is None:
             expect_source_name = testvm1.name
-        clipboard_source = \
-            open('/var/run/qubes/qubes-clipboard.bin.source',
-                 'r').read().strip()
-        self.assertEqual(clipboard_source, expect_source_name,
-                          "Clipboard copy operation failed - owner")
+        clipboard_source = (
+            open("/var/run/qubes/qubes-clipboard.bin.source", "r")
+            .read()
+            .strip()
+        )
+        self.assertEqual(
+            clipboard_source,
+            expect_source_name,
+            "Clipboard copy operation failed - owner",
+        )
 
         # Then paste it to the other window
-        window_title = 'user@{}'.format(testvm2.name)
+        window_title = "user@{}".format(testvm2.name)
         p = await testvm2.run(
-            'zenity --text-info --editable --title={} > /tmp/test.txt'.format(window_title))
+            "zenity --text-info --editable --title={} > /tmp/test.txt".format(
+                window_title
+            )
+        )
         await self.wait_for_window_coro(window_title)
 
-        subprocess.check_call(['xdotool', 'key', '--delay', '100',
-                               'ctrl+shift+v', 'ctrl+v', 'Return', 'alt+o'])
+        subprocess.check_call(
+            [
+                "xdotool",
+                "key",
+                "--delay",
+                "100",
+                "ctrl+shift+v",
+                "ctrl+v",
+                "Return",
+                "alt+o",
+            ]
+        )
         await p.wait()
 
         # And compare the result
-        (test_output, _) = await testvm2.run_for_stdio('cat /tmp/test.txt')
-        self.assertEqual(test_string, test_output.strip().decode('ascii'))
+        (test_output, _) = await testvm2.run_for_stdio("cat /tmp/test.txt")
+        self.assertEqual(test_string, test_output.strip().decode("ascii"))
 
-        clipboard_content = \
-            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEqual(clipboard_content, "",
-                          "Clipboard not wiped after paste - content")
-        clipboard_source = \
-            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').\
-            read().strip()
-        self.assertEqual(clipboard_source, "",
-                          "Clipboard not wiped after paste - owner")
+        clipboard_content = (
+            open("/var/run/qubes/qubes-clipboard.bin", "r").read().strip()
+        )
+        self.assertEqual(
+            clipboard_content, "", "Clipboard not wiped after paste - content"
+        )
+        clipboard_source = (
+            open("/var/run/qubes/qubes-clipboard.bin.source", "r")
+            .read()
+            .strip()
+        )
+        self.assertEqual(
+            clipboard_source, "", "Clipboard not wiped after paste - owner"
+        )
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_000_clipboard(self):
         test_string = "test123"
         self.loop.run_until_complete(self._test_clipboard(test_string))
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_001_clipboard_64k(self):
         test_string = "test123abc" * 6400
         self.loop.run_until_complete(self._test_clipboard(test_string))
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_002_clipboard_200k_truncated(self):
         test_string = "test123abc" * 20000
-        self.loop.run_until_complete(self._test_clipboard(test_string,
-            expect_content="", expect_source_name=""))
+        self.loop.run_until_complete(
+            self._test_clipboard(
+                test_string, expect_content="", expect_source_name=""
+            )
+        )
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_002_clipboard_200k(self):
         test_string = "test123abc" * 20000
-        self.loop.run_until_complete(self._test_clipboard(test_string,
-            set_features={"gui-max-clipboard-size": 200_000}))
+        self.loop.run_until_complete(
+            self._test_clipboard(
+                test_string, set_features={"gui-max-clipboard-size": 200_000}
+            )
+        )
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_002_clipboard_300k(self):
         test_string = "test123abc" * 30000
-        self.loop.run_until_complete(self._test_clipboard(test_string,
-            expect_content="Qube clipboard size over 256KiB and X11 INCR "
-                           "protocol support is not implemented!"))
+        self.loop.run_until_complete(
+            self._test_clipboard(
+                test_string,
+                expect_content="Qube clipboard size over 256KiB and X11 INCR "
+                "protocol support is not implemented!",
+            )
+        )
 
 
 class TC_05_StandaloneVMMixin(object):
@@ -631,61 +763,84 @@ class TC_05_StandaloneVMMixin(object):
         self.init_default_template(self.template)
 
     def test_000_create_start(self):
-        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
-                                     name=self.make_vm_name('vm1'), label='red')
+        self.testvm1 = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm1"),
+            label="red",
+        )
         self.testvm1.features.update(self.app.default_template.features)
         self.loop.run_until_complete(
-            self.testvm1.clone_disk_files(self.app.default_template))
+            self.testvm1.clone_disk_files(self.app.default_template)
+        )
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
     def test_100_resize_root_img(self):
-        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
-                                     name=self.make_vm_name('vm1'), label='red')
+        self.testvm1 = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm1"),
+            label="red",
+        )
         self.testvm1.features.update(self.app.default_template.features)
         self.loop.run_until_complete(
-            self.testvm1.clone_disk_files(self.app.default_template))
+            self.testvm1.clone_disk_files(self.app.default_template)
+        )
         self.app.save()
         try:
             self.loop.run_until_complete(
-                self.testvm1.storage.resize(self.testvm1.volumes['root'],
-                    20 * 1024 ** 3))
-        except (subprocess.CalledProcessError,
-                qubes.storage.StoragePoolException) as e:
+                self.testvm1.storage.resize(
+                    self.testvm1.volumes["root"], 20 * 1024**3
+                )
+            )
+        except (
+            subprocess.CalledProcessError,
+            qubes.storage.StoragePoolException,
+        ) as e:
             # exception object would leak VM reference
             self.fail(str(e))
-        self.assertEqual(self.testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         self.loop.run_until_complete(self.testvm1.start())
         # new_size in 1k-blocks
         (new_size, _) = self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('df --output=size /|tail -n 1'))
+            self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
+        )
         # some safety margin for FS metadata
-        self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
+        self.assertGreater(int(new_size.strip()), 19 * 1024**2)
 
     def test_101_resize_root_img_online(self):
-        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
-                                     name=self.make_vm_name('vm1'), label='red')
-        self.testvm1.features['qrexec'] = True
+        self.testvm1 = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm1"),
+            label="red",
+        )
+        self.testvm1.features["qrexec"] = True
         self.loop.run_until_complete(
-            self.testvm1.clone_disk_files(self.app.default_template))
+            self.testvm1.clone_disk_files(self.app.default_template)
+        )
         self.testvm1.features.update(self.app.default_template.features)
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
         try:
             self.loop.run_until_complete(
-                self.testvm1.storage.resize(self.testvm1.volumes['root'],
-                    20 * 1024 ** 3))
-        except (subprocess.CalledProcessError,
-                qubes.storage.StoragePoolException) as e:
+                self.testvm1.storage.resize(
+                    self.testvm1.volumes["root"], 20 * 1024**3
+                )
+            )
+        except (
+            subprocess.CalledProcessError,
+            qubes.storage.StoragePoolException,
+        ) as e:
             # exception object would leak VM reference
             self.fail(str(e))
-        self.assertEqual(self.testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         # new_size in 1k-blocks
         (new_size, _) = self.loop.run_until_complete(
-            self.testvm1.run_for_stdio('df --output=size /|tail -n 1'))
+            self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
+        )
         # some safety margin for FS metadata
-        self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
+        self.assertGreater(int(new_size.strip()), 19 * 1024**2)
+
 
 class TC_06_AppVMMixin(object):
     template = None
@@ -696,77 +851,104 @@ class TC_06_AppVMMixin(object):
 
     def test_010_os_metadata(self):
         tpl = self.app.default_template
-        if self.template.startswith('fedora-'):
-            self.assertEqual(tpl.features.get('os-distribution'), 'fedora')
-            version = self.template.split('-')[1]
-            self.assertEqual(tpl.features.get('os-version'), version)
-            self.assertIsNotNone(tpl.features.get('os-eol'))
-        elif self.template.startswith('debian-'):
-            self.assertEqual(tpl.features.get('os-distribution'), 'debian')
-            version = self.template.split('-')[1]
-            self.assertEqual(tpl.features.get('os-version'), version)
-            self.assertIsNotNone(tpl.features.get('os-eol'))
-        elif self.template.startswith('whonix-'):
-            self.assertEqual(tpl.features.get('os-distribution'), 'whonix')
-            self.assertEqual(tpl.features.get('os-distribution-like'), 'debian')
-            version = self.template.split('-')[2]
-            self.assertEqual(tpl.features.get('os-version'), version)
-        elif self.template.startswith('kali-core'):
-            self.assertEqual(tpl.features.get('os-distribution'), 'kali')
-            self.assertEqual(tpl.features.get('os-distribution-like'), 'debian')
+        if self.template.startswith("fedora-"):
+            self.assertEqual(tpl.features.get("os-distribution"), "fedora")
+            version = self.template.split("-")[1]
+            self.assertEqual(tpl.features.get("os-version"), version)
+            self.assertIsNotNone(tpl.features.get("os-eol"))
+        elif self.template.startswith("debian-"):
+            self.assertEqual(tpl.features.get("os-distribution"), "debian")
+            version = self.template.split("-")[1]
+            self.assertEqual(tpl.features.get("os-version"), version)
+            self.assertIsNotNone(tpl.features.get("os-eol"))
+        elif self.template.startswith("whonix-"):
+            self.assertEqual(tpl.features.get("os-distribution"), "whonix")
+            self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
+            version = self.template.split("-")[2]
+            self.assertEqual(tpl.features.get("os-version"), version)
+        elif self.template.startswith("kali-core"):
+            self.assertEqual(tpl.features.get("os-distribution"), "kali")
+            self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
     @unittest.skipUnless(
-        spawn.find_executable('xdotool'), "xdotool not installed")
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
     def test_121_start_standalone_with_cdrom_vm(self):
-        cdrom_vmname = self.make_vm_name('cdrom')
-        self.cdrom_vm = self.app.add_new_vm('AppVM', label='red',
-            name=cdrom_vmname)
+        cdrom_vmname = self.make_vm_name("cdrom")
+        self.cdrom_vm = self.app.add_new_vm(
+            "AppVM", label="red", name=cdrom_vmname
+        )
         self.loop.run_until_complete(self.cdrom_vm.create_on_disk())
         self.loop.run_until_complete(self.cdrom_vm.start())
         iso_path = self.create_bootable_iso()
-        with open(iso_path, 'rb') as iso_f:
+        with open(iso_path, "rb") as iso_f:
             self.loop.run_until_complete(
-                self.cdrom_vm.run_for_stdio('cat > /home/user/boot.iso',
-                stdin=iso_f))
+                self.cdrom_vm.run_for_stdio(
+                    "cat > /home/user/boot.iso", stdin=iso_f
+                )
+            )
 
-        vmname = self.make_vm_name('appvm')
-        self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
+        vmname = self.make_vm_name("appvm")
+        self.vm = self.app.add_new_vm("StandaloneVM", label="red", name=vmname)
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.vm.kernel = None
-        self.vm.virt_mode = 'hvm'
+        self.vm.virt_mode = "hvm"
 
         # start the VM using qvm-start tool, to test --cdrom option there
-        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
-            'qvm-start', '--cdrom=' + cdrom_vmname + ':/home/user/boot.iso',
-            self.vm.name,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        p = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec(
+                "qvm-start",
+                "--cdrom=" + cdrom_vmname + ":/home/user/boot.iso",
+                self.vm.name,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        )
         (stdout, _) = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
         self.assertTrue(self.vm.is_running())
         # Type 'halt'
-        subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', '--window', '%1', 'halt\r'])
+        subprocess.check_call(
+            [
+                "xdotool",
+                "search",
+                "--name",
+                self.vm.name,
+                "type",
+                "--window",
+                "%1",
+                "halt\r",
+            ]
+        )
         for _ in range(10):
             if not self.vm.is_running():
                 break
             self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
+
 def create_testcases_for_templates():
-    yield from qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
-            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])
-    yield from qubes.tests.create_testcases_for_templates('TC_06_AppVM',
-            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates(
+        "TC_05_StandaloneVM",
+        TC_05_StandaloneVMMixin,
+        qubes.tests.SystemTestCase,
+        module=sys.modules[__name__],
+    )
+    yield from qubes.tests.create_testcases_for_templates(
+        "TC_06_AppVM",
+        TC_06_AppVMMixin,
+        qubes.tests.SystemTestCase,
+        module=sys.modules[__name__],
+    )
+
 
 def load_tests(loader, tests, pattern):
-    tests.addTests(loader.loadTestsFromNames(
-        create_testcases_for_templates()))
+    tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
 
     return tests
+
 
 qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
 

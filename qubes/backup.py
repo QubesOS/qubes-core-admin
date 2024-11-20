@@ -47,13 +47,13 @@ QUEUE_ERROR = "ERROR"
 
 QUEUE_FINISHED = "FINISHED"
 
-HEADER_FILENAME = 'backup-header'
-DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
+HEADER_FILENAME = "backup-header"
+DEFAULT_CRYPTO_ALGORITHM = "aes-256-cbc"
 # 'scrypt' is not exactly HMAC algorithm, but a tool we use to
 # integrity-protect the data
-DEFAULT_HMAC_ALGORITHM = 'scrypt'
-DEFAULT_COMPRESSION_FILTER = 'gzip'
-CURRENT_BACKUP_FORMAT_VERSION = '4'
+DEFAULT_HMAC_ALGORITHM = "scrypt"
+DEFAULT_COMPRESSION_FILTER = "gzip"
+CURRENT_BACKUP_FORMAT_VERSION = "4"
 # Maximum size of error message get from process stderr (including VM process)
 MAX_STDERR_BYTES = 1024
 # header + qubes.xml max size
@@ -71,31 +71,34 @@ class BackupCanceledError(qubes.exc.QubesException):
 
 
 class BackupHeader:
-    '''Structure describing backup-header file included as the first file in
+    """Structure describing backup-header file included as the first file in
     backup archive
-    '''
+    """
+
     # pylint: disable=too-few-public-methods
     header_keys = {
-        'version': 'version',
-        'encrypted': 'encrypted',
-        'compressed': 'compressed',
-        'compression-filter': 'compression_filter',
-        'crypto-algorithm': 'crypto_algorithm',
-        'hmac-algorithm': 'hmac_algorithm',
-        'backup-id': 'backup_id'
+        "version": "version",
+        "encrypted": "encrypted",
+        "compressed": "compressed",
+        "compression-filter": "compression_filter",
+        "crypto-algorithm": "crypto_algorithm",
+        "hmac-algorithm": "hmac_algorithm",
+        "backup-id": "backup_id",
     }
-    bool_options = ['encrypted', 'compressed']
-    int_options = ['version']
+    bool_options = ["encrypted", "compressed"]
+    int_options = ["version"]
 
-    def __init__(self,
-            *,
-            version=None,
-            encrypted=None,
-            compressed=None,
-            compression_filter=None,
-            hmac_algorithm=None,
-            crypto_algorithm=None,
-            backup_id=None):
+    def __init__(
+        self,
+        *,
+        version=None,
+        encrypted=None,
+        compressed=None,
+        compression_filter=None,
+        hmac_algorithm=None,
+        crypto_algorithm=None,
+        backup_id=None
+    ):
         # repeat the list to help code completion...
         self.version = version
         self.encrypted = encrypted
@@ -108,11 +111,11 @@ class BackupHeader:
         self.backup_id = backup_id
 
     def save(self, filename):
-        with open(filename, "w", encoding='ascii') as f_header:
+        with open(filename, "w", encoding="ascii") as f_header:
             # make sure 'version' is the first key
-            f_header.write('version={}\n'.format(self.version))
+            f_header.write("version={}\n".format(self.version))
             for key, attr in self.header_keys.items():
-                if key == 'version':
+                if key == "version":
                     continue
                 if getattr(self, attr) is None:
                     continue
@@ -126,7 +129,7 @@ class SendWorker:
         self.queue = queue
         self.base_dir = base_dir
         self.backup_stdout = backup_stdout
-        self.log = logging.getLogger('qubes.backup')
+        self.log = logging.getLogger("qubes.backup")
 
     async def run(self):
         self.log.debug("Started sending thread")
@@ -140,18 +143,25 @@ class SendWorker:
             # This tar used for sending data out need to be as simple, as
             # simple, as featureless as possible. It will not be
             # verified before untaring.
-            tar_final_cmd = ["tar", "-cO", "--posix",
-                             "-C", self.base_dir, filename]
+            tar_final_cmd = [
+                "tar",
+                "-cO",
+                "--posix",
+                "-C",
+                self.base_dir,
+                filename,
+            ]
             final_proc = await asyncio.create_subprocess_exec(
-                *tar_final_cmd,
-                stdout=self.backup_stdout)
+                *tar_final_cmd, stdout=self.backup_stdout
+            )
             retcode = await final_proc.wait()
             if retcode >= 2:
                 # handle only exit code 2 (tar fatal error) or
                 # greater (call failed?)
                 raise qubes.exc.QubesException(
                     "ERROR: Failed to write the backup, out of disk space? "
-                    "Check console output or ~/.xsession-errors for details.")
+                    "Check console output or ~/.xsession-errors for details."
+                )
 
             # Delete the file as we don't need it anymore
             self.log.debug("Removing file {}".format(filename))
@@ -159,8 +169,10 @@ class SendWorker:
 
         self.log.debug("Finished sending thread")
 
-async def launch_proc_with_pty(args, stdin=None, stdout=None,
-                               stderr=None, echo=True):
+
+async def launch_proc_with_pty(
+    args, stdin=None, stdout=None, stderr=None, echo=True
+):
     """Similar to pty.fork, but handle stdin/stdout according to parameters
     instead of connecting to the pty
 
@@ -176,19 +188,22 @@ async def launch_proc_with_pty(args, stdin=None, stdout=None,
             # termios_p.c_lflags
             termios_p[3] &= ~termios.ECHO
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
+
     (pty_master, pty_slave) = os.openpty()
-    p = await asyncio.create_subprocess_exec(*args,
+    p = await asyncio.create_subprocess_exec(
+        *args,
         stdin=stdin,
         stdout=stdout,
         stderr=stderr,
-        preexec_fn=lambda: set_ctty(pty_slave, pty_master))
+        preexec_fn=lambda: set_ctty(pty_slave, pty_master)
+    )
     os.close(pty_slave)
     # pylint: disable=consider-using-with
-    return p, open(pty_master, 'wb+', buffering=0)
+    return p, open(pty_master, "wb+", buffering=0)
 
 
 async def launch_scrypt(action, input_name, output_name, passphrase):
-    '''
+    """
     Launch 'scrypt' process, pass passphrase to it and return
     subprocess.Popen object.
 
@@ -198,23 +213,26 @@ async def launch_scrypt(action, input_name, output_name, passphrase):
     :param passphrase: passphrase
     :type passphrase: bytes
     :return: subprocess.Popen object
-    '''
-    command_line = ['scrypt', action, input_name, output_name]
-    (p, pty) = await launch_proc_with_pty(command_line,
-        stdin=subprocess.PIPE if input_name == '-' else None,
-        stdout=subprocess.PIPE if output_name == '-' else None,
+    """
+    command_line = ["scrypt", action, input_name, output_name]
+    (p, pty) = await launch_proc_with_pty(
+        command_line,
+        stdin=subprocess.PIPE if input_name == "-" else None,
+        stdout=subprocess.PIPE if output_name == "-" else None,
         stderr=subprocess.PIPE,
-        echo=False)
-    if action == 'enc':
-        prompts = (b'Please enter passphrase: ', b'Please confirm passphrase: ')
+        echo=False,
+    )
+    if action == "enc":
+        prompts = (b"Please enter passphrase: ", b"Please confirm passphrase: ")
     else:
-        prompts = (b'Please enter passphrase: ',)
+        prompts = (b"Please enter passphrase: ",)
     for prompt in prompts:
         actual_prompt = await p.stderr.read(len(prompt))
         if actual_prompt != prompt:
             raise qubes.exc.QubesException(
-                'Unexpected prompt from scrypt: {}'.format(actual_prompt))
-        pty.write(passphrase + b'\n')
+                "Unexpected prompt from scrypt: {}".format(actual_prompt)
+            )
+        pty.write(passphrase + b"\n")
         pty.flush()
     # save it here, so garbage collector would not close it (which would kill
     #  the child)
@@ -223,7 +241,7 @@ async def launch_scrypt(action, input_name, output_name, passphrase):
 
 
 class Backup:
-    '''Backup operation manager. Usage:
+    """Backup operation manager. Usage:
 
     >>> app = qubes.Qubes()
     >>> # optional - you can use 'None' to use default list (based on
@@ -242,12 +260,19 @@ class Backup:
 
     See attributes of this object for all available options.
 
-    '''
+    """
+
     # pylint: disable=too-many-instance-attributes
     class FileToBackup:
         # pylint: disable=too-few-public-methods
-        def __init__(self, file_path_or_func, subdir=None, name=None, size=None,
-                     cleanup_func=None):
+        def __init__(
+            self,
+            file_path_or_func,
+            subdir=None,
+            name=None,
+            size=None,
+            cleanup_func=None,
+        ):
             """Store a single file to backup
 
             :param file_path_or_func: path to the file or a function
@@ -261,25 +286,28 @@ class Backup:
                 the function will get the file path as an argument
             """
             if callable(file_path_or_func):
-                assert subdir is not None \
-                       and name is not None \
-                       and size is not None
+                assert (
+                    subdir is not None and name is not None and size is not None
+                )
 
             if size is None:
                 size = qubes.storage.file.get_disk_usage(file_path_or_func)
 
             if subdir is None:
                 abs_file_path = os.path.abspath(file_path_or_func)
-                abs_base_dir = os.path.abspath(
-                    qubes.config.system_path["qubes_base_dir"]) + '/'
-                abs_file_dir = os.path.dirname(abs_file_path) + '/'
-                (nothing, directory, subdir) = \
-                    abs_file_dir.partition(abs_base_dir)
+                abs_base_dir = (
+                    os.path.abspath(qubes.config.system_path["qubes_base_dir"])
+                    + "/"
+                )
+                abs_file_dir = os.path.dirname(abs_file_path) + "/"
+                (nothing, directory, subdir) = abs_file_dir.partition(
+                    abs_base_dir
+                )
                 assert nothing == ""
                 assert directory == abs_base_dir
             else:
-                if subdir and not subdir.endswith('/'):
-                    subdir += '/'
+                if subdir and not subdir.endswith("/"):
+                    subdir += "/"
 
             if name is None:
                 name = os.path.basename(file_path_or_func)
@@ -345,7 +373,8 @@ class Backup:
         #: backup ID, needs to be unique (for a given user),
         #: not necessary unpredictable; automatically generated
         self.backup_id = datetime.datetime.now().strftime(
-            '%Y%m%dT%H%M%S-' + str(os.getpid()))
+            "%Y%m%dT%H%M%S-" + str(os.getpid())
+        )
 
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -353,7 +382,7 @@ class Backup:
             else:
                 raise AttributeError(key)
 
-        self.log = logging.getLogger('qubes.backup')
+        self.log = logging.getLogger("qubes.backup")
 
         if exclude_list is None:
             exclude_list = []
@@ -362,8 +391,9 @@ class Backup:
             vms_list = [vm for vm in app.domains if vm.include_in_backups]
 
         # Apply exclude list
-        self.vms_for_backup = [vm for vm in vms_list
-            if vm.name not in exclude_list]
+        self.vms_for_backup = [
+            vm for vm in vms_list if vm.name not in exclude_list
+        ]
 
         self._files_to_backup = self.get_files_to_backup()
 
@@ -378,21 +408,26 @@ class Backup:
                 # handle dom0 later
                 continue
 
-            subdir = 'vm%d/' % vm.qid
+            subdir = "vm%d/" % vm.qid
 
             vm_files = []
             for name, volume in vm.volumes.items():
                 if not volume.save_on_stop:
                     continue
-                vm_files.append(self.FileToBackup(
-                    volume.export,
-                    subdir,
-                    name + '.img',
-                    volume.usage,
-                    cleanup_func=volume.export_end))
+                vm_files.append(
+                    self.FileToBackup(
+                        volume.export,
+                        subdir,
+                        name + ".img",
+                        volume.usage,
+                        cleanup_func=volume.export_end,
+                    )
+                )
 
-            vm_files.extend(self.FileToBackup(i, subdir)
-                for i in vm.fire_event('backup-get-files'))
+            vm_files.extend(
+                self.FileToBackup(i, subdir)
+                for i in vm.fire_event("backup-get-files")
+            )
 
             firewall_conf = os.path.join(vm.dir_path, vm.firewall_conf)
             if os.path.exists(firewall_conf):
@@ -411,25 +446,26 @@ class Backup:
 
         # Dom0 user home
         if 0 in [vm.qid for vm in self.vms_for_backup]:
-            local_user = grp.getgrnam('qubes').gr_mem[0]
+            local_user = grp.getgrnam("qubes").gr_mem[0]
             home_dir = pwd.getpwnam(local_user).pw_dir
             # Home dir should have only user-owned files, so fix it now
             # to prevent permissions problems - some root-owned files can
             # left after 'sudo bash' and similar commands
-            subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
+            subprocess.check_call(["sudo", "chown", "-R", local_user, home_dir])
 
-            home_to_backup = [
-                self.FileToBackup(home_dir, 'dom0-home/')]
+            home_to_backup = [self.FileToBackup(home_dir, "dom0-home/")]
             vm_files = home_to_backup
 
-            files_to_backup[0] = self.VMToBackup(self.app.domains[0],
+            files_to_backup[0] = self.VMToBackup(
+                self.app.domains[0],
                 vm_files,
-                os.path.join('dom0-home', os.path.basename(home_dir)))
+                os.path.join("dom0-home", os.path.basename(home_dir)),
+            )
 
         self.total_backup_bytes = functools.reduce(
-            lambda x, y: x + y.size, files_to_backup.values(), 0)
+            lambda x, y: x + y.size, files_to_backup.values(), 0
+        )
         return files_to_backup
-
 
     def get_backup_summary(self):
         summary = ""
@@ -437,13 +473,13 @@ class Backup:
         fields_to_display = [
             {"name": "VM", "width": 16},
             {"name": "type", "width": 12},
-            {"name": "size", "width": 12}
+            {"name": "size", "width": 12},
         ]
 
         # Display the header
         for field in fields_to_display:
             fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
-            summary += fmt.format('-')
+            summary += fmt.format("-")
         summary += "\n"
         for field in fields_to_display:
             fmt = "{{0:>{0}}} |".format(field["width"] + 1)
@@ -451,7 +487,7 @@ class Backup:
         summary += "\n"
         for field in fields_to_display:
             fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
-            summary += fmt.format('-')
+            summary += fmt.format("-")
         summary += "\n"
 
         files_to_backup = self._files_to_backup
@@ -467,8 +503,9 @@ class Backup:
             elif isinstance(vm_info.vm, qubes.vm.templatevm.TemplateVM):
                 summary_line += fmt.format("Template VM")
             else:
-                summary_line += fmt.format("VM" + (" + Sys" if
-                    vm_info.vm.updateable else ""))
+                summary_line += fmt.format(
+                    "VM" + (" + Sys" if vm_info.vm.updateable else "")
+                )
 
             vm_size = vm_info.size
 
@@ -476,33 +513,43 @@ class Backup:
             summary_line += fmt.format(size_to_human(vm_size))
 
             if qid != 0 and vm_info.vm.is_running():
-                summary_line += " <-- The VM is running, backup will contain " \
-                                "its state from before its start!"
+                summary_line += (
+                    " <-- The VM is running, backup will contain "
+                    "its state from before its start!"
+                )
 
             summary += summary_line + "\n"
 
         for field in fields_to_display:
             fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
-            summary += fmt.format('-')
+            summary += fmt.format("-")
         summary += "\n"
 
         fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
         summary += fmt.format("Total size:")
         fmt = "{{0:>{0}}} |".format(
-            fields_to_display[1]["width"] + 1 + 2 + fields_to_display[2][
-                "width"] + 1)
+            fields_to_display[1]["width"]
+            + 1
+            + 2
+            + fields_to_display[2]["width"]
+            + 1
+        )
         summary += fmt.format(size_to_human(self.total_backup_bytes))
         summary += "\n"
 
         for field in fields_to_display:
             fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
-            summary += fmt.format('-')
+            summary += fmt.format("-")
         summary += "\n"
 
-        vms_not_for_backup = [vm.name for vm in self.app.domains
-                              if vm not in self.vms_for_backup]
-        summary += "VMs not selected for backup:\n - " + "\n - ".join(
-            sorted(vms_not_for_backup)) + "\n"
+        vms_not_for_backup = [
+            vm.name for vm in self.app.domains if vm not in self.vms_for_backup
+        ]
+        summary += (
+            "VMs not selected for backup:\n - "
+            + "\n - ".join(sorted(vms_not_for_backup))
+            + "\n"
+        )
 
         return summary
 
@@ -519,27 +566,35 @@ class Backup:
         backup_header.save(header_file_path)
         # Start encrypt, scrypt will also handle integrity
         # protection
-        scrypt_passphrase = '{filename}!'.format(
-            filename=HEADER_FILENAME).encode() + self.passphrase
+        scrypt_passphrase = (
+            "{filename}!".format(filename=HEADER_FILENAME).encode()
+            + self.passphrase
+        )
         scrypt = await launch_scrypt(
-            'enc', header_file_path, header_file_path + '.hmac',
-            scrypt_passphrase)
+            "enc",
+            header_file_path,
+            header_file_path + ".hmac",
+            scrypt_passphrase,
+        )
 
         retcode = await scrypt.wait()
         if retcode:
             raise qubes.exc.QubesException(
                 "Failed to compute hmac of header file: "
-                + (await scrypt.stderr.read()).decode())
+                + (await scrypt.stderr.read()).decode()
+            )
         return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
 
     def _send_progress_update(self):
         if not self.total_backup_bytes:
             return
         if callable(self.progress_callback):
-            if time.time() - self.last_progress_time >= 1: # avoid flooding
+            if time.time() - self.last_progress_time >= 1:  # avoid flooding
                 progress = (
-                    100 * (self._done_vms_bytes + self._current_vm_bytes) /
-                    self.total_backup_bytes)
+                    100
+                    * (self._done_vms_bytes + self._current_vm_bytes)
+                    / self.total_backup_bytes
+                )
                 self.last_progress_time = time.time()
                 # pylint: disable=not-callable
                 self.progress_callback(progress)
@@ -548,9 +603,8 @@ class Backup:
         self._current_vm_bytes += bytes_done
         self._send_progress_update()
 
-    async def _split_and_send(self, input_stream, file_basename,
-            output_queue):
-        '''Split *input_stream* into parts of max *chunk_size* bytes and send
+    async def _split_and_send(self, input_stream, file_basename, output_queue):
+        """Split *input_stream* into parts of max *chunk_size* bytes and send
         to *output_queue*.
 
         :param input_stream: stream (asyncio reader stream) of data to split
@@ -558,7 +612,7 @@ class Backup:
         of output files
         :param output_queue: asyncio.Queue instance to put produced files to
         - queue will get only filenames of written chunks
-        '''
+        """
         # Wait for compressor (tar) process to finish or for any
         # error of other subprocesses
         i = 0
@@ -571,24 +625,26 @@ class Backup:
 
             # Start encrypt, scrypt will also handle integrity
             # protection
-            scrypt_passphrase = \
-                '{backup_id}!{filename}!'.format(
+            scrypt_passphrase = (
+                "{backup_id}!{filename}!".format(
                     backup_id=self.backup_id,
-                    filename=os.path.relpath(chunkfile[:-4],
-                        self.tmpdir)).encode() + self.passphrase
+                    filename=os.path.relpath(chunkfile[:-4], self.tmpdir),
+                ).encode()
+                + self.passphrase
+            )
             try:
                 scrypt = await launch_scrypt(
-                    "enc", "-", chunkfile, scrypt_passphrase)
+                    "enc", "-", chunkfile, scrypt_passphrase
+                )
 
                 run_error = await handle_streams(
                     input_stream,
                     scrypt.stdin,
                     self.chunk_size,
-                    self._add_vm_progress
+                    self._add_vm_progress,
                 )
 
-                self.log.debug(
-                    "handle_streams returned: {}".format(run_error))
+                self.log.debug("handle_streams returned: {}".format(run_error))
             except:
                 if scrypt is not None:
                     scrypt.terminate()
@@ -596,12 +652,10 @@ class Backup:
 
             scrypt.stdin.close()
             await scrypt.wait()
-            self.log.debug("scrypt return code: {}".format(
-                scrypt.returncode))
+            self.log.debug("scrypt return code: {}".format(scrypt.returncode))
 
             # Send the chunk to the backup target
-            await output_queue.put(
-                os.path.relpath(chunkfile, self.tmpdir))
+            await output_queue.put(os.path.relpath(chunkfile, self.tmpdir))
 
     async def _wrap_and_send_files(self, files_to_backup, output_queue):
         for vm_info in files_to_backup:
@@ -610,10 +664,11 @@ class Backup:
                 self.log.debug("Backing up {}".format(file_info))
 
                 backup_tempfile = os.path.join(
-                    self.tmpdir, file_info.subdir,
-                    file_info.name)
-                self.log.debug("Using temporary location: {}".format(
-                    backup_tempfile))
+                    self.tmpdir, file_info.subdir, file_info.name
+                )
+                self.log.debug(
+                    "Using temporary location: {}".format(backup_tempfile)
+                )
 
                 # Ensure the temporary directory exists
                 if not os.path.isdir(os.path.dirname(backup_tempfile)):
@@ -626,44 +681,60 @@ class Backup:
                 path = file_info.path
                 if callable(path):
                     path = await qubes.utils.coro_maybe(path())
-                tar_cmdline = (["tar", "-Pc", '--sparse',
-                                '-C', os.path.dirname(path)] +
-                               (['--dereference'] if
-                               file_info.subdir != "dom0-home/" else []) +
-                               ['--xform=s:^%s:%s\\0:' % (
-                                   os.path.basename(path),
-                                   file_info.subdir),
-                                   os.path.basename(path)
-                               ])
+                tar_cmdline = (
+                    ["tar", "-Pc", "--sparse", "-C", os.path.dirname(path)]
+                    + (
+                        ["--dereference"]
+                        if file_info.subdir != "dom0-home/"
+                        else []
+                    )
+                    + [
+                        "--xform=s:^%s:%s\\0:"
+                        % (os.path.basename(path), file_info.subdir),
+                        os.path.basename(path),
+                    ]
+                )
                 file_stat = os.stat(path)
-                if stat.S_ISBLK(file_stat.st_mode) or \
-                        file_info.name != os.path.basename(path):
+                if stat.S_ISBLK(
+                    file_stat.st_mode
+                ) or file_info.name != os.path.basename(path):
                     # tar doesn't handle content of block device, use our
                     # writer
                     # also use our tar writer when renaming file
-                    assert not stat.S_ISDIR(file_stat.st_mode), \
-                        "Renaming directories not supported"
-                    tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
-                        '--override-name=%s' % (
-                            os.path.join(file_info.subdir, os.path.basename(
-                                file_info.name))),
-                        path]
+                    assert not stat.S_ISDIR(
+                        file_stat.st_mode
+                    ), "Renaming directories not supported"
+                    tar_cmdline = [
+                        "python3",
+                        "-m",
+                        "qubes.tarwriter",
+                        "--override-name=%s"
+                        % (
+                            os.path.join(
+                                file_info.subdir,
+                                os.path.basename(file_info.name),
+                            )
+                        ),
+                        path,
+                    ]
                 if self.compressed:
-                    tar_cmdline.insert(-2,
-                        "--use-compress-program=%s" % self.compression_filter)
+                    tar_cmdline.insert(
+                        -2,
+                        "--use-compress-program=%s" % self.compression_filter,
+                    )
 
                 self.log.debug(" ".join(tar_cmdline))
 
                 # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
                 tar_sparse = await asyncio.create_subprocess_exec(
-                    *tar_cmdline, stdout=subprocess.PIPE)
+                    *tar_cmdline, stdout=subprocess.PIPE
+                )
 
                 try:
                     await self._split_and_send(
-                        tar_sparse.stdout,
-                        backup_tempfile,
-                        output_queue)
+                        tar_sparse.stdout, backup_tempfile, output_queue
+                    )
                 except:
                     try:
                         tar_sparse.terminate()
@@ -673,13 +744,14 @@ class Backup:
                 finally:
                     if file_info.cleanup_func is not None:
                         await qubes.utils.coro_maybe(
-                            file_info.cleanup_func(path))
+                            file_info.cleanup_func(path)
+                        )
 
                 await tar_sparse.wait()
                 if tar_sparse.returncode:
                     raise qubes.exc.QubesException(
-                        'Failed to archive {} file'.format(file_info.path))
-
+                        "Failed to archive {} file".format(file_info.path)
+                    )
 
             # This VM done, update progress
             self._done_vms_bytes += vm_info.size
@@ -699,23 +771,25 @@ class Backup:
         if proc.returncode:
             if proc.stderr is not None:
                 proc_stderr = await proc.stderr.read()
-                proc_stderr = proc_stderr.decode('ascii', errors='ignore')
-                proc_stderr = ''.join(
-                    c for c in proc_stderr if c in string.printable and
-                                              c not in '\r\n%{}')
-                error_message += ': ' + proc_stderr
+                proc_stderr = proc_stderr.decode("ascii", errors="ignore")
+                proc_stderr = "".join(
+                    c
+                    for c in proc_stderr
+                    if c in string.printable and c not in "\r\n%{}"
+                )
+                error_message += ": " + proc_stderr
             raise qubes.exc.QubesException(error_message)
 
     @staticmethod
     async def _cancel_on_error(future, previous_task):
-        '''If further element of chain fail, cancel previous one to
+        """If further element of chain fail, cancel previous one to
         avoid deadlock.
         When earlier element of chain fail, it will be handled by
         :py:meth:`backup_do`.
 
         The chain is:
         :py:meth:`_wrap_and_send_files` -> :py:class:`SendWorker` -> vmproc
-        '''
+        """
         try:
             await future
         except:  # pylint: disable=bare-except
@@ -726,11 +800,11 @@ class Backup:
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
         if not isinstance(self.passphrase, bytes):
-            self.passphrase = self.passphrase.encode('utf-8')
+            self.passphrase = self.passphrase.encode("utf-8")
         qubes_xml = self.app.store
         self.tmpdir = tempfile.mkdtemp()
-        shutil.copy(qubes_xml, os.path.join(self.tmpdir, 'qubes.xml'))
-        qubes_xml = os.path.join(self.tmpdir, 'qubes.xml')
+        shutil.copy(qubes_xml, os.path.join(self.tmpdir, "qubes.xml"))
+        qubes_xml = os.path.join(self.tmpdir, "qubes.xml")
         backup_app = qubes.Qubes(qubes_xml, offline_mode=True)
         backup_app.events_enabled = False
 
@@ -738,13 +812,13 @@ class Backup:
         # make sure backup_content isn't set initially
         for vm in backup_app.domains:
             vm.events_enabled = False
-            vm.features['backup-content'] = False
+            vm.features["backup-content"] = False
 
         for qid, vm_info in files_to_backup.items():
             # VM is included in the backup
-            backup_app.domains[qid].features['backup-content'] = True
-            backup_app.domains[qid].features['backup-path'] = vm_info.subdir
-            backup_app.domains[qid].features['backup-size'] = vm_info.size
+            backup_app.domains[qid].features["backup-content"] = True
+            backup_app.domains[qid].features["backup-path"] = vm_info.subdir
+            backup_app.domains[qid].features["backup-size"] = vm_info.size
         backup_app.save()
         del backup_app
 
@@ -753,30 +827,38 @@ class Backup:
             # Prepare the backup target (Qubes service call)
             # If APPVM, STDOUT is a PIPE
             read_fd, write_fd = os.pipe()
-            vmproc = await self.target_vm.run_service('qubes.Backup',
+            vmproc = await self.target_vm.run_service(
+                "qubes.Backup",
                 stdin=read_fd,
                 stderr=subprocess.PIPE,
-                stdout=subprocess.DEVNULL)
+                stdout=subprocess.DEVNULL,
+            )
             os.close(read_fd)
-            os.write(write_fd, (self.target_dir.
-                replace("\r", "").replace("\n", "") + "\n").encode())
+            os.write(
+                write_fd,
+                (
+                    self.target_dir.replace("\r", "").replace("\n", "") + "\n"
+                ).encode(),
+            )
             backup_stdout = write_fd
         else:
             # Prepare the backup target (local file)
             if os.path.isdir(self.target_dir):
-                backup_target = self.target_dir + "/qubes-{0}". \
-                    format(time.strftime("%Y-%m-%dT%H%M%S"))
+                backup_target = self.target_dir + "/qubes-{0}".format(
+                    time.strftime("%Y-%m-%dT%H%M%S")
+                )
             else:
                 backup_target = self.target_dir
 
                 # Create the target directory
                 if not os.path.exists(os.path.dirname(self.target_dir)):
                     raise qubes.exc.QubesException(
-                        "ERROR: the backup directory for {0} does not exists".
-                        format(self.target_dir))
+                        "ERROR: the backup directory for {0} does not"
+                        " exists".format(self.target_dir)
+                    )
 
             # If not APPVM, STDOUT is a local file
-            backup_stdout = open(backup_target, 'wb')
+            backup_stdout = open(backup_target, "wb")
 
         # Tar with tape length does not deals well with stdout
         # (close stdout between two tapes)
@@ -795,27 +877,30 @@ class Backup:
         vmproc_task = None
         if vmproc is not None:
             vmproc_task = asyncio.ensure_future(
-                self._monitor_process(vmproc,
-                    'Writing backup to VM {} failed'.format(
-                        self.target_vm.name)))
-            asyncio.ensure_future(self._cancel_on_error(
-                vmproc_task, send_task))
+                self._monitor_process(
+                    vmproc,
+                    "Writing backup to VM {} failed".format(
+                        self.target_vm.name
+                    ),
+                )
+            )
+            asyncio.ensure_future(self._cancel_on_error(vmproc_task, send_task))
 
         for file_name in header_files:
             await to_send.put(file_name)
 
         qubes_xml_info = self.VMToBackup(
-            None,
-            [self.FileToBackup(qubes_xml, '')],
-            ''
+            None, [self.FileToBackup(qubes_xml, "")], ""
         )
         inner_archive_task = asyncio.ensure_future(
             self._wrap_and_send_files(
                 itertools.chain([qubes_xml_info], files_to_backup.values()),
-                to_send
-            ))
+                to_send,
+            )
+        )
         asyncio.ensure_future(
-            self._cancel_on_error(send_task, inner_archive_task))
+            self._cancel_on_error(send_task, inner_archive_task)
+        )
 
         try:
             try:
@@ -848,15 +933,17 @@ class Backup:
         # Save date of last backup, only when backup succeeded
         for qid, vm_info in files_to_backup.items():
             if vm_info.vm:
-                vm_info.vm.backup_timestamp = \
-                    int(datetime.datetime.now().strftime('%s'))
+                vm_info.vm.backup_timestamp = int(
+                    datetime.datetime.now().strftime("%s")
+                )
 
         self.app.save()
 
 
-async def handle_streams(stream_in, stream_out, size_limit=None,
-        progress_callback=None):
-    '''
+async def handle_streams(
+    stream_in, stream_out, size_limit=None, progress_callback=None
+):
+    """
     Copy stream_in to all streams_out and monitor all mentioned processes.
     If any of them terminate with non-zero code, interrupt the process. Copy
     at most `size_limit` data (if given).
@@ -867,7 +954,7 @@ async def handle_streams(stream_in, stream_out, size_limit=None,
     :param progress_callback: callable function to report progress, will be
         given copied data size (it should accumulate internally)
     :return: "size_limit" or None (no error)
-    '''
+    """
     buffer_size = 409600
     bytes_copied = 0
     while True:
@@ -887,5 +974,6 @@ async def handle_streams(stream_in, stream_out, size_limit=None,
         stream_out.write(buf)
         bytes_copied += len(buf)
     return None
+
 
 # vim:sw=4:et:

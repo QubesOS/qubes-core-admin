@@ -18,11 +18,11 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-'''Qubes events.
+"""Qubes events.
 
 Events are fired when something happens, like VM start or stop, property change
 etc.
-'''
+"""
 import asyncio
 import collections
 import fnmatch
@@ -31,7 +31,7 @@ import itertools
 
 
 def handler(*events):
-    '''Event handler decorator factory.
+    """Event handler decorator factory.
 
     To hook an event, decorate a method in your plugin class with this
     decorator.
@@ -43,7 +43,7 @@ def handler(*events):
         For hooking events from extensions, see :py:func:`qubes.ext.handler`.
 
     :param str events: events names, can contain basic wildcards (`*`, `?`)
-    '''
+    """
 
     def decorator(func):
         # pylint: disable=missing-docstring
@@ -56,19 +56,19 @@ def handler(*events):
 
 
 def ishandler(obj):
-    '''Test if a method is hooked to an event.
+    """Test if a method is hooked to an event.
 
     :param object o: suspected hook
     :return: :py:obj:`True` when function is a hook, :py:obj:`False` otherwise
     :rtype: bool
-    '''
+    """
 
-    return callable(obj) \
-        and hasattr(obj, 'ha_events')
+    return callable(obj) and hasattr(obj, "ha_events")
 
 
 class EmitterMeta(type):
-    '''Metaclass for :py:class:`Emitter`'''
+    """Metaclass for :py:class:`Emitter`"""
+
     def __init__(cls, name, bases, dict_):
         super(EmitterMeta, cls).__init__(name, bases, dict_)
         cls.__handlers__ = collections.defaultdict(set)
@@ -93,15 +93,15 @@ class EmitterMeta(type):
 
 
 class Emitter(metaclass=EmitterMeta):
-    '''Subject that can emit events.
+    """Subject that can emit events.
 
     By default all events are disabled not to interfere with loading from XML.
     To enable event dispatch, set :py:attr:`events_enabled` to :py:obj:`True`.
-    '''
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not hasattr(self, 'events_enabled'):
+        if not hasattr(self, "events_enabled"):
             self.events_enabled = False
         self.__handlers__ = collections.defaultdict(set)
 
@@ -109,19 +109,19 @@ class Emitter(metaclass=EmitterMeta):
         self.events_enabled = False
 
     def add_handler(self, event, func):
-        '''Add event handler to subject's class.
+        """Add event handler to subject's class.
 
         This is class method, it is invalid to call it on object instance.
 
         :param str event: event identificator
         :param collections.abc.Callable handler: handler callable
-        '''
+        """
 
         # pylint: disable=no-member
         self.__handlers__[event].add(func)
 
     def remove_handler(self, event, func):
-        '''Remove event handler from subject's class.
+        """Remove event handler from subject's class.
 
         This is class method, it is invalid to call it on object instance.
 
@@ -130,16 +130,16 @@ class Emitter(metaclass=EmitterMeta):
 
         :param str event: event identificator
         :param collections.abc.Callable handler: handler callable
-        '''
+        """
 
         # pylint: disable=no-member
         self.__handlers__[event].remove(func)
 
     def _fire_event(self, event, kwargs, pre_event=False):
-        '''Fire event for classes in given order.
+        """Fire event for classes in given order.
 
         Do not use this method. Use :py:meth:`fire_event`.
-        '''
+        """
 
         if not self.events_enabled:
             return [], []
@@ -155,12 +155,17 @@ class Emitter(metaclass=EmitterMeta):
                 handlers_dict = i.__handlers__
             except AttributeError:
                 continue
-            handlers = [h_func for h_name, h_func_set in handlers_dict.items()
-                        for h_func in h_func_set
-                        if fnmatch.fnmatch(event, h_name)]
-            for func in sorted(handlers,
-                    key=(lambda handler: hasattr(handler, 'ha_bound')),
-                    reverse=True):
+            handlers = [
+                h_func
+                for h_name, h_func_set in handlers_dict.items()
+                for h_func in h_func_set
+                if fnmatch.fnmatch(event, h_name)
+            ]
+            for func in sorted(
+                handlers,
+                key=(lambda handler: hasattr(handler, "ha_bound")),
+                reverse=True,
+            ):
                 effect = func(self, event, **kwargs)
                 if asyncio.iscoroutinefunction(func):
                     async_effects.append(effect)
@@ -169,7 +174,7 @@ class Emitter(metaclass=EmitterMeta):
         return effects, async_effects
 
     def fire_event(self, event, pre_event=False, **kwargs):
-        '''Call all handlers for an event.
+        """Call all handlers for an event.
 
         Handlers are called for class and all parent classes, in **reversed**
         or **true** (depending on *pre_event* parameter)
@@ -190,19 +195,21 @@ class Emitter(metaclass=EmitterMeta):
 
         All *kwargs* are passed verbatim. They are different for different
         events.
-        '''
+        """
 
-        sync_effects, async_effects = self._fire_event(event, kwargs,
-            pre_event=pre_event)
+        sync_effects, async_effects = self._fire_event(
+            event, kwargs, pre_event=pre_event
+        )
         if async_effects:
             raise RuntimeError(
-                'unexpected async-handler(s) {!r} for sync event {!s}'.format(
-                    async_effects, event))
+                "unexpected async-handler(s) {!r} for sync event {!s}".format(
+                    async_effects, event
+                )
+            )
         return sync_effects
 
-
     async def fire_event_async(self, event, pre_event=False, **kwargs):
-        '''Call all handlers for an event, allowing async calls.
+        """Call all handlers for an event, allowing async calls.
 
         Handlers are called for class and all parent classes, in **reversed**
         or **true** (depending on *pre_event* parameter)
@@ -222,14 +229,16 @@ class Emitter(metaclass=EmitterMeta):
 
         All *kwargs* are passed verbatim. They are different for different
         events.
-        '''
+        """
 
-        sync_effects, async_effects = self._fire_event(event,
-            kwargs, pre_event=pre_event)
+        sync_effects, async_effects = self._fire_event(
+            event, kwargs, pre_event=pre_event
+        )
         effects = sync_effects
         if async_effects:
-            async_tasks, _ = await asyncio.wait(map(asyncio.create_task,
-                                                    async_effects))
+            async_tasks, _ = await asyncio.wait(
+                map(asyncio.create_task, async_effects)
+            )
             for task in async_tasks:
                 effect = task.result()
                 if effect is not None:

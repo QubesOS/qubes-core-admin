@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-''' This module contains pool implementations for different OS kernels. '''
+""" This module contains pool implementations for different OS kernels. """
 
 import os
 
@@ -29,10 +29,10 @@ from qubes.storage import Pool, StoragePoolException, Volume
 
 
 class LinuxModules(Volume):
-    ''' A volume representing a ro linux kernel '''
+    """A volume representing a ro linux kernel"""
 
     def __init__(self, target_dir, kernel_version, **kwargs):
-        kwargs['vid'] = ''
+        kwargs["vid"] = ""
         super().__init__(**kwargs)
         self._kernel_version = kernel_version
         self.target_dir = target_dir
@@ -62,21 +62,21 @@ class LinuxModules(Volume):
         kernels_dir = self.kernels_dir
         if not kernels_dir:
             return None
-        return os.path.join(kernels_dir, 'modules.img')
+        return os.path.join(kernels_dir, "modules.img")
 
     @property
     def vmlinuz(self):
         kernels_dir = self.kernels_dir
         if not kernels_dir:
             return None
-        return os.path.join(kernels_dir, 'vmlinuz')
+        return os.path.join(kernels_dir, "vmlinuz")
 
     @property
     def initramfs(self):
         kernels_dir = self.kernels_dir
         if not kernels_dir:
             return None
-        return os.path.join(kernels_dir, 'initramfs')
+        return os.path.join(kernels_dir, "initramfs")
 
     @property
     def revisions(self):
@@ -90,8 +90,8 @@ class LinuxModules(Volume):
             # do nothing
             return self
         raise StoragePoolException(
-            'clone of LinuxModules volume from different'
-            ' volume type is not supported'
+            "clone of LinuxModules volume from different"
+            " volume type is not supported"
         )
 
     async def create(self):
@@ -104,7 +104,8 @@ class LinuxModules(Volume):
     @ephemeral.setter
     def ephemeral(self, value):
         raise qubes.exc.QubesValueError(
-            'LinuxModules does not support setting ephemeral value')
+            "LinuxModules does not support setting ephemeral value"
+        )
 
     async def remove(self):
         pass
@@ -123,7 +124,8 @@ class LinuxModules(Volume):
     def revisions_to_keep(self, value):
         if value:
             raise qubes.exc.QubesValueError(
-                'LinuxModules supports only revisions_to_keep=0')
+                "LinuxModules supports only revisions_to_keep=0"
+            )
 
     @property
     def rw(self):
@@ -133,7 +135,8 @@ class LinuxModules(Volume):
     def rw(self, value):
         if value:
             raise qubes.exc.QubesValueError(
-                'LinuxModules supports only read-only volumes')
+                "LinuxModules supports only read-only volumes"
+            )
 
     async def start(self):
         return self
@@ -156,25 +159,28 @@ class LinuxModules(Volume):
 
 
 class LinuxKernel(Pool):
-    ''' Provides linux kernels '''
-    driver = 'linux-kernel'
+    """Provides linux kernels"""
+
+    driver = "linux-kernel"
 
     def __init__(self, *, name, dir_path):
         super().__init__(name=name, revisions_to_keep=0)
         self.dir_path = dir_path
 
     def init_volume(self, vm, volume_config):
-        assert not volume_config['rw']
+        assert not volume_config["rw"]
 
         # migrate old config
-        if volume_config.get('snap_on_start', False) and not \
-                volume_config.get('source', None):
-            volume_config['snap_on_start'] = False
+        if volume_config.get("snap_on_start", False) and not volume_config.get(
+            "source", None
+        ):
+            volume_config["snap_on_start"] = False
 
-        if volume_config.get('save_on_stop', False):
+        if volume_config.get("save_on_stop", False):
             raise NotImplementedError(
-                'LinuxKernel pool does not support save_on_stop=True')
-        volume_config['pool'] = self
+                "LinuxKernel pool does not support save_on_stop=True"
+            )
+        volume_config["pool"] = self
         volume = LinuxModules(self.dir_path, lambda: vm.kernel, **volume_config)
 
         return volume
@@ -182,9 +188,9 @@ class LinuxKernel(Pool):
     @property
     def config(self):
         return {
-            'name': self.name,
-            'dir_path': self.dir_path,
-            'driver': LinuxKernel.driver,
+            "name": self.name,
+            "dir_path": self.dir_path,
+            "driver": LinuxKernel.driver,
         }
 
     async def destroy(self):
@@ -204,28 +210,33 @@ class LinuxKernel(Pool):
     def revisions_to_keep(self, value):
         if value:
             raise qubes.exc.QubesValueError(
-                'LinuxKernel supports only revisions_to_keep=0')
+                "LinuxKernel supports only revisions_to_keep=0"
+            )
 
     def included_in(self, app):
-        ''' Check if there is pool containing /var/lib/qubes/vm-kernels '''
+        """Check if there is pool containing /var/lib/qubes/vm-kernels"""
         return qubes.storage.search_pool_containing_dir(
             [pool for pool in app.pools.values() if pool is not self],
-            self.dir_path)
+            self.dir_path,
+        )
 
     def list_volumes(self):
-        ''' Return all known kernel volumes '''
-        return [LinuxModules(self.dir_path,
-                             kernel_version,
-                             pool=self,
-                             name=kernel_version,
-                             rw=False
-                             )
-                for kernel_version in os.listdir(self.dir_path)]
+        """Return all known kernel volumes"""
+        return [
+            LinuxModules(
+                self.dir_path,
+                kernel_version,
+                pool=self,
+                name=kernel_version,
+                rw=False,
+            )
+            for kernel_version in os.listdir(self.dir_path)
+        ]
 
 
 def _check_path(path):
-    ''' Raise an :py:class:`qubes.storage.StoragePoolException` if ``path`` does
-        not exist.
-    '''
+    """Raise an :py:class:`qubes.storage.StoragePoolException` if ``path`` does
+    not exist.
+    """
     if not os.path.exists(path):
-        raise StoragePoolException('Missing file: %s' % path)
+        raise StoragePoolException("Missing file: %s" % path)

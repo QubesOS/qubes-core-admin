@@ -18,10 +18,10 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-'''Qubes logging routines
+"""Qubes logging routines
 
 See also: :py:attr:`qubes.vm.qubesvm.QubesVM.log`
-'''
+"""
 
 import logging
 import sys
@@ -33,18 +33,18 @@ class Formatter(logging.Formatter):
         self.debug = debug
 
     def formatMessage(self, record):
-        fmt = ''
+        fmt = ""
         if self.debug:
-            fmt += '[%(processName)s %(module)s.%(funcName)s:%(lineno)d] '
-        if self.debug or record.name.startswith('vm.'):
-            fmt += '%(name)s: '
-        fmt += '%(message)s'
+            fmt += "[%(processName)s %(module)s.%(funcName)s:%(lineno)d] "
+        if self.debug or record.name.startswith("vm."):
+            fmt += "%(name)s: "
+        fmt += "%(message)s"
 
         return fmt % record.__dict__
 
 
 def enable():
-    '''Enable global logging
+    """Enable global logging
 
     Use :py:mod:`logging` module from standard library to log messages.
 
@@ -52,7 +52,7 @@ def enable():
     >>> qubes.log.enable()          # doctest: +SKIP
     >>> import logging
     >>> logging.warning('Foobar')   # doctest: +SKIP
-    '''
+    """
 
     if logging.root.handlers:
         return
@@ -63,11 +63,12 @@ def enable():
 
     logging.root.setLevel(logging.INFO)
 
+
 def enable_debug():
-    '''Enable debug logging
+    """Enable debug logging
 
     Enable more messages and additional info to message format.
-    '''
+    """
 
     enable()
 
@@ -76,11 +77,12 @@ def enable_debug():
 
     logging.root.setLevel(logging.DEBUG)
 
+
 def get_vm_logger(vmname):
-    '''Initialise logging for particular VM name
+    """Initialise logging for particular VM name
 
     :param str vmname: VM's name
     :rtype: :py:class:`logging.Logger`
-    '''
+    """
 
-    return logging.getLogger('vm.' + vmname)
+    return logging.getLogger("vm." + vmname)

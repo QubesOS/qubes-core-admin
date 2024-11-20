@@ -45,37 +45,41 @@ class AdminExtension(qubes.ext.Extension):
         super().__init__()
         # during tests, __init__() of the extension can be called multiple
         # times, because there are multiple Qubes() object instances
-        if not hasattr(self, 'policy_cache'):
+        if not hasattr(self, "policy_cache"):
             self.policy_cache = utils.PolicyCache(lazy_load=True)
             self.policy_cache.initialize_watcher()
 
     # pylint: disable=too-few-public-methods
     @qubes.ext.handler(
-        'admin-permission:admin.vm.tag.Set',
-        'admin-permission:admin.vm.tag.Remove')
+        "admin-permission:admin.vm.tag.Set",
+        "admin-permission:admin.vm.tag.Remove",
+    )
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
-        '''Forbid changing specific tags'''
+        """Forbid changing specific tags"""
         # pylint: disable=unused-argument
-        if arg.startswith('created-by-') and \
-                not isinstance(vm, qubes.vm.adminvm.AdminVM):
+        if arg.startswith("created-by-") and not isinstance(
+            vm, qubes.vm.adminvm.AdminVM
+        ):
             raise qubes.exc.PermissionDenied(
-                'changing this tag is prohibited by {}.{}'.format(
-                    __name__, type(self).__name__))
+                "changing this tag is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
 
     # TODO create that tag here (need to figure out how to pass mgmtvm name)
 
-    @qubes.ext.handler('admin-permission:admin.vm.List')
+    @qubes.ext.handler("admin-permission:admin.vm.List")
     def admin_vm_list(self, vm, event, arg, **kwargs):
-        '''When called with target 'dom0' (aka "get full list"), exclude domains
-           that the caller don't have permission to list
-        '''
+        """When called with target 'dom0' (aka "get full list"), exclude domains
+        that the caller don't have permission to list
+        """
         # pylint: disable=unused-argument
 
-        if vm.klass == 'AdminVM':
+        if vm.klass == "AdminVM":
             # dom0 can always list everything
             return None
 
-        if not hasattr(vm, 'app'):
+        if not hasattr(vm, "app"):
             # process cleanup, do not allow listing VMs anymore
             return ((lambda _vm: False),)
 
@@ -84,13 +88,14 @@ class AdminExtension(qubes.ext.Extension):
 
         def filter_vms(dest_vm):
             request = parser.Request(
-                'admin.vm.List',
-                '+' + arg,
+                "admin.vm.List",
+                "+" + arg,
                 vm.name,
                 dest_vm.name,
                 system_info=system_info,
                 ask_resolution_type=JustEvaluateAskResolution,
-                allow_resolution_type=JustEvaluateAllowResolution)
+                allow_resolution_type=JustEvaluateAllowResolution,
+            )
             try:
                 resolution = policy.evaluate(request)
                 # do not consider 'ask' as allow here,
@@ -101,15 +106,15 @@ class AdminExtension(qubes.ext.Extension):
 
         return (filter_vms,)
 
-    @qubes.ext.handler('admin-permission:admin.Events')
+    @qubes.ext.handler("admin-permission:admin.Events")
     def admin_events(self, vm, event, arg, **kwargs):
-        '''When called with target 'dom0' (aka "get all events"),
-           exclude domains that the caller don't have permission to receive
-           events about
-        '''
+        """When called with target 'dom0' (aka "get all events"),
+        exclude domains that the caller don't have permission to receive
+        events about
+        """
         # pylint: disable=unused-argument
 
-        if vm.klass == 'AdminVM':
+        if vm.klass == "AdminVM":
             # dom0 can always list everything
             return None
 
@@ -119,12 +124,12 @@ class AdminExtension(qubes.ext.Extension):
                 dest = subject.name
             except AttributeError:
                 # domain-add and similar events fired on the Qubes() object
-                if 'vm' in kwargs:
-                    dest = kwargs['vm'].name
+                if "vm" in kwargs:
+                    dest = kwargs["vm"].name
                 else:
-                    dest = '@adminvm'
+                    dest = "@adminvm"
 
-            if not hasattr(vm, 'app'):
+            if not hasattr(vm, "app"):
                 # process cleanup, do not send events anymore
                 return False
 
@@ -132,13 +137,14 @@ class AdminExtension(qubes.ext.Extension):
             # TODO: cache system_info (based on last qubes.xml write time?)
             system_info = qubes.api.internal.get_system_info(vm.app)
             request = parser.Request(
-                'admin.Events',
-                '+' + event.replace(':', '_'),
+                "admin.Events",
+                "+" + event.replace(":", "_"),
                 vm.name,
                 dest,
                 system_info=system_info,
                 ask_resolution_type=JustEvaluateAskResolution,
-                allow_resolution_type=JustEvaluateAllowResolution)
+                allow_resolution_type=JustEvaluateAllowResolution,
+            )
             try:
                 resolution = policy.evaluate(request)
                 # do not consider 'ask' as allow here,
@@ -149,31 +155,33 @@ class AdminExtension(qubes.ext.Extension):
 
         return (filter_events,)
 
-    @qubes.ext.handler('qubes-close', system=True)
+    @qubes.ext.handler("qubes-close", system=True)
     def on_qubes_close(self, app, event, **kwargs):
         """Unregister policy file watches on app.close()."""
         # pylint: disable=unused-argument
-        if hasattr(self, 'policy_cache'):
+        if hasattr(self, "policy_cache"):
             self.policy_cache.cleanup()
             del self.policy_cache
 
-    @qubes.ext.handler('domain-tag-add:created-by-*')
+    @qubes.ext.handler("domain-tag-add:created-by-*")
     def on_tag_add(self, vm, event, tag, **kwargs):
-        '''Add extra tags based on creators 'tag-created-vm-with' feature'''
+        """Add extra tags based on creators 'tag-created-vm-with' feature"""
         # pylint: disable=unused-argument
-        created_by = vm.app.domains[tag.partition('created-by-')[2]]
-        tag_with = created_by.features.get('tag-created-vm-with', '')
+        created_by = vm.app.domains[tag.partition("created-by-")[2]]
+        tag_with = created_by.features.get("tag-created-vm-with", "")
         for tag_with_single in tag_with.split():
             vm.tags.add(tag_with_single)
 
-    @qubes.ext.handler(*(f'admin-permission:admin.vm.device.{ep.name}.Attach'
-        for ep in importlib.metadata.entry_points(group='qubes.devices')))
-    def on_device_attach(
-        self, vm, event, dest, arg, device, mode, **kwargs
-    ):
+    @qubes.ext.handler(
+        *(
+            f"admin-permission:admin.vm.device.{ep.name}.Attach"
+            for ep in importlib.metadata.entry_points(group="qubes.devices")
+        )
+    )
+    def on_device_attach(self, vm, event, dest, arg, device, mode, **kwargs):
         # pylint: disable=unused-argument,too-many-positional-arguments
         # ignore auto-attachment
-        if mode != 'manual':
+        if mode != "manual":
             return
 
         # load device deny list
@@ -181,7 +189,7 @@ class AdminExtension(qubes.ext.Extension):
         AdminExtension._load_deny_list(deny, DEVICE_DENY_LIST)
 
         # load drop ins
-        drop_in_path = DEVICE_DENY_LIST + '.d'
+        drop_in_path = DEVICE_DENY_LIST + ".d"
         if os.path.isdir(drop_in_path):
             for deny_list_name in os.listdir(drop_in_path):
                 deny_list_path = os.path.join(drop_in_path, deny_list_name)
@@ -195,22 +203,23 @@ class AdminExtension(qubes.ext.Extension):
             for devint in device.interfaces:
                 if pattern.matches(devint):
                     raise qubes.exc.PermissionDenied(
-                        f"Device exposes a banned interface: {devint}")
+                        f"Device exposes a banned interface: {devint}"
+                    )
 
     @staticmethod
     def _load_deny_list(deny: dict, path: str) -> None:
         try:
-            with open(path, 'r', encoding="utf-8") as file:
+            with open(path, "r", encoding="utf-8") as file:
                 for line in file:
                     line = line.strip()
 
                     # skip comments
-                    if line.startswith('#'):
+                    if line.startswith("#"):
                         continue
 
                     if line:
                         name, *values = line.split()
-                        values = ' '.join(values).replace(',', ' ').split()
+                        values = " ".join(values).replace(",", " ").split()
                         values = [v for v in values if len(v) > 0]
 
                         deny[name] = deny.get(name, set()).union(set(values))

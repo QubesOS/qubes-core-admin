@@ -18,7 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-'''qubes-create - Create new Qubes OS store'''
+"""qubes-create - Create new Qubes OS store"""
 
 import asyncio
 import sys
@@ -26,23 +26,27 @@ import qubes
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='Create new Qubes OS store.',
+    description="Create new Qubes OS store.",
     want_app=True,
-    want_app_no_instance=True)
+    want_app_no_instance=True,
+)
+
 
 def main(args=None):
-    '''Main routine of :program:`qubes-create`.
+    """Main routine of :program:`qubes-create`.
 
     :param list args: Optional arguments to override those delivered from \
         command line.
-    '''
+    """
 
     args = parser.parse_args(args)
     asyncio.get_event_loop().run_until_complete(
         qubes.Qubes.create_empty_store(
-            args.app, offline_mode=args.offline_mode).setup_pools())
+            args.app, offline_mode=args.offline_mode
+        ).setup_pools()
+    )
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

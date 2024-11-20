@@ -33,15 +33,21 @@ def detect(handle=True, gc_before=False, gc_after=False):
             detected = []
             showwarning_orig = warnings.showwarning
 
-            def showwarning(message, category, filename, lineno,
-                            file=None, line=None):
-                if issubclass(category, RuntimeWarning) \
-                   and str.endswith(str(message), ' was never awaited'):
-                    detected.append(warnings.WarningMessage(
-                        message, category, filename, lineno, file, line))
+            def showwarning(
+                message, category, filename, lineno, file=None, line=None
+            ):
+                if issubclass(category, RuntimeWarning) and str.endswith(
+                    str(message), " was never awaited"
+                ):
+                    detected.append(
+                        warnings.WarningMessage(
+                            message, category, filename, lineno, file, line
+                        )
+                    )
                 else:
                     showwarning_orig(
-                        message, category, filename, lineno, file, line)
+                        message, category, filename, lineno, file, line
+                    )
 
             if gc_before:
                 gc.collect()
@@ -54,7 +60,7 @@ def detect(handle=True, gc_before=False, gc_after=False):
                     gc.collect()
                 warnings.showwarning = showwarning_orig
                 if detected and handle:
-                    raise RuntimeError('\n' + ';\n'.join(map(str, detected)))
+                    raise RuntimeError("\n" + ";\n".join(map(str, detected)))
 
         return wrapper
 

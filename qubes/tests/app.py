@@ -35,35 +35,105 @@ import qubes.tests.storage_reflink
 import logging
 import time
 
+
 class TestApp(qubes.tests.TestEmitter):
     pass
 
 
 class TC_20_QubesHost(qubes.tests.QubesTestCase):
     sample_xc_domain_getinfo = [
-        {'paused': 0, 'cpu_time': 243951379111104, 'ssidref': 0,
-         'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
-         'mem_kb': 3733212, 'domid': 0, 'max_vcpu_id': 7,
-         'crashed': 0, 'running': 1, 'maxmem_kb': 3734236,
-         'shutdown': 0, 'online_vcpus': 8,
-         'handle': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-         'cpupool': 0, 'blocked': 0},
-        {'paused': 0, 'cpu_time': 2849496569205, 'ssidref': 0,
-         'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
-         'mem_kb': 303916, 'domid': 1, 'max_vcpu_id': 0,
-         'crashed': 0, 'running': 0, 'maxmem_kb': 308224,
-         'shutdown': 0, 'online_vcpus': 1,
-         'handle': [116, 174, 229, 207, 17, 1, 79, 39, 191, 37, 41,
-                    186, 205, 158, 219, 8],
-         'cpupool': 0, 'blocked': 1},
-        {'paused': 0, 'cpu_time': 249658663079978, 'ssidref': 0,
-         'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
-         'mem_kb': 3782668, 'domid': 11, 'max_vcpu_id': 7,
-         'crashed': 0, 'running': 0, 'maxmem_kb': 3783692,
-         'shutdown': 0, 'online_vcpus': 8,
-         'handle': [169, 95, 55, 127, 140, 94, 79, 220, 186, 210,
-                    117, 5, 148, 11, 185, 206],
-         'cpupool': 0, 'blocked': 1}]
+        {
+            "paused": 0,
+            "cpu_time": 243951379111104,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3733212,
+            "domid": 0,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 1,
+            "maxmem_kb": 3734236,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "cpupool": 0,
+            "blocked": 0,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 2849496569205,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 303916,
+            "domid": 1,
+            "max_vcpu_id": 0,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 308224,
+            "shutdown": 0,
+            "online_vcpus": 1,
+            "handle": [
+                116,
+                174,
+                229,
+                207,
+                17,
+                1,
+                79,
+                39,
+                191,
+                37,
+                41,
+                186,
+                205,
+                158,
+                219,
+                8,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 249658663079978,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3782668,
+            "domid": 11,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 3783692,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [
+                169,
+                95,
+                55,
+                127,
+                140,
+                94,
+                79,
+                220,
+                186,
+                210,
+                117,
+                5,
+                148,
+                11,
+                185,
+                206,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+    ]
 
     def setUp(self):
         super(TC_20_QubesHost, self).setUp()
@@ -73,139 +143,158 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.maxDiff = None
 
     def test_000_get_vm_stats_single(self):
-        self.app.vmm.configure_mock(**{
-            'xc.domain_getinfo.return_value': self.sample_xc_domain_getinfo
-        })
+        self.app.vmm.configure_mock(
+            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
+        )
 
         info_time, info = self.qubes_host.get_vm_stats()
-        self.assertEqual(self.app.vmm.mock_calls, [
-            ('xc.domain_getinfo', (0, 1024), {}),
-        ])
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024), {}),
+            ],
+        )
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104,
-                'cpu_usage': 0,
-                'cpu_usage_raw': 0,
-                'memory_kb': 3733212,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "memory_kb": 3733212,
             },
             1: {
-                'cpu_time': 2849496569205,
-                'cpu_usage': 0,
-                'cpu_usage_raw': 0,
-                'memory_kb': 303916,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "memory_kb": 303916,
             },
             11: {
-                'cpu_time': 249658663079978,
-                'cpu_usage': 0,
-                'cpu_usage_raw': 0,
-                'memory_kb': 3782668,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "memory_kb": 3782668,
             },
         }
         self.assertEqual(info, expected_info)
 
     def test_001_get_vm_stats_twice(self):
-        self.app.vmm.configure_mock(**{
-            'xc.domain_getinfo.return_value': self.sample_xc_domain_getinfo
-        })
+        self.app.vmm.configure_mock(
+            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
+        )
 
         prev_time, prev_info = self.qubes_host.get_vm_stats()
         prev_time -= 1
-        prev_info[0]['cpu_time'] -= 8 * 10 ** 8  # 0.8s
-        prev_info[1]['cpu_time'] -= 10 ** 9  # 1s
-        prev_info[11]['cpu_time'] -= 10 ** 9  # 1s
+        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
+        prev_info[1]["cpu_time"] -= 10**9  # 1s
+        prev_info[11]["cpu_time"] -= 10**9  # 1s
         info_time, info = self.qubes_host.get_vm_stats(prev_time, prev_info)
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
-                'cpu_time': 243951379111104,
-                'cpu_usage': 10,
-                'cpu_usage_raw': 80,
-                'memory_kb': 3733212,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 10,
+                "cpu_usage_raw": 80,
+                "memory_kb": 3733212,
             },
             1: {
-                'cpu_time': 2849496569205,
-                'cpu_usage': 100,
-                'cpu_usage_raw': 100,
-                'memory_kb': 303916,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 100,
+                "cpu_usage_raw": 100,
+                "memory_kb": 303916,
             },
             11: {
-                'cpu_time': 249658663079978,
-                'cpu_usage': 12,
-                'cpu_usage_raw': 100,
-                'memory_kb': 3782668,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 12,
+                "cpu_usage_raw": 100,
+                "memory_kb": 3782668,
             },
         }
         self.assertEqual(info, expected_info)
-        self.assertEqual(self.app.vmm.mock_calls, [
-            ('xc.domain_getinfo', (0, 1024), {}),
-            ('xc.domain_getinfo', (0, 1024), {}),
-        ])
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xc.domain_getinfo", (0, 1024), {}),
+            ],
+        )
 
     def test_002_get_vm_stats_one_vm(self):
-        self.app.vmm.configure_mock(**{
-            'xc.domain_getinfo.return_value': [self.sample_xc_domain_getinfo[1]]
-        })
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": [
+                    self.sample_xc_domain_getinfo[1]
+                ]
+            }
+        )
 
         vm = mock.Mock
         vm.xid = 1
-        vm.name = 'somevm'
+        vm.name = "somevm"
 
         info_time, info = self.qubes_host.get_vm_stats(only_vm=vm)
         self.assertIsNotNone(info_time)
-        self.assertEqual(self.app.vmm.mock_calls, [
-            ('xc.domain_getinfo', (1, 1), {}),
-        ])
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (1, 1), {}),
+            ],
+        )
 
     def test_010_iommu_supported(self):
-        self.app.vmm.configure_mock(**{
-            'xc.physinfo.return_value': {
-                'hw_caps': '...',
-                'scrub_memory': 0,
-                'virt_caps': 'hvm hvm_directio',
-                'nr_cpus': 4,
-                'threads_per_core': 1,
-                'cpu_khz': 3400001,
-                'nr_nodes': 1,
-                'free_memory': 234752,
-                'cores_per_socket': 4,
-                'total_memory': 16609720
+        self.app.vmm.configure_mock(
+            **{
+                "xc.physinfo.return_value": {
+                    "hw_caps": "...",
+                    "scrub_memory": 0,
+                    "virt_caps": "hvm hvm_directio",
+                    "nr_cpus": 4,
+                    "threads_per_core": 1,
+                    "cpu_khz": 3400001,
+                    "nr_nodes": 1,
+                    "free_memory": 234752,
+                    "cores_per_socket": 4,
+                    "total_memory": 16609720,
+                }
             }
-        })
+        )
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_011_iommu_supported(self):
-        self.app.vmm.configure_mock(**{
-            'xc.physinfo.return_value': {
-                'hw_caps': '...',
-                'scrub_memory': 0,
-                'virt_caps': 'hvm hvm_directio pv pv_directio',
-                'nr_cpus': 4,
-                'threads_per_core': 1,
-                'cpu_khz': 3400001,
-                'nr_nodes': 1,
-                'free_memory': 234752,
-                'cores_per_socket': 4,
-                'total_memory': 16609720
+        self.app.vmm.configure_mock(
+            **{
+                "xc.physinfo.return_value": {
+                    "hw_caps": "...",
+                    "scrub_memory": 0,
+                    "virt_caps": "hvm hvm_directio pv pv_directio",
+                    "nr_cpus": 4,
+                    "threads_per_core": 1,
+                    "cpu_khz": 3400001,
+                    "nr_nodes": 1,
+                    "free_memory": 234752,
+                    "cores_per_socket": 4,
+                    "total_memory": 16609720,
+                }
             }
-        })
+        )
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_012_iommu_supported(self):
-        self.app.vmm.configure_mock(**{
-            'xc.physinfo.return_value': {
-                'hw_caps': '...',
-                'scrub_memory': 0,
-                'virt_caps': 'hvm pv',
-                'nr_cpus': 4,
-                'threads_per_core': 1,
-                'cpu_khz': 3400001,
-                'nr_nodes': 1,
-                'free_memory': 234752,
-                'cores_per_socket': 4,
-                'total_memory': 16609720
+        self.app.vmm.configure_mock(
+            **{
+                "xc.physinfo.return_value": {
+                    "hw_caps": "...",
+                    "scrub_memory": 0,
+                    "virt_caps": "hvm pv",
+                    "nr_cpus": 4,
+                    "threads_per_core": 1,
+                    "cpu_khz": 3400001,
+                    "nr_nodes": 1,
+                    "free_memory": 234752,
+                    "cores_per_socket": 4,
+                    "total_memory": 16609720,
+                }
             }
-        })
+        )
         self.assertEqual(self.qubes_host.is_iommu_supported(), False)
 
 
@@ -217,9 +306,11 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.app.log = logging.getLogger()
 
         self.testvm1 = qubes.tests.init.TestVM(
-            None, None, qid=1, name='testvm1')
+            None, None, qid=1, name="testvm1"
+        )
         self.testvm2 = qubes.tests.init.TestVM(
-            None, None, qid=2, name='testvm2')
+            None, None, qid=2, name="testvm2"
+        )
 
         self.addCleanup(self.cleanup_vmcollection)
 
@@ -236,34 +327,37 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms._dict = {1: self.testvm1}
 
         self.assertIn(1, self.vms)
-        self.assertIn('testvm1', self.vms)
+        self.assertIn("testvm1", self.vms)
         self.assertIn(self.testvm1, self.vms)
 
         self.assertNotIn(2, self.vms)
-        self.assertNotIn('testvm2', self.vms)
+        self.assertNotIn("testvm2", self.vms)
         self.assertNotIn(self.testvm2, self.vms)
 
     def test_001_getitem(self):
         self.vms._dict = {1: self.testvm1}
 
         self.assertIs(self.vms[1], self.testvm1)
-        self.assertIs(self.vms['testvm1'], self.testvm1)
+        self.assertIs(self.vms["testvm1"], self.testvm1)
         self.assertIs(self.vms[self.testvm1], self.testvm1)
 
     def test_002_add(self):
         self.vms.add(self.testvm1)
         self.assertIn(1, self.vms)
 
-        self.assertEventFired(self.app, 'domain-add',
-                              kwargs={'vm': self.testvm1})
+        self.assertEventFired(
+            self.app, "domain-add", kwargs={"vm": self.testvm1}
+        )
 
         with self.assertRaises(TypeError):
             self.vms.add(object())
 
         testvm_qid_collision = qubes.tests.init.TestVM(
-            None, None, name='testvm2', qid=1)
+            None, None, name="testvm2", qid=1
+        )
         testvm_name_collision = qubes.tests.init.TestVM(
-            None, None, name='testvm1', qid=2)
+            None, None, name="testvm1", qid=2
+        )
 
         with self.assertRaises(ValueError):
             self.vms.add(testvm_qid_collision)
@@ -281,7 +375,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertCountEqual(self.vms.names(), ['testvm1', 'testvm2'])
+        self.assertCountEqual(self.vms.names(), ["testvm1", "testvm2"])
 
     def test_005_vms(self):
         self.vms.add(self.testvm1)
@@ -294,8 +388,9 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertCountEqual(self.vms.items(),
-                              [(1, self.testvm1), (2, self.testvm2)])
+        self.assertCountEqual(
+            self.vms.items(), [(1, self.testvm1), (2, self.testvm2)]
+        )
 
     def test_007_len(self):
         self.vms.add(self.testvm1)
@@ -307,11 +402,12 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        del self.vms['testvm2']
+        del self.vms["testvm2"]
 
         self.assertCountEqual(self.vms.vms(), [self.testvm1])
-        self.assertEventFired(self.app, 'domain-delete',
-                              kwargs={'vm': self.testvm2})
+        self.assertEventFired(
+            self.app, "domain-delete", kwargs={"vm": self.testvm2}
+        )
 
     def test_100_get_new_unused_qid(self):
         self.vms.add(self.testvm1)
@@ -320,7 +416,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.get_new_unused_qid()
 
     def test_999999_get_new_unused_dispid(self):
-        with mock.patch('random.SystemRandom') as random:
+        with mock.patch("random.SystemRandom") as random:
             random.return_value.randrange.side_effect = [11, 22, 33, 44, 55, 66]
             # Testing overal functionality
             self.assertEqual(self.vms.get_new_unused_dispid(), 11)
@@ -330,10 +426,12 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
             self.vms._recent_dispids[44] = time.monotonic()
             self.assertNotEqual(self.vms.get_new_unused_dispid(), 44)
             # Testing reuse after safe period
-            self.vms._recent_dispids[66] = time.monotonic() \
-                    - self.vms._no_dispid_reuse_period - 1
+            self.vms._recent_dispids[66] = (
+                time.monotonic() - self.vms._no_dispid_reuse_period - 1
+            )
             self.assertEqual(self.vms.get_new_unused_dispid(), 66)
             self.assertFalse(66 in self.vms._recent_dispids)
+
 
 #   def test_200_get_vms_based_on(self):
 #       pass
@@ -345,12 +443,14 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 class TC_80_QubesInitialPools(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        self.app = qubes.Qubes('/tmp/qubestest.xml', load=False,
-                               offline_mode=True)
-        self.test_dir = '/var/tmp/test-varlibqubes'
+        self.app = qubes.Qubes(
+            "/tmp/qubestest.xml", load=False, offline_mode=True
+        )
+        self.test_dir = "/var/tmp/test-varlibqubes"
         self.test_patch = mock.patch.dict(
-            qubes.config.defaults['pool_configs']['varlibqubes'],
-            {'dir_path': self.test_dir})
+            qubes.config.defaults["pool_configs"]["varlibqubes"],
+            {"dir_path": self.test_dir},
+        )
         self.test_patch.start()
 
     def tearDown(self):
@@ -359,32 +459,35 @@ class TC_80_QubesInitialPools(qubes.tests.QubesTestCase):
         del self.app
 
     def get_driver(self, fs_type, accessible):
-        qubes.tests.storage_reflink.mkdir_fs(self.test_dir, fs_type,
-                                             accessible=accessible,
-                                             cleanup_via=self.addCleanup)
+        qubes.tests.storage_reflink.mkdir_fs(
+            self.test_dir,
+            fs_type,
+            accessible=accessible,
+            cleanup_via=self.addCleanup,
+        )
         self.app.load_initial_values()
 
-        varlibqubes = self.app.pools['varlibqubes']
+        varlibqubes = self.app.pools["varlibqubes"]
         self.assertEqual(varlibqubes.dir_path, self.test_dir)
         return varlibqubes.driver
 
     def test_100_varlibqubes_btrfs_accessible(self):
-        self.assertEqual(self.get_driver('btrfs', True), 'file-reflink')
+        self.assertEqual(self.get_driver("btrfs", True), "file-reflink")
 
     def test_101_varlibqubes_btrfs_inaccessible(self):
-        self.assertEqual(self.get_driver('btrfs', False), 'file')
+        self.assertEqual(self.get_driver("btrfs", False), "file")
 
     def test_102_varlibqubes_ext4_accessible(self):
-        self.assertEqual(self.get_driver('ext4', True), 'file')
+        self.assertEqual(self.get_driver("ext4", True), "file")
 
     def test_103_varlibqubes_ext4_inaccessible(self):
-        self.assertEqual(self.get_driver('ext4', False), 'file')
+        self.assertEqual(self.get_driver("ext4", False), "file")
 
 
 class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
     def tearDown(self):
         try:
-            os.unlink('/tmp/qubestest.xml')
+            os.unlink("/tmp/qubestest.xml")
         except:
             pass
         try:
@@ -398,10 +501,10 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
     def test_000_init_empty(self):
         # pylint: disable=unused-variable,bare-except
         try:
-            os.unlink('/tmp/qubestest.xml')
+            os.unlink("/tmp/qubestest.xml")
         except FileNotFoundError:
             pass
-        qubes.Qubes.create_empty_store('/tmp/qubestest.xml').close()
+        qubes.Qubes.create_empty_store("/tmp/qubestest.xml").close()
 
     def test_100_property_migrate_default_fw_netvm(self):
         xml_template = """<?xml version="1.0" encoding="utf-8" ?>
@@ -451,76 +554,89 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             </domains>
         </qubes>
         """
-        with self.subTest('default_setup'):
-            with open('/tmp/qubestest.xml', 'w') as xml_file:
-                xml_file.write(xml_template.format(
-                    default_netvm='sys-firewall',
-                    default_fw_netvm='sys-net'))
-            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+        with self.subTest("default_setup"):
+            with open("/tmp/qubestest.xml", "w") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        default_netvm="sys-firewall", default_fw_netvm="sys-net"
+                    )
+                )
+            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(self.app.domains["sys-net"].netvm, None)
             self.assertEqual(
-                self.app.domains['sys-net'].netvm, None)
-            self.assertEqual(
-                self.app.domains['sys-firewall'].netvm,
-                self.app.domains['sys-net'])
+                self.app.domains["sys-firewall"].netvm,
+                self.app.domains["sys-net"],
+            )
             # property is no longer "default"
             self.assertFalse(
-                self.app.domains['sys-firewall'].property_is_default('netvm'))
+                self.app.domains["sys-firewall"].property_is_default("netvm")
+            )
             # verify that appvm.netvm is unaffected
             self.assertTrue(
-                self.app.domains['appvm'].property_is_default('netvm'))
+                self.app.domains["appvm"].property_is_default("netvm")
+            )
             self.assertEqual(
-                self.app.domains['appvm'].netvm,
-                self.app.domains['sys-firewall'])
+                self.app.domains["appvm"].netvm,
+                self.app.domains["sys-firewall"],
+            )
             with self.assertRaises(AttributeError):
                 self.app.default_fw_netvm
 
             self.app.close()
             del self.app
 
-        with self.subTest('same'):
-            with open('/tmp/qubestest.xml', 'w') as xml_file:
-                xml_file.write(xml_template.format(
-                    default_netvm='sys-net',
-                    default_fw_netvm='sys-net'))
-            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+        with self.subTest("same"):
+            with open("/tmp/qubestest.xml", "w") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        default_netvm="sys-net", default_fw_netvm="sys-net"
+                    )
+                )
+            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(self.app.domains["sys-net"].netvm, None)
             self.assertEqual(
-                self.app.domains['sys-net'].netvm, None)
-            self.assertEqual(
-                self.app.domains['sys-firewall'].netvm,
-                self.app.domains['sys-net'])
+                self.app.domains["sys-firewall"].netvm,
+                self.app.domains["sys-net"],
+            )
             self.assertTrue(
-                self.app.domains['sys-firewall'].property_is_default('netvm'))
+                self.app.domains["sys-firewall"].property_is_default("netvm")
+            )
             # verify that appvm.netvm is unaffected
             self.assertTrue(
-                self.app.domains['appvm'].property_is_default('netvm'))
+                self.app.domains["appvm"].property_is_default("netvm")
+            )
             self.assertEqual(
-                self.app.domains['appvm'].netvm,
-                self.app.domains['sys-net'])
+                self.app.domains["appvm"].netvm, self.app.domains["sys-net"]
+            )
             with self.assertRaises(AttributeError):
                 self.app.default_fw_netvm
 
             self.app.close()
             del self.app
 
-        with self.subTest('loop'):
-            with open('/tmp/qubestest.xml', 'w') as xml_file:
-                xml_file.write(xml_template.format(
-                    default_netvm='sys-firewall',
-                    default_fw_netvm='sys-firewall'))
-            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
-            self.assertEqual(
-                self.app.domains['sys-net'].netvm, None)
+        with self.subTest("loop"):
+            with open("/tmp/qubestest.xml", "w") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        default_netvm="sys-firewall",
+                        default_fw_netvm="sys-firewall",
+                    )
+                )
+            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(self.app.domains["sys-net"].netvm, None)
             # this was netvm loop, better set to none, to not crash qubesd
-            self.assertEqual(
-                self.app.domains['sys-firewall'].netvm, None)
+            self.assertEqual(self.app.domains["sys-firewall"].netvm, None)
             self.assertFalse(
-                self.app.domains['sys-firewall'].property_is_default('netvm'))
+                self.app.domains["sys-firewall"].property_is_default("netvm")
+            )
             # verify that appvm.netvm is unaffected
             self.assertTrue(
-                self.app.domains['appvm'].property_is_default('netvm'))
+                self.app.domains["appvm"].property_is_default("netvm")
+            )
             self.assertEqual(
-                self.app.domains['appvm'].netvm,
-                self.app.domains['sys-firewall'])
+                self.app.domains["appvm"].netvm,
+                self.app.domains["sys-firewall"],
+            )
             with self.assertRaises(AttributeError):
                 self.app.default_fw_netvm
 
@@ -552,21 +668,19 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             </domains>
         </qubes>
         """
-        with self.subTest('replace_label'):
-            with open('/tmp/qubestest.xml', 'w') as xml_file:
-                xml_file.write(xml_template.format(old_gray='0x555753'))
-            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
-            self.assertEqual(
-                self.app.get_label('gray').color, '0x555555')
+        with self.subTest("replace_label"):
+            with open("/tmp/qubestest.xml", "w") as xml_file:
+                xml_file.write(xml_template.format(old_gray="0x555753"))
+            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(self.app.get_label("gray").color, "0x555555")
             self.app.close()
             del self.app
 
-        with self.subTest('dont_replace_label'):
-            with open('/tmp/qubestest.xml', 'w') as xml_file:
-                xml_file.write(xml_template.format(old_gray='0x123456'))
-            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
-            self.assertEqual(
-                self.app.get_label('gray').color, '0x123456')
+        with self.subTest("dont_replace_label"):
+            with open("/tmp/qubestest.xml", "w") as xml_file:
+                xml_file.write(xml_template.format(old_gray="0x123456"))
+            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(self.app.get_label("gray").color, "0x123456")
             self.app.close()
             del self.app
 
@@ -574,20 +688,22 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     def tearDown(self):
         try:
-            os.unlink('/tmp/qubestest.xml')
+            os.unlink("/tmp/qubestest.xml")
         except:
             pass
         super().tearDown()
 
     def setUp(self):
         super(TC_90_Qubes, self).setUp()
-        self.app = qubes.Qubes('/tmp/qubestest.xml', load=False,
-                               offline_mode=True)
-        self.app.default_kernel = 'dummy'
+        self.app = qubes.Qubes(
+            "/tmp/qubestest.xml", load=False, offline_mode=True
+        )
+        self.app.default_kernel = "dummy"
         self.addCleanup(self.cleanup_qubes)
         self.app.load_initial_values()
-        self.template = self.app.add_new_vm('TemplateVM', name='test-template',
-                                            label='green')
+        self.template = self.app.add_new_vm(
+            "TemplateVM", name="test-template", label="green"
+        )
 
     def cleanup_qubes(self):
         self.app.close()
@@ -598,24 +714,25 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             pass
 
     def test_100_clockvm(self):
-        appvm = self.app.add_new_vm('AppVM', name='test-vm',
-                                    template=self.template,
-                                    label='red')
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
         self.assertIsNone(self.app.clockvm)
-        self.assertNotIn('service.clocksync', appvm.features)
-        self.assertNotIn('service.clocksync', self.template.features)
+        self.assertNotIn("service.clocksync", appvm.features)
+        self.assertNotIn("service.clocksync", self.template.features)
         self.app.clockvm = appvm
-        self.assertIn('service.clocksync', appvm.features)
-        self.assertTrue(appvm.features['service.clocksync'])
+        self.assertIn("service.clocksync", appvm.features)
+        self.assertTrue(appvm.features["service.clocksync"])
         self.app.clockvm = self.template
-        self.assertNotIn('service.clocksync', appvm.features)
-        self.assertIn('service.clocksync', self.template.features)
-        self.assertTrue(self.template.features['service.clocksync'])
+        self.assertNotIn("service.clocksync", appvm.features)
+        self.assertIn("service.clocksync", self.template.features)
+        self.assertTrue(self.template.features["service.clocksync"])
 
     def test_110_netvm_loop(self):
         """Netvm loop through default_netvm"""
-        netvm = self.app.add_new_vm('AppVM', name='test-net',
-                                    template=self.template, label='red')
+        netvm = self.app.add_new_vm(
+            "AppVM", name="test-net", template=self.template, label="red"
+        )
         try:
             self.app.default_netvm = None
             netvm.netvm = qubes.property.DEFAULT
@@ -626,8 +743,9 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
     def test_111_netvm_loop(self):
         """Netvm loop through default_netvm"""
-        netvm = self.app.add_new_vm('AppVM', name='test-net',
-                                    template=self.template, label='red')
+        netvm = self.app.add_new_vm(
+            "AppVM", name="test-net", template=self.template, label="red"
+        )
         try:
             netvm.netvm = None
             self.app.default_netvm = netvm
@@ -638,185 +756,248 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
     def test_112_default_guivm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            default_guivm = qubes.property('default_guivm',
-                                           default=(lambda self: 'dom0'))
+            default_guivm = qubes.property(
+                "default_guivm", default=(lambda self: "dom0")
+            )
 
         holder = MyTestHolder(None)
-        guivm = self.app.add_new_vm('AppVM', name='sys-gui', guivm='dom0',
-                                    template=self.template, label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-vm',
-                                    template=self.template, label='red')
-        holder.default_guivm = 'sys-gui'
-        self.assertEqual(holder.default_guivm, 'sys-gui')
+        guivm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-gui",
+            guivm="dom0",
+            template=self.template,
+            label="red",
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        holder.default_guivm = "sys-gui"
+        self.assertEqual(holder.default_guivm, "sys-gui")
         self.assertIsNotNone(self.app.default_guivm)
-        self.assertTrue(appvm.property_is_default('guivm'))
+        self.assertTrue(appvm.property_is_default("guivm"))
         self.app.default_guivm = guivm
-        self.assertEventFired(holder, 'property-set:default_guivm',
-                              kwargs={'name': 'default_guivm',
-                                      'newvalue': 'sys-gui'})
+        self.assertEventFired(
+            holder,
+            "property-set:default_guivm",
+            kwargs={"name": "default_guivm", "newvalue": "sys-gui"},
+        )
 
-        self.assertIn('guivm-sys-gui', appvm.tags)
+        self.assertIn("guivm-sys-gui", appvm.tags)
 
     def test_113_guivm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            guivm = qubes.property('guivm',
-                                   default=(lambda self: 'dom0'))
+            guivm = qubes.property("guivm", default=(lambda self: "dom0"))
 
         holder = MyTestHolder(None)
-        guivm = self.app.add_new_vm('AppVM', name='sys-gui', guivm='dom0',
-                                    template=self.template, label='red')
-        vncvm = self.app.add_new_vm('AppVM', name='sys-vnc', guivm='dom0',
-                                    template=self.template, label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-vm', guivm='dom0',
-                                    template=self.template, label='red')
-        holder.guivm = 'sys-gui'
-        self.assertEqual(holder.guivm, 'sys-gui')
-        self.assertEventFired(holder, 'property-set:guivm',
-                              kwargs={'name': 'guivm',
-                                      'newvalue': 'sys-gui'})
+        guivm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-gui",
+            guivm="dom0",
+            template=self.template,
+            label="red",
+        )
+        vncvm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-vnc",
+            guivm="dom0",
+            template=self.template,
+            label="red",
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-vm",
+            guivm="dom0",
+            template=self.template,
+            label="red",
+        )
+        holder.guivm = "sys-gui"
+        self.assertEqual(holder.guivm, "sys-gui")
+        self.assertEventFired(
+            holder,
+            "property-set:guivm",
+            kwargs={"name": "guivm", "newvalue": "sys-gui"},
+        )
 
         # Set GuiVM
-        self.assertFalse(appvm.property_is_default('guivm'))
+        self.assertFalse(appvm.property_is_default("guivm"))
         appvm.guivm = guivm
-        self.assertIn('guivm-sys-gui', appvm.tags)
+        self.assertIn("guivm-sys-gui", appvm.tags)
 
         # Change GuiVM
         appvm.guivm = vncvm
-        self.assertIn('guivm-sys-vnc', appvm.tags)
-        self.assertNotIn('guivm-sys-gui', appvm.tags)
+        self.assertIn("guivm-sys-vnc", appvm.tags)
+        self.assertNotIn("guivm-sys-gui", appvm.tags)
 
         # Empty GuiVM
         del appvm.guivm
-        self.assertNotIn('guivm-sys-vnc', appvm.tags)
-        self.assertNotIn('guivm-sys-gui', appvm.tags)
-        self.assertNotIn('guivm-', appvm.tags)
+        self.assertNotIn("guivm-sys-vnc", appvm.tags)
+        self.assertNotIn("guivm-sys-gui", appvm.tags)
+        self.assertNotIn("guivm-", appvm.tags)
 
     def test_114_default_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            default_audiovm = qubes.property('default_audiovm',
-                                             default=(lambda self: 'dom0'))
+            default_audiovm = qubes.property(
+                "default_audiovm", default=(lambda self: "dom0")
+            )
 
         holder = MyTestHolder(None)
-        audiovm = self.app.add_new_vm('AppVM', name='sys-audio', audiovm='dom0',
-                                      template=self.template, label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-vm',
-                                    template=self.template, label='red')
-        holder.default_audiovm = 'sys-audio'
-        self.assertEqual(holder.default_audiovm, 'sys-audio')
+        audiovm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-audio",
+            audiovm="dom0",
+            template=self.template,
+            label="red",
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        holder.default_audiovm = "sys-audio"
+        self.assertEqual(holder.default_audiovm, "sys-audio")
         self.assertIsNotNone(self.app.default_audiovm)
-        self.assertTrue(appvm.property_is_default('audiovm'))
+        self.assertTrue(appvm.property_is_default("audiovm"))
         self.app.default_audiovm = audiovm
-        self.assertEventFired(holder, 'property-set:default_audiovm',
-                              kwargs={'name': 'default_audiovm',
-                                      'newvalue': 'sys-audio'})
+        self.assertEventFired(
+            holder,
+            "property-set:default_audiovm",
+            kwargs={"name": "default_audiovm", "newvalue": "sys-audio"},
+        )
 
-        self.assertIn('audiovm-sys-audio', appvm.tags)
+        self.assertIn("audiovm-sys-audio", appvm.tags)
 
     def test_115_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            audiovm = qubes.property('audiovm',
-                                     default=(lambda self: 'dom0'))
+            audiovm = qubes.property("audiovm", default=(lambda self: "dom0"))
 
         holder = MyTestHolder(None)
-        audiovm = self.app.add_new_vm('AppVM', name='sys-audio', audiovm='dom0',
-                                      template=self.template, label='red')
-        guivm = self.app.add_new_vm('AppVM', name='sys-gui', audiovm='dom0',
-                                      template=self.template, label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-vm', audiovm='dom0',
-                                    template=self.template, label='red')
-        holder.audiovm = 'sys-audio'
-        self.assertEqual(holder.audiovm, 'sys-audio')
+        audiovm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-audio",
+            audiovm="dom0",
+            template=self.template,
+            label="red",
+        )
+        guivm = self.app.add_new_vm(
+            "AppVM",
+            name="sys-gui",
+            audiovm="dom0",
+            template=self.template,
+            label="red",
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-vm",
+            audiovm="dom0",
+            template=self.template,
+            label="red",
+        )
+        holder.audiovm = "sys-audio"
+        self.assertEqual(holder.audiovm, "sys-audio")
 
-        self.assertEventFired(holder, 'property-set:audiovm',
-                              kwargs={'name': 'audiovm',
-                                      'newvalue': 'sys-audio'})
+        self.assertEventFired(
+            holder,
+            "property-set:audiovm",
+            kwargs={"name": "audiovm", "newvalue": "sys-audio"},
+        )
 
         # Set AudioVM
-        self.assertFalse(appvm.property_is_default('audiovm'))
+        self.assertFalse(appvm.property_is_default("audiovm"))
         appvm.audiovm = audiovm
-        self.assertIn('audiovm-sys-audio', appvm.tags)
+        self.assertIn("audiovm-sys-audio", appvm.tags)
 
         # Change AudioVM
         appvm.audiovm = guivm
-        self.assertIn('audiovm-sys-gui', appvm.tags)
-        self.assertNotIn('audiovm-sys-audio', appvm.tags)
+        self.assertIn("audiovm-sys-gui", appvm.tags)
+        self.assertNotIn("audiovm-sys-audio", appvm.tags)
 
         # Empty AudioVM
         del appvm.audiovm
-        self.assertNotIn('audiovm-sys-gui', appvm.tags)
-        self.assertNotIn('audiovm-sys-audio', appvm.tags)
-        self.assertNotIn('audiovm-', appvm.tags)
+        self.assertNotIn("audiovm-sys-gui", appvm.tags)
+        self.assertNotIn("audiovm-sys-audio", appvm.tags)
+        self.assertNotIn("audiovm-", appvm.tags)
 
     def test_200_remove_template(self):
-        appvm = self.app.add_new_vm('AppVM', name='test-vm',
-                                    template=self.template,
-                                    label='red')
-        with mock.patch.object(self.app, 'vmm'):
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesException):
                 del self.app.domains[self.template]
 
     def test_201_remove_netvm(self):
-        netvm = self.app.add_new_vm('AppVM', name='test-netvm',
-                                    template=self.template,
-                                    provides_network=True,
-                                    label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-vm',
-                                    template=self.template,
-                                    label='red')
+        netvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-netvm",
+            template=self.template,
+            provides_network=True,
+            label="red",
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
         appvm.netvm = netvm
-        with mock.patch.object(self.app, 'vmm'):
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[netvm]
 
     def test_202_remove_default_netvm(self):
-        netvm = self.app.add_new_vm('AppVM', name='test-netvm',
-                                    template=self.template,
-                                    provides_network=True,
-                                    label='red')
+        netvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-netvm",
+            template=self.template,
+            provides_network=True,
+            label="red",
+        )
         netvm.netvm = None
         self.app.default_netvm = netvm
-        with mock.patch.object(self.app, 'vmm'):
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[netvm]
 
     def test_203_remove_default_dispvm(self):
-        appvm = self.app.add_new_vm('AppVM', name='test-appvm',
-                                    template=self.template,
-                                    label='red')
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-appvm", template=self.template, label="red"
+        )
         self.app.default_dispvm = appvm
-        with mock.patch.object(self.app, 'vmm'):
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[appvm]
 
     def test_204_remove_appvm_dispvm(self):
-        dispvm = self.app.add_new_vm('AppVM', name='test-appvm',
-                                     template=self.template,
-                                     label='red')
-        appvm = self.app.add_new_vm('AppVM', name='test-appvm2',
-                                    template=self.template,
-                                    default_dispvm=dispvm,
-                                    label='red')
-        with mock.patch.object(self.app, 'vmm'):
+        dispvm = self.app.add_new_vm(
+            "AppVM", name="test-appvm", template=self.template, label="red"
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-appvm2",
+            template=self.template,
+            default_dispvm=dispvm,
+            label="red",
+        )
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[dispvm]
 
     def test_205_remove_appvm_dispvm(self):
-        appvm = self.app.add_new_vm('AppVM', name='test-appvm',
-                                    template=self.template,
-                                    template_for_dispvms=True,
-                                    label='red')
-        dispvm = self.app.add_new_vm('DispVM', name='test-dispvm',
-                                     template=appvm,
-                                     label='red')
-        with mock.patch.object(self.app, 'vmm'):
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-appvm",
+            template=self.template,
+            template_for_dispvms=True,
+            label="red",
+        )
+        dispvm = self.app.add_new_vm(
+            "DispVM", name="test-dispvm", template=appvm, label="red"
+        )
+        with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[appvm]
 
     def test_206_remove_attached(self):
         # See also qubes.tests.api_admin.
         vm = self.app.add_new_vm(
-            'AppVM', name='test-vm', template=self.template, label='red')
-        assignment = mock.Mock(port_id='1234')
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        assignment = mock.Mock(port_id="1234")
         vm.get_provided_assignments = lambda: [assignment]
         with self.assertRaises(qubes.exc.QubesVMInUseError):
             del self.app.domains[vm]
@@ -824,16 +1005,18 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
     def test_207_default_kernel(self):
         with self.assertRaises(qubes.exc.QubesPropertyValueError):
             # invalid path check
-            self.app.default_kernel = 'unittest_Evil_Maid_Kernel'
+            self.app.default_kernel = "unittest_Evil_Maid_Kernel"
         with self.assertRaises(qubes.exc.QubesPropertyValueError):
             # vmlinuz check
-            with mock.patch('os.path.exists') as existence:
+            with mock.patch("os.path.exists") as existence:
                 existence.side_effect = [True, False]
-                self.app.default_kernel = 'unittest_GNU_Hurd_1.0.0'
+                self.app.default_kernel = "unittest_GNU_Hurd_1.0.0"
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(
-            lxml.etree.parse(open(
-                os.path.join(qubes.tests.in_git, 'doc/example.xml'), 'rb')),
-            'qubes.rng')
+            lxml.etree.parse(
+                open(os.path.join(qubes.tests.in_git, "doc/example.xml"), "rb")
+            ),
+            "qubes.rng",
+        )

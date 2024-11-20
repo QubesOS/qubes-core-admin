@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-''' Internal interface for dom0 components to communicate with qubesd. '''
+""" Internal interface for dom0 components to communicate with qubesd. """
 
 import asyncio
 import json
@@ -31,41 +31,52 @@ import qubes.vm.dispvm
 
 
 def get_system_info(app):
-    system_info = {'domains': {
-        domain.name: {
-            'tags': list(domain.tags),
-            'type': domain.__class__.__name__,
-            'template_for_dispvms':
-                getattr(domain, 'template_for_dispvms', False),
-            'default_dispvm': (domain.default_dispvm.name if
-                getattr(domain, 'default_dispvm', None) else None),
-            'icon': str(domain.label.icon),
-            'guivm': (domain.guivm.name if getattr(domain, 'guivm', None)
-                      else None),
-            'power_state': domain.get_power_state(),
-            'uuid': str(domain.uuid),
-        } for domain in app.domains
-    }}
+    system_info = {
+        "domains": {
+            domain.name: {
+                "tags": list(domain.tags),
+                "type": domain.__class__.__name__,
+                "template_for_dispvms": getattr(
+                    domain, "template_for_dispvms", False
+                ),
+                "default_dispvm": (
+                    domain.default_dispvm.name
+                    if getattr(domain, "default_dispvm", None)
+                    else None
+                ),
+                "icon": str(domain.label.icon),
+                "guivm": (
+                    domain.guivm.name
+                    if getattr(domain, "guivm", None)
+                    else None
+                ),
+                "power_state": domain.get_power_state(),
+                "uuid": str(domain.uuid),
+            }
+            for domain in app.domains
+        }
+    }
     return system_info
 
 
 class QubesInternalAPI(qubes.api.AbstractQubesAPI):
-    ''' Communication interface for dom0 components,
-    by design the input here is trusted.'''
+    """Communication interface for dom0 components,
+    by design the input here is trusted."""
 
-    SOCKNAME = '/var/run/qubesd.internal.sock'
+    SOCKNAME = "/var/run/qubesd.internal.sock"
 
-    @qubes.api.method('internal.GetSystemInfo', no_payload=True)
+    @qubes.api.method("internal.GetSystemInfo", no_payload=True)
     async def getsysteminfo(self):
-        self.enforce(self.dest.name == 'dom0')
+        self.enforce(self.dest.name == "dom0")
         self.enforce(not self.arg)
 
         system_info = get_system_info(self.app)
 
         return json.dumps(system_info)
 
-    @qubes.api.method('internal.vm.volume.ImportBegin',
-        scope='local', write=True)
+    @qubes.api.method(
+        "internal.vm.volume.ImportBegin", scope="local", write=True
+    )
     async def vm_volume_import(self, untrusted_payload):
         """Begin importing volume data. Payload is either size of new data
         in bytes, or empty. If empty, the current volume's size will be used.
@@ -82,23 +93,26 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.arg in self.dest.volumes.keys())
 
         if untrusted_payload:
-            original_method = 'admin.vm.volume.ImportWithSize'
+            original_method = "admin.vm.volume.ImportWithSize"
         else:
-            original_method = 'admin.vm.volume.Import'
+            original_method = "admin.vm.volume.Import"
         self.src.fire_event(
-            'admin-permission:' + original_method,
-            pre_event=True, dest=self.dest, arg=self.arg)
+            "admin-permission:" + original_method,
+            pre_event=True,
+            dest=self.dest,
+            arg=self.arg,
+        )
 
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        requested_size = (self.validate_size(untrusted_payload)
-                          if untrusted_payload else None)
+        requested_size = (
+            self.validate_size(untrusted_payload) if untrusted_payload else None
+        )
         del untrusted_payload
 
-        path = await self.dest.storage.import_data(
-            self.arg, requested_size)
-        self.enforce(' ' not in path)
+        path = await self.dest.storage.import_data(self.arg, requested_size)
+        self.enforce(" " not in path)
         if requested_size is None:
             size = self.dest.volumes[self.arg].size
         else:
@@ -107,48 +121,51 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         # when we know the action is allowed, inform extensions that it will
         # be performed
         self.dest.fire_event(
-            'domain-volume-import-begin', volume=self.arg, size=size)
+            "domain-volume-import-begin", volume=self.arg, size=size
+        )
 
-        return '{} {}'.format(size, path)
+        return "{} {}".format(size, path)
 
-    @qubes.api.method('internal.vm.volume.ImportEnd')
+    @qubes.api.method("internal.vm.volume.ImportEnd")
     async def vm_volume_import_end(self, untrusted_payload):
-        '''
+        """
         This is second half of admin.vm.volume.Import handling. It is called
         when actual import is finished. Response from this method is sent do
         the client (as a response for admin.vm.volume.Import call).
 
         The payload is either 'ok', or 'fail\n<error message>'.
-        '''
+        """
         self.enforce(self.arg in self.dest.volumes.keys())
-        success = untrusted_payload == b'ok'
+        success = untrusted_payload == b"ok"
 
         try:
-            await self.dest.storage.import_data_end(self.arg,
-                success=success)
+            await self.dest.storage.import_data_end(self.arg, success=success)
         except:
-            self.dest.fire_event('domain-volume-import-end', volume=self.arg,
-                success=False)
+            self.dest.fire_event(
+                "domain-volume-import-end", volume=self.arg, success=False
+            )
             raise
 
-        self.dest.fire_event('domain-volume-import-end', volume=self.arg,
-            success=success)
+        self.dest.fire_event(
+            "domain-volume-import-end", volume=self.arg, success=success
+        )
 
         if not success:
-            error = ''
-            parts = untrusted_payload.decode('ascii').split('\n', 1)
+            error = ""
+            parts = untrusted_payload.decode("ascii").split("\n", 1)
             if len(parts) > 1:
                 error = parts[1]
             raise qubes.exc.QubesException(
-                'Data import failed: {}'.format(error))
+                "Data import failed: {}".format(error)
+            )
 
-    @qubes.api.method('internal.SuspendPre', no_payload=True)
+    @qubes.api.method("internal.SuspendPre", no_payload=True)
     async def suspend_pre(self):
-        '''
+        """
         Method called before host system goes to sleep.
 
         :return:
-        '''
+        """
 
         # first notify all VMs
         processes = []
@@ -157,24 +174,29 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 continue
             if not vm.is_running():
                 continue
-            if not vm.features.check_with_template('qrexec', False):
+            if not vm.features.check_with_template("qrexec", False):
                 continue
             try:
                 proc = await vm.run_service(
-                    'qubes.SuspendPreAll', user='root',
+                    "qubes.SuspendPreAll",
+                    user="root",
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL)
+                    stderr=subprocess.DEVNULL,
+                )
                 processes.append(proc)
             except qubes.exc.QubesException as e:
-                vm.log.warning('Failed to run qubes.SuspendPreAll: %s', str(e))
+                vm.log.warning("Failed to run qubes.SuspendPreAll: %s", str(e))
 
         if processes:
-            done, _ = await asyncio.wait([
+            done, _ = await asyncio.wait(
+                [
                     asyncio.create_task(
-                        asyncio.wait_for(p.wait(),
-                                         qubes.config.suspend_timeout))
-                    for p in processes])
+                        asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
+                    )
+                    for p in processes
+                ]
+            )
             for task in done:
                 try:
                     task.result()
@@ -182,7 +204,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                     self.app.log.warning(
                         "some qube timed out after %d seconds on %s call",
                         qubes.config.suspend_timeout,
-                        "qubes.SuspendPreAll"
+                        "qubes.SuspendPreAll",
                     )
 
         coros = []
@@ -199,18 +221,19 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 try:
                     coro.result()
                 except Exception as e:  # pylint: disable=broad-except
-                    failed += f'\n{e!s}'
+                    failed += f"\n{e!s}"
             if failed:
                 raise qubes.exc.QubesException(
-                    "Failed to suspend some qubes: {}".format(failed))
+                    "Failed to suspend some qubes: {}".format(failed)
+                )
 
-    @qubes.api.method('internal.SuspendPost', no_payload=True)
+    @qubes.api.method("internal.SuspendPost", no_payload=True)
     async def suspend_post(self):
-        '''
+        """
         Method called after host system wake up from sleep.
 
         :return:
-        '''
+        """
 
         coros = []
         # first resume/unpause VMs
@@ -229,23 +252,29 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 continue
             if not vm.is_running():
                 continue
-            if not vm.features.check_with_template('qrexec', False):
+            if not vm.features.check_with_template("qrexec", False):
                 continue
             try:
                 proc = await vm.run_service(
-                    'qubes.SuspendPostAll', user='root',
+                    "qubes.SuspendPostAll",
+                    user="root",
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL)
+                    stderr=subprocess.DEVNULL,
+                )
                 processes.append(proc)
             except qubes.exc.QubesException as e:
-                vm.log.warning('Failed to run qubes.SuspendPostAll: %s', str(e))
+                vm.log.warning("Failed to run qubes.SuspendPostAll: %s", str(e))
 
         if processes:
             done, _ = await asyncio.wait(
-                    [asyncio.create_task(asyncio.wait_for(p.wait(),
-                                         qubes.config.suspend_timeout))
-                     for p in processes])
+                [
+                    asyncio.create_task(
+                        asyncio.wait_for(p.wait(), qubes.config.suspend_timeout)
+                    )
+                    for p in processes
+                ]
+            )
             for task in done:
                 try:
                     task.result()
@@ -253,5 +282,5 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                     self.app.log.warning(
                         "some qube timed out after %d seconds on %s call",
                         qubes.config.suspend_timeout,
-                        "qubes.SuspendPostAll"
+                        "qubes.SuspendPostAll",
                     )

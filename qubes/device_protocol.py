@@ -1300,9 +1300,8 @@ class DeviceAssignment:
             return result
         if self.port_id != "*":
             dev = self.backend_domain.devices[self.devclass][self.port_id]
-            if (
-                isinstance(dev, UnknownDevice)
-                or (dev and self.device_id in (dev.device_id, "*"))
+            if isinstance(dev, UnknownDevice) or (
+                dev and self.device_id in (dev.device_id, "*")
             ):
                 return [dev]
         if self.device_id == "0000:0000::?******":
