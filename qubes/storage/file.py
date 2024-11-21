@@ -187,7 +187,8 @@ class FilePool(qubes.storage.Pool):
 
     @staticmethod
     def _vid_prefix(vm):
-        """Helper to create a prefix for the vid for volume"""  # FIX Remove this if we drop the file backend
+        """Helper to create a prefix for the vid for volume"""
+        # FIXME: remove this if we drop the file backend
         import qubes.vm.templatevm  # pylint: disable=redefined-outer-name
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
 

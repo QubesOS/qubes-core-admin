@@ -970,7 +970,9 @@ class Pool:
         raise self._not_implemented("destroy")
 
     def init_volume(self, vm, volume_config):
-        """Initialize a :py:class:`qubes.storage.Volume` from `volume_config`."""
+        """
+        Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
+        """
         raise self._not_implemented("init_volume")
 
     async def setup(self):
@@ -1039,7 +1041,8 @@ class Pool:
 
 
 def _sanitize_config(config):
-    """Helper function to convert types to appropriate strings"""  # FIXME: find another solution for serializing basic types
+    """Helper function to convert types to appropriate strings"""
+    # FIXME: find another solution for serializing basic types
     result = {}
     for key, value in config.items():
         if isinstance(value, bool):
@@ -1109,7 +1112,9 @@ def search_pool_containing_dir(pools, dir_path):
 
 
 class VmCreationManager:
-    """A `ContextManager` which cleans up if volume creation fails."""  # pylint: disable=too-few-public-methods
+    """A `ContextManager` which cleans up if volume creation fails."""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, vm):
         self.vm = vm

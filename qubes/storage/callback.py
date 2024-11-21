@@ -509,17 +509,15 @@ class CallbackVolume(qubes.storage.Volume):
         self._cb_impl = impl  #: Backend volume implementation instance.
 
     async def _assert_initialized(self, **kwargs):
-        await self._cb_pool._assert_initialized(
-            **kwargs
-        )  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        await self._cb_pool._assert_initialized(**kwargs)
 
     async def _callback(self, cb, cb_args=None, **kwargs):
         if cb_args is None:
             cb_args = []
         vol_args = [self.name, self.vid, self.source, *cb_args]
-        await self._cb_pool._callback(
-            cb, cb_args=vol_args, **kwargs
-        )  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        await self._cb_pool._callback(cb, cb_args=vol_args, **kwargs)
 
     @property
     def backend_class(self):

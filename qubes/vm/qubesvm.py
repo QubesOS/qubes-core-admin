@@ -65,7 +65,10 @@ _vm_uuid_re = re.compile(rb"\A/vm/[0-9a-f]{8}(?:-[0-9a-f]{4}){4}[0-9a-f]{8}\Z")
 
 
 def _setter_kernel(self, prop, value):
-    """Helper for setting the domain kernel and running sanity checks on it."""  # pylint: disable=unused-argument
+    """
+    Helper for setting the domain kernel and running sanity checks on it.
+    """
+    # pylint: disable=unused-argument
     if not value:
         return ""
     value = str(value)
@@ -77,7 +80,9 @@ def _setter_kernel(self, prop, value):
 
 
 def _setter_kernelopts(self, prop, value):
-    """Helper for setting the domain kernelopts and running sanity checks on it."""
+    """
+    Helper for setting the domain kernelopts and running sanity checks on it.
+    """
     if not value:
         return ""
     value = str(value)

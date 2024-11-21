@@ -211,7 +211,9 @@ class NetVMMixin(qubes.events.Emitter):
 
     @staticmethod
     def get_ip_for_vm(vm):
-        """Get IP address for (appvm) domain connected to this (netvm) domain."""
+        """
+        Get IP address for (appvm) domain connected to this (netvm) domain.
+        """
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
 
         if isinstance(vm, qubes.vm.dispvm.DispVM):

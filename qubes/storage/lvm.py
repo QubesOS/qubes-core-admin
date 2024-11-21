@@ -117,7 +117,9 @@ class ThinPool(qubes.storage.Pool):
         pass  # TODO Should we remove an existing pool?
 
     def init_volume(self, vm, volume_config):
-        """Initialize a :py:class:`qubes.storage.Volume` from `volume_config`."""
+        """
+        Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
+        """
 
         if "revisions_to_keep" not in volume_config.keys():
             volume_config["revisions_to_keep"] = self.revisions_to_keep
@@ -339,7 +341,9 @@ def _revision_sort_key(revision):
 
 
 class ThinVolume(qubes.storage.Volume):
-    """Default LVM thin volume implementation"""  # pylint: disable=too-few-public-methods
+    """Default LVM thin volume implementation"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
@@ -621,9 +625,8 @@ class ThinVolume(qubes.storage.Volume):
         """Returns an object that can be `open()`."""
         if self.is_dirty():
             raise qubes.storage.StoragePoolException(
-                "Cannot import data to dirty volume {}, stop the qube first".format(
-                    self.vid
-                )
+                "Cannot import data to dirty volume {},"
+                " stop the qube first".format(self.vid)
             )
         self.abort_if_import_in_progress()
         # pylint: disable=protected-access
