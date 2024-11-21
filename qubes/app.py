@@ -1536,7 +1536,7 @@ class Qubes(qubes.PropertyHolder):
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument
         for propname in (
-                'default_guivm'
+                'default_guivm',
                 'default_netvm',
                 'default_fw_netvm',
                 'clockvm',
