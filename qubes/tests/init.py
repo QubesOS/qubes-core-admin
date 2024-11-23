@@ -402,7 +402,7 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         pass
 
 
-class TestVM(qubes.vm.BaseVM):
+class TestVM(qubes.vm.LocalVM):
     qid = qubes.property("qid", type=int)
     name = qubes.property("name")
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, "testvm")

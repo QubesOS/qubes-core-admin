@@ -503,7 +503,7 @@ class VMCollection:
     def add(self, value, _enable_events=True):
         """Add VM to collection
 
-        :param qubes.vm.BaseVM value: VM to add
+        :param qubes.vm.LocalVM value: VM to add
         :param _enable_events:
         :raises TypeError: when value is of wrong type
         :raises ValueError: when there is already VM which has equal ``qid``
@@ -511,9 +511,11 @@ class VMCollection:
 
         # this violates duck typing, but is needed
         # for VMProperty to function correctly
-        if not isinstance(value, qubes.vm.BaseVM):
+        if not isinstance(value, qubes.vm.LocalVM):
             raise TypeError(
-                "{} holds only BaseVM instances".format(self.__class__.__name__)
+                "{} holds only LocalVM instances".format(
+                    self.__class__.__name__
+                )
             )
 
         if value.qid in self:
@@ -543,7 +545,7 @@ class VMCollection:
                     return vm
             raise KeyError(key)
 
-        if isinstance(key, qubes.vm.BaseVM):
+        if isinstance(key, qubes.vm.LocalVM):
             key = key.uuid
 
         if isinstance(key, uuid.UUID):
