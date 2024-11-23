@@ -72,7 +72,7 @@ request in ``features-request`` event handler. If no extension handles given
 feature request, it will be ignored. The extension should carefuly validate
 requested features (ignoring those not recognized - may be for another
 extension) and only then set appropriate value on VM object
-(:py:attr:`qubes.vm.BaseVM.features`). It is recommended to make the
+(:py:attr:`qubes.vm.LocalVM.features`). It is recommended to make the
 verification code as bulletproof  as possible (for example allow only specific
 simple values, instead of complex structures), because feature requests come
 from untrusted sources. The features actually set on the VM in some cases may

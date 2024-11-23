@@ -494,7 +494,7 @@ class TC_00_BackupCompatibility(
                     )
                 else:
                     actual_value = getattr(vm, prop)
-                    if isinstance(actual_value, qubes.vm.BaseVM):
+                    if isinstance(actual_value, qubes.vm.LocalVM):
                         self.assertEqual(
                             value,
                             actual_value.name,

@@ -33,7 +33,7 @@ import subprocess
 import uuid
 
 import libvirt  # pylint: disable=import-error
-import lxml
+import lxml.etree
 
 import qubes
 import qubes.config
@@ -330,7 +330,7 @@ def _default_kernelopts(self):
         ) + extra_opts
 
 
-class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
+class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     """Base functionality of Qubes VM shared between all VMs.
 
     The following events are raised on this class or its subclasses:
@@ -1163,7 +1163,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return self.qid
 
     def __lt__(self, other):
-        if not isinstance(other, qubes.vm.BaseVM):
+        if not isinstance(other, qubes.vm.LocalVM):
             return NotImplemented
         if isinstance(other, qubes.vm.adminvm.AdminVM):
             return False

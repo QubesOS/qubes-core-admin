@@ -94,7 +94,7 @@ def handler(*events, **kwargs):
         elif "vm" in kwargs:
             func.ha_vm = kwargs["vm"]
         else:
-            func.ha_vm = qubes.vm.BaseVM
+            func.ha_vm = qubes.vm.LocalVM
 
         return func
 

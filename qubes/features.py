@@ -161,7 +161,7 @@ class Features(dict):
             raise NotImplementedError("app does not have features yet")
 
         assert isinstance(
-            self.subject, _vm.BaseVM
+            self.subject, _vm.LocalVM
         ), "recursive checks do not work for {}".format(
             type(self.subject).__name__
         )

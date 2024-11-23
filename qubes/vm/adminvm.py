@@ -31,10 +31,10 @@ import qubes
 import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_kbd_layout
-from qubes.vm import BaseVM
+from qubes.vm import LocalVM
 
 
-class AdminVM(BaseVM):
+class AdminVM(LocalVM):
     """Dom0"""
 
     dir_path = None
@@ -98,7 +98,7 @@ class AdminVM(BaseVM):
         return self.name
 
     def __lt__(self, other: object):
-        if not isinstance(other, BaseVM):
+        if not isinstance(other, LocalVM):
             return NotImplemented
         # order dom0 before anything
         if not isinstance(other, AdminVM):
