@@ -507,7 +507,7 @@ class QubesTestCase(unittest.TestCase):
                 obj,
                 (
                     qubes.Qubes,
-                    qubes.vm.BaseVM,
+                    qubes.vm.LocalVM,
                     libvirt.virConnect,
                     libvirt.virDomain,
                 ),
