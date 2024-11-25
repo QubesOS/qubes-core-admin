@@ -915,6 +915,38 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.assertNotIn("audiovm-sys-audio", appvm.tags)
         self.assertNotIn("audiovm-", appvm.tags)
 
+    def test_116_remotevm_add_and_remove(self):
+        remotevm1 = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm1", label="blue"
+        )
+        remotevm2 = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm2", label="gray"
+        )
+        qubesvm1 = self.app.add_new_vm(
+            "AppVM",
+            name="test-vm",
+            template=self.template,
+            label="red",
+        )
+
+        assert remotevm1 in self.app.domains
+        del self.app.domains["remote-vm1"]
+
+        self.assertCountEqual(
+            {d.name for d in self.app.domains},
+            {"dom0", "test-template", "test-vm", "remote-vm2"},
+        )
+
+    def test_117_remotevm_status(self):
+        remotevm1 = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm1", label="blue"
+        )
+        assert [
+            remotevm1.get_power_state(),
+            remotevm1.get_cputime(),
+            remotevm1.get_mem(),
+        ] == ["Running", 0, 0]
+
     def test_200_remove_template(self):
         appvm = self.app.add_new_vm(
             "AppVM", name="test-vm", template=self.template, label="red"

@@ -58,6 +58,7 @@ if __name__ == '__main__':
                 'StandaloneVM = qubes.vm.standalonevm:StandaloneVM',
                 'AdminVM = qubes.vm.adminvm:AdminVM',
                 'DispVM = qubes.vm.dispvm:DispVM',
+                'RemoteVM = qubes.vm.remotevm:RemoteVM',
             ],
             'qubes.ext': [
                 'qubes.ext.admin = qubes.ext.admin:AdminExtension',
