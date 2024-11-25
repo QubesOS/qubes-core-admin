@@ -555,6 +555,7 @@ done
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(2770,root,qubes) %dir /var/lib/qubes/backup
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
+/usr/share/qubes/qubes-master-key.asc
 /usr/share/qubes/templates/libvirt/xen.xml
 /usr/share/qubes/templates/libvirt/devices/block.xml
 /usr/share/qubes/templates/libvirt/devices/pci.xml
