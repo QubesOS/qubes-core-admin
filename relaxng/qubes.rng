@@ -181,6 +181,38 @@ the parser will complain about missing combine= attribute on the second <start>.
                 </element>
             </optional>
 
+            <optional>
+                <element name="tags">
+                    <doc:description>
+                        Container for user-defined tags.
+                    </doc:description>
+
+                    <oneOrMore>
+                        <element name="tag">
+                            <doc:description>
+                                Tag value.
+
+                                Tags are not used anywhere by qubes core, they
+                                are for users reference. In the future they
+                                will be available for use in policies.
+                            </doc:description>
+
+                            <attribute name="name">
+                                <doc:description>
+                                    Name of the tag.
+                                </doc:description>
+
+                                <data type="string">
+                                    <param name="pattern">[a-z0-9_-]+</param>
+                                </data>
+                            </attribute>
+
+                            <data type="string" />
+                        </element>
+                    </oneOrMore>
+                </element>
+            </optional>
+
             <zeroOrMore>
                 <element name="devices">
                     <doc:description>
@@ -276,37 +308,7 @@ the parser will complain about missing combine= attribute on the second <start>.
                 </element>
             </zeroOrMore>
 
-            <optional>
-                <element name="tags">
-                    <doc:description>
-                        Container for user-defined tags.
-                    </doc:description>
 
-                    <oneOrMore>
-                        <element name="tag">
-                            <doc:description>
-                                Tag value.
-
-                                Tags are not used anywhere by qubes core, they
-                                are for users reference. In the future they
-                                will be available for use in policies.
-                            </doc:description>
-
-                            <attribute name="name">
-                                <doc:description>
-                                    Name of the tag.
-                                </doc:description>
-
-                                <data type="string">
-                                    <param name="pattern">[a-z0-9_-]+</param>
-                                </data>
-                            </attribute>
-
-                            <data type="string" />
-                        </element>
-                    </oneOrMore>
-                </element>
-            </optional>
 
             <!-- TODO: policy, incl. firewall -->
         </element>
