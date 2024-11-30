@@ -542,7 +542,9 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
-        p = self.loop.run_until_complete(self.testvm1.run('gnome-terminal'))
+        p = self.loop.run_until_complete(
+            self.testvm1.run("gnome-terminal || ptyxis")
+        )
         try:
             title = 'user@{}'.format(self.testvm1.name)
             if self.template.count("whonix"):
@@ -560,8 +562,10 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
                                 stderr=subprocess.STDOUT) == 0:
                 wait_count += 1
                 if wait_count > 100:
-                    self.fail("Timeout while waiting for gnome-terminal "
-                            "termination")
+                    self.fail(
+                        "Timeout while waiting for gnome-terminal/ptyxis "
+                        "termination"
+                    )
                 self.loop.run_until_complete(asyncio.sleep(0.1))
         finally:
             try:
