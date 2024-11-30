@@ -154,6 +154,22 @@ def skipUnlessEnv(varname):
     return unittest.skipUnless(os.getenv(varname), "no {} set".format(varname))
 
 
+def skipIfTemplate(*templates):
+    """Decorator generator for skipping on specific templates.
+
+    Some tests are supported only on some templates. This decorator allows
+    excluding test for some of them, especially useful for excluding tests on
+    minimal templates or Whonix.
+    Multiple templates can be given.
+    """
+
+    def decorator(func):
+        func.__qubestest_skip_templates__ = templates
+        return func
+
+    return decorator
+
+
 class TestEmitter(qubes.events.Emitter):
     """Dummy event emitter which records events fired on it.
 
@@ -439,9 +455,17 @@ class QubesTestCase(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         try:
             test_method = getattr(self, methodName)
-            setattr(
-                self, methodName, _clear_ex_info(self.set_result)(test_method)
-            )
+            skip_templates = getattr(
+                self, "__qubestest_skip_templates__", []
+            ) or getattr(test_method, "__qubestest_skip_templates__", [])
+            template = getattr(self, "template", "")
+            if any(skip in template for skip in skip_templates):
+                test_method = unittest.skip(
+                    f"Test skipped on template {template}"
+                )(test_method)
+            else:
+                test_method = _clear_ex_info(self.set_result)(test_method)
+            setattr(self, methodName, test_method)
         except AttributeError:
             pass
         super(QubesTestCase, self).__init__(methodName)
