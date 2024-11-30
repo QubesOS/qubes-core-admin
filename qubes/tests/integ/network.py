@@ -67,10 +67,6 @@ class VmNetworkingMixin(object):
         if self.template.startswith('whonix-'):
             self.skipTest("Test not supported here - Whonix uses its own "
                           "firewall settings")
-        if self.template.endswith('-minimal'):
-            self.skipTest(
-                "Test not supported here - minimal template don't have "
-                "networking packages by default")
         self.init_default_template(self.template)
         self.testnetvm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('netvm1'),
