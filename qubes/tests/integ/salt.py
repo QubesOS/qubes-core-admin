@@ -311,12 +311,28 @@ class SaltVMTestMixin(SaltTestMixin):
         super(SaltVMTestMixin, self).setUp()
         self.init_default_template(self.template)
 
+        mgmt_tpl = self.app.domains[self.template]
+        if "minimal" in self.template:
+            # minimal template doesn't support being mgmt vm, but still test
+            # it being a target
+            mgmt_tpl = os.environ.get("QUBES_TEST_MGMT_TPL")
+            if not mgmt_tpl:
+                mgmt_tpl = str(self.host_app.default_template)
+            print(
+                f"Using {mgmt_tpl} template for mgmt vm when testing "
+                f"minimal template as target. You can set "
+                f"QUBES_TEST_MGMT_TPL env variable to use "
+                f"different template for mgmt vm"
+            )
+            mgmt_tpl = self.app.domains[mgmt_tpl]
+
         dispvm_tpl_name = self.make_vm_name("disp-tpl")
         dispvm_tpl = self.app.add_new_vm(
             "AppVM",
             label="red",
             template_for_dispvms=True,
             name=dispvm_tpl_name,
+            template=mgmt_tpl,
         )
         self.loop.run_until_complete(dispvm_tpl.create_on_disk())
         self.app.default_dispvm = dispvm_tpl
@@ -611,8 +627,10 @@ class SaltVMTestMixin(SaltTestMixin):
 
     def test_003_update(self):
         vmname = self.make_vm_name("target")
-        self.vm = self.app.add_new_vm("AppVM", name=vmname, label="red")
-        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.vm = self.app.add_new_vm("TemplateVM", name=vmname, label="red")
+        self.loop.run_until_complete(
+            self.vm.clone_disk_files(self.app.default_template)
+        )
         # start the VM manually, so it stays running after applying salt state
         self.loop.run_until_complete(self.vm.start())
         state_output = self.salt_call(
