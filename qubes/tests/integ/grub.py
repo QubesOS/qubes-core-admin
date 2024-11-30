@@ -46,6 +46,13 @@ class GrubBase(object):
             )
 
     def install_packages(self, vm):
+        if os.environ.get("QUBES_TEST_SKIP_KERNEL_INSTALL") == "1":
+            return
+        else:
+            print(
+                "Installing kernel packages, you can skip by setting "
+                "QUBES_TEST_SKIP_KERNEL_INSTALL=1 in environment"
+            )
         if self.template.startswith("fedora-"):
             cmd_install1 = (
                 "dnf clean expire-cache && "
