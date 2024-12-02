@@ -229,6 +229,15 @@ class VmUpdatesMixin(object):
         self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.repo_proc = None
 
+        # template used for repo-hosting vm
+        self.repo_template = self.app.default_template
+        if self.template.count("minimal"):
+            self.repo_template = self.host_app.default_template
+            print(
+                f"Using {self.repo_template!s} for repo hosting vm when "
+                f"testing minimal template"
+            )
+
     def tearDown(self):
         if self.repo_proc:
             self.repo_proc.terminate()
@@ -241,6 +250,10 @@ class VmUpdatesMixin(object):
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
+        if self.template.count("minimal"):
+            self.skipTest(
+                "Template {} not supported by this test".format(self.template)
+            )
         self.app.save()
         self.testvm1 = self.app.domains[self.testvm1.qid]
         self.loop.run_until_complete(self.testvm1.start())
@@ -391,8 +404,10 @@ SHA256:
         """
         self.netvm_repo = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('net'),
-            label='red')
+            name=self.make_vm_name("net"),
+            label="red",
+            template=self.repo_template,
+        )
         self.netvm_repo.provides_network = True
         self.loop.run_until_complete(self.netvm_repo.create_on_disk())
         self.testvm1.netvm = None  # netvm is unnecessary
@@ -515,10 +530,6 @@ SHA256:
         :type break_repo: bool
         :type: expect_updated: bool
         """
-        if self.template.count("minimal"):
-            self.skipTest("Template {} not supported by this test".format(
-                self.template))
-
         if expected_ret_codes is None:
             expected_ret_codes = self.ret_code_ok
 
