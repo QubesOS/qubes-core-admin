@@ -35,6 +35,26 @@ from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 
 class TC_00_AudioMixin(TC_00_AppVMMixin):
+    def start_extra_vm_logging(self, vm):
+        """Log user journal and .xsession-errors to the console to be
+        preserved in logs"""
+        self.loop.run_until_complete(
+            vm.run_for_stdio("chmod a+w /dev/console", user="root")
+        )
+        self.loop.run_until_complete(
+            vm.run(
+                "systemd-run --no-block sh -c 'tail -F "
+                "/home/user/.xsession-errors >> /dev/console'",
+                user="root",
+            )
+        )
+        self.loop.run_until_complete(
+            vm.run(
+                "systemd-run --user --no-block sh -c "
+                "'journalctl --user -f >> /dev/console'"
+            )
+        )
+
     def wait_for_pulseaudio_startup(self, vm):
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         try:
@@ -67,6 +87,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         if "whonix-g" in self.template:
             self.skipTest("whonix gateway have no audio")
         self.loop.run_until_complete(self.testvm1.start())
+        self.start_extra_vm_logging(self.testvm1)
         pulseaudio_units = "pulseaudio.socket pulseaudio.service"
         pipewire_units = "pipewire.socket wireplumber.service pipewire.service"
         if backend == "pipewire":
@@ -646,6 +667,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
     )
     def test_250_audio_playback_audiovm_pipewire(self):
         self.create_audio_vm("pipewire")
+        self.start_extra_vm_logging(self.audiovm)
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
@@ -663,6 +685,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.start_extra_vm_logging(self.audiovm)
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -676,6 +699,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.start_extra_vm_logging(self.audiovm)
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
