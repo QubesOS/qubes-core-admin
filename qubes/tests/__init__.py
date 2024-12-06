@@ -269,6 +269,8 @@ def wait_on_fail(func):
     def wrapper(self, *args, **kwargs):
         try:
             func(self, *args, **kwargs)
+        except unittest.case.SkipTest:
+            raise
         except:
             print("FAIL\n")
             traceback.print_exc()
