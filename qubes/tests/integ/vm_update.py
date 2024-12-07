@@ -588,9 +588,10 @@ SHA256:
         """
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio(
-                '/usr/lib/qubes/upgrades-status-notify',
-                user='root',
-            ))
+                "/usr/lib/qubes/upgrades-status-notify 2>/dev/console",
+                user="root",
+            )
+        )
 
     def updates_available_notification_qubes_vm_update_impl(
             self, method="direct", options=(), expect_updated=True):
