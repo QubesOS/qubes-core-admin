@@ -654,7 +654,7 @@ SHA256:
         """
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio(
-                "/usr/lib/qubes/upgrades-status-notify",
+                "/usr/lib/qubes/upgrades-status-notify 2>/dev/console",
                 user="root",
             )
         )
