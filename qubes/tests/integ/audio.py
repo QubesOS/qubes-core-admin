@@ -296,6 +296,8 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             self.fail("no source-output found in {}".format(audiovm.name))
             assert False
 
+        audiovm.log.critical(repr(source_outputs))
+
         try:
             output_index = [
                 s["index"]
@@ -319,6 +321,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if not sources:
             self.fail("no sources found in {}".format(audiovm.name))
             assert False
+        audiovm.log.critical(repr(sources))
 
         try:
             source_index = [
