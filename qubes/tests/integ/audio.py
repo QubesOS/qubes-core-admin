@@ -253,47 +253,52 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             p.wait()
             self.check_audio_sample(recorded_audio.file.read(), sfreq)
 
-    def _configure_audio_recording(self, vm):
-        """Connect VM's source-output to sink monitor instead of mic"""
+    def _call_in_audiovm(self, audiovm, command):
         local_user = grp.getgrnam("qubes").gr_mem[0]
-        audiovm = vm.audiovm
-
         sudo = ["sudo", "-E", "-u", local_user]
-
-        source_outputs_cmd = ["pactl", "-f", "json", "list", "source-outputs"]
         if audiovm.name != "dom0":
             stdout, _ = self.loop.run_until_complete(
-                audiovm.run_for_stdio(" ".join(source_outputs_cmd))
+                audiovm.run_for_stdio(" ".join(command))
             )
-            source_outputs = json.loads(stdout)
+            return stdout
         else:
-            source_outputs = json.loads(
-                subprocess.check_output(sudo + source_outputs_cmd)
-            )
+            return subprocess.check_output(sudo + command)
 
-        if not source_outputs:
-            self.fail("no source-output found in {}".format(audiovm.name))
-            assert False
-
+    def _find_pactl_entry_for_vm(self, pactl_data, vm_name):
         try:
-            output_index = [
-                s["index"]
-                for s in source_outputs
-                if s["properties"].get("application.name") == vm.name
+            return [
+                s
+                for s in pactl_data
+                if s["properties"].get("application.name") == vm_name
             ][0]
         except IndexError:
             self.fail("source-output for VM {} not found".format(vm.name))
             # self.fail never returns
             assert False
 
-        sources_cmd = ["pactl", "-f", "json", "list", "sources"]
-        if audiovm.name != "dom0":
-            res, _ = self.loop.run_until_complete(
-                audiovm.run_for_stdio(" ".join(sources_cmd))
+    def _configure_audio_recording(self, vm):
+        """Connect VM's source-output to sink monitor instead of mic"""
+        audiovm = vm.audiovm
+
+        source_outputs = json.loads(
+            self._call_in_audiovm(
+                audiovm, ["pactl", "-f", "json", "list", "source-outputs"]
             )
-            sources = json.loads(res)
-        else:
-            sources = json.loads(subprocess.check_output(sudo + sources_cmd))
+        )
+
+        if not source_outputs:
+            self.fail("no source-output found in {}".format(audiovm.name))
+            assert False
+
+        output_info = self._find_pactl_entry_for_vm(source_outputs, vm.name)
+        output_index = output_info["index"]
+        current_source = output_info["source"]
+
+        sources = json.loads(
+            self._call_in_audiovm(
+                audiovm, ["pactl", "-f", "json", "list", "sources"]
+            )
+        )
 
         if not sources:
             self.fail("no sources found in {}".format(audiovm.name))
@@ -308,16 +313,31 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             # self.fail never returns
             assert False
 
-        cmd = [
-            "pactl",
-            "move-source-output",
-            str(output_index),
-            str(source_index),
-        ]
-        if audiovm.name != "dom0":
-            self.loop.run_until_complete(audiovm.run(" ".join(cmd)))
-        else:
-            subprocess.check_call(sudo + cmd)
+        attempts_left = 5
+        # pactl seems to fail sometimes, still with exit code 0...
+        while current_source != source_index and attempts_left:
+            assert isinstance(output_index, int)
+            assert isinstance(source_index, int)
+            cmd = [
+                "pactl",
+                "move-source-output",
+                str(output_index),
+                str(source_index),
+            ]
+            self._call_in_audiovm(audiovm, cmd)
+
+            source_outputs = json.loads(
+                self._call_in_audiovm(
+                    audiovm, ["pactl", "-f", "json", "list", "source-outputs"]
+                )
+            )
+
+            output_info = self._find_pactl_entry_for_vm(source_outputs, vm.name)
+            output_index = output_info["index"]
+            current_source = output_info["source"]
+            attempts_left -= 1
+
+        self.assertGreater(attempts_left, 0, "Failed to move-source-output")
 
     async def retrieve_audio_input(self, vm, status):
         try:
