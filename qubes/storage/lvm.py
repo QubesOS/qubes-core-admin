@@ -266,7 +266,7 @@ def _parse_lvm_cache(lvm_output):
             usage = int(size / 100 * float(usage_percent))
         else:
             usage = 0
-        if metadata_size:
+        if metadata_size and metadata_percent:
             metadata_size = int(metadata_size[:-1])
             metadata_usage = int(metadata_size / 100 * float(metadata_percent))
         else:
