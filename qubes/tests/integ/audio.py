@@ -34,6 +34,7 @@ import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 
+@qubes.tests.skipIfTemplate("whonix-g")
 class TC_00_AudioMixin(TC_00_AppVMMixin):
     def start_extra_vm_logging(self, vm):
         """Log user journal and .xsession-errors to the console to be
@@ -84,8 +85,6 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         self.loop.run_until_complete(asyncio.sleep(1))
 
     def prepare_audio_test(self, backend):
-        if "whonix-g" in self.template:
-            self.skipTest("whonix gateway have no audio")
         self.loop.run_until_complete(self.testvm1.start())
         self.start_extra_vm_logging(self.testvm1)
         pulseaudio_units = "pulseaudio.socket pulseaudio.service"
