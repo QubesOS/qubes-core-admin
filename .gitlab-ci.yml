@@ -1,7 +1,7 @@
 checks:pylint:
   before_script:
   - sudo dnf install -y python3-pip
-  - git clone https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
+  - git clone -b release4.2 https://github.com/QubesOS/qubes-core-qrexec ~/qubes-core-qrexec
   - pip3 install --quiet -r ci/requirements.txt
   script:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec python3 -m pylint qubes
