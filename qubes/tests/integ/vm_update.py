@@ -409,6 +409,13 @@ SHA256:
                 "Template {} not supported by this test".format(self.template)
             )
 
+        # wait for the repo to become reachable
+        self.loop.run_until_complete(
+            self.netvm_repo.run_for_stdio(
+                "while ! curl http://localhost:8080/ >/dev/null; do sleep 0.5; done"
+            )
+        )
+
     def add_update_to_repo(self):
         """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
