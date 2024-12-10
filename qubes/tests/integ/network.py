@@ -34,6 +34,7 @@ import qubes.vm.appvm
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
+@qubes.tests.skipIfTemplate("whonix")
 class VmNetworkingMixin(object):
     test_ip = "192.168.123.45"
     test_name = "test.example.com"
@@ -70,11 +71,6 @@ class VmNetworkingMixin(object):
             self.skipTest(
                 "Test not supported here - Whonix uses its own "
                 "firewall settings"
-            )
-        if self.template.endswith("-minimal"):
-            self.skipTest(
-                "Test not supported here - minimal template don't have "
-                "networking packages by default"
             )
         self.init_default_template(self.template)
         self.testnetvm = self.app.add_new_vm(

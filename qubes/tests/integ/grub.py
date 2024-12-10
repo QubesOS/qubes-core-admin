@@ -46,6 +46,13 @@ class GrubBase(object):
             )
 
     def install_packages(self, vm):
+        if os.environ.get("QUBES_TEST_SKIP_KERNEL_INSTALL") == "1":
+            return
+        else:
+            print(
+                "Installing kernel packages, you can skip by setting "
+                "QUBES_TEST_SKIP_KERNEL_INSTALL=1 in environment"
+            )
         if self.template.startswith("fedora-"):
             cmd_install1 = (
                 "dnf clean expire-cache && "
@@ -122,6 +129,11 @@ class GrubBase(object):
         self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
 
         self.testvm1.kernel = self.kernel
+        if self.virt_mode == "hvm":
+            # HVM has disabled memory-hotplug, which means VM is started with
+            # full maxmem and need extra memory for page structures for full
+            # maxmem
+            self.testvm1.memory = 450
         self.loop.run_until_complete(self.testvm1.start())
         (actual_kver, _) = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("uname -r")
@@ -149,7 +161,6 @@ class GrubBase(object):
             name=self.make_vm_name("vm1"),
             label="red",
         )
-        self.testvm1.virt_mode = self.virt_mode
         self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.loop.run_until_complete(self.test_template.start())
         self.install_packages(self.test_template)
@@ -157,7 +168,11 @@ class GrubBase(object):
         self.loop.run_until_complete(self.test_template.shutdown(wait=True))
 
         self.test_template.kernel = self.kernel
-        self.testvm1.kernel = self.kernel
+        if self.virt_mode == "hvm":
+            # HVM has disabled memory-hotplug, which means VM is started with
+            # full maxmem and need extra memory for page structures for full
+            # maxmem
+            self.test_template.memory = 450
 
         # Check if TemplateBasedVM boots and has the right kernel
         self.loop.run_until_complete(self.testvm1.start())
