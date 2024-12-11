@@ -32,6 +32,7 @@ import qubes.tests
 class GrubBase(object):
     virt_mode = None
     kernel = None
+    force_dracut = False
 
     def setUp(self):
         super(GrubBase, self).setUp()
@@ -44,6 +45,8 @@ class GrubBase(object):
             self.skipTest(
                 "Template {} not supported by this test".format(self.template)
             )
+        if "dracut" in self.id() and not self.template.startswith("debian-"):
+            self.skipTest("dracut already tested in default test for Fedora")
 
     def install_packages(self, vm):
         if os.environ.get("QUBES_TEST_SKIP_KERNEL_INSTALL") == "1":
@@ -54,6 +57,9 @@ class GrubBase(object):
                 "QUBES_TEST_SKIP_KERNEL_INSTALL=1 in environment"
             )
         if self.template.startswith("fedora-"):
+            assert (
+                not self.force_dracut
+            ), "Fedora uses dracut by default already"
             cmd_install1 = (
                 "dnf clean expire-cache && "
                 "dnf install -y qubes-kernel-vm-support grub2-tools"
@@ -66,6 +72,9 @@ class GrubBase(object):
                 "qubes-kernel-vm-support grub2-common"
             )
             cmd_install2 = "apt-get install -y linux-image-amd64"
+            if self.force_dracut:
+                cmd_install1 += " dracut"
+                cmd_install2 += " && dracut -f"
             cmd_update_grub = "mkdir -p /boot/grub && update-grub2"
         else:
             assert False, "Unsupported template?!"
@@ -191,6 +200,14 @@ class GrubBase(object):
         self.assertEqual(actual_kver.strip(), kver)
 
         self.assertXenScrubPagesEnabled(self.test_template)
+
+    def test_001_standalone_vm_dracut(self):
+        self.force_dracut = True
+        self.test_000_standalone_vm()
+
+    def test_011_template_based_vm_dracut(self):
+        self.force_dracut = True
+        self.test_010_template_based_vm()
 
 
 @unittest.skipUnless(
