@@ -599,6 +599,9 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         expect_content=None,
         expect_source_name=None,
     ):
+        if test_string.endswith("\n"):
+            # avoid final newline, zenity strips it
+            test_string = test_string[:-1] + "c"
         testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("vm1"), label="red"
         )
@@ -619,7 +622,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         p = await testvm1.run("cat > /tmp/source.txt", stdin=subprocess.PIPE)
         await p.communicate(test_string.encode())
         window_title = "user@{}".format(testvm1.name)
-        await testvm1.run(
+        p = await testvm1.run(
             "zenity --text-info "
             "--filename=/tmp/source.txt "
             "--editable "
@@ -639,7 +642,13 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         await asyncio.sleep(5)
         subprocess.check_call(["xdotool", "key", "ctrl+shift+c", "Escape"])
 
-        await self.wait_for_window_coro(window_title, show=False)
+        try:
+            await asyncio.wait_for(p.communicate(), 5)
+        except TimeoutError:
+            # this kills only the qrexec-client process, not zenity itself,
+            # but it's good enough for the test
+            p.terminate()
+            await p.wait()
 
         clipboard_content = (
             open("/var/run/qubes/qubes-clipboard.bin", "r").read().strip()
@@ -718,14 +727,14 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
     def test_001_clipboard_64k(self):
-        test_string = "test123abc" * 6400
+        test_string = "test123ab\n" * 6400
         self.loop.run_until_complete(self._test_clipboard(test_string))
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
     def test_002_clipboard_200k_truncated(self):
-        test_string = "test123abc" * 20000
+        test_string = "test123ab\n" * 20000
         self.loop.run_until_complete(
             self._test_clipboard(
                 test_string, expect_content="", expect_source_name=""
@@ -736,7 +745,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
     def test_002_clipboard_200k(self):
-        test_string = "test123abc" * 20000
+        test_string = "test123ab\n" * 20000
         self.loop.run_until_complete(
             self._test_clipboard(
                 test_string, set_features={"gui-max-clipboard-size": 200_000}
@@ -747,7 +756,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
     def test_002_clipboard_300k(self):
-        test_string = "test123abc" * 30000
+        test_string = "test123ab\n" * 30000
         self.loop.run_until_complete(
             self._test_clipboard(
                 test_string,
