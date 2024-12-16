@@ -632,13 +632,14 @@ class DeviceCategory(Enum):
     Microphone = ("m******",)
     # Multimedia = Audio, Video, Displays etc.
     Multimedia = (
-        "u01****",
-        "u0e****",
         "u06****",
         "u10****",
         "p03****",
         "p04****",
     )
+    Audio = ("p0403**", "u01****")
+    Display = ("p0300**", "p0380**")
+    Video = ("p0400**", "u0e****")
     Wireless = ("ue0****", "p0d****")
     Bluetooth = ("ue00101", "p0d11**")
     Storage = ("b******", "u08****", "p01****")
