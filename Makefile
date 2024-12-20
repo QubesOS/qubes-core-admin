@@ -92,6 +92,9 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.mic.Detach \
 	admin.vm.device.mic.Set.assignment \
 	admin.vm.device.mic.Unassign \
+	admin.vm.device.denied.List \
+	admin.vm.device.denied.Add \
+	admin.vm.device.denied.Remove \
 	admin.vm.feature.CheckWithNetvm \
 	admin.vm.feature.CheckWithTemplate \
 	admin.vm.feature.CheckWithAdminVM \
