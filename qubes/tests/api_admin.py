@@ -3912,6 +3912,78 @@ netvm default=True type=vm \n"""
         )
         self.assertFalse(self.app.save.called)
 
+    def test_6XX_vm_device_denied_list_empty(self):
+        actual = self.call_mgmt_func(b"admin.vm.device.denied.List",
+                                     b"test-vm1")
+        self.assertEqual(actual, "")
+        self.assertFalse(self.app.save.called)
+
+    def test_6XX_vm_device_denied_list(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        actual = self.call_mgmt_func(b"admin.vm.device.denied.List",
+                                     b"test-vm1")
+        self.assertEqual(actual, "b******\np012345\np53**2*")
+        self.assertFalse(self.app.save.called)
+
+    def test_6XX_vm_device_denied_add(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                            b"", b"u112233")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*u112233")
+        self.assertTrue(self.app.save.called)
+
+    def test_6XX_vm_device_denied_add_multiple(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                            b"", b"u112233m******")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*u112233m******")
+        self.assertTrue(self.app.save.called)
+
+    def test_6XX_vm_device_denied_add_repeated(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                                b"", b"u112233u112233")
+        self.assertFalse(self.app.save.called)
+
+    def test_6XX_vm_device_denied_add_present(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                                b"", b"b******")
+        self.assertFalse(self.app.save.called)
+
+    def test_6XX_vm_device_denied_remove(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                            b"", b"b******")
+        self.assertEqual(self.vm.devices_denied,
+                         "p012345p53**2*")
+        self.assertTrue(self.app.save.called)
+
+    def test_6XX_vm_device_denied_remove_repeated(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                                b"", b"b******b******")
+        self.assertFalse(self.app.save.called)
+
+    def test_6XX_vm_device_denied_remove_all(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                            b"", b"")
+        self.assertEqual(self.vm.devices_denied, "")
+        self.assertTrue(self.app.save.called)
+
+    def test_6XX_vm_device_denied_remove_missing(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                                b"", b"m******")
+        self.assertFalse(self.app.save.called)
+
     def test_660_pool_set_revisions_to_keep(self):
         self.app.pools["test-pool"] = unittest.mock.Mock()
         value = self.call_mgmt_func(
@@ -4208,7 +4280,7 @@ netvm default=True type=vm \n"""
             b"admin.vm.property.List",
             b"admin.vm.property.Get",
             b"admin.vm.property.Help",
-            # b'admin.vm.property.HelpRst',
+            # b"admin.vm.property.HelpRst",
             b"admin.vm.property.Reset",
             b"admin.vm.feature.List",
             b"admin.vm.feature.Get",
@@ -4316,7 +4388,7 @@ netvm default=True type=vm \n"""
             b"admin.property.List",
             b"admin.property.Get",
             b"admin.property.Help",
-            # b'admin.property.HelpRst',
+            # b"admin.property.HelpRst",
             b"admin.property.Reset",
             b"admin.pool.List",
             b"admin.pool.ListDrivers",
@@ -4400,19 +4472,19 @@ netvm default=True type=vm \n"""
             b"admin.property.Get",
             b"admin.property.Set",
             b"admin.property.Help",
-            # b'admin.property.HelpRst',
+            # b"admin.property.HelpRst",
             b"admin.property.Reset",
             b"admin.pool.List",
             b"admin.pool.ListDrivers",
             b"admin.pool.Info",
             b"admin.pool.Add",
             b"admin.pool.Remove",
-            # b'admin.pool.volume.List',
-            # b'admin.pool.volume.Info',
-            # b'admin.pool.volume.ListSnapshots',
-            # b'admin.pool.volume.Snapshot',
-            # b'admin.pool.volume.Revert',
-            # b'admin.pool.volume.Resize',
+            # b"admin.pool.volume.List",
+            # b"admin.pool.volume.Info",
+            # b"admin.pool.volume.ListSnapshots",
+            # b"admin.pool.volume.Snapshot",
+            # b"admin.pool.volume.Revert",
+            # b"admin.pool.volume.Resize",
             b"admin.backup.Execute",
             b"admin.backup.Info",
         ]

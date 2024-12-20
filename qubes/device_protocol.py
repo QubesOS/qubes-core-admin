@@ -733,6 +733,14 @@ class DeviceInterface:
         """Value for unknown device interface."""
         return cls("?******")
 
+    @staticmethod
+    def from_str_bulk(interfaces: Optional[str]) -> List["DeviceInterface"]:
+        interfaces = interfaces or []
+        return [
+            DeviceInterface(interfaces[i: i + 7])
+            for i in range(0, len(interfaces), 7)
+        ]
+
     def __repr__(self):
         return self._interface_encoding
 
@@ -1120,11 +1128,7 @@ class DeviceInfo(VirtualDevice):
 
         if "interfaces" in properties:
             interfaces = properties["interfaces"]
-            interfaces = [
-                DeviceInterface(interfaces[i : i + 7])
-                for i in range(0, len(interfaces), 7)
-            ]
-            properties["interfaces"] = interfaces
+            properties["interfaces"] = DeviceInterface.from_str_bulk(interfaces)
 
         if "parent_ident" in properties:
             properties["parent"] = Port(
