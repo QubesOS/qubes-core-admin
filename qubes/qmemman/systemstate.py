@@ -101,7 +101,7 @@ class SystemState(object):
             )
         elif xen_free < assigned_but_unused + self.XEN_FREE_MEM_MIN:
             self.log.error(
-                "Xen free = {!r} too small for satisfy assignments! "
+                "Xen free = {!r} too small to satisfy assignments! "
                 "assigned_but_unused={!r}, domdict={!r}".format(
                     xen_free, assigned_but_unused, self.domdict
                 )
@@ -350,7 +350,7 @@ class SystemState(object):
     def do_balance(self):
         self.log.debug("do_balance()")
         if os.path.isfile("/var/run/qubes/do-not-membalance"):
-            self.log.debug("do-not-membalance file preset, returning")
+            self.log.debug("do-not-membalance file present, returning")
             return
 
         self.refresh_memactual()
@@ -406,7 +406,7 @@ class SystemState(object):
                                 == self.domdict[dom2].memory_actual
                             ):
                                 self.log.warning(
-                                    "dom {!r} didnt react to memory request"
+                                    "dom {!r} did not react to memory request"
                                     " (holds {}, requested balloon down to {})".format(
                                         dom2,
                                         self.domdict[dom2].memory_actual,
@@ -416,8 +416,8 @@ class SystemState(object):
                                 self.domdict[dom2].no_progress = True
                             else:
                                 self.log.warning(
-                                    "dom {!r} still hold more"
-                                    " memory than have assigned ({} > {})".format(
+                                    "dom {!r} still holds more"
+                                    " memory than assigned ({} > {})".format(
                                         dom2,
                                         self.domdict[dom2].memory_actual,
                                         mem2,
