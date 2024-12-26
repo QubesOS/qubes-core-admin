@@ -179,13 +179,6 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/system-config
 endif
 	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
-	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-block
-	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-pci
-	ln -sf qvm-device $(DESTDIR)/usr/bin/qvm-usb
-	install -d $(DESTDIR)/usr/share/man/man1
-	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
-	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
-	ln -sf qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes
 ifeq ($(BACKEND_VMM),xen)
