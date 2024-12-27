@@ -26,6 +26,7 @@ import tempfile
 
 import unittest
 import uuid
+from uuid import UUID
 import datetime
 
 import asyncio
@@ -313,8 +314,9 @@ class QubesVMTestsMixin(object):
                 None,
                 qid=kwargs.pop("qid", 1),
                 name=qubes.tests.VMPREFIX + name,
-                **kwargs
+                **kwargs,
             )
+            vm.features["os"] = "Linux"
         self.app.domains[vm.qid] = vm
         self.app.domains[vm.uuid] = vm
         self.app.domains[vm.name] = vm
@@ -846,7 +848,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm.hvm
 
     def test_600_libvirt_xml_pv(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
@@ -856,7 +859,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpv">linux</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
         </features>
@@ -880,7 +883,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "pv"
@@ -910,6 +912,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -958,7 +961,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "hvm"
@@ -968,7 +970,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_dom0_kernel(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
@@ -991,7 +994,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1017,7 +1020,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "hvm"
@@ -1037,6 +1039,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_dom0_kernel_kernelopts(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1086,8 +1089,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
+        vm.features["os"] = "Other"
         vm.netvm = None
         vm.virt_mode = "hvm"
         vm.features["qrexec"] = True
@@ -1110,7 +1113,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_pvh(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
@@ -1127,7 +1131,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1155,7 +1159,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "pvh"
@@ -1185,7 +1188,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_pvh_no_initramfs(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
@@ -1201,7 +1205,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1229,7 +1233,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "pvh"
@@ -1258,7 +1261,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_pvh_no_membalance(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">400</memory>
@@ -1275,7 +1279,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1303,7 +1307,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "pvh"
@@ -1334,6 +1337,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_pcidev(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1393,7 +1397,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
         hostdev_details = unittest.mock.Mock(
@@ -1443,6 +1446,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_pcidev_s0ix(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1503,7 +1507,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         # required for PCI devices listing
         self.app.vmm.offline_mode = False
         hostdev_details = unittest.mock.Mock(
@@ -1554,6 +1557,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_cdrom_boot(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1610,7 +1614,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         qdb = {
             "/qubes-block-devices/sda": b"",
             "/qubes-block-devices/sda/desc": b"Test device",
@@ -1646,7 +1649,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_600_libvirt_xml_hvm_cdrom_dom0_kernel_boot(self):
-        expected = """<domain type="xen">
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = f"""<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">400</memory>
@@ -1669,7 +1673,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1719,7 +1723,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         test_qdb = TestQubesDB(qdb)
         dom0 = qubes.vm.adminvm.AdminVM(self.app, None)
         dom0._qdb_connection = test_qdb
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "hvm"
@@ -1763,6 +1766,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_610_libvirt_xml_network(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1818,7 +1822,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         netvm = self.get_vm(qid=2, name="netvm", provides_network=True)
 
         dom0 = self.get_vm(name="dom0", qid=0)
@@ -1851,6 +1854,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             )
 
     def test_611_libvirt_xml_audiovm(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -1905,7 +1909,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         netvm = self.get_vm(qid=2, name="netvm", provides_network=True)
         audiovm = self.get_vm(qid=3, name="sys-audio", provides_network=False)
         audiovm._qubesprop_xid = audiovm.qid
@@ -1923,6 +1926,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
 
     def test_615_libvirt_xml_block_devices(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = """<domain type="xen">
         <name>test-inst-test</name>
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
@@ -2020,7 +2024,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </devices>
         </domain>
         """
-        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = "hvm"
