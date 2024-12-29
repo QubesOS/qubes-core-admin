@@ -50,6 +50,7 @@ from qubes.device_protocol import (
     UnknownDevice,
     DeviceAssignment,
     AssignmentMode,
+    DeviceInterface,
 )
 
 
@@ -1628,6 +1629,74 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(device=dev, mode=mode)
 
         await self.dest.devices[devclass].update_assignment(dev, mode)
+        self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.device.denied.List",
+        no_payload=True, scope="local", read=True)
+    async def vm_device_denied_list(self):
+        """
+        List all denied device interfaces for the VM.
+
+        Returns a newline-separated string.
+        """
+        self.enforce(not self.arg)
+
+        self.fire_event_for_permission()
+
+        denied = self.dest.devices_denied
+        return "\n".join(map(repr, DeviceInterface.from_str_bulk(denied)))
+
+    @qubes.api.method(
+        "admin.vm.device.denied.Add", scope="local", write=True)
+    async def vm_device_denied_add(self, untrusted_payload):
+        """
+        Add device interface(s) to the denied list for the VM.
+
+        Payload:
+            Encoded device interface (can be repeated without any separator).
+        """
+        payload = untrusted_payload.decode("ascii", errors="strict")
+        to_add = DeviceInterface.from_str_bulk(payload)
+
+        # may contain duplicates
+        self.fire_event_for_permission(interfaces=to_add)
+
+        to_add_enc = "".join(map(repr, to_add))
+
+        self.dest.devices_denied = self.dest.devices_denied + to_add_enc
+        self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.device.denied.Remove", scope="local", write=True)
+    async def vm_device_denied_remove(self, untrusted_payload):
+        """
+        Remove device interface(s) from the denied list for the VM.
+
+        Payload:
+            Encoded device interface (can be repeated without any separator).
+            If payload is empty, all interfaces are removed.
+        """
+        denied = DeviceInterface.from_str_bulk(self.dest.devices_denied)
+
+        payload = untrusted_payload.decode("ascii", errors="strict")
+        if payload:
+            to_remove = DeviceInterface.from_str_bulk(payload)
+        else:
+            to_remove = denied.copy()
+
+        # may contain missing values
+        self.fire_event_for_permission(interfaces=to_remove)
+
+        for interface in to_remove:
+            try:
+                denied.remove(interface)
+            except ValueError:
+                raise qubes.exc.QubesValueError(
+                    f"Interface {interface} are not listed "
+                    f"in the devices denied list of {self.dest} vm.")
+        new_denied = "".join(map(repr, denied))
+        self.dest.devices_denied = new_denied
         self.app.save()
 
     @qubes.api.method(

@@ -73,8 +73,6 @@ from qubes.device_protocol import (
 )
 from qubes.exc import ProtocolError
 
-DEVICE_DENY_LIST = "/etc/qubes/device-deny.list"
-
 
 class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
     """
