@@ -1632,8 +1632,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method(
-        'admin.vm.device.denied.List',
-        no_payload=True, scope='local', read=True)
+        "admin.vm.device.denied.List",
+        no_payload=True, scope="local", read=True)
     async def vm_device_denied_list(self):
         """
         List all denied device interfaces for the VM.
@@ -1648,7 +1648,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return "\n".join(map(repr, DeviceInterface.from_str_bulk(denied)))
 
     @qubes.api.method(
-        'admin.vm.device.denied.Add', scope='local', write=True)
+        "admin.vm.device.denied.Add", scope="local", write=True)
     async def vm_device_denied_add(self, untrusted_payload):
         """
         Add device interface(s) to the denied list for the VM.
@@ -1656,7 +1656,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         Payload:
             Encoded device interface (can be repeated without any separator).
         """
-        payload = untrusted_payload.decode('ascii', errors='strict')
+        payload = untrusted_payload.decode("ascii", errors="strict")
         to_add = DeviceInterface.from_str_bulk(payload)
 
         # may contain duplicates
@@ -1668,7 +1668,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method(
-        'admin.vm.device.denied.Remove', scope='local', write=True)
+        "admin.vm.device.denied.Remove", scope="local", write=True)
     async def vm_device_denied_remove(self, untrusted_payload):
         """
         Remove device interface(s) from the denied list for the VM.
@@ -1679,7 +1679,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         """
         denied = DeviceInterface.from_str_bulk(self.dest.devices_denied)
 
-        payload = untrusted_payload.decode('ascii', errors='strict')
+        payload = untrusted_payload.decode("ascii", errors="strict")
         if payload:
             to_remove = DeviceInterface.from_str_bulk(payload)
         else:

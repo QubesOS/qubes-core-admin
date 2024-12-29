@@ -31,7 +31,6 @@ import shutil
 import string
 import subprocess
 import uuid
-from sys import int_info
 
 import libvirt  # pylint: disable=import-error
 import lxml
@@ -144,13 +143,13 @@ def _setter_denied_list(self, prop, value):
     if len(interfaces) != len(set(interfaces)):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
-            'Interface code list contains duplicates.')
+            "Interface code list contains duplicates.")
     # block, usb, mic, pci, *
     pattern = r"^([bump\*][0123456789\*]{6})*$"
     if not re.fullmatch(pattern, value):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
-            'Interface code list should be in the form cddddddcdddddd...,'
+            "Interface code list should be in the form cddddddcdddddd...,"
             'where c is one of "b", "u", "m", "p", "*" '
             'and d is a digit or "*".')
     return value
@@ -854,10 +853,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     )
 
     devices_denied = qubes.property(
-        'devices_denied', default="",
+        "devices_denied", default="",
         type=str,
         setter=_setter_denied_list,
-        doc='List of device interface codes that are denied for this VM.')
+        doc="List of device interface codes that are denied for this VM.")
 
     # for changes in keyboard_layout, see also the same property in AdminVM
     keyboard_layout = qubes.property(
