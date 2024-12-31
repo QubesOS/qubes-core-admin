@@ -27,6 +27,40 @@ class QubesException(Exception):
     """Exception that can be shown to the user"""
 
 
+class ProtocolError(AssertionError):
+    """Raised deliberately by handlers to indicate a malformed client request.
+
+    Client programming errors. The client made a request that it should have
+    known better than to send in the first place. Includes things like passing
+    an argument or payload to a service documented to not take one. The only
+    way that a correctly behaving client can get ProtocolError is qubesd is
+    either buggy or too old. In HTTP, this would be 400 Bad Request.
+
+    This does not provide any useful information to the client making the
+    request. Therefore, it should only be raised if there is a client
+    *programming* error, such as passing an argument to a request that does not
+    take an argument. It should not be used to reject requests that are valid,
+    but which qubesd is refusing to process. Instead, raise a subclass of
+    :py:class:`QubesException` with a useful error message.
+    """
+
+
+class PermissionDenied(PermissionError):
+    """Raised deliberately by handlers to inform the request is prohibited.
+
+    The request is valid, but the client does not have permission to perform
+    the operation. Clients in dom0 should usually not get this error. In HTTP,
+    this would be 403 Forbidden.
+
+    This does not provide any useful information to the client making the
+    request. Therefore, it should only be raised if there is a client
+    *programming* error, such as passing an argument to a request that does not
+    take an argument. It should not be used to reject requests that are valid,
+    but which qubesd is refusing to process. Instead, raise a subclass of
+    :py:class:`QubesException` with a useful error message.
+    """
+
+
 class QubesVMNotFoundError(QubesException, KeyError):
     """Domain cannot be found in the system"""
 
@@ -167,13 +201,13 @@ class QubesNoTemplateError(QubesVMError):
 class QubesPoolInUseError(QubesException):
     """VM is in use, cannot remove."""
 
-    def __init__(self, pool, msg=None):
+    def __init__(self, pool_name, msg=None):
         super().__init__(
-            msg or "Storage pool is in use: {!r}".format(pool.name)
+            msg or "Storage pool is in use: {!r}".format(pool_name)
         )
 
 
-class QubesValueError(QubesException, ValueError):
+class QubesValueError(ProtocolError, ValueError):
     """Cannot set some value, because it is invalid, out of bounds, etc."""
 
 
@@ -276,14 +310,6 @@ class QubesLabelNotFoundError(QubesException, KeyError):
         return QubesException.__str__(self)
 
 
-class ProtocolError(AssertionError):
-    """Raised when something is wrong with data received"""
-
-
-class PermissionDenied(Exception):
-    """Raised deliberately by handlers when we decide not to cooperate"""
-
-
 class DeviceNotAssigned(QubesException, KeyError):
     """
     Trying to unassign not assigned device.
@@ -322,3 +348,48 @@ class UnexpectedDeviceProperty(QubesException, ValueError):
 
 class StoragePoolException(QubesException):
     """A general storage exception"""
+
+
+class QubesVolumeCopyTokenNotFoundError(ProtocolError, KeyError):
+    """Domain volume copy did not specify a configured token."""
+
+    def __init__(self, msg=None):
+        super().__init__(msg or "Token to clone volume of qube was not found")
+
+
+class QubesVolumeCopyInUseError(QubesException):
+    """Domain volume is already being cloned."""
+
+    def __init__(self, vm, volume, msg=None):
+        super().__init__(
+            vm,
+            msg
+            or "Domain volume is being cloned already: {!r}:{!r}".format(
+                vm.name, volume
+            ),
+        )
+
+
+class QubesVolumeRevisionNotFoundError(KeyError):
+    """Specified revision not found in qube volume."""
+
+
+class QubesPoolNotFoundError(KeyError):
+    """Pool does not exist."""
+
+
+class QubesVolumeNotFoundError(KeyError):
+    """Pool does not exist."""
+
+
+class QubesInvalidLabelError(QubesValueError):
+    """Domain label is invalid."""
+
+
+class QubesLabelInUseError(QubesException):
+    """Cannot remove or add label as it is still in use."""
+
+    def __init__(self, label, msg=None):
+        super().__init__(
+            msg or "Label is still in use: {!r}".format(label),
+        )

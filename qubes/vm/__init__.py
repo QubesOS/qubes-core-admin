@@ -35,7 +35,7 @@ import qubes.device_protocol
 import qubes.events
 import qubes.features
 import qubes.log
-from qubes.utils import is_pci_path, sbdf_to_path
+from qubes.utils import is_pci_path, sbdf_to_path, validate_label
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -102,6 +102,7 @@ def setter_label(self, prop, value):
     if isinstance(value, str) and value.startswith("label-"):
         return self.app.labels[int(value.split("-", 1)[1])]
 
+    validate_label(untrusted_label=value)
     return self.app.get_label(value)
 
 
