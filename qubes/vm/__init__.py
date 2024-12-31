@@ -100,8 +100,7 @@ def setter_label(self, prop, value):
     if isinstance(value, qubes.Label):
         return value
     if isinstance(value, str) and value.startswith("label-"):
-        return self.app.labels[int(value.split("-", 1)[1])]
-
+        value = int(value.split("-", 1)[1])
     return self.app.get_label(value)
 
 
