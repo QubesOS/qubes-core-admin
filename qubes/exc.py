@@ -264,8 +264,29 @@ class QubesLabelNotFoundError(QubesException, KeyError):
 
 
 class ProtocolError(AssertionError):
-    """Raised when something is wrong with data received"""
+    """Raised when something is wrong with data received.
 
+    This does not provide any useful information to the client making
+    the request.  Therefore, it should only be raised if there is a client
+    *programming* error, such as passing an argument to a request that does
+    not take an argument.  It should not be used to reject requests that are
+    valid, but which qubesd is refusing to process.  Instead, raise a
+    subclass of :py:class:`QubesException` with a useful error message.
+
+    TODO: figure out when this class should be used, and when
+    :py:class:`PermissionDenied` should be used.
+    """
 
 class PermissionDenied(Exception):
-    """Raised deliberately by handlers when we decide not to cooperate"""
+    """Raised deliberately by handlers to indicate a malformed client request.
+
+    This does not provide any useful information to the client making
+    the request.  Therefore, it should only be raised if there is a client
+    *programming* error, such as passing an argument to a request that does
+    not take an argument.  It should not be used to reject requests that are
+    valid, but which qubesd is refusing to process.  Instead, raise a
+    subclass of :py:class:`QubesException` with a useful error message.
+
+    TODO: figure out when this class should be used, and when
+    :py:class:`ProtocolError` should be used.
+    """
