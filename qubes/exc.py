@@ -27,6 +27,12 @@ class QubesException(Exception):
     """Exception that can be shown to the user"""
 
 
+class DestinationNotDom0Error(QubesException):
+    def __init__(self, vmname):
+        super().__init__(f"Destination must be dom0, not {vmname!r}")
+        self.vmname = vmname
+
+
 class QubesVMNotFoundError(QubesException, KeyError):
     """Domain cannot be found in the system"""
 

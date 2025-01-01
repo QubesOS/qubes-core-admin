@@ -37,6 +37,7 @@ from qubes.exc import (
     ProtocolError,
     PermissionDenied,
     QubesArgumentNotAllowedError,
+    DestinationNotDom0Error,
 )
 
 
@@ -247,6 +248,12 @@ class AbstractQubesAPI:
         """If the argument is not empty, raise an exception."""
         if self.arg:
             raise QubesArgumentNotAllowedError(self.method, self.arg)
+
+    def enforce_dest_dom0(self) -> None:
+        """If the destination is not dom0, raise an exception."""
+        name = self.dest.name
+        if name != "dom0":
+            raise DestinationNotDom0Error(name)
 
     @staticmethod
     def enforce(predicate):

@@ -110,7 +110,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vmclass_list(self):
         """List all VM classes"""
         self.enforce_no_arg()
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         entrypoints = self.fire_event_for_filter(
             importlib.metadata.entry_points(group=qubes.vm.VM_ENTRY_POINT)
@@ -149,7 +149,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def property_list(self):
         """List all global properties"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_list(self.app)
 
     def _property_list(self, dest):
@@ -171,7 +171,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def property_get(self):
         """Get a value of one global property"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_get(self.app)
 
     def _property_get(self, dest):
@@ -219,7 +219,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def property_get_all(self):
         """Get value all global properties"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_get_all(self.app)
 
     def _property_get_all(self, dest):
@@ -256,7 +256,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def property_get_default(self):
         """Get default value of a global property (what value will be set if
         this property is set to default)."""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_get_default(self.app)
 
     def _property_get_default(self, dest):
@@ -296,7 +296,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method("admin.property.Set", scope="global", write=True)
     async def property_set(self, untrusted_payload):
         """Set property value"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_set(self.app, untrusted_payload=untrusted_payload)
 
     def _property_set(self, dest, untrusted_payload):
@@ -323,7 +323,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def property_help(self):
         """Get help for one property"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_help(self.app)
 
     def _property_help(self, dest):
@@ -351,7 +351,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def property_reset(self):
         """Reset a property to a default value"""
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         return self._property_reset(self.app)
 
     def _property_reset(self, dest):
@@ -655,7 +655,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def pool_list(self):
         self.enforce_no_arg()
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         pools = self.fire_event_for_filter(self.app.pools)
 
@@ -665,7 +665,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.ListDrivers", no_payload=True, scope="global", read=True
     )
     async def pool_listdrivers(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce_no_arg()
 
         drivers = self.fire_event_for_filter(qubes.storage.pool_drivers())
@@ -681,7 +681,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.Info", no_payload=True, scope="global", read=True
     )
     async def pool_info(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
 
         pool = self.app.pools[self.arg]
@@ -717,7 +717,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.UsageDetails", no_payload=True, scope="global", read=True
     )
     async def pool_usage(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
 
         pool = self.app.pools[self.arg]
@@ -735,7 +735,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.pool.Add", scope="global", write=True)
     async def pool_add(self, untrusted_payload):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         if self.arg not in qubes.storage.pool_drivers():
             raise qubes.exc.QubesException(
                 "unexpected driver name: " + self.arg
@@ -782,7 +782,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.Remove", no_payload=True, scope="global", write=True
     )
     async def pool_remove(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
 
         self.fire_event_for_permission()
@@ -794,7 +794,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.volume.List", no_payload=True, scope="global", read=True
     )
     async def pool_volume_list(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
 
         pool = self.app.pools[self.arg]
@@ -806,7 +806,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.Set.revisions_to_keep", scope="global", write=True
     )
     async def pool_set_revisions_to_keep(self, untrusted_payload):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
         newvalue = self.validate_size(untrusted_payload)
@@ -820,7 +820,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.Set.ephemeral_volatile", scope="global", write=True
     )
     async def pool_set_ephemeral(self, untrusted_payload):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
         try:
@@ -840,7 +840,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.label.List", no_payload=True, scope="global", read=True
     )
     async def label_list(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce_no_arg()
 
         labels = self.fire_event_for_filter(self.app.labels.values())
@@ -851,7 +851,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.label.Get", no_payload=True, scope="global", read=True
     )
     async def label_get(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         try:
             label = self.app.get_label(self.arg)
@@ -866,7 +866,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.label.Index", no_payload=True, scope="global", read=True
     )
     async def label_index(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         try:
             label = self.app.get_label(self.arg)
@@ -879,7 +879,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.label.Create", scope="global", write=True)
     async def label_create(self, untrusted_payload):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         # don't confuse label name with label index
         self.enforce(not self.arg.isdigit())
@@ -917,7 +917,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.label.Remove", no_payload=True, scope="global", write=True
     )
     async def label_remove(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         try:
             label = self.app.get_label(self.arg)
@@ -1176,7 +1176,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def _vm_create(
         self, vm_type, allow_pool=False, untrusted_payload=None
     ):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         kwargs = {}
         pool = None
@@ -1333,7 +1333,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def deviceclass_list(self):
         """List all DEVICES classes"""
         self.enforce_no_arg()
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
 
         entrypoints = self.fire_event_for_filter(
             importlib.metadata.entry_points(group="qubes.devices")
@@ -1792,7 +1792,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         execute=True,
     )
     async def backup_execute(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
 
@@ -1831,7 +1831,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.backup.Cancel", no_payload=True, scope="global", execute=True
     )
     async def backup_cancel(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
 
@@ -1849,7 +1849,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.backup.Info", no_payload=True, scope="local", read=True
     )
     async def backup_info(self):
-        self.enforce(self.dest.name == "dom0")
+        self.enforce_dest_dom0()
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
 
