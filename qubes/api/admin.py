@@ -1823,7 +1823,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             await backup_task
         except asyncio.CancelledError:
-            raise qubes.exc.QubesException("Backup cancelled")
+            raise BackupCancelledError()
         finally:
             del self.app.api_admin_running_backups[self.arg]
 
