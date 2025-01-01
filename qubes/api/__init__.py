@@ -170,10 +170,10 @@ class AbstractQubesAPI:
         self.dest = decode_vm(dest, app.domains)
 
         #: argument
-        self.arg = arg.decode("ascii")
+        self.arg = arg.decode("ascii", "strict")
 
         #: name of the method
-        self.method = method_name.decode("ascii")
+        self.method = method_name.decode("ascii", "strict")
 
         #: callback for sending events if applicable
         self.send_event = send_event
@@ -365,6 +365,11 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 dest,
                 len(untrusted_payload),
             )
+            if self.transport is not None:
+                self.send_exception(err)
+                self.transport.write_eof()
+                self.transport.close()
+            return
 
         except ProtocolError:
             self.app.log.warning(

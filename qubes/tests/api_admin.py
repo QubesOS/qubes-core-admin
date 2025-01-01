@@ -634,7 +634,7 @@ netvm default=True type=vm \n"""
             "keys.return_value": ["root", "private", "volatile", "kernel"]
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Info", b"test-vm1", b"no-such-volume"
             )
@@ -670,7 +670,7 @@ netvm default=True type=vm \n"""
             "keys.return_value": ["root", "private", "volatile", "kernel"]
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.volume.ListSnapshots", b"test-vm1", b"no-such-volume"
             )
@@ -693,7 +693,7 @@ netvm default=True type=vm \n"""
             },
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Snapshots", b"test-vm1", b"no-such-volume"
             )
@@ -763,7 +763,7 @@ netvm default=True type=vm \n"""
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesNoSuchSnapshotError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Revert",
                 b"test-vm1",
@@ -2042,7 +2042,7 @@ netvm default=True type=vm \n"""
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.CreateInPool.AppVM",
                 b"dom0",
@@ -3041,7 +3041,7 @@ netvm default=True type=vm \n"""
     def test_521_vm_volume_clone_invalid_volume(self):
         self.setup_for_clone()
 
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneFrom", b"test-vm1", b"private123", b""
             )
@@ -3057,7 +3057,7 @@ netvm default=True type=vm \n"""
         token = self.call_mgmt_func(
             b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
         )
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.UnknownVolumeError):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneTo",
                 b"test-vm1",
@@ -3897,7 +3897,7 @@ netvm default=True type=vm \n"""
         with unittest.mock.patch.object(
             qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
         ):
-            with self.assertRaises(qubes.exc.PermissionDenied):
+            with self.assertRaises(qubes.exc.QubesAttachmentKindError):
                 self.call_mgmt_func(
                     b"admin.vm.device.testclass.Set.assignment",
                     b"test-vm1",
@@ -4287,11 +4287,14 @@ netvm default=True type=vm \n"""
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
+        exceptions = (
+            qubes.exc.QubesArgumentNotAllowedError,
+            qubes.exc.ProtocolError,
+        )
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(qubes.exc.PermissionDenied):
+                with self.assertRaises(qubes.exc.QubesArgumentNotAllowedError):
                     self.call_mgmt_func(method, b"test-vm1", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
@@ -4366,11 +4369,14 @@ netvm default=True type=vm \n"""
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
+        exceptions = (
+            qubes.exc.QubesArgumentNotAllowedError,
+            qubes.exc.ProtocolError,
+        )
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(qubes.exc.PermissionDenied):
+                with self.assertRaises(qubes.exc.QubesArgumentNotAllowedError):
                     self.call_mgmt_func(method, b"dom0", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
@@ -4422,29 +4428,41 @@ netvm default=True type=vm \n"""
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_for_dom0_only:
             # should reject call regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.DestinationNotDom0Error):
                     self.call_mgmt_func(method, b"test-vm1", b"", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(
+                    (
+                        qubes.exc.DestinationNotDom0Error,
+                        qubes.exc.QubesArgumentNotAllowedError,
+                    )
+                ):
                     self.call_mgmt_func(method, b"test-vm1", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(
+                    (qubes.exc.DestinationNotDom0Error, qubes.exc.ProtocolError)
+                ):
                     self.call_mgmt_func(method, b"test-vm1", b"", b"payload")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(
+                    (
+                        qubes.exc.DestinationNotDom0Error,
+                        qubes.exc.QubesArgumentNotAllowedError,
+                        qubes.exc.ProtocolError,
+                    )
+                ):
                     self.call_mgmt_func(
                         method, b"test-vm1", b"some-arg", b"some-payload"
                     )

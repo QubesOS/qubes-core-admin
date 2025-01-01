@@ -22,6 +22,8 @@
 Qubes OS exception hierarchy
 """
 
+import re
+
 
 class QubesException(Exception):
     """Exception that can be shown to the user"""
@@ -170,6 +172,30 @@ class QubesValueError(QubesException, ValueError):
     """Cannot set some value, because it is invalid, out of bounds, etc."""
 
 
+class QubesAttachmentKindError(QubesValueError):
+    """Device attachment kind is invalid."""
+
+
+class UnknownVolumeError(QubesValueError):
+    """Unknown volume kind"""
+
+    def __init__(self, volume: str):
+        super().__init__(f"Volume {volume} not known")
+        self.volume = volume
+
+
+_snapshot_re = re.compile(r"\A[A-Za-z0-9][0-9A-Za-z_.-]*\Z")
+
+
+class QubesNoSuchSnapshotError(QubesValueError):
+    """Snapshot does not exist"""
+
+    def __init__(self, snapshot: str):
+        assert _snapshot_re.match(snapshot)
+        super().__init__(f"Snapshot {snapshot} does not exist")
+        self.snapshot = snapshot
+
+
 class QubesArgumentNotAllowedError(QubesValueError):
     """Method does not take an argument."""
 
@@ -214,6 +240,14 @@ class QubesNotImplementedError(QubesException, NotImplementedError):
 
     def __init__(self, msg=None):
         super().__init__(msg or "This feature is not available")
+
+
+class BackupProfileNotFoundError(QubesException):
+    """Thrown at user when backup profile is not found"""
+
+    def __init__(self, profile: str):
+        super().__init__("Backup profile {} does not exist".format(profile))
+        self.profile = profile
 
 
 class BackupCancelledError(QubesException):

@@ -27,6 +27,7 @@ import os
 import string
 import subprocess
 import pathlib
+import re
 
 import libvirt
 import lxml.etree
@@ -91,6 +92,9 @@ class QubesMgmtEventsDispatcher:
     def on_domain_delete(self, subject, event, vm):
         # pylint: disable=unused-argument
         vm.remove_handler("*", self.vm_handler)
+
+
+_snapshot_re = re.compile(rb"\A[A-Za-z0-9][0-9A-Za-z_.-]*\n?\Z")
 
 
 class QubesAdminAPI(qubes.api.AbstractQubesAPI):
@@ -372,11 +376,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
         return "".join("{}\n".format(name) for name in volume_names)
 
+    def _check_volume(self) -> None:
+        if self.arg not in self.dest.volumes.keys():
+            raise qubes.exc.UnknownVolumeError(self.arg)
+
     @qubes.api.method(
         "admin.vm.volume.Info", no_payload=True, scope="local", read=True
     )
     async def vm_volume_info(self):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
 
         self.fire_event_for_permission()
 
@@ -420,7 +428,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         read=True,
     )
     async def vm_volume_listsnapshots(self):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
 
         volume = self.dest.volumes[self.arg]
         id_to_timestamp = volume.revisions
@@ -431,13 +439,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.volume.Revert", scope="local", write=True)
     async def vm_volume_revert(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
+        self.enforce(_snapshot_re.match(untrusted_payload))
         untrusted_revision = untrusted_payload.decode("ascii").strip()
         del untrusted_payload
 
         volume = self.dest.volumes[self.arg]
         snapshots = volume.revisions
-        self.enforce(untrusted_revision in snapshots)
+        if untrusted_revision not in snapshots:
+            raise qubes.exc.QubesNoSuchSnapshotError(untrusted_revision)
         revision = untrusted_revision
 
         self.fire_event_for_permission(volume=volume, revision=revision)
@@ -450,7 +460,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.volume.CloneFrom", no_payload=True, scope="local", write=True
     )
     async def vm_volume_clone_from(self):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
 
         volume = self.dest.volumes[self.arg]
 
@@ -469,7 +479,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.volume.CloneTo", scope="local", write=True)
     async def vm_volume_clone_to(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
         untrusted_token = untrusted_payload.decode("ascii").strip()
         del untrusted_payload
         self.enforce(
@@ -497,7 +507,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.volume.Resize", scope="local", write=True)
     async def vm_volume_resize(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
         size = self.validate_size(untrusted_payload.strip())
         self.fire_event_for_permission(size=size)
         try:
@@ -509,7 +519,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.volume.Clear", no_payload=True, scope="local", write=True
     )
     async def vm_volume_clear(self):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
 
         self.fire_event_for_permission()
 
@@ -538,7 +548,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.volume.Set.revisions_to_keep", scope="local", write=True
     )
     async def vm_volume_set_revisions_to_keep(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
         newvalue = self.validate_size(untrusted_payload)
 
         self.fire_event_for_permission(newvalue=newvalue)
@@ -548,7 +558,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.volume.Set.rw", scope="local", write=True)
     async def vm_volume_set_rw(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
         try:
             newvalue = qubes.property.bool(
                 None, None, untrusted_payload.decode("ascii")
@@ -569,7 +579,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.volume.Set.ephemeral", scope="local", write=True
     )
     async def vm_volume_set_ephemeral(self, untrusted_payload):
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self._check_volume()
         try:
             newvalue = qubes.property.bool(
                 None, None, untrusted_payload.decode("ascii")
@@ -1228,10 +1238,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 untrusted_volume = untrusted_key.split(":", 1)[1]
                 # kind of ugly, but actual list of volumes is available only
                 # after creating a VM
-                self.enforce(
-                    untrusted_volume
-                    in ["root", "private", "volatile", "kernel"]
-                )
+                if untrusted_volume not in [
+                    "root",
+                    "private",
+                    "volatile",
+                    "kernel",
+                ]:
+                    raise qubes.exc.UnknownVolumeError("<untrusted>")
                 volume = untrusted_volume
                 if volume in pools:
                     raise qubes.exc.ProtocolError(
@@ -1621,7 +1634,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             mode = allowed_values[untrusted_payload]
         except KeyError:
-            raise qubes.exc.PermissionDenied()
+            raise qubes.exc.QubesAttachmentKindError("invalid attachment kind")
 
         dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
 
@@ -1795,6 +1808,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0()
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
+        self.enforce(self.arg != ".")
+        self.enforce(self.arg != "..")
 
         self.fire_event_for_permission()
 
@@ -1802,9 +1817,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             qubes.config.backup_profile_dir, self.arg + ".conf"
         )
         if not os.path.exists(profile_path):
-            raise qubes.exc.PermissionDenied(
-                "Backup profile {} does not exist".format(self.arg)
-            )
+            raise BackupProfileNotFoundError(self.arg)
 
         if not hasattr(self.app, "api_admin_running_backups"):
             self.app.api_admin_running_backups = {}
@@ -1852,6 +1865,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0()
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
+        self.enforce(self.arg != ".")
+        self.enforce(self.arg != "..")
 
         self.fire_event_for_permission()
 
@@ -1859,9 +1874,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             qubes.config.backup_profile_dir, self.arg + ".conf"
         )
         if not os.path.exists(profile_path):
-            raise qubes.exc.PermissionDenied(
-                "Backup profile {} does not exist".format(self.arg)
-            )
+            raise BackupProfileNotFoundError(self.arg)
 
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
         return backup.get_backup_summary()
