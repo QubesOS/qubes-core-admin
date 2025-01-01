@@ -109,7 +109,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def vmclass_list(self):
         """List all VM classes"""
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.enforce(self.dest.name == "dom0")
 
         entrypoints = self.fire_event_for_filter(
@@ -123,7 +123,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def vm_list(self):
         """List all the domains"""
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         if self.dest.name == "dom0":
             domains = self.fire_event_for_filter(self.app.domains)
@@ -153,7 +153,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._property_list(self.app)
 
     def _property_list(self, dest):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         properties = self.fire_event_for_filter(dest.property_list())
 
@@ -223,7 +223,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._property_get_all(self.app)
 
     def _property_get_all(self, dest):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         properties = dest.property_list()
 
@@ -367,7 +367,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.volume.List", no_payload=True, scope="local", read=True
     )
     async def vm_volume_list(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
         return "".join("{}\n".format(name) for name in volume_names)
@@ -590,7 +590,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.tag.List", no_payload=True, scope="local", read=True
     )
     async def vm_tag_list(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         tags = self.dest.tags
 
@@ -637,7 +637,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Console", no_payload=True, scope="local", write=True
     )
     async def vm_console(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         self.fire_event_for_permission()
 
@@ -654,7 +654,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.pool.List", no_payload=True, scope="global", read=True
     )
     async def pool_list(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.enforce(self.dest.name == "dom0")
 
         pools = self.fire_event_for_filter(self.app.pools)
@@ -666,7 +666,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def pool_listdrivers(self):
         self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         drivers = self.fire_event_for_filter(qubes.storage.pool_drivers())
 
@@ -841,7 +841,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def label_list(self):
         self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         labels = self.fire_event_for_filter(self.app.labels.values())
 
@@ -940,7 +940,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Start", no_payload=True, scope="local", execute=True
     )
     async def vm_start(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.fire_event_for_permission()
         try:
             await self.dest.start()
@@ -970,7 +970,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Pause", no_payload=True, scope="local", execute=True
     )
     async def vm_pause(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.fire_event_for_permission()
         await self.dest.pause()
 
@@ -978,7 +978,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Unpause", no_payload=True, scope="local", execute=True
     )
     async def vm_unpause(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.fire_event_for_permission()
         await self.dest.unpause()
 
@@ -986,7 +986,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Kill", no_payload=True, scope="local", execute=True
     )
     async def vm_kill(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.fire_event_for_permission()
         await self.dest.kill()
 
@@ -994,7 +994,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.Events", no_payload=True, scope="global", read=True
     )
     async def events(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         # run until client connection is terminated
         self.cancellable = True
@@ -1037,7 +1037,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.feature.List", no_payload=True, scope="local", read=True
     )
     async def vm_feature_list(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         features = self.fire_event_for_filter(self.dest.features.keys())
         return "".join("{}\n".format(feature) for feature in features)
 
@@ -1271,7 +1271,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         if untrusted_payload not in (b"", b"uuid"):
             raise qubes.exc.QubesValueError(
                 "Invalid payload for admin.vm.CreateDisposable: "
@@ -1298,7 +1298,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Remove", no_payload=True, scope="global", write=True
     )
     async def vm_remove(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         self.fire_event_for_permission()
 
@@ -1332,7 +1332,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def deviceclass_list(self):
         """List all DEVICES classes"""
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.enforce(self.dest.name == "dom0")
 
         entrypoints = self.fire_event_for_filter(
@@ -1634,7 +1634,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.firewall.Get", no_payload=True, scope="local", read=True
     )
     async def vm_firewall_get(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         self.fire_event_for_permission()
 
@@ -1646,7 +1646,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.firewall.Set", scope="local", write=True)
     async def vm_firewall_set(self, untrusted_payload):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         rules = []
         for untrusted_line in untrusted_payload.decode(
             "ascii", errors="strict"
@@ -1665,7 +1665,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.firewall.Reload", no_payload=True, scope="local", execute=True
     )
     async def vm_firewall_reload(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         self.fire_event_for_permission()
 
@@ -1919,7 +1919,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.Stats", no_payload=True, scope="global", read=True
     )
     async def vm_stats(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         # run until client connection is terminated
         self.cancellable = True
@@ -1950,7 +1950,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         "admin.vm.CurrentState", no_payload=True, scope="local", read=True
     )
     async def vm_current_state(self):
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
         self.fire_event_for_permission()
 
         state = {

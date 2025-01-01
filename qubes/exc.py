@@ -164,6 +164,17 @@ class QubesValueError(QubesException, ValueError):
     """Cannot set some value, because it is invalid, out of bounds, etc."""
 
 
+class QubesArgumentNotAllowedError(QubesValueError):
+    """Method does not take an argument."""
+
+    def __init__(self, method_name: str, arg: str):
+        super().__init__(
+            f"API method {method_name} does not take an argument (got {arg})"
+        )
+        self.method_name = method_name
+        self.arg = arg
+
+
 class QubesPropertyValueError(QubesValueError):
     """
     Cannot set value of qubes.property, because user-supplied value is wrong.

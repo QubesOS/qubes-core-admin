@@ -33,7 +33,11 @@ from typing import Union, Any
 import uuid
 
 import qubes.exc
-from qubes.exc import ProtocolError, PermissionDenied
+from qubes.exc import (
+    ProtocolError,
+    PermissionDenied,
+    QubesArgumentNotAllowedError,
+)
 
 
 def method(name, *, no_payload=False, endpoints=None, **classifiers):
@@ -238,6 +242,11 @@ class AbstractQubesAPI:
     def fire_event_for_filter(self, iterable, **kwargs):
         """Fire an event on the source qube to filter for permission"""
         return apply_filters(iterable, self.fire_event_for_permission(**kwargs))
+
+    def enforce_no_arg(self) -> None:
+        """If the argument is not empty, raise an exception."""
+        if self.arg:
+            raise QubesArgumentNotAllowedError(self.method, self.arg)
 
     @staticmethod
     def enforce(predicate):

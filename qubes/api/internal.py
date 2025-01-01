@@ -68,7 +68,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method("internal.GetSystemInfo", no_payload=True)
     async def getsysteminfo(self):
         self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_no_arg()
 
         system_info = get_system_info(self.app)
 
