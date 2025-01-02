@@ -2612,8 +2612,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 )
 
         tzname = qubes.utils.get_timezone()
-        if tzname:
+        if tzname and not self.features.check_with_template(
+            "anon-timezone", False
+        ):
             self.untrusted_qdb.write("/qubes-timezone", tzname)
+        else:
+            self.untrusted_qdb.rm("/qubes-timezone")
 
         self.untrusted_qdb.write("/qubes-block-devices", "")
         self.untrusted_qdb.write("/qubes-usb-devices", "")
