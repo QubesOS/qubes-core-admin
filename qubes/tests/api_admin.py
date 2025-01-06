@@ -3919,26 +3919,26 @@ netvm default=True type=vm \n"""
         self.assertFalse(self.app.save.called)
 
     def test_661_vm_device_denied_list(self):
-        self.vm.devices_denied = "b******p012345p53**2*"
+        self.vm.devices_denied = "b******p012345pff**2*"
         actual = self.call_mgmt_func(b"admin.vm.device.denied.List",
                                      b"test-vm1")
-        self.assertEqual(actual, "b******\np012345\np53**2*")
+        self.assertEqual(actual, "b******\np012345\npff**2*")
         self.assertFalse(self.app.save.called)
 
     def test_662_vm_device_denied_add(self):
         self.vm.devices_denied = "b******p012345p53**2*"
         self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"u112233")
+                            b"", b"uabcdef")
         self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*u112233")
+                         "b******p012345p53**2*uabcdef")
         self.assertTrue(self.app.save.called)
 
     def test_663_vm_device_denied_add_multiple(self):
         self.vm.devices_denied = "b******p012345p53**2*"
         self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"u112233m******")
+                            b"", b"uabcdefm******")
         self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*u112233m******")
+                         "b******p012345p53**2*uabcdefm******")
         self.assertTrue(self.app.save.called)
 
     def test_664_vm_device_denied_add_repeated(self):

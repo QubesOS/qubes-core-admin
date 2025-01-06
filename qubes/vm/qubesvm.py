@@ -145,13 +145,13 @@ def _setter_denied_list(self, prop, value):
             self, prop, value,
             "Interface code list contains duplicates.")
     # block, usb, mic, pci, *
-    pattern = r"^([bump\*][0123456789\*]{6})*$"
+    pattern = r"^([bump\*][0123456789abcdef\*]{6})*$"
     if not re.fullmatch(pattern, value):
         raise qubes.exc.QubesPropertyValueError(
             self, prop, value,
-            "Interface code list should be in the form cddddddcdddddd...,"
+            "Interface code list should be in the form chhhhhhchhhhhh...,"
             'where c is one of "b", "u", "m", "p", "*" '
-            'and d is a digit or "*".')
+            'and h is a hexdigit or "*".')
     return value
 
 
