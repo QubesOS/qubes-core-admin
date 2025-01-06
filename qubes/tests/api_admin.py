@@ -3938,7 +3938,7 @@ netvm default=True type=vm \n"""
         self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
                             b"", b"uabcdefm******")
         self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*uabcdefm******")
+                         "b******m******p012345p53**2*uabcdef")
         self.assertTrue(self.app.save.called)
 
     def test_664_vm_device_denied_add_repeated(self):
@@ -3946,20 +3946,24 @@ netvm default=True type=vm \n"""
         with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
                                 b"", b"u112233u112233")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_665_vm_device_denied_add_present(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                                b"", b"b******")
+        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                            b"", b"b******")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_666_vm_device_denied_add_nothing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                                b"", b"b******")
+        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
+                            b"", b"")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_670_vm_device_denied_remove(self):
@@ -3975,6 +3979,8 @@ netvm default=True type=vm \n"""
         with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
                                 b"", b"b******b******")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_672_vm_device_denied_remove_all(self):
@@ -3986,16 +3992,26 @@ netvm default=True type=vm \n"""
 
     def test_673_vm_device_denied_remove_missing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                                b"", b"m******")
+        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                            b"", b"m******")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
+
+    def test_673_vm_device_denied_remove_missing_and_present(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                            b"", b"m******p53**2*")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345")
+        self.assertTrue(self.app.save.called)
 
     def test_674_vm_device_denied_remove_nothing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                                b"", b"")
+        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
+                            b"", b"")
+        self.assertEqual(self.vm.devices_denied,
+                         "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_700_pool_set_revisions_to_keep(self):

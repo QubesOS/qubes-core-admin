@@ -1659,16 +1659,20 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         payload = untrusted_payload.decode("ascii", errors="strict")
         to_add = DeviceInterface.from_str_bulk(payload)
 
-        if not to_add:
-            return
+        if len(set(to_add)) != len(to_add):
+            raise qubes.exc.QubesValueError(
+                "Duplicated device interfaces in payload.")
 
-        # may contain duplicates
         self.fire_event_for_permission(interfaces=to_add)
 
         to_add_enc = "".join(map(repr, to_add))
 
+        prev = self.dest.devices_denied
+        # "auto" ignoring of duplications
         self.dest.devices_denied = self.dest.devices_denied + to_add_enc
-        self.app.save()
+        # do not save if nothing changed
+        if prev != self.dest.devices_denied:
+            self.app.save()
 
     @qubes.api.method(
         "admin.vm.device.denied.Remove", scope="local", write=True)
@@ -1688,22 +1692,19 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         else:
             to_remove = denied.copy()
 
-        if not to_remove:
-            return
+        if len(set(to_remove)) != len(to_remove):
+            raise qubes.exc.QubesValueError(
+                "Duplicated device interfaces in payload.")
 
         # may contain missing values
         self.fire_event_for_permission(interfaces=to_remove)
 
-        for interface in to_remove:
-            try:
-                denied.remove(interface)
-            except ValueError:
-                raise qubes.exc.QubesValueError(
-                    f"Interface {interface} are not listed "
-                    f"in the devices denied list of {self.dest} vm.")
-        new_denied = "".join(map(repr, denied))
-        self.dest.devices_denied = new_denied
-        self.app.save()
+        # ignore missing values
+        new_denied = "".join(repr(i) for i in denied if i not in to_remove)
+
+        if new_denied != self.dest.devices_denied:
+            self.dest.devices_denied = new_denied
+            self.app.save()
 
     @qubes.api.method(
         "admin.vm.firewall.Get", no_payload=True, scope="local", read=True

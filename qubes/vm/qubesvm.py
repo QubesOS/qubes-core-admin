@@ -139,12 +139,15 @@ def _setter_denied_list(self, prop, value):
     value = str(value)
     if len(value) == 0:
         return value
-    interfaces = DeviceInterface.from_str_bulk(value)
-    if len(interfaces) != len(set(interfaces)):
-        raise qubes.exc.QubesPropertyValueError(
-            self, prop, value,
-            "Interface code list contains duplicates.")
-    # block, usb, mic, pci, *
+
+    # remove duplicates
+    value = "".join(
+        sorted(map(repr, set(DeviceInterface.from_str_bulk(value)))))
+
+    # The requirements for the interface encoding are more relaxed
+    #   in the DeviceInterface class compared to the denied list.
+    # allowed classes: block, usb, mic, pci, *
+    # allowed interface encoding: hex digits + *
     pattern = r"^([bump\*][0123456789abcdef\*]{6})*$"
     if not re.fullmatch(pattern, value):
         raise qubes.exc.QubesPropertyValueError(
