@@ -1659,6 +1659,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         payload = untrusted_payload.decode("ascii", errors="strict")
         to_add = DeviceInterface.from_str_bulk(payload)
 
+        if not to_add:
+            return
+
         # may contain duplicates
         self.fire_event_for_permission(interfaces=to_add)
 
@@ -1675,15 +1678,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         Payload:
             Encoded device interface (can be repeated without any separator).
-            If payload is empty, all interfaces are removed.
+            If payload is "all", all interfaces are removed.
         """
         denied = DeviceInterface.from_str_bulk(self.dest.devices_denied)
 
         payload = untrusted_payload.decode("ascii", errors="strict")
-        if payload:
+        if payload != "all":
             to_remove = DeviceInterface.from_str_bulk(payload)
         else:
             to_remove = denied.copy()
+
+        if not to_remove:
+            return
 
         # may contain missing values
         self.fire_event_for_permission(interfaces=to_remove)
