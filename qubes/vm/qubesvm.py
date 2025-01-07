@@ -135,14 +135,15 @@ def _setter_default_user(self, prop, value):
 
 
 def _setter_denied_list(self, prop, value):
-    """ Helper for setting denied list """
+    """Helper for setting denied list"""
     value = str(value)
     if len(value) == 0:
         return value
 
     # remove duplicates
     value = "".join(
-        sorted(map(repr, set(DeviceInterface.from_str_bulk(value)))))
+        sorted(map(repr, set(DeviceInterface.from_str_bulk(value))))
+    )
 
     # The requirements for the interface encoding are more relaxed
     #   in the DeviceInterface class compared to the denied list.
@@ -151,10 +152,13 @@ def _setter_denied_list(self, prop, value):
     pattern = r"^([bump\*][0123456789abcdef\*]{6})*$"
     if not re.fullmatch(pattern, value):
         raise qubes.exc.QubesPropertyValueError(
-            self, prop, value,
+            self,
+            prop,
+            value,
             "Interface code list should be in the form chhhhhhchhhhhh...,"
             'where c is one of "b", "u", "m", "p", "*" '
-            'and h is a hexdigit or "*".')
+            'and h is a hexdigit or "*".',
+        )
     return value
 
 
@@ -856,10 +860,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     )
 
     devices_denied = qubes.property(
-        "devices_denied", default="",
+        "devices_denied",
+        default="",
         type=str,
         setter=_setter_denied_list,
-        doc="List of device interface codes that are denied for this VM.")
+        doc="List of device interface codes that are denied for this VM.",
+    )
 
     # for changes in keyboard_layout, see also the same property in AdminVM
     keyboard_layout = qubes.property(

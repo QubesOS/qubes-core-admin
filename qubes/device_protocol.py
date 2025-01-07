@@ -747,7 +747,7 @@ class DeviceInterface:
                 f"(is {len(interfaces)}, expected multiple of 7)",
             )
         return [
-            DeviceInterface(interfaces[i: i + 7])
+            DeviceInterface(interfaces[i : i + 7])
             for i in range(0, len(interfaces), 7)
         ]
 

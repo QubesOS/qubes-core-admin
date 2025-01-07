@@ -3913,105 +3913,119 @@ netvm default=True type=vm \n"""
         self.assertFalse(self.app.save.called)
 
     def test_660_vm_device_denied_list_empty(self):
-        actual = self.call_mgmt_func(b"admin.vm.device.denied.List",
-                                     b"test-vm1")
+        actual = self.call_mgmt_func(
+            b"admin.vm.device.denied.List", b"test-vm1"
+        )
         self.assertEqual(actual, "")
         self.assertFalse(self.app.save.called)
 
     def test_661_vm_device_denied_list(self):
         self.vm.devices_denied = "b******p012345pff**2*"
-        actual = self.call_mgmt_func(b"admin.vm.device.denied.List",
-                                     b"test-vm1")
+        actual = self.call_mgmt_func(
+            b"admin.vm.device.denied.List", b"test-vm1"
+        )
         self.assertEqual(actual, "b******\np012345\npff**2*")
         self.assertFalse(self.app.save.called)
 
     def test_662_vm_device_denied_add(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"uabcdef")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*uabcdef")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Add", b"test-vm1", b"", b"uabcdef"
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*uabcdef")
         self.assertTrue(self.app.save.called)
 
     def test_663_vm_device_denied_add_multiple(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"uabcdefm******")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******m******p012345p53**2*uabcdef")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Add", b"test-vm1", b"", b"uabcdefm******"
+        )
+        self.assertEqual(
+            self.vm.devices_denied, "b******m******p012345p53**2*uabcdef"
+        )
         self.assertTrue(self.app.save.called)
 
     def test_664_vm_device_denied_add_repeated(self):
         self.vm.devices_denied = "b******p012345p53**2*"
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                                b"", b"u112233u112233")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+            self.call_mgmt_func(
+                b"admin.vm.device.denied.Add",
+                b"test-vm1",
+                b"",
+                b"u112233u112233",
+            )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_665_vm_device_denied_add_present(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"b******")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Add", b"test-vm1", b"", b"b******"
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_666_vm_device_denied_add_nothing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Add", b"test-vm1",
-                            b"", b"")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Add", b"test-vm1", b"", b""
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_670_vm_device_denied_remove(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                            b"", b"b******")
-        self.assertEqual(self.vm.devices_denied,
-                         "p012345p53**2*")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Remove", b"test-vm1", b"", b"b******"
+        )
+        self.assertEqual(self.vm.devices_denied, "p012345p53**2*")
         self.assertTrue(self.app.save.called)
 
     def test_671_vm_device_denied_remove_repeated(self):
         self.vm.devices_denied = "b******p012345p53**2*"
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                                b"", b"b******b******")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+            self.call_mgmt_func(
+                b"admin.vm.device.denied.Remove",
+                b"test-vm1",
+                b"",
+                b"b******b******",
+            )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_672_vm_device_denied_remove_all(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                            b"", b"all")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Remove", b"test-vm1", b"", b"all"
+        )
         self.assertEqual(self.vm.devices_denied, "")
         self.assertTrue(self.app.save.called)
 
     def test_673_vm_device_denied_remove_missing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                            b"", b"m******")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Remove", b"test-vm1", b"", b"m******"
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_673_vm_device_denied_remove_missing_and_present(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                            b"", b"m******p53**2*")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Remove",
+            b"test-vm1",
+            b"",
+            b"m******p53**2*",
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345")
         self.assertTrue(self.app.save.called)
 
     def test_674_vm_device_denied_remove_nothing(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        self.call_mgmt_func(b"admin.vm.device.denied.Remove", b"test-vm1",
-                            b"", b"")
-        self.assertEqual(self.vm.devices_denied,
-                         "b******p012345p53**2*")
+        self.call_mgmt_func(
+            b"admin.vm.device.denied.Remove", b"test-vm1", b"", b""
+        )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
 
     def test_700_pool_set_revisions_to_keep(self):

@@ -1632,8 +1632,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method(
-        "admin.vm.device.denied.List",
-        no_payload=True, scope="local", read=True)
+        "admin.vm.device.denied.List", no_payload=True, scope="local", read=True
+    )
     async def vm_device_denied_list(self):
         """
         List all denied device interfaces for the VM.
@@ -1647,8 +1647,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         denied = self.dest.devices_denied
         return "\n".join(map(repr, DeviceInterface.from_str_bulk(denied)))
 
-    @qubes.api.method(
-        "admin.vm.device.denied.Add", scope="local", write=True)
+    @qubes.api.method("admin.vm.device.denied.Add", scope="local", write=True)
     async def vm_device_denied_add(self, untrusted_payload):
         """
         Add device interface(s) to the denied list for the VM.
@@ -1661,7 +1660,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         if len(set(to_add)) != len(to_add):
             raise qubes.exc.QubesValueError(
-                "Duplicated device interfaces in payload.")
+                "Duplicated device interfaces in payload."
+            )
 
         self.fire_event_for_permission(interfaces=to_add)
 
@@ -1675,7 +1675,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self.app.save()
 
     @qubes.api.method(
-        "admin.vm.device.denied.Remove", scope="local", write=True)
+        "admin.vm.device.denied.Remove", scope="local", write=True
+    )
     async def vm_device_denied_remove(self, untrusted_payload):
         """
         Remove device interface(s) from the denied list for the VM.
@@ -1694,7 +1695,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         if len(set(to_remove)) != len(to_remove):
             raise qubes.exc.QubesValueError(
-                "Duplicated device interfaces in payload.")
+                "Duplicated device interfaces in payload."
+            )
 
         # may contain missing values
         self.fire_event_for_permission(interfaces=to_remove)
