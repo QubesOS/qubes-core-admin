@@ -2533,6 +2533,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         """
         if not self.kernel:
             return ""
+        if self.features.check_with_template("os", None) == "Linux":
+            base_kernelopts = "systemd.machine_id=" + self.uuid.hex + " "
+        else:
+            base_kernelopts = ""
         kernels_dir = self.storage.kernels_dir
 
         kernelopts_path = os.path.join(
@@ -2540,9 +2544,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         )
         if os.path.exists(kernelopts_path):
             with open(kernelopts_path, encoding="ascii") as f_kernelopts:
-                return f_kernelopts.read().rstrip("\n\r")
+                return base_kernelopts + f_kernelopts.read().rstrip("\n\r")
         else:
-            return qubes.config.defaults["kernelopts_common"]
+            return base_kernelopts + qubes.config.defaults["kernelopts_common"]
 
     #
     # helper methods
