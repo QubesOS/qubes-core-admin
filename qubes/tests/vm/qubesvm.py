@@ -2163,31 +2163,35 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "-A FORWARD -i vif+ -o vif+ -j DROP\n"
             "COMMIT\n".format(datetime.datetime.now().ctime())
         )
+        data = {
+            "/name": "test-inst-test",
+            "/type": "StandaloneVM",
+            "/default-user": "user",
+            "/qubes-vm-type": "AppVM",
+            "/qubes-debug-mode": "0",
+            "/qubes-base-template": "",
+            "/qubes-timezone": "UTC",
+            "/qubes-random-seed": base64.b64encode(b"A" * 64),
+            "/qubes-vm-persistence": "full",
+            "/qubes-vm-updateable": "True",
+            "/qubes-block-devices": "",
+            "/qubes-usb-devices": "",
+            "/qubes-iptables": "reload",
+            "/qubes-iptables-error": "",
+            "/qubes-iptables-header": iptables_header,
+            "/qubes-service/qubes-update-check": "0",
+            "/qubes-service/meminfo-writer": "1",
+            "/connected-ips": "",
+            "/connected-ips6": "",
+        }
 
-        self.assertEqual(
-            test_qubesdb.data,
-            {
-                "/name": "test-inst-test",
-                "/type": "StandaloneVM",
-                "/default-user": "user",
-                "/qubes-vm-type": "AppVM",
-                "/qubes-debug-mode": "0",
-                "/qubes-base-template": "",
-                "/qubes-timezone": "UTC",
-                "/qubes-random-seed": base64.b64encode(b"A" * 64),
-                "/qubes-vm-persistence": "full",
-                "/qubes-vm-updateable": "True",
-                "/qubes-block-devices": "",
-                "/qubes-usb-devices": "",
-                "/qubes-iptables": "reload",
-                "/qubes-iptables-error": "",
-                "/qubes-iptables-header": iptables_header,
-                "/qubes-service/qubes-update-check": "0",
-                "/qubes-service/meminfo-writer": "1",
-                "/connected-ips": "",
-                "/connected-ips6": "",
-            },
-        )
+        self.assertEqual(test_qubesdb.data, data)
+
+        test_qubesdb.data.clear()
+        vm.features["anon-timezone"] = "1"
+        vm.create_qdb_entries()
+        del data["/qubes-timezone"]
+        self.assertEqual(test_qubesdb.data, data)
 
     @unittest.mock.patch("datetime.datetime")
     @unittest.mock.patch("qubes.utils.get_timezone")
