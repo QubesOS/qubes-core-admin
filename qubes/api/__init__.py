@@ -240,8 +240,13 @@ class AbstractQubesAPI:
         return apply_filters(iterable, self.fire_event_for_permission(**kwargs))
 
     @staticmethod
-    def enforce(predicate):
-        """An assert replacement, but works even with optimisations."""
+    def enforce(predicate: bool) -> None:
+        """If predicate is false, raise an exception to terminate handling
+        the request.
+
+        This will raise :py:class:`PermissionDenied` if the predicate is false.
+        See the documentation of that class for details.
+        """
         if not predicate:
             raise PermissionDenied()
 
