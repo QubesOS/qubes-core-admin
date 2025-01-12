@@ -50,6 +50,7 @@ from qubes.device_protocol import (
     UnknownDevice,
     DeviceAssignment,
     AssignmentMode,
+    DeviceInterface,
 )
 
 
@@ -1629,6 +1630,83 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         await self.dest.devices[devclass].update_assignment(dev, mode)
         self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.device.denied.List", no_payload=True, scope="local", read=True
+    )
+    async def vm_device_denied_list(self):
+        """
+        List all denied device interfaces for the VM.
+
+        Returns a newline-separated string.
+        """
+        self.enforce(not self.arg)
+
+        self.fire_event_for_permission()
+
+        denied = self.dest.devices_denied
+        return "\n".join(map(repr, DeviceInterface.from_str_bulk(denied)))
+
+    @qubes.api.method("admin.vm.device.denied.Add", scope="local", write=True)
+    async def vm_device_denied_add(self, untrusted_payload):
+        """
+        Add device interface(s) to the denied list for the VM.
+
+        Payload:
+            Encoded device interface (can be repeated without any separator).
+        """
+        payload = untrusted_payload.decode("ascii", errors="strict")
+        to_add = DeviceInterface.from_str_bulk(payload)
+
+        if len(set(to_add)) != len(to_add):
+            raise qubes.exc.QubesValueError(
+                "Duplicated device interfaces in payload."
+            )
+
+        self.fire_event_for_permission(interfaces=to_add)
+
+        to_add_enc = "".join(map(repr, to_add))
+
+        prev = self.dest.devices_denied
+        # "auto" ignoring of duplications
+        self.dest.devices_denied = self.dest.devices_denied + to_add_enc
+        # do not save if nothing changed
+        if prev != self.dest.devices_denied:
+            self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.device.denied.Remove", scope="local", write=True
+    )
+    async def vm_device_denied_remove(self, untrusted_payload):
+        """
+        Remove device interface(s) from the denied list for the VM.
+
+        Payload:
+            Encoded device interface (can be repeated without any separator).
+            If payload is "all", all interfaces are removed.
+        """
+        denied = DeviceInterface.from_str_bulk(self.dest.devices_denied)
+
+        payload = untrusted_payload.decode("ascii", errors="strict")
+        if payload != "all":
+            to_remove = DeviceInterface.from_str_bulk(payload)
+        else:
+            to_remove = denied.copy()
+
+        if len(set(to_remove)) != len(to_remove):
+            raise qubes.exc.QubesValueError(
+                "Duplicated device interfaces in payload."
+            )
+
+        # may contain missing values
+        self.fire_event_for_permission(interfaces=to_remove)
+
+        # ignore missing values
+        new_denied = "".join(repr(i) for i in denied if i not in to_remove)
+
+        if new_denied != self.dest.devices_denied:
+            self.dest.devices_denied = new_denied
+            self.app.save()
 
     @qubes.api.method(
         "admin.vm.firewall.Get", no_payload=True, scope="local", read=True
