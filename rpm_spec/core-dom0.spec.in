@@ -443,6 +443,7 @@ done
 %{python3_sitelib}/qubes/ext/backup_restore.py
 %{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/core_features.py
+%{python3_sitelib}/qubes/ext/custom_persist.py
 %{python3_sitelib}/qubes/ext/gui.py
 %{python3_sitelib}/qubes/ext/audio.py
 %{python3_sitelib}/qubes/ext/pci.py
