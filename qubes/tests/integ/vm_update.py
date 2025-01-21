@@ -343,14 +343,24 @@ SHA256:
         """
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
-            self.repo_proc = self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/apt-repo && python3 -m http.server 8080',
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            self.repo_proc = self.loop.run_until_complete(
+                self.netvm_repo.run(
+                    "cd /tmp/apt-repo && python3 -m http.server 8080",
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            )
         elif self.template.count("fedora"):
             self.create_repo_yum()
-            self.repo_proc = self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/yum-repo && python3 -m http.server 8080',
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            self.repo_proc = self.loop.run_until_complete(
+                self.netvm_repo.run(
+                    "cd /tmp/yum-repo && python3 -m http.server 8080",
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            )
         else:
             # not reachable...
             self.skipTest("Template {} not supported by this test".format(

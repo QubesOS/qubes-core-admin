@@ -219,10 +219,14 @@ HiddenServiceVersion 3
             ))[0].decode().strip()
             self.write_repo_file(onion_name)
 
-        self.repo_proc = self.loop.run_until_complete(self.updatevm.run(
-            'cd /tmp/repo && python3 -m http.server 8080',
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT))
+        self.repo_proc = self.loop.run_until_complete(
+            self.updatevm.run(
+                "cd /tmp/repo && python3 -m http.server 8080",
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+        )
         self.repo_running = True
 
     def test_000_update(self):
