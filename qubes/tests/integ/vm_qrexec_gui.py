@@ -126,7 +126,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         p = self.loop.run_until_complete(
-            self.testvm1.run("gnome-terminal || " "ptyxis")
+            self.testvm1.run("gnome-terminal || ptyxis")
         )
         try:
             title = "user@{}".format(self.testvm1.name)
