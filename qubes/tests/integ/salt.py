@@ -308,6 +308,8 @@ class SaltVMTestMixin(SaltTestMixin):
     def setUp(self):
         if self.template.startswith("whonix"):
             self.skipTest("Whonix not supported as salt VM")
+        if self.template.startswith("archlinux"):
+            self.skipTest("Archlinux not supported as salt VM")
         super(SaltVMTestMixin, self).setUp()
         self.init_default_template(self.template)
 
