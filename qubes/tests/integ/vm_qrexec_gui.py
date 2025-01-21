@@ -120,6 +120,8 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             self.skipTest("Whonix template doesn't have 'gnome-terminal'")
         if "xfce" in self.template:
             self.skipTest("Xfce template doesn't have 'gnome-terminal'")
+        if "archlinux" in self.template:
+            self.skipTest("Arch template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
