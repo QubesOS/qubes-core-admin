@@ -276,6 +276,7 @@ HiddenServiceVersion 3
         self.repo_proc = self.loop.run_until_complete(
             self.updatevm.run(
                 "cd /tmp/repo && python3 -m http.server 8080",
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )

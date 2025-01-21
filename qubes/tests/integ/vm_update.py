@@ -390,6 +390,7 @@ SHA256:
             self.repo_proc = self.loop.run_until_complete(
                 self.netvm_repo.run(
                     "cd /tmp/apt-repo && python3 -m http.server 8080",
+                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -399,6 +400,7 @@ SHA256:
             self.repo_proc = self.loop.run_until_complete(
                 self.netvm_repo.run(
                     "cd /tmp/yum-repo && python3 -m http.server 8080",
+                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
