@@ -158,6 +158,23 @@ class VmUpdatesMixin(object):
         ),
     ]
 
+    ARCH_PACKAGE = [
+        (
+            b"pkgname=test-pkg\n"
+            b"pkgver=1.0\n"
+            b"pkgrel=1\n"
+            b"arch=(any)\n"
+            b'options=("!debug")\n'
+        ),
+        (
+            b"pkgname=test-pkg\n"
+            b"pkgver=1.1\n"
+            b"pkgrel=1\n"
+            b"arch=(any)\n"
+            b'options=("!debug")\n'
+        ),
+    ]
+
     @classmethod
     def setUpClass(cls):
         super(VmUpdatesMixin, cls).setUpClass()
@@ -200,8 +217,10 @@ class VmUpdatesMixin(object):
         """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
-        if not self.template.count("debian") and not self.template.count(
-            "fedora"
+        if (
+            not self.template.count("debian")
+            and not self.template.count("fedora")
+            and not self.template.count("archlinux")
         ):
             self.skipTest(
                 "Template {} not supported by this test".format(self.template)
@@ -235,6 +254,13 @@ class VmUpdatesMixin(object):
             self.install_test_cmd = "rpm -q {}"
             self.upgrade_test_cmd = "rpm -q {} | grep 1.1"
             self.ret_code_ok = [0, 100]
+        elif self.template.count("archlinux"):
+            self.update_cmd = "pacman -Syy"
+            self.upgrade_cmd = "pacman -Syu --noconfirm"
+            self.install_cmd = "pacman -Sy --noconfirm {}"
+            self.install_test_cmd = "pacman -Q {}"
+            self.upgrade_test_cmd = "pacman -Q {} | grep 1.1"
+            self.ret_code_ok = [0]
 
         self.init_default_template(self.template)
         self.init_networking()
@@ -381,6 +407,34 @@ SHA256:
             self.netvm_repo.run_for_stdio("createrepo_c /tmp/yum-repo")
         )
 
+    def create_repo_arch(self, version=0):
+        """
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :type version: int
+        """
+        self.loop.run_until_complete(
+            self.netvm_repo.run_for_stdio(
+                """mkdir -p /tmp/pkg \
+                && cd /tmp/pkg \
+                && cat > PKGBUILD \
+                && makepkg""",
+                input=self.ARCH_PACKAGE[version],
+            )
+        )
+        pkg_file_name = "test-pkg-1.{}-1-any.pkg.tar.zst".format(version)
+        self.loop.run_until_complete(
+            self.netvm_repo.run_for_stdio(
+                """
+            mkdir -p /tmp/arch-repo \
+            && cd /tmp/arch-repo \
+            && cp /tmp/pkg/{0} ./ \
+            && repo-add ./testrepo.db.tar.zst {0}
+            """.format(
+                    pkg_file_name
+                ),
+            )
+        )
+
     def create_repo_and_serve(self):
         """
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
@@ -400,6 +454,16 @@ SHA256:
             self.repo_proc = self.loop.run_until_complete(
                 self.netvm_repo.run(
                     "cd /tmp/yum-repo && python3 -m http.server 8080",
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            )
+        elif self.template.count("archlinux"):
+            self.create_repo_arch()
+            self.repo_proc = self.loop.run_until_complete(
+                self.netvm_repo.run(
+                    "cd /tmp/arch-repo && python3 -m http.server 8080",
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -426,6 +490,8 @@ SHA256:
             self.create_repo_apt(1)
         elif self.template.count("fedora"):
             self.create_repo_yum(1)
+        elif self.template.count("archlinux"):
+            self.create_repo_arch(1)
 
     def configure_test_repo(self):
         """
@@ -455,6 +521,18 @@ SHA256:
                     "echo 'gpgcheck=0' >> /etc/yum.repos.d/test.repo &&"
                     "echo 'baseurl=http://localhost:8080/'"
                     " >> /etc/yum.repos.d/test.repo",
+                    user="root",
+                )
+            )
+        elif self.template.count("archlinux"):
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(
+                    "rm -f /etc/pacman.d/*.conf &&"
+                    "echo '[testrepo]' > /etc/pacman.d/70-test.conf &&"
+                    "echo 'SigLevel = Optional TrustAll'"
+                    " >> /etc/pacman.d/70-test.conf &&"
+                    "echo 'Server = http://localhost:8080/'"
+                    " >> /etc/pacman.d/70-test.conf",
                     user="root",
                 )
             )
@@ -744,19 +822,33 @@ SHA256:
         )
 
     def test_130_no_network_qubes_vm_update(self):
+        expected_ret_codes = (23,)
+        if self.template.count("archlinux"):
+            # updater on Arch doesn't have separate metadata refresh step
+            expected_ret_codes = (
+                23,
+                24,
+            )
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=(),
-            expected_ret_codes=(23,),
+            expected_ret_codes=expected_ret_codes,
             break_repo=True,
             expect_updated=False,
         )
 
     def test_131_no_network_qubes_vm_update_cli(self):
+        expected_ret_codes = (23,)
+        if self.template.count("archlinux"):
+            # updater on Arch doesn't have separate metadata refresh step
+            expected_ret_codes = (
+                23,
+                24,
+            )
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=("--no-progress",),
-            expected_ret_codes=(23,),
+            expected_ret_codes=expected_ret_codes,
             break_repo=True,
             expect_updated=False,
         )
