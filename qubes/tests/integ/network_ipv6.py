@@ -36,7 +36,7 @@ from qubes.tests.integ.network import VmNetworkingMixin
 class VmIPv6NetworkingMixin(VmNetworkingMixin):
     test_ip6 = "2000:abcd::1"
 
-    ping6_cmd = "ping6 -W 1 -n -c 1 {target}"
+    ping6_cmd = "ping -6 -W 1 -n -c 1 {target}"
 
     def setUp(self):
         super(VmIPv6NetworkingMixin, self).setUp()
