@@ -636,15 +636,20 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
         vms = self.create_backup_vms()
         try:
             self.loop.run_until_complete(self.backupvm.start())
-            self.loop.run_until_complete(self.backupvm.run_for_stdio(
-                # Debian 7 has too old losetup to handle loop-control device
-                "mknod /dev/loop0 b 7 0;"
-                "truncate -s 50M /home/user/backup.img && "
-                "mkfs.ext4 -F /home/user/backup.img && "
-                "mkdir /home/user/backup && "
-                "mount /home/user/backup.img /home/user/backup -o loop &&"
-                "chmod 777 /home/user/backup",
-                user="root"))
+            self.loop.run_until_complete(
+                self.backupvm.run_for_stdio(
+                    # add sbin in Debian/Whonix for mkfs.ext4
+                    "PATH=$PATH:/usr/sbin;"
+                    # Debian 7 has too old losetup to handle loop-control device
+                    "mknod /dev/loop0 b 7 0;"
+                    "truncate -s 50M /home/user/backup.img && "
+                    "mkfs.ext4 -F /home/user/backup.img && "
+                    "mkdir /home/user/backup && "
+                    "mount /home/user/backup.img /home/user/backup -o loop &&"
+                    "chmod 777 /home/user/backup",
+                    user="root",
+                )
+            )
             with self.assertRaises(qubes.exc.QubesException):
                 self.make_backup(vms, target_vm=self.backupvm,
                     compressed=False,
