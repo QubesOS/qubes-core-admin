@@ -720,6 +720,8 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
             self.loop.run_until_complete(self.backupvm.start())
             self.loop.run_until_complete(
                 self.backupvm.run_for_stdio(
+                    # add sbin in Debian/Whonix for mkfs.ext4
+                    "PATH=$PATH:/usr/sbin;"
                     # Debian 7 has too old losetup to handle loop-control device
                     "mknod /dev/loop0 b 7 0;"
                     "truncate -s 50M /home/user/backup.img && "

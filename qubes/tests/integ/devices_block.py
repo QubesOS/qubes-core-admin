@@ -81,6 +81,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         if self.template is None:
             self.skipTest("loop devices excluded in dom0")
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "losetup -f {path}; "
@@ -106,6 +108,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         if self.template is None:
             self.skipTest("loop devices excluded in dom0")
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "mkfs.ext4 -q -F {path}; "
@@ -128,6 +132,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
     def test_010_list_dm(self):
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "loopdev=`losetup -f`; "
@@ -158,6 +164,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
     def test_011_list_dm_mounted(self):
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "loopdev=`losetup -f`; "
@@ -192,6 +200,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
 
     def test_012_list_dm_delayed(self):
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "loopdev=`losetup -f`; "
@@ -227,6 +237,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
                 "test not supported in dom0 - loop devices excluded " "in dom0"
             )
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "loopdev=`losetup -f`; "
@@ -257,6 +269,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         if self.template is None:
             self.skipTest("loop devices excluded in dom0")
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "echo ,,L | sfdisk {path};"
@@ -286,6 +300,8 @@ class TC_00_List(qubes.tests.SystemTestCase):
         if self.template is None:
             self.skipTest("loop devices excluded in dom0")
         self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
             "set -e;"
             "truncate -s 128M {path}; "
             "echo ,,L | sfdisk {path};"
@@ -345,6 +361,8 @@ class AttachMixin:
             self.fail("Failed to start some VM: {!r}".format(exc))
         self.loop.run_until_complete(
             self.backend.run_for_stdio(
+                # add sbin in Debian/Whonix for mkfs.ext4
+                "PATH=$PATH:/usr/sbin;"
                 "set -e;"
                 "truncate -s 128M {path}; "
                 "losetup -f {path}; "
