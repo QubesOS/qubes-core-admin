@@ -41,7 +41,6 @@ checks:tests:
 
 mypy:
   stage: checks
-  image: fedora:40
   tags:
     - docker
   before_script:
