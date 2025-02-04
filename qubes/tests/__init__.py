@@ -525,6 +525,9 @@ class QubesTestCase(unittest.TestCase):
         self.skip_kernel_validation_patch.start()
 
     def cleanup_gc(self):
+        # remove cached references to Qubes() object
+        qubes.api.internal.SystemInfoCache.cache_for_app = None
+
         gc.collect()
         leaked = [
             obj

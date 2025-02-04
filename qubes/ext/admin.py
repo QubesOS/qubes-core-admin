@@ -82,7 +82,7 @@ class AdminExtension(qubes.ext.Extension):
             return ((lambda _vm: False),)
 
         policy = self.policy_cache.get_policy()
-        system_info = qubes.api.internal.get_system_info(vm.app)
+        system_info = qubes.api.internal.SystemInfoCache.get_system_info(vm.app)
 
         def filter_vms(dest_vm):
             request = parser.Request(
@@ -133,7 +133,9 @@ class AdminExtension(qubes.ext.Extension):
 
             policy = self.policy_cache.get_policy()
             # TODO: cache system_info (based on last qubes.xml write time?)
-            system_info = qubes.api.internal.get_system_info(vm.app)
+            system_info = qubes.api.internal.SystemInfoCache.get_system_info(
+                vm.app
+            )
             request = parser.Request(
                 "admin.Events",
                 "+" + event.replace(":", "_"),

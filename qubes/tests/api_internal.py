@@ -185,31 +185,49 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         vm.uuid = TEST_UUID
         self.domains["vm"] = vm
 
+        expected_data = {
+            "domains": {
+                "dom0": {
+                    "tags": ["tag1", "tag2"],
+                    "type": "AdminVM",
+                    "default_dispvm": None,
+                    "template_for_dispvms": False,
+                    "icon": "icon-dom0",
+                    "guivm": None,
+                    "power_state": "Running",
+                    "uuid": "00000000-0000-0000-0000-000000000000",
+                },
+                "vm": {
+                    "tags": ["tag3", "tag4"],
+                    "type": "QubesVM",
+                    "default_dispvm": "vm",
+                    "template_for_dispvms": True,
+                    "icon": "icon-vm",
+                    "guivm": "vm",
+                    "power_state": "Halted",
+                    "uuid": str(TEST_UUID),
+                },
+            }
+        }
         ret = json.loads(self.call_mgmt_func(b"internal.GetSystemInfo"))
         self.assertEqual(
             ret,
-            {
-                "domains": {
-                    "dom0": {
-                        "tags": ["tag1", "tag2"],
-                        "type": "AdminVM",
-                        "default_dispvm": None,
-                        "template_for_dispvms": False,
-                        "icon": "icon-dom0",
-                        "guivm": None,
-                        "power_state": "Running",
-                        "uuid": "00000000-0000-0000-0000-000000000000",
-                    },
-                    "vm": {
-                        "tags": ["tag3", "tag4"],
-                        "type": "QubesVM",
-                        "default_dispvm": "vm",
-                        "template_for_dispvms": True,
-                        "icon": "icon-vm",
-                        "guivm": "vm",
-                        "power_state": "Halted",
-                        "uuid": str(TEST_UUID),
-                    },
-                }
-            },
+            expected_data,
+        )
+
+        # test if data got cached (should give outdated answer without events)
+        vm.tags = ["tag4", "tag5"]
+        ret = json.loads(self.call_mgmt_func(b"internal.GetSystemInfo"))
+        self.assertEqual(
+            ret,
+            expected_data,
+        )
+
+        # and if the cache got invalidated on event
+        vm.add_handler.mock_calls[0][1][1](vm, "domain-tag-add:test4")
+        expected_data["domains"]["vm"]["tags"] = ["tag4", "tag5"]
+        ret = json.loads(self.call_mgmt_func(b"internal.GetSystemInfo"))
+        self.assertEqual(
+            ret,
+            expected_data,
         )

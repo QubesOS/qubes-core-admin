@@ -30,33 +30,110 @@ import qubes.vm.adminvm
 import qubes.vm.dispvm
 
 
-def get_system_info(app):
-    system_info = {
-        "domains": {
-            domain.name: {
-                "tags": list(domain.tags),
-                "type": domain.__class__.__name__,
-                "template_for_dispvms": getattr(
-                    domain, "template_for_dispvms", False
-                ),
-                "default_dispvm": (
-                    domain.default_dispvm.name
-                    if getattr(domain, "default_dispvm", None)
-                    else None
-                ),
-                "icon": str(domain.label.icon),
-                "guivm": (
-                    domain.guivm.name
-                    if getattr(domain, "guivm", None)
-                    else None
-                ),
-                "power_state": domain.get_power_state(),
-                "uuid": str(domain.uuid),
+class SystemInfoCache:
+    cache = None
+    cache_for_app = None
+
+    # list of VM events that may affect the content of system_info
+    vm_events = (
+        "domain-spawn",
+        "domain-start",
+        "domain-shutdown",
+        "domain-tag-add:*",
+        "domain-tag-delete:*",
+        "property-set:template_for_dispvms",
+        "property-reset:template_for_dispvms",
+        "property-set:default_dispvm",
+        "property-reset:default_dispvm",
+        "property-set:icon",
+        "property-reset:icon",
+        "property-set:guivm",
+        "property-reset:guivm",
+        # technically not changeable, but keep for consistency
+        "property-set:uuid",
+        "property-reset:uuid",
+    )
+
+    @classmethod
+    def event_handler(cls, subject, event, **kwargs):
+        """Invalidate cache on specific events"""
+        # pylint: disable=unused-argument
+        cls.cache = None
+
+    @classmethod
+    def on_domain_add(cls, subject, event, vm):
+        # pylint: disable=unused-argument
+        cls.register_events_vm(vm)
+
+    @classmethod
+    def on_domain_delete(cls, subject, event, vm):
+        # pylint: disable=unused-argument
+        cls.unregister_events_vm(vm)
+
+    @classmethod
+    def register_events_vm(cls, vm):
+        for event in cls.vm_events:
+            vm.add_handler(event, cls.event_handler)
+
+    @classmethod
+    def unregister_events_vm(cls, vm):
+        for event in cls.vm_events:
+            vm.remove_handler(event, cls.event_handler)
+
+    @classmethod
+    def unregister_events(cls, app):
+        app.remove_handler("domain-add", cls.on_domain_add)
+        app.remove_handler("domain-delete", cls.on_domain_delete)
+        for vm in app.domains:
+            cls.unregister_events_vm(vm)
+
+    @classmethod
+    def register_events(cls, app):
+        app.add_handler("domain-add", cls.on_domain_add)
+        app.add_handler("domain-delete", cls.on_domain_delete)
+        for vm in app.domains:
+            cls.register_events_vm(vm)
+
+    @classmethod
+    def get_system_info(cls, app):
+        if cls.cache_for_app is not app:
+            # new Qubes() instance created, invalidate the cache
+            # this is relevant mostly for tests, otherwise Qubes() object is
+            # never re-created
+            cls.cache = None
+            if cls.cache_for_app is not None:
+                cls.unregister_events(cls.cache_for_app)
+            cls.register_events(app)
+        if cls.cache is not None:
+            return cls.cache
+        system_info = {
+            "domains": {
+                domain.name: {
+                    "tags": list(domain.tags),
+                    "type": domain.__class__.__name__,
+                    "template_for_dispvms": getattr(
+                        domain, "template_for_dispvms", False
+                    ),
+                    "default_dispvm": (
+                        domain.default_dispvm.name
+                        if getattr(domain, "default_dispvm", None)
+                        else None
+                    ),
+                    "icon": str(domain.label.icon),
+                    "guivm": (
+                        domain.guivm.name
+                        if getattr(domain, "guivm", None)
+                        else None
+                    ),
+                    "power_state": domain.get_power_state(),
+                    "uuid": str(domain.uuid),
+                }
+                for domain in app.domains
             }
-            for domain in app.domains
         }
-    }
-    return system_info
+        cls.cache_for_app = app
+        cls.cache = system_info
+        return system_info
 
 
 class QubesInternalAPI(qubes.api.AbstractQubesAPI):
@@ -70,7 +147,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == "dom0")
         self.enforce(not self.arg)
 
-        system_info = get_system_info(self.app)
+        system_info = SystemInfoCache.get_system_info(self.app)
 
         return json.dumps(system_info)
 
