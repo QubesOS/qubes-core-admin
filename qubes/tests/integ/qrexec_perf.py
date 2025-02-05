@@ -33,11 +33,13 @@ class TC_00_QrexecPerfMixin:
             "AppVM",
             name=self.make_vm_name("vm1"),
             label="red",
+            template=self.app.domains[self.template],
         )
         self.vm2 = self.app.add_new_vm(
             "AppVM",
             name=self.make_vm_name("vm2"),
             label="red",
+            template=self.app.domains[self.template],
         )
         self.loop.run_until_complete(
             asyncio.gather(
