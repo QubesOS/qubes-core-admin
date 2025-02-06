@@ -489,6 +489,7 @@ class TC_20_DispVMMixin(object):
             "mozilla-thunderbird",
             "thunderbird",
             "org.mozilla.thunderbird",
+            "net.thunderbird.Thunderbird",
         ):
             with open(
                 "/usr/share/qubes/tests-data/"
@@ -537,6 +538,9 @@ class TC_20_DispVMMixin(object):
         # F40+ has org.mozilla.thunderbird
         if "org.mozilla.thunderbird" in self._get_apps_list(self.template):
             app_id = "org.mozilla.thunderbird"
+        # F41+ has net.thunderbird.Thunderbird
+        if "net.thunderbird.Thunderbird" in self._get_apps_list(self.template):
+            app_id = "net.thunderbird.Thunderbird"
 
         self.testvm1.features["service.app-dispvm." + app_id] = "1"
         self.loop.run_until_complete(self.testvm1.start())
