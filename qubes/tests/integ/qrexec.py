@@ -57,6 +57,17 @@ class TC_00_QrexecMixin(object):
         self.app.save()
 
     def tearDown(self):
+        if not self.success():
+            if self.testvm1.is_running():
+                p = self.loop.run_until_complete(
+                    self.testvm1.run("cat /home/user/.xsession-errors")
+                )
+                self.loop.run_until_complete(p.communicate())
+        if self.testvm2.is_running():
+            p = self.loop.run_until_complete(
+                self.testvm2.run("cat /home/user/.xsession-errors")
+            )
+            self.loop.run_until_complete(p.communicate())
         # socket-based qrexec tests:
         if os.path.exists("/etc/qubes-rpc/test.Socket"):
             os.unlink("/etc/qubes-rpc/test.Socket")
