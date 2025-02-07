@@ -22,6 +22,7 @@ import os
 import unittest.mock
 
 import qubes.ext.core_features
+import qubes.ext.custom_persist
 import qubes.ext.services
 import qubes.ext.windows
 import qubes.ext.supported_features
@@ -1045,3 +1046,117 @@ class TC_30_SupportedFeatures(qubes.tests.QubesTestCase):
                 "supported-rpc.test2": True,
             },
         )
+
+
+class TC_40_CustomPersist(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.custom_persist.CustomPersist()
+        self.features = {}
+        specs = {
+            "features.get.side_effect": self.features.get,
+            "features.items.side_effect": self.features.items,
+            "features.__iter__.side_effect": self.features.__iter__,
+            "features.__contains__.side_effect": self.features.__contains__,
+            "features.__setitem__.side_effect": self.features.__setitem__,
+            "features.__delitem__.side_effect": self.features.__delitem__,
+        }
+
+        vmspecs = {
+            **specs,
+            **{
+                "template": None,
+            },
+        }
+        self.vm = mock.MagicMock()
+        self.vm.configure_mock(**vmspecs)
+
+    def test_000_write_to_qdb(self):
+        self.features["custom-persist.home"] = "/home"
+        self.features["custom-persist.usrlocal"] = "/usr/local"
+        self.features["custom-persist.var_test"] = "/var/test"
+
+        self.ext.on_domain_qdb_create(self.vm, "domain-qdb-create")
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                mock.call.write("/persist/home", "/home"),
+                mock.call.write("/persist/usrlocal", "/usr/local"),
+                mock.call.write("/persist/var_test", "/var/test"),
+            ],
+        )
+
+    def test_001_feature_set(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test_no_oldvalue",
+            "custom-persist.test_no_oldvalue",
+            "/test_no_oldvalue",
+        )
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test_oldvalue",
+            "custom-persist.test_oldvalue",
+            "/newvalue",
+            "",
+        )
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                mock.call.write(
+                    "/persist/test_no_oldvalue", "/test_no_oldvalue"
+                ),
+                mock.call.write("/persist/test_oldvalue", "/newvalue"),
+            ],
+        )
+
+    def test_002_feature_delete(self):
+        self.ext.on_domain_feature_delete(
+            self.vm, "feature-delete:custom-persist.test", "custom-persist.test"
+        )
+        self.assertEqual(
+            self.vm.untrusted_qdb.mock_calls,
+            [mock.call.rm("/persist/test")],
+        )
+
+    def test_003_empty_key(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.",
+            "custom-persist.",
+            "/test",
+            "",
+        )
+        self.vm.untrusted_qdb.assert_not_called()
+        self.vm.log.warning.assert_called_once_with(
+            "Got empty custom-persist key, ignoring"
+        )
+
+    def test_004_key_too_long(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist." + "X" * 55,
+            "custom-persist." + "X" * 55,
+            "/test",
+            "",
+        )
+        self.vm.untrusted_qdb.assert_not_called()
+        self.vm.log.warning.assert_called_once_with(
+            "custom-persist key is too long (max 54), ignoring: " + "X" * 55
+        )
+
+    def test_005_other_feature_deletion(self):
+        self.ext.on_domain_feature_delete(
+            self.vm, "feature-delete:otherfeature.test", "otherfeature.test"
+        )
+        self.vm.untrusted_qdb.assert_not_called()
+
+    def test_006_feature_set_while_vm_is_not_running(self):
+        self.vm.is_running.return_value = False
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test",
+            "custom-persist.test",
+            "/test",
+        )
+        self.vm.untrusted_qdb.assert_not_called()
