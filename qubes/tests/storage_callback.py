@@ -240,7 +240,7 @@ exit 0
         self.app.close()
         del self.app
         for attr in dir(self):
-            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+            if isinstance(getattr(self, attr), qubes.vm.LocalVM):
                 delattr(self, attr)
 
         if os.path.exists(self.test_log):
