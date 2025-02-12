@@ -14,6 +14,7 @@ Extensions defined here
 .. autoclass:: qubes.ext.admin.AdminExtension
 .. autoclass:: qubes.ext.block.BlockDeviceExtension
 .. autoclass:: qubes.ext.core_features.CoreFeatures
+.. autoclass:: qubes.ext.custom_persist.CustomPersist
 .. autoclass:: qubes.ext.gui.GUI
 .. autoclass:: qubes.ext.pci.PCIDeviceExtension
 .. autoclass:: qubes.ext.r3compatibility.R3Compatibility
