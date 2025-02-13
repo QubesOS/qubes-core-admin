@@ -54,6 +54,128 @@ class TC_06_AppVMMixin(object):
             self.assertEqual(tpl.features.get("os-distribution"), "kali")
             self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
+    def test_110_rescue_console(self):
+        self.loop.run_until_complete(self._test_110_rescue_console())
+
+    async def _test_110_rescue_console(self):
+        self.testvm = self.app.add_new_vm(
+            "AppVM", label="red", name=self.make_vm_name("vm")
+        )
+        await self.testvm.create_on_disk()
+        self.testvm.kernelopts = "emergency"
+        # avoid qrexec timeout
+        self.testvm.features["qrexec"] = ""
+        self.app.save()
+        await self.testvm.start()
+        # call admin.vm.Console via qrexec-client so it sets all the variables
+        console_proc = await asyncio.create_subprocess_exec(
+            "qrexec-client",
+            "-d",
+            "dom0",
+            f"DEFAULT:QUBESRPC admin.vm.Console dom0 name {self.testvm.name}",
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        try:
+            await asyncio.wait_for(
+                self._interact_emergency_console(console_proc), 120
+            )
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                console_proc.terminate()
+            await console_proc.communicate()
+
+    async def _interact_emergency_console(
+        self, console_proc: asyncio.subprocess.Process
+    ):
+        emergency_mode_found = False
+        whoami_typed = False
+        while True:
+            try:
+                line = await asyncio.wait_for(
+                    console_proc.stdout.readline(), 30
+                )
+            except TimeoutError:
+                break
+            if b"emergency mode" in line:
+                emergency_mode_found = True
+            if emergency_mode_found and b"Press Enter" in line:
+                console_proc.stdin.write(b"\n")
+                await console_proc.stdin.drain()
+                # shell prompt doesn't include newline, so the top loop won't
+                # progress on it
+                while True:
+                    try:
+                        line2 = await asyncio.wait_for(
+                            console_proc.stdout.read(128), 5
+                        )
+                    except TimeoutError:
+                        break
+                    if b"bash" in line2 or b"root#" in line2:
+                        break
+                console_proc.stdin.write(b"echo $USER\n")
+                await console_proc.stdin.drain()
+                whoami_typed = True
+            if whoami_typed and b"root" in line:
+                return
+        if whoami_typed:
+            self.fail("Calling whoami failed, but emergency console started")
+        if emergency_mode_found:
+            self.fail("Emergency mode started, but didn't got shell")
+        self.fail("Emergency mode not found")
+
+    def test_111_rescue_console_initrd(self):
+        if "minimal" in self.template:
+            self.skipTest(
+                "Test not relevant for minimal template - booting "
+                "in-vm kernel not supported"
+            )
+        self.loop.run_until_complete(self._test_111_rescue_console_initrd())
+
+    async def _test_111_rescue_console_initrd(self):
+        self.testvm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm"),
+            label="red",
+        )
+        self.testvm.kernel = None
+        self.testvm.features.update(self.app.default_template.features)
+        await self.testvm.clone_disk_files(self.app.default_template)
+        self.app.save()
+
+        await self.testvm.start()
+        await self.testvm.run_for_stdio(
+            "echo 'GRUB_CMDLINE_LINUX=\"$GRUB_CMDLINE_LINUX rd.emergency\"' >> "
+            "/etc/default/grub",
+            user="root",
+        )
+        await self.testvm.run_for_stdio(
+            "update-grub2 || grub2-mkconfig -o /boot/grub2/grub.cfg",
+            user="root",
+        )
+        await self.testvm.shutdown(wait=True)
+
+        # avoid qrexec timeout
+        self.testvm.features["qrexec"] = ""
+        await self.testvm.start()
+        # call admin.vm.Console via qrexec-client so it sets all the variables
+        console_proc = await asyncio.create_subprocess_exec(
+            "qrexec-client",
+            "-d",
+            "dom0",
+            f"DEFAULT:QUBESRPC admin.vm.Console dom0 name {self.testvm.name}",
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        try:
+            await asyncio.wait_for(
+                self._interact_emergency_console(console_proc), 60
+            )
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                console_proc.terminate()
+            await console_proc.communicate()
+
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
