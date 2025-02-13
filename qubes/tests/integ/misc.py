@@ -54,6 +54,69 @@ class TC_06_AppVMMixin(object):
             self.assertEqual(tpl.features.get("os-distribution"), "kali")
             self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
+    def test_020_custom_persist(self):
+        self.testvm = self.app.add_new_vm(
+            "AppVM",
+            label="red",
+            name=self.make_vm_name("vm"),
+        )
+        self.loop.run_until_complete(self.testvm.create_on_disk())
+        self.testvm.features["service.custom-persist"] = "1"
+        self.testvm.features["custom-persist.downloads"] = (
+            "/home/user/Downloads"
+        )
+        self.testvm.features["custom-persist.local_lib"] = "/usr/local/lib"
+        self.testvm.features["custom-persist.new_dir"] = "/home/user/new_dir"
+        self.app.save()
+
+        # start first time,
+        self.loop.run_until_complete(self.testvm.start())
+        # do some changes
+        try:
+            # TODO: check /home/user/new_dir permissions?
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio(
+                    "mkdir -p /home/user/Downloads &&"
+                    "chown user /home/user/Downloads &&"
+                    "echo test1 > /home/user/Downloads/download.txt &&"
+                    "mkdir -p /home/user/new_dir &&"
+                    "echo test2 > /home/user/new_dir/new_file.txt &&"
+                    "mkdir -p /home/user/Documents &&"
+                    "chown user /home/user/Documents &&"
+                    "echo test3 > /home/user/Documents/doc.txt &&"
+                    "echo TEST4=test4 >> /home/user/.bashrc &&"
+                    "mkdir -p /usr/local/bin &&"
+                    "ln -s /bin/true /usr/local/bin/true-copy &&"
+                    "mkdir -p /usr/local/lib/subdir &&"
+                    "echo touch /etc/test5.flag >> /rw/config/rc.local",
+                    user="root",
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(f"Calling '{e.cmd}' failed with {e.returncode}: "
+                      f"{e.stdout}{e.stderr}")
+        self.loop.run_until_complete(self.testvm.shutdown(wait=True))
+        # and then start again to compare what survived
+        self.loop.run_until_complete(self.testvm.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio(
+                    "stat /home/user/Downloads/download.txt &&"
+                    "stat /home/user/new_dir/new_file.txt &&"
+                    "! stat /home/user/Documents/doc.txt &&"
+                    "! grep TEST4=test4 /home/user/.bashrc &&"
+                    "! stat /usr/local/bin/true-copy &&"
+                    "stat /usr/local/lib/subdir &&"
+                    "! stat /etc/test5.flag",
+                    user="root",
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                f"Too much / too little files persisted: {e.stdout}"
+                f"{e.stderr}"
+            )
+
     def test_110_rescue_console(self):
         self.loop.run_until_complete(self._test_110_rescue_console())
 
