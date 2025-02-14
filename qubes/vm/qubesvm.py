@@ -216,6 +216,28 @@ def _setter_kbd_layout(self, prop, value):
     return value
 
 
+def _bootmode_kernelopts(self):
+    """
+    Return the kernel options specified by the currently active boot mode,
+    with a leading space. Force the VM's boot mode to 'default' if the active
+    boot mode does not exist. If the active boot mode is (or ends up set to)
+    'default', return an empty string.
+    """
+    if self.features.get("boot-mode.active", None) is None:
+        return ""
+    if self.features["boot-mode.active"] == "default":
+        return ""
+    active_boot_mode = self.features["boot-mode.active"]
+    try:
+        kernelopts_value = self.features.check_with_template(
+            f"boot-mode.{active_boot_mode}.kernelopts"
+        )
+        return f" {kernelopts_value}"
+    except KeyError:
+        self.features["boot-mode.active"] = "default"
+        return ""
+
+
 def _default_virt_mode(self):
     if list(self.devices["pci"].get_assigned_devices()):
         return "hvm"
@@ -659,6 +681,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
     # properties loaded from XML
     #
+    bootmode_kernelopts = qubes.property(
+        "bootmode_kernelopts",
+        type=str,
+        load_stage=4,
+        default=_bootmode_kernelopts,
+        doc="Additional kernel command line segment passed to domain, set by "
+        "the domain's active boot mode."
+    )
+
     guivm = qubes.VMProperty(
         "guivm",
         load_stage=4,
