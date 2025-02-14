@@ -2130,6 +2130,50 @@ netvm default=True type=vm \n"""
         self.assertIsNone(value)
         self.app.save.assert_called_once_with()
 
+    def test_notes_get(self):
+        notes = "For Your Eyes Only"
+        self.app.domains["test-vm1"].get_notes = unittest.mock.Mock()
+        self.app.domains["test-vm1"].get_notes.configure_mock(
+            **{"return_value": notes}
+        )
+        value = self.call_mgmt_func(b"admin.vm.notes.Get", b"test-vm1")
+        self.assertEqual(value, notes)
+        self.app.domains["test-vm1"].get_notes.configure_mock(
+            **{"side_effect": Exception()}
+        )
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b"admin.vm.notes.Get", b"test-vm1")
+        self.assertEqual(
+            self.app.domains["test-vm1"].get_notes.mock_calls,
+            [unittest.mock.call(), unittest.mock.call()],
+        )
+        self.assertFalse(self.app.save.called)
+
+    def test_notes_set(self):
+        self.app.domains["test-vm1"].set_notes = unittest.mock.Mock()
+        with self.assertRaises(qubes.exc.ProtocolError):
+            payload = ("x" * 256001).encode()
+            self.call_mgmt_func(
+                b"admin.vm.notes.Set",
+                b"test-vm1",
+                payload=payload,
+            )
+        with self.assertRaises(qubes.exc.QubesException):
+            payload = "For Your Eyes Only".encode()
+            self.call_mgmt_func(
+                b"admin.vm.notes.Set",
+                b"test-vm1",
+                payload=payload,
+            )
+            self.app.domains["test-vm1"].set_notes.configure_mock(
+                **{"side_effect": Exception()}
+            )
+            self.call_mgmt_func(
+                b"admin.vm.notes.Set",
+                b"test-vm1",
+                payload=payload,
+            )
+
     def device_list_testclass(self, vm, event):
         if vm is not self.vm:
             return

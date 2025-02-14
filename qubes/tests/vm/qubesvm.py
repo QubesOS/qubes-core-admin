@@ -2947,3 +2947,18 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         assert qubes.vm.qubesvm.QubesVM(
             self.app, None, qid=1, name="bogus"
         ) > qubes.vm.adminvm.AdminVM(self.app, None)
+
+    def test_802_notes(self):
+        vm = self.get_vm()
+        notes = "For Your Eyes Only"
+        with unittest.mock.patch(
+            "builtins.open", unittest.mock.mock_open(read_data=notes)
+        ) as mock_open:
+            with self.assertNotRaises(Exception):
+                vm.set_notes(notes)
+            self.assertEqual(vm.get_notes(), notes)
+            mock_open.side_effect = FileNotFoundError()
+            self.assertEqual(vm.get_notes(), "")
+            with self.assertRaises(Exception):
+                mock_open.side_effect = PermissionError()
+                vm.get_notes()
