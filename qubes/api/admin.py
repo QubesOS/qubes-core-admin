@@ -2038,3 +2038,23 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "power_state": self.dest.get_power_state(),
         }
         return " ".join("{}={}".format(k, v) for k, v in state.items())
+
+    @qubes.api.method(
+        "admin.vm.notes.Get", no_payload=True, scope="local", read=True
+    )
+    async def vm_notes_get(self):
+        """Get qube notes"""
+        self.enforce(self.dest.name != "dom0")
+        self.fire_event_for_permission()
+        return self.dest.get_notes()
+
+    @qubes.api.method("admin.vm.notes.Set", scope="local", write=True)
+    async def vm_notes_set(self, untrusted_payload):
+        """Set qube notes"""
+        allowed_chars = string.printable + " \t\n"
+        self.enforce(self.dest.name != "dom0")
+        self.enforce(all(c in allowed_chars for c in self.arg))
+        self.fire_event_for_permission()
+        notes = "".join([c if c in allowed_chars else '_' for \
+            c in untrusted_payload.decode("ascii")])
+        self.dest.set_notes(notes)

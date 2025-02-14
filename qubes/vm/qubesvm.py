@@ -2586,6 +2586,43 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return base_kernelopts + qubes.config.defaults["kernelopts_common"]
 
     #
+    # free-form text for descriptions, notes, comments, remarks, etc.
+    #
+
+    @property
+    def notes_file(self) -> str:
+        """Notes file name within /var/lib/qubes (per each qube sub-dir)"""
+        return "notes.txt"
+
+    def has_notes(self) -> bool:
+        """Return `True` if there is a qube notes file present"""
+        return os.path.exists(os.path.join(self.dir_path, self.notes_file))
+
+    def get_notes(self) -> str:
+        """Read the notes file and return its content"""
+        try:
+            with open(os.path.join(self.dir_path, self.notes_file), \
+                    encoding="ascii") as fd:
+                return fd.read()
+        except EnvironmentError:  # pylint: disable=broad-except
+            # problem accessing file, like ENOTFOUND, EPERM or sth
+            return ""
+
+    def set_notes(self, notes: str) -> bool:
+        """Write to notes file"""
+        try:
+            with open(
+                os.path.join(self.dir_path, self.notes_file),
+                'w',
+                encoding="ascii",
+            ) as fd:
+                fd.write(notes)
+                fd.close()
+        except EnvironmentError:  # pylint: disable=broad-except
+            return False
+        return True
+
+    #
     # helper methods
     #
 
