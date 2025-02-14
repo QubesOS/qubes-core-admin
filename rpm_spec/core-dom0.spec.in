@@ -108,6 +108,9 @@ Conflicts:      qubes-audio-dom0 < 4.3.5
 # Required for qvm-console* tools
 Requires:       socat
 
+# Requires libqubes-pure for qube notes utf8 sanitisation
+Requires:       qubes-utils-libs
+
 %{?systemd_requires}
 
 Obsoletes:	qubes-core-dom0-doc <= 4.0
@@ -286,6 +289,8 @@ admin.vm.feature.Set
 admin.vm.firewall.Get
 admin.vm.firewall.Reload
 admin.vm.firewall.Set
+admin.vm.notes.Get
+admin.vm.notes.Set
 admin.vm.property.Get
 admin.vm.property.GetAll
 admin.vm.property.GetDefault
