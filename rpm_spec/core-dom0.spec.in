@@ -286,6 +286,8 @@ admin.vm.feature.Set
 admin.vm.firewall.Get
 admin.vm.firewall.Reload
 admin.vm.firewall.Set
+admin.vm.notes.Get
+admin.vm.notes.Set
 admin.vm.property.Get
 admin.vm.property.GetAll
 admin.vm.property.GetDefault
