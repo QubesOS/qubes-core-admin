@@ -528,6 +528,7 @@ done
 %{python3_sitelib}/qubes/tests/integ/qrexec.py
 %{python3_sitelib}/qubes/tests/integ/qrexec_perf.py
 %{python3_sitelib}/qubes/tests/integ/storage.py
+%{python3_sitelib}/qubes/tests/integ/storage_perf.py
 %{python3_sitelib}/qubes/tests/integ/vm_qrexec_gui.py
 
 %dir %{python3_sitelib}/qubes/tests/integ/tools
@@ -549,6 +550,7 @@ done
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/lib/qubes/tests/qrexec_perf.py
+/usr/lib/qubes/tests/storage_perf.py
 %{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-qmemman.service
