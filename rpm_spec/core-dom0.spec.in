@@ -521,6 +521,7 @@ done
 %{python3_sitelib}/qubes/tests/integ/dom0_update.py
 %{python3_sitelib}/qubes/tests/integ/vm_update.py
 %{python3_sitelib}/qubes/tests/integ/mime.py
+%{python3_sitelib}/qubes/tests/integ/misc.py
 %{python3_sitelib}/qubes/tests/integ/network.py
 %{python3_sitelib}/qubes/tests/integ/network_ipv6.py
 %{python3_sitelib}/qubes/tests/integ/grub.py
