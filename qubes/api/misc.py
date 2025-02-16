@@ -58,7 +58,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
             for key in keys
         }
 
-        safe_set = string.ascii_letters + string.digits + "-._"
+        safe_set = string.ascii_letters + string.digits + "-._ "
         for untrusted_key in untrusted_features:
             untrusted_value = untrusted_features[untrusted_key]
             self.enforce(all((c in safe_set) for c in untrusted_value))
