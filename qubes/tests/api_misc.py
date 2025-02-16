@@ -63,7 +63,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         qdb_entries = {
             '/features-request/feature1': b'1',
             '/features-request/feature2': b'',
-            '/features-request/feature3': b'other',
+            '/features-request/feature3': b'other with spaces',
         }
         self.configure_qdb(qdb_entries)
         response = self.call_mgmt_func(b'qubes.FeaturesRequest')
@@ -77,7 +77,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/features-request/feature2'),
             mock.call.untrusted_qdb.read('/features-request/feature3'),
             mock.call.fire_event_async('features-request', untrusted_features={
-                'feature1': '1', 'feature2': '', 'feature3': 'other'}),
+                'feature1': '1', 'feature2': '', 'feature3': 'other with spaces'}),
         ])
 
     def test_001_features_request_empty(self):
@@ -95,7 +95,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_002_features_request_invalid1(self):
         qdb_entries = {
-            '/features-request/feature1': b'test spaces',
+            "/features-request/feature1": b"test$chars",
         }
         self.configure_qdb(qdb_entries)
         with self.assertRaises(qubes.api.PermissionDenied):
