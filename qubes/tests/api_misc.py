@@ -73,7 +73,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         qdb_entries = {
             "/features-request/feature1": b"1",
             "/features-request/feature2": b"",
-            "/features-request/feature3": b"other",
+            "/features-request/feature3": b"other with spaces",
         }
         self.configure_qdb(qdb_entries)
         response = self.call_mgmt_func(b"qubes.FeaturesRequest")
@@ -91,7 +91,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     untrusted_features={
                         "feature1": "1",
                         "feature2": "",
-                        "feature3": "other",
+                        "feature3": "other with spaces",
                     },
                 ),
             ],
@@ -114,7 +114,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_002_features_request_invalid1(self):
         qdb_entries = {
-            "/features-request/feature1": b"test spaces",
+            "/features-request/feature1": b"test$chars",
         }
         self.configure_qdb(qdb_entries)
         with self.assertRaises(qubes.exc.PermissionDenied):

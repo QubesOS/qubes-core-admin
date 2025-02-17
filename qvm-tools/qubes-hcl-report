@@ -238,6 +238,12 @@ elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT_VERSION" = "V560TU" ] && [[ "$BIOS
     if [ -z "$wifi" ] || [[ "$wifi" = *"8086:7e40"* ]] || [[ "$wifi" = *"8086:272b"* ]]; then
         CERTIFIED=yes
     fi
+elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT_VERSION" = "V540TU" ] && [[ "$BIOS" = "Dasharo"* ]]; then
+    # only Intel AX or BE200 models are certified
+    wifi=$(lspci -nn | grep -F '[0280]:')
+    if [ -z "$wifi" ] || [[ "$wifi" = *"8086:7e40"* ]] || [[ "$wifi" = *"8086:272b"* ]]; then
+        CERTIFIED=yes
+    fi
 fi
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
