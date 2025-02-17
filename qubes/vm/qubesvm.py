@@ -1302,6 +1302,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             await self._ensure_shutdown_handled()
 
+            if self.features.get("prohibit-start", False):
+                await self.fire_event_async(
+                    "domain-start-failed", reason="Qube start is prohibited!"
+                )
+                raise qubes.exc.QubesException(
+                    "Qube start is blocked by `prohibit-start` feature"
+                )
+
             self.log.info("Starting {}".format(self.name))
 
             try:
