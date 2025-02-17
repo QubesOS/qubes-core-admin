@@ -108,6 +108,13 @@ class CoreFeatures(qubes.ext.Extension):
                 vm.features["qubes-agent-version"] = untrusted_value
 
         # handle boot mode advertisement
+        existing_bootmode_name_list = [name for name in vm.features \
+            if _bootmode_name_key_re.match(name)]
+        existing_bootmode_name_count = len(existing_bootmode_name_list)
+        existing_bootmode_kernelopts_list = [mode for mode in vm.features \
+            if _bootmode_kernelopts_key_re.match(mode)]
+        existing_bootmode_kernelopts_count = len(
+            existing_bootmode_kernelopts_list)
         for _, (
             untrusted_feature_key, untrusted_feature_value
         ) in enumerate(untrusted_features.items()):
@@ -116,10 +123,17 @@ class CoreFeatures(qubes.ext.Extension):
             ):
                 continue
             if _bootmode_name_key_re.match(untrusted_feature_key):
+                # Only 64 boot modes are allowed
+                if existing_bootmode_name_count >= 64:
+                    continue
                 bootmode_feature = untrusted_feature_key
                 bootmode_value = untrusted_feature_value
                 vm.features[bootmode_feature] = bootmode_value
+                existing_bootmode_name_count += 1
             elif _bootmode_kernelopts_key_re.match(untrusted_feature_key):
+                # Only 64 boot modes are allowed
+                if existing_bootmode_kernelopts_count >= 64:
+                    continue
                 # Don't allow setting the kernelopts for the default mode,
                 # these are ignored anyway
                 if untrusted_feature_key == \
@@ -128,6 +142,7 @@ class CoreFeatures(qubes.ext.Extension):
                 bootmode_feature = untrusted_feature_key
                 bootmode_value = untrusted_feature_value
                 vm.features[bootmode_feature] = bootmode_value
+                existing_bootmode_kernelopts_count += 1
             elif untrusted_feature_key == "boot-mode.active" or \
                 untrusted_feature_key == "boot-mode.appvm-default":
                 bootmode_feature = untrusted_feature_key

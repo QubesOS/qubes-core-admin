@@ -46,14 +46,14 @@ def template_changed_update_bootmode(self):
         self.features["boot-mode.active"] = "default"
     else:
         active_boot_mode = self.template.features["boot-mode.appvm-default"]
-    try:
-        _ = self.features.check_with_template(
-            f"boot-mode.{active_boot_mode}.kernelopts"
-        )
-        self.features["boot-mode.active"] = active_boot_mode
-    except KeyError:
-        self.template.features["boot-mode.appvm-default"] = "default"
-        self.features["boot-mode.active"] = "default"
+        try:
+            _ = self.features.check_with_template(
+                f"boot-mode.{active_boot_mode}.kernelopts"
+            )
+            self.features["boot-mode.active"] = active_boot_mode
+        except KeyError:
+            self.template.features["boot-mode.appvm-default"] = "default"
+            self.features["boot-mode.active"] = "default"
 
 
 class AppVM(
