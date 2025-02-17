@@ -24,6 +24,8 @@ import string
 import qubes.ext
 
 _version_re = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}")
+_bootmode_name_key_re = re.compile(r"boot-mode\.[-a-z_]*\.name$")
+_bootmode_kernelopts_key_re = re.compile(r"boot-mode\.[-a-z_]*\.kernelopts$")
 
 
 class CoreFeatures(qubes.ext.Extension):
@@ -104,6 +106,49 @@ class CoreFeatures(qubes.ext.Extension):
             untrusted_value = untrusted_features["qubes-agent-version"]
             if _version_re.fullmatch(untrusted_value):
                 vm.features["qubes-agent-version"] = untrusted_value
+
+        # handle boot mode advertisement
+        existing_bootmode_name_list = [name for name in vm.features \
+            if _bootmode_name_key_re.match(name)]
+        existing_bootmode_name_count = len(existing_bootmode_name_list)
+        existing_bootmode_kernelopts_list = [mode for mode in vm.features \
+            if _bootmode_kernelopts_key_re.match(mode)]
+        existing_bootmode_kernelopts_count = len(
+            existing_bootmode_kernelopts_list)
+        for _, (
+            untrusted_feature_key, untrusted_feature_value
+        ) in enumerate(untrusted_features.items()):
+            if not all(
+                c in string.printable for c in untrusted_feature_value
+            ):
+                continue
+            if _bootmode_name_key_re.match(untrusted_feature_key):
+                # Only 64 boot modes are allowed
+                if existing_bootmode_name_count >= 64:
+                    continue
+                bootmode_feature = untrusted_feature_key
+                bootmode_value = untrusted_feature_value
+                vm.features[bootmode_feature] = bootmode_value
+                existing_bootmode_name_count += 1
+            elif _bootmode_kernelopts_key_re.match(untrusted_feature_key):
+                # Only 64 boot modes are allowed
+                if existing_bootmode_kernelopts_count >= 64:
+                    continue
+                # Don't allow setting the kernelopts for the default mode,
+                # these are ignored anyway
+                if untrusted_feature_key == \
+                    "boot-mode.default.kernelopts":
+                    continue
+                bootmode_feature = untrusted_feature_key
+                bootmode_value = untrusted_feature_value
+                vm.features[bootmode_feature] = bootmode_value
+                existing_bootmode_kernelopts_count += 1
+            elif untrusted_feature_key == "boot-mode.active" or \
+                untrusted_feature_key == "boot-mode.appvm-default":
+                bootmode_feature = untrusted_feature_key
+                bootmode_value = untrusted_feature_value
+                if bootmode_feature not in vm.features:
+                    vm.features[bootmode_feature] = bootmode_value
         del untrusted_features
 
         # default user for qvm-run etc

@@ -40,6 +40,22 @@ def template_changed_update_storage(self):
             self.storage.init_volume(volume_name, config)
 
 
+def template_changed_update_bootmode(self):
+    """Update boot mode configuration for TemplateVM changes"""
+    if self.template.features.get("boot-mode.appvm-default", None) is None:
+        self.features["boot-mode.active"] = "default"
+    else:
+        active_boot_mode = self.template.features["boot-mode.appvm-default"]
+        try:
+            _ = self.features.check_with_template(
+                f"boot-mode.{active_boot_mode}.kernelopts"
+            )
+            self.features["boot-mode.active"] = active_boot_mode
+        except KeyError:
+            self.template.features["boot-mode.appvm-default"] = "default"
+            self.features["boot-mode.active"] = "default"
+
+
 class AppVM(
     qubes.vm.mix.dvmtemplate.DVMTemplateMixin, qubes.vm.qubesvm.QubesVM
 ):
@@ -149,8 +165,10 @@ class AppVM(
     @qubes.events.handler("property-set:template")
     def on_property_set_template(self, event, name, newvalue, oldvalue=None):
         """Adjust root (and possibly other snap_on_start=True) volume
-        on template change.
+        on template change. Also switch active boot mode to match that set by
+        the template.
         """  # pylint: disable=unused-argument
         template_changed_update_storage(self)
+        template_changed_update_bootmode(self)
         for vm in self.dispvms:
             vm.on_property_set_template(event, name, newvalue, oldvalue)
