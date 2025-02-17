@@ -466,6 +466,22 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.vm.start())
         self.shutdown_paused(self.vm)
 
+    def test_207_domain_start_prohibition(self):
+        vmname = self.make_vm_name("compromised_vm")
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        with self.assertRaises(qubes.exc.QubesException):
+            self.vm.features["prohibit-start"] = (
+                "The qube is compromised and awaits forensic analysis"
+            )
+            self.loop.run_until_complete(self.vm.start())
+        self.assertFalse(self.vm.is_running())
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init

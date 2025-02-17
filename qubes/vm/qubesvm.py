@@ -369,6 +369,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         .. event:: domain-start-failed (subject, event, reason)
 
             Fired when :py:meth:`start` method fails.
+            or if domain has a `prohibit-start` feature.
             *reason* argument is a textual error message.
 
             Handler for this event may be asynchronous.
@@ -1301,6 +1302,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 return self
 
             await self._ensure_shutdown_handled()
+
+            prohibit_rationale: str = self.features.get("prohibit-start", False)
+            if prohibit_rationale:
+                await self.fire_event_async(
+                    "domain-start-failed",
+                    reason="Qube start is prohibited. "
+                    f"Rationale: {prohibit_rationale}",
+                )
+                raise qubes.exc.QubesException(
+                    f"Qube start is prohibited. Rationale: {prohibit_rationale}"
+                )
 
             self.log.info("Starting {}".format(self.name))
 
