@@ -109,6 +109,8 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.firewall.GetPolicy \
 	admin.vm.firewall.SetPolicy \
 	admin.vm.firewall.Reload \
+	admin.vm.notes.Get \
+	admin.vm.notes.Set \
 	admin.vm.property.Get \
 	admin.vm.property.GetAll \
 	admin.vm.property.GetDefault \
