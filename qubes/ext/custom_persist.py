@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
+import os
 import qubes.ext
 import qubes.config
 
@@ -39,20 +40,53 @@ class CustomPersist(qubes.ext.Extension):
         return feature.startswith(FEATURE_PREFIX)
 
     @staticmethod
-    def _is_valid_key(key, vm) -> bool:
+    def _check_key(key):
         if not key:
-            vm.log.warning("Got empty custom-persist key, ignoring")
-            return False
+            raise qubes.exc.QubesValueError(
+                "custom-persist key cannot be empty"
+            )
 
         # QubesDB key length limit
         key_maxlen = QDB_KEY_LIMIT - len(QDB_PREFIX)
         if len(key) > key_maxlen:
-            vm.log.warning(
+            raise qubes.exc.QubesValueError(
                 "custom-persist key is too long (max {}), ignoring: "
                 "{}".format(key_maxlen, key)
             )
-            return False
-        return True
+
+    @staticmethod
+    def _check_value_path(value):
+        if not os.path.isabs(value):
+            raise qubes.exc.QubesValueError(f"invalid path '{value}'")
+
+    def _check_value(self, value):
+        if value.startswith("/"):
+            self._check_value_path(value)
+        else:
+            options = value.split(":")
+            if len(options) < 5 or not options[4].startswith("/"):
+                raise qubes.exc.QubesValueError(
+                    f"invalid value format: '{value}'"
+                )
+
+            resource_type = options[0]
+            mode = options[3]
+            if resource_type not in ("file", "dir"):
+                raise qubes.exc.QubesValueError(
+                    f"invalid resource type option '{resource_type}' "
+                    f"in value '{value}'"
+                )
+            try:
+                if not 0 <= int(mode, 8) <= 0o7777:
+                    raise qubes.exc.QubesValueError(
+                        f"invalid mode option '{mode}' in value '{value}'"
+                    )
+            except ValueError:
+                raise qubes.exc.QubesValueError(
+                    f"invalid mode option '{mode}' in value '{value}'"
+                )
+
+            self._check_value_path(":".join(options[4:]))
 
     def _write_db_value(self, feature, value, vm):
         vm.untrusted_qdb.write(
@@ -65,9 +99,9 @@ class CustomPersist(qubes.ext.Extension):
         """Actually export features"""
         # pylint: disable=unused-argument
         for feature, value in vm.features.items():
-            if self._is_expected_feature(feature) and self._is_valid_key(
-                self._extract_key_from_feature(feature), vm
-            ):
+            if self._is_expected_feature(feature):
+                self._check_key(self._extract_key_from_feature(feature))
+                self._check_value(value)
                 self._write_db_value(feature, value, vm)
 
     @qubes.ext.handler("domain-feature-set:*")
@@ -78,8 +112,8 @@ class CustomPersist(qubes.ext.Extension):
         if not self._is_expected_feature(feature):
             return
 
-        if not self._is_valid_key(self._extract_key_from_feature(feature), vm):
-            return
+        self._check_key(self._extract_key_from_feature(feature))
+        self._check_value(value)
 
         if not vm.is_running():
             return

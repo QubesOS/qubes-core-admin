@@ -1100,6 +1100,7 @@ class TC_40_CustomPersist(qubes.tests.QubesTestCase):
             "/newvalue",
             "",
         )
+
         self.assertEqual(
             sorted(self.vm.untrusted_qdb.mock_calls),
             [
@@ -1114,36 +1115,35 @@ class TC_40_CustomPersist(qubes.tests.QubesTestCase):
         self.ext.on_domain_feature_delete(
             self.vm, "feature-delete:custom-persist.test", "custom-persist.test"
         )
-        self.assertEqual(
-            self.vm.untrusted_qdb.mock_calls,
-            [mock.call.rm("/persist/test")],
-        )
+        self.vm.untrusted_qdb.rm.assert_called_with("/persist/test")
 
     def test_003_empty_key(self):
-        self.ext.on_domain_feature_set(
-            self.vm,
-            "feature-set:custom-persist.",
-            "custom-persist.",
-            "/test",
-            "",
-        )
-        self.vm.untrusted_qdb.assert_not_called()
-        self.vm.log.warning.assert_called_once_with(
-            "Got empty custom-persist key, ignoring"
-        )
+        with self.assertRaises(qubes.exc.QubesValueError) as e:
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.",
+                "custom-persist.",
+                "/test",
+                "",
+            )
+        self.assertEqual(str(e.exception), "custom-persist key cannot be empty")
+        self.vm.untrusted_qdb.write.assert_not_called()
 
     def test_004_key_too_long(self):
-        self.ext.on_domain_feature_set(
-            self.vm,
-            "feature-set:custom-persist." + "X" * 55,
-            "custom-persist." + "X" * 55,
-            "/test",
-            "",
+        with self.assertRaises(qubes.exc.QubesValueError) as e:
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist." + "X" * 55,
+                "custom-persist." + "X" * 55,
+                "/test",
+                "",
+            )
+
+        self.assertEqual(
+            str(e.exception),
+            "custom-persist key is too long (max 54), ignoring: " + "X" * 55,
         )
         self.vm.untrusted_qdb.assert_not_called()
-        self.vm.log.warning.assert_called_once_with(
-            "custom-persist key is too long (max 54), ignoring: " + "X" * 55
-        )
 
     def test_005_other_feature_deletion(self):
         self.ext.on_domain_feature_delete(
@@ -1159,4 +1159,105 @@ class TC_40_CustomPersist(qubes.tests.QubesTestCase):
             "custom-persist.test",
             "/test",
         )
-        self.vm.untrusted_qdb.assert_not_called()
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_007_feature_set_value_with_option(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test",
+            "custom-persist.test",
+            "dir:root:root:0755:/var/test",
+            "",
+        )
+        self.vm.untrusted_qdb.write.assert_called_with(
+            "/persist/test", "dir:root:root:0755:/var/test"
+        )
+
+    def test_008_feature_set_invalid_path(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.test",
+                "custom-persist.test",
+                "test",
+                "",
+            )
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_009_feature_set_invalid_option_type(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.test",
+                "custom-persist.test",
+                "bad:root:root:0755:/var/test",
+                "",
+            )
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_010_feature_set_invalid_option_mode_too_high(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.test",
+                "custom-persist.test",
+                "file:root:root:9750:/var/test",
+                "",
+            )
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_011_feature_set_invalid_option_mode_negative_high(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.test",
+                "custom-persist.test",
+                "file:root:root:-755:/var/test",
+                "",
+            )
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_012_feature_set_option_mode_without_leading_zero(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test",
+            "custom-persist.test",
+            "file:root:root:755:/var/test",
+            "",
+        )
+        self.vm.untrusted_qdb.write.assert_called_with(
+            "/persist/test", "file:root:root:755:/var/test"
+        )
+
+    def test_013_feature_set_invalid_path_with_option(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.ext.on_domain_feature_set(
+                self.vm,
+                "feature-set:custom-persist.test",
+                "custom-persist.test",
+                "dir:root:root:0755:var/test",
+                "",
+            )
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_014_feature_set_path_with_colon_with_options(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test",
+            "custom-persist.test",
+            "file:root:root:755:/var/test:dir:with:colon",
+            "",
+        )
+        self.vm.untrusted_qdb.write.assert_called()
+
+    def test_015_feature_set_path_with_colon_without_options(self):
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:custom-persist.test",
+            "custom-persist.test",
+            "/var/test:dir:with:colon",
+            "",
+        )
+        self.vm.untrusted_qdb.write.assert_called_with(
+            "/persist/test", "/var/test:dir:with:colon"
+        )
