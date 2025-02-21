@@ -1,0 +1,17 @@
+[Unit]
+Description=Preload Qubes DispVMs
+After=qubes-vm@.service
+# TODO: or 'Requires='? Should a failure to autostart sys-(usb|net) make this
+# unit be skipped?
+Wants=qubes-vm@.service
+ConditionKernelCommandLine=!qubes.skip_autostart
+
+[Service]
+Type=oneshot
+Environment=DISPLAY=:0
+ExecStart=/usr/lib/qubes/preload-dispvm
+Group=qubes
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
