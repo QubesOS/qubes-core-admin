@@ -24,6 +24,7 @@ import os
 import time
 
 import xen.lowlevel
+from pathlib import Path
 
 import qubes.qmemman
 from qubes.qmemman.domainstate import DomainState
@@ -433,6 +434,17 @@ class SystemState(object):
                     return
 
             self.mem_set(dom, mem)
+
+        xenfree = self.get_free_xen_memory()
+        memory_dictionary = qubes.qmemman.algo.memory_info(
+            xenfree - self.XEN_FREE_MEM_LEFT, self.domdict
+        )
+        avail_mem_file = qubes.config.qmemman_avail_mem_file
+        avail_mem_file_tmp = Path(avail_mem_file).with_suffix(".tmp")
+        with open(avail_mem_file_tmp, "w", encoding="ascii") as file:
+            file.write(str(memory_dictionary["total_available_memory"]))
+        os.chmod(avail_mem_file_tmp, 0o644)
+        os.replace(avail_mem_file_tmp, avail_mem_file)
 
 
 #        for i in self.domdict.keys():

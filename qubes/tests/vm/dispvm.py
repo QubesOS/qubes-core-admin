@@ -23,6 +23,7 @@ import unittest.mock as mock
 
 import asyncio
 
+import qubes.events
 import qubes.vm.dispvm
 import qubes.vm.appvm
 import qubes.vm.templatevm
@@ -60,6 +61,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
+        self.template.features["qrexec"] = True
         self.appvm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name="test-vm",
@@ -69,6 +71,11 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.app.domains[self.appvm.name] = self.appvm
         self.app.domains[self.appvm] = self.appvm
         self.addCleanup(self.cleanup_dispvm)
+        self.emitter = qubes.tests.TestEmitter()
+
+    def tearDown(self):
+        del self.emitter
+        super(TC_00_DispVM, self).tearDown()
 
     def cleanup_dispvm(self):
         if hasattr(self, "dispvm"):
@@ -83,6 +90,18 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     async def mock_coro(self, *args, **kwargs):
         pass
+
+    def _test_event_handler(
+        self, vm, event, *args, **kwargs
+    ):  # pylint: disable=unused-argument
+        if not hasattr(self, "event_handler"):
+            self.event_handler = {}
+        self.event_handler.setdefault(vm.name, {})[event] = True
+
+    def _test_event_was_handled(self, vm, event):
+        if not hasattr(self, "event_handler"):
+            self.event_handler = {}
+        return self.event_handler.get(vm, {}).get(event)
 
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
@@ -107,12 +126,96 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertEqual(dispvm.name, "disp42")
         self.assertEqual(dispvm.template, self.appvm)
         self.assertEqual(dispvm.label, self.appvm.label)
-        self.assertEqual(dispvm.label, self.appvm.label)
         self.assertEqual(dispvm.auto_cleanup, True)
         mock_makedirs.assert_called_once_with(
             "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
         )
         mock_symlink.assert_not_called()
+
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_reject_max(self, mock_storage):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["preload-dispvm-max"] = "0"
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            )
+            mock_domains.get_new_unused_dispid.assert_not_called()
+
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_use(
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
+        mock_start,
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_start.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["preload-dispvm-max"] = "1"
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_qube = mock.Mock()
+            mock_qube.template = self.appvm
+            mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
+            mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
+            mock_qube.preload_complete.is_set.return_value = True
+            mock_qube.preload_complete.set = self.mock_coro
+            mock_qube.preload_complete.clear = self.mock_coro
+            mock_qube.preload_complete.wait = self.mock_coro
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__contains__.return_value": True,
+                    "__getitem__.side_effect": lambda key: (
+                        mock_qube if key == "disp42" else orig_getitem(key)
+                    ),
+                }
+            )
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            )
+            self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
+            self.assertTrue(dispvm.is_preload)
+            self.assertTrue(dispvm.features.get("internal", False))
+            self.assertEqual(dispvm.name, "disp42")
+            self.assertEqual(dispvm.template, self.appvm)
+            self.assertEqual(dispvm.label, self.appvm.label)
+            self.assertEqual(dispvm.auto_cleanup, True)
+            mock_qube.name = dispvm.name
+            mock_qube.features = dispvm.features
+            mock_qube.unpause = self.mock_coro
+            fresh_dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
+            )
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+        mock_start.assert_called_once_with()
+        mock_makedirs.assert_called_once_with(
+            "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
+        )
+        mock_symlink.assert_not_called()
+        # Marking as preloaded is done on integration tests, checking if we
+        # can use the same qube that was preloaded is enough for unit tests.
+        self.assertEqual(dispvm.name, fresh_dispvm.name)
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
@@ -287,7 +390,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm.volumes["root"].pool, self.appvm.volumes["root"].pool
         )
         self.assertIs(
-            dispvm.volumes["volatile"].pool, self.appvm.volumes["volatile"].pool
+            dispvm.volumes["volatile"].pool,
+            self.appvm.volumes["volatile"].pool,
         )
         self.assertFalse(dispvm.volumes["volatile"].ephemeral)
 
@@ -336,7 +440,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.appvm.volume_config["root"]["source"],
         )
         self.assertIs(
-            vm.volume_config["private"]["source"], self.appvm.volumes["private"]
+            vm.volume_config["private"]["source"],
+            self.appvm.volumes["private"],
         )
 
     def test_022_storage_app_change(self):
@@ -394,7 +499,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.appvm.volumes["root"].source,
         )
         self.assertNotEqual(
-            vm.volume_config["private"]["source"], self.appvm.volumes["private"]
+            vm.volume_config["private"]["source"],
+            self.appvm.volumes["private"],
         )
         self.assertIs(
             vm.volume_config["root"]["source"], template2.volumes["root"]

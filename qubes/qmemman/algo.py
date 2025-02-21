@@ -247,13 +247,12 @@ def balance_when_low_on_memory(
     return donors_rq + acceptors_rq
 
 
-# redistribute memory across domains
-# called when one of domains update its 'meminfo' xenstore key
-# return the list of (domain, memory_target) pairs to be passed to
-# "xm memset" equivalent
-def balance(xen_free_memory, domain_dictionary):
+# get memory information
+# called before and after domain balances
+# return a dictionary of various memory data points
+def memory_info(xen_free_memory, domain_dictionary):
     log.debug(
-        "balance(xen_free_memory={!r}, domain_dictionary={!r})".format(
+        "memory_info(xen_free_memory={!r}, domain_dictionary={!r})".format(
             xen_free_memory, domain_dictionary
         )
     )
@@ -296,18 +295,42 @@ def balance(xen_free_memory, domain_dictionary):
         total_mem_pref += prefmem(domain_dictionary[i])
 
     total_available_memory = xen_free_memory - total_memory_needed
-    if total_available_memory > 0:
+
+    mem_dictionary = {}
+    mem_dictionary["domain_dictionary"] = domain_dictionary
+    mem_dictionary["total_available_memory"] = total_available_memory
+    mem_dictionary["xen_free_memory"] = xen_free_memory
+    mem_dictionary["total_mem_pref"] = total_mem_pref
+    mem_dictionary["total_mem_pref_acceptors"] = total_mem_pref_acceptors
+    mem_dictionary["donors"] = donors
+    mem_dictionary["acceptors"] = acceptors
+    return mem_dictionary
+
+
+# redistribute memory across domains
+# called when one of domains update its 'meminfo' xenstore key
+# return the list of (domain, memory_target) pairs to be passed to
+# "xm memset" equivalent
+def balance(xen_free_memory, domain_dictionary):
+    log.debug(
+        "balance(xen_free_memory={!r}, domain_dictionary={!r})".format(
+            xen_free_memory, domain_dictionary
+        )
+    )
+    memory_dictionary = memory_info(xen_free_memory, domain_dictionary)
+
+    if memory_dictionary["total_available_memory"] > 0:
         return balance_when_enough_memory(
-            domain_dictionary,
-            xen_free_memory,
-            total_mem_pref,
-            total_available_memory,
+            memory_dictionary["domain_dictionary"],
+            memory_dictionary["xen_free_memory"],
+            memory_dictionary["total_mem_pref"],
+            memory_dictionary["total_available_memory"],
         )
     else:
         return balance_when_low_on_memory(
-            domain_dictionary,
-            xen_free_memory,
-            total_mem_pref_acceptors,
-            donors,
-            acceptors,
+            memory_dictionary["domain_dictionary"],
+            memory_dictionary["xen_free_memory"],
+            memory_dictionary["total_mem_pref_acceptors"],
+            memory_dictionary["donors"],
+            memory_dictionary["acceptors"],
         )

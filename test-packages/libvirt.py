@@ -24,6 +24,7 @@ def openReadOnly(*args, **kwargs):
 def registerErrorHandler(f, ctx):
     pass
 
+VIR_DOMAIN_START_PAUSED = 1
 VIR_DOMAIN_BLOCKED = 2
 VIR_DOMAIN_RUNNING = 1
 VIR_DOMAIN_PAUSED = 3
