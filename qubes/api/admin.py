@@ -24,9 +24,10 @@ Qubes OS Management API
 import asyncio
 import functools
 import os
+import pathlib
+import re
 import string
 import subprocess
-import pathlib
 
 from ctypes import CDLL
 
@@ -1159,9 +1160,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.feature.Set", scope="local", write=True)
     async def vm_feature_set(self, untrusted_payload):
-        # validation of self.arg done by qrexec-policy is enough
-        value = untrusted_payload.decode("ascii", errors="strict")
+        untrusted_value = untrusted_payload.decode("ascii", errors="strict")
         del untrusted_payload
+        if re.match(r"\A[a-zA-Z0-9_.-]+\Z", self.arg) is None:
+            raise qubes.exc.QubesValueError(
+                "feature name contains illegal characters"
+            )
+        if re.match(r"\A[\x20-\x7E]*\Z", untrusted_value) is None:
+            raise qubes.exc.QubesValueError(
+                f"{self.arg} value contains illegal characters"
+            )
+        value = untrusted_value
+        del untrusted_value
 
         self.fire_event_for_permission(value=value)
         self.dest.features[self.arg] = value
@@ -1296,7 +1306,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
-        self.enforce(not self.arg)
+        """
+        Create a disposable. If the RPC argument is ``preload-autostart``,
+        cleanse the preload list and start preloading fresh disposables.
+        """
+        self.enforce(self.arg in [None, "", "preload-autostart"])
+        preload_autostart = False
+        if self.arg == "preload-autostart":
+            preload_autostart = True
         if untrusted_payload not in (b"", b"uuid"):
             raise qubes.exc.QubesValueError(
                 "Invalid payload for admin.vm.CreateDisposable: "
@@ -1304,17 +1321,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             )
 
         if self.dest.name == "dom0":
-            dispvm_template = self.src.default_dispvm
+            appvm = self.src.default_dispvm
         else:
-            dispvm_template = self.dest
+            appvm = self.dest
 
-        self.fire_event_for_permission(dispvm_template=dispvm_template)
-
-        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(dispvm_template)
+        self.fire_event_for_permission(dispvm_template=appvm)
+        if preload_autostart:
+            await appvm.fire_event_async("domain-preload-dispvm-autostart")
+            return
+        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(appvm)
         # TODO: move this to extension (in race-free fashion, better than here)
         dispvm.tags.add("created-by-" + str(self.src))
         dispvm.tags.add("disp-created-by-" + str(self.src))
-
         return (
             ("uuid:" + str(dispvm.uuid)) if untrusted_payload else dispvm.name
         )
@@ -1659,7 +1677,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method(
-        "admin.vm.device.denied.List", no_payload=True, scope="local", read=True
+        "admin.vm.device.denied.List",
+        no_payload=True,
+        scope="local",
+        read=True,
     )
     async def vm_device_denied_list(self):
         """
@@ -1767,7 +1788,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.firewall.save()
 
     @qubes.api.method(
-        "admin.vm.firewall.Reload", no_payload=True, scope="local", execute=True
+        "admin.vm.firewall.Reload",
+        no_payload=True,
+        scope="local",
+        execute=True,
     )
     async def vm_firewall_reload(self):
         self.enforce(not self.arg)

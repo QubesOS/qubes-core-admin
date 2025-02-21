@@ -33,7 +33,7 @@ class Formatter(logging.Formatter):
         self.debug = debug
 
     def formatMessage(self, record):
-        fmt = ""
+        fmt = "%(levelname)s: "
         if self.debug:
             fmt += "[%(processName)s %(module)s.%(funcName)s:%(lineno)d] "
         if self.debug or record.name.startswith("vm."):

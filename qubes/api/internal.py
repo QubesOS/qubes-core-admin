@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-""" Internal interface for dom0 components to communicate with qubesd. """
+"""Internal interface for dom0 components to communicate with qubesd."""
 
 import asyncio
 import json
@@ -45,6 +45,8 @@ class SystemInfoCache:
         "domain-shutdown",
         "domain-tag-add:*",
         "domain-tag-delete:*",
+        "domain-feature-set:internal",
+        "domain-feature-delete:internal",
         "property-set:template_for_dispvms",
         "property-reset:template_for_dispvms",
         "property-set:default_dispvm",
@@ -117,6 +119,7 @@ class SystemInfoCache:
         system_info = {
             "domains": {
                 domain.name: {
+                    "internal": domain.features.get("internal", None),
                     "tags": list(domain.tags),
                     "type": domain.__class__.__name__,
                     "template_for_dispvms": getattr(
@@ -262,6 +265,12 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
+        preload_templates = qubes.vm.dispvm.get_preload_templates(
+            self.app.domains
+        )
+        for qube in preload_templates:
+            qube.remove_preload_excess(0)
+
         # first keep track of VMs which were paused before suspending
         previously_paused = [
             vm.name
@@ -406,3 +415,11 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                         qubes.config.suspend_timeout,
                         "qubes.SuspendPostAll",
                     )
+
+        preload_templates = qubes.vm.dispvm.get_preload_templates(
+            self.app.domains
+        )
+        for qube in preload_templates:
+            asyncio.ensure_future(
+                qube.fire_event_async("domain-preload-dispvm-autostart")
+            )

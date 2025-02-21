@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import asyncio
+import concurrent.futures
+import qubesadmin
+
+
+def get_max(qube):
+    return int(qube.features.get("preload-dispvm-max", 0) or 0)
+
+
+async def main():
+    domains = qubesadmin.Qubes().domains
+    appvms = [
+        qube
+        for qube in domains
+        if get_max(qube) > 0
+        and qube.klass == "AppVM"
+        and getattr(qube, "template_for_dispvms", False)
+    ]
+    method = "admin.vm.CreateDisposable"
+    loop = asyncio.get_running_loop()
+    tasks = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for qube in appvms:
+            maximum = get_max(qube)
+            print(f"{qube}:{maximum}")
+            exec_args = qube.qubesd_call, qube.name, method, "preload-autostart"
+            future = loop.run_in_executor(executor, *exec_args)
+            tasks.append(future)
+        await asyncio.gather(*tasks)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
