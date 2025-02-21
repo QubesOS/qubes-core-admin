@@ -1272,7 +1272,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
-        self.enforce(not self.arg)
+        self.enforce(self.arg in [None, "preload", "preload-autostart"])
+        preload = False
+        preload_autostart = False
+        if self.arg == "preload":
+            preload = True
+        if self.arg == "preload-autostart":
+            preload_autostart = True
         if untrusted_payload not in (b"", b"uuid"):
             raise qubes.exc.QubesValueError(
                 "Invalid payload for admin.vm.CreateDisposable: "
@@ -1286,7 +1292,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(dispvm_template=dispvm_template)
 
-        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(dispvm_template)
+        if preload_autostart:
+            await (
+                self.dest.fire_event_async("domain-preloaded-dispvm-autostart")
+            )
+            return
+
+        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(
+            dispvm_template, preload=preload
+        )
         # TODO: move this to extension (in race-free fashion, better than here)
         dispvm.tags.add("created-by-" + str(self.src))
         dispvm.tags.add("disp-created-by-" + str(self.src))
