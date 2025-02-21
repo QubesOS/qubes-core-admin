@@ -45,6 +45,8 @@ class SystemInfoCache:
         "domain-shutdown",
         "domain-tag-add:*",
         "domain-tag-delete:*",
+        "domain-feature-set:internal",
+        "domain-feature-delete:internal",
         "property-set:template_for_dispvms",
         "property-reset:template_for_dispvms",
         "property-set:default_dispvm",
@@ -117,6 +119,7 @@ class SystemInfoCache:
         system_info = {
             "domains": {
                 domain.name: {
+                    "internal": domain.features.get("internal", None),
                     "tags": list(domain.tags),
                     "type": domain.__class__.__name__,
                     "template_for_dispvms": getattr(
@@ -262,6 +265,19 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
+        # TODO: ben: to Marek: where is a good place to deduplicate the disp
+        # template gathering? Would be nice to also use it on
+        # linux/aux-tools/preload-dispvm
+        preload_templates = [
+            qube
+            for qube in self.app.domains
+            if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
+            and qube.klass == "AppVM"
+            and getattr(qube, "template_for_dispvms", False)
+        ]
+        for qube in preload_templates:
+            qube.remove_preload_excess(0)
+
         # first keep track of VMs which were paused before suspending
         previously_paused = [
             vm.name
@@ -406,3 +422,15 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                         qubes.config.suspend_timeout,
                         "qubes.SuspendPostAll",
                     )
+
+        preload_templates = [
+            qube
+            for qube in self.app.domains
+            if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
+            and qube.klass == "AppVM"
+            and getattr(qube, "template_for_dispvms", False)
+        ]
+        for qube in preload_templates:
+            asyncio.ensure_future(
+                qube.fire_event_async("domain-preload-dispvm-autostart")
+            )
