@@ -179,6 +179,7 @@ all:
 
 install:
 ifeq ($(OS),Linux)
+	$(MAKE) install -C linux/autostart
 	$(MAKE) install -C linux/systemd
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config

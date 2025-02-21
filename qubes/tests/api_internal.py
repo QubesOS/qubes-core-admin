@@ -203,6 +203,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_010_get_system_info(self):
         self.dom0.name = "dom0"
+        self.dom0.features = {}
         self.dom0.tags = ["tag1", "tag2"]
         self.dom0.default_dispvm = None
         self.dom0.template_for_dispvms = False
@@ -213,6 +214,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
         vm = mock.NonCallableMock(spec=qubes.vm.qubesvm.QubesVM)
         vm.name = "vm"
+        vm.features = {"internal": 1}
         vm.tags = ["tag3", "tag4"]
         vm.default_dispvm = vm
         vm.template_for_dispvms = True
@@ -230,6 +232,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "default_dispvm": None,
                     "template_for_dispvms": False,
                     "icon": "icon-dom0",
+                    "internal": None,
                     "guivm": None,
                     "power_state": "Running",
                     "relayvm": None,
@@ -242,6 +245,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "default_dispvm": "vm",
                     "template_for_dispvms": True,
                     "icon": "icon-vm",
+                    "internal": 1,
                     "guivm": "vm",
                     "power_state": "Halted",
                     "relayvm": None,
