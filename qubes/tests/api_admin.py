@@ -3787,6 +3787,35 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(b"admin.vm.CreateDisposable", b"test-vm1")
         self.assertFalse(self.app.save.called)
 
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_643_vm_create_disposable_preload(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.template_for_dispvms = True
+        self.vm.features["preload-dispvm-max"] = 1
+        self.app.default_dispvm = self.vm
+        retval = self.call_mgmt_func(
+            b"admin.vm.CreateDisposable", b"dom0", arg="preload"
+        )
+        dispvm_preload = self.vm.features.get("dispvm-preload", "").split(" ")
+        self.assertIn(retval, dispvm_preload)
+        mock_storage.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_643_vm_create_disposable_preload_autostart(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.template_for_dispvms = True
+        self.vm.features["preload-dispvm-max"] = 1
+        self.app.default_dispvm = self.vm
+        retval = self.call_mgmt_func(
+            b"admin.vm.CreateDisposable", b"dom0", arg="preload-autostart"
+        )
+        # TODO: doesn't return any value, so how to check if it was preloaded?
+        #dispvm_preload = self.vm.features.get("preload-dispvm", "").split(" ")
+        self.assertIsNone(retval)
+        mock_storage.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(
             VirtualDevice(Port(self.vm, "1234", "testclass"), device_id="bee"),

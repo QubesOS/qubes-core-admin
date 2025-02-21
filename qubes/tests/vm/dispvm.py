@@ -84,6 +84,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     async def mock_coro(self, *args, **kwargs):
         pass
 
+    # TODO: Test creating preloaded disposable and if features are correct.
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")

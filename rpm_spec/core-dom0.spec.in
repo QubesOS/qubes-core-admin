@@ -555,6 +555,7 @@ done
 %{python3_sitelib}/qubes/qmemman/domainstate.py
 %{python3_sitelib}/qubes/qmemman/systemstate.py
 
+/usr/lib/qubes/preload-dispvm
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
@@ -565,6 +566,7 @@ done
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
+%{_unitdir}/qubes-preload-dispvm.service
 %attr(2770,root,qubes) %dir /var/lib/qubes
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms
