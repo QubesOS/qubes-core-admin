@@ -496,7 +496,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
-            '/usr/bin/printf %s "$1"',
+            'sleep 20 && /usr/bin/printf %s "$1"',
         )
         with self.qrexec_policy("test.Argument", self.testvm1, self.testvm2):
             stdout, stderr = self.loop.run_until_complete(
