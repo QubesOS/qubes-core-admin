@@ -634,6 +634,87 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
         self.assertPropertyValue(vm, "kernelopts", "", "", "")
 
+    @unittest.mock.patch.dict(
+        qubes.config.system_path, {"qubes_kernels_base_dir": "/tmp"}
+    )
+    def test_263_kernelopts_common(self):
+        d = tempfile.mkdtemp(prefix="/tmp/")
+        self.addCleanup(shutil.rmtree, d)
+        open(d + "/vmlinuz", "w").close()
+        open(d + "/initramfs", "w").close()
+        with open(d + "/default-kernelopts-common.txt", "w") as f:
+            f.write("some  default root=/dev/sda nomodeset other")
+        vm = self.get_vm()
+        vm.kernel = os.path.basename(d)
+        uuid_str = str(vm.uuid).replace("-", "")
+        self.assertPropertyDefaultValue(
+            vm,
+            "kernelopts_common",
+            f"systemd.machine_id={uuid_str} "
+            "some  default root=/dev/sda nomodeset other",
+        )
+        vm.features["no-nomodeset"] = "1"
+        vm.features["os"] = "non-Linux"
+        self.assertPropertyDefaultValue(
+            vm, "kernelopts_common", "some  default root=/dev/sda other"
+        )
+
+    @unittest.mock.patch.dict(
+        qubes.config.system_path, {"qubes_kernels_base_dir": "/tmp"}
+    )
+    def test_264_kernelopts_common_gpu(self):
+        d = tempfile.mkdtemp(prefix="/tmp/")
+        self.addCleanup(shutil.rmtree, d)
+        open(d + "/vmlinuz", "w").close()
+        open(d + "/initramfs", "w").close()
+        with open(d + "/default-kernelopts-common.txt", "w") as f:
+            f.write("some  default root=/dev/sda nomodeset other")
+            # required for PCI devices listing
+            self.app.vmm.offline_mode = False
+            hostdev_details = unittest.mock.Mock(
+                **{
+                    "XMLDesc.return_value": """
+        <device>
+          <name>pci_0000_00_02_0</name>
+          <path>/sys/devices/pci0000:00/0000:00:02.0</path>
+          <parent>computer</parent>
+          <capability type='pci'>
+            <class>0x030000</class>
+            <domain>0</domain>
+            <bus>0</bus>
+            <slot>2</slot>
+            <function>0</function>
+            <product id='0x0000'>Unknown</product>
+            <vendor id='0x8086'>Intel Corporation</vendor>
+          </capability>
+        </device>""",
+                }
+            )
+            self.app.vmm.libvirt_mock = unittest.mock.Mock(
+                **{"nodeDeviceLookupByName.return_value": hostdev_details}
+            )
+        vm = self.get_vm()
+        assignment = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    backend_domain=vm,  # this is violation of API,
+                    # but for PCI the argument is unused
+                    port_id="00_02.0",
+                    devclass="pci",
+                )
+            ),
+            mode="required",
+        )
+        vm.devices["pci"]._set.add(assignment)
+        vm.kernel = os.path.basename(d)
+        uuid_str = str(vm.uuid).replace("-", "")
+        self.assertPropertyDefaultValue(
+            vm,
+            "kernelopts_common",
+            f"systemd.machine_id={uuid_str} "
+            "some  default root=/dev/sda other",
+        )
+
     def test_270_qrexec_timeout(self):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, "qrexec_timeout", 60)

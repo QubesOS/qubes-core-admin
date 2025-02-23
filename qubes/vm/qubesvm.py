@@ -45,7 +45,7 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.mix.net
-from qubes.device_protocol import DeviceInterface
+from qubes.device_protocol import DeviceInterface, DeviceCategory
 
 qmemman_present = False
 try:
@@ -2593,9 +2593,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         )
         if os.path.exists(kernelopts_path):
             with open(kernelopts_path, encoding="ascii") as f_kernelopts:
-                return base_kernelopts + f_kernelopts.read().rstrip("\n\r")
+                result = base_kernelopts + f_kernelopts.read().rstrip("\n\r")
         else:
-            return base_kernelopts + qubes.config.defaults["kernelopts_common"]
+            result = (
+                base_kernelopts + qubes.config.defaults["kernelopts_common"]
+            )
+        no_nomodeset = self.features.check_with_template("no-nomodeset", None)
+        if no_nomodeset is None:
+            # automatically skip nomodeset if a GPU is attached
+            for dev_ass in self.devices["pci"].get_assigned_devices():
+                for intf in dev_ass.device.interfaces:
+                    if intf.category == DeviceCategory.Display:
+                        no_nomodeset = True
+                        break
+        if no_nomodeset:
+            result = " ".join(
+                opt for opt in result.split(" ") if opt != "nomodeset"
+            )
+
+        return result
 
     #
     # helper methods
