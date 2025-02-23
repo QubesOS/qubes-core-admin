@@ -44,7 +44,7 @@ class TestApp(object):
         self.vmm = TestVMM()
 
 
-class TestVM(qubes.vm.BaseVM):
+class TestVM(qubes.vm.LocalVM):
     qid = qubes.property("qid", type=int)
     name = qubes.property("name")
     testprop = qubes.property("testprop")
@@ -55,7 +55,7 @@ class TestVM(qubes.vm.BaseVM):
         return False
 
 
-class TC_10_BaseVM(qubes.tests.QubesTestCase):
+class TC_10_LocalVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.xml = lxml.etree.XML(
