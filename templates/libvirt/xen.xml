@@ -224,7 +224,15 @@
                     </video>
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         {# TODO only add qubes gui if gui-agent is not installed in HVM #}
-                        <graphics type="qubes"/>
+                        <graphics type="qubes"
+                        {% if vm.guivm and vm.guivm.is_running()
+                            and vm.guivm.name != "dom0" -%}
+                        domain="{{vm.guivm.name}}"
+                        {% endif -%}
+                        {% if vm.debug -%}
+                        log_level="2"
+                        {% endif -%}
+                        />
                     {% endif %}
                 {% endif %}
             {% endif %}

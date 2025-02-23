@@ -1050,6 +1050,73 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected)
         )
 
+    def test_600_libvirt_xml_hvm_with_guivm(self):
+        my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
+        expected = """<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">400</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- let the guest know the TSC is safe to use (no migration) -->
+            <feature name='invtsc' policy='require'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset="variable" adjustment="0" basis="utc" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"
+            domain="test-inst-guivm"
+            log_level="2"
+            />
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        </devices>
+        </domain>
+        """
+        guivm = self.get_vm(name="guivm")
+        p = unittest.mock.patch.object(guivm, "is_running", lambda: True)
+        p.start()
+        self.addCleanup(p.stop)
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = "hvm"
+        vm.guivm = guivm
+        vm.debug = True
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(
+            lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected)
+        )
+
     def test_600_libvirt_xml_hvm_dom0_kernel(self):
         my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = f"""<domain type="xen">
