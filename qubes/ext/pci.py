@@ -100,14 +100,7 @@ def pcidev_class(dev_xmldesc):
 
 
 def pcidev_interface(dev_xmldesc):
-    sysfs_path = dev_xmldesc.findtext("path")
-    assert sysfs_path
-    try:
-        with open(sysfs_path + "/class", encoding="ascii") as f_class:
-            class_id = f_class.read().strip()
-    except OSError:
-        return "000000"
-
+    class_id = dev_xmldesc.xpath("capability[@type='pci']/class/text()")[0]
     if class_id.startswith("0x"):
         class_id = class_id[2:]
     return class_id
