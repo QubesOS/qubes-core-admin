@@ -1087,10 +1087,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 self.enforce(not untrusted_value.isdigit())
                 allowed_chars = string.ascii_letters + string.digits + '-_.'
                 self.enforce(all(c in allowed_chars for c in untrusted_value))
-                try:
-                    kwargs['label'] = self.app.get_label(untrusted_value)
-                except KeyError:
-                    raise qubes.exc.QubesValueError
+                # this may raise QubesLabelNotFoundError
+                kwargs["label"] = self.app.get_label(untrusted_value)
 
             elif untrusted_key == 'pool' and allow_pool:
                 if pool is not None:
