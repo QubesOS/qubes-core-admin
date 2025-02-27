@@ -2038,3 +2038,43 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "power_state": self.dest.get_power_state(),
         }
         return " ".join("{}={}".format(k, v) for k, v in state.items())
+
+    @qubes.api.method(
+        "admin.vm.notes.Get", no_payload=True, scope="local", read=True
+    )
+    async def vm_notes_get(self):
+        """Get qube notes"""
+        self.enforce(self.dest.name != "dom0")
+        self.fire_event_for_permission()
+        try:
+            notes = self.dest.get_notes()
+        except Exception as e:
+            raise qubes.exc.QubesException(
+                "Could not read qube notes: " + str(e)
+            )
+        return notes
+
+    @qubes.api.method("admin.vm.notes.Set", scope="local", write=True)
+    async def vm_notes_set(self, untrusted_payload):
+        """Set qube notes"""
+        self.enforce(self.dest.name != "dom0")
+        self.fire_event_for_permission()
+        if len(untrusted_payload) > 256000:
+            raise qubes.exc.ProtocolError(
+                "Maximum note size is 256000 bytes ({} bytes received)".format(
+                    len(untrusted_payload)
+                )
+            )
+        allowed_chars = string.printable
+        notes = "".join(
+            [
+                c if c in allowed_chars else "_"
+                for c in untrusted_payload.decode("ascii")
+            ]
+        )
+        try:
+            self.dest.set_notes(notes)
+        except Exception as e:
+            raise qubes.exc.QubesException(
+                "Could not write qube notes: " + str(e)
+            )
