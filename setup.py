@@ -64,6 +64,7 @@ if __name__ == '__main__':
                 'qubes.ext.backup_restore = '
                 'qubes.ext.backup_restore:BackupRestoreExtension',
                 'qubes.ext.core_features = qubes.ext.core_features:CoreFeatures',
+                'qubes.ext.custom_persist = qubes.ext.custom_persist:CustomPersist',
                 'qubes.ext.gui = qubes.ext.gui:GUI',
                 'qubes.ext.audio = qubes.ext.audio:AUDIO',
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',
