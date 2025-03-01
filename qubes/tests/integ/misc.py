@@ -54,6 +54,85 @@ class TC_06_AppVMMixin(object):
             self.assertEqual(tpl.features.get("os-distribution"), "kali")
             self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
+    def test_020_custom_persist(self):
+        self.testvm = self.app.add_new_vm(
+            "AppVM",
+            label="red",
+            name=self.make_vm_name("vm"),
+        )
+        self.loop.run_until_complete(self.testvm.create_on_disk())
+        self.testvm.features["service.custom-persist"] = "1"
+        self.testvm.features["custom-persist.downloads"] = (
+            "dir:user:user:0755:/home/user/Downloads"
+        )
+        self.testvm.features["custom-persist.local_lib"] = "/usr/local/lib"
+        self.testvm.features["custom-persist.new_dir"] = (
+            "dir:user:user:0755:/home/user/new_dir"
+        )
+        self.testvm.features["custom-persist.new_file"] = (
+            "file:user:user:0644:/home/user/new_file"
+        )
+        self.app.save()
+
+        # start first time,
+        self.loop.run_until_complete(self.testvm.start())
+        # do some changes
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio(
+                    "ls -ld /home/user/Downloads &&"
+                    "test $(stat -c %U /home/user/Downloads) = user &&"
+                    "test $(stat -c %G /home/user/Downloads) = user &&"
+                    "test $(stat -c %a /home/user/Downloads) = 755 &&"
+                    "echo test1 > /home/user/Downloads/download.txt &&"
+                    "ls -ld /home/user/new_dir &&"
+                    "test $(stat -c %U /home/user/new_dir) = user &&"
+                    "test $(stat -c %G /home/user/new_dir) = user &&"
+                    "test $(stat -c %a /home/user/new_dir) = 755 &&"
+                    "echo test2 > /home/user/new_dir/file_in_new_dir.txt &&"
+                    "mkdir -p /home/user/Documents &&"
+                    "chown user /home/user/Documents &&"
+                    "echo test3 > /home/user/Documents/doc.txt &&"
+                    "echo TEST4=test4 >> /home/user/.bashrc &&"
+                    "test $(stat -c %U /home/user/new_file) = user &&"
+                    "test $(stat -c %G /home/user/new_file) = user &&"
+                    "test $(stat -c %a /home/user/new_file) = 644 &&"
+                    "echo test5 > /home/user/new_file &&"
+                    "mkdir -p /usr/local/bin &&"
+                    "ln -s /bin/true /usr/local/bin/true-copy &&"
+                    "mkdir -p /usr/local/lib/subdir &&"
+                    "echo touch /etc/test5.flag >> /rw/config/rc.local",
+                    user="root",
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                f"Calling '{e.cmd}' failed with {e.returncode}: "
+                f"{e.stdout}{e.stderr}"
+            )
+        self.loop.run_until_complete(self.testvm.shutdown(wait=True))
+        # and then start again to compare what survived
+        self.loop.run_until_complete(self.testvm.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio(
+                    "grep test1 /home/user/Downloads/download.txt &&"
+                    "grep test2 /home/user/new_dir/file_in_new_dir.txt &&"
+                    "! ls -dl /home/user/Documents/doc.txt &&"
+                    "! grep TEST4=test4 /home/user/.bashrc &&"
+                    "grep test5 /home/user/new_file &&"
+                    "! ls -l /usr/local/bin/true-copy &&"
+                    "ls -dl /usr/local/lib/subdir &&"
+                    "! ls -dl /etc/test5.flag",
+                    user="root",
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                f"Too much / too little files persisted: {e.stdout}"
+                f"{e.stderr}"
+            )
+
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
