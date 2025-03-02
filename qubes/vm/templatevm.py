@@ -29,6 +29,11 @@ from qubes.config import defaults
 from qubes.vm.qubesvm import QubesVM
 
 
+def _default_appvm_default_bootmode(self):
+    if "boot-mode.appvm-default" in self.features:
+        return self.features["boot-mode.appvm-default"]
+    return "default"
+
 class TemplateVM(QubesVM):
     """Template for AppVM"""
 
@@ -42,6 +47,14 @@ class TemplateVM(QubesVM):
         for vm in self.app.domains:
             if hasattr(vm, "template") and vm.template is self:
                 yield vm
+
+    appvm_default_bootmode = qubes.property(
+        "appvm_default_bootmode",
+        type=str,
+        load_stage=4,
+        default=_default_appvm_default_bootmode,
+        doc="Default active bootmode for AppVMs based on this template",
+    )
 
     netvm = qubes.VMProperty(
         "netvm",
