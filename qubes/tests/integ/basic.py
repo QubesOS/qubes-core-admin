@@ -482,6 +482,74 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(self.vm.start())
         self.assertFalse(self.vm.is_running())
 
+    async def _test_bootmode(self, tpl, vm):
+        await tpl.start()
+        await tpl.run_for_stdio(
+            "cat > /etc/qubes/post-install.d/50-test.sh",
+            input=b"""#!/bin/sh
+
+qvm-features-request boot-mode.kernelopts.mode1="opt1=val1 opt2"
+qvm-features-request boot-mode.name.mode1="Fancy name for mode 1"
+qvm-features-request boot-mode.kernelopts.mode2="only-one-option-no-value"
+qvm-features-request boot-mode.active=mode1
+qvm-features-request boot-mode.appvm-default=mode2
+         """,
+            user="root",
+        )
+        await tpl.run_for_stdio(
+            "chmod +x " "/etc/qubes/post-install.d/50-test.sh", user="root"
+        )
+        await tpl.run_service_for_stdio("qubes.PostInstall", user="root")
+        await tpl.shutdown(wait=True)
+
+        self.assertEqual(tpl.bootmode, "mode1")
+        if tpl != vm:
+            self.assertEqual(vm.bootmode, "mode2")
+        await vm.start()
+        cmdline = (await vm.run_for_stdio("cat /proc/cmdline"))[0].decode()
+        if tpl != vm:
+            self.assertIn("only-one-option-no-value", cmdline)
+        else:
+            self.assertIn("opt1=val1", cmdline)
+
+    def test_210_bootmode_template(self):
+        self.test_template = self.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM,
+            name=self.make_vm_name("tpl"),
+            label="red",
+        )
+        self.test_template.clone_properties(self.app.default_template)
+        self.test_template.features.update(self.app.default_template.features)
+        self.test_template.tags.update(self.app.default_template.tags)
+        self.loop.run_until_complete(
+            self.test_template.clone_disk_files(self.app.default_template)
+        )
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("vm"),
+            template=self.test_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.app.save()
+        self.loop.run_until_complete(
+            self._test_bootmode(self.test_template, self.vm)
+        )
+
+    def test_211_bootmode_standalone(self):
+        self.vm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm"),
+            label="red",
+        )
+        self.vm.clone_properties(self.app.default_template)
+        self.vm.features.update(self.app.default_template.features)
+        self.loop.run_until_complete(
+            self.vm.clone_disk_files(self.app.default_template)
+        )
+        self.app.save()
+        self.loop.run_until_complete(self._test_bootmode(self.vm, self.vm))
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
