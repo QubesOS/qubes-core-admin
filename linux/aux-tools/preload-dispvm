@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+
+#import asyncio
+import qubesadmin
+
+def get_apps():
+    domains = qubesadmin.Qubes().domains
+    return [qube for qube in domains
+    if int(qube.features.get("dispvm-preload-max", 0)) > 0
+    and qube.klass == "AppVM"
+    and getattr(qube, "template_for_dispvms", False)
+    ]
+
+#async def main():
+#    appvms = get_apps()
+#    ## TODO: How to fire events outside of qubesd? How to load DispVM by hand.
+#    #o = MyClass()
+#    #o.events_enabled = True
+#    #effect = o.fire_event('event1')
+#    event = "domain-preloaded-dispvm-autostart"
+#    tasks = [qube.fire_event_async(event) for qube in appvms]
+#    await asyncio.gather(*tasks)
+
+def main():
+    appvms = get_apps()
+    method = "admin.vm.CreateDisposable"
+    for qube in appvms:
+        qube.qubesd_call("dom0", method, "preload-autostart")
+
+if __name__ == "__main__":
+    #asyncio.run(main())
+    main()

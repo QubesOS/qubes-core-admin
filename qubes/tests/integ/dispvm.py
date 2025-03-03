@@ -206,6 +206,7 @@ class TC_20_DispVMMixin(object):
         self.app.default_dispvm = None
         super(TC_20_DispVMMixin, self).tearDown()
 
+    # TODO: Test if run_service() marks the prelaoded DispVM as used.
     def test_010_simple_dvm_run(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
