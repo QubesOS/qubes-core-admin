@@ -2614,6 +2614,41 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return result
 
     #
+    # free-form text for descriptions, notes, comments, remarks, etc.
+    #
+
+    @property
+    def notes_file(self) -> str:
+        """Notes file name within /var/lib/qubes (per each qube sub-dir)"""
+        return "notes.txt"
+
+    def get_notes(self) -> str:
+        """Read the notes file and return its content"""
+        try:
+            with open(
+                os.path.join(self.dir_path, self.notes_file), encoding="ascii"
+            ) as fd:
+                return fd.read()
+        except FileNotFoundError:
+            return ""
+        except Exception as exc:
+            self.log.error("Failed to read notes file: %s", str(exc))
+            raise
+
+    def set_notes(self, notes: str):
+        """Write to notes file. Return True on success, False on error"""
+        try:
+            with open(
+                os.path.join(self.dir_path, self.notes_file),
+                "w",
+                encoding="ascii",
+            ) as fd:
+                fd.write(notes)
+        except Exception as exc:
+            self.log.error("Failed to write notes file: %s", str(exc))
+            raise
+
+    #
     # helper methods
     #
 
