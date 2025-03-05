@@ -29,6 +29,12 @@ from qubes.config import defaults
 from qubes.vm.qubesvm import QubesVM
 
 
+def _default_appvm_default_bootmode(self):
+    if "boot-mode.appvm-default" in self.features:
+        return self.features["boot-mode.appvm-default"]
+    return "default"
+
+
 class TemplateVM(QubesVM):
     """Template for AppVM"""
 
@@ -42,6 +48,14 @@ class TemplateVM(QubesVM):
         for vm in self.app.domains:
             if hasattr(vm, "template") and vm.template is self:
                 yield vm
+
+    appvm_default_bootmode = qubes.property(
+        "appvm_default_bootmode",
+        type=str,
+        load_stage=4,
+        default=_default_appvm_default_bootmode,
+        doc="Default active bootmode for AppVMs based on this template",
+    )
 
     netvm = qubes.VMProperty(
         "netvm",
@@ -93,6 +107,22 @@ class TemplateVM(QubesVM):
             },
         }
         super().__init__(*args, **kwargs)
+
+    @qubes.events.handler("domain-feature-set:boot-mode.appvm-default")
+    def on_feature_bootmode_appvm_set(
+        self, event, feature, value, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if self.property_is_default("appvm_default_bootmode"):
+            self.fire_event(
+                "property-reset:appvm_default_bootmode",
+                name="appvm_default_bootmode",
+            )
+            for appvm in getattr(self, "appvms", []):
+                if appvm.property_is_default("bootmode"):
+                    appvm.fire_event("property-reset:bootmode", name="bootmode")
 
     @qubes.events.handler(
         "property-set:default_user",

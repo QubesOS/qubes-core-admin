@@ -216,6 +216,36 @@ def _setter_kbd_layout(self, prop, value):
     return value
 
 
+def _default_bootmode(self):
+    """
+    Return the VM's default bootmode. If that doesn't exist, return the
+    template's default bootmode for AppVMs, and if that doesn't exist return
+    the special value "default".
+    """
+    if "boot-mode.active" in self.features:
+        bootmode_value = self.features["boot-mode.active"]
+        if bootmode_value == "default":
+            return "default"
+        kernelopts = self.features.check_with_template(
+            f"boot-mode.kernelopts.{bootmode_value}", None
+        )
+        if kernelopts is not None:
+            return bootmode_value
+    subject = self
+    while hasattr(subject, "template"):
+        if hasattr(subject.template, "appvm_default_bootmode"):
+            bootmode_value = subject.template.appvm_default_bootmode
+            if bootmode_value == "default":
+                return "default"
+            kernelopts = subject.features.check_with_template(
+                f"boot-mode.kernelopts.{bootmode_value}", None
+            )
+            if kernelopts is not None:
+                return bootmode_value
+        subject = subject.template
+    return "default"
+
+
 def _default_virt_mode(self):
     if list(self.devices["pci"].get_assigned_devices()):
         return "hvm"
@@ -660,6 +690,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
     # properties loaded from XML
     #
+    bootmode = qubes.property(
+        "bootmode",
+        type=str,
+        load_stage=4,
+        default=_default_bootmode,
+        doc="Active boot mode for this domain",
+    )
+
     guivm = qubes.VMProperty(
         "guivm",
         load_stage=4,
@@ -955,6 +993,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return result + list(self.volumes.values())
 
     @property
+    def bootmode_kernelopts(self):
+        if self.bootmode == "default":
+            return ""
+        kernelopts = self.features.check_with_template(
+            f"boot-mode.kernelopts.{self.bootmode}", None
+        )
+        if kernelopts is None:
+            default_bootmode = _default_bootmode(self)
+            if default_bootmode == "default":
+                return ""
+            kernelopts = self.features.check_with_template(
+                f"boot-mode.kernelopts.{default_bootmode}", None
+            )
+            if kernelopts is None:
+                return ""
+        return f" {kernelopts}"
+
+    @property
     def libvirt_domain(self):
         """Libvirt domain object from libvirt.
 
@@ -1146,6 +1202,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.start_qdb_watch()
             self._domain_stopped_event_received = False
             self._domain_stopped_event_handled = False
+
+    @qubes.events.handler("domain-feature-set:boot-mode.active")
+    def on_feature_bootmode_active_set(
+        self, event, feature, value, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if self.property_is_default("bootmode"):
+            self.fire_event("property-reset:bootmode", name="bootmode")
 
     @qubes.events.handler("property-set:label")
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
