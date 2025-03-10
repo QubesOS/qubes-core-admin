@@ -1204,9 +1204,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self._domain_stopped_event_handled = False
 
     @qubes.events.handler("domain-feature-set:boot-mode.active")
-    def on_feature_bootmode_active_set(
-        self, event, feature, value, oldvalue=None
-    ):
+    def on_feature_bootmode_set(self, event, feature, value, oldvalue=None):
         # pylint: disable=unused-argument
         if value == oldvalue:
             return
