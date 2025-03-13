@@ -11,7 +11,16 @@ install_rpm_deps () {
     sudo dnf install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }
+install_apt_deps(){
+    local applications
+    applications=(lvm2 python3-docutils python3-yaml python3-jinja2
+        python3-lxml btrfs-progs vim-common python3-coverage python3-inotify
+        python3-libvirt cryptsetup)
+    sudo apt -- install "${applications[@]}" ||
+    : # we don’t actually care if this succeeds
+}
 if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
+if { command -pv dpkg && command -pv apt; }>/dev/null; then install_apt_deps; fi
 CLEANUP_LVM=
 name=$(dirname "$0")
 if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then

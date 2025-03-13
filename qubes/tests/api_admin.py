@@ -3791,13 +3791,16 @@ netvm default=True type=vm \n"""
     def test_643_vm_create_disposable_preload(self, mock_storage):
         mock_storage.side_effect = self.dummy_coro
         self.vm.template_for_dispvms = True
-        self.vm.features["preload-dispvm-max"] = 1
+        self.vm.features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.vm
         retval = self.call_mgmt_func(
-            b"admin.vm.CreateDisposable", b"dom0", arg="preload"
+            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload"
         )
-        dispvm_preload = self.vm.features.get("dispvm-preload", "").split(" ")
-        self.assertIn(retval, dispvm_preload)
+        dispvm_preload = self.vm.get_feat_preload()
+        self.assertEqual(dispvm_preload, [retval])
+        dispvm = self.app.domains["".join(dispvm_preload)]
+        self.assertIn("created-by-dom0", dispvm.tags)
+        self.assertIn("disp-created-by-dom0", dispvm.tags)
         mock_storage.assert_called_once_with()
         self.assertTrue(self.app.save.called)
 
@@ -3805,16 +3808,23 @@ netvm default=True type=vm \n"""
     def test_643_vm_create_disposable_preload_autostart(self, mock_storage):
         mock_storage.side_effect = self.dummy_coro
         self.vm.template_for_dispvms = True
-        self.vm.features["preload-dispvm-max"] = 1
+        self.app.domains[self.vm].fire_event = self.emitter.fire_event
+        self.vm.features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.vm
+        # TODO: how to mock start of a qube that we don't have its object?
+        # Looked as test_220_start(), but 'self.vm.start = corountine_mock'
+        # won't help if we don't have the dispvm object.
         retval = self.call_mgmt_func(
-            b"admin.vm.CreateDisposable", b"dom0", arg="preload-autostart"
+            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload-autostart"
         )
-        # TODO: doesn't return any value, so how to check if it was preloaded?
-        #dispvm_preload = self.vm.features.get("preload-dispvm", "").split(" ")
+        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-autostart")
+        dispvm_preload = self.vm.get_feat_preload()
+        self.assertEqual(len(dispvm_preload), 1)
         self.assertIsNone(retval)
         mock_storage.assert_called_once_with()
         self.assertTrue(self.app.save.called)
+
+    ## TODO: test return of the preloaded dispvm
 
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(
