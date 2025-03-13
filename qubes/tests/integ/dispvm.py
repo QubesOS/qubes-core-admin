@@ -37,7 +37,6 @@ import qubes.tests
 
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
-
     def setUp(self):
         super(TC_04_DispVM, self).setUp()
         self.init_default_template()
@@ -151,7 +150,9 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
             )
         )
         timeout = 120
-        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
+        self.loop.run_until_complete(
+            asyncio.wait_for(p.communicate(), timeout)
+        )
         self.assertEqual(p.returncode, 126)
         self.assertEqual(self.startup_counter, 1)
 
@@ -178,13 +179,14 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
             )
         )
         timeout = 120
-        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
+        self.loop.run_until_complete(
+            asyncio.wait_for(p.communicate(), timeout)
+        )
         self.assertEqual(p.returncode, 126)
         self.assertEqual(self.startup_counter, 1)
 
 
 class TC_20_DispVMMixin(object):
-
     def setUp(self):
         super(TC_20_DispVMMixin, self).setUp()
         if "whonix-g" in self.template:
@@ -206,8 +208,7 @@ class TC_20_DispVMMixin(object):
         self.app.default_dispvm = None
         super(TC_20_DispVMMixin, self).tearDown()
 
-    # TODO: Test if run_service() marks the prelaoded DispVM as used.
-    def test_010_simple_dvm_run(self):
+    def test_010_dvm_run_simple(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
         )
@@ -219,6 +220,45 @@ class TC_20_DispVMMixin(object):
                 )
             )
             self.assertEqual(stdout, b"test\n")
+        finally:
+            self.loop.run_until_complete(dispvm.cleanup())
+
+    def test_011_dvm_run_preload(self):
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+        )
+        try:
+            self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertTrue(dispvm.features.get("internal", False))
+            self.assertTrue(dispvm.is_paused)
+            self.loop.run_until_complete(
+                dispvm.run_service_for_stdio(
+                    "qubes.VMShell", input=b"echo test"
+                )
+            )
+            self.assertFalse(self.disp_base.get_feat_preload())
+            self.assertFalse(dispvm.features.get("internal", False))
+            self.assertFalse(dispvm.is_paused)
+        finally:
+            self.loop.run_until_complete(dispvm.cleanup())
+
+    def test_011_dvm_run_preload_nogui(self):
+        self.disp_base.features["gui"] = False
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+        )
+        try:
+            self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertTrue(dispvm.features.get("internal", False))
+            self.assertTrue(dispvm.is_paused)
+            self.loop.run_until_complete(
+                dispvm.run_service(
+                    "qubes.VMShell", input=b"echo test", wait=False
+                )
+            )
+            self.assertFalse(self.disp_base.get_feat_preload())
+            self.assertFalse(dispvm.features.get("internal", False))
+            self.assertFalse(dispvm.is_paused)
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 

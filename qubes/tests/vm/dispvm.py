@@ -84,7 +84,6 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     async def mock_coro(self, *args, **kwargs):
         pass
 
-    # TODO: Test creating preloaded disposable and if features are correct.
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
@@ -114,6 +113,61 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
         )
         mock_symlink.assert_not_called()
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload(
+        self, mock_storage, mock_makedirs, mock_symlink
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        self.appvm.features["preload-dispvm-max"] = "1"
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            )
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+        self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
+        self.assertEqual(dispvm.name, "disp42")
+        self.assertEqual(dispvm.template, self.appvm)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.auto_cleanup, True)
+        mock_makedirs.assert_called_once_with(
+            "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
+        )
+        mock_symlink.assert_not_called()
+
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_reject_max(self, mock_storage):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        self.appvm.features["preload-dispvm-max"] = "0"
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            with self.assertRaises(qubes.exc.QubesException):
+                self.loop.run_until_complete(
+                    qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+                )
+            mock_domains.get_new_unused_dispid.assert_not_called()
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
@@ -288,7 +342,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm.volumes["root"].pool, self.appvm.volumes["root"].pool
         )
         self.assertIs(
-            dispvm.volumes["volatile"].pool, self.appvm.volumes["volatile"].pool
+            dispvm.volumes["volatile"].pool,
+            self.appvm.volumes["volatile"].pool,
         )
         self.assertFalse(dispvm.volumes["volatile"].ephemeral)
 
@@ -337,7 +392,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.appvm.volume_config["root"]["source"],
         )
         self.assertIs(
-            vm.volume_config["private"]["source"], self.appvm.volumes["private"]
+            vm.volume_config["private"]["source"],
+            self.appvm.volumes["private"],
         )
 
     def test_022_storage_app_change(self):
@@ -395,7 +451,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.appvm.volumes["root"].source,
         )
         self.assertNotEqual(
-            vm.volume_config["private"]["source"], self.appvm.volumes["private"]
+            vm.volume_config["private"]["source"],
+            self.appvm.volumes["private"],
         )
         self.assertIs(
             vm.volume_config["root"]["source"], template2.volumes["root"]

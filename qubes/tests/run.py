@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -305,8 +306,8 @@ def demo(verbosity=2):
 
 parser = argparse.ArgumentParser(
     epilog="""When running only specific tests, write their names like in log,
-        in format: MODULE+"/"+CLASS+"/"+FUNCTION. MODULE should omit initial
-        "qubes.tests.". Example: basic/TC_00_Basic/test_000_create"""
+        in format: MODULE+"/"+CLASS+"/"+FUNCTION.
+        Example: qubes.tests.basic/TC_00_Basic/test_000_create"""
 )
 
 parser.add_argument(
