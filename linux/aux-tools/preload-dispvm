@@ -14,7 +14,7 @@ def main():
     ]
     method = "admin.vm.CreateDisposable"
     for qube in appvms:
-        qube.qubesd_call("dom0", method, "preload-autostart")
+        qube.qubesd_call(qube.name, method, "preload-autostart")
 
 
 if __name__ == "__main__":

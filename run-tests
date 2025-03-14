@@ -14,9 +14,9 @@ install_rpm_deps () {
 install_apt_deps(){
     local applications
     applications=(lvm2 python3-docutils python3-yaml python3-jinja2
-        python3-lxml btrfs-progs vim-common python3-coverage python3-inotify
+        python3-lxml btrfs-progs python3-coverage python3-inotify
         python3-libvirt cryptsetup)
-    sudo apt -- install "${applications[@]}" ||
+    sudo apt --no-install-recommends -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }
 if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
@@ -33,6 +33,9 @@ fi
 
 if [ -d ../core-qrexec/qrexec ]; then
     PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}:../core-qrexec
+fi
+if [ -d ../qubes-core-qrexec/qrexec ]; then
+    PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}:../qubes-core-qrexec
 fi
 
 PYTHONPATH=${TESTPYTHONPATH}${PYTHONPATH+":${PYTHONPATH}"}

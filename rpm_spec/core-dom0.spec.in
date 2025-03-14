@@ -501,6 +501,7 @@ done
 %dir %{python3_sitelib}/qubes/tests/vm/mix/__pycache__
 %{python3_sitelib}/qubes/tests/vm/mix/__pycache__/*
 %{python3_sitelib}/qubes/tests/vm/mix/__init__.py
+%{python3_sitelib}/qubes/tests/vm/mix/dvmtemplate.py
 %{python3_sitelib}/qubes/tests/vm/mix/net.py
 
 %dir %{python3_sitelib}/qubes/tests/tools
