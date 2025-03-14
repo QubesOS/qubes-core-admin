@@ -42,12 +42,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         feature = "preload-dispvm"
         # TODO: fix, mypy throws:
         # error: "DVMTemplateMixin" has no attribute "features"  [attr-defined]
-        value = self.features.get(feature, "")
+        value = self.features.get(feature, "")  # type: ignore
         return value.split(" ") if value else []
 
     def get_feat_preload_max(self) -> int:
         feature = "preload-dispvm-max"
-        return int(self.features.get(feature, 0))
+        return int(self.features.get(feature, 0))  # type: ignore
 
     def can_preload(self) -> bool:
         preload_dispvm_max = self.get_feat_preload_max()
@@ -57,6 +57,52 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if preload_dispvm and len(preload_dispvm) >= preload_dispvm_max:
             return False
         return True
+
+    @qubes.events.handler("feature-pre-set:preload-dispvm-max")
+    def on_feature_pre_set_preload_dispvm_max(
+        self, event, name, newvalue, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        if not newvalue.isdigit():
+            raise qubes.exc.QubesValueError("Invalid preload-dispvm-max value")
+
+    @qubes.events.handler("feature-pre-set:preload-dispvm")
+    def on_feature_pre_set_preload_dispvm(
+        self, event, name, newvalue, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        preload_dispvm_max = self.get_feat_preload_max()
+        old_list = newvalue.split(" ") if newvalue else []
+        new_list = newvalue.split(" ") if newvalue else []
+        old_len, new_len = len(old_list), len(new_list)
+        error_prefix = "Invalid preload-dispvm value:"
+
+        if sorted(new_list) == sorted(old_list):
+            return
+        if not new_list:
+            return
+
+        # New value can be bigger than maximum permitted as long as it is
+        # smaller than its old value.
+        if new_len > max(preload_dispvm_max, old_len):
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} can't increment: qube count ({new_len}) "
+                "is bigger than old count ({old_len}) and also bigger than "
+                " preload-dispvm-max ({preload_dispvm_max})"
+            )
+
+        if new_len != len(set(new_list)):
+            duplicates = [
+                qube for qube in set(new_list) if new_list.count(qube) > 1
+            ]
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} contain duplicates: {', '.join(duplicates)}"
+            )
+
+        nonderived = [qube for qube in new_list if qube not in self.dispvms]
+        if nonderived:
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} qube(s) not based on {self.name}: "
+                f"{', '.join(nonderived)}"
+            )
 
     @qubes.events.handler("property-pre-set:template_for_dispvms")
     def __on_pre_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
@@ -123,20 +169,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
             # Ben:
             #   For last...
             memory = getattr(self, "memory", 0)
-            available_memory = psutil.virtual_memory().available / (
-                1024 * 1024
-            )
+            available_memory = psutil.virtual_memory().available / (1024 * 1024)
             threshold = 1024 * 5
             if memory >= (available_memory - threshold):
                 dispvm = await qubes.vm.dispvm.DispVM.from_appvm(
                     self, preload=True
                 )
                 await dispvm.start()
-                # TODO: how to pass arg?
-                # await qubes.api.admin.QubesAdminAPI.create_disposable(
-                #    self.app, b"dom0", "admin.vm.CreateDisposable", b"dom0", b"preload"
-                # )
-                #
                 # TODO:
                 #  Ben:
                 #    What to do if the maximum is never reached on autostart as

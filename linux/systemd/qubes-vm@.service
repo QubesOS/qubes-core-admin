@@ -1,7 +1,7 @@
 [Unit]
 Description=Start Qubes VM %i
 After=qubesd.service qubes-meminfo-writer-dom0.service
-Before=qubes-vm@.service
+Before=qubes-preload-dispvm.service
 ConditionKernelCommandLine=!qubes.skip_autostart
 
 [Service]

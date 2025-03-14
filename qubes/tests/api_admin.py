@@ -578,9 +578,9 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf["__getitem__.return_value.is_outdated.return_value"] = (
-            False
-        )
+        volumes_conf[
+            "__getitem__.return_value.is_outdated.return_value"
+        ] = False
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(
             b"admin.vm.volume.Info", b"test-vm1", b"private"
@@ -608,9 +608,9 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf["__getitem__.return_value.is_outdated.side_effect"] = (
-            NotImplementedError
-        )
+        volumes_conf[
+            "__getitem__.return_value.is_outdated.side_effect"
+        ] = NotImplementedError
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(
             b"admin.vm.volume.Info", b"test-vm1", b"private"
@@ -672,7 +672,9 @@ netvm default=True type=vm \n"""
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(
-                b"admin.vm.volume.ListSnapshots", b"test-vm1", b"no-such-volume"
+                b"admin.vm.volume.ListSnapshots",
+                b"test-vm1",
+                b"no-such-volume",
             )
         self.assertEqual(
             self.vm.volumes.mock_calls, [unittest.mock.call.keys()]
@@ -1293,7 +1295,10 @@ netvm default=True type=vm \n"""
             )
         with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"strange-name!@#$", b"0xff0000"
+                b"admin.label.Create",
+                b"dom0",
+                b"strange-name!@#$",
+                b"0xff0000",
             )
 
         self.assertEqual(self.app.get_label.mock_calls, [])
@@ -1675,7 +1680,9 @@ netvm default=True type=vm \n"""
     def test_317_feature_checkwithnetvm_none(self):
         with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
             self.call_mgmt_func(
-                b"admin.vm.feature.CheckWithNetvm", b"test-vm1", b"test-feature"
+                b"admin.vm.feature.CheckWithNetvm",
+                b"test-vm1",
+                b"test-feature",
             )
         self.assertFalse(self.app.save.called)
 
@@ -1708,7 +1715,10 @@ netvm default=True type=vm \n"""
 
     def test_320_feature_set(self):
         value = self.call_mgmt_func(
-            b"admin.vm.feature.Set", b"test-vm1", b"test-feature", b"some-value"
+            b"admin.vm.feature.Set",
+            b"test-vm1",
+            b"test-feature",
+            b"some-value",
         )
         self.assertIsNone(value)
         self.assertEqual(self.vm.features["test-feature"], "some-value")
@@ -1961,7 +1971,8 @@ netvm default=True type=vm \n"""
         # setting pool= affect only volumes actually created for this VM,
         # not used from a template or so
         self.assertEqual(
-            vm.volume_config["root"]["pool"], self.template.volumes["root"].pool
+            vm.volume_config["root"]["pool"],
+            self.template.volumes["root"].pool,
         )
         self.assertEqual(vm.volume_config["private"]["pool"], "test")
         self.assertEqual(vm.volume_config["volatile"]["pool"], "test")
@@ -1993,11 +2004,13 @@ netvm default=True type=vm \n"""
         self.assertEqual(vm.label, self.app.get_label("red"))
         self.assertEqual(vm.template, self.app.domains["test-template"])
         self.assertEqual(
-            vm.volume_config["root"]["pool"], self.template.volumes["root"].pool
+            vm.volume_config["root"]["pool"],
+            self.template.volumes["root"].pool,
         )
         self.assertEqual(vm.volume_config["private"]["pool"], "test")
         self.assertEqual(
-            vm.volume_config["volatile"]["pool"], self.app.default_pool_volatile
+            vm.volume_config["volatile"]["pool"],
+            self.app.default_pool_volatile,
         )
         self.assertEqual(vm.volume_config["kernel"]["pool"], "linux-kernel")
         self.assertEqual(
@@ -2283,7 +2296,9 @@ netvm default=True type=vm \n"""
             self.vm.devices["testclass"].assign(assignment)
         )
         value = self.call_mgmt_func(
-            b"admin.vm.device.testclass.Assigned", b"test-vm1", b"test-vm1+1234"
+            b"admin.vm.device.testclass.Assigned",
+            b"test-vm1",
+            b"test-vm1+1234",
         )
         self.assertEqual(
             value,
@@ -2310,7 +2325,9 @@ netvm default=True type=vm \n"""
             self.device_list_multiple_attached_testclass,
         )
         value = self.call_mgmt_func(
-            b"admin.vm.device.testclass.Attached", b"test-vm1", b"test-vm1+1234"
+            b"admin.vm.device.testclass.Attached",
+            b"test-vm1",
+            b"test-vm1+1234",
         )
         self.assertEqual(
             value,
@@ -2946,9 +2963,10 @@ netvm default=True type=vm \n"""
         )
 
     def test_510_vm_volume_import_end_success(self):
-        import_data_end_mock, self.vm.storage.import_data_end = (
-            self.coroutine_mock()
-        )
+        (
+            import_data_end_mock,
+            self.vm.storage.import_data_end,
+        ) = self.coroutine_mock()
         self.call_internal_mgmt_func(
             b"internal.vm.volume.ImportEnd",
             b"test-vm1",
@@ -2961,9 +2979,10 @@ netvm default=True type=vm \n"""
         )
 
     def test_510_vm_volume_import_end_failure(self):
-        import_data_end_mock, self.vm.storage.import_data_end = (
-            self.coroutine_mock()
-        )
+        (
+            import_data_end_mock,
+            self.vm.storage.import_data_end,
+        ) = self.coroutine_mock()
         with self.assertRaisesRegex(qubes.exc.QubesException, "error message"):
             self.call_internal_mgmt_func(
                 b"internal.vm.volume.ImportEnd",
@@ -3008,9 +3027,9 @@ netvm default=True type=vm \n"""
         self.vm.volumes["private"].import_volume.return_value = self.vm.volumes[
             "private"
         ]
-        self.vm2.volumes["private"].import_volume.return_value = (
-            self.vm2.volumes["private"]
-        )
+        self.vm2.volumes[
+            "private"
+        ].import_volume.return_value = self.vm2.volumes["private"]
 
         self.addCleanup(self.cleanup_for_clone)
 
@@ -3716,9 +3735,13 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(b"admin.vm.CreateDisposable", b"test-vm1")
         self.assertFalse(self.app.save.called)
 
+    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @unittest.mock.patch("qubes.storage.Storage.create")
-    def test_643_vm_create_disposable_preload(self, mock_storage):
+    def test_643_vm_create_disposable_preload(
+        self, mock_storage, mock_dispvm_start
+    ):
         mock_storage.side_effect = self.dummy_coro
+        mock_dispvm_start.side_effect = self.dummy_coro
         self.vm.template_for_dispvms = True
         self.vm.features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.vm
@@ -3731,29 +3754,58 @@ netvm default=True type=vm \n"""
         self.assertIn("created-by-dom0", dispvm.tags)
         self.assertIn("disp-created-by-dom0", dispvm.tags)
         mock_storage.assert_called_once_with()
+        mock_dispvm_start.assert_called_once_with()
         self.assertTrue(self.app.save.called)
 
+    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @unittest.mock.patch("qubes.storage.Storage.create")
-    def test_643_vm_create_disposable_preload_autostart(self, mock_storage):
+    def test_643_vm_create_disposable_preload_autostart(
+        self, mock_storage, mock_dispvm_start
+    ):
         mock_storage.side_effect = self.dummy_coro
+        mock_dispvm_start.side_effect = self.dummy_coro
         self.vm.template_for_dispvms = True
         self.app.domains[self.vm].fire_event = self.emitter.fire_event
         self.vm.features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.vm
-        # TODO: how to mock start of a qube that we don't have its object?
-        # Looked as test_220_start(), but 'self.vm.start = corountine_mock'
-        # won't help if we don't have the dispvm object.
         retval = self.call_mgmt_func(
             b"admin.vm.CreateDisposable", b"dom0", arg=b"preload-autostart"
         )
+        # TODO: why event is not being fired?
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-autostart")
         dispvm_preload = self.vm.get_feat_preload()
         self.assertEqual(len(dispvm_preload), 1)
         self.assertIsNone(retval)
         mock_storage.assert_called_once_with()
+        mock_dispvm_start.assert_called_once_with()
         self.assertTrue(self.app.save.called)
 
-    ## TODO: test return of the preloaded dispvm
+    # TODO: test return of the preloaded dispvm
+    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_643_vm_create_disposable_preload_use(
+        self, mock_storage, mock_dispvm_start
+    ):
+        mock_storage.side_effect = self.dummy_coro
+        mock_dispvm_start.side_effect = self.dummy_coro
+        self.vm.template_for_dispvms = True
+        self.app.domains[self.vm].fire_event = self.emitter.fire_event
+        self.vm.features["preload-dispvm-max"] = "1"
+        self.app.default_dispvm = self.vm
+        self.call_mgmt_func(
+            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload"
+        )
+        dispvm_preload = self.vm.get_feat_preload()
+        dispvm = dispvm_preload[0]
+        self.assertEqual(len(dispvm_preload), 1)
+        mock_storage.assert_called_once_with()
+        mock_dispvm_start.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+        retval = self.call_mgmt_func(b"admin.vm.CreateDisposable", b"dom0")
+        # TODO: why event is not being fired?
+        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
+        self.assertEqual(retval, dispvm)
+        self.assertFalse(self.vm.get_feat_preload())
 
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(
@@ -4104,7 +4156,10 @@ netvm default=True type=vm \n"""
     def test_703_pool_set_ephemeral(self):
         self.app.pools["test-pool"] = unittest.mock.Mock()
         value = self.call_mgmt_func(
-            b"admin.pool.Set.ephemeral_volatile", b"dom0", b"test-pool", b"true"
+            b"admin.pool.Set.ephemeral_volatile",
+            b"dom0",
+            b"test-pool",
+            b"true",
         )
         self.assertIsNone(value)
         self.assertEqual(self.app.pools["test-pool"].mock_calls, [])
@@ -4273,7 +4328,10 @@ netvm default=True type=vm \n"""
             "</domain>\n"
         )
         self.vm._libvirt_domain.configure_mock(
-            **{"XMLDesc.return_value": xml_desc, "isActive.return_value": False}
+            **{
+                "XMLDesc.return_value": xml_desc,
+                "isActive.return_value": False,
+            }
         )
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.call_mgmt_func(b"admin.vm.Console", b"test-vm1")
@@ -4353,7 +4411,8 @@ netvm default=True type=vm \n"""
         self.vm.get_power_state = lambda: "Running"
         value = self.call_mgmt_func(b"admin.vm.CurrentState", b"test-vm1")
         self.assertEqual(
-            value, "mem=512 mem_static_max=1024 cputime=100 power_state=Running"
+            value,
+            "mem=512 mem_static_max=1024 cputime=100 power_state=Running",
         )
 
     def test_990_vm_unexpected_payload(self):

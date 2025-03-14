@@ -298,9 +298,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def property_set(self, untrusted_payload):
         """Set property value"""
         self.enforce(self.dest.name == "dom0")
-        return self._property_set(
-            self.app, untrusted_payload=untrusted_payload
-        )
+        return self._property_set(self.app, untrusted_payload=untrusted_payload)
 
     def _property_set(self, dest, untrusted_payload):
         if self.arg not in dest.property_list():
@@ -486,9 +484,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         # make sure the volume still exists, but invalidate token anyway
         self.enforce(str(src_volume.pool) in self.app.pools)
-        self.enforce(
-            src_volume in self.app.pools[str(src_volume.pool)].volumes
-        )
+        self.enforce(src_volume in self.app.pools[str(src_volume.pool)].volumes)
 
         dst_volume = self.dest.volumes[self.arg]
 
@@ -770,9 +766,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         driver_parameters = qubes.storage.driver_parameters(self.arg)
         unexpected_parameters = [
-            key
-            for key in untrusted_pool_config
-            if key not in driver_parameters
+            key for key in untrusted_pool_config if key not in driver_parameters
         ]
         if unexpected_parameters:
             raise qubes.exc.QubesException(
@@ -1120,9 +1114,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
         try:
-            value = self.dest.features.check_with_template_and_adminvm(
-                self.arg
-            )
+            value = self.dest.features.check_with_template_and_adminvm(self.arg)
         except KeyError:
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
@@ -1280,7 +1272,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
-        self.enforce(self.arg in [None, "preload", "preload-autostart"])
+        self.enforce(self.arg in [None, "", "preload", "preload-autostart"])
         preload = False
         preload_autostart = False
         if self.arg == "preload":
@@ -1304,9 +1296,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             await appvm.fire_event_async("domain-preloaded-dispvm-autostart")
             return
 
-        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(
-            appvm, preload=preload
-        )
+        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(appvm, preload=preload)
+        if preload:
+            await dispvm.start()
         # TODO: move this to extension (in race-free fashion, better than here)
         dispvm.tags.add("created-by-" + str(self.src))
         dispvm.tags.add("disp-created-by-" + str(self.src))
@@ -1967,9 +1959,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 "Backup profile {} does not exist".format(self.arg)
             )
 
-        backup = await self._load_backup_profile(
-            self.arg, skip_passphrase=True
-        )
+        backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
         return backup.get_backup_summary()
 
     def _send_stats_single(

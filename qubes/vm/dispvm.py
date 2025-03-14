@@ -24,9 +24,9 @@ import asyncio
 import copy
 import subprocess
 
-import qubes.vm.qubesvm
-import qubes.vm.appvm
 import qubes.config
+import qubes.vm.appvm
+import qubes.vm.qubesvm
 
 
 def _setter_template(self, prop, value):
@@ -189,17 +189,16 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.features.update(template.features)
             self.tags.update(template.tags)
 
-    def get_feat_preload(self):
+    def get_feat_preload(self) -> list:
         feature = "preload-dispvm"
         value = self.features.check_with_template(feature, "")
         return value.split(" ") if value else []
 
-    def get_feat_preload_max(self):
+    def get_feat_preload_max(self) -> int:
         feature = "preload-dispvm-max"
-        ## TODO: enforce elsewhere to validate setting only integer.
         return int(self.features.check_with_template(feature, 0))
 
-    def is_preloaded(self):
+    def is_preloaded(self) -> bool:
         preload_dispvm = self.get_feat_preload()
         if not preload_dispvm:
             return False
@@ -220,23 +219,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             preload_dispvm = [self.name]
 
         appvm = getattr(self, "template")
-        appvm.features["preload-dispvm"] = " ".join(preload_dispvm)
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = True
 
     async def use_preloaded(self):
         """
-        Mark preloaded DispVM as used.
+        Mark preloaded DispVM as used (tainted).
 
         :return:
         """
-        appvm = getattr(self, "template")
-
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
-
-        preload_dispvm = self.get_feat_preload()
-        preload_dispvm = " ".join(preload_dispvm.remove(self.name))
-        appvm.features["preload-dispvm"] = preload_dispvm
+        preload_dispvm = self.get_feat_preload().remove(self.name)
+        appvm = getattr(self, "template")
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = False
         await appvm.fire_event_async(
             "domain-preloaded-dispvm-used", dispvm=self
@@ -249,51 +245,76 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
     @qubes.events.handler("domain-start")
     async def on_domain_started_dispvm(
-        self, event
+        self,
+        event,
+        **kwargs,
     ):  # pylint: disable=unused-argument
-        """Pause preloaded domains as soon as basic services started."""
+        """Pause preloaded domains as soon as basic services have started."""
+        if not self.is_preloaded():
+            return
         # TODO:
         # Marek: Test if pause isn't too early. Some services (especially:
         #   gui-agent) may still be starting.  qubes.WaitForSession service may
         #   help (ensure to use async handler to not block qubesd while waiting
         #   on it).
         # TODO:
+        # Ben:
         #   Test if pause isn't too late, what if application autostarts, will
         #   it open before the qube is paused?
+        # Marek:
+        #   Yes, it will. Theoretically there is an "invisible" mode for
+        #   gui-daemon for situation like this (it was used for very old
+        #   implementation of DispVM that also kinda preloaded it). But there
+        #   is no support for flipping it in runtime, gui-daemon needs to be
+        #   restarted for that, so that's a broader change to use it in this
+        #   version. Maybe later, I'd say it's okay to ignore this issue for
+        #   now.
+        # Ben:
+        #   I set xterm.dekstop to autostart, tested that it autostarted first
+        #   and then tested if pause isn't too late:
+        #     import qubesadmin
+        #     domains = qubesadmin.Qubes().domains
+        #     q = domains['q']
+        #     if q.run_service_for_stdio("qubes.WaitForSession"):
+        #         q.pause()
+        #   XTerm did not appear, and this is on a minimal qube that has no
+        #   heavy service that delays the start. As soon as I did
+        #   'q.unpause()', the application window appeared.
         no_gui_sleep = 15
         gui_timeout = 30
-        if self.is_preloaded():
-            gui = self.features.get("gui", None)
-            if not gui:
-                asyncio.sleep(no_gui_sleep)
-                self.pause()
-                return
+        gui = self.features.get("gui", None)
+        if not gui:
+            asyncio.sleep(no_gui_sleep)
+            self.pause()
+            return
 
-            proc = None
-            try:
-                proc = await asyncio.wait_for(
-                    self.run_service_for_stdio(
-                        "qubes.WaitForSession",
-                        user=self.default_user,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    ),
-                    timeout=gui_timeout,
-                )
-            except asyncio.TimeoutError:
-                ## TODO: should timeout be treated as an error/qubes.exc?
-                return
-            except (subprocess.CalledProcessError, qubes.exc.QubesException):
-                raise qubes.exc.QubesException(
-                    "Failed to run QUBESRPC qubes.WaitForSession"
-                )
-            finally:
-                if proc is not None:
-                    proc.terminate()
-                self.pause()
+        proc = None
+        try:
+            proc = await asyncio.wait_for(
+                self.run_service_for_stdio(
+                    "qubes.WaitForSession",
+                    user=self.default_user,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+                timeout=gui_timeout,
+            )
+        except asyncio.TimeoutError:
+            ## TODO: should timeout be treated as an error/qubes.exc?
+            return
+        except (subprocess.CalledProcessError, qubes.exc.QubesException):
+            raise qubes.exc.QubesException(
+                "Failed to run QUBESRPC qubes.WaitForSession"
+            )
+        finally:
+            if proc is not None:
+                proc.terminate()
+            self.pause()
 
     @qubes.events.handler("domain-unpaused")
-    async def on_domain_unpaused(self):
+    async def on_domain_unpaused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
         """Mark unpaused preloaded domains as used."""
         if self.is_preloaded():
             await self.use_preloaded()
@@ -326,8 +347,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     ):  # pylint: disable=invalid-overridden-method
         if self.is_preloaded():
             appvm = getattr(self, "template")
-            preload_dispvm = " ".join(preload_dispvm.remove(self.name))
-            appvm.features["preload-dispvm"] = preload_dispvm
+            preload_dispvm = self.get_feat_preload().remove(self.name)
+            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
