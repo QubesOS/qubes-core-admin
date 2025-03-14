@@ -150,9 +150,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
             )
         )
         timeout = 120
-        self.loop.run_until_complete(
-            asyncio.wait_for(p.communicate(), timeout)
-        )
+        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
         self.assertEqual(p.returncode, 126)
         self.assertEqual(self.startup_counter, 1)
 
@@ -179,9 +177,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
             )
         )
         timeout = 120
-        self.loop.run_until_complete(
-            asyncio.wait_for(p.communicate(), timeout)
-        )
+        self.loop.run_until_complete(asyncio.wait_for(p.communicate(), timeout))
         self.assertEqual(p.returncode, 126)
         self.assertEqual(self.startup_counter, 1)
 
@@ -229,16 +225,18 @@ class TC_20_DispVMMixin(object):
         )
         try:
             self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
-            self.assertTrue(dispvm.is_paused)
+            self.assertTrue(dispvm.is_paused())
             self.loop.run_until_complete(
                 dispvm.run_service_for_stdio(
                     "qubes.VMShell", input=b"echo test"
                 )
             )
-            self.assertFalse(self.disp_base.get_feat_preload())
+            self.assertFalse(dispvm.get_feat_preload())
+            self.assertFalse(dispvm.is_preloaded())
             self.assertFalse(dispvm.features.get("internal", False))
-            self.assertFalse(dispvm.is_paused)
+            self.assertFalse(dispvm.is_paused())
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 
@@ -249,16 +247,18 @@ class TC_20_DispVMMixin(object):
         )
         try:
             self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
-            self.assertTrue(dispvm.is_paused)
+            self.assertTrue(dispvm.is_paused())
             self.loop.run_until_complete(
                 dispvm.run_service(
                     "qubes.VMShell", input=b"echo test", wait=False
                 )
             )
-            self.assertFalse(self.disp_base.get_feat_preload())
+            self.assertEqual(dispvm.get_feat_preload(), [])
+            self.assertFalse(dispvm.is_preloaded())
             self.assertFalse(dispvm.features.get("internal", False))
-            self.assertFalse(dispvm.is_paused)
+            self.assertFalse(dispvm.is_paused())
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 
