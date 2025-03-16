@@ -143,7 +143,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                     mock.Mock(
                         **{
                             "XMLDesc.return_value": PCI_XML.format(
-                                *["1000"] * 3
+                                *["10000"] * 3
                             ),
                             "listCaps.return_value": ["pci"],
                         }
