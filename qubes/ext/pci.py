@@ -80,18 +80,9 @@ def load_pci_classes():
 
 
 def pcidev_class(dev_xmldesc):
-    sysfs_path = dev_xmldesc.findtext("path")
-    assert sysfs_path
-    try:
-        with open(sysfs_path + "/class", encoding="ascii") as f_class:
-            class_id = f_class.read().strip()
-    except OSError:
-        return "unknown"
-
+    class_id = pcidev_interface(dev_xmldesc)
     if not qubes.ext.pci.pci_classes:
         qubes.ext.pci.pci_classes = load_pci_classes()
-    if class_id.startswith("0x"):
-        class_id = class_id[2:]
     try:
         # ignore prog-if
         return qubes.ext.pci.pci_classes[class_id[0:4]]
