@@ -47,6 +47,12 @@ import qubes.vm.qubesvm
 import qubes.tests
 import qubes.tests.vm
 
+# prefer location in git checkout
+tests_sysfs_path = os.path.dirname(__file__) + "/../../../tests-data/sysfs/sys"
+if not os.path.exists(tests_sysfs_path):
+    # but if not there, look for package installed one
+    tests_sysfs_path = "/usr/share/qubes/tests-data/sysfs/sys"
+
 
 class TestApp(object):
     labels = {
@@ -928,6 +934,55 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             vm.hvm
 
+    @unittest.mock.patch("qubes.utils.SYSFS_BASE", tests_sysfs_path)
+    def test_510_migrate_pci_assignments(self):
+        vm = qubes.vm.adminvm.AdminVM(self.app, None)
+        dom0 = self.get_vm(vm=vm)
+        xml_template = """
+        <domain class="QubesVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+                <property name="virt_mode">hvm</property>
+            </properties>
+            <devices class="pci">
+                <device backend-domain="dom0" id="02_00.2"/>
+            </devices>
+        </domain>
+        """
+        xml = lxml.etree.XML(xml_template)
+        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
+        vm.load_properties()
+        vm.load_extras()
+        dev_ass = list(vm.devices["pci"].get_assigned_devices())
+        self.assertEqual(len(dev_ass), 1)
+        self.assertEqual(dev_ass[0].port_id, "00_08.1-00_00.2")
+
+    def test_511_migrate_pci_assignments_non_existing(self):
+        vm = qubes.vm.adminvm.AdminVM(self.app, None)
+        dom0 = self.get_vm(vm=vm)
+        xml_template = """
+        <domain class="QubesVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+                <property name="virt_mode">hvm</property>
+            </properties>
+            <devices class="pci">
+                <device backend-domain="dom0" id="02_00.7"/>
+            </devices>
+        </domain>
+        """
+        xml = lxml.etree.XML(xml_template)
+        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
+        vm.load_properties()
+        vm.load_extras()
+        dev_ass = list(vm.devices["pci"].get_assigned_devices())
+        self.assertEqual(len(dev_ass), 1)
+        self.assertEqual(dev_ass[0].port_id, "02_00.7")
+
     def test_600_libvirt_xml_pv(self):
         my_uuid = "7db78950-c467-4863-94d1-af59806384ea"
         expected = f"""<domain type="xen">
@@ -1527,6 +1582,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <hostdev type="pci" managed="yes">
                 <source>
                     <address
+                        domain="0x0000"
                         bus="0x00"
                         slot="0x00"
                         function="0x0" />
@@ -1637,6 +1693,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <source
                     powerManagementFiltering="no">
                     <address
+                        domain="0x0000"
                         bus="0x00"
                         slot="0x00"
                         function="0x0" />

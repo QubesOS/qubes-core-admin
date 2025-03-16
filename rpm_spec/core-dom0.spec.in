@@ -568,6 +568,7 @@ done
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
 /usr/share/qubes/tests-data/dispvm-open-thunderbird-attachment
+/usr/share/qubes/tests-data/sysfs
 /usr/lib/tmpfiles.d/qubes.conf
 %attr(0755,root,root) /usr/lib/qubes/create-snapshot
 %attr(0755,root,root) /usr/lib/qubes/destroy-snapshot

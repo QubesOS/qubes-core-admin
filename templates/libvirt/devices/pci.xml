@@ -12,6 +12,7 @@
 {% endif %}
     >
         <address
+            domain="0x{{ device.segment }}"
             bus="0x{{ device.bus }}"
             slot="0x{{ device.device }}"
             function="0x{{ device.function }}" />
