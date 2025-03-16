@@ -84,7 +84,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </features>
 
             <devices class="pci">
-                <device backend-domain="domain1" id="00_11.22">
+                <device backend-domain="domain1" id="00_11.2">
                   <option name="no-strict-reset">True</option>
                 </device>
             </devices>
@@ -125,7 +125,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         self.assertTrue(
             list(vm.devices["pci"].get_assigned_devices())[0].matches(
-                qubes.ext.pci.PCIDevice(Port(vm, "00_11.22", "pci"))
+                qubes.ext.pci.PCIDevice(Port(vm, "00_11.2", "pci"))
             )
         )
 
