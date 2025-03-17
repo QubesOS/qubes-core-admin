@@ -236,7 +236,7 @@ def replace_file(
     permissions,
     close_on_success=True,
     logger=LOGGER,
-    log_level=logging.DEBUG
+    log_level=logging.DEBUG,
 ):
     """Yield a tempfile whose name starts with dst. If the block does
     not raise an exception, apply permissions and persist the
