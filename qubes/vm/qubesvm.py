@@ -30,7 +30,6 @@ import os.path
 import shutil
 import string
 import subprocess
-import uuid
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -1158,8 +1157,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     def __lt__(self, other):
         if isinstance(other, qubes.vm.adminvm.AdminVM):
             return False
-        else:
-            return super().__lt__(other)
+        return super().__lt__(other)
 
     def __xml__(self):
         # pylint: disable=no-member

@@ -404,6 +404,7 @@ done
 %{python3_sitelib}/qubes/vm/appvm.py
 %{python3_sitelib}/qubes/vm/dispvm.py
 %{python3_sitelib}/qubes/vm/qubesvm.py
+%{python3_sitelib}/qubes/vm/remotevm.py
 %{python3_sitelib}/qubes/vm/standalonevm.py
 %{python3_sitelib}/qubes/vm/templatevm.py
 
@@ -447,6 +448,7 @@ done
 %{python3_sitelib}/qubes/ext/gui.py
 %{python3_sitelib}/qubes/ext/audio.py
 %{python3_sitelib}/qubes/ext/pci.py
+%{python3_sitelib}/qubes/ext/relay.py
 %{python3_sitelib}/qubes/ext/r3compatibility.py
 %{python3_sitelib}/qubes/ext/services.py
 %{python3_sitelib}/qubes/ext/supported_features.py
