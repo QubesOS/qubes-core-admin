@@ -1655,7 +1655,6 @@ class Qubes(qubes.PropertyHolder):
                             "see 'journalctl -u qubesd -e' in dom0 for "
                             "details".format(vm.name),
                         )
-        self.log.critical(vm)
         if isinstance(vm, qubes.vm.qubesvm.QubesVM):
             assignments = vm.get_provided_assignments()
         else:
