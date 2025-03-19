@@ -37,6 +37,8 @@ TEST_UUID = uuid.UUID("50c7dad4-5f1e-4586-9f6a-bf10a86ba6f0")
 
 
 class TC_00_API_Misc(qubes.tests.QubesTestCase):
+    maxDiff = None
+
     def setUp(self):
         super().setUp()
         self.app = mock.NonCallableMock()
@@ -195,6 +197,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "icon": "icon-dom0",
                     "guivm": None,
                     "power_state": "Running",
+                    "relayvm": None,
+                    "transport_rpc": None,
                     "uuid": "00000000-0000-0000-0000-000000000000",
                 },
                 "vm": {
@@ -205,6 +209,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "icon": "icon-vm",
                     "guivm": "vm",
                     "power_state": "Halted",
+                    "relayvm": None,
+                    "transport_rpc": None,
                     "uuid": str(TEST_UUID),
                 },
             }
