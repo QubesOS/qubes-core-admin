@@ -8,7 +8,7 @@ def main():
     appvms = [
         qube
         for qube in domains
-        if int(qube.features.get("dispvm-preload-max", 0)) > 0
+        if int(qube.features.get("preload-dispvm-max", 0)) > 0
         and qube.klass == "AppVM"
         and getattr(qube, "template_for_dispvms", False)
     ]

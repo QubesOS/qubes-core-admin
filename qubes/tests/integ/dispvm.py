@@ -219,7 +219,16 @@ class TC_20_DispVMMixin(object):
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 
+    def test_011_dvm_run_preload_reject_max(self):
+        with self.assertRaises(qubes.exc.QubesException):
+            self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+            )
+
     def test_011_dvm_run_preload(self):
+        self.disp_base.features["preload-dispvm-max"] = "1"
+        # TODO: dispvm.start() has to be called from `from_appvm()` when
+        # preloaded.
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
         )
@@ -241,6 +250,7 @@ class TC_20_DispVMMixin(object):
             self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_nogui(self):
+        self.disp_base.features["preload-dispvm-max"] = "1"
         self.disp_base.features["gui"] = False
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
