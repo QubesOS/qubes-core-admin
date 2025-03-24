@@ -52,11 +52,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def can_preload(self) -> bool:
         preload_dispvm_max = self.get_feat_preload_max()
         preload_dispvm = self.get_feat_preload()
-        if preload_dispvm_max == 0:
-            return False
-        if preload_dispvm and len(preload_dispvm) >= preload_dispvm_max:
-            return False
-        return True
+        if len(preload_dispvm) < preload_dispvm_max:
+            return True
+        return False
 
     @qubes.events.handler("feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
@@ -64,6 +62,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
     ):  # pylint: disable=unused-argument
         if not newvalue.isdigit():
             raise qubes.exc.QubesValueError("Invalid preload-dispvm-max value")
+        ## TODO: preload disposables in case the limit increases.
+        #if not oldvalue or int(newvalue) > int(oldvalue):
 
     @qubes.events.handler("feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -150,12 +150,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param delay: seconds between trials
         :returns:
         """
+        ## TODO: add a refill event in case the limit is increased?
         if event == "domain-preloaded-dispvm-autostart":
             self.features["preload-dispvm"] = ""
-        await asyncio.sleep(delay)
         if not self.can_preload():
             return
         while True:
+            await asyncio.sleep(delay)
             # TODO:
             # Ben:
             #   Is there existing Qubes code that checks available memory
@@ -169,9 +170,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
             # Ben:
             #   For last...
             memory = getattr(self, "memory", 0)
+            if memory == 0:
+                memory = getattr(self, "maxmem", 0)
             available_memory = psutil.virtual_memory().available / (1024 * 1024)
             threshold = 1024 * 5
             if memory >= (available_memory - threshold):
+                ## TODO: tags not created "disp-created-by-" (see api/admin.py)
                 dispvm = await qubes.vm.dispvm.DispVM.from_appvm(
                     self, preload=True
                 )
@@ -185,14 +189,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 #    condition?
                 # Marek:
                 #    async lock, break on any event when max is reached.
-                #
-                # TODO: fire event after start of all qubes that are set to
-                # autostart.
-                if event == "domain-preloaded-dispvm-autostart":
-                    if self.can_preload():
-                        continue
+                if (
+                    event == "domain-preloaded-dispvm-autostart"
+                    and self.can_preload()
+                ):
+                    continue
                 break
-            await asyncio.sleep(delay)
 
     @property
     def dispvms(self):

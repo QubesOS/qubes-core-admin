@@ -56,7 +56,6 @@ class TestApp(qubes.tests.vm.TestApp):
 class TC_00_DVMTemplateMixin(
     qubes.tests.vm.qubesvm.QubesVMTestsMixin,
     qubes.tests.QubesTestCase,
-    qubes.tests.TestEmitter,
 ):
     def setUp(self):
         super(TC_00_DVMTemplateMixin, self).setUp()
