@@ -189,17 +189,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.features.update(template.features)
             self.tags.update(template.tags)
 
-    def get_feat_preload(self) -> list:
-        feature = "preload-dispvm"
-        value = self.features.check_with_template(feature, "")
-        return value.split(" ") if value else []
-
-    def get_feat_preload_max(self) -> int:
-        feature = "preload-dispvm-max"
-        return int(self.features.check_with_template(feature, 0))
-
     def is_preloaded(self) -> bool:
-        preload_dispvm = self.get_feat_preload()
+        appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload()
         if not preload_dispvm:
             return False
         if self.name not in preload_dispvm:
@@ -212,13 +204,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         :return:
         """
-        preload_dispvm = self.get_feat_preload()
+        appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload()
         if preload_dispvm:
             preload_dispvm.append(self.name)
         else:
             preload_dispvm = [self.name]
 
-        appvm = getattr(self, "template")
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = True
 
@@ -230,8 +222,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
-        preload_dispvm = self.get_feat_preload().remove(self.name)
         appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload().remove(self.name)
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = False
         await appvm.fire_event_async(
@@ -284,10 +276,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         gui_timeout = 30
         gui = self.features.get("gui", None)
         if not gui:
-            asyncio.sleep(no_gui_sleep)
-            self.pause()
+            await asyncio.sleep(no_gui_sleep)
+            await self.pause()
             return
-
         proc = None
         try:
             proc = await asyncio.wait_for(
@@ -309,15 +300,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         finally:
             if proc is not None:
                 proc.terminate()
-            self.pause()
+            await self.pause()
 
     @qubes.events.handler("domain-unpaused")
-    async def on_domain_unpaused(
+    def on_domain_unpaused(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
         """Mark unpaused preloaded domains as used."""
-        if self.is_preloaded():
-            await self.use_preloaded()
+        if self.is_preloaded() and self.is_fully_usable():
+            # Event domain-unpaused is triggered on every qube start by
+            # 'libvirt_domain.resume()'.
+            # asyncio.get_event_loop().run_until_complete(self.use_preloaded())
+            asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
@@ -347,7 +341,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     ):  # pylint: disable=invalid-overridden-method
         if self.is_preloaded():
             appvm = getattr(self, "template")
-            preload_dispvm = self.get_feat_preload().remove(self.name)
+            preload_dispvm = appvm.get_feat_preload().remove(self.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 
@@ -393,20 +387,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             preload_dispvm = appvm.get_feat_preload()
             if preload_dispvm:
                 dispvm = app.domains[preload_dispvm[0]]
-                if dispvm.is_paused():
-                    await dispvm.unpause()
-                else:
-                    await dispvm.use_preloaded()
-                return dispvm
+                # Paused preloaded disposable signals that it is ready for use.
+                while True:
+                    if dispvm.is_paused():
+                        await dispvm.unpause()
+                        app.save()
+                        return dispvm
+                    await asyncio.sleep(0.25)
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
         )
         await dispvm.create_on_disk()
-
         if preload:
             await dispvm.mark_preloaded()
-
         app.save()
         return dispvm
 

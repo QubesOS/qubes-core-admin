@@ -1291,18 +1291,22 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             appvm = self.dest
 
         self.fire_event_for_permission(dispvm_template=appvm)
-
         if preload_autostart:
             await appvm.fire_event_async("domain-preloaded-dispvm-autostart")
             return
-
         dispvm = await qubes.vm.dispvm.DispVM.from_appvm(appvm, preload=preload)
-        if preload:
-            await dispvm.start()
+        # TODO:
+        #  Ben:
+        #    Can I pass self.src to `from_appvm()` or is there a better
+        #    alternative? Missing the `disp-created-by-` tag can impact Qubes
+        #    Builder policy for example.
         # TODO: move this to extension (in race-free fashion, better than here)
         dispvm.tags.add("created-by-" + str(self.src))
         dispvm.tags.add("disp-created-by-" + str(self.src))
-
+        # TODO:
+        #  Ben: the preload argument is not being used, maybe use it as refill
+        if preload:
+            await dispvm.start()
         return (
             ("uuid:" + str(dispvm.uuid)) if untrusted_payload else dispvm.name
         )
