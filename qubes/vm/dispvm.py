@@ -198,9 +198,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return False
         return True
 
-    async def mark_preloaded(self):
+    async def preload(self):
         """
-        Mark preloaded DispVM as such.
+        Preloaded DispVM.
 
         :return:
         """
@@ -210,9 +210,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             preload_dispvm.append(self.name)
         else:
             preload_dispvm = [self.name]
-
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = True
+        await self.start()
 
     async def use_preloaded(self):
         """
@@ -383,6 +383,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "Failed to create preloaded disposable, limit of "
                 "preloaded DispVMs reached"
             )
+
         if not preload:
             preload_dispvm = appvm.get_feat_preload()
             if preload_dispvm:
@@ -400,7 +401,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         )
         await dispvm.create_on_disk()
         if preload:
-            await dispvm.mark_preloaded()
+            await dispvm.preload()
         app.save()
         return dispvm
 

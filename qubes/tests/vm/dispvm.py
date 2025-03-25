@@ -123,13 +123,40 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
         )
         mock_symlink.assert_not_called()
 
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_reject_max(self, mock_storage):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        self.appvm.features["preload-dispvm-max"] = "0"
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            with self.assertRaises(qubes.exc.QubesException):
+                self.loop.run_until_complete(
+                    qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+                )
+            mock_domains.get_new_unused_dispid.assert_not_called()
+
+    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload(
-        self, mock_storage, mock_makedirs, mock_symlink
+    def test_000_from_appvm_preload_only(
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
+        mock_dispvm_start,
     ):
         mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_dispvm_start.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         self.appvm.features["preload-dispvm-max"] = "1"
@@ -158,15 +185,33 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
         )
         mock_symlink.assert_not_called()
 
+    @unittest.mock.patch("asyncio.sleep")
+    @unittest.mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_domain_preloaded_dispvm_used"
+    )
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.unpause")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.is_paused")
     @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
     def test_000_from_appvm_preload_use(
-        self, mock_storage, mock_makedirs, mock_symlink, mock_dispvm_start
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
+        mock_dispvm_start,
+        mock_is_paused,
+        mock_unpause,
+        mock_on_domain_preloaded_dispvm_used,
+        mock_asyncio_sleep,
     ):
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_dispvm_start.side_effect = self.mock_coro
+        mock_is_paused.side_effect = self.mock_coro
+        mock_unpause.side_effect = self.mock_coro
+        mock_on_domain_preloaded_dispvm_used.side_effect = self.mock_coro
+        mock_asyncio_sleep.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         orig_domains = self.app.domains
         self.appvm.features["preload-dispvm-max"] = "1"
@@ -189,12 +234,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
+            # TODO: Missing waiting for event here.
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
         mock_dispvm_start.assert_called_once_with()
         # TODO: whyyyyyyyyyyyy not being fired
-        # self.assertEventFired(self.appvm_emitter, "domain-preloaded-dispvm-used")
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
         self.assertFalse(dispvm.is_preloaded())
         self.assertFalse(dispvm.features.get("internal", False))
@@ -207,27 +252,6 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
             "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
         )
         mock_symlink.assert_not_called()
-
-    @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload_reject_max(self, mock_storage):
-        mock_storage.return_value.create.side_effect = self.mock_coro
-        self.appvm.template_for_dispvms = True
-        orig_getitem = self.app.domains.__getitem__
-        self.appvm.features["preload-dispvm-max"] = "0"
-        with mock.patch.object(
-            self.app, "domains", wraps=self.app.domains
-        ) as mock_domains:
-            mock_domains.configure_mock(
-                **{
-                    "get_new_unused_dispid": mock.Mock(return_value=42),
-                    "__getitem__.side_effect": orig_getitem,
-                }
-            )
-            with self.assertRaises(qubes.exc.QubesException):
-                self.loop.run_until_complete(
-                    qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
-                )
-            mock_domains.get_new_unused_dispid.assert_not_called()
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
