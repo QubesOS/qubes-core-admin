@@ -47,7 +47,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
     def get_feat_preload_max(self) -> int:
         feature = "preload-dispvm-max"
-        return int(self.features.get(feature, 0))  # type: ignore
+        # TODO: fix, mypy throws:
+        # error: "DVMTemplateMixin" has no attribute "features"  [attr-defined]
+        value = self.features.get(feature, 0)  # type: ignore
+        return int(value) if value else 0
 
     def can_preload(self) -> bool:
         preload_dispvm_max = self.get_feat_preload_max()
@@ -63,7 +66,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if not newvalue.isdigit():
             raise qubes.exc.QubesValueError("Invalid preload-dispvm-max value")
         ## TODO: preload disposables in case the limit increases.
-        #if not oldvalue or int(newvalue) > int(oldvalue):
+        # if not oldvalue or int(newvalue) > int(oldvalue):
 
     @qubes.events.handler("feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -175,11 +178,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
             available_memory = psutil.virtual_memory().available / (1024 * 1024)
             threshold = 1024 * 5
             if memory >= (available_memory - threshold):
-                ## TODO: tags not created "disp-created-by-" (see api/admin.py)
-                dispvm = await qubes.vm.dispvm.DispVM.from_appvm(
+                await qubes.vm.dispvm.DispVM.from_appvm(
                     self, preload=True
                 )
-                await dispvm.start()
                 # TODO:
                 #  Ben:
                 #    What to do if the maximum is never reached on autostart as

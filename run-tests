@@ -10,12 +10,13 @@ install_rpm_deps () {
     rpm -q --quiet "${applications[@]}" ||
     sudo dnf install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
+    # TODO: ben: add python3-psutil, can't be added now as it causes merge conflicts
 }
 install_apt_deps(){
     local applications
     applications=(lvm2 python3-docutils python3-yaml python3-jinja2
         python3-lxml btrfs-progs python3-coverage python3-inotify
-        python3-libvirt cryptsetup)
+        python3-libvirt python3-psutil cryptsetup)
     sudo apt --no-install-recommends -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }
@@ -31,12 +32,12 @@ fi
 : "${PYTHON:=python3}"
 : "${TESTPYTHONPATH:=test-packages}"
 
-if [ -d ../core-qrexec/qrexec ]; then
-    PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}:../core-qrexec
-fi
-if [ -d ../qubes-core-qrexec/qrexec ]; then
-    PYTHONPATH=${PYTHONPATH+"$PYTHONPATH:"}:../qubes-core-qrexec
-fi
+for dir in ../core-qrexec/qrexec ../qubes-core-qrexec/qrexec; do
+    if [ -d "$dir" ]; then
+        PYTHONPATH="${PYTHONPATH+"$PYTHONPATH:"}:$dir"
+    fi
+done
+unset dir
 
 PYTHONPATH=${TESTPYTHONPATH}${PYTHONPATH+":${PYTHONPATH}"}
 export PYTHONPATH
@@ -45,6 +46,6 @@ export PYTHONPATH
 "${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
 retcode=$?
 if [ -n "$CLEANUP_LVM" ]; then
-    sudo --non-interactive $(dirname "$0")/ci/lvm-manage cleanup-lvm "$DEFAULT_LVM_POOL"
+    sudo --non-interactive "$(dirname "$0")/ci/lvm-manage" cleanup-lvm "$DEFAULT_LVM_POOL"
 fi
 exit $retcode

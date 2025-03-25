@@ -3771,23 +3771,39 @@ netvm default=True type=vm \n"""
         retval = self.call_mgmt_func(
             b"admin.vm.CreateDisposable", b"dom0", arg=b"preload-autostart"
         )
-        # TODO: why event is not being fired?
-        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-autostart")
         dispvm_preload = self.vm.get_feat_preload()
         self.assertEqual(len(dispvm_preload), 1)
         self.assertIsNone(retval)
         mock_storage.assert_called_once_with()
         mock_dispvm_start.assert_called_once_with()
+        # TODO: event fires normally but self.emitter is not the correct obj.
+        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-autostart")
         self.assertTrue(self.app.save.called)
 
-    # TODO: test return of the preloaded dispvm
+    @unittest.mock.patch("asyncio.sleep")
+    @unittest.mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_domain_preloaded_dispvm_used"
+    )
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.unpause")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.is_paused")
     @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_643_vm_create_disposable_preload_use(
-        self, mock_storage, mock_dispvm_start
+        self,
+        mock_storage,
+        mock_dispvm_start,
+        mock_is_paused,
+        mock_unpause,
+        mock_on_domain_preloaded_dispvm_used,
+        mock_asyncio_sleep,
     ):
         mock_storage.side_effect = self.dummy_coro
         mock_dispvm_start.side_effect = self.dummy_coro
+        mock_is_paused.side_effect = self.dummy_coro
+        mock_unpause.side_effect = self.dummy_coro
+        mock_on_domain_preloaded_dispvm_used.side_effect = self.dummy_coro
+        mock_asyncio_sleep.side_effect = self.dummy_coro
+
         self.vm.template_for_dispvms = True
         self.app.domains[self.vm].fire_event = self.emitter.fire_event
         self.vm.features["preload-dispvm-max"] = "1"
@@ -3796,16 +3812,23 @@ netvm default=True type=vm \n"""
             b"admin.vm.CreateDisposable", b"dom0", arg=b"preload"
         )
         dispvm_preload = self.vm.get_feat_preload()
-        dispvm = dispvm_preload[0]
+        dispvm_name = dispvm_preload[0]
         self.assertEqual(len(dispvm_preload), 1)
         mock_storage.assert_called_once_with()
         mock_dispvm_start.assert_called_once_with()
         self.assertTrue(self.app.save.called)
+        # TODO: some async function inside is not being awaited. Possibly in
+        # on_domain_preloaded_dispvm_used().
         retval = self.call_mgmt_func(b"admin.vm.CreateDisposable", b"dom0")
-        # TODO: why event is not being fired?
-        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
-        self.assertEqual(retval, dispvm)
+        mock_is_paused.assert_called_once_with()
+        mock_unpause.assert_called_once_with()
+        self.assertEqual(retval, dispvm_name)
+        dispvm = self.app.domains[retval]
+        # TODO: preload feature not being zeroed: not marked as used.
+        self.assertEqual(dispvm.features.get("internal", False), False)
         self.assertFalse(self.vm.get_feat_preload())
+        # TODO: event fires normally but self.emitter is not the correct obj.
+        self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
 
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(

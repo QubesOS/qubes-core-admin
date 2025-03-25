@@ -34,6 +34,8 @@ import asyncio
 import sys
 
 import qubes.tests
+import qubesadmin.exc
+from qubesadmin.tools import qvm_run
 
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
@@ -57,6 +59,11 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.app.save()
         # used in test_01x
         self.startup_counter = 0
+        self.qvm_run_preload_args = [
+            f"--dispvm={self.disp_base.name}",
+            "--service",
+            "qubes.GetDate",
+        ]
 
     def tearDown(self):
         self.app.default_dispvm = None
@@ -227,27 +234,30 @@ class TC_20_DispVMMixin(object):
 
     def test_011_dvm_run_preload(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
-        # TODO: dispvm.start() has to be called from `from_appvm()` when
-        # preloaded.
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
         )
+        self.disp_base.features["preload-dispvm-max"] = False
         try:
-            self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertTrue(dispvm.is_paused())
-            self.loop.run_until_complete(
-                dispvm.run_service_for_stdio(
-                    "qubes.VMShell", input=b"echo test"
-                )
-            )
-            self.assertFalse(dispvm.get_feat_preload())
-            self.assertFalse(dispvm.is_preloaded())
-            self.assertFalse(dispvm.features.get("internal", False))
-            self.assertFalse(dispvm.is_paused())
+            # TODO: how to assert call was made to the desired qube?
+            # I saw qubes-core-admin-client/qubesadmin/tests/tools/qvm_run.py
+            # but it has extra things in tests/__init__.py (expected_calls and
+            # service_calls_).
+            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
+            self.assertEqual(ret, 0)
+            self.assertEqual(self.disp_base.get_feat_preload(), [])
+            # TODO: these tests are too late, when qvm_run returns, the qube
+            # is too close to deletion. Threading?
+            # self.assertFalse(dispvm.is_preloaded())
+            # self.assertFalse(dispvm.features.get("internal", False))
+            # self.assertFalse(dispvm.is_paused())
         finally:
-            self.loop.run_until_complete(dispvm.cleanup())
+            if dispvm in self.app.domains:
+                self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_nogui(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
@@ -255,22 +265,48 @@ class TC_20_DispVMMixin(object):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
         )
+        self.disp_base.features["preload-dispvm-max"] = False
         try:
-            self.assertEqual(dispvm.get_feat_preload(), [dispvm.name])
+            self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertTrue(dispvm.is_paused())
-            self.loop.run_until_complete(
-                dispvm.run_service(
-                    "qubes.VMShell", input=b"echo test", wait=False
-                )
-            )
-            self.assertEqual(dispvm.get_feat_preload(), [])
-            self.assertFalse(dispvm.is_preloaded())
-            self.assertFalse(dispvm.features.get("internal", False))
-            self.assertFalse(dispvm.is_paused())
+            self.qvm_run_preload_args.insert("--no-gui", 0)
+            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
+            self.assertEqual(ret, 0)
+            self.assertEqual(self.disp_base.get_feat_preload(), [])
         finally:
-            self.loop.run_until_complete(dispvm.cleanup())
+            if dispvm in self.app.domains:
+                self.loop.run_until_complete(dispvm.cleanup())
+
+    def test_011_dvm_run_preload_next(self):
+        self.disp_base.features["preload-dispvm-max"] = "1"
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+        )
+        try:
+            self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
+            self.assertTrue(dispvm.is_preloaded())
+            self.assertTrue(dispvm.features.get("internal", False))
+            self.assertTrue(dispvm.is_paused())
+            dispvm_name = dispvm.name
+            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
+            self.assertEqual(ret, 0)
+            next_preload_list = self.disp_base.get_feat_preload()
+            self.assertTrue(next_preload_list)
+            self.assertNotIn(dispvm_name, next_preload_list)
+            self.disp_base.features["preload-dispvm-max"] = False
+        finally:
+            if dispvm in self.app.domains:
+                self.loop.run_until_complete(dispvm.cleanup())
+        next_dispvm = self.app.domains[next_preload_list[0]]
+        try:
+            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
+            self.assertEqual(ret, 0)
+            self.assertFalse(self.disp_base.get_feat_preload())
+        finally:
+            if next_dispvm in self.app.domains:
+                self.loop.run_until_complete(next_dispvm.cleanup())
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
