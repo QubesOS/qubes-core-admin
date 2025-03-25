@@ -19,8 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-import unittest
-import unittest.mock as mock
+from unittest import mock
 
 import qubes
 import qubes.vm.qubesvm
@@ -128,45 +127,45 @@ class TC_00_DVMTemplateMixin(
         self.app.pools.clear()
 
     def test_010_dvm_preload_get_max(self):
-        # self.setup_dispvms(vm)
         self.appvm.template_for_dispvms = True
+        cases = [
+            (None, 0),
+            (False, 0),
+            ("0", 0),
+        ]
         self.assertFalse(self.appvm.can_preload())
         self.assertEqual(self.appvm.get_feat_preload_max(), 0)
-        self.appvm.features["preload-dispvm-max"] = "1"
-        self.assertEqual(self.appvm.get_feat_preload_max(), 1)
+        for value, expected_value in cases:
+            with self.subTest(value=value, expected_value=expected_value):
+                self.appvm.features["preload-dispvm-max"] = value
+                self.assertEqual(
+                    self.appvm.get_feat_preload_max(), expected_value
+                )
+                self.assertFalse(self.appvm.can_preload())
+        self.appvm.features["preload-dispvm-max"] = "2"
+        self.assertEqual(self.appvm.get_feat_preload_max(), 2)
         self.assertTrue(self.appvm.can_preload())
 
     def test_010_dvm_preload_get_list(self):
         # self.setup_dispvms(vm)
         self.appvm.template_for_dispvms = True
         self.assertEqual(self.appvm.get_feat_preload(), [])
+        for value in [None, False, ""]:
+            self.appvm.features["preload-dispvm"] = value
+            self.assertEqual(self.appvm.get_feat_preload(), [])
         self.appvm.features["preload-dispvm"] = "test1"
         self.assertEqual(self.appvm.get_feat_preload(), ["test1"])
-
+        self.appvm.features["preload-dispvm"] = "test1 test2"
+        self.assertEqual(self.appvm.get_feat_preload(), ["test1", "test2"])
+        # TODO: shouldn't feature changes be validated on
+        # domain-feature-pre-set?
+        with self.assertRaises(qubes.exc.QubesException):
+            self.appvm.features["preload-dispvm"] = "test1 test2 test1"
         # self.assertEventFired(
         #    self.appvm_emitter,
         #    "domain-feature-pre-set:preload-dispvm-max",
         #    kwargs={"feature": "preload-dispvm-max", "value": "1"},
         # )
 
-    def test_010_dvm_preload_feat_max_invalid(self):
-        testcases = (
-            (1),
-            (-1),
-            ("a"),
-            ("1a"),
-            ("a1"),
-            (100000),
-        )
-        # for max_val in testcases:
-        #    with self.subTest(str(max_val)):
-        #        effect = loop.run_until_complete(self.emitter.fire_event("domain-feature-set"))
-        # self.assertEqual(
-        #    ipaddress.IPv4Address("1.1." + ip),
-        #    vmid_to_ipv4("1.1", vmid),
-        # )
-
-    def test_010_dvm_preload_feat_list_invalid(self):
-        # Preload qubes than lower the maximum.
-        # Try to add qubes after that.
+    def test_010_dvm_preload_can_preload(self):
         pass
