@@ -537,7 +537,7 @@ class LocalVM(BaseVM):
         You can call this method for example in response to
         `domain-init` and `domain-load` events.
         """
-        # pylint: disable=no-member
+
         if path not in self._qdb_watch_paths:
             self._qdb_watch_paths.add(path)
             if self._qdb_connection_watch:
@@ -552,7 +552,6 @@ class LocalVM(BaseVM):
         import qubesdb  # pylint: disable=import-error
 
         try:
-            # pylint: disable=no-member
             path = self._qdb_connection_watch.read_watch()
             for watched_path in self._qdb_watch_paths:
                 if watched_path == path or (
@@ -573,7 +572,6 @@ class LocalVM(BaseVM):
         class.
         """
         # cleanup old watch connection first, if any
-        # pylint: disable=no-member
         if self._qdb_connection_watch is not None:
             asyncio.get_event_loop().remove_reader(
                 self._qdb_connection_watch.watch_fd()
@@ -609,7 +607,7 @@ class VMProperty(qubes.property):
                     self.__class__.__name__
                 )
             )
-        if not issubclass(vmclass, LocalVM):
+        if not issubclass(vmclass, BaseVM):
             raise TypeError(
                 "'vmclass' should specify a subclass of qubes.vm.LocalVM"
             )

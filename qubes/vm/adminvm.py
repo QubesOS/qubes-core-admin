@@ -31,7 +31,7 @@ import qubes
 import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_kbd_layout
-from qubes.vm import LocalVM
+from qubes.vm import LocalVM, BaseVM
 
 
 class AdminVM(LocalVM):
@@ -98,7 +98,7 @@ class AdminVM(LocalVM):
         return self.name
 
     def __lt__(self, other: object):
-        if not isinstance(other, LocalVM):
+        if not isinstance(other, BaseVM):
             return NotImplemented
         # order dom0 before anything
         if not isinstance(other, AdminVM):
