@@ -24,9 +24,10 @@ Qubes OS Management API
 import asyncio
 import functools
 import os
+import pathlib
+import re
 import string
 import subprocess
-import pathlib
 
 from ctypes import CDLL
 
@@ -1143,9 +1144,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.feature.Set", scope="local", write=True)
     async def vm_feature_set(self, untrusted_payload):
-        # validation of self.arg done by qrexec-policy is enough
-        value = untrusted_payload.decode("ascii", errors="strict")
+        untrusted_value = untrusted_payload.decode("ascii", errors="strict")
         del untrusted_payload
+        if re.match(r"\A[a-zA-Z0-9_.-]+\Z", self.arg) is None:
+            raise qubes.exc.QubesValueError(
+                "feature name contains illegal characters"
+            )
+        if re.match(r"\A[\x20-\x7E]*\Z", untrusted_value) is None:
+            raise qubes.exc.QubesValueError(
+                f"{self.arg} value contains illegal characters"
+            )
+        value = untrusted_value
+        del untrusted_value
 
         self.fire_event_for_permission(value=value)
         self.dest.features[self.arg] = value

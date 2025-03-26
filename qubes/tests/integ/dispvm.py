@@ -22,7 +22,6 @@ import grp
 import os
 import pwd
 import subprocess
-import tempfile
 import time
 import unittest
 from contextlib import suppress
@@ -223,6 +222,36 @@ class TC_20_DispVMMixin(object):
                 )
             )
             self.assertEqual(stdout, b"test\n")
+        finally:
+            self.loop.run_until_complete(dispvm.cleanup())
+
+    def test_011_dvm_run_preload_invalid_max(self):
+        # TODO: couldn't make the assert raise on unit tests.
+        cases_invalid = ["a", "-1", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.appvm.features["preload-dispvm-max"] = value
+
+    def test_011_dvm_run_preload_invalid_list(self):
+        # TODO: couldn't make the assert raise on unit tests.
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        )
+        cases_invalid = [
+            "notaqube",  # not a qube
+            f"{self.disp_base}",  # not derived from wanted appvm
+            f"{dispvm.name} {dispvm.name}",  # duplicate
+        ]
+        try:
+            with self.assertRaises(qubes.exc.QubesValueError):
+                # exceeds the limit (0 if unset)
+                self.appvm.features["preload-dispvm"] = f"{dispvm.name}"
+            self.appvm.features["preload-dispvm-max"] = "2"
+            for value in cases_invalid:
+                with self.subTest(value=value):
+                    with self.assertRaises(qubes.exc.QubesValueError):
+                        self.appvm.features["preload-dispvm"] = value
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 

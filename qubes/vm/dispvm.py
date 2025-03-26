@@ -311,6 +311,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # Event domain-unpaused is triggered on every qube start by
             # 'libvirt_domain.resume()'.
             # asyncio.get_event_loop().run_until_complete(self.use_preloaded())
+            # TODO: is there a better task function?
             asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")
