@@ -11,6 +11,18 @@ class QubesDB:
     def list(self, path):
         return ['test']
 
+    def watch(self, path):
+        pass
+
+    def read_watch(self):
+        return "test"
+
+    def watch_fd(self):
+        return 3
+    
+    def close(self):
+        pass
+
 class Error(Exception):
     pass
 
