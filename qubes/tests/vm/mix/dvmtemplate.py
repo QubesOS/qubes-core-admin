@@ -30,12 +30,6 @@ import qubes.tests.vm.appvm
 import qubes.tests.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
 
-# import (
-#    get_feat_preload,
-#    get_feat_preload_max,
-#    can_preload,
-# )
-
 
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
@@ -77,6 +71,7 @@ class TC_00_DVMTemplateMixin(
             template=self.template,
             label="red",
         )
+        self.appvm.template_for_dispvms = True
         self.app.domains[self.appvm.name] = self.appvm
         self.app.domains[self.appvm] = self.appvm
         self.addCleanup(self.cleanup_dispvm)
@@ -90,23 +85,6 @@ class TC_00_DVMTemplateMixin(
         del self.emitter
         del self.appvm_emitter
         super(TC_00_DVMTemplateMixin, self).tearDown()
-
-    # def setup_dispvms(self, vm):
-    #    # usage of QubesVM here means that those tests should be after
-    #    # testing properties used here
-    #    print(1)
-    #    self.dvm = qubes.vm.qubesvm.QubesVM(
-    #        self.app,
-    #        None,
-    #        qid=2,
-    #        name=qubes.tests.VMPREFIX + "dvm",
-    #        netvm=None,
-    #    )
-    #    self.app.domains = qubes.app.VMCollection(self.app)
-    #    for domain in (vm, self.dvm):
-    #        self.app.domains._dict[domain.qid] = domain
-    #    self.app.default_dispvm = self.dvm
-    #    self.addCleanup(self.cleanup_dispvm)
 
     def cleanup_dispvm(self):
         # self.dvm.close()
@@ -127,13 +105,12 @@ class TC_00_DVMTemplateMixin(
         self.app.pools.clear()
 
     def test_010_dvm_preload_get_max(self):
-        self.appvm.template_for_dispvms = True
         cases = [
             (None, 0),
             (False, 0),
             ("0", 0),
+            ("2", 2),
         ]
-        self.assertFalse(self.appvm.can_preload())
         self.assertEqual(self.appvm.get_feat_preload_max(), 0)
         for value, expected_value in cases:
             with self.subTest(value=value, expected_value=expected_value):
@@ -141,31 +118,55 @@ class TC_00_DVMTemplateMixin(
                 self.assertEqual(
                     self.appvm.get_feat_preload_max(), expected_value
                 )
-                self.assertFalse(self.appvm.can_preload())
-        self.appvm.features["preload-dispvm-max"] = "2"
-        self.assertEqual(self.appvm.get_feat_preload_max(), 2)
-        self.assertTrue(self.appvm.can_preload())
-
-    def test_010_dvm_preload_get_list(self):
-        # self.setup_dispvms(vm)
-        self.appvm.template_for_dispvms = True
-        self.assertEqual(self.appvm.get_feat_preload(), [])
-        for value in [None, False, ""]:
-            self.appvm.features["preload-dispvm"] = value
-            self.assertEqual(self.appvm.get_feat_preload(), [])
-        self.appvm.features["preload-dispvm"] = "test1"
-        self.assertEqual(self.appvm.get_feat_preload(), ["test1"])
-        self.appvm.features["preload-dispvm"] = "test1 test2"
-        self.assertEqual(self.appvm.get_feat_preload(), ["test1", "test2"])
-        # TODO: shouldn't feature changes be validated on
-        # domain-feature-pre-set?
-        with self.assertRaises(qubes.exc.QubesException):
-            self.appvm.features["preload-dispvm"] = "test1 test2 test1"
+        # self.assertFeatureInvalidValue(self.appvm, "preload-dispvm-max", -2)
+        #
+        # self.appvm.features["preload-dispvm-max"] = "abcde"
         # self.assertEventFired(
         #    self.appvm_emitter,
         #    "domain-feature-pre-set:preload-dispvm-max",
-        #    kwargs={"feature": "preload-dispvm-max", "value": "1"},
+        #    kwargs={"feature": "preload-dispvm-max", "value": "abcde"},
         # )
+        #
+        # cases_invalid = [
+        #    "a b a",
+        # ]
+        # for value  in cases_invalid:
+        #    with self.subTest(value=value):
+        #        with self.assertRaises(qubes.exc.QubesValueError):
+        #            print(value)
+        #            self.appvm.features["preload-dispvm-max"] = value
+
+    def test_010_dvm_preload_get_list(self):
+        self.assertEqual(self.appvm.get_feat_preload(), [])
+        cases = [
+            (None, []),
+            (False, []),
+            ("", []),
+            ("test1", ["test1"]),
+            ("test1 test2", ["test1", "test2"]),
+        ]
+        for value, expected_value in cases:
+            with self.subTest(value=value, expected_value=expected_value):
+                self.appvm.features["preload-dispvm"] = value
+                self.assertEqual(self.appvm.get_feat_preload(), expected_value)
 
     def test_010_dvm_preload_can_preload(self):
-        pass
+        self.assertFalse(self.appvm.can_preload())
+        self.appvm.features["preload-dispvm-max"] = 1
+        self.appvm.features["preload-dispvm-max"] = 1
+        cases = [
+            ("", "", False),
+            (0, "", False),
+            (1, "", True),
+            (1, "test1", False),
+            (3, "test1 test2", True),
+        ]
+        for preload_max, preload_list, expected_value in cases:
+            with self.subTest(
+                preload_max=preload_max,
+                preload_list=preload_list,
+                expected_value=expected_value,
+            ):
+                self.appvm.features["preload-dispvm-max"] = preload_max
+                self.appvm.features["preload-dispvm"] = preload_list
+                self.assertEqual(self.appvm.can_preload(), expected_value)
