@@ -49,6 +49,10 @@ class SystemInfoCache:
         "property-reset:icon",
         "property-set:guivm",
         "property-reset:guivm",
+        "property-set:relayvm",
+        "property-reset:relayvm",
+        "property-set:transport_rpc",
+        "property-reset:transport_rpc",
         # technically not changeable, but keep for consistency
         "property-set:uuid",
         "property-reset:uuid",
@@ -123,6 +127,16 @@ class SystemInfoCache:
                     "guivm": (
                         domain.guivm.name
                         if getattr(domain, "guivm", None)
+                        else None
+                    ),
+                    "relayvm": (
+                        domain.relayvm.name
+                        if getattr(domain, "relayvm", None)
+                        else None
+                    ),
+                    "transport_rpc": (
+                        domain.transport_rpc
+                        if getattr(domain, "transport_rpc", None)
                         else None
                     ),
                     "power_state": domain.get_power_state(),
