@@ -31,10 +31,10 @@ import qubes
 import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_kbd_layout
-from qubes.vm import BaseVM
+from qubes.vm import LocalVM, BaseVM
 
 
-class AdminVM(BaseVM):
+class AdminVM(LocalVM):
     """Dom0"""
 
     dir_path = None

@@ -206,10 +206,10 @@ class BaseVM(qubes.PropertyHolder):
 
     :param app: Qubes application context
     :type app: :py:class:`qubes.Qubes`
-    :param xml: xml node from which to deserialise
+    :param xml: xml node from which to deserialize
     :type xml: :py:class:`lxml.etree._Element` or :py:obj:`None`
 
-    This class is responsible for serializing and deserialising machines and
+    This class is responsible for serializing and deserializing machines and
     provides basic framework. It contains no management logic. For that, see
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     """
@@ -249,6 +249,113 @@ class BaseVM(qubes.PropertyHolder):
             padlock is set.""",
     )
 
+    def __init__(self, app, xml, features=None, tags=None, **kwargs):
+        # self.app must be set before super().__init__, because some property
+        # setters need working .app attribute
+        #: mother :py:class:`qubes.Qubes` object
+        self.app = app
+
+        super().__init__(xml, **kwargs)
+
+        #: dictionary of features of this qube
+        self.features = qubes.features.Features(self, features)
+
+        #: user-specified tags
+        self.tags = Tags(self, tags or ())
+
+        #: logger instance for logging messages related to this VM
+        self.log = None
+
+        if hasattr(self, "name"):
+            self.init_log()
+
+    @qubes.stateless_property
+    def klass(self):
+        """Domain class name"""
+        return type(self).__name__
+
+    def close(self):
+        super().close()
+        del self.app
+        del self.features
+        del self.tags
+
+    def load_extras(self):
+        if self.xml is None:
+            return
+
+        # features
+        for node in self.xml.xpath("./features/feature"):
+            self.features[node.get("name")] = node.text
+
+        # tags
+        for node in self.xml.xpath("./tags/tag"):
+            self.tags.add(node.get("name"))
+
+        # SEE:1815 firewall, policy.
+
+    def init_log(self):
+        """Initialise logger for this domain."""
+        self.log = qubes.log.get_vm_logger(self.name)
+
+    def __xml__(self):
+        element = lxml.etree.Element("domain")
+        element.set("id", "domain-" + str(self.qid))
+        element.set("class", self.__class__.__name__)
+
+        element.append(self.xml_properties())
+
+        features = lxml.etree.Element("features")
+        for feature in self.features:
+            node = lxml.etree.Element("feature", name=feature)
+            node.text = self.features[feature]
+            features.append(node)
+        element.append(features)
+
+        tags = lxml.etree.Element("tags")
+        for tag in self.tags:
+            node = lxml.etree.Element("tag", name=tag)
+            tags.append(node)
+        element.append(tags)
+
+        return element
+
+    def __repr__(self):
+        proprepr = []
+        for prop in self.property_list():
+            if prop.__name__ in ("name", "qid"):
+                continue
+            try:
+                proprepr.append(
+                    "{}={!s}".format(
+                        prop.__name__, getattr(self, prop.__name__)
+                    )
+                )
+            except AttributeError:
+                continue
+
+        return "<{} at {:#x} name={!r} qid={!r} {}>".format(
+            type(self).__name__,
+            id(self),
+            self.name,
+            self.qid,
+            " ".join(proprepr),
+        )
+
+
+class LocalVM(BaseVM):
+    """Base class for all local VMs
+
+    :param app: Qubes application context
+    :type app: :py:class:`qubes.Qubes`
+    :param xml: xml node from which to deserialize
+    :type xml: :py:class:`lxml.etree._Element` or :py:obj:`None`
+
+    This class is responsible for serializing and deserializing machines and
+    provides basic framework. It contains no management logic. For that, see
+    :py:class:`qubes.vm.qubesvm.QubesVM`.
+    """
+
     def __init__(
         self, app, xml, features=None, devices=None, tags=None, **kwargs
     ):
@@ -262,20 +369,11 @@ class BaseVM(qubes.PropertyHolder):
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
 
-        super().__init__(xml, **kwargs)
-
-        #: dictionary of features of this qube
-        self.features = qubes.features.Features(self, features)
+        super().__init__(app, xml, features, tags, **kwargs)
 
         #: :py:class:`DeviceManager` object keeping devices that are attached to
         #: this domain
         self.devices = devices or qubes.devices.DeviceManager(self)
-
-        #: user-specified tags
-        self.tags = Tags(self, tags or ())
-
-        #: logger instance for logging messages related to this VM
-        self.log = None
 
         #: storage volumes
         self.volumes = {}
@@ -283,12 +381,8 @@ class BaseVM(qubes.PropertyHolder):
         #: storage manager
         self.storage = None
 
-        if hasattr(self, "name"):
-            self.init_log()
-
     def close(self):
-        super().close()
-
+        # pylint: disable=no-member
         if self._qdb_connection_watch is not None:
             asyncio.get_event_loop().remove_reader(
                 self._qdb_connection_watch.watch_fd()
@@ -296,20 +390,17 @@ class BaseVM(qubes.PropertyHolder):
             self._qdb_connection_watch.close()
             del self._qdb_connection_watch
 
-        del self.app
-        del self.features
         del self.storage
         # TODO storage may have circ references, but it doesn't leak fds
         del self.devices
-        del self.tags
+
+        super().close()
 
     def load_extras(self):
+        super().load_extras()
+
         if self.xml is None:
             return
-
-        # features
-        for node in self.xml.xpath("./features/feature"):
-            self.features[node.get("name")] = node.text
 
         # devices (pci, usb, ...)
         for parent in self.xml.xpath("./devices"):
@@ -376,12 +467,6 @@ class BaseVM(qubes.PropertyHolder):
                     self.log.info(msg)
                     continue
 
-        # tags
-        for node in self.xml.xpath("./tags/tag"):
-            self.tags.add(node.get("name"))
-
-        # SEE:1815 firewall, policy.
-
     def get_provided_assignments(
         self, required_only: bool = False
     ) -> List["qubes.device_protocol.DeviceAssignment"]:
@@ -401,23 +486,8 @@ class BaseVM(qubes.PropertyHolder):
                         assignments.append(assignment)
         return assignments
 
-    def init_log(self):
-        """Initialise logger for this domain."""
-        self.log = qubes.log.get_vm_logger(self.name)
-
     def __xml__(self):
-        element = lxml.etree.Element("domain")
-        element.set("id", "domain-" + str(self.qid))
-        element.set("class", self.__class__.__name__)
-
-        element.append(self.xml_properties())
-
-        features = lxml.etree.Element("features")
-        for feature in self.features:
-            node = lxml.etree.Element("feature", name=feature)
-            node.text = self.features[feature]
-            features.append(node)
-        element.append(features)
+        element = super().__xml__()
 
         for devclass in self.devices:
             devices = lxml.etree.Element("devices")
@@ -437,35 +507,7 @@ class BaseVM(qubes.PropertyHolder):
                 devices.append(node)
             element.append(devices)
 
-        tags = lxml.etree.Element("tags")
-        for tag in self.tags:
-            node = lxml.etree.Element("tag", name=tag)
-            tags.append(node)
-        element.append(tags)
-
         return element
-
-    def __repr__(self):
-        proprepr = []
-        for prop in self.property_list():
-            if prop.__name__ in ("name", "qid"):
-                continue
-            try:
-                proprepr.append(
-                    "{}={!s}".format(
-                        prop.__name__, getattr(self, prop.__name__)
-                    )
-                )
-            except AttributeError:
-                continue
-
-        return "<{} at {:#x} name={!r} qid={!r} {}>".format(
-            type(self).__name__,
-            id(self),
-            self.name,
-            self.qid,
-            " ".join(proprepr),
-        )
 
     #
     # xml serialising methods
@@ -547,24 +589,18 @@ class BaseVM(qubes.PropertyHolder):
         for path in self._qdb_watch_paths:
             self._qdb_connection_watch.watch(path)
 
-    @qubes.stateless_property
-    def klass(self):
-        """Domain class name"""
-        return type(self).__name__
-
 
 class VMProperty(qubes.property):
     """Property that is referring to a VM
 
-    :param type vmclass: class that returned VM is supposed to be instance of
+    :param type vmclass: class that returned VM is supposed to be an instance of
 
-    and all supported by :py:class:`property` with the exception of ``type`` \
-        and ``setter``
+    and all supported by :py:class:`property` except ``type`` and ``setter``
     """
 
     _none_value = ""
 
-    def __init__(self, name, vmclass=BaseVM, allow_none=False, **kwargs):
+    def __init__(self, name, vmclass=LocalVM, allow_none=False, **kwargs):
         if "type" in kwargs:
             raise TypeError(
                 "'type' keyword parameter is unsupported in {}".format(
@@ -573,7 +609,7 @@ class VMProperty(qubes.property):
             )
         if not issubclass(vmclass, BaseVM):
             raise TypeError(
-                "'vmclass' should specify a subclass of qubes.vm.BaseVM"
+                "'vmclass' should specify a subclass of qubes.vm.LocalVM"
             )
 
         super().__init__(

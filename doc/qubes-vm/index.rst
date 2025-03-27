@@ -19,13 +19,13 @@ two, the :py:class:`qubes.vm.qubesvm.QubesVM` cares about Qubes-specific
 actions, that are more or less directly related to security model. It is
 intended to be easily auditable by non-expert programmers (ie. we don't use
 Python's magic there). The second class is its parent,
-:py:class:`qubes.vm.BaseVM`, which is concerned about technicalities like XML
+:py:class:`qubes.vm.LocalVM`, which is concerned about technicalities like XML
 serialising/deserialising. It is of less concern to threat model auditors, but
 still relevant to overall security of the Qubes OS. It is written for
 programmers by programmers.
 
 The second object is the XML node that refers to the domain. It can be accessed
-as :py:attr:`Qubes.vm.BaseVM.xml` attribute of the domain object. The third one
+as :py:attr:`Qubes.vm.LocalVM.xml` attribute of the domain object. The third one
 is :py:attr:`Qubes.vm.qubesvm.QubesVM.libvirt_domain` object for directly
 interacting with libvirt. Those objects are intended to be used from core and/or
 plugins, but not directly by user or from qvm-tools. They are however public, so
@@ -48,7 +48,7 @@ Package contents
 Main public classes
 ^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: qubes.vm.BaseVM
+.. autoclass:: qubes.vm.LocalVM
    :members:
    :show-inheritance:
 

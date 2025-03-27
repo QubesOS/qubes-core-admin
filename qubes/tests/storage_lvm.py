@@ -176,7 +176,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.app.close()
         del self.app
         for attr in dir(self):
-            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+            if isinstance(getattr(self, attr), qubes.vm.LocalVM):
                 delattr(self, attr)
 
     def test_000_default_thin_pool(self):
@@ -1488,7 +1488,7 @@ class TC_02_StorageHelpers(ThinPoolBase):
         self.app.close()
         del self.app
         for attr in dir(self):
-            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+            if isinstance(getattr(self, attr), qubes.vm.LocalVM):
                 delattr(self, attr)
 
     def test_000_search_thin_pool(self):
