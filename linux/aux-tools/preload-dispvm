@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+
+import qubesadmin
+
+
+def main():
+    domains = qubesadmin.Qubes().domains
+    appvms = [
+        qube
+        for qube in domains
+        if int(qube.features.get("preload-dispvm-max", 0)) > 0
+        and qube.klass == "AppVM"
+        and getattr(qube, "template_for_dispvms", False)
+    ]
+    method = "admin.vm.CreateDisposable"
+    for qube in appvms:
+        qube.qubesd_call(qube.name, method, "preload-autostart")
+
+
+if __name__ == "__main__":
+    main()

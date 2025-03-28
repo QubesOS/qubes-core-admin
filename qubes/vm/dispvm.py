@@ -20,11 +20,13 @@
 
 """ A disposable vm implementation """
 
+import asyncio
 import copy
+import subprocess
 
-import qubes.vm.qubesvm
-import qubes.vm.appvm
 import qubes.config
+import qubes.vm.appvm
+import qubes.vm.qubesvm
 
 
 def _setter_template(self, prop, value):
@@ -187,10 +189,130 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.features.update(template.features)
             self.tags.update(template.tags)
 
+    def is_preloaded(self) -> bool:
+        appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload()
+        if not preload_dispvm:
+            return False
+        if self.name not in preload_dispvm:
+            return False
+        return True
+
+    async def preload(self):
+        """
+        Preloaded DispVM.
+
+        :return:
+        """
+        appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload()
+        if preload_dispvm:
+            preload_dispvm.append(self.name)
+        else:
+            preload_dispvm = [self.name]
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+        self.features["internal"] = True
+        await self.start()
+
+    async def use_preloaded(self):
+        """
+        Mark preloaded DispVM as used (tainted).
+
+        :return:
+        """
+        if not self.is_preloaded():
+            raise qubes.exc.QubesException("DispVM is not preloaded")
+        appvm = getattr(self, "template")
+        preload_dispvm = appvm.get_feat_preload().remove(self.name)
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+        self.features["internal"] = False
+        await appvm.fire_event_async(
+            "domain-preloaded-dispvm-used", dispvm=self
+        )
+
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
         """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
         assert self.template
+
+    @qubes.events.handler("domain-start")
+    async def on_domain_started_dispvm(
+        self,
+        event,
+        **kwargs,
+    ):  # pylint: disable=unused-argument
+        """Pause preloaded domains as soon as basic services have started."""
+        if not self.is_preloaded():
+            return
+        # TODO:
+        # Marek: Test if pause isn't too early. Some services (especially:
+        #   gui-agent) may still be starting.  qubes.WaitForSession service may
+        #   help (ensure to use async handler to not block qubesd while waiting
+        #   on it).
+        # TODO:
+        # Ben:
+        #   Test if pause isn't too late, what if application autostarts, will
+        #   it open before the qube is paused?
+        # Marek:
+        #   Yes, it will. Theoretically there is an "invisible" mode for
+        #   gui-daemon for situation like this (it was used for very old
+        #   implementation of DispVM that also kinda preloaded it). But there
+        #   is no support for flipping it in runtime, gui-daemon needs to be
+        #   restarted for that, so that's a broader change to use it in this
+        #   version. Maybe later, I'd say it's okay to ignore this issue for
+        #   now.
+        # Ben:
+        #   I set xterm.dekstop to autostart, tested that it autostarted first
+        #   and then tested if pause isn't too late:
+        #     import qubesadmin
+        #     domains = qubesadmin.Qubes().domains
+        #     q = domains['q']
+        #     if q.run_service_for_stdio("qubes.WaitForSession"):
+        #         q.pause()
+        #   XTerm did not appear, and this is on a minimal qube that has no
+        #   heavy service that delays the start. As soon as I did
+        #   'q.unpause()', the application window appeared.
+        no_gui_sleep = 15
+        gui_timeout = 30
+        gui = self.features.get("gui", None)
+        if not gui:
+            await asyncio.sleep(no_gui_sleep)
+            await self.pause()
+            return
+        proc = None
+        try:
+            proc = await asyncio.wait_for(
+                self.run_service_for_stdio(
+                    "qubes.WaitForSession",
+                    user=self.default_user,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+                timeout=gui_timeout,
+            )
+        except asyncio.TimeoutError:
+            ## TODO: should timeout be treated as an error/qubes.exc?
+            return
+        except (subprocess.CalledProcessError, qubes.exc.QubesException):
+            raise qubes.exc.QubesException(
+                "Failed to run QUBESRPC qubes.WaitForSession"
+            )
+        finally:
+            if proc is not None:
+                proc.terminate()
+            await self.pause()
+
+    @qubes.events.handler("domain-unpaused")
+    def on_domain_unpaused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        """Mark unpaused preloaded domains as used."""
+        if self.is_preloaded() and self.is_fully_usable():
+            # Event domain-unpaused is triggered on every qube start by
+            # 'libvirt_domain.resume()'.
+            # asyncio.get_event_loop().run_until_complete(self.use_preloaded())
+            # TODO: is there a better task function?
+            asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
@@ -218,6 +340,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     async def on_domain_shutdown(
         self, _event, **_kwargs
     ):  # pylint: disable=invalid-overridden-method
+        if self.is_preloaded():
+            appvm = getattr(self, "template")
+            preload_dispvm = appvm.get_feat_preload().remove(self.name)
+            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
@@ -228,11 +354,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.app.save()
 
     @classmethod
-    async def from_appvm(cls, appvm, **kwargs):
+    async def from_appvm(cls, appvm, preload=False, **kwargs):
         """Create a new instance from given AppVM
 
         :param qubes.vm.appvm.AppVM appvm: template from which the VM should \
             be created
+        :param bool preload: Whether to preload a disposable
         :returns: new disposable vm
 
         *kwargs* are passed to the newly created VM
@@ -251,10 +378,31 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "template_for_dispvms=False"
             )
         app = appvm.app
+
+        if preload and not appvm.can_preload():
+            raise qubes.exc.QubesException(
+                "Failed to create preloaded disposable, limit of "
+                "preloaded DispVMs reached"
+            )
+
+        if not preload:
+            preload_dispvm = appvm.get_feat_preload()
+            if preload_dispvm:
+                dispvm = app.domains[preload_dispvm[0]]
+                # Paused preloaded disposable signals that it is ready for use.
+                while True:
+                    if dispvm.is_paused():
+                        await dispvm.unpause()
+                        app.save()
+                        return dispvm
+                    await asyncio.sleep(0.25)
+
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
         )
         await dispvm.create_on_disk()
+        if preload:
+            await dispvm.preload()
         app.save()
         return dispvm
 

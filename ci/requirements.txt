@@ -8,3 +8,4 @@ pylint
 sphinx
 PyYAML
 pyinotify
+psutil

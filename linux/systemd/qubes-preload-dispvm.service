@@ -1,0 +1,12 @@
+[Unit]
+Description=Preload Qubes DispVMs
+ConditionKernelCommandLine=!qubes.skip_autostart
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/qubes/preload-dispvm
+Group=qubes
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
