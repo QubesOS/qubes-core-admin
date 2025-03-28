@@ -37,6 +37,7 @@ import qubes.device_protocol
 import qubes.events
 import qubes.features
 import qubes.log
+from qubes.utils import is_pci_path, sbdf_to_path
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -441,11 +442,19 @@ class LocalVM(BaseVM):
                     backend = (
                         self.app.domains[backend_name] if backend_name else None
                     )
+                    port_id = node.get("id", "*")
+                    # migration from plain BDF to PCI path
+                    if (
+                        devclass == "pci"
+                        and port_id != "*"
+                        and not is_pci_path(port_id)
+                    ):
+                        port_id = sbdf_to_path(port_id) or port_id
                     device_assignment = qubes.device_protocol.DeviceAssignment(
                         qubes.device_protocol.VirtualDevice(
                             qubes.device_protocol.Port(
                                 backend_domain=backend,
-                                port_id=node.get("id", "*"),
+                                port_id=port_id,
                                 devclass=devclass,
                             ),
                             device_id=identity,
