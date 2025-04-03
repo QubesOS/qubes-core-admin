@@ -975,6 +975,12 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         # prevent Whonix startup notifications from interfering
         self.testvm1.features['service.whonix-tor-disable'] = True
         await self.testvm1.start()
+        # avoid whonix wizard showing up
+        if "whonix" in self.template:
+            await self.testvm1.run_for_stdio(
+                "touch /var/lib/whonix/do_once/whonixsetup.done",
+                user="root",
+            )
         await self.wait_for_session(self.testvm1)
 
         # and allow large map count
