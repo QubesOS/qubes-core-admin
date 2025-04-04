@@ -450,6 +450,7 @@ class LocalVM(BaseVM):
                             ),
                             device_id=identity,
                         ),
+                        frontend_domain=self,
                         options=options,
                         mode=mode,
                     )

@@ -133,6 +133,7 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         self.assertEqual(len(assignments), 1)
         self.assertEqual(assignments[0].options, {"no-strict-reset": "True"})
         self.assertEqual(assignments[0].attach_automatically, True)
+        self.assertEqual(assignments[0].frontend_domain, vm)
 
         self.assertXMLIsValid(vm.__xml__(), "relaxng/domain.rng")
 
