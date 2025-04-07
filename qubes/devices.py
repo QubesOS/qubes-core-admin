@@ -71,31 +71,12 @@ from qubes.device_protocol import (
     VirtualDevice,
     AssignmentMode,
 )
-from qubes.exc import ProtocolError
-
-
-class DeviceNotAssigned(qubes.exc.QubesException, KeyError):
-    """
-    Trying to unassign not assigned device.
-    """
-
-
-class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
-    """
-    Trying to attach already attached device.
-    """
-
-
-class DeviceAlreadyAssigned(qubes.exc.QubesException, KeyError):
-    """
-    Trying to assign already assigned device.
-    """
-
-
-class UnrecognizedDevice(qubes.exc.QubesException, ValueError):
-    """
-    Device identity is not as expected.
-    """
+from qubes.exc import (
+    ProtocolError,
+    DeviceNotAssigned,
+    DeviceAlreadyAttached,
+    DeviceAlreadyAssigned,
+)
 
 
 class DeviceCollection:

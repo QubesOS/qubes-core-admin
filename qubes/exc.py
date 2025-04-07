@@ -269,3 +269,33 @@ class ProtocolError(AssertionError):
 
 class PermissionDenied(Exception):
     """Raised deliberately by handlers when we decide not to cooperate"""
+
+
+class DeviceNotAssigned(QubesException, KeyError):
+    """
+    Trying to unassign not assigned device.
+    """
+
+
+class DeviceAlreadyAttached(QubesException, KeyError):
+    """
+    Trying to attach already attached device.
+    """
+
+
+class DeviceAlreadyAssigned(QubesException, KeyError):
+    """
+    Trying to assign already assigned device.
+    """
+
+
+class UnrecognizedDevice(QubesException, ValueError):
+    """
+    Device identity is not as expected.
+    """
+
+
+class UnexpectedDeviceProperty(QubesException, ValueError):
+    """
+    Device has unexpected property such as backend_domain, devclass etc.
+    """

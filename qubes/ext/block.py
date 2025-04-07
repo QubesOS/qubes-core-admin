@@ -30,6 +30,7 @@ import lxml.etree
 
 import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext
 from qubes.ext import utils
 from qubes.storage import Storage
@@ -514,7 +515,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 "not available, skipping.",
                 file=sys.stderr,
             )
-            raise qubes.devices.UnrecognizedDevice()
+            raise qubes.exc.UnrecognizedDevice()
 
         # validate options
         for option, value in options.items():
@@ -561,7 +562,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             return
 
         if device.attachment and device.attachment != expected_attachment:
-            raise qubes.devices.DeviceAlreadyAttached(
+            raise qubes.exc.DeviceAlreadyAttached(
                 "Device {!s} already attached to {!s}".format(
                     device, device.attachment
                 )
