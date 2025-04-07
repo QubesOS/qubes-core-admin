@@ -299,3 +299,7 @@ class UnexpectedDeviceProperty(QubesException, ValueError):
     """
     Device has unexpected property such as backend_domain, devclass etc.
     """
+
+
+class StoragePoolException(QubesException):
+    """A general storage exception"""

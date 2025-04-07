@@ -30,6 +30,7 @@ import stat
 import subprocess
 from contextlib import suppress
 
+import qubes.exc
 import qubes.storage
 import qubes.utils
 
@@ -350,7 +351,7 @@ class FileVolume(qubes.storage.Volume):
         """
         if not self.rw:
             msg = "Can not resize readonly volume {!s}".format(self)
-            raise qubes.storage.StoragePoolException(msg)
+            raise qubes.exc.StoragePoolException(msg)
 
         if self.snap_on_start:
             # this theoretically could be supported, but it's unusual
@@ -359,10 +360,10 @@ class FileVolume(qubes.storage.Volume):
                 "Cannot resize volume based on a template - resize"
                 "the template instead"
             )
-            raise qubes.storage.StoragePoolException(msg)
+            raise qubes.exc.StoragePoolException(msg)
 
         if size < self.size:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "For your own safety, shrinking of %s is"
                 " disabled. If you really know what you"
                 " are doing, use `truncate` on %s manually."
@@ -407,11 +408,11 @@ class FileVolume(qubes.storage.Volume):
             assert (
                 self._export_lock is FileVolume._marker_running
             ), "nested calls to export()"
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "file pool cannot export running volumes"
             )
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "file pool cannot export dirty volumes"
             )
         self._export_lock = FileVolume._marker_exported
@@ -425,7 +426,7 @@ class FileVolume(qubes.storage.Volume):
 
     async def import_volume(self, src_volume):
         if src_volume.snap_on_start:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Can not import snapshot volume {!s} in to pool {!s} ".format(
                     src_volume, self
                 )
@@ -441,7 +442,7 @@ class FileVolume(qubes.storage.Volume):
 
     def import_data(self, size):  # pylint: disable=invalid-overridden-method
         if not self.save_on_stop:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Can not import into save_on_stop=False volume {!s}".format(
                     self
                 )
@@ -476,7 +477,7 @@ class FileVolume(qubes.storage.Volume):
             assert (
                 self._export_lock is FileVolume._marker_exported
             ), "nested calls to start()"
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "file pool cannot start a VM with an exported volume"
             )
         self._export_lock = FileVolume._marker_running
@@ -559,7 +560,7 @@ class FileVolume(qubes.storage.Volume):
             self.snap_on_start or self.save_on_stop
         ):
             msg = "Missing image file: {!s}.".format(self.path)
-            raise qubes.storage.StoragePoolException(msg)
+            raise qubes.exc.StoragePoolException(msg)
         return True
 
     @property
@@ -722,4 +723,4 @@ def _check_path(path):
     """Raise an StoragePoolException if ``path`` does not exist"""
     if not os.path.exists(path):
         msg = "Missing image file: %s" % path
-        raise qubes.storage.StoragePoolException(msg)
+        raise qubes.exc.StoragePoolException(msg)
