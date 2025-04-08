@@ -38,18 +38,12 @@ from typing import Optional, Dict, Any, List, Union, Tuple, Callable
 from typing import TYPE_CHECKING
 
 import qubes.utils
-from qubes.exc import ProtocolError, QubesValueError
+from qubes.exc import ProtocolError, QubesValueError, UnexpectedDeviceProperty
 
 if TYPE_CHECKING:
     from qubes.vm.qubesvm import QubesVM
 else:
     QubesVM = "qubes.vm.qubesvm.QubesVM"
-
-
-class UnexpectedDeviceProperty(qubes.exc.QubesException, ValueError):
-    """
-    Device has unexpected property such as backend_domain, devclass etc.
-    """
 
 
 def qbool(value):

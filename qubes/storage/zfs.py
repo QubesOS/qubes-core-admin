@@ -15,6 +15,7 @@ import subprocess
 import time
 
 import qubes
+import qubes.exc
 import qubes.storage
 import qubes.storage.file
 import qubes.utils
@@ -73,7 +74,7 @@ async def fail_unless_exists_async(path: str) -> None:
     if os.path.exists(path):
         return
     err = f"Device path {path} never appeared"
-    raise qubes.storage.StoragePoolException(err)
+    raise qubes.exc.StoragePoolException(err)
 
 
 def get_random_string(
@@ -107,7 +108,7 @@ async def retry_async(
 async def wait_for_device_async(devpath: str) -> str:
     await retry_async(
         lambda: fail_unless_exists_async(devpath),
-        qubes.storage.StoragePoolException,
+        qubes.exc.StoragePoolException,
         1000,
         0.01,
     )
@@ -205,19 +206,19 @@ async def duplicate_disk(
     p = await asyncio.create_subprocess_exec(*thecmd)
     ret = await p.wait()
     if ret != 0:
-        raise qubes.storage.StoragePoolException(
+        raise qubes.exc.StoragePoolException(
             "%s failed with error %s" % (thecmd, ret)
         )
 
 
 def check_zfs_available() -> None:
     if not shutil.which(_zfs) or not shutil.which(_zpool):
-        raise qubes.storage.StoragePoolException(
+        raise qubes.exc.StoragePoolException(
             "ZFS is not available on this system",
         )
 
 
-class DatasetBusy(qubes.storage.StoragePoolException):
+class DatasetBusy(qubes.exc.StoragePoolException):
     """
     Dataset is busy.  Causes:
 
@@ -226,7 +227,7 @@ class DatasetBusy(qubes.storage.StoragePoolException):
     """
 
 
-class DatasetHasDependentClones(qubes.storage.StoragePoolException):
+class DatasetHasDependentClones(qubes.exc.StoragePoolException):
     """
     Dataset has dependent clones.
 
@@ -240,7 +241,7 @@ class DatasetHasDependentClones(qubes.storage.StoragePoolException):
     """
 
 
-class DatasetDoesNotExist(qubes.storage.StoragePoolException):
+class DatasetDoesNotExist(qubes.exc.StoragePoolException):
     """
     Dataset does not exist.
 
@@ -255,7 +256,7 @@ def _enoent_is_spe():
         yield
     except FileNotFoundError as exc:
         # Oops.  No ZFS.  Raise the appropriate exception.
-        raise qubes.storage.StoragePoolException(
+        raise qubes.exc.StoragePoolException(
             "ZFS is not available on this system",
         ) from exc
 
@@ -370,7 +371,7 @@ def _process_zfs_output(
             raise DatasetHasDependentClones(err)
         if err.rstrip().endswith("dataset does not exist"):
             raise DatasetDoesNotExist(err)
-        raise qubes.storage.StoragePoolException(err)
+        raise qubes.exc.StoragePoolException(err)
     return stdout.decode()
 
 
@@ -632,7 +633,7 @@ class ZFSPool(qubes.storage.Pool):
                     self.container,
                     log=self.log,
                 )
-        except qubes.storage.StoragePoolException:
+        except qubes.exc.StoragePoolException:
             self.log.info("Creating container dataset %s", self.container)
             await zfs_async(
                 "create",
@@ -666,7 +667,7 @@ class ZFSPool(qubes.storage.Pool):
                 self.container,
                 log=self.log,
             )
-        except qubes.storage.StoragePoolException:
+        except qubes.exc.StoragePoolException:
             # Pool container does not exist anymore.
             return
 
@@ -1051,7 +1052,7 @@ class ZFSAccessor:
                         self._cache.set(vol, "readonly", rdnly)
                         drty = row["org.qubes:dirty"] == "on"
                         self._cache.set(vol, "org.qubes:dirty", drty)
-                except qubes.storage.StoragePoolException:
+                except qubes.exc.StoragePoolException:
                     pass
                 self._initialized = True
 
@@ -1062,7 +1063,7 @@ class ZFSAccessor:
                 await self._get_prop_async(volume, "name", log=log)
                 self._ack_exists_nl(volume)
                 return True
-            except qubes.storage.StoragePoolException:
+            except qubes.exc.StoragePoolException:
                 self._cache.invalidate_recursively(volume)
                 self._cache.set(volume, "exists", False)
                 return False
@@ -1106,7 +1107,7 @@ class ZFSAccessor:
                         self._cache.set(vol, "readonly", rdnly)
                         drty = row["org.qubes:dirty"] == "on"
                         self._cache.set(vol, "org.qubes:dirty", drty)
-                except qubes.storage.StoragePoolException:
+                except qubes.exc.StoragePoolException:
                     pass
                 self._initialized = True
 
@@ -1117,7 +1118,7 @@ class ZFSAccessor:
                 self._get_prop(volume, "name", log=log)
                 self._ack_exists_nl(volume)
                 return True
-            except qubes.storage.StoragePoolException:
+            except qubes.exc.StoragePoolException:
                 self._cache.invalidate_recursively(volume)
                 self._cache.set(volume, "exists", False)
                 return False
@@ -1834,7 +1835,7 @@ class ZFSVolume(qubes.storage.Volume):
         """
         if snap_on_start and save_on_stop:
             err = "ZFSVolume %s cannot be snap_on_start && save_on_stop" % vid
-            raise qubes.storage.StoragePoolException(err)
+            raise qubes.exc.StoragePoolException(err)
         # Intify.
         # The code is now designed to work with zero
         # revisions_to_keep.
@@ -1857,7 +1858,7 @@ class ZFSVolume(qubes.storage.Volume):
         if DEBUG_IS_WARNING:
             self.log.debug = self.log.warning  # type:ignore
         if kwargs:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Unsupported arguments received: %s" % ", ".join(kwargs),
             )
         self._auto_snapshot_policy = (
@@ -2573,7 +2574,7 @@ class ZFSVolume(qubes.storage.Volume):
             )
 
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 f"Cannot import to dirty volume {self.volume} —"
                 " start and stop its owning qube to clean it up"
             )
@@ -2590,7 +2591,7 @@ class ZFSVolume(qubes.storage.Volume):
             self.importing_volume_name,
             log=self.log,
         ):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Import operation in progress on {}".format(self.volume)
             )
 
@@ -2603,7 +2604,7 @@ class ZFSVolume(qubes.storage.Volume):
         """
         self.log.debug("Importing data of size %s into %s", size, self.volume)
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot import data to dirty volume {} -"
                 " stop the qube using it first".format(self.volume)
             )
@@ -2679,7 +2680,7 @@ class ZFSVolume(qubes.storage.Volume):
         if size == mysize:
             return
         if size < mysize:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Shrinking of ZFS volume %s is not possible" % (self.volume,)
             )
         if await self.pool.accessor.volume_exists_async(
@@ -2723,7 +2724,7 @@ class ZFSVolume(qubes.storage.Volume):
             # since they will be created on demand.
             return False
         if not isinstance(self.source, ZFSVolume):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "%s cannot be cloned by ZFSVolume" % self.source
             )
 
@@ -2785,7 +2786,7 @@ class ZFSVolume(qubes.storage.Volume):
         """
         revs = self.revisions
         if not revs:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "No revisions in %s" % self.volume,
             )
         return list(
@@ -2803,7 +2804,7 @@ class ZFSVolume(qubes.storage.Volume):
         """
         self.log.debug("revert %s to %s", self.volume, revision)
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot revert dirty volume {} -"
                 " stop the qube first".format(
                     self.volume,
@@ -2813,7 +2814,7 @@ class ZFSVolume(qubes.storage.Volume):
         snaps = self.revisions
         norevs = "Cannot revert volume %s with no revisions" % self.volume
         if not snaps:
-            raise qubes.storage.StoragePoolException(norevs)
+            raise qubes.exc.StoragePoolException(norevs)
         if revision is None:
             snap, _ = self.latest_revision
         else:
@@ -2845,7 +2846,7 @@ class ZFSVolume(qubes.storage.Volume):
             log=self.log,
         ):
             return True
-        raise qubes.storage.StoragePoolException(
+        raise qubes.exc.StoragePoolException(
             "volume {} missing".format(
                 self.volume,
             )

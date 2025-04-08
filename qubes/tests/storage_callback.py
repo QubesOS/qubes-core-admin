@@ -25,6 +25,8 @@
 import os
 import json
 import subprocess
+
+import qubes.exc
 import qubes.tests
 import qubes.tests.storage
 import qubes.tests.storage_lvm
@@ -395,21 +397,21 @@ class TC_92_CallbackPool(
     def test_003_errors(self):
         """Make sure we error out on common user & dev mistakes."""
         # missing conf_id
-        with self.assertRaises(qubes.storage.StoragePoolException):
+        with self.assertRaises(qubes.exc.StoragePoolException):
             cb = CallbackPool(name="some-name", conf_id="")
 
         # invalid conf_id
-        with self.assertRaises(qubes.storage.StoragePoolException):
+        with self.assertRaises(qubes.exc.StoragePoolException):
             cb = CallbackPool(name="some-name", conf_id="nonexisting-id")
 
         # incorrect backend driver
-        with self.assertRaises(qubes.storage.StoragePoolException):
+        with self.assertRaises(qubes.exc.StoragePoolException):
             cb = CallbackPool(
                 name="some-name", conf_id="testing-fail-incorrect-bdriver"
             )
 
         # missing config entries
-        with self.assertRaises(qubes.storage.StoragePoolException):
+        with self.assertRaises(qubes.exc.StoragePoolException):
             cb = CallbackPool(
                 name="some-name", conf_id="testing-fail-missing-all"
             )

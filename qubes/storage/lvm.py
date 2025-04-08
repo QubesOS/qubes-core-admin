@@ -27,6 +27,7 @@ import time
 import asyncio
 
 import qubes
+import qubes.exc
 import qubes.storage
 import qubes.utils
 import json
@@ -146,11 +147,11 @@ class ThinPool(qubes.storage.Pool):
         await reset_cache_coro()
         cache_key = self.volume_group + "/" + self.thin_pool
         if cache_key not in size_cache:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Thin pool {} does not exist".format(cache_key)
             )
         if size_cache[cache_key]["attr"][0] != "t":
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Volume {} is not a thin pool".format(cache_key)
             )
         # TODO Should we create a non existing pool?
@@ -299,7 +300,7 @@ def init_cache(log=logging.getLogger("qubes.storage.lvm")):
     if return_code == 0 and err:
         log.warning(err)
     elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
+        raise qubes.exc.StoragePoolException(err)
 
     return _parse_lvm_cache(out)
 
@@ -319,7 +320,7 @@ async def init_cache_coro(log=logging.getLogger("qubes.storage.lvm")):
     if return_code == 0 and err:
         log.warning(err)
     elif return_code != 0:
-        raise qubes.storage.StoragePoolException(err)
+        raise qubes.exc.StoragePoolException(err)
 
     return _parse_lvm_cache(out)
 
@@ -413,7 +414,7 @@ class ThinVolume(qubes.storage.Volume):
         try:
             cmd = ["remove", self._vid_current]
             await qubes_lvm_coro(cmd, self.log)
-        except qubes.storage.StoragePoolException:
+        except qubes.exc.StoragePoolException:
             pass
         # pylint: disable=protected-access
         cmd = [
@@ -444,7 +445,7 @@ class ThinVolume(qubes.storage.Volume):
             try:
                 cmd = ["remove", self.vid + "-" + rev_id]
                 await qubes_lvm_coro(cmd, self.log)
-            except qubes.storage.StoragePoolException:
+            except qubes.exc.StoragePoolException:
                 pass
 
     async def _activate(self):
@@ -564,7 +565,7 @@ class ThinVolume(qubes.storage.Volume):
             return self
 
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot import to dirty volume {} -"
                 " start and stop a qube to cleanup".format(self.vid)
             )
@@ -610,7 +611,7 @@ class ThinVolume(qubes.storage.Volume):
             if p.returncode != 0:
                 cmd = ["remove", self._vid_import]
                 await qubes_lvm_coro(cmd, self.log)
-                raise qubes.storage.StoragePoolException(
+                raise qubes.exc.StoragePoolException(
                     "Failed to import volume {!r}, dd exit code: {}".format(
                         src_volume, p.returncode
                     )
@@ -624,7 +625,7 @@ class ThinVolume(qubes.storage.Volume):
     async def import_data(self, size):
         """Returns an object that can be `open()`."""
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot import data to dirty volume {},"
                 " stop the qube first".format(self.vid)
             )
@@ -645,7 +646,7 @@ class ThinVolume(qubes.storage.Volume):
     async def import_data_end(self, success):
         """Either commit imported data, or discard temporary volume"""
         if not os.path.exists("/dev/" + self._vid_import):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "No import operation in progress on {}".format(self.vid)
             )
         if success:
@@ -659,7 +660,7 @@ class ThinVolume(qubes.storage.Volume):
     def abort_if_import_in_progress(self):
         try:
             if self._vid_import in size_cache:
-                raise qubes.storage.StoragePoolException(
+                raise qubes.exc.StoragePoolException(
                     "Import operation in progress on {}".format(self.vid)
                 )
         except AttributeError:  # self._vid_import
@@ -685,7 +686,7 @@ class ThinVolume(qubes.storage.Volume):
     @qubes.storage.Volume.locked
     async def revert(self, revision=None):
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot revert dirty volume {}, stop the qube first".format(
                     self.vid
                 )
@@ -696,7 +697,7 @@ class ThinVolume(qubes.storage.Volume):
         old_path = "/dev/" + self.vid + "-" + revision
         if not os.path.exists(old_path):
             msg = "Volume {!s} has no {!s}".format(self, old_path)
-            raise qubes.storage.StoragePoolException(msg)
+            raise qubes.exc.StoragePoolException(msg)
 
         if self.vid in size_cache:
             cmd = ["remove", self.vid]
@@ -714,10 +715,10 @@ class ThinVolume(qubes.storage.Volume):
         """
         if not self.rw:
             msg = "Can not resize readonly volume {!s}".format(self)
-            raise qubes.storage.StoragePoolException(msg)
+            raise qubes.exc.StoragePoolException(msg)
 
         if size < self.size:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "For your own safety, shrinking of %s is"
                 " disabled (%d < %d). If you really know what you"
                 " are doing, use `lvresize` on %s manually."
@@ -817,7 +818,7 @@ class ThinVolume(qubes.storage.Volume):
         try:
             size_cache[vid]
         except KeyError:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "volume {} missing".format(vid)
             )
         return True
@@ -938,7 +939,7 @@ def _process_lvm_output(returncode, stdout, stderr, log):
     elif returncode != 0:
         assert err, "Command exited unsuccessful, but printed nothing to stderr"
         err = err.replace("%", "%%")
-        raise qubes.storage.StoragePoolException(err)
+        raise qubes.exc.StoragePoolException(err)
     return True
 
 

@@ -15,6 +15,7 @@ import sys
 import tempfile
 import unittest
 
+import qubes.exc
 import qubes.storage as storage
 import qubes.storage.zfs as zfs
 import qubes.tests
@@ -237,7 +238,7 @@ class TC_01_ZFSPool_solidstate(AsyncLoopHolderMixin):
     def test_fail_unless_exists_async(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             nonexistent = os.path.join(tmpdir, "x")
-            with self.assertRaises(storage.StoragePoolException):
+            with self.assertRaises(qubes.exc.StoragePoolException):
                 self.rc(zfs.fail_unless_exists_async(nonexistent))
             with open(nonexistent, "w", encoding="utf-8") as f:
                 f.write("now it exists")
@@ -295,7 +296,7 @@ class TC_01_ZFSPool_solidstate(AsyncLoopHolderMixin):
             with open(dst, "r", encoding="utf-8") as f:
                 self.assertEqual(f.read(), "now it exists")
             falsesrc = os.path.join(tmpdir, "unrelated")
-            with self.assertRaises(storage.StoragePoolException):
+            with self.assertRaises(qubes.exc.StoragePoolException):
                 self.rc(zfs.duplicate_disk(falsesrc, dst, log))
 
 
@@ -432,7 +433,7 @@ class TC_10_ZFSPool(ZFSBase):
 
         # Fail at shrinking.
         self.assertRaises(
-            storage.StoragePoolException,
+            qubes.exc.StoragePoolException,
             lambda: self.rc(volume.resize(1024 * 1024)),
         )
 
@@ -617,7 +618,7 @@ class TC_10_ZFSPool(ZFSBase):
         # This should never be the case.  Snap on start volumes
         # must instead be *sourced* from a save on stop volume.
         self.assertRaises(
-            storage.StoragePoolException,
+            qubes.exc.StoragePoolException,
             lambda: self.get_vol(ONEMEG_SNAP_ON_START, name="020-2"),
         )
 
@@ -813,9 +814,9 @@ class TC_10_ZFSPool(ZFSBase):
         with patch.object(
             tgt.vol.pool.accessor,
             "clone_snapshot_to_volume_async",
-            side_effect=storage.StoragePoolException("mocked failure!"),
+            side_effect=qubes.exc.StoragePoolException("mocked failure!"),
         ):
-            with self.assertRaises(storage.StoragePoolException):
+            with self.assertRaises(qubes.exc.StoragePoolException):
                 # Fail clone!
                 self.rc(tgt.vol.import_volume(src.vol))
 

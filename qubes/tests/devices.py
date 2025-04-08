@@ -22,6 +22,7 @@ import sys
 #
 
 import qubes.devices
+import qubes.exc
 from qubes.device_protocol import (
     Port,
     DeviceInfo,
@@ -163,7 +164,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_012_double_attach(self):
         self.attach()
-        with self.assertRaises(qubes.devices.DeviceAlreadyAttached):
+        with self.assertRaises(qubes.exc.DeviceAlreadyAttached):
             self.loop.run_until_complete(
                 self.collection.attach(self.assignment)
             )
@@ -175,7 +176,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         )
         self.detach()
 
-        with self.assertRaises(qubes.devices.DeviceNotAssigned):
+        with self.assertRaises(qubes.exc.DeviceNotAssigned):
             self.loop.run_until_complete(
                 self.collection.detach(self.assignment.port)
             )
@@ -183,7 +184,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_014_double_assign(self):
         self.loop.run_until_complete(self.collection.assign(self.assignment))
 
-        with self.assertRaises(qubes.devices.DeviceAlreadyAssigned):
+        with self.assertRaises(qubes.exc.DeviceAlreadyAssigned):
             self.loop.run_until_complete(
                 self.collection.assign(self.assignment)
             )
@@ -192,7 +193,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.loop.run_until_complete(self.collection.assign(self.assignment))
         self.loop.run_until_complete(self.collection.unassign(self.assignment))
 
-        with self.assertRaises(qubes.devices.DeviceNotAssigned):
+        with self.assertRaises(qubes.exc.DeviceNotAssigned):
             self.loop.run_until_complete(
                 self.collection.unassign(self.assignment)
             )

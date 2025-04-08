@@ -2784,7 +2784,7 @@ netvm default=True type=vm \n"""
         with unittest.mock.patch.object(
             qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
         ):
-            with self.assertRaises(qubes.devices.DeviceNotAssigned):
+            with self.assertRaises(qubes.exc.DeviceNotAssigned):
                 self.call_mgmt_func(
                     b"admin.vm.device.testclass.Detach",
                     b"test-vm1",
@@ -2827,7 +2827,7 @@ netvm default=True type=vm \n"""
         with unittest.mock.patch.object(
             qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
         ):
-            with self.assertRaises(qubes.devices.DeviceNotAssigned):
+            with self.assertRaises(qubes.exc.DeviceNotAssigned):
                 self.call_mgmt_func(
                     b"admin.vm.device.testclass.Detach",
                     b"test-vm1",

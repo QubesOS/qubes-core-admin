@@ -25,12 +25,14 @@ import json
 import asyncio
 import locale
 from shlex import quote
+
+import qubes.exc
 from qubes.utils import coro_maybe
 
 import qubes.storage
 
 
-class UnhandledSignalException(qubes.storage.StoragePoolException):
+class UnhandledSignalException(qubes.exc.StoragePoolException):
     def __init__(self, pool, signal):
         super().__init__(
             "The pool %s failed to handle the signal %s, likely because it was run from synchronous code."
@@ -204,7 +206,7 @@ class CallbackPool(qubes.storage.Pool):
             "qubes.storage.callback"
         )  #: Logger instance.
         if not isinstance(conf_id, str):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "conf_id is no String. VM attack?!"
             )
         self._cb_conf_id = (
@@ -215,7 +217,7 @@ class CallbackPool(qubes.storage.Pool):
         with open(config_path, encoding="utf-8") as json_file:
             conf_all = json.load(json_file)
         if not isinstance(conf_all, dict):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "The file %s is supposed to define a dict." % config_path
             )
 
@@ -225,7 +227,7 @@ class CallbackPool(qubes.storage.Pool):
             ]  #: Dictionary holding all configuration for the given _cb_conf_id.
         except KeyError:
             # we cannot throw KeyErrors as we'll otherwise generate incorrect error messages @qubes.app._get_pool()
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "The specified conf_id %s could not be found inside %s."
                 % (self._cb_conf_id, config_path)
             )
@@ -233,7 +235,7 @@ class CallbackPool(qubes.storage.Pool):
         try:
             bdriver = self._cb_conf["bdriver"]
         except KeyError:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Missing bdriver for the conf_id %s inside %s."
                 % (self._cb_conf_id, config_path)
             )
@@ -247,12 +249,12 @@ class CallbackPool(qubes.storage.Pool):
                 qubes.storage.STORAGE_ENTRY_POINT, bdriver
             )
         except KeyError:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "The driver %s was not found on your system." % bdriver
             )
 
         if not issubclass(cls, qubes.storage.Pool):
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "The class %s must be a subclass of qubes.storage.Pool." % cls
             )
 
