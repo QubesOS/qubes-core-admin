@@ -22,7 +22,7 @@
             </features>
 
             <devices class="pci">
-                <device backend-domain="dom0" id="01_23.45">
+                <device backend-domain="dom0" id="01_23.4">
                   <option name="no-strict-reset">True</option>
                 </device>
             </devices>

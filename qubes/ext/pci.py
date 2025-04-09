@@ -35,6 +35,7 @@ import qubes.device_protocol
 import qubes.devices
 import qubes.ext
 from qubes.device_protocol import Port
+from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 #: cache of PCI device classes
 pci_classes = None
@@ -80,18 +81,9 @@ def load_pci_classes():
 
 
 def pcidev_class(dev_xmldesc):
-    sysfs_path = dev_xmldesc.findtext("path")
-    assert sysfs_path
-    try:
-        with open(sysfs_path + "/class", encoding="ascii") as f_class:
-            class_id = f_class.read().strip()
-    except OSError:
-        return "unknown"
-
+    class_id = pcidev_interface(dev_xmldesc)
     if not qubes.ext.pci.pci_classes:
         qubes.ext.pci.pci_classes = load_pci_classes()
-    if class_id.startswith("0x"):
-        class_id = class_id[2:]
     try:
         # ignore prog-if
         return qubes.ext.pci.pci_classes[class_id[0:4]]
@@ -147,12 +139,12 @@ def _device_desc(hostdev_xml):
 class PCIDevice(qubes.device_protocol.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
-        r"\A(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\."
-        r"(?P<function>[0-9a-f]+)\Z"
+        r"\A((?P<segment>[0-9a-f]{4})[_:])?(?P<bus>[0-9a-f]{2})[_:]"
+        r"(?P<device>[0-9a-f]{2})\.(?P<function>[0-9a-f])\Z"
     )
     _libvirt_regex = re.compile(
-        r"\Apci_0000_(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)_"
-        r"(?P<function>[0-9a-f]+)\Z"
+        r"\Apci_(?P<segment>[0-9a-f]{4})_(?P<bus>[0-9a-f]{2})_"
+        r"(?P<device>[0-9a-f]{2})_(?P<function>[0-9a-f])\Z"
     )
 
     def __init__(self, port: Port, libvirt_name=None):
@@ -160,9 +152,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             dev_match = self._libvirt_regex.match(libvirt_name)
             if not dev_match:
                 raise UnsupportedDevice(libvirt_name)
-            port_id = "{bus}_{device}.{function}".format(
-                **dev_match.groupdict()
-            )
+            port_id = sbdf_to_path(libvirt_name)
             port = Port(
                 backend_domain=port.backend_domain,
                 port_id=port_id,
@@ -171,14 +161,24 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
 
         super().__init__(port)
 
-        dev_match = self.regex.match(port.port_id)
+        if is_pci_path(port.port_id):
+            sbdf = path_to_sbdf(port.port_id)
+        else:
+            sbdf = port.port_id
+        dev_match = self.regex.match(sbdf)
         if not dev_match:
             raise ValueError(
-                "Invalid device identifier: {!r}".format(port.port_id)
+                "Invalid device identifier: {!r} (sbdf: {!r})".format(
+                    port.port_id, sbdf
+                )
             )
+
+        self.data["sbdf"] = sbdf
 
         for group in self.regex.groupindex:
             setattr(self, group, dev_match.group(group))
+        if getattr(self, "segment") is None:
+            self.segment = "0000"
 
         # lazy loading
         self._description: Optional[str] = None
@@ -258,7 +258,7 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
     def libvirt_name(self):
         # pylint: disable=no-member
         # noinspection PyUnresolvedReferences
-        return f"pci_0000_{self.bus}_{self.device}_{self.function}"
+        return f"pci_{self.segment}_{self.bus}_{self.device}_{self.function}"
 
     @property
     def description(self):
@@ -389,11 +389,13 @@ class PCIDeviceExtension(qubes.ext.Extension):
             if hostdev.get("type") != "pci":
                 continue
             address = hostdev.find("source/address")
+            segment = address.get("domain")[2:]
             bus = address.get("bus")[2:]
             device = address.get("slot")[2:]
             function = address.get("function")[2:]
 
-            port_id = "{bus}_{device}.{function}".format(
+            libvirt_name = "pci_{segment}_{bus}_{device}_{function}".format(
+                segment=segment,
                 bus=bus,
                 device=device,
                 function=function,
@@ -401,19 +403,17 @@ class PCIDeviceExtension(qubes.ext.Extension):
             yield PCIDevice(
                 Port(
                     backend_domain=vm.app.domains[0],
-                    port_id=port_id,
+                    port_id=None,
                     devclass="pci",
-                )
+                ),
+                libvirt_name=libvirt_name,
             ), {}
 
     @qubes.ext.handler("device-pre-attach:pci")
     def on_device_pre_attached_pci(self, vm, event, device, options):
         # pylint: disable=unused-argument
-        if not os.path.exists(
-            "/sys/bus/pci/devices/0000:{}".format(
-                device.port_id.replace("_", ":")
-            )
-        ):
+        sbdf = path_to_sbdf(device.port_id)
+        if sbdf is None or not os.path.exists(f"/sys/bus/pci/devices/{sbdf}"):
             raise qubes.exc.QubesException(
                 "Invalid PCI device: {}".format(device.port_id)
             )
@@ -467,7 +467,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
         ) as p:
             result = p.communicate()[0].decode()
         m = re.search(
-            r"^(\d+.\d+)\s+0000:{}$".format(device.port_id.replace("_", ":")),
+            r"^(\d+.\d+)\s+{}$".format(device.data["sbdf"]),
             result,
             flags=re.MULTILINE,
         )
