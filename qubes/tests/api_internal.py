@@ -91,15 +91,26 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         no_qrexec_vm = self.create_mockvm()
         no_qrexec_vm.is_running.return_value = True
 
+        paused_vm = self.create_mockvm(features={"qrexec": True})
+        paused_vm.is_running.return_value = True
+        paused_vm.get_power_state.return_value = "Paused"
+        paused_vm.name = "SleepingBeauty"
+
         self.domains.update(
             {
                 "running": running_vm,
                 "not-running": not_running_vm,
                 "no-qrexec": no_qrexec_vm,
+                "paused": paused_vm,
             }
         )
 
-        ret = self.call_mgmt_func(b"internal.SuspendPre")
+        with mock.patch.object(
+            qubes.api.internal,
+            "PREVIOUSLY_PAUSED",
+            "/tmp/qubes-previously-paused.tmp",
+        ):
+            ret = self.call_mgmt_func(b"internal.SuspendPre")
         self.assertIsNone(ret)
         self.assertFalse(self.dom0.called)
 
@@ -119,6 +130,13 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             ("run_service", ("qubes.SuspendPreAll",), mock.ANY),
             no_qrexec_vm.mock_calls,
         )
+
+        self.assertNotIn(
+            ("run_service", ("qubes.SuspendPreAll",), mock.ANY),
+            paused_vm.mock_calls,
+        )
+        self.assertIn(("suspend", (), {}), running_vm.mock_calls)
+
         self.assertIn(("suspend", (), {}), no_qrexec_vm.mock_calls)
 
     def test_001_suspend_post(self):
@@ -134,15 +152,26 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         no_qrexec_vm.is_running.return_value = True
         no_qrexec_vm.get_power_state.return_value = "Suspended"
 
+        paused_vm = self.create_mockvm(features={"qrexec": True})
+        paused_vm.is_running.return_value = True
+        paused_vm.get_power_state.return_value = "Paused"
+        paused_vm.name = "SleepingBeauty"
+
         self.domains.update(
             {
                 "running": running_vm,
                 "not-running": not_running_vm,
                 "no-qrexec": no_qrexec_vm,
+                "paused": paused_vm,
             }
         )
 
-        ret = self.call_mgmt_func(b"internal.SuspendPost")
+        with mock.patch.object(
+            qubes.api.internal,
+            "PREVIOUSLY_PAUSED",
+            "/tmp/qubes-previously-paused.tmp",
+        ):
+            ret = self.call_mgmt_func(b"internal.SuspendPost")
         self.assertIsNone(ret)
         self.assertFalse(self.dom0.called)
 
@@ -163,6 +192,12 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             no_qrexec_vm.mock_calls,
         )
         self.assertIn(("resume", (), {}), no_qrexec_vm.mock_calls)
+
+        self.assertNotIn(
+            ("run_service", ("qubes.SuspendPostAll",), mock.ANY),
+            paused_vm.mock_calls,
+        )
+        self.assertNotIn(("resume", (), {}), paused_vm.mock_calls)
 
     def test_010_get_system_info(self):
         self.dom0.name = "dom0"
