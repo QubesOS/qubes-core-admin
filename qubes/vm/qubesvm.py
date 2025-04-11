@@ -1595,7 +1595,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """Cleanup after domain was stopped"""
         try:
             await self.storage.stop()
-        except qubes.storage.StoragePoolException:
+        except qubes.exc.StoragePoolException:
             self.log.exception(
                 "Failed to stop storage for domain %s", self.name
             )

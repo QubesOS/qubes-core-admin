@@ -25,7 +25,8 @@ import os
 
 import qubes.exc
 import qubes.storage
-from qubes.storage import Pool, StoragePoolException, Volume
+from qubes.storage import Pool, Volume
+from qubes.exc import StoragePoolException
 
 
 class LinuxModules(Volume):

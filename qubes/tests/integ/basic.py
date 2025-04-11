@@ -37,6 +37,7 @@ import shutil
 import sys
 
 import qubes
+import qubes.exc
 import qubes.firewall
 import qubes.tests
 import qubes.storage
@@ -888,7 +889,7 @@ class TC_05_StandaloneVMMixin(object):
             )
         except (
             subprocess.CalledProcessError,
-            qubes.storage.StoragePoolException,
+            qubes.exc.StoragePoolException,
         ) as e:
             # exception object would leak VM reference
             self.fail(str(e))
@@ -922,7 +923,7 @@ class TC_05_StandaloneVMMixin(object):
             )
         except (
             subprocess.CalledProcessError,
-            qubes.storage.StoragePoolException,
+            qubes.exc.StoragePoolException,
         ) as e:
             # exception object would leak VM reference
             self.fail(str(e))

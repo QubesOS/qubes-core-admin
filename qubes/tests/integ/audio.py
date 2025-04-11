@@ -29,6 +29,7 @@ from distutils import spawn
 
 import numpy as np
 
+import qubes.exc
 import qubes.vm
 import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
@@ -450,7 +451,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if attach_mic:
             try:
                 self.detach_mic()
-            except qubes.devices.DeviceNotAssigned:
+            except qubes.exc.DeviceNotAssigned:
                 pass
             self.attach_mic()
         # connect VM's recording source output monitor (instead of mic)

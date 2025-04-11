@@ -35,6 +35,7 @@ import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
 
+import qubes.exc
 import qubes.storage
 import qubes.utils
 
@@ -94,7 +95,7 @@ class ReflinkPool(qubes.storage.Pool):
         if self._setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "The filesystem for {!r} does not support reflinks. If you"
                 " can live with VM startup delays and wasted disk space, pass"
                 ' the "setup_check=False" option.'.format(self.dir_path)
@@ -220,7 +221,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
         if img is None or os.path.exists(img):
             return True
-        raise qubes.storage.StoragePoolException(
+        raise qubes.exc.StoragePoolException(
             "Missing image file {!r} for volume {}".format(img, self.vid)
         )
 
@@ -323,7 +324,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self, revision=None
     ):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot revert: {} is not cleanly stopped".format(self.vid)
             )
         path_revision = self._path_revision(revision)
@@ -339,7 +340,7 @@ class ReflinkVolume(qubes.storage.Volume):
         devices of the size change.
         """
         if not self.rw:
-            raise qubes.storage.StoragePoolException(
+            raise qubes.exc.StoragePoolException(
                 "Cannot resize: {} is read-only".format(self.vid)
             )
         try:
@@ -556,7 +557,7 @@ def _copy_file(src, dst, *, dst_size=None, copy_mtime=False):
                     check=False,
                 )
                 if result.returncode != 0:
-                    raise qubes.storage.StoragePoolException(str(result))
+                    raise qubes.exc.StoragePoolException(str(result))
             if dst_size is not None:
                 tmp_io.truncate(dst_size)
         if copy_mtime:

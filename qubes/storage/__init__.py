@@ -38,16 +38,13 @@ import importlib.metadata
 import qubes
 import qubes.exc
 import qubes.utils
+from qubes.exc import StoragePoolException
 
 STORAGE_ENTRY_POINT = "qubes.storage"
 _am_root = os.getuid() == 0
 
 BYTES_TO_ZERO = 1 << 16
 _big_buffer = b"\0" * BYTES_TO_ZERO
-
-
-class StoragePoolException(qubes.exc.QubesException):
-    """A general storage exception"""
 
 
 class BlockDevice:
