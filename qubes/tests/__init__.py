@@ -440,6 +440,9 @@ class _clear_ex_info(contextlib.ContextDecorator):
             return
         ex = exc_val
         while ex is not None:
+            if isinstance(ex, subprocess.CalledProcessError):
+                # include stderr in the log
+                print(f"CalledProcessError({ex.cmd}): stderr={ex.stderr!r}")
             if isinstance(ex, qubes.exc.QubesVMError):
                 ex.vm = None
             traceback.clear_frames(ex.__traceback__)

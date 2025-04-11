@@ -65,6 +65,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         self.loop.run_until_complete(asyncio.sleep(1))
 
     def prepare_audio_test(self, backend):
+        self.pwplay_opts = ""
         self.loop.run_until_complete(self.testvm1.start())
         pulseaudio_units = "pulseaudio.socket pulseaudio.service"
         pipewire_units = "pipewire.socket wireplumber.service pipewire.service"
@@ -78,6 +79,15 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
             ):
                 self.skipTest("PipeWire audio not supported in Debian 11")
             self.testvm1.features["service.pipewire"] = True
+            try:
+                self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        "pw-play --help | grep -q -- --raw",
+                    )
+                )
+                self.pwplay_opts = "--raw"
+            except subprocess.CalledProcessError:
+                pass
         elif backend == "pulseaudio":
             # Use PulseAudio if it is installed.  If it is not installed,
             # PipeWire will still run, and its PulseAudio emulation will
@@ -210,7 +220,10 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         )
         local_user = grp.getgrnam("qubes").gr_mem[0]
         if self.testvm1.features["service.pipewire"]:
-            cmd = "timeout 20s pw-play --format=f32 --rate=44100 --channels=1 - < audio_in.snd"
+            cmd = (
+                f"timeout 20s pw-play {self.pwplay_opts} --format=f32 "
+                f"--rate=44100 --channels=1 - < audio_in.snd"
+            )
         else:
             cmd = (
                 "timeout 20s paplay --format=float32le --rate=44100 --channels=1 "
@@ -384,11 +397,10 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         audio_in = b"\x20" * 4 * 44100
         local_user = grp.getgrnam("qubes").gr_mem[0]
         sudo = ["sudo", "-E", "-u", local_user]
-        # Need to use .snd extension so that pw-play (really libsndfile)
-        # recognizes the file as raw audio.
         if self.testvm1.features["service.pipewire"]:
             cmd = (
-                "pw-record --format=f32 --rate=44100 --channels=1 audio_rec.snd"
+                f"pw-record {self.pwplay_opts} --format=f32 --rate=44100 "
+                f"--channels=1 - > audio_rec.snd"
             )
             kill_cmd = "pkill --signal SIGINT pw-record"
         else:
@@ -448,12 +460,10 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         local_user = grp.getgrnam("qubes").gr_mem[0]
         sudo = ["sudo", "-E", "-u", local_user]
 
-        # Need to use .snd extension so that pw-play (really libsndfile)
-        # recognizes the file as raw audio.
         if self.testvm1.features["service.pipewire"]:
             record_cmd = (
-                "pw-record --format=f32 --rate=44100 --channels=1 "
-                "audio_rec.snd"
+                f"pw-record {self.pwplay_opts} --format=f32 --rate=44100 "
+                "--channels=1 - > audio_rec.snd"
             )
             kill_cmd = "pkill --signal SIGINT pw-record"
         else:
