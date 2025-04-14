@@ -38,18 +38,16 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
-    def get_feat_preload(self) -> list:
+    def get_feat_preload(self) -> list[str]:
         feature = "preload-dispvm"
-        # TODO: fix, mypy throws:
-        # error: "DVMTemplateMixin" has no attribute "features"  [attr-defined]
-        value = self.features.get(feature, "")  # type: ignore
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, "")
         return value.split(" ") if value else []
 
     def get_feat_preload_max(self) -> int:
         feature = "preload-dispvm-max"
-        # TODO: fix, mypy throws:
-        # error: "DVMTemplateMixin" has no attribute "features"  [attr-defined]
-        value = self.features.get(feature, 0)  # type: ignore
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, 0)
         return int(value) if value else 0
 
     def can_preload(self) -> bool:
@@ -63,6 +61,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
+        if not value:
+            return
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"

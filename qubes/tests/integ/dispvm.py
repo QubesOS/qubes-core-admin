@@ -34,7 +34,6 @@ import sys
 
 import qubes.tests
 import qubesadmin.exc
-from qubesadmin.tools import qvm_run
 
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
@@ -58,11 +57,6 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.app.save()
         # used in test_01x
         self.startup_counter = 0
-        self.qvm_run_preload_args = [
-            f"--dispvm={self.disp_base.name}",
-            "--service",
-            "qubes.GetDate",
-        ]
 
     def tearDown(self):
         self.app.default_dispvm = None
@@ -231,7 +225,7 @@ class TC_20_DispVMMixin(object):
         for value in cases_invalid:
             with self.subTest(value=value):
                 with self.assertRaises(qubes.exc.QubesValueError):
-                    self.appvm.features["preload-dispvm-max"] = value
+                    self.disp_base.features["preload-dispvm-max"] = value
 
     def test_011_dvm_run_preload_invalid_list(self):
         # TODO: couldn't make the assert raise on unit tests.
@@ -246,12 +240,12 @@ class TC_20_DispVMMixin(object):
         try:
             with self.assertRaises(qubes.exc.QubesValueError):
                 # exceeds the limit (0 if unset)
-                self.appvm.features["preload-dispvm"] = f"{dispvm.name}"
-            self.appvm.features["preload-dispvm-max"] = "2"
+                self.disp_base.features["preload-dispvm"] = f"{dispvm.name}"
+            self.disp_base.features["preload-dispvm-max"] = "2"
             for value in cases_invalid:
                 with self.subTest(value=value):
                     with self.assertRaises(qubes.exc.QubesValueError):
-                        self.appvm.features["preload-dispvm"] = value
+                        self.disp_base.features["preload-dispvm"] = value
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 
@@ -272,18 +266,28 @@ class TC_20_DispVMMixin(object):
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertTrue(dispvm.is_paused())
-            # TODO: how to assert call was made to the desired qube?
-            # I saw qubes-core-admin-client/qubesadmin/tests/tools/qvm_run.py
-            # but it has extra things in tests/__init__.py (expected_calls and
-            # service_calls_).
-            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
-            self.assertEqual(ret, 0)
+            cmd = [
+                "qvm-run",
+                "-p",
+                f"--dispvm={self.disp_base.name}",
+                "printf '%s' \"$HOSTNAME\"",
+            ]
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                ),
+            )
+            # TODO: timeout to avoid hanging QA in case test blocks.
+            stdout = self.loop.run_until_complete(proc.communicate())[
+                0
+            ].decode()
+            self.assertEqual(proc.returncode, 0)
+            self.assertEqual(stdout, dispvm.name)
             self.assertEqual(self.disp_base.get_feat_preload(), [])
-            # TODO: these tests are too late, when qvm_run returns, the qube
-            # is too close to deletion. Threading?
-            # self.assertFalse(dispvm.is_preloaded())
-            # self.assertFalse(dispvm.features.get("internal", False))
-            # self.assertFalse(dispvm.is_paused())
+            self.assertFalse(dispvm.is_preloaded())
+            self.assertFalse(dispvm.features.get("internal", False))
+            self.assertFalse(dispvm.is_paused())
         finally:
             if dispvm in self.app.domains:
                 self.loop.run_until_complete(dispvm.cleanup())
@@ -300,15 +304,35 @@ class TC_20_DispVMMixin(object):
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertTrue(dispvm.is_paused())
-            self.qvm_run_preload_args.insert("--no-gui", 0)
-            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
-            self.assertEqual(ret, 0)
+            cmd = [
+                "qvm-run",
+                "-p",
+                f"--dispvm={self.disp_base.name}",
+                "--no-gui",
+                "printf '%s' \"$HOSTNAME\"",
+            ]
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                ),
+            )
+            stdout = self.loop.run_until_complete(proc.communicate())[
+                0
+            ].decode()
+            self.assertEqual(stdout, dispvm.name)
             self.assertEqual(self.disp_base.get_feat_preload(), [])
         finally:
             if dispvm in self.app.domains:
                 self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_next(self):
+        cmd = [
+            "qvm-run",
+            "-p",
+            f"--dispvm={self.disp_base.name}",
+            "printf '%s' \"$HOSTNAME\"",
+        ]
         self.disp_base.features["preload-dispvm-max"] = "1"
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
@@ -319,8 +343,18 @@ class TC_20_DispVMMixin(object):
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertTrue(dispvm.is_paused())
             dispvm_name = dispvm.name
-            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
-            self.assertEqual(ret, 0)
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                ),
+            )
+            stdout = self.loop.run_until_complete(proc.communicate())[
+                0
+            ].decode()
+            self.assertEqual(stdout, dispvm.name)
+            # Give time for the next qube to be added to the list.
+            self.loop.run_until_complete(asyncio.sleep(10))
             next_preload_list = self.disp_base.get_feat_preload()
             self.assertTrue(next_preload_list)
             self.assertNotIn(dispvm_name, next_preload_list)
@@ -330,8 +364,16 @@ class TC_20_DispVMMixin(object):
                 self.loop.run_until_complete(dispvm.cleanup())
         next_dispvm = self.app.domains[next_preload_list[0]]
         try:
-            ret = qvm_run.main(self.qvm_run_preload_args, app=self.app)
-            self.assertEqual(ret, 0)
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                ),
+            )
+            stdout = self.loop.run_until_complete(proc.communicate())[
+                0
+            ].decode()
+            self.assertEqual(stdout, next_dispvm.name)
             self.assertFalse(self.disp_base.get_feat_preload())
         finally:
             if next_dispvm in self.app.domains:
