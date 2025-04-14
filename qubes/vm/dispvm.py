@@ -273,7 +273,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         #   heavy service that delays the start. As soon as I did
         #   'q.unpause()', the application window appeared.
         no_gui_sleep = 15
-        gui_timeout = 30
+        gui_timeout = getattr(self, "qrexec_timeout", 30)
         gui = self.features.get("gui", None)
         if not gui:
             await asyncio.sleep(no_gui_sleep)
@@ -291,8 +291,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 timeout=gui_timeout,
             )
         except asyncio.TimeoutError:
-            ## TODO: should timeout be treated as an error/qubes.exc?
-            return
+            self.log.warning(
+                "Failed to run qubes.WaitForSession after %s seconds",
+                gui_timeout,
+            )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             raise qubes.exc.QubesException(
                 "Failed to run QUBESRPC qubes.WaitForSession"

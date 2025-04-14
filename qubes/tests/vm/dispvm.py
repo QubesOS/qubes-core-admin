@@ -46,7 +46,7 @@ class TestApp(qubes.tests.vm.TestApp):
         return vm
 
 
-class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
+class TC_00_DispVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_DispVM, self).setUp()
         self.app = TestApp()
@@ -71,13 +71,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
         self.app.domains[self.appvm] = self.appvm
         self.addCleanup(self.cleanup_dispvm)
         self.emitter = qubes.tests.TestEmitter()
-        # TODO: Ben: cleanup
-        # self.appvm_emitter = qubes.tests.TestEmitter()
-        # self.app.domains[self.appvm].fire_event = self.emitter.fire_event
 
     def tearDown(self):
         del self.emitter
-        # del self.appvm_emitter
         super(TC_00_DispVM, self).tearDown()
 
     def cleanup_dispvm(self):
@@ -144,6 +140,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
                 )
             mock_domains.get_new_unused_dispid.assert_not_called()
 
+    @mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_feature_pre_set_preload_dispvm"
+    )
     @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
@@ -154,19 +153,28 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
         mock_makedirs,
         mock_symlink,
         mock_dispvm_start,
+        mock_feature_pre_set_preload,
     ):
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_dispvm_start.side_effect = self.mock_coro
+        mock_feature_pre_set_preload.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         self.appvm.features["preload-dispvm-max"] = "1"
+
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
+            # Circumvent checks made against self.app.domains.
+            mock_qube = mock.Mock()
+            mock_qube.template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
-                    "__getitem__.side_effect": orig_getitem,
+                    "__contains__.return_value": True,
+                    "__getitem__.side_effect": lambda key: mock_qube
+                    if key == "disp42"
+                    else orig_getitem(key),
                 }
             )
             dispvm = self.loop.run_until_complete(
@@ -203,14 +211,14 @@ class TC_00_DispVM(qubes.tests.QubesTestCase, qubes.tests.TestEmitter):
         mock_dispvm_start,
         mock_is_paused,
         mock_unpause,
-        mock_on_domain_preloaded_dispvm_used,
+        mock_preloaded_used,
         mock_asyncio_sleep,
     ):
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_dispvm_start.side_effect = self.mock_coro
         mock_is_paused.side_effect = self.mock_coro
         mock_unpause.side_effect = self.mock_coro
-        mock_on_domain_preloaded_dispvm_used.side_effect = self.mock_coro
+        mock_preloaded_used.side_effect = self.mock_coro
         mock_asyncio_sleep.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         orig_domains = self.app.domains
