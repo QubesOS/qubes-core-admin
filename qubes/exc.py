@@ -22,9 +22,17 @@
 Qubes OS exception hierarchy
 """
 
+import re
+
 
 class QubesException(Exception):
     """Exception that can be shown to the user"""
+
+
+class DestinationNotDom0Error(QubesException):
+    def __init__(self, vmname):
+        super().__init__(f"Destination must be dom0, not {vmname!r}")
+        self.vmname = vmname
 
 
 class QubesVMNotFoundError(QubesException, KeyError):
@@ -164,6 +172,41 @@ class QubesValueError(QubesException, ValueError):
     """Cannot set some value, because it is invalid, out of bounds, etc."""
 
 
+class QubesAttachmentKindError(QubesValueError):
+    """Device attachment kind is invalid."""
+
+
+class UnknownVolumeError(QubesValueError):
+    """Unknown volume kind"""
+
+    def __init__(self, volume: str):
+        super().__init__(f"Volume {volume} not known")
+        self.volume = volume
+
+
+_snapshot_re = re.compile(r"\A[A-Za-z0-9][0-9A-Za-z_.-]*\Z")
+
+
+class QubesNoSuchSnapshotError(QubesValueError):
+    """Snapshot does not exist"""
+
+    def __init__(self, snapshot: str):
+        assert _snapshot_re.match(snapshot)
+        super().__init__(f"Snapshot {snapshot} does not exist")
+        self.snapshot = snapshot
+
+
+class QubesArgumentNotAllowedError(QubesValueError):
+    """Method does not take an argument."""
+
+    def __init__(self, method_name: str, arg: str):
+        super().__init__(
+            f"API method {method_name} does not take an argument (got {arg})"
+        )
+        self.method_name = method_name
+        self.arg = arg
+
+
 class QubesPropertyValueError(QubesValueError):
     """
     Cannot set value of qubes.property, because user-supplied value is wrong.
@@ -197,6 +240,14 @@ class QubesNotImplementedError(QubesException, NotImplementedError):
 
     def __init__(self, msg=None):
         super().__init__(msg or "This feature is not available")
+
+
+class BackupProfileNotFoundError(QubesException):
+    """Thrown at user when backup profile is not found"""
+
+    def __init__(self, profile: str):
+        super().__init__("Backup profile {} does not exist".format(profile))
+        self.profile = profile
 
 
 class BackupCancelledError(QubesException):
