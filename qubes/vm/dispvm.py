@@ -244,12 +244,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Pause preloaded domains as soon as basic services have started."""
         if not self.is_preloaded():
             return
-        # TODO:
+        # TODO: ben
         # Marek: Test if pause isn't too early. Some services (especially:
         #   gui-agent) may still be starting.  qubes.WaitForSession service may
         #   help (ensure to use async handler to not block qubesd while waiting
         #   on it).
-        # TODO:
+        # TODO: ben
         # Ben:
         #   Test if pause isn't too late, what if application autostarts, will
         #   it open before the qube is paused?
@@ -261,17 +261,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         #   restarted for that, so that's a broader change to use it in this
         #   version. Maybe later, I'd say it's okay to ignore this issue for
         #   now.
-        # Ben:
-        #   I set xterm.dekstop to autostart, tested that it autostarted first
-        #   and then tested if pause isn't too late:
-        #     import qubesadmin
-        #     domains = qubesadmin.Qubes().domains
-        #     q = domains['q']
-        #     if q.run_service_for_stdio("qubes.WaitForSession"):
-        #         q.pause()
-        #   XTerm did not appear, and this is on a minimal qube that has no
-        #   heavy service that delays the start. As soon as I did
-        #   'q.unpause()', the application window appeared.
         no_gui_sleep = 15
         gui_timeout = getattr(self, "qrexec_timeout", 30)
         gui = self.features.get("gui", None)
@@ -312,8 +301,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.is_preloaded() and self.is_fully_usable():
             # Event domain-unpaused is triggered on every qube start by
             # 'libvirt_domain.resume()'.
+            # TODO: ben: any better task function? asyncio.create_task()?
             # asyncio.get_event_loop().run_until_complete(self.use_preloaded())
-            # TODO: is there a better task function?
             asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")

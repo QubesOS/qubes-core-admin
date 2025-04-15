@@ -71,7 +71,6 @@ Requires:       python3-qubesdb
 Requires:       python3-setuptools
 Requires:       python3-PyYAML
 Requires:       python3-xen
-Requires:       python3-psutil
 Requires:       libvirt-python3
 
 Requires:       pciutils

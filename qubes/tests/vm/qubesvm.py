@@ -378,12 +378,12 @@ class QubesVMTestsMixin(object):
         self.assertEqual(len(prop_xml), 0, "Property still found in XML")
 
     # TODO: ben
-    def assertFeatureInvalidValue(self, vm, feat_name, set_value):
-        # FIXME: any better exception list? or maybe all of that should be a
-        # single exception?
-        # with self.assertRaises((ValueError, TypeError, KeyError)):
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vm.features[feat_name] = set_value
+    # def assertFeatureInvalidValue(self, vm, feat_name, set_value):
+    #     # FIXME: any better exception list? or maybe all of that should be a
+    #     # single exception?
+    #     # with self.assertRaises((ValueError, TypeError, KeyError)):
+    #     with self.assertRaises(qubes.exc.QubesValueError):
+    #         vm.features[feat_name] = set_value
 
     def _test_generic_bool_property(self, vm, prop_name, default=False):
         self.assertPropertyDefaultValue(vm, prop_name, default)

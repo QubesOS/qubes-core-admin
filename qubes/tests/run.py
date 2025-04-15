@@ -304,10 +304,19 @@ def demo(verbosity=2):
     return runner.run(suite).wasSuccessful()
 
 
+epilog="""\
+When running only specific tests, write their names like in the log format:
+MODULE+"/"+CLASS+"/"+FUNCTION.
+Example: qubes.tests.basic/TC_00_Basic/test_000_create
+
+Some integration tests require the environment variable QUBES_TEST_TEMPLATES to
+be set.
+Example: QUBES_TEST_TEMPLATES=debian-12-xfce
+"""
+
 parser = argparse.ArgumentParser(
-    epilog="""When running only specific tests, write their names like in log,
-        in format: MODULE+"/"+CLASS+"/"+FUNCTION.
-        Example: qubes.tests.basic/TC_00_Basic/test_000_create"""
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog=epilog
 )
 
 parser.add_argument(

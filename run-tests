@@ -10,13 +10,12 @@ install_rpm_deps () {
     rpm -q --quiet "${applications[@]}" ||
     sudo dnf install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
-    # TODO: ben: add python3-psutil, can't be added now as it causes merge conflicts
 }
 install_apt_deps(){
     local applications
     applications=(lvm2 python3-docutils python3-yaml python3-jinja2
         python3-lxml btrfs-progs python3-coverage python3-inotify
-        python3-libvirt python3-psutil cryptsetup)
+        python3-libvirt cryptsetup)
     sudo apt --no-install-recommends -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }

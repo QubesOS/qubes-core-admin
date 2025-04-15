@@ -1801,8 +1801,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.ext",
         "qubes.tests.vm.qubesvm",
         "qubes.tests.vm.mix.net",
-        # TODO: Ben
-        # "qubes.tests.vm.mix.dvmtemplate",
+        "qubes.tests.vm.mix.dvmtemplate",
         "qubes.tests.vm.adminvm",
         "qubes.tests.vm.appvm",
         "qubes.tests.vm.dispvm",
