@@ -14,6 +14,8 @@ def main():
     ]
     method = "admin.vm.CreateDisposable"
     for qube in appvms:
+        maximum = int(qube.features.get("preload-dispvm-max", 0))
+        print(f"{qube}:{maximum}")
         qube.qubesd_call(qube.name, method, "preload-autostart")
 
 

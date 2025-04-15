@@ -1,6 +1,8 @@
 [Unit]
 Description=Preload Qubes DispVMs
 ConditionKernelCommandLine=!qubes.skip_autostart
+# After qmemman so the daemon can create the file containing available memory.
+After=qubes-qmemman.service
 
 [Service]
 Type=oneshot

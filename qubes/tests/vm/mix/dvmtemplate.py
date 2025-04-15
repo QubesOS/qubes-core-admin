@@ -45,7 +45,6 @@ class TestApp(qubes.tests.vm.TestApp):
         return vm
 
 
-## TODO: finish
 class TC_00_DVMTemplateMixin(
     qubes.tests.vm.qubesvm.QubesVMTestsMixin,
     qubes.tests.QubesTestCase,
@@ -87,13 +86,6 @@ class TC_00_DVMTemplateMixin(
         super(TC_00_DVMTemplateMixin, self).tearDown()
 
     def cleanup_dispvm(self):
-        # self.dvm.close()
-        # try:
-        #    self.app.domains.close()
-        # except AttributeError:
-        #    pass
-        # del self.dvm
-        # del self.app.default_dispvm
         if hasattr(self, "dispvm"):
             self.dispvm.close()
             del self.dispvm
@@ -118,6 +110,7 @@ class TC_00_DVMTemplateMixin(
                 self.assertEqual(
                     self.appvm.get_feat_preload_max(), expected_value
                 )
+        # TODO: ben: cleanup: couldn't make this work outside of integ tests.
         # self.assertFeatureInvalidValue(self.appvm, "preload-dispvm-max", -2)
         #
         # self.appvm.features["preload-dispvm-max"] = "abcde"
@@ -150,7 +143,7 @@ class TC_00_DVMTemplateMixin(
                 self.appvm.features["preload-dispvm"] = value
                 self.assertEqual(self.appvm.get_feat_preload(), expected_value)
 
-    def test_010_dvm_preload_can_preload(self):
+    def test_010_dvm_preload_can(self):
         self.assertFalse(self.appvm.can_preload())
         self.appvm.features["preload-dispvm-max"] = 1
         self.appvm.features["preload-dispvm-max"] = 1

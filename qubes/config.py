@@ -106,3 +106,5 @@ backup_profile_dir = "/etc/qubes/backup"
 qubes_ipv6_prefix = "fd09:24ef:4179:0000"
 
 suspend_timeout = 60
+
+qmemman_avail_mem_file = "/var/run/qubes/qmemman-avail-mem"

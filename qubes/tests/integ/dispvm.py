@@ -255,7 +255,7 @@ class TC_20_DispVMMixin(object):
                 qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
             )
 
-    def test_011_dvm_run_preload(self):
+    def test_012_dvm_run_preload_only(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
@@ -278,10 +278,9 @@ class TC_20_DispVMMixin(object):
                     stdout=asyncio.subprocess.PIPE,
                 ),
             )
-            # TODO: timeout to avoid hanging QA in case test blocks.
-            stdout = self.loop.run_until_complete(proc.communicate())[
-                0
-            ].decode()
+            # TODO: ben: timeout to avoid hanging QA in case test blocks.
+            stdout, _ = self.loop.run_until_complete(proc.communicate())
+            stdout = stdout.decode()
             self.assertEqual(proc.returncode, 0)
             self.assertEqual(stdout, dispvm.name)
             self.assertEqual(self.disp_base.get_feat_preload(), [])
@@ -292,7 +291,7 @@ class TC_20_DispVMMixin(object):
             if dispvm in self.app.domains:
                 self.loop.run_until_complete(dispvm.cleanup())
 
-    def test_011_dvm_run_preload_nogui(self):
+    def test_012_dvm_run_preload_nogui(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
         self.disp_base.features["gui"] = False
         dispvm = self.loop.run_until_complete(
@@ -326,7 +325,7 @@ class TC_20_DispVMMixin(object):
             if dispvm in self.app.domains:
                 self.loop.run_until_complete(dispvm.cleanup())
 
-    def test_011_dvm_run_preload_next(self):
+    def test_012_dvm_run_preload_next(self):
         cmd = [
             "qvm-run",
             "-p",
@@ -349,9 +348,8 @@ class TC_20_DispVMMixin(object):
                     stdout=asyncio.subprocess.PIPE,
                 ),
             )
-            stdout = self.loop.run_until_complete(proc.communicate())[
-                0
-            ].decode()
+            stdout, _ = self.loop.run_until_complete(proc.communicate())
+            stdout = stdout.decode()
             self.assertEqual(stdout, dispvm.name)
             # Give time for the next qube to be added to the list.
             self.loop.run_until_complete(asyncio.sleep(10))
@@ -370,14 +368,35 @@ class TC_20_DispVMMixin(object):
                     stdout=asyncio.subprocess.PIPE,
                 ),
             )
-            stdout = self.loop.run_until_complete(proc.communicate())[
-                0
-            ].decode()
+            stdout, _ = self.loop.run_until_complete(proc.communicate())
+            stdout = stdout.decode()
             self.assertEqual(stdout, next_dispvm.name)
             self.assertFalse(self.disp_base.get_feat_preload())
         finally:
             if next_dispvm in self.app.domains:
                 self.loop.run_until_complete(next_dispvm.cleanup())
+
+    @unittest.skipUnless(
+        os.path.exists("/usr/lib/qubes/preload-dispvm"),
+        "/usr/lib/qubes/preload-dispvm not found",
+    )
+    def test_013_dvm_run_preload_autostart(self):
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        self.loop.run_until_complete(proc.communicate())
+        self.assertEqual(self.disp_base.get_feat_preload(), [])
+        self.disp_base.features["preload-dispvm-max"] = "1"
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        self.loop.run_until_complete(proc.communicate())
+        self.disp_base.features["preload-dispvm-max"] = False
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertEqual(len(preload_dispvm), 1)
+        preload_dispvm = preload_dispvm[0]
+        dispvm = self.app.domains[preload_dispvm]
+        self.loop.run_until_complete(dispvm.cleanup())
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"

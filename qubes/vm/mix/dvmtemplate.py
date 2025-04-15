@@ -19,10 +19,11 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-import psutil
+import os
 
-import qubes.vm.dispvm
+import qubes.config
 import qubes.events
+import qubes.vm.dispvm
 
 
 class DVMTemplateMixin(qubes.events.Emitter):
@@ -67,7 +68,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"
             )
-        ## TODO: preload disposables in case the limit increases.
+        ## TODO: ben: refill event? Preload disposables when limit increases.
         # if not oldvalue or int(newvalue) > int(oldvalue):
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
@@ -166,49 +167,27 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param delay: seconds between trials
         :returns:
         """
-        # TODO: add a refill event in case the limit is increased?
+        # TODO: ben: add a refill event in case the limit is increased?
         if event == "domain-preloaded-dispvm-autostart":
             self.features["preload-dispvm"] = ""
         if not self.can_preload():
             return
         while True:
             await asyncio.sleep(delay)
-            # TODO:
-            # Ben:
-            #   Is there existing Qubes code that checks available memory
-            #   before starting a qube?
-            # Marek:
-            #   I get what you mean, but this will not work. This looks only at
-            #   free memory in dom0, not the whole system. And even if it would
-            #   look more globally, qmemman tries to allocate available memory
-            #   as much as possible. Only qmemman knows how much "free" memory
-            #   you really have, and currently there is no API to query that...
-            # Ben:
-            #   For last...
-            memory = getattr(self, "memory", 0)
-            available_memory = psutil.virtual_memory().available / (1024 * 1024)
-            threshold = 1024 * 5
-            if memory >= (available_memory - threshold):
-                await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-                # TODO:
-                #  Ben:
-                #    What to do if the maximum is never reached on autostart as
-                #    there is not enough memory, and then a preloaded DispVM is
-                #    used, calling for the creation of another one, while the
-                #    autostart will also try to create one. Is this a race
-                #    condition?
-                # Marek:
-                #    async lock, break on any event when max is reached.
-                # Ben:
-                #    Leaving this comment for future implementation of a new
-                #    event, one that can refill preloaded DispVMs up to the
-                #    maximum.
-                if (
-                    event == "domain-preloaded-dispvm-autostart"
-                    and self.can_preload()
-                ):
-                    continue
-                break
+            avail_mem_file = qubes.config.qmemman_avail_mem_file
+            if os.path.isfile(avail_mem_file):
+                with open(avail_mem_file, "r", encoding="ascii") as file:
+                    available_memory = int(file.read())
+                memory = getattr(self, "memory", 0) * 1024 * 1024
+                if memory > available_memory:
+                    break
+            await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+            if (
+                event == "domain-preloaded-dispvm-autostart"
+                and self.can_preload()
+            ):
+                continue
+            break
 
     @property
     def dispvms(self):

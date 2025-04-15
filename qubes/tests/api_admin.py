@@ -3847,7 +3847,7 @@ netvm default=True type=vm \n"""
         self.assertIsNone(retval)
         mock_storage.assert_called_once_with()
         mock_dispvm_start.assert_called_once_with()
-        # TODO: event fires normally but self.emitter is not the correct obj.
+        # TODO: ben: event fires normally but self.emitter is not the right obj
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-autostart")
         self.assertTrue(self.app.save.called)
 
@@ -3888,17 +3888,17 @@ netvm default=True type=vm \n"""
         mock_storage.assert_called_once_with()
         mock_dispvm_start.assert_called_once_with()
         self.assertTrue(self.app.save.called)
-        # TODO: some async function inside is not being awaited. Possibly in
-        # on_domain_preloaded_dispvm_used().
+        # TODO: ben: some async function inside is not being awaited. Possibly
+        # in on_domain_preloaded_dispvm_used().
         retval = self.call_mgmt_func(b"admin.vm.CreateDisposable", b"dom0")
         mock_is_paused.assert_called_once_with()
         mock_unpause.assert_called_once_with()
         self.assertEqual(retval, dispvm_name)
         dispvm = self.app.domains[retval]
-        # TODO: preload feature not being zeroed: not marked as used.
-        self.assertEqual(dispvm.features.get("internal", False), False)
+        # TODO: ben: preload feature not being zeroed: not marked as used.
+        self.assertFalse(dispvm.features.get("internal", False))
         self.assertFalse(self.vm.get_feat_preload())
-        # TODO: event fires normally but self.emitter is not the correct obj.
+        # TODO: ben: event fires normally but self.emitter is not the right obj
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
 
     def test_650_vm_device_set_mode_required(self):
