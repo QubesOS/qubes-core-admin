@@ -63,13 +63,31 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
         if not value:
-            return
+            value = "0"
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"
             )
-        ## TODO: ben: refill event? Preload disposables when limit increases.
-        # if not oldvalue or int(newvalue) > int(oldvalue):
+        if not oldvalue:
+            oldvalue = 0
+        oldvalue = int(oldvalue)
+        value = int(value)
+        if value > oldvalue or (value == oldvalue and self.can_preload()):
+            # Also try to preload qubes when value hasn't changed so the loop
+            # can start on a system that is already running but preload qubes
+            # were killed, such as with 'qvm-shutdown --all'.
+            asyncio.ensure_future(
+                self.fire_event_async("domain-preloaded-dispvm-start")
+            )
+        elif value < oldvalue:
+            old_preload = self.get_feat_preload()
+            if not old_preload:
+                return
+            new_preload = old_preload[:value]
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in old_preload[value:]:
+                dispvm = self.app.domains[unwanted_disp]
+                asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -156,10 +174,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         pass
 
     @qubes.events.handler(
-        "domain-preloaded-dispvm-used", "domain-preloaded-dispvm-autostart"
+        "domain-preloaded-dispvm-used",
+        "domain-preloaded-dispvm-autostart",
+        "domain-preloaded-dispvm-start",
     )
     async def on_domain_preloaded_dispvm_used(
-        self, event, delay=5, **kwargs
+        self, event, delay=0.1, **kwargs
     ):  # pylint: disable=unused-argument
         """When preloaded DispVM is used or after boot, preload another one.
 
@@ -167,25 +187,27 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param delay: seconds between trials
         :returns:
         """
-        # TODO: ben: add a refill event in case the limit is increased?
-        if event == "domain-preloaded-dispvm-autostart":
+        event = event.removeprefix("domain-preloaded-dispvm-")
+        if event == "autostart":
             self.features["preload-dispvm"] = ""
         if not self.can_preload():
             return
         while True:
             await asyncio.sleep(delay)
+            if not self.can_preload():
+                return
             avail_mem_file = qubes.config.qmemman_avail_mem_file
             if os.path.isfile(avail_mem_file):
                 with open(avail_mem_file, "r", encoding="ascii") as file:
                     available_memory = int(file.read())
                 memory = getattr(self, "memory", 0) * 1024 * 1024
                 if memory > available_memory:
+                    self.log.warning(
+                        "Not preloading disposable due to insufficient memory"
+                    )
                     break
             await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-            if (
-                event == "domain-preloaded-dispvm-autostart"
-                and self.can_preload()
-            ):
+            if event in ["autostart", "start"]:
                 continue
             break
 

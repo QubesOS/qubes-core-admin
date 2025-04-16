@@ -244,12 +244,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Pause preloaded domains as soon as basic services have started."""
         if not self.is_preloaded():
             return
-        # TODO: ben
+        # TODO: ben: test early pause
         # Marek: Test if pause isn't too early. Some services (especially:
         #   gui-agent) may still be starting.  qubes.WaitForSession service may
         #   help (ensure to use async handler to not block qubesd while waiting
         #   on it).
-        # TODO: ben
+        # TODO: ben: test late pause
         # Ben:
         #   Test if pause isn't too late, what if application autostarts, will
         #   it open before the qube is paused?
@@ -301,8 +301,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.is_preloaded() and self.is_fully_usable():
             # Event domain-unpaused is triggered on every qube start by
             # 'libvirt_domain.resume()'.
-            # TODO: ben: any better task function? asyncio.create_task()?
-            # asyncio.get_event_loop().run_until_complete(self.use_preloaded())
             asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")
