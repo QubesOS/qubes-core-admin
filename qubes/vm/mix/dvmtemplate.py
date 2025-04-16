@@ -63,13 +63,34 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
         if not value:
-            return
+            value = 0
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"
             )
-        ## TODO: ben: refill event? Preload disposables when limit increases.
-        # if not oldvalue or int(newvalue) > int(oldvalue):
+        if not oldvalue:
+            oldvalue = 0
+        oldvalue = int(oldvalue)
+        value = int(value)
+        if value == oldvalue:
+            return
+        # TODO: ben: test: when twisting increasing and decreasing multiple
+        # times before qubes are preloaded, it can create orphans (qube that is
+        # preloaded but not in the preloaded list anymore, therefore won't be
+        # fetched to be used and will linger on the system).
+        if value > oldvalue:
+            asyncio.ensure_future(
+                self.fire_event_async("domain-preloaded-dispvm-autostart")
+            )
+        elif value < oldvalue:
+            old_preload = self.get_feat_preload()
+            if not old_preload:
+                return
+            new_preload = old_preload[:value]
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in old_preload[value:]:
+                dispvm = self.app.domains[unwanted_disp]
+                asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(

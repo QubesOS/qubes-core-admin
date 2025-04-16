@@ -308,10 +308,6 @@ epilog="""\
 When running only specific tests, write their names like in the log format:
 MODULE+"/"+CLASS+"/"+FUNCTION.
 Example: qubes.tests.basic/TC_00_Basic/test_000_create
-
-Some integration tests require the environment variable QUBES_TEST_TEMPLATES to
-be set.
-Example: QUBES_TEST_TEMPLATES=debian-12-xfce
 """
 
 parser = argparse.ArgumentParser(
