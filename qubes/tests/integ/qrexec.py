@@ -196,7 +196,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.EOF",
-            "#!/bin/sh\n" "echo test; exec >&-; cat >/dev/null",
+            "#!/bin/sh\necho test; exec >&-; cat >/dev/null",
         )
 
         with self.qrexec_policy("test.EOF", self.testvm1, self.testvm2):
@@ -238,7 +238,9 @@ class TC_00_QrexecMixin(object):
         """
 
         self.loop.run_until_complete(self.testvm1.start())
-        self.create_local_file("/etc/qubes-rpc/test.Abort", "sleep 1")
+        self.create_local_file(
+            "/etc/qubes-rpc/test.Abort", "#!/bin/sh\nsleep 1"
+        )
 
         with self.qrexec_policy("test.Abort", self.testvm1, "dom0"):
             try:
@@ -282,7 +284,7 @@ class TC_00_QrexecMixin(object):
 
         with self.qrexec_policy("test.Retcode", self.testvm1, self.testvm2):
             self.create_remote_file(
-                self.testvm2, "/etc/qubes-rpc/test.Retcode", "exit 0"
+                self.testvm2, "/etc/qubes-rpc/test.Retcode", "#!/bin/sh\nexit 0"
             )
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
@@ -297,7 +299,7 @@ class TC_00_QrexecMixin(object):
             self.assertEqual(stdout, b"0\n")
 
             self.create_remote_file(
-                self.testvm2, "/etc/qubes-rpc/test.Retcode", "exit 3"
+                self.testvm2, "/etc/qubes-rpc/test.Retcode", "#!/bin/sh\nexit 3"
             )
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
@@ -330,7 +332,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.write",
-            """\
+            """#!/bin/sh\n\
             # first write a lot of data
             dd if=/dev/zero bs=993 count=10000 iflag=fullblock
             # and only then read something
@@ -380,7 +382,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.write",
-            """\
+            """#!/bin/sh\n\
             # first write a lot of data
             dd if=/dev/zero bs=993 count=10000 iflag=fullblock
             # and only then read something
@@ -439,7 +441,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.write",
-            """\
+            """#!/bin/sh\n\
             # first write a lot of data
             dd if=/dev/zero bs=993 count=10000 iflag=fullblock &
             # and only then read something
@@ -496,7 +498,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
-            '/usr/bin/printf %s "$1"',
+            '#!/bin/sh\n/usr/bin/printf %s "$1"',
         )
         with self.qrexec_policy("test.Argument", self.testvm1, self.testvm2):
             stdout, stderr = self.loop.run_until_complete(
@@ -518,7 +520,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
-            '/usr/bin/printf %s "$1"',
+            '#!/bin/sh\n/usr/bin/printf %s "$1"',
         )
 
         with self.qrexec_policy("test.Argument", "$anyvm", "$anyvm", False):
@@ -543,7 +545,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
-            '/usr/bin/printf %s "$1"',
+            '#!/bin/sh\n/usr/bin/printf %s "$1"',
         )
         with self.qrexec_policy("test.Argument", "$anyvm", "$anyvm"):
             with self.qrexec_policy(
@@ -574,12 +576,12 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
-            '/usr/bin/printf %s "$1"',
+            '#!/bin/sh\n/usr/bin/printf %s "$1"',
         )
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument+argument",
-            '/usr/bin/printf "specific: %s" "$1"',
+            '#!/bin/sh\n/usr/bin/printf "specific: %s" "$1"',
         )
 
         with self.qrexec_policy("test.Argument", self.testvm1, self.testvm2):
@@ -602,6 +604,7 @@ class TC_00_QrexecMixin(object):
         self.create_remote_file(
             self.testvm2,
             "/etc/qubes-rpc/test.Argument",
+            "#!/bin/sh\n"
             '/usr/bin/printf "%s %s" '
             '"$QREXEC_SERVICE_FULL_NAME" "$QREXEC_SERVICE_ARGUMENT"',
         )
