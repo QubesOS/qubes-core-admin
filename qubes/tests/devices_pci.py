@@ -17,11 +17,16 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+import os.path
+import unittest
 from unittest import mock
 
 import qubes.tests
 import qubes.ext.pci
 from qubes.device_protocol import DeviceInterface
+from qubes.utils import sbdf_to_path, path_to_sbdf
+
+orig_open = open
 
 
 class TestVM(object):
@@ -107,17 +112,53 @@ C 0c  Serial bus controller
 \t09  CANBUS
 \t80  Serial bus controller
 """
-    elif filename.startswith("/sys/devices/pci"):
-        content = "0x0c0330"
     else:
-        raise OSError()
+        return orig_open(filename, *_args, **_kwargs)
 
     file_object = mock.mock_open(read_data=content).return_value
     file_object.__iter__.return_value = content
     return file_object
 
 
-class TC_00_Block(qubes.tests.QubesTestCase):
+# prefer location in git checkout
+tests_sysfs_path = os.path.dirname(__file__) + "/../../tests-data/sysfs/sys"
+if not os.path.exists(tests_sysfs_path):
+    # but if not there, look for package installed one
+    tests_sysfs_path = "/usr/share/qubes/tests-data/sysfs/sys"
+
+
+@mock.patch("qubes.utils.SYSFS_BASE", tests_sysfs_path)
+class TC_00_helpers(qubes.tests.QubesTestCase):
+    def test_000_sbdf_to_path1(self):
+        path = sbdf_to_path("0000:c6:00.0")
+        self.assertEqual(path, "c0_03.5-00_00.0-00_00.0")
+
+    def test_001_sbdf_to_path2(self):
+        path = sbdf_to_path("0000:00:18.4")
+        self.assertEqual(path, "00_18.4")
+
+    def test_002_sbdf_to_path_libvirt(self):
+        path = sbdf_to_path("pci_0000_00_18_4")
+        self.assertEqual(path, "00_18.4")
+
+    def test_003_sbdf_to_path_default_segment1(self):
+        path = sbdf_to_path("00:18.4")
+        self.assertEqual(path, "00_18.4")
+
+    def test_004_sbdf_to_path_default_segment2(self):
+        path = sbdf_to_path("0000:00:18.4")
+        self.assertEqual(path, "00_18.4")
+
+    def test_010_path_to_sbdf1(self):
+        path = path_to_sbdf("0000_c0_03.5-00_00.0-00_00.0")
+        self.assertEqual(path, "0000:c6:00.0")
+
+    def test_011_path_to_sbdf2(self):
+        path = path_to_sbdf("0000_00_18.4")
+        self.assertEqual(path, "0000:00:18.4")
+
+
+class TC_10_PCI(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.ext = qubes.ext.pci.PCIDeviceExtension()
@@ -143,7 +184,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                     mock.Mock(
                         **{
                             "XMLDesc.return_value": PCI_XML.format(
-                                *["1000"] * 3
+                                *["10000"] * 3
                             ),
                             "listCaps.return_value": ["pci"],
                         }

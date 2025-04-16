@@ -24,6 +24,7 @@ import asyncio
 import hashlib
 import logging
 import random
+import re
 import string
 import os
 import os.path
@@ -236,7 +237,7 @@ def replace_file(
     permissions,
     close_on_success=True,
     logger=LOGGER,
-    log_level=logging.DEBUG
+    log_level=logging.DEBUG,
 ):
     """Yield a tempfile whose name starts with dst. If the block does
     not raise an exception, apply permissions and persist the
@@ -353,3 +354,142 @@ def sanitize_stderr_for_log(untrusted_stderr: bytes) -> str:
         b if b in allowed_bytes else b"_"[0] for b in untrusted_stderr
     )
     return stderr.decode("ascii")
+
+
+SYSFS_BASE = "/sys"
+
+
+def sbdf_to_path(device_id: str):
+    """
+    Lookup full path for a given device
+
+    :param device_id: sbdf, for example 0000:02:03.0; accepts also libvirt
+    format like 0000_02_03_0
+    :return: converted identifier of None if device is not found
+    """
+    regex = re.compile(
+        r"\A(?:pci_)?((?P<segment>[0-9a-f]{4})[_:])?(?P<bus>[0-9a-f]{2})[_:]"
+        r"(?P<device>[0-9a-f]{2})[._](?P<function>[0-9a-f])\Z"
+    )
+    sysfs_pci_devs_base = f"{SYSFS_BASE}/bus/pci/devices"
+
+    dev_match = regex.match(device_id)
+    if not dev_match:
+        raise ValueError("Invalid device identifier: {!r}".format(device_id))
+    if dev_match["segment"] is not None:
+        segment = dev_match["segment"]
+    else:
+        segment = "0000"
+    if dev_match["bus"] == "00":
+        return (f"{segment}_" if segment != "0000" else "") + (
+            f"{dev_match['bus']}_"
+            f"{dev_match['device']}.{dev_match['function']}"
+        )
+    sbdf = (
+        f"{segment}:{dev_match['bus']}:"
+        f"{dev_match['device']}.{dev_match['function']}"
+    )
+    try:
+        sysfs_path = os.readlink(f"{sysfs_pci_devs_base}/{sbdf}")
+    except FileNotFoundError:
+        return None
+    # example: ../../../devices/pci0000:00/0000:00:1a.0/0000:02:00.0
+    rel_links, _, path = sysfs_path.partition(f"/pci{segment}:")
+    assert os.path.normpath(
+        os.path.join(sysfs_pci_devs_base, rel_links)
+    ) == os.path.normpath(f"{SYSFS_BASE}/devices")
+    # drop also 00/ part, which may be also 40/, 80/ etc
+    path = path[3:]
+    bus_offset = 0
+    result_list = []
+    for path_part in path.split("/"):
+        assert bus_offset != -1
+        bridge_match = regex.match(path_part)
+        if not bridge_match:
+            raise ValueError("Invalid bridge found: {!r}".format(path_part))
+        assert int(bridge_match["bus"], 16) >= bus_offset
+        bus_num = int(bridge_match["bus"], 16) - bus_offset
+        bridge_str = (
+            f"{bus_num:02x}_{bridge_match['device']}."
+            f"{bridge_match['function']}"
+        )
+        result_list.append(bridge_str)
+        try:
+            with open(
+                f"{sysfs_pci_devs_base}/{path_part}/secondary_bus_number",
+                encoding="ascii",
+            ) as f_bus_num:
+                # this one is in decimal
+                # this can raise ValueError, propagate it
+                bus_offset = int(f_bus_num.read())
+        except FileNotFoundError:
+            # last device in chain
+            bus_offset = -1
+
+    if segment == "0000":
+        return "-".join(result_list)
+    return segment + "_" + "-".join(result_list)
+
+
+def path_to_sbdf(path: str):
+    """
+    Convert device path as done by *sbdf_to_path* back to SBDF
+    :param path:
+    :return:
+    """
+
+    regex = re.compile(
+        r"\A(?P<bus>[0-9a-f]+)[_:]"
+        r"(?P<device>[0-9a-f]+)[._](?P<function>[0-9a-f]+)\Z"
+    )
+    segment_re = re.compile(r"\A(?P<segment>[0-9a-f]{4})[_:](?P<rest>.*)\Z")
+
+    # default segment
+    segment = "0000"
+    bus_offset = 0
+    current_dev = ""
+    for path_part in path.split("-"):
+        assert bus_offset != -1
+        # first part may include segment
+        if bus_offset == 0:
+            segment_match = segment_re.match(path_part)
+            if segment_match:
+                segment = segment_match["segment"]
+                path_part = segment_match["rest"]
+        part_match = regex.match(path_part)
+        if not part_match:
+            raise ValueError(
+                "Invalid PCI device path at {!r}".format(path_part)
+            )
+        bus_num = int(part_match["bus"], 16) + bus_offset
+        current_dev = (
+            f"{segment}:{bus_num:02x}:{part_match['device']}."
+            f"{part_match['function']}"
+        )
+        try:
+            with open(
+                f"{SYSFS_BASE}/bus/pci/devices/"
+                f"{current_dev}/secondary_bus_number",
+                encoding="ascii",
+            ) as f_bus_num:
+                # this one is in decimal
+                # this can raise ValueError, propagate it
+                bus_offset = int(f_bus_num.read())
+        except FileNotFoundError:
+            # last device in chain
+            bus_offset = -1
+
+    return current_dev
+
+
+def is_pci_path(device_id: str):
+    """Check if given device id is already a device path.
+
+    :param device_id: device id to check
+    :return:
+    """
+    path_re = re.compile(
+        r"\A([0-9a-f]{4}_)?00_[0-9a-f]{2}\.[0-9a-f]"
+        r"(-[0-9a-f]{2}_[0-9a-f]{2}\.[0-9a-f])*\Z"
+    )
+    return bool(path_re.match(device_id))
