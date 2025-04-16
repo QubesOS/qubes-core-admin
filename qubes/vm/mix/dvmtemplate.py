@@ -18,7 +18,12 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
+import asyncio
+import os
+
+import qubes.config
 import qubes.events
+import qubes.vm.dispvm
 
 
 class DVMTemplateMixin(qubes.events.Emitter):
@@ -33,6 +38,109 @@ class DVMTemplateMixin(qubes.events.Emitter):
         default=False,
         doc="Should this VM be allowed to start as Disposable VM",
     )
+
+    def get_feat_preload(self) -> list[str]:
+        feature = "preload-dispvm"
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, "")
+        return value.split(" ") if value else []
+
+    def get_feat_preload_max(self) -> int:
+        feature = "preload-dispvm-max"
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, 0)
+        return int(value) if value else 0
+
+    def can_preload(self) -> bool:
+        preload_dispvm_max = self.get_feat_preload_max()
+        preload_dispvm = self.get_feat_preload()
+        if len(preload_dispvm) < preload_dispvm_max:
+            return True
+        return False
+
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
+    def on_feature_pre_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        if not value:
+            value = 0
+        if not value.isdigit():
+            raise qubes.exc.QubesValueError(
+                "Invalid preload-dispvm-max value: not a digit"
+            )
+        if not oldvalue:
+            oldvalue = 0
+        oldvalue = int(oldvalue)
+        value = int(value)
+        if value == oldvalue:
+            return
+        # TODO: ben: test: when twisting increasing and decreasing multiple
+        # times before qubes are preloaded, it can create orphans (qube that is
+        # preloaded but not in the preloaded list anymore, therefore won't be
+        # fetched to be used and will linger on the system).
+        if value > oldvalue:
+            asyncio.ensure_future(
+                self.fire_event_async("domain-preloaded-dispvm-autostart")
+            )
+        elif value < oldvalue:
+            old_preload = self.get_feat_preload()
+            if not old_preload:
+                return
+            new_preload = old_preload[:value]
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in old_preload[value:]:
+                dispvm = self.app.domains[unwanted_disp]
+                asyncio.ensure_future(dispvm.cleanup())
+
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
+    def on_feature_pre_set_preload_dispvm(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        preload_dispvm_max = self.get_feat_preload_max()
+        old_list = oldvalue.split(" ") if oldvalue else []
+        new_list = value.split(" ") if value else []
+        old_len, new_len = len(old_list), len(new_list)
+        error_prefix = "Invalid preload-dispvm value:"
+
+        if sorted(new_list) == sorted(old_list):
+            return
+        if not new_list:
+            return
+
+        # New value can be bigger than maximum permitted as long as it is
+        # smaller than its old value.
+        if new_len > max(preload_dispvm_max, old_len):
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} can't increment: qube count ({new_len}) "
+                f"is bigger than old count ({old_len}) and also bigger than "
+                f"preload-dispvm-max ({preload_dispvm_max})"
+            )
+
+        if new_len != len(set(new_list)):
+            duplicates = [
+                qube for qube in set(new_list) if new_list.count(qube) > 1
+            ]
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} contain duplicates: '{', '.join(duplicates)}'"
+            )
+
+        nonqube = [qube for qube in new_list if qube not in self.app.domains]
+        if nonqube:
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} non qube(s): '{', '.join(nonqube)}'"
+            )
+
+        # self.dispvms is outdated at this point.
+        nonderived = [
+            qube
+            for qube in new_list
+            if getattr(self.app.domains[qube], "template") != self
+        ]
+        if nonderived:
+            raise qubes.exc.QubesValueError(
+                f"{error_prefix} qube(s) not based on {self.name}: "
+                f"'{', '.join(nonderived)}'"
+            )
 
     @qubes.events.handler("property-pre-set:template_for_dispvms")
     def __on_pre_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
@@ -67,6 +175,40 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def __on_property_set_template(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         pass
+
+    @qubes.events.handler(
+        "domain-preloaded-dispvm-used", "domain-preloaded-dispvm-autostart"
+    )
+    async def on_domain_preloaded_dispvm_used(
+        self, event, delay=5, **kwargs
+    ):  # pylint: disable=unused-argument
+        """When preloaded DispVM is used or after boot, preload another one.
+
+        :param event: event which was fired
+        :param delay: seconds between trials
+        :returns:
+        """
+        # TODO: ben: add a refill event in case the limit is increased?
+        if event == "domain-preloaded-dispvm-autostart":
+            self.features["preload-dispvm"] = ""
+        if not self.can_preload():
+            return
+        while True:
+            await asyncio.sleep(delay)
+            avail_mem_file = qubes.config.qmemman_avail_mem_file
+            if os.path.isfile(avail_mem_file):
+                with open(avail_mem_file, "r", encoding="ascii") as file:
+                    available_memory = int(file.read())
+                memory = getattr(self, "memory", 0) * 1024 * 1024
+                if memory > available_memory:
+                    break
+            await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+            if (
+                event == "domain-preloaded-dispvm-autostart"
+                and self.can_preload()
+            ):
+                continue
+            break
 
     @property
     def dispvms(self):
