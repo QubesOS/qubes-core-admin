@@ -189,6 +189,75 @@ We must first create an assignment (`assign`) as required
 attached upon each VM startup. However, if a PCI device is currently in use
 by another VM, the startup of the second VM will fail.
 
+PCI devices addressing
+^^^^^^^^^^^^^^^^^^^^^^
+
+Qubes identifies PCI devices using a PCI path, instead of just
+segment/bus/device/function (aka SBDF). The latter is used by many tools (like
+`lspci`) but it's not guaranteed to remain stable across (seemingly unrelated)
+hardware or firmware changes. The PCI path is built by following PCIe bridges
+from the root port down to the target device. The path is constructed as
+follows:
+
+1. It starts with the root port address written as
+`[<SEGMENT>_]<BUS>_<DEVICE>.<FUNCTION>` (the segment part can be omitted if
+`0000`). All numbers written in hex, with `<SEGMENT>` (if present) padded to
+4 digits, `<BUS>` and `<DEVICE>` padded to 2 digits and `<FUNCTION>` as 1 digit.
+2. Subsequent bridges are added after a dash (`-`) in form of
+`<BUS-OFFSET>_<DEVICE>.<FUNCTION>`, where `<BUS-OFFSET>` is a bus number
+relative to the parent bridge's secondary bus number. In a simple case where
+the parent bridge has only one bus, the `<BUS-OFFSET>` will be `00`.
+3. Final device is added the same way as the bridges described in the second
+step.
+
+The path uses `<BUS-OFFSET>` instead of bridge's BUS number directly, to
+remain stable across adding/removing *other* bridges.
+
+For example, given the following PCI devices layout:
+
+.. code-block::
+
+    # lspci -t
+    -[0000:00]-+-00.0
+               +-00.2
+               +-01.0
+               +-02.0
+               +-02.2-[01]----00.0
+               +-02.4-[02]----00.0
+               +-03.0
+               +-03.1-[03-61]--
+               +-04.0
+               +-04.1-[62-c0]--
+               +-08.0
+               +-08.1-[c1]--+-00.0
+               |            +-00.1
+               |            +-00.2
+               |            +-00.3
+               |            +-00.4
+               |            +-00.5
+               |            \-00.6
+    ...
+
+
+The device 0000:c1:00.0 is behind bridge at 0000:00:08.1. In some cases there
+may be more bridges. There may be also more devices behind a single bridge - in
+the example above 0000:c1:00.0 is just a single multi-function device, but
+bridge 0000:00:03.1 can have multiple devices (covering buses `03` up to `61`).
+You can get bus ranges handled by a given bridge by looking at "secondary"
+and "subordinate" attributes on lspci (and similarly in sysfs):
+
+.. code-block::
+
+    00:08.1 PCI bridge: Advanced Micro Devices, Inc. [AMD] Phoenix Internal GPP Bridge to Bus [C:A] (prog-if 00 [Normal decode])
+        Subsystem: Device 0006:f111
+        Flags: bus master, fast devsel, latency 0, IRQ 106
+        Bus: primary=00, secondary=c1, subordinate=c1, sec-latency=0
+    ...
+
+The path for the 0000:c1:00.0 device is: `0000_00_08.1-00_00.0`, where the -00
+part means "the first bus behind this bridge". Since the segment is `0000`,
+this path can be written also as `00_08.1-00_00.0`.
+
 Microphone
 ----------
 
