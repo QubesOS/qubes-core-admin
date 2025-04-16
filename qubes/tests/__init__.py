@@ -883,7 +883,7 @@ class SystemTestCase(QubesTestCase):
     def close_qdb_on_remove(self, app, event, vm, **kwargs):
         # only close QubesDB connection, do not perform other (destructive)
         # actions of vm.close()
-        if vm._qdb_connection_watch is not None:
+        if getattr(vm, "_qdb_connection_watch", None) is not None:
             asyncio.get_event_loop().remove_reader(
                 vm._qdb_connection_watch.watch_fd()
             )
