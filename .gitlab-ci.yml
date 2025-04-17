@@ -33,6 +33,10 @@ checks:tests:
       # itself unless there's memory pressure, and the system will fail to request
       # memory from qmemman since qmemman will not see enough memory to run.
       sudo modprobe zfs zfs_arc_max=67108864
+  - git clone https://github.com/QubesOS/qubes-linux-utils ~/qubes-linux-utils
+  # the below 2 lines work like a chisel and hammer in a caveman's hand :/
+  - make -C ~/qubes-linux-utils/qrexec-lib NO_REBUILD_TABLE=1
+  - sudo install ~/qubes-linux-utils/qrexec-lib/libqubes-pure.so.0 /usr/lib64
   script:
   - PYTHONPATH=test-packages:~/qubes-core-qrexec ./run-tests
   stage: checks
