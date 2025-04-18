@@ -32,10 +32,11 @@ import qubes.device_protocol
 import qubes.devices
 import qubes.exc
 import qubes.ext
+from qubes.devices import Port
 from qubes.ext import utils
 from qubes.storage import Storage
 from qubes.vm.qubesvm import QubesVM
-from qubes.devices import Port
+from qubes.vm.remotevm import RemoteVM
 
 name_re = re.compile(r"\A[a-z0-9-]{1,12}\Z")
 device_re = re.compile(r"\A[a-z0-9/-]{1,64}\Z")
@@ -347,7 +348,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def get_device_attachments(vm_):
         result = {}
         for vm in vm_.app.domains:
-            if not vm.is_running():
+            if not vm.is_running() or isinstance(vm, RemoteVM):
                 continue
 
             if vm.app.vmm.offline_mode:

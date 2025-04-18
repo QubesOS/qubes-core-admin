@@ -270,6 +270,21 @@ class BaseVM(qubes.PropertyHolder):
         if hasattr(self, "name"):
             self.init_log()
 
+        #: operations which shouldn't happen simultaneously with qube startup
+        #  (including another startup of the same qube)
+        self.startup_lock = asyncio.Lock()
+
+    def __str__(self):
+        return self.name
+
+    def __hash__(self):
+        return self.qid
+
+    def __lt__(self, other):
+        if not isinstance(other, qubes.vm.BaseVM):
+            return NotImplemented
+        return self.name < other.name
+
     @qubes.stateless_property
     def klass(self):
         """Domain class name"""
@@ -342,6 +357,13 @@ class BaseVM(qubes.PropertyHolder):
             self.qid,
             " ".join(proprepr),
         )
+
+    @qubes.events.handler("domain-init", "domain-load")
+    def on_domain_init_loaded(self, event):
+        # pylint: disable=unused-argument
+        if not hasattr(self, "uuid"):
+            # pylint: disable=attribute-defined-outside-init
+            self.uuid = uuid.uuid4()
 
 
 class LocalVM(BaseVM):
@@ -487,6 +509,8 @@ class LocalVM(BaseVM):
         assignments = []
         for domain in self.app.domains:
             if domain == self:
+                continue
+            if getattr(domain, "klass") == "RemoteVM":
                 continue
             for device_collection in domain.devices.values():
                 for assignment in device_collection.get_assigned_devices(

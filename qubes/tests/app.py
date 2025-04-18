@@ -21,6 +21,7 @@
 #
 
 import os
+import unittest
 import unittest.mock as mock
 
 import lxml.etree
@@ -34,6 +35,8 @@ import qubes.tests.storage_reflink
 
 import logging
 import time
+
+from qubes.tests.vm.qubesvm import TestQubesDB
 
 
 class TestApp(qubes.tests.TestEmitter):
@@ -914,6 +917,87 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.assertNotIn("audiovm-sys-gui", appvm.tags)
         self.assertNotIn("audiovm-sys-audio", appvm.tags)
         self.assertNotIn("audiovm-", appvm.tags)
+
+    def test_116_remotevm_add_and_remove(self):
+        remotevm1 = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm1", label="blue"
+        )
+        self.app.add_new_vm("RemoteVM", name="remote-vm2", label="gray")
+        self.app.add_new_vm(
+            "AppVM",
+            name="test-vm",
+            template=self.template,
+            label="red",
+        )
+
+        assert remotevm1 in self.app.domains
+        del self.app.domains["remote-vm1"]
+
+        self.assertCountEqual(
+            {d.name for d in self.app.domains},
+            {"dom0", "test-template", "test-vm", "remote-vm2"},
+        )
+
+    def test_117_remotevm_status(self):
+        remotevm1 = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm1", label="blue"
+        )
+        assert [
+            remotevm1.get_power_state(),
+            remotevm1.get_cputime(),
+            remotevm1.get_mem(),
+        ] == ["Running", 0, 0]
+
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    def test_118_remotevm_set_relayvm(self, mock_qubesdb):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            relayvm = qubes.property("relayvm")
+            transport_rpc = qubes.property("transport_rpc")
+
+        localrelay = self.app.add_new_vm(
+            "AppVM",
+            name="local-relay",
+            template=self.template,
+            label="red",
+        )
+        # add QDB to localrelay
+        test_qubesdb = TestQubesDB()
+        mock_qubesdb.write.side_effect = test_qubesdb.write
+        mock_qubesdb.rm.side_effect = test_qubesdb.rm
+        localrelay.untrusted_qdb = test_qubesdb
+
+        remotevm = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm", label="blue"
+        )
+        remotevm.remote_name = "myawesomevm"
+
+        holder = MyTestHolder(None)
+        holder.relayvm = "local-relay"
+        holder.transport_rpc = "qubesair.SSHProxy"
+        self.assertEqual(holder.relayvm, "local-relay")
+        self.assertEqual(holder.transport_rpc, "qubesair.SSHProxy")
+
+        self.assertEventFired(
+            holder,
+            "property-set:relayvm",
+            kwargs={"name": "relayvm", "newvalue": "local-relay"},
+        )
+
+        self.assertEventFired(
+            holder,
+            "property-set:transport_rpc",
+            kwargs={"name": "transport_rpc", "newvalue": "qubesair.SSHProxy"},
+        )
+
+        # Set RelayVM
+        remotevm.relayvm = localrelay
+        self.assertIn("relayvm-local-relay", remotevm.tags)
+
+        # Read QDB path
+        self.assertEqual(
+            localrelay.untrusted_qdb.read("/remote/remote-vm"),
+            remotevm.remote_name,
+        )
 
     def test_200_remove_template(self):
         appvm = self.app.add_new_vm(

@@ -30,7 +30,6 @@ import os.path
 import shutil
 import string
 import subprocess
-import uuid
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -1142,10 +1141,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         # will be initialized after loading all the properties
 
-        #: operations which shouldn't happen simultaneously with qube startup
-        #  (including another startup of the same qube)
-        self.startup_lock = asyncio.Lock()
-
         # fire hooks
         if xml is None:
             self.events_enabled = True
@@ -1159,15 +1154,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._libvirt_domain = None
         super().close()
 
-    def __hash__(self):
-        return self.qid
-
     def __lt__(self, other):
-        if not isinstance(other, qubes.vm.LocalVM):
-            return NotImplemented
         if isinstance(other, qubes.vm.adminvm.AdminVM):
             return False
-        return self.name < other.name
+        return super().__lt__(other)
 
     def __xml__(self):
         # pylint: disable=no-member
@@ -1188,10 +1178,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.events.handler("domain-init", "domain-load")
     def on_domain_init_loaded(self, event):
-        # pylint: disable=unused-argument
-        if not hasattr(self, "uuid"):
-            # pylint: disable=attribute-defined-outside-init
-            self.uuid = uuid.uuid4()
+        super().on_domain_init_loaded(event)
 
         # Initialize VM image storage class;
         # it might be already initialized by a recursive call from a child VM

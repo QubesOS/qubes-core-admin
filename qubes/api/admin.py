@@ -370,7 +370,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_volume_list(self):
         self.enforce(not self.arg)
 
-        volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
+        volume_names = (
+            self.fire_event_for_filter(self.dest.volumes.keys())
+            if isinstance(self.dest, qubes.vm.qubesvm.QubesVM)
+            else []
+        )
         return "".join("{}\n".format(name) for name in volume_names)
 
     @qubes.api.method(
@@ -1262,7 +1266,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         vm.tags.add("created-by-" + str(self.src))
 
         try:
-            await vm.create_on_disk(pool=pool, pools=pools)
+            if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                await vm.create_on_disk(pool=pool, pools=pools)
         except:
             del self.app.domains[vm]
             raise
@@ -1310,7 +1315,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-            if self.dest.installed_by_rpm:
+            if (
+                isinstance(self.dest, qubes.vm.qubesvm.QubesVM)
+                and self.dest.installed_by_rpm
+            ):
                 raise qubes.exc.QubesVMInUseError(
                     self.dest,
                     "VM installed by package manager: " + self.dest.name,
