@@ -24,7 +24,7 @@ from unittest import mock
 import qubes.tests
 import qubes.ext.pci
 from qubes.device_protocol import DeviceInterface
-from qubes.utils import sbdf_to_path, path_to_sbdf
+from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 orig_open = open
 
@@ -157,7 +157,17 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
         path = path_to_sbdf("0000_00_18.4")
         self.assertEqual(path, "0000:00:18.4")
 
+    def test_020_is_pci_path(self):
+        self.assertTrue(is_pci_path("0000_00_18.4"))
 
+    def test_021_is_pci_path_false(self):
+        self.assertFalse(is_pci_path("0000_c6_00.0"))
+
+    def test_022_is_pci_path_non_00_bus(self):
+        self.assertTrue(is_pci_path("0000_c0_00.0"))
+
+
+@mock.patch("qubes.utils.SYSFS_BASE", tests_sysfs_path)
 class TC_10_PCI(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
