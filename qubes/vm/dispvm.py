@@ -249,18 +249,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         #   gui-agent) may still be starting.  qubes.WaitForSession service may
         #   help (ensure to use async handler to not block qubesd while waiting
         #   on it).
-        # TODO: ben: test late pause
-        # Ben:
-        #   Test if pause isn't too late, what if application autostarts, will
-        #   it open before the qube is paused?
-        # Marek:
-        #   Yes, it will. Theoretically there is an "invisible" mode for
-        #   gui-daemon for situation like this (it was used for very old
-        #   implementation of DispVM that also kinda preloaded it). But there
-        #   is no support for flipping it in runtime, gui-daemon needs to be
-        #   restarted for that, so that's a broader change to use it in this
-        #   version. Maybe later, I'd say it's okay to ignore this issue for
-        #   now.
+        # Ben: pause doesn't appear to be too early, systemd shows no strange
+        # states for services, everything seems 'active', 'running' or
+        # 'exited', etc (with `systemctl list-units`). Please confirm so this
+        # comment can be removed.
+        #
+        # TODO: pause is late for autostarted applications
+        #   https://github.com/QubesOS/qubes-issues/issues/9907
         no_gui_sleep = 15
         gui_timeout = getattr(self, "qrexec_timeout", 30)
         gui = self.features.get("gui", None)
@@ -384,7 +379,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                         await dispvm.unpause()
                         app.save()
                         return dispvm
-                    await asyncio.sleep(0.25)
+                    await asyncio.sleep(0.1)
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs

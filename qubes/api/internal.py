@@ -45,6 +45,8 @@ class SystemInfoCache:
         "domain-shutdown",
         "domain-tag-add:*",
         "domain-tag-delete:*",
+        "domain-feature-set:internal",
+        "domain-feature-delete:internal"
         "property-set:template_for_dispvms",
         "property-reset:template_for_dispvms",
         "property-set:default_dispvm",
@@ -117,6 +119,7 @@ class SystemInfoCache:
         system_info = {
             "domains": {
                 domain.name: {
+                    "features": dict(domain.features.items()),
                     "tags": list(domain.tags),
                     "type": domain.__class__.__name__,
                     "template_for_dispvms": getattr(

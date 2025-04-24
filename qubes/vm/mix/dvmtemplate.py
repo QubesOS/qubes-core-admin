@@ -184,7 +184,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "domain-preloaded-dispvm-start",
     )
     async def on_domain_preloaded_dispvm_used(
-        self, event, delay=0.1, **kwargs
+        self, event, delay=0, **kwargs
     ):  # pylint: disable=unused-argument
         """When preloaded DispVM is used or after boot, preload another one.
 
@@ -195,11 +195,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         event = event.removeprefix("domain-preloaded-dispvm-")
         if event == "autostart":
             old_preload = self.get_feat_preload()
+            self.features["preload-dispvm"] = ""
             for unwanted_name in old_preload:
                 if unwanted_name in self.app.domains:
                     unwanted_dispvm = self.app.domains[unwanted_name]
                     asyncio.ensure_future(unwanted_dispvm.cleanup())
-            self.features["preload-dispvm"] = ""
         if not self.can_preload():
             return
         while True:
