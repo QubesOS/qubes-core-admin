@@ -62,19 +62,23 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
-        if not value:
-            value = "0"
+        value = value or "0"
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"
             )
-        if not oldvalue:
-            oldvalue = 0
+
+    @qubes.events.handler("domain-feature-set:preload-dispvm-max")
+    def on_feature_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        value = value or 0
+        oldvalue = oldvalue or 0
         oldvalue = int(oldvalue)
         value = int(value)
         if value > oldvalue or (value == oldvalue and self.can_preload()):
             # Also try to preload qubes when value hasn't changed so the loop
-            # can start on a system that is already running but preload qubes
+            # can start on a system that is already running but preloaded qubes
             # were killed, such as with 'qvm-shutdown --all'.
             asyncio.ensure_future(
                 self.fire_event_async("domain-preloaded-dispvm-start")
@@ -86,8 +90,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
             new_preload = old_preload[:value]
             self.features["preload-dispvm"] = " ".join(new_preload or [])
             for unwanted_disp in old_preload[value:]:
-                dispvm = self.app.domains[unwanted_disp]
-                asyncio.ensure_future(dispvm.cleanup())
+                if unwanted_disp in self.app.domains:
+                    dispvm = self.app.domains[unwanted_disp]
+                    asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -189,6 +194,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         event = event.removeprefix("domain-preloaded-dispvm-")
         if event == "autostart":
+            old_preload = self.get_feat_preload()
+            for unwanted_name in old_preload:
+                if unwanted_name in self.app.domains:
+                    unwanted_dispvm = self.app.domains[unwanted_name]
+                    asyncio.ensure_future(unwanted_dispvm.cleanup())
             self.features["preload-dispvm"] = ""
         if not self.can_preload():
             return
