@@ -1149,16 +1149,16 @@ class SystemTestCase(QubesTestCase):
                 pass
         # break dependencies
         for vm in vms:
-            if vm.default_dispvm in vms:
-                vm.default_dispvm = None
-            if vm.netvm in vms:
-                vm.netvm = None
-            if vm.management_dispvm in vms:
-                vm.management_dispvm = None
-            if vm.guivm in vms:
-                vm.guivm = None
-            if vm.audiovm in vms:
-                vm.audiovm = None
+            for attr in (
+                "default_dispvm",
+                "netvm",
+                "management_dispvm",
+                "guivm",
+                "audiovm",
+                "relayvm",
+            ):
+                if getattr(vm, attr, None) in vms:
+                    setattr(vm, attr, None)
         # take app instance from any VM to be removed
         app = vms[0].app
         if app.default_dispvm in vms:

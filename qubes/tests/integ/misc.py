@@ -192,10 +192,97 @@ class TC_06_AppVMMixin(object):
         self.assertFalse(self.vm.is_running())
 
 
+class TC_10_RemoteVMMixin:
+    def setUp(self):
+        super().setUp()
+        relay_name = self.make_vm_name("relay")
+        self.relay_vm = self.app.add_new_vm(
+            "AppVM", label="green", name=relay_name
+        )
+        self.loop.run_until_complete(self.relay_vm.create_on_disk())
+        self.loop.run_until_complete(self.relay_vm.start())
+
+        self.create_remote_file(
+            self.relay_vm,
+            "/etc/qubes-rpc/test.Relay",
+            """#!/bin/sh
+
+arg="$1"
+target="${arg%%+*}"
+target="${target%-remote}"
+service="${arg#*+}"
+
+exec qrexec-client-vm \\
+    --source-qube="$QREXEC_REMOTE_DOMAIN-remote" -- \\
+    "$target" "$service"
+""",
+        )
+
+    def test_000_full_connect(self):
+        """vm1 -> relay -> vm2"""
+        # This system plays roles of both local and remove systems each VM is
+        # duplicated - once as normal AppVM and then as RemoteVM, and the
+        # relay service translates the names
+
+        vm1_name = self.make_vm_name("vm1")
+        self.vm1 = self.app.add_new_vm("AppVM", label="red", name=vm1_name)
+        self.loop.run_until_complete(self.vm1.create_on_disk())
+        self.vm1_remote = self.app.add_new_vm(
+            "RemoteVM",
+            label="red",
+            name=vm1_name + "-remote",
+            relayvm=self.relay_vm,
+        )
+        self.vm1_remote.transport_rpc = "test.Relay"
+
+        vm2_name = self.make_vm_name("vm2")
+        self.vm2 = self.app.add_new_vm("AppVM", label="red", name=vm2_name)
+        self.loop.run_until_complete(self.vm2.create_on_disk())
+        self.vm2_remote = self.app.add_new_vm(
+            "RemoteVM",
+            label="red",
+            name=vm2_name + "-remote",
+            relayvm=self.relay_vm,
+        )
+        self.vm2_remote.transport_rpc = "test.Relay"
+
+        self.loop.run_until_complete(self.vm1.start())
+        file_content = "this is test"
+        self.create_remote_file(
+            self.vm1, "/home/user/test-file.txt", file_content
+        )
+
+        # first policy allows the call "locally" and the second allows it
+        # "remotely"
+        with self.qrexec_policy(
+            "qubes.Filecopy", vm1_name, vm2_name + "-remote"
+        ), self.qrexec_policy("qubes.Filecopy", vm1_name + "-remote", vm2_name):
+            self.loop.run_until_complete(
+                self.vm1.run_for_stdio(
+                    f"timeout {self.vm2.qrexec_timeout} qvm-copy-to-vm"
+                    f" {vm2_name}-remote /home/user/test-file.txt"
+                )
+            )
+
+        # check if that worked
+        received_content, _ = self.loop.run_until_complete(
+            self.vm2.run_for_stdio(
+                f"cat /home/user/QubesIncoming/{vm1_name}-remote/test-file.txt"
+            )
+        )
+        self.assertEqual(file_content, received_content.decode())
+
+
 def create_testcases_for_templates():
     yield from qubes.tests.create_testcases_for_templates(
         "TC_06_AppVM",
         TC_06_AppVMMixin,
+        qubes.tests.SystemTestCase,
+        module=sys.modules[__name__],
+    )
+    yield from qubes.tests.create_testcases_for_templates(
+        "TC_10_RemoteVM",
+        TC_10_RemoteVMMixin,
         qubes.tests.SystemTestCase,
         module=sys.modules[__name__],
     )
