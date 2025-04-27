@@ -22,12 +22,16 @@
 
 import asyncio
 import json
+import os
 import subprocess
 
 import qubes.api
 import qubes.api.admin
 import qubes.vm.adminvm
 import qubes.vm.dispvm
+
+
+PREVIOUSLY_PAUSED = "/run/qubes/previously-paused.list"
 
 
 class SystemInfoCache:
@@ -258,12 +262,23 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
-        # first notify all VMs
+        # first keep track of VMs which were paused before suspending
+        previously_paused = [
+            vm.name
+            for vm in self.app.domains
+            if vm.get_power_state() in ["Paused", "Suspended"]
+        ]
+        with open(PREVIOUSLY_PAUSED, "w", encoding="ascii") as file:
+            file.write("\n".join(previously_paused))
+
+        # then notify all VMs (except paused ones)
         processes = []
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
             if not vm.is_running():
+                continue
+            if vm.name in previously_paused:
                 continue
             if not vm.features.check_with_template("qrexec", False):
                 continue
@@ -303,6 +318,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
+            if vm.name in previously_paused:
+                continue
             if vm.is_running():
                 coros.append(asyncio.create_task(vm.suspend()))
         if coros:
@@ -326,22 +343,36 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
+        # Reload list of previously paused qubes before suspending
+        previously_paused = []
+        try:
+            if os.path.isfile(PREVIOUSLY_PAUSED):
+                with open(PREVIOUSLY_PAUSED, encoding="ascii") as file:
+                    previously_paused = file.read().split("\n")
+                os.unlink(PREVIOUSLY_PAUSED)
+        except OSError:
+            previously_paused = []
+
         coros = []
         # first resume/unpause VMs
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if vm.name in previously_paused:
                 continue
             if vm.get_power_state() in ["Paused", "Suspended"]:
                 coros.append(asyncio.create_task(vm.resume()))
         if coros:
             await asyncio.wait(coros)
 
-        # then notify all VMs
+        # then notify all VMs (except previously paused ones)
         processes = []
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
             if not vm.is_running():
+                continue
+            if vm.name in previously_paused:
                 continue
             if not vm.features.check_with_template("qrexec", False):
                 continue
