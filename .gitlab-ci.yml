@@ -63,6 +63,8 @@ include:
   project: QubesOS/qubes-continuous-integration
 - file: /r4.3/gitlab-host.yml
   project: QubesOS/qubes-continuous-integration
+- file: /r4.3/gitlab-host-openqa.yml
+  project: QubesOS/qubes-continuous-integration
 
 lint:
   extends: .lint
