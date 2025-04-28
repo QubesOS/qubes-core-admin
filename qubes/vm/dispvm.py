@@ -223,7 +223,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = getattr(self, "template")
-        preload_dispvm = appvm.get_feat_preload().remove(self.name)
+        preload_dispvm = appvm.get_feat_preload()
+        preload_dispvm.remove(self.name)
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = False
         await appvm.fire_event_async(
@@ -326,7 +327,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     ):  # pylint: disable=invalid-overridden-method
         if self.is_preloaded():
             appvm = getattr(self, "template")
-            preload_dispvm = appvm.get_feat_preload().remove(self.name)
+            preload_dispvm = appvm.get_feat_preload()
+            preload_dispvm.remove(self.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 

@@ -58,6 +58,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
+    @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
+    def on_feature_delete_preload_dispvm_max(
+        self, event, feature
+    ):  # pylint: disable=unused-argument
+        old_preload = self.get_feat_preload()
+        if not old_preload:
+            return
+        self.features["preload-dispvm"] = ""
+        for unwanted_disp in old_preload:
+            if unwanted_disp in self.app.domains:
+                dispvm = self.app.domains[unwanted_disp]
+                asyncio.ensure_future(dispvm.cleanup())
+
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
