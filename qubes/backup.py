@@ -433,6 +433,10 @@ class Backup:
             if os.path.exists(firewall_conf):
                 vm_files.append(self.FileToBackup(firewall_conf, subdir))
 
+            notes_file_path = os.path.join(vm.dir_path, vm.notes_file)
+            if os.path.exists(notes_file_path):
+                vm_files.append(self.FileToBackup(notes_file_path, subdir))
+
             if not vm_files:
                 # subdir/ is needed in the tar file, otherwise restore
                 # of a (Disp)VM without any backed up files is going

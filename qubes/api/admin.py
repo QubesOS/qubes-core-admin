@@ -28,6 +28,8 @@ import string
 import subprocess
 import pathlib
 
+from ctypes import CDLL
+
 import libvirt
 import lxml.etree
 import importlib.metadata
@@ -52,6 +54,9 @@ from qubes.device_protocol import (
     AssignmentMode,
     DeviceInterface,
 )
+
+# To validate & sanitise UTF8 strings
+LIBQUBES_PURE = "libqubes-pure.so.0"
 
 
 class QubesMgmtEventsDispatcher:
@@ -2044,3 +2049,50 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "power_state": self.dest.get_power_state(),
         }
         return " ".join("{}={}".format(k, v) for k, v in state.items())
+
+    @qubes.api.method(
+        "admin.vm.notes.Get", no_payload=True, scope="local", read=True
+    )
+    async def vm_notes_get(self):
+        """Get qube notes"""
+        self.enforce(self.dest.name != "dom0")
+        self.fire_event_for_permission()
+        notes = self.dest.get_notes()
+        return notes
+
+    @qubes.api.method("admin.vm.notes.Set", scope="local", write=True)
+    async def vm_notes_set(self, untrusted_payload):
+        """Set qube notes"""
+        self.enforce(self.dest.name != "dom0")
+        self.fire_event_for_permission()
+        if len(untrusted_payload) > 256000:
+            raise qubes.exc.ProtocolError(
+                "Maximum note size is 256000 bytes ({} bytes received)".format(
+                    len(untrusted_payload)
+                )
+            )
+
+        # Sanitise the incoming utf8 notes with libqubes-pure
+        try:
+            libqubespure = CDLL(LIBQUBES_PURE)
+            notes = "".join(
+                [
+                    (
+                        c
+                        # first we check with our advanced unicode sanitisation
+                        if libqubespure.qubes_pure_code_point_safe_for_display(
+                            ord(c)
+                        )
+                        # validate tab and newline since qubespure excludes them
+                        or c in "\t\n"
+                        else "_"
+                    )
+                    for c in untrusted_payload.decode("utf8")
+                ]
+            )
+        except Exception as e:
+            raise qubes.exc.ProtocolError(
+                "Unable to sanitise qube notes: " + str(e)
+            )
+
+        self.dest.set_notes(notes)
