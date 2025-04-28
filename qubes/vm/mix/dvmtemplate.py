@@ -20,7 +20,6 @@
 
 import asyncio
 import os
-import threading
 
 import qubes.config
 import qubes.events
@@ -40,11 +39,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
-    def __init__(self, *args, **kwargs):
-        self.preload_pre_lock = threading.Lock()
-        self.preload_lock = threading.Lock() # TODO: ben: asyncio.Lock()
-        super().__init__(*args, **kwargs)
-
     def get_feat_preload(self) -> list[str]:
         feature = "preload-dispvm"
         assert isinstance(self, qubes.vm.BaseVM)
@@ -56,17 +50,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
         assert isinstance(self, qubes.vm.BaseVM)
         value = self.features.get(feature, 0)
         return int(value) if value else 0
-
-    def update_preload(self, value) -> None:
-        with self.preload_lock:
-            oldvalue = self.get_feat_preload()
-            assert isinstance(self, qubes.vm.BaseVM)
-            self.features["preload-dispvm"] = " ".join(value or [])
-            unwanted_qubes = [qube for qube in oldvalue if qube not in value]
-            for unwanted_disp in unwanted_qubes:
-                if unwanted_disp in self.app.domains:
-                    dispvm = self.app.domains[unwanted_disp]
-                    asyncio.ensure_future(dispvm.cleanup())
 
     def can_preload(self) -> bool:
         preload_dispvm_max = self.get_feat_preload_max()
@@ -101,15 +84,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 self.fire_event_async("domain-preloaded-dispvm-start")
             )
         elif value < oldvalue:
-            with self.preload_pre_lock:
-                preload_dispvm = self.get_feat_preload()
-                self.update_preload(preload_dispvm[:value])
-
-    @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
-    def on_feature_delete_preload_dispvm_max(
-        self, event, feature
-    ):  # pylint: disable=unused-argument
-        self.update_preload([])
+            old_preload = self.get_feat_preload()
+            if not old_preload:
+                return
+            new_preload = old_preload[:value]
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in old_preload[value:]:
+                if unwanted_disp in self.app.domains:
+                    dispvm = self.app.domains[unwanted_disp]
+                    asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -211,7 +194,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         event = event.removeprefix("domain-preloaded-dispvm-")
         if event == "autostart":
-            self.update_preload([])
+            old_preload = self.get_feat_preload()
+            self.features["preload-dispvm"] = ""
+            for unwanted_name in old_preload:
+                if unwanted_name in self.app.domains:
+                    unwanted_dispvm = self.app.domains[unwanted_name]
+                    asyncio.ensure_future(unwanted_dispvm.cleanup())
         if not self.can_preload():
             return
         while True:

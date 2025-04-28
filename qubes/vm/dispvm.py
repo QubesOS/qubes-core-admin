@@ -205,10 +205,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         :return:
         """
         appvm = getattr(self, "template")
-        with appvm.preload_pre_lock:
-            preload_dispvm = appvm.get_feat_preload()
+        preload_dispvm = appvm.get_feat_preload()
+        if preload_dispvm:
             preload_dispvm.append(self.name)
-            appvm.update_preload(preload_dispvm)
+        else:
+            preload_dispvm = [self.name]
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = True
         await self.start()
 
@@ -221,11 +223,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = getattr(self, "template")
-        with appvm.preload_pre_lock:
-            preload_dispvm = appvm.get_feat_preload()
-            preload_dispvm.remove(self.name)
-            appvm.update_preload(preload_dispvm)
-        del self.features["internal"]
+        preload_dispvm = appvm.get_feat_preload().remove(self.name)
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+        self.features["internal"] = False
         await appvm.fire_event_async(
             "domain-preloaded-dispvm-used", dispvm=self
         )
@@ -294,7 +294,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     ):  # pylint: disable=unused-argument
         """Mark unpaused preloaded domains as used."""
         if self.is_preloaded() and self.is_fully_usable():
-            # domain-unpaused triggered on qube start by
+            # Event domain-unpaused is triggered on every qube start by
             # 'libvirt_domain.resume()'.
             asyncio.ensure_future(self.use_preloaded())
 
@@ -326,10 +326,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     ):  # pylint: disable=invalid-overridden-method
         if self.is_preloaded():
             appvm = getattr(self, "template")
-            with appvm.preload_pre_lock:
-                preload_dispvm = appvm.get_feat_preload()
-                preload_dispvm.remove(self.name)
-                appvm.update_preload(preload_dispvm)
+            preload_dispvm = appvm.get_feat_preload().remove(self.name)
+            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
