@@ -89,6 +89,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         oldvalue = oldvalue or 0
         oldvalue = int(oldvalue)
         value = int(value)
+        # TODO: ben: handle decrease in the same or a new event.
         if value > oldvalue or (value == oldvalue and self.can_preload()):
             # Also try to preload qubes when value hasn't changed so the loop
             # can start on a system that is already running but preloaded qubes
@@ -206,6 +207,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :returns:
         """
         event = event.removeprefix("domain-preloaded-dispvm-")
+        self.log.info("Received preload event '%s'", str(event))
         if event == "autostart":
             old_preload = self.get_feat_preload()
             self.features["preload-dispvm"] = ""
@@ -229,6 +231,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                         "Not preloading disposable due to insufficient memory"
                     )
                     break
+            self.log.info("Creating new preload qube")
             await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
             if event in ["autostart", "start"]:
                 continue

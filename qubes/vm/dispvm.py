@@ -205,11 +205,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         :return:
         """
         appvm = getattr(self, "template")
+        appvm.log.info("Marking preloaded qube '%s'", str(self.name))
         preload_dispvm = appvm.get_feat_preload()
-        if preload_dispvm:
-            preload_dispvm.append(self.name)
-        else:
-            preload_dispvm = [self.name]
+        preload_dispvm.append(self.name)
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         self.features["internal"] = True
         await self.start()
@@ -223,6 +221,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = getattr(self, "template")
+        appvm.log.info("Using preloaded qube '%s'", str(self.name))
         preload_dispvm = appvm.get_feat_preload()
         preload_dispvm.remove(self.name)
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
