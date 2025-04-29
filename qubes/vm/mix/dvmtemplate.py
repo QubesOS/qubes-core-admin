@@ -231,7 +231,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                         "Not preloading disposable due to insufficient memory"
                     )
                     break
-            self.log.info("Creating new preload qube")
+            self.log.info("Preloading new qube on event '%s'", str(event))
             await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
             if event in ["autostart", "start"]:
                 continue

@@ -192,11 +192,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def is_preloaded(self) -> bool:
         appvm = getattr(self, "template")
         preload_dispvm = appvm.get_feat_preload()
-        if not preload_dispvm:
-            return False
-        if self.name not in preload_dispvm:
-            return False
-        return True
+        if self.name in preload_dispvm:
+            return True
+        if self.features.get("preload-dispvm-requested", None):
+            return True
+        return False
 
     async def preload(self):
         """
@@ -205,7 +205,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         :return:
         """
         appvm = getattr(self, "template")
-        appvm.log.info("Marking preloaded qube '%s'", str(self.name))
+        self.log.info("Marking preloaded qube '%s'", str(self.name))
         preload_dispvm = appvm.get_feat_preload()
         preload_dispvm.append(self.name)
         appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
@@ -221,11 +221,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = getattr(self, "template")
-        appvm.log.info("Using preloaded qube '%s'", str(self.name))
-        preload_dispvm = appvm.get_feat_preload()
-        preload_dispvm.remove(self.name)
-        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
-        self.features["internal"] = False
+        self.log.info("Using preloaded qube '%s'", str(self.name))
+        if not appvm.features.get("internal", False):
+            del self.features["internal"]
+        if self.features.get("preload-dispvm-requested", None):
+            del self.features["preload-dispvm-requested"]
         await appvm.fire_event_async(
             "domain-preloaded-dispvm-used", dispvm=self
         )
@@ -244,16 +244,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Pause preloaded domains as soon as basic services have started."""
         if not self.is_preloaded():
             return
-        # TODO: ben: test early pause
-        # Marek: Test if pause isn't too early. Some services (especially:
-        #   gui-agent) may still be starting.  qubes.WaitForSession service may
-        #   help (ensure to use async handler to not block qubesd while waiting
-        #   on it).
-        # Ben: pause doesn't appear to be too early, systemd shows no strange
-        # states for services, everything seems 'active', 'running' or
-        # 'exited', etc (with `systemctl list-units`). Please confirm so this
-        # comment can be removed.
-        #
         # TODO: pause is late for autostarted applications
         #   https://github.com/QubesOS/qubes-issues/issues/9907
         no_gui_sleep = 15
@@ -293,9 +283,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
         """Mark unpaused preloaded domains as used."""
+        # Qube start triggers unpause via 'libvirt_domain.resume()'.
         if self.is_preloaded() and self.is_fully_usable():
-            # Event domain-unpaused is triggered on every qube start by
-            # 'libvirt_domain.resume()'.
             asyncio.ensure_future(self.use_preloaded())
 
     @qubes.events.handler("property-pre-reset:template")
@@ -370,17 +359,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "preloaded DispVMs reached"
             )
 
-        if not preload:
-            preload_dispvm = appvm.get_feat_preload()
-            if preload_dispvm:
-                dispvm = app.domains[preload_dispvm[0]]
-                # Paused preloaded disposable signals that it is ready for use.
-                while True:
-                    if dispvm.is_paused():
-                        await dispvm.unpause()
-                        app.save()
-                        return dispvm
-                    await asyncio.sleep(0.1)
+        if not preload and (preload_dispvm := appvm.get_feat_preload()):
+            dispvm = app.domains[preload_dispvm[0]]
+            dispvm.log.info("Requesting preloaded qube '%s'", str(dispvm.name))
+            preload_dispvm.remove(dispvm.name)
+            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+            dispvm.features["preload-dispvm-requested"] = True
+            # Paused qube signals that it is ready for use.
+            while True:
+                if dispvm.is_paused():
+                    await dispvm.unpause()
+                    app.save()
+                    return dispvm
+                await asyncio.sleep(0.1)
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs

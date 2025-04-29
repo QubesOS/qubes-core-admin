@@ -119,6 +119,7 @@ class SystemInfoCache:
         system_info = {
             "domains": {
                 domain.name: {
+                    "internal": domain.features.get("internal", None),
                     "features": dict(domain.features.items()),
                     "tags": list(domain.tags),
                     "type": domain.__class__.__name__,
