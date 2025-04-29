@@ -362,6 +362,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not preload and (preload_dispvm := appvm.get_feat_preload()):
             dispvm = app.domains[preload_dispvm[0]]
             dispvm.log.info("Requesting preloaded qube '%s'", str(dispvm.name))
+            # The feature "preload-dispvm-requested" offloads "preload-dispvm"
+            # and thus avoids various race condition:
+            # - Decreasing maximum feature after qube object has been returned
+            #   will not cleanup the qube;
+            # - After the qube object is returned, another request to this
+            #   function will not return the same qube.
             preload_dispvm.remove(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
             dispvm.features["preload-dispvm-requested"] = True

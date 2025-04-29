@@ -58,18 +58,24 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
+    def remove_preload_excess(self, max_preload):
+        if self.can_preload():
+            return
+        old_preload = self.get_feat_preload()
+        if not old_preload:
+            return
+        new_preload = old_preload[:max_preload]
+        self.features["preload-dispvm"] = " ".join(new_preload or [])
+        for unwanted_disp in old_preload[max_preload:]:
+            if unwanted_disp in self.app.domains:
+                dispvm = self.app.domains[unwanted_disp]
+                asyncio.ensure_future(dispvm.cleanup())
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
         self, event, feature
     ):  # pylint: disable=unused-argument
-        old_preload = self.get_feat_preload()
-        if not old_preload:
-            return
-        self.features["preload-dispvm"] = ""
-        for unwanted_disp in old_preload:
-            if unwanted_disp in self.app.domains:
-                dispvm = self.app.domains[unwanted_disp]
-                asyncio.ensure_future(dispvm.cleanup())
+        self.remove_preload_excess(0)
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
@@ -85,28 +91,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
-        value = value or 0
-        oldvalue = oldvalue or 0
-        oldvalue = int(oldvalue)
-        value = int(value)
-        # TODO: ben: handle decrease in the same or a new event.
-        if value > oldvalue or (value == oldvalue and self.can_preload()):
-            # Also try to preload qubes when value hasn't changed so the loop
-            # can start on a system that is already running but preloaded qubes
-            # were killed, such as with 'qvm-shutdown --all'.
-            asyncio.ensure_future(
-                self.fire_event_async("domain-preloaded-dispvm-start")
-            )
-        elif value < oldvalue:
-            old_preload = self.get_feat_preload()
-            if not old_preload:
-                return
-            new_preload = old_preload[:value]
-            self.features["preload-dispvm"] = " ".join(new_preload or [])
-            for unwanted_disp in old_preload[value:]:
-                if unwanted_disp in self.app.domains:
-                    dispvm = self.app.domains[unwanted_disp]
-                    asyncio.ensure_future(dispvm.cleanup())
+        # Preload if there is vacancy, offload if there is excess.
+        asyncio.ensure_future(
+            self.fire_event_async("domain-preloaded-dispvm-start")
+        )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
@@ -207,19 +195,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :returns:
         """
         event = event.removeprefix("domain-preloaded-dispvm-")
-        self.log.info("Received preload event '%s'", str(event))
+        event_log = "Received preload event '%s'" % str(event)
+        if event == "used":
+            event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
+        self.log.info(event_log)
         if event == "autostart":
-            old_preload = self.get_feat_preload()
-            self.features["preload-dispvm"] = ""
-            for unwanted_name in old_preload:
-                if unwanted_name in self.app.domains:
-                    unwanted_dispvm = self.app.domains[unwanted_name]
-                    asyncio.ensure_future(unwanted_dispvm.cleanup())
+            self.remove_preload_excess(0)
         if not self.can_preload():
+            self.remove_preload_excess(self.get_feat_preload_max())
             return
         while True:
             await asyncio.sleep(delay)
             if not self.can_preload():
+                self.remove_preload_excess(self.get_feat_preload_max())
                 return
             avail_mem_file = qubes.config.qmemman_avail_mem_file
             if os.path.isfile(avail_mem_file):
