@@ -64,13 +64,13 @@ function-rgx=(test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,40})$
 method-rgx=(test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,40})$
 
 # Regular expression which should only match correct instance attribute names
-attr-rgx=[a-z_][a-z0-9_]{2,30}$
+attr-rgx=[a-z_][a-z0-9_]{2,40}$
 
 # Regular expression which should only match correct argument names
-argument-rgx=[a-z_][a-z0-9_]{2,30}$
+argument-rgx=[a-z_][a-z0-9_]{2,40}$
 
 # Regular expression which should only match correct variable names
-variable-rgx=[a-z_][a-z0-9_]{2,30}$
+variable-rgx=[a-z_][a-z0-9_]{2,40}$
 
 # Regular expression which should only match correct list comprehension /
 # generator expression variable names

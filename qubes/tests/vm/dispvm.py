@@ -242,12 +242,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.assertTrue(dispvm.is_preloaded())
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
-            # TODO: ben: Missing waiting for event here.
+            # TODO: ben: missing waiting for event here.
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
         mock_dispvm_start.assert_called_once_with()
-        # TODO: ben: whyyyyyyyyyyyy not being fired
+        # TODO: ben: event not fired
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
         self.assertFalse(dispvm.is_preloaded())
         self.assertFalse(dispvm.features.get("internal", False))

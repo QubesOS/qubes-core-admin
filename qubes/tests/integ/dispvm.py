@@ -183,7 +183,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
 
 
 class TC_20_DispVMMixin(object):
-    def setUp(self):
+    def setUp(self):  # pylint: disable=invalid-name
         super(TC_20_DispVMMixin, self).setUp()
         if "whonix-g" in self.template:
             self.skipTest(
@@ -199,10 +199,30 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(self.disp_base.create_on_disk())
         self.app.default_dispvm = self.disp_base
         self.app.save()
+        self.preload_cmd = [
+            "qvm-run",
+            "-p",
+            f"--dispvm={self.disp_base.name}",
+            "--",
+            "printf '%s' \"$HOSTNAME\"",
+        ]
 
-    def tearDown(self):
+    def tearDown(self):  # pylint: disable=invalid-name
         self.app.default_dispvm = None
+        self.disp_base.features["preload-dispvm-max"] = False
+        if hasattr(self.disp_base.features, "gui"):
+            del self.disp_base.features["gui"]
         super(TC_20_DispVMMixin, self).tearDown()
+
+    def _test_event_handler(
+        self, vm, event, *args, **kwargs
+    ):  # pylint: disable=unused-argument
+        if not hasattr(self, "event_handler"):
+            self.event_handler = {}
+        self.event_handler.setdefault(vm.name, {})[event] = True
+
+    def _test_event_was_handled(self, vm, event):
+        return self.event_handler.get(vm, {}).get(event)
 
     def test_010_dvm_run_simple(self):
         dispvm = self.loop.run_until_complete(
@@ -220,7 +240,7 @@ class TC_20_DispVMMixin(object):
             self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_invalid_max(self):
-        # TODO: couldn't make the exception raise on unit tests.
+        # TODO: ben: couldn't make the exception raise on unit tests.
         cases_invalid = ["a", "-1", "1 1"]
         for value in cases_invalid:
             with self.subTest(value=value):
@@ -228,7 +248,7 @@ class TC_20_DispVMMixin(object):
                     self.disp_base.features["preload-dispvm-max"] = value
 
     def test_011_dvm_run_preload_invalid_list(self):
-        # TODO: couldn't make the exception raise on unit tests.
+        # TODO: ben: couldn't make the exception raise on unit tests.
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
         )
@@ -255,114 +275,70 @@ class TC_20_DispVMMixin(object):
                 qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
             )
 
-    def test_012_dvm_run_preload_nogui(self):
-        cmd = [
-            "qvm-run",
-            "-p",
-            f"--dispvm={self.disp_base.name}",
-            "--no-gui",
-            "printf '%s' \"$HOSTNAME\"",
-        ]
+    def _test_run_preload(self):
+        self.loop.run_until_complete(asyncio.sleep(5))
+        dispvm = self.disp_base.get_feat_preload()[0]
+        dispvm = self.app.domains[dispvm]
+        self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
+        self.assertTrue(dispvm.is_preloaded())
+        self.assertTrue(dispvm.features.get("internal", False))
+        dispvm.add_handler("domain-paused", self._test_event_handler)
+        dispvm.add_handler("domain-unpaused", self._test_event_handler)
+        dispvm_name = dispvm.name
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec(
+                *self.preload_cmd,
+                stdout=asyncio.subprocess.PIPE,
+            ),
+        )
+        stdout, _ = self.loop.run_until_complete(
+            asyncio.wait_for(proc.communicate(), timeout=60)
+        )
+        stdout = stdout.decode()
+        self.assertTrue(
+            self._test_event_was_handled(dispvm_name, "domain-paused")
+        )
+        self.assertTrue(
+            self._test_event_was_handled(dispvm_name, "domain-unpaused")
+        )
+        self.assertEqual(stdout, dispvm_name)
+        next_preload_list = self.disp_base.get_feat_preload()
+        self.assertTrue(next_preload_list)
+        self.assertNotIn(dispvm_name, next_preload_list)
+
+    # TODO: ben: test race: get 5 disposables quickly.
+    # TODO: ben: test race: get disposable while max is reduced.
+    def test_012_dvm_run_preload_general(self):
+        self.disp_base.features["gui"] = True
+        self.disp_base.features["preload-dispvm-max"] = "1"
+        print("Preloading with GUI enabled")
+        self.loop.run_until_complete(asyncio.sleep(3))
         self.disp_base.features["gui"] = False
-        self.disp_base.features["preload-dispvm-max"] = "1"
-        try:
-            self.loop.run_until_complete(asyncio.sleep(10))
-            dispvm = self.disp_base.get_feat_preload()[0]
-            dispvm = self.app.domains[dispvm]
-            self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
-            self.assertTrue(dispvm.is_preloaded())
-            self.assertTrue(dispvm.features.get("internal", False))
-            self.assertTrue(dispvm.is_paused())
-            dispvm_unpaused = False
-            def test_handler(*argfs, **kwargs):  # pylint: disable=unused-argument
-                dispvm_unpaused = True  # pylint: disable=unused-variable
-            dispvm.add_handler("domain-unpause", test_handler)
-            proc = self.loop.run_until_complete(
-                asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                ),
-            )
-            stdout, _ = self.loop.run_until_complete(
-                asyncio.wait_for(proc.communicate(), timeout=20)
-            )
-            stdout = stdout.decode()
-            # TODO: ben: finish
-            self.assertTrue(dispvm_unpaused)
-            self.assertEqual(stdout, dispvm.name)
-            self.assertNotIn(stdout, self.disp_base.get_feat_preload())
-        finally:
-            self.disp_base.features["preload-dispvm-max"] = False
-            self.loop.run_until_complete(asyncio.sleep(5))
-            if dispvm in self.app.domains:
-                try:
-                    self.assertIsNone(dispvm)
-                finally:
-                    self.loop.run_until_complete(dispvm.cleanup())
+        self._test_run_preload()
+        print("Preloading with GUI disabled")
+        self.preload_cmd.insert(1, "--no-gui")
+        self._test_run_preload()
 
-    def test_012_dvm_run_preload_next(self):
-        cmd = [
-            "qvm-run",
-            "-p",
-            f"--dispvm={self.disp_base.name}",
-            "printf '%s' \"$HOSTNAME\"",
-        ]
-        self.disp_base.features["preload-dispvm-max"] = "1"
-        try:
-            self.loop.run_until_complete(asyncio.sleep(10))
-            dispvm = self.disp_base.get_feat_preload()[0]
-            dispvm = self.app.domains[dispvm]
-            self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
-            self.assertTrue(dispvm.is_preloaded())
-            self.assertTrue(dispvm.features.get("internal", False))
-            self.assertTrue(dispvm.is_paused())
-            dispvm_name = dispvm.name
-            dispvm_unpaused = False
-            def test_handler(*argfs, **kwargs):  # pylint: disable=unused-argument
-                dispvm_unpaused = True  # pylint: disable=unused-variable
-            dispvm.add_handler("domain-unpause", test_handler)
-            proc = self.loop.run_until_complete(
-                asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                ),
-            )
-            stdout, _ = self.loop.run_until_complete(
-                asyncio.wait_for(proc.communicate(), timeout=5)
-            )
-            stdout = stdout.decode()
-            # TODO: ben: finish
-            self.assertTrue(dispvm_unpaused)
-            self.assertEqual(stdout, dispvm.name)
-            self.loop.run_until_complete(asyncio.sleep(10))
-            next_preload_list = self.disp_base.get_feat_preload()
-            self.assertTrue(next_preload_list)
-            self.assertNotIn(dispvm_name, next_preload_list)
-        finally:
-            self.disp_base.features["preload-dispvm-max"] = False
-
-    @unittest.skipUnless(
-        os.path.exists("/usr/lib/qubes/preload-dispvm"),
-        "/usr/lib/qubes/preload-dispvm not found",
-    )
     def test_013_dvm_run_preload_autostart(self):
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
         self.loop.run_until_complete(
-            asyncio.wait_for(proc.communicate(), timeout=20)
+            asyncio.wait_for(proc.communicate(), timeout=10)
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
         self.disp_base.features["preload-dispvm-max"] = "1"
+        self.loop.run_until_complete(asyncio.sleep(5))
+        old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(
-            asyncio.wait_for(proc.communicate(), timeout=90)
-        )
+        self.loop.run_until_complete(asyncio.sleep(5))
         preload_dispvm = self.disp_base.get_feat_preload()
+        proc.terminate()
+        self.assertEqual(len(old_preload), 1)
         self.assertEqual(len(preload_dispvm), 1)
-        self.disp_base.features["preload-dispvm-max"] = False
+        self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
@@ -430,7 +406,10 @@ class TC_20_DispVMMixin(object):
             ["xdotool", "getwindowname", winid], stdout=subprocess.PIPE
         ).communicate()
         window_title = (
-            window_title.decode().strip().replace("(", "\(").replace(")", "\)")
+            window_title.decode()
+            .strip()
+            .replace("(", r"\(")
+            .replace(")", r"\)")
         )
         time.sleep(1)
         if (

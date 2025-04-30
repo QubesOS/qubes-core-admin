@@ -253,9 +253,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await asyncio.sleep(no_gui_sleep)
             await self.pause()
             return
-        proc = None
         try:
-            proc = await asyncio.wait_for(
+            await asyncio.wait_for(
                 self.run_service_for_stdio(
                     "qubes.WaitForSession",
                     user=self.default_user,
@@ -274,8 +273,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "Failed to run QUBESRPC qubes.WaitForSession"
             )
         finally:
-            if proc is not None:
-                proc.terminate()
             await self.pause()
 
     @qubes.events.handler("domain-unpaused")
@@ -316,8 +313,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.is_preloaded():
             appvm = getattr(self, "template")
             preload_dispvm = appvm.get_feat_preload()
-            preload_dispvm.remove(self.name)
-            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+            if self.name in preload_dispvm:
+                preload_dispvm.remove(self.name)
+                appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
