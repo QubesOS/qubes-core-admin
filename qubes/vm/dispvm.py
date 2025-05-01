@@ -242,6 +242,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         **kwargs,
     ):  # pylint: disable=unused-argument
         """Pause preloaded domains as soon as basic services have started."""
+        appvm = getattr(self, "template")
         if not self.is_preloaded():
             return
         # TODO: pause is late for autostarted applications
@@ -252,6 +253,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         gui = self.features.get("gui", None)
         if not gui:
             await asyncio.sleep(no_gui_sleep)
+            appvm.remove_preload_excess()
+            if not self.is_preloaded():
+                return
             await self.pause()
             return
         try:
@@ -274,7 +278,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "Failed to run QUBESRPC qubes.WaitForSession"
             )
         finally:
-            await self.pause()
+            appvm.remove_preload_excess()
+            if self.is_preloaded():
+                await self.pause()
 
     @qubes.events.handler("domain-unpaused")
     def on_domain_unpaused(
@@ -315,8 +321,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm = getattr(self, "template")
             preload_dispvm = appvm.get_feat_preload()
             if self.name in preload_dispvm:
+                self.log.info(
+                    "Shutdown removes qube '%s' from preload list", self.name
+                )
                 preload_dispvm.remove(self.name)
-                appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+                appvm.features["preload-dispvm"] = " ".join(
+                    preload_dispvm or []
+                )
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):

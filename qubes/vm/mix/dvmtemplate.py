@@ -58,18 +58,37 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
-    def remove_preload_excess(self, max_preload):
-        if self.can_preload():
-            return
+    def remove_preload_excess(self, max_preload=None):
+        max_preload = (
+            int(max_preload) if max_preload else self.get_feat_preload_max()
+        )
+        if not max_preload:
+            max_preload = self.get_feat_preload_max()
         old_preload = self.get_feat_preload()
         if not old_preload:
             return
         new_preload = old_preload[:max_preload]
+        excess = old_preload[max_preload:]
+        self.log.info(
+            "Removing excess qube(s) from preloaded list: '%s'",
+            ", ".join(excess),
+        )
         self.features["preload-dispvm"] = " ".join(new_preload or [])
-        for unwanted_disp in old_preload[max_preload:]:
+        for unwanted_disp in excess:
             if unwanted_disp in self.app.domains:
                 dispvm = self.app.domains[unwanted_disp]
                 asyncio.ensure_future(dispvm.cleanup())
+        clean_preload = new_preload
+        for unwanted_disp in new_preload:
+            if unwanted_disp not in self.app.domains:
+                clean_preload.remove(unwanted_disp)
+        if clean_preload < new_preload:
+            absent = list(set(new_preload) - set(clean_preload))
+            self.log.info(
+                "Removing absent qube(s) from preloaded list: '%s'",
+                ", ".join(absent),
+            )
+            self.features["preload-dispvm"] = " ".join(clean_preload or [])
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
@@ -186,12 +205,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "domain-preloaded-dispvm-start",
     )
     async def on_domain_preloaded_dispvm_used(
-        self, event, delay=0, **kwargs
+        self, event, **kwargs
     ):  # pylint: disable=unused-argument
         """When preloaded DispVM is used or after boot, preload another one.
 
         :param event: event which was fired
-        :param delay: seconds between trials
         :returns:
         """
         event = event.removeprefix("domain-preloaded-dispvm-")
@@ -202,27 +220,39 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if event == "autostart":
             self.remove_preload_excess(0)
         if not self.can_preload():
-            self.remove_preload_excess(self.get_feat_preload_max())
+            self.remove_preload_excess()
             return
         while True:
-            await asyncio.sleep(delay)
             if not self.can_preload():
-                self.remove_preload_excess(self.get_feat_preload_max())
+                self.remove_preload_excess()
                 return
+            max_preload = self.get_feat_preload_max()
+            try_preload = max_preload - len(self.get_feat_preload())
+            if try_preload <= 0:
+                break
             avail_mem_file = qubes.config.qmemman_avail_mem_file
             if os.path.isfile(avail_mem_file):
                 with open(avail_mem_file, "r", encoding="ascii") as file:
                     available_memory = int(file.read())
                 memory = getattr(self, "memory", 0) * 1024 * 1024
-                if memory > available_memory:
+                unrestricted_preload = int(available_memory / memory)
+                can_preload = min(unrestricted_preload, try_preload)
+                if skip_preload := try_preload - can_preload:
                     self.log.warning(
-                        "Not preloading disposable due to insufficient memory"
+                        "Not preloading '%d' disposable(s) due to insufficient "
+                        "memory",
+                        skip_preload,
                     )
+                if can_preload == 0:
                     break
-            self.log.info("Preloading new qube on event '%s'", str(event))
-            await qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-            if event in ["autostart", "start"]:
-                continue
+            if event == "used":
+                can_preload = 1
+            self.log.info("Preloading '%d' qube(s)", can_preload)
+            async with asyncio.TaskGroup() as task_group:
+                for _ in range(can_preload):
+                    task_group.create_task(
+                        qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+                    )
             break
 
     @property

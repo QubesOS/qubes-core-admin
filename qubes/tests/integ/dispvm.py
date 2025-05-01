@@ -338,7 +338,7 @@ class TC_20_DispVMMixin(object):
         await self._test_012_run_preload()
 
     def test_012_dvm_run_preload_race_more(self):
-        """Test if there is race by requesting multiple preloaded qubes at once"""
+        """Test race requesting multiple preloaded qubes."""
         self.loop.run_until_complete(self._test_012_dvm_run_preload_race_more())
 
     async def _test_012_dvm_run_preload_race_more(self):
@@ -366,8 +366,7 @@ class TC_20_DispVMMixin(object):
         self.assertEqual(len(targets), len(set(targets)))
 
     def test_012_dvm_run_preload_race_less(self):
-        """Test if there is race by requesting preloaded qube while requesting
-        the maximum to be zeroed."""
+        """Test race requesting preloaded qube while the maximum is zeroed."""
         self.loop.run_until_complete(self._test_012_dvm_run_preload_race_less())
 
     async def _test_012_dvm_run_preload_race_less(self):
