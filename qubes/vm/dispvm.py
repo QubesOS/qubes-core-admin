@@ -246,6 +246,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         # TODO: pause is late for autostarted applications
         #   https://github.com/QubesOS/qubes-issues/issues/9907
+        # TODO: pause for nogui is dumb, doesn't know when qube is really ready
         no_gui_sleep = 15
         gui_timeout = getattr(self, "qrexec_timeout", 30)
         gui = self.features.get("gui", None)

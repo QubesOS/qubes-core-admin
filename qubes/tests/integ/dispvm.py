@@ -222,6 +222,8 @@ class TC_20_DispVMMixin(object):
         self.event_handler.setdefault(vm.name, {})[event] = True
 
     def _test_event_was_handled(self, vm, event):
+        if not hasattr(self, "event_handler"):
+            self.event_handler = {}
         return self.event_handler.get(vm, {}).get(event)
 
     def test_010_dvm_run_simple(self):
@@ -240,6 +242,7 @@ class TC_20_DispVMMixin(object):
             self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_invalid_max(self):
+        """Test setting invalid preload-dispvm-max feature"""
         # TODO: ben: couldn't make the exception raise on unit tests.
         cases_invalid = ["a", "-1", "1 1"]
         for value in cases_invalid:
@@ -248,6 +251,7 @@ class TC_20_DispVMMixin(object):
                     self.disp_base.features["preload-dispvm-max"] = value
 
     def test_011_dvm_run_preload_invalid_list(self):
+        """Test setting invalid preload-dispvm feature"""
         # TODO: ben: couldn't make the exception raise on unit tests.
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
@@ -270,13 +274,26 @@ class TC_20_DispVMMixin(object):
             self.loop.run_until_complete(dispvm.cleanup())
 
     def test_011_dvm_run_preload_reject_max(self):
+        """Test preloading when max has been reached"""
         with self.assertRaises(qubes.exc.QubesException):
             self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
             )
 
-    def _test_run_preload(self):
-        self.loop.run_until_complete(asyncio.sleep(5))
+    async def _test_012_no_preload(self):
+        # Trick to gather this function as an async task.
+        await asyncio.sleep(0)
+        self.disp_base.features["preload-dispvm-max"] = False
+
+    async def _test_012_run_disp(self):
+        proc = await asyncio.create_subprocess_exec(
+            *self.preload_cmd,
+            stdout=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
+        return stdout.decode()
+
+    async def _test_012_run_preload(self):
         dispvm = self.disp_base.get_feat_preload()[0]
         dispvm = self.app.domains[dispvm]
         self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
@@ -284,40 +301,82 @@ class TC_20_DispVMMixin(object):
         self.assertTrue(dispvm.features.get("internal", False))
         dispvm.add_handler("domain-paused", self._test_event_handler)
         dispvm.add_handler("domain-unpaused", self._test_event_handler)
+        dispvm.add_handler(
+            "domain-feature-delete:internal", self._test_event_handler
+        )
         dispvm_name = dispvm.name
-        proc = self.loop.run_until_complete(
-            asyncio.create_subprocess_exec(
-                *self.preload_cmd,
-                stdout=asyncio.subprocess.PIPE,
-            ),
-        )
-        stdout, _ = self.loop.run_until_complete(
-            asyncio.wait_for(proc.communicate(), timeout=60)
-        )
-        stdout = stdout.decode()
+        stdout = await self._test_012_run_disp()
         self.assertTrue(
             self._test_event_was_handled(dispvm_name, "domain-paused")
         )
         self.assertTrue(
             self._test_event_was_handled(dispvm_name, "domain-unpaused")
         )
+        self.assertTrue(
+            self._test_event_was_handled(
+                dispvm_name, "domain-feature-delete:internal"
+            )
+        )
         self.assertEqual(stdout, dispvm_name)
         next_preload_list = self.disp_base.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)
 
-    # TODO: ben: test race: get 5 disposables quickly.
-    # TODO: ben: test race: get disposable while max is reduced.
     def test_012_dvm_run_preload_general(self):
+        """Test preloading with GUI feature enabled and disabled"""
+        self.loop.run_until_complete(self._test_012_dvm_run_preload_general())
+
+    async def _test_012_dvm_run_preload_general(self):
         self.disp_base.features["gui"] = True
         self.disp_base.features["preload-dispvm-max"] = "1"
         print("Preloading with GUI enabled")
-        self.loop.run_until_complete(asyncio.sleep(3))
+        await asyncio.sleep(5)
         self.disp_base.features["gui"] = False
-        self._test_run_preload()
+        await self._test_012_run_preload()
         print("Preloading with GUI disabled")
         self.preload_cmd.insert(1, "--no-gui")
-        self._test_run_preload()
+        await self._test_012_run_preload()
+
+    def test_012_dvm_run_preload_race_more(self):
+        """Test if there is race by requesting multiple preloaded qubes at once"""
+        self.loop.run_until_complete(self._test_012_dvm_run_preload_race_more())
+
+    async def _test_012_dvm_run_preload_race_more(self):
+        self.disp_base.features["preload-dispvm-max"] = "5"
+        for _ in range(100):
+            if len(self.disp_base.get_feat_preload()) == 5:
+                break
+            await asyncio.sleep(1)
+        last_disp_name = self.disp_base.get_feat_preload()[4]
+        last_disp = self.app.domains[last_disp_name]
+        for _ in range(50):
+            if last_disp.is_paused():
+                break
+            await asyncio.sleep(1)
+        old_preload = self.disp_base.get_feat_preload()
+        tasks = [self._test_012_run_disp() for _ in range(5)]
+        targets = await asyncio.gather(*tasks)
+        for _ in range(100):
+            if len(self.disp_base.get_feat_preload()) == 5:
+                break
+            await asyncio.sleep(1)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
+        self.assertEqual(len(targets), 5)
+        self.assertEqual(len(targets), len(set(targets)))
+
+    def test_012_dvm_run_preload_race_less(self):
+        """Test if there is race by requesting preloaded qube while requesting
+        the maximum to be zeroed."""
+        self.loop.run_until_complete(self._test_012_dvm_run_preload_race_less())
+
+    async def _test_012_dvm_run_preload_race_less(self):
+        self.disp_base.features["preload-dispvm-max"] = "1"
+        await asyncio.sleep(5)
+        tasks = [self._test_012_run_disp(), self._test_012_no_preload()]
+        target = await asyncio.gather(*tasks)
+        target_dispvm = target[0]
+        self.assertTrue(target_dispvm.startswith("disp"))
 
     def test_013_dvm_run_preload_autostart(self):
         proc = self.loop.run_until_complete(
