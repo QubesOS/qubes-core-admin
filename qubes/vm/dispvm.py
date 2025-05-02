@@ -248,8 +248,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # TODO: pause is late for autostarted applications
         #   https://github.com/QubesOS/qubes-issues/issues/9907
         # TODO: pause for nogui is dumb, doesn't know when qube is really ready
-        no_gui_sleep = 15
-        gui_timeout = getattr(self, "qrexec_timeout", 30)
+        gui_timeout = getattr(self, "qrexec_timeout", 60)
+        no_gui_sleep = gui_timeout
         gui = self.features.get("gui", None)
         if not gui:
             await asyncio.sleep(no_gui_sleep)
@@ -269,6 +269,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 timeout=gui_timeout,
             )
         except asyncio.TimeoutError:
+            # TODO: ben: this appears on system boot triggered by autostart
             self.log.warning(
                 "Failed to run qubes.WaitForSession after %s seconds",
                 gui_timeout,

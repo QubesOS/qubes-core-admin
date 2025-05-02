@@ -19,7 +19,6 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-import os
 
 import qubes.config
 import qubes.events
@@ -59,25 +58,24 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return False
 
     def remove_preload_excess(self, max_preload=None):
-        max_preload = (
-            int(max_preload) if max_preload else self.get_feat_preload_max()
-        )
-        if not max_preload:
+        if max_preload is None:
             max_preload = self.get_feat_preload_max()
+        max_preload = int(max_preload)
         old_preload = self.get_feat_preload()
         if not old_preload:
             return
         new_preload = old_preload[:max_preload]
         excess = old_preload[max_preload:]
-        self.log.info(
-            "Removing excess qube(s) from preloaded list: '%s'",
-            ", ".join(excess),
-        )
-        self.features["preload-dispvm"] = " ".join(new_preload or [])
-        for unwanted_disp in excess:
-            if unwanted_disp in self.app.domains:
-                dispvm = self.app.domains[unwanted_disp]
-                asyncio.ensure_future(dispvm.cleanup())
+        if excess:
+            self.log.info(
+                "Removing excess qube(s) from preloaded list: '%s'",
+                ", ".join(excess),
+            )
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in excess:
+                if unwanted_disp in self.app.domains:
+                    dispvm = self.app.domains[unwanted_disp]
+                    asyncio.ensure_future(dispvm.cleanup())
         clean_preload = new_preload
         for unwanted_disp in new_preload:
             if unwanted_disp not in self.app.domains:
@@ -217,43 +215,46 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if event == "used":
             event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
         self.log.info(event_log)
+
         if event == "autostart":
             self.remove_preload_excess(0)
-        if not self.can_preload():
+        elif not self.can_preload():
             self.remove_preload_excess()
             return
-        while True:
-            if not self.can_preload():
-                self.remove_preload_excess()
+        max_preload = self.get_feat_preload_max()
+        if event == "used":
+            want_preload = 1
+        else:
+            want_preload = max_preload - len(self.get_feat_preload())
+        if want_preload <= 0:
+            return
+
+        avail_mem_file = qubes.config.qmemman_avail_mem_file
+        available_memory = None
+        try:
+            with open(avail_mem_file, "r", encoding="ascii") as file:
+                available_memory = int(file.read())
+        except FileNotFoundError:
+            can_preload = want_preload
+        if available_memory:
+            memory = getattr(self, "memory", 0) * 1024 * 1024
+            unrestricted_preload = int(available_memory / memory)
+            can_preload = min(unrestricted_preload, want_preload)
+            if skip_preload := want_preload - can_preload:
+                self.log.warning(
+                    "Not preloading '%d' disposable(s) due to insufficient "
+                    "memory",
+                    skip_preload,
+                )
+            if can_preload == 0:
                 return
-            max_preload = self.get_feat_preload_max()
-            try_preload = max_preload - len(self.get_feat_preload())
-            if try_preload <= 0:
-                break
-            avail_mem_file = qubes.config.qmemman_avail_mem_file
-            if os.path.isfile(avail_mem_file):
-                with open(avail_mem_file, "r", encoding="ascii") as file:
-                    available_memory = int(file.read())
-                memory = getattr(self, "memory", 0) * 1024 * 1024
-                unrestricted_preload = int(available_memory / memory)
-                can_preload = min(unrestricted_preload, try_preload)
-                if skip_preload := try_preload - can_preload:
-                    self.log.warning(
-                        "Not preloading '%d' disposable(s) due to insufficient "
-                        "memory",
-                        skip_preload,
-                    )
-                if can_preload == 0:
-                    break
-            if event == "used":
-                can_preload = 1
-            self.log.info("Preloading '%d' qube(s)", can_preload)
-            async with asyncio.TaskGroup() as task_group:
-                for _ in range(can_preload):
-                    task_group.create_task(
-                        qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-                    )
-            break
+
+        self.log.info("Preloading '%d' qube(s)", can_preload)
+        async with asyncio.TaskGroup() as task_group:
+            for _ in range(can_preload):
+                task_group.create_task(
+                    qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+                )
 
     @property
     def dispvms(self):
