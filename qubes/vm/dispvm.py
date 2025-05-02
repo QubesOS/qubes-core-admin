@@ -242,16 +242,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         **kwargs,
     ):  # pylint: disable=unused-argument
         """Pause preloaded domains as soon as basic services have started."""
-        appvm = getattr(self, "template")
         if not self.is_preloaded():
             return
         # TODO: pause is late for autostarted applications
         #   https://github.com/QubesOS/qubes-issues/issues/9907
-        # TODO: pause for nogui is dumb, doesn't know when qube is really ready
+        # TODO: ben: pause for nogui is dumb, doesn't know when qube is really ready
         gui_timeout = getattr(self, "qrexec_timeout", 60)
         no_gui_sleep = gui_timeout
         gui = self.features.get("gui", None)
+        appvm = getattr(self, "template")
         if not gui:
+            # TODO: ben: create and target a new service that only calls:
+            #   systemctl --user --wait --quiet is-system-running
             await asyncio.sleep(no_gui_sleep)
             appvm.remove_preload_excess()
             if not self.is_preloaded():
@@ -259,6 +261,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await self.pause()
             return
         try:
+            self.log.info("Waiting '%s' for qubes.WaitForSession", gui_timeout)
             await asyncio.wait_for(
                 self.run_service_for_stdio(
                     "qubes.WaitForSession",
@@ -269,10 +272,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 timeout=gui_timeout,
             )
         except asyncio.TimeoutError:
-            # TODO: ben: this appears on system boot triggered by autostart.
-            # The qube is paused too early on this instance, making them
-            # unusable.
-            self.log.warning(
+            # TODO: ben: this happens on boot because the service hangs if
+            # the display manager has not been unlocked yet. The result is
+            # an unusable GUI for the qube:
+            #   https://github.com/QubesOS/qubes-issues/issues/9940
+            self.log.error(
                 "Timed out call to qubes.WaitForSession after %s seconds "
                 "during preload startup",
                 gui_timeout,
@@ -283,9 +287,22 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "startup"
             )
         finally:
+            # TODO: ben: this finally block is harmful, pausing a qube that
+            # couldn't run the test services doesn't help to later try to use
+            # them, instead, they should be purged from the list, not marked as
+            # used to not create an infinite loop, but just cleanup() and
+            # remove from the list.
             appvm.remove_preload_excess()
             if self.is_preloaded():
                 await self.pause()
+
+    @qubes.events.handler("domain-paused")
+    def on_domain_paused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        """Log preloaded domains when paused."""
+        if self.is_preloaded():
+            self.log.info("Paused preloaded qube")
 
     @qubes.events.handler("domain-unpaused")
     def on_domain_unpaused(
