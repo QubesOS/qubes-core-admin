@@ -269,14 +269,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 timeout=gui_timeout,
             )
         except asyncio.TimeoutError:
-            # TODO: ben: this appears on system boot triggered by autostart
+            # TODO: ben: this appears on system boot triggered by autostart.
+            # The qube is paused too early on this instance, making them
+            # unusable.
             self.log.warning(
-                "Failed to run qubes.WaitForSession after %s seconds",
+                "Timed out call to qubes.WaitForSession after %s seconds "
+                "during preload startup",
                 gui_timeout,
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             raise qubes.exc.QubesException(
-                "Failed to run QUBESRPC qubes.WaitForSession"
+                "Failed to run QUBESRPC qubes.WaitForSession during preload "
+                "startup"
             )
         finally:
             appvm.remove_preload_excess()
@@ -322,9 +326,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm = getattr(self, "template")
             preload_dispvm = appvm.get_feat_preload()
             if self.name in preload_dispvm:
-                self.log.info(
-                    "Shutdown removes qube '%s' from preload list", self.name
-                )
+                self.log.info("Shutdown removes qube from preload list")
                 preload_dispvm.remove(self.name)
                 appvm.features["preload-dispvm"] = " ".join(
                     preload_dispvm or []
