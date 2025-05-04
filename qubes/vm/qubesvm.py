@@ -1492,7 +1492,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     async def run_service(self, service, source=None, user=None, *,
             stubdom=False,
-            filter_esc=False, autostart=False, gui=False, **kwargs):
+            filter_esc=False, autostart=False, gui=False,
+            connection_timeout=None, **kwargs):
         """Run service on this VM
 
         :param str service: service name
@@ -1504,6 +1505,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param bool autostart: if :py:obj:`True`, machine will be started if \
             it is not running
         :param bool gui: when autostarting, also start gui daemon
+        :param int connection_timeout: override default qrexec connection
+            timeout (in seconds)
         :rtype: asyncio.subprocess.Process
 
         .. note::
@@ -1545,6 +1548,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return await asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(name),
+            *(("-w", str(connection_timeout)) if connection_timeout else ()),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
             **kwargs)
