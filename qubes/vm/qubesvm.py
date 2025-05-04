@@ -1728,7 +1728,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 try:
                     await asyncio.wait_for(
                         self.run_service_for_stdio(
-                            "qubes.SuspendPost", user="root"
+                            "qubes.SuspendPost",
+                            user="root",
+                            connection_timeout=qubes.config.suspend_timeout,
                         ),
                         qubes.config.suspend_timeout,
                     )
