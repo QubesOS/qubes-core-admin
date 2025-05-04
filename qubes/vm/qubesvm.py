@@ -1462,8 +1462,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.features.check_with_template('qrexec', False):
                 try:
                     await asyncio.wait_for(
-                        self.run_service_for_stdio('qubes.SuspendPost',
-                                                   user='root'),
+                        self.run_service_for_stdio(
+                            'qubes.SuspendPost',
+                            user='root',
+                            connection_timeout=qubes.config.suspend_timeout,
+                        ),
                         qubes.config.suspend_timeout)
                 except subprocess.CalledProcessError as e:
                     self.log.warning(
