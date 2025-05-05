@@ -33,7 +33,12 @@ from typing import Union, Any
 import uuid
 
 import qubes.exc
-from qubes.exc import ProtocolError, PermissionDenied
+from qubes.exc import (
+    ProtocolError,
+    PermissionDenied,
+    QubesArgumentNotAllowedError,
+    DestinationNotDom0Error,
+)
 
 
 def method(name, *, no_payload=False, endpoints=None, **classifiers):
@@ -165,10 +170,10 @@ class AbstractQubesAPI:
         self.dest = decode_vm(dest, app.domains)
 
         #: argument
-        self.arg = arg.decode("ascii")
+        self.arg = arg.decode("ascii", "strict")
 
         #: name of the method
-        self.method = method_name.decode("ascii")
+        self.method = method_name.decode("ascii", "strict")
 
         #: callback for sending events if applicable
         self.send_event = send_event
@@ -238,6 +243,17 @@ class AbstractQubesAPI:
     def fire_event_for_filter(self, iterable, **kwargs):
         """Fire an event on the source qube to filter for permission"""
         return apply_filters(iterable, self.fire_event_for_permission(**kwargs))
+
+    def enforce_no_arg(self) -> None:
+        """If the argument is not empty, raise an exception."""
+        if self.arg:
+            raise QubesArgumentNotAllowedError(self.method, self.arg)
+
+    def enforce_dest_dom0(self) -> None:
+        """If the destination is not dom0, raise an exception."""
+        name = self.dest.name
+        if name != "dom0":
+            raise DestinationNotDom0Error(name)
 
     @staticmethod
     def enforce(predicate):
@@ -349,6 +365,11 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 dest,
                 len(untrusted_payload),
             )
+            if self.transport is not None:
+                self.send_exception(err)
+                self.transport.write_eof()
+                self.transport.close()
+            return
 
         except ProtocolError:
             self.app.log.warning(

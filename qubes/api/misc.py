@@ -45,8 +45,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         appropriate extensions. Requests not explicitly handled by some
         extension are ignored.
         """
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_dest_dom0()
+        self.enforce_no_arg()
 
         prefix = "/features-request/"
 
@@ -73,8 +73,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         """
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
         """
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_dest_dom0()
+        self.enforce_no_arg()
 
         untrusted_features = {}
         safe_set = string.ascii_letters + string.digits
