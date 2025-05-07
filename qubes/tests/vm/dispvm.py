@@ -140,10 +140,23 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 )
             mock_domains.get_new_unused_dispid.assert_not_called()
 
-    @mock.patch(
-        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_feature_pre_set_preload_dispvm"
-    )
-    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
+    #@mock.patch("qubes.vm.dispvm.DispVM.start")
+    #@mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    #@mock.patch("qubes.vm.dispvm.libvirt")
+
+    @mock.patch("qubes.vm.dispvm.DispVM.create_qdb_entries")
+    @mock.patch("qubes.vm.LocalVM.start_qdb_watch")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start_qdb_watch")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start_daemon")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.is_running")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start_qubesdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @mock.patch("qubes.vm.qubesvm.QubesVM._update_libvirt_domain")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.request_memory")
+
+    #@mock.patch("qubes.vm.qubesvm.QubesVM.start")
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
@@ -152,16 +165,195 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_storage,
         mock_makedirs,
         mock_symlink,
+        #mock_start,
+
+        mock_req_mem,
+        mock_update_libvirt_domain,
+        mock_libvirt_domain,
+        mock_start_qubesdb,
+        mock_is_running,
+        mock_start_daemon,
+        mock_untrusted_qdb,
+        mock_create_qdb_entries,
+        mock_start_qdb_watch,
+        mock_localvm_start_qdb_watch,
+        mock_dispvm_create_qdb_entries,
+
+        #mock_libvirt,
+        #mock_start,
+        #mock_dispvm_start,
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_storage.return_value.verify.side_effect = self.mock_coro
+        mock_storage.return_value.start.side_effect = self.mock_coro
+        mock_storage.return_value.stop.side_effect = self.mock_coro
+        mock_storage.return_value.remove.side_effect = self.mock_coro
+
+        #async def test_start(self, start_guid):
+        #    await self.fire_event_async("domain-start", start_guid=start_guid)
+
+        mock_req_mem.side_effect = self.mock_coro
+        mock_update_libvirt_domain.side_effect = self.mock_coro
+        mock_libvirt_domain.side_effect = self.mock_coro
+        mock_start_qubesdb.side_effect = self.mock_coro
+        mock_is_running.return_value = True
+        mock_start_daemon.side_effect = self.mock_coro
+        mock_untrusted_qdb.side_effect = True
+        mock_create_qdb_entries.side_effect = self.mock_coro
+        mock_start_qdb_watch.side_effect = self.mock_coro
+        mock_localvm_start_qdb_watch.side_effect = self.mock_coro
+        mock_dispvm_create_qdb_entries.side_effect = self.mock_coro
+
+        #mock_dispvm_start.side_effect = self.mock_coro
+
+        self.appvm.template_for_dispvms = True
+        self.appvm.features["preload-dispvm-max"] = "1"
+
+        orig_getitem = self.app.domains.__getitem__
+        import libvirt
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains, \
+        mock.patch.object(self.app.vmm, "offline_mode", True), \
+        mock.patch.object(libvirt, "VIR_DOMAIN_START_PAUSED", True) \
+        :
+            # Circumvent checks made against self.app.domains.
+            mock_qube = mock.Mock()
+            mock_qube.template = self.appvm
+            #mock_qube.start = test_start
+
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__contains__.return_value": True,
+                    "__getitem__.side_effect": lambda key: mock_qube
+                    if key == "disp42"
+                    else orig_getitem(key),
+                }
+            )
+            mock_qube.untrusted_qdb = False
+            mock_qube.is_running = True
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            )
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+        self.assertTrue(dispvm.is_preloaded())
+        self.assertTrue(dispvm.features.get("internal", False))
+        self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
+        self.assertEqual(dispvm.name, "disp42")
+        self.assertEqual(dispvm.template, self.appvm)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.auto_cleanup, True)
+        mock_makedirs.assert_called_once_with(
+            "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
+        )
+        mock_symlink.assert_not_called()
+
+
+    #@mock.patch("asyncio.wait_for")
+    #@mock.patch("asyncio.sleep")
+    #@mock.patch("qubes.vm.dispvm.DispVM.preload")
+    #@mock.patch("qubes.vm.dispvm.DispVM.use_preloaded")
+    #@mock.patch("qubes.events.Emitter.fire_event_async")
+    #@mock.patch(
+    #    "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_domain_preloaded_dispvm_used"
+    #)
+    #@mock.patch("qubes.vm.qubesvm.QubesVM.unpause")
+    #@mock.patch("qubes.vm.qubesvm.QubesVM.pause")
+    #@mock.patch("qubes.vm.dispvm.DispVM.start")
+    #@mock.patch("os.symlink")
+    #@mock.patch("os.makedirs")
+    #@mock.patch("qubes.storage.Storage")
+    #def test_000_from_appvm_preload_use(
+    #    self,
+    #    mock_storage,
+    #    mock_makedirs,
+    #    mock_symlink,
+    #    mock_dispvm_start,
+    #    mock_pause,
+    #    mock_unpause,
+    #    mock_preloaded_used,
+    #    mock_event_async,
+    #    mock_use_preloaded,
+    #    mock_preload,
+    #    mock_asyncio_sleep,
+    #    mock_asyncio_wait_for,
+    #):
+    #    mock_storage.return_value.create.side_effect = self.mock_coro
+    #    mock_dispvm_start.side_effect = self.mock_coro
+    #    mock_pause.side_effect = self.mock_coro
+    #    mock_unpause.side_effect = self.mock_coro
+    #    #mock_preloaded_used.side_effect = self.mock_coro
+    #    #mock_event_async.side_effect = self.mock_coro
+    #    #mock_use_preloaded.side_effect = self.mock_coro
+    #    #mock_preload.side_effect = self.mock_coro
+    #    mock_asyncio_sleep.side_effect = self.mock_coro
+    #    mock_asyncio_wait_for.side_effect = self.mock_coro
+
+    #    self.app.domains[self.appvm].fire_event = self.emitter.fire_event
+    #    #self.appvm.fire_event_async = self.mock_coro
+    #    self.appvm.template_for_dispvms = True
+    #    self.appvm.features["preload-dispvm-max"] = "1"
+
+    #    orig_getitem = self.app.domains.__getitem__
+    #    with mock.patch.object(
+    #        self.app, "domains", wraps=self.app.domains
+    #    ) as mock_domains:
+    #        # Circumvent checks made against self.app.domains.
+    #        mock_qube = mock.Mock()
+    #        mock_qube.template = self.appvm
+    #        mock_domains.configure_mock(
+    #            **{
+    #                "get_new_unused_dispid": mock.Mock(return_value=42),
+    #                "__contains__.return_value": True,
+    #                "__getitem__.side_effect": lambda key: mock_qube
+    #                if key == "disp42"
+    #                else orig_getitem(key),
+    #            }
+    #        )
+    #        dispvm = self.loop.run_until_complete(
+    #            qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+    #        )
+    #        mock_domains.get_new_unused_dispid.assert_called_once_with()
+
+    #        #mock_domains.configure_mock(
+    #        #    **{
+    #        #        "get_new_unused_dispid": mock.Mock(return_value=42),
+    #        #        "__getitem__.side_effect": orig_domains.__getitem__,
+    #        #        "__iter__.side_effect": orig_domains.__iter__,
+    #        #        "__setitem__.side_effect": orig_domains.__setitem__,
+    #        #    }
+    #        #)
+    #        #dispvm = self.loop.run_until_complete(
+    #        #    qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+    #        #)
+    #        print(4)
+    #        # TODO: ben: this fails on CI but not locally
+    #        print("\n\n")
+    #        print(f"DISPVM: {dispvm.name}")
+    #        print(f"APPVM FEAT: {list(self.appvm.features.items())}")
+    #        print("\n\n")
+    #        mock_domains.get_new_unused_dispid.assert_called_once_with()
+
+    #@mock.patch("qubes.vm.dispvm.DispVM.start")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_use(
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
         mock_dispvm_start,
-        mock_feature_pre_set_preload,
     ):
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_dispvm_start.side_effect = self.mock_coro
-        mock_feature_pre_set_preload.side_effect = self.mock_coro
+
         self.appvm.template_for_dispvms = True
-        orig_getitem = self.app.domains.__getitem__
         self.appvm.features["preload-dispvm-max"] = "1"
 
+        orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
@@ -180,73 +372,39 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
             )
-            mock_domains.get_new_unused_dispid.assert_called_once_with()
-        self.assertTrue(dispvm.is_preloaded())
-        self.assertTrue(dispvm.features.get("internal", False))
-        self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
-        self.assertEqual(dispvm.name, "disp42")
-        self.assertEqual(dispvm.template, self.appvm)
-        self.assertEqual(dispvm.label, self.appvm.label)
-        self.assertEqual(dispvm.auto_cleanup, True)
-        mock_makedirs.assert_called_once_with(
-            "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
-        )
-        mock_symlink.assert_not_called()
-
-    @unittest.mock.patch("asyncio.sleep")
-    @unittest.mock.patch(
-        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.on_domain_preloaded_dispvm_used"
-    )
-    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.unpause")
-    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.is_paused")
-    @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
-    @mock.patch("os.symlink")
-    @mock.patch("os.makedirs")
-    @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload_use(
-        self,
-        mock_storage,
-        mock_makedirs,
-        mock_symlink,
-        mock_dispvm_start,
-        mock_is_paused,
-        mock_unpause,
-        mock_preloaded_used,
-        mock_asyncio_sleep,
-    ):
-        mock_storage.return_value.create.side_effect = self.mock_coro
-        mock_dispvm_start.side_effect = self.mock_coro
-        mock_is_paused.side_effect = self.mock_coro
-        mock_unpause.side_effect = self.mock_coro
-        mock_preloaded_used.side_effect = self.mock_coro
-        mock_asyncio_sleep.side_effect = self.mock_coro
-        self.appvm.template_for_dispvms = True
-        orig_domains = self.app.domains
-        self.appvm.features["preload-dispvm-max"] = "1"
-        self.app.domains[self.appvm].fire_event = self.emitter.fire_event
-        with mock.patch.object(
-            self.app, "domains", wraps=self.app.domains
-        ) as mock_domains:
-            mock_domains.configure_mock(
-                **{
-                    "get_new_unused_dispid": mock.Mock(return_value=42),
-                    "__getitem__.side_effect": orig_domains.__getitem__,
-                    "__iter__.side_effect": orig_domains.__iter__,
-                    "__setitem__.side_effect": orig_domains.__setitem__,
-                }
-            )
-            dispvm = self.loop.run_until_complete(
-                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
-            )
-            mock_domains.get_new_unused_dispid.assert_called_once_with()
-            self.assertTrue(dispvm.is_preloaded())
-            self.assertTrue(dispvm.features.get("internal", False))
             self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
-            # TODO: ben: missing waiting for event here.
-            dispvm = self.loop.run_until_complete(
+            self.assertTrue(dispvm.is_preloaded())
+            self.loop.run_until_complete(dispvm.pause())
+
+            print(f"STATE {dispvm.get_power_state()}")
+            self.assertTrue(dispvm.is_paused())
+
+            self.assertTrue(dispvm.features.get("internal", False))
+            mock_qube.name = dispvm.name
+            mock_qube.features = dispvm.features
+
+            async def coroutine_mock(*args, **kwargs):
+                await dispvm.unpause()
+            mock_qube.unpause = coroutine_mock
+
+            #unpause_mock = mock.Mock()
+            #async def coroutine_mock(*args, **kwargs):
+            #    return unpause_mock(*args, **kwargs)
+            #mock_qube.unpause = coroutine_mock
+
+            fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+
         mock_dispvm_start.assert_called_once_with()
+        self.assertEqual(dispvm.name, fresh_dispvm.name)
+        #unpause_mock.assert_called_once_with()
+        #dispvm.on_domain_unpaused("domain-unpaused")
+        print("\n\n")
+        print(f"APP: {list(self.appvm.features.items())}")
+        print(f"APP: {list(dispvm.features.items())}")
+        print("\n\n")
         # TODO: ben: event not fired
         self.assertEventFired(self.emitter, "domain-preloaded-dispvm-used")
         self.assertFalse(dispvm.is_preloaded())
