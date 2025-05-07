@@ -51,7 +51,6 @@ class TC_00_DVMTemplateMixin(
 ):
     def setUp(self):
         super(TC_00_DVMTemplateMixin, self).setUp()
-        self.app = qubes.tests.vm.TestApp()
         self.app = TestApp()
         self.app.save = mock.Mock()
         self.app.pools["default"] = qubes.tests.vm.appvm.TestPool(
@@ -145,7 +144,6 @@ class TC_00_DVMTemplateMixin(
 
     def test_010_dvm_preload_can(self):
         self.assertFalse(self.appvm.can_preload())
-        self.appvm.features["preload-dispvm-max"] = 1
         self.appvm.features["preload-dispvm-max"] = 1
         cases = [
             ("", "", False),

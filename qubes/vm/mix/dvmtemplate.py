@@ -26,6 +26,7 @@ import qubes.vm.dispvm
 
 from typing import Optional
 
+
 class DVMTemplateMixin(qubes.events.Emitter):
     """VM class capable of being DVM template"""
 
@@ -142,8 +143,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
         # not even started?) dispvm.
         if new_len > max(preload_dispvm_max, old_len):
             raise qubes.exc.QubesValueError(
+                f"\nold_list='{old_list}' new_list='{new_list}'\n"
                 f"{error_prefix} can't increment: qube count ({new_len}) is "
-                f"bigger than old count ({old_len}) or bigger than "
+                f"either bigger than old count ({old_len}) or "
                 f"preload-dispvm-max ({preload_dispvm_max})"
             )
 
@@ -156,7 +158,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
             )
 
         new_list_diff = list(set(new_list) - set(old_list))
-        nonqube = [qube for qube in new_list_diff if qube not in self.app.domains]
+        nonqube = [
+            qube for qube in new_list_diff if qube not in self.app.domains
+        ]
         if nonqube:
             raise qubes.exc.QubesValueError(
                 f"{error_prefix} non qube(s): '{', '.join(nonqube)}'"

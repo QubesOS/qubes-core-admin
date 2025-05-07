@@ -210,7 +210,7 @@ class TC_20_DispVMMixin(object):
     def tearDown(self):  # pylint: disable=invalid-name
         self.app.default_dispvm = None
         self.disp_base.features["preload-dispvm-max"] = False
-        if hasattr(self.disp_base.features, "gui"):
+        if "gui" in self.disp_base.features:
             del self.disp_base.features["gui"]
         super(TC_20_DispVMMixin, self).tearDown()
 
@@ -330,7 +330,11 @@ class TC_20_DispVMMixin(object):
         self.disp_base.features["gui"] = True
         self.disp_base.features["preload-dispvm-max"] = "1"
         print("Preloading with GUI enabled")
-        await asyncio.sleep(5)
+        for _ in range(10):
+            if len(self.disp_base.get_feat_preload()) == 1:
+                break
+            await asyncio.sleep(1)
+        else: self.fail("didn't preload in time")
         self.disp_base.features["gui"] = False
         await self._test_012_run_preload()
         print("Preloading with GUI disabled")
@@ -347,12 +351,15 @@ class TC_20_DispVMMixin(object):
             if len(self.disp_base.get_feat_preload()) == 5:
                 break
             await asyncio.sleep(1)
+        else: self.fail("didn't preload in time")
+
         last_disp_name = self.disp_base.get_feat_preload()[4]
         last_disp = self.app.domains[last_disp_name]
         for _ in range(50):
             if last_disp.is_paused():
                 break
             await asyncio.sleep(1)
+        else: self.fail("last preloaded didn't pause in time")
         old_preload = self.disp_base.get_feat_preload()
         tasks = [self._test_012_run_disp() for _ in range(5)]
         targets = await asyncio.gather(*tasks)
@@ -360,6 +367,7 @@ class TC_20_DispVMMixin(object):
             if len(self.disp_base.get_feat_preload()) == 5:
                 break
             await asyncio.sleep(1)
+        else: self.fail("didn't preload again in time")
         preload_dispvm = self.disp_base.get_feat_preload()
         self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
         self.assertEqual(len(targets), 5)
@@ -386,14 +394,23 @@ class TC_20_DispVMMixin(object):
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
         self.disp_base.features["preload-dispvm-max"] = "1"
-        self.loop.run_until_complete(asyncio.sleep(5))
+        for _ in range(10):
+            if len(self.disp_base.get_feat_preload()) == 1:
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+        else: self.fail("didn't preload in time")
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.sleep(5))
+        for _ in range(10):
+            if len(self.disp_base.get_feat_preload()) == 1:
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+        else: self.fail("didn't preload in time")
         preload_dispvm = self.disp_base.get_feat_preload()
         proc.terminate()
+        self.loop.run_until_complete(proc.wait())
         self.assertEqual(len(old_preload), 1)
         self.assertEqual(len(preload_dispvm), 1)
         self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))

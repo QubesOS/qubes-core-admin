@@ -1290,11 +1290,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
-        self.enforce(self.arg in [None, "", "preload", "preload-autostart"])
+        self.enforce(self.arg in [None, "", "preload-autostart"])
         preload = False
         preload_autostart = False
-        if self.arg == "preload":
-            preload = True
         if self.arg == "preload-autostart":
             preload_autostart = True
         if untrusted_payload not in (b"", b"uuid"):
