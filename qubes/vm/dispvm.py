@@ -186,11 +186,24 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
 
             self.firewall.clone(template.firewall)
-            self.features.update(template.features)
+            self.features.update(
+                [
+                    (key, value)
+                    for key, value in template.features.items()
+                    if not key.startswith("preload-dispvm")
+                ]
+            )
             self.tags.update(template.tags)
 
+    # TODO: ben: @qubes.stateless_property
+    # Marek: I wonder if this shouldn't be a public property (like
+    # @qubes.stateless_property) - this way GUI will be able to better
+    # distinguish this case, instead of relying on just internal feature. But
+    # for this to work reliably, you'd need to manually fire
+    # property-reset:is_preloaded event when the value might change. With
+    # internal feature you get that for free.
     def is_preloaded(self) -> bool:
-        appvm = getattr(self, "template")
+        appvm = self.template
         preload_dispvm = appvm.get_feat_preload()
         if self.name in preload_dispvm:
             return True
@@ -204,7 +217,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         :return:
         """
-        appvm = getattr(self, "template")
+        appvm = self.template
         self.log.info("Marking preloaded qube '%s'", str(self.name))
         preload_dispvm = appvm.get_feat_preload()
         preload_dispvm.append(self.name)
@@ -220,7 +233,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not self.is_preloaded():
             raise qubes.exc.QubesException("DispVM is not preloaded")
-        appvm = getattr(self, "template")
+        appvm = self.template
         self.log.info("Using preloaded qube '%s'", str(self.name))
         if not appvm.features.get("internal", False):
             del self.features["internal"]
@@ -246,15 +259,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         # TODO: pause is late for autostarted applications
         #   https://github.com/QubesOS/qubes-issues/issues/9907
-        # TODO: ben: pause for nogui is dumb, doesn't know when qube is really ready
-        gui_timeout = getattr(self, "qrexec_timeout", 60)
+        # TODO: ben: pause for nogui is dumb, doesn't know when qube is ready.
+        gui_timeout = self.qrexec_timeout
         no_gui_sleep = gui_timeout
-        gui = self.features.get("gui", None)
-        appvm = getattr(self, "template")
+        gui = self.features.get("gui", True)
+        appvm = self.template
+        # TODO: ben: consider that a qube doesn't need to be paused and
+        # unpaused if it has the "preload-dispvm-requested" feature.
         if not gui:
             # TODO: ben: create and target a new service that only calls:
             #   systemctl --user --wait --quiet is-system-running
             await asyncio.sleep(no_gui_sleep)
+            # Qube may have been destroyed during the await above.
             appvm.remove_preload_excess()
             if not self.is_preloaded():
                 return
@@ -271,6 +287,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 ),
                 timeout=gui_timeout,
             )
+            # TODO: ben: cleanup qubes on exception
         except asyncio.TimeoutError:
             # TODO: ben: this happens on boot because the service hangs if
             # the display manager has not been unlocked yet. The result is
@@ -287,11 +304,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "startup"
             )
         finally:
-            # TODO: ben: this finally block is harmful, pausing a qube that
-            # couldn't run the test services doesn't help to later try to use
-            # them, instead, they should be purged from the list, not marked as
-            # used to not create an infinite loop, but just cleanup() and
-            # remove from the list.
+            # Qube may have been destroyed during the await above.
             appvm.remove_preload_excess()
             if self.is_preloaded():
                 await self.pause()
@@ -340,7 +353,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self, _event, **_kwargs
     ):  # pylint: disable=invalid-overridden-method
         if self.is_preloaded():
-            appvm = getattr(self, "template")
+            appvm = self.template
             preload_dispvm = appvm.get_feat_preload()
             if self.name in preload_dispvm:
                 self.log.info("Shutdown removes qube from preload list")
@@ -394,15 +407,16 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             dispvm.log.info("Requesting preloaded qube '%s'", str(dispvm.name))
             # The feature "preload-dispvm-requested" offloads "preload-dispvm"
             # and thus avoids various race condition:
-            # - Decreasing maximum feature after qube object has been returned
-            #   will not cleanup the qube;
-            # - After the qube object is returned, another request to this
-            #   function will not return the same qube.
+            # - Decreasing maximum feature will not remove the qube;
+            # - Another request to this function will not return the same qube.
             preload_dispvm.remove(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
             dispvm.features["preload-dispvm-requested"] = True
+            # TODO: ben: if the "requested" feature is set before the qube is
+            # paused, it would be possible to skip the pause and unpause and
+            # just return the qube object.
             # Paused qube signals that it is ready for use.
-            while True:
+            for _ in range(1200):
                 if dispvm.is_paused():
                     await dispvm.unpause()
                     app.save()
@@ -412,7 +426,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
         )
+
         await dispvm.create_on_disk()
+        # TODO: ben
+        # Marek: See comment in on_feature_pre_set_preload_dispvm - maybe
+        # better move marking as preloaded before the create_on_disk call? But
+        # start() still need to happen after.
         if preload:
             await dispvm.preload()
         app.save()

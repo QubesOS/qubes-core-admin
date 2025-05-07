@@ -24,6 +24,7 @@ import qubes.config
 import qubes.events
 import qubes.vm.dispvm
 
+from typing import Optional
 
 class DVMTemplateMixin(qubes.events.Emitter):
     """VM class capable of being DVM template"""
@@ -57,10 +58,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
-    def remove_preload_excess(self, max_preload=None):
+    def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
+        assert isinstance(self, qubes.vm.BaseVM)
         if max_preload is None:
             max_preload = self.get_feat_preload_max()
-        max_preload = int(max_preload)
         old_preload = self.get_feat_preload()
         if not old_preload:
             return
@@ -80,7 +81,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         for unwanted_disp in new_preload:
             if unwanted_disp not in self.app.domains:
                 clean_preload.remove(unwanted_disp)
-        if clean_preload < new_preload:
+        if len(clean_preload) < len(new_preload):
             absent = list(set(new_preload) - set(clean_preload))
             self.log.info(
                 "Removing absent qube(s) from preloaded list: '%s'",
@@ -130,10 +131,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
         # New value can be bigger than maximum permitted as long as it is
         # smaller than its old value.
+        #
+        # TODO: ben
+        # Marek: Looks like a good idea to check this, but make sure the
+        # from_appvm (and maybe other places?) handle this case correctly. From
+        # what I see, theoretically it will happen if you reduce preload max
+        # while some dispvm is getting preloaded already (the window is quite
+        # short, basically you need to hit create_on_disk() call, but still
+        # looks possible). In that case it shouldn't left orphaned running (or
+        # not even started?) dispvm.
         if new_len > max(preload_dispvm_max, old_len):
             raise qubes.exc.QubesValueError(
-                f"{error_prefix} can't increment: qube count ({new_len}) "
-                f"is bigger than old count ({old_len}) and also bigger than "
+                f"{error_prefix} can't increment: qube count ({new_len}) is "
+                f"bigger than old count ({old_len}) or bigger than "
                 f"preload-dispvm-max ({preload_dispvm_max})"
             )
 
@@ -145,16 +155,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 f"{error_prefix} contain duplicates: '{', '.join(duplicates)}'"
             )
 
-        nonqube = [qube for qube in new_list if qube not in self.app.domains]
+        new_list_diff = list(set(new_list) - set(old_list))
+        nonqube = [qube for qube in new_list_diff if qube not in self.app.domains]
         if nonqube:
             raise qubes.exc.QubesValueError(
                 f"{error_prefix} non qube(s): '{', '.join(nonqube)}'"
             )
 
-        # self.dispvms is outdated at this point.
+        # TODO: ben: add setter to @dispvms, it is outdated at this point.
         nonderived = [
             qube
-            for qube in new_list
+            for qube in new_list_diff
             if getattr(self.app.domains[qube], "template") != self
         ]
         if nonderived:
@@ -256,6 +267,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
                 )
 
+    # TODO: ben: missing setter?
     @property
     def dispvms(self):
         """Returns a generator containing all Disposable VMs based on the
