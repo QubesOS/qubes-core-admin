@@ -287,6 +287,35 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     skip_preload,
                 )
             if can_preload == 0:
+                # TODO: ben
+                #
+                # Marek:
+                #   Should it retry with some delay? Or maybe only after some
+                #   specific event (like closing other dispvm, or requesting
+                #   one)?  I'm not sure if a delay is a good idea, but there
+                #   should be some way to recover from this situation, not only
+                #   by manually setting the feature again (as currently
+                #   documented).
+                #
+                # Ben:
+                #   I am still thinking of a way to solve this. If two qubes
+                #   are marked as used, there will be a threshold of 2, then
+                #   the first used event runs, it currently just tries to
+                #   preload 1 substitute, if it tried to preload the threshold,
+                #   the 2nd used state would fail, or so it would in the past.
+                #   With the many rewrites this function had, I can this this
+                #   would not be an issue anymore and used event should not be
+                #   limited to 1 because above there is
+                #
+                #         elif not self.can_preload():
+                #             self.remove_preload_excess() return
+                #
+                #   The used has one flaw in this case, if a preloaded is
+                #   marked as used and there are no more preloaded qubes and
+                #   also there is not enough memory, it will not try to preload
+                #   qubes anymore unless the workaround to re-set the feature
+                #   to the same value it is on, so there are different edge
+                #   cases that we should look out for.
                 return
 
         self.log.info("Preloading '%d' qube(s)", can_preload)

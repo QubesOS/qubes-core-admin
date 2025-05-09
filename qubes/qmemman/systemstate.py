@@ -446,6 +446,7 @@ class SystemState(object):
         os.chmod(avail_mem_file_tmp, 0o644)
         os.replace(avail_mem_file_tmp, avail_mem_file)
 
+
 #        for i in self.domdict.keys():
 #            print 'domain ', i, ' meminfo=', self.domdict[i].mem_used, 'actual mem', self.domdict[i].memory_actual
 #            print 'domain ', i, 'actual mem', self.domdict[i].memory_actual

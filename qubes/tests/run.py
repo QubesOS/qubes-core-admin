@@ -304,15 +304,14 @@ def demo(verbosity=2):
     return runner.run(suite).wasSuccessful()
 
 
-epilog="""\
+epilog = """\
 When running only specific tests, write their names like in the log format:
 MODULE+"/"+CLASS+"/"+FUNCTION.
 Example: qubes.tests.basic/TC_00_Basic/test_000_create
 """
 
 parser = argparse.ArgumentParser(
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-    epilog=epilog
+    formatter_class=argparse.RawDescriptionHelpFormatter, epilog=epilog
 )
 
 parser.add_argument(

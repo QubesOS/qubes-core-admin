@@ -23,7 +23,6 @@
 import asyncio
 import copy
 import subprocess
-from typing import Optional
 
 import qubes.config
 import qubes.vm.appvm
