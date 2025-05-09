@@ -2333,9 +2333,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 }
             ),
         ]
-        vm.devices[
-            "block"
-        ].get_assigned_devices = lambda required_only: assignments
+        vm.devices["block"].get_assigned_devices = (
+            lambda required_only: assignments
+        )
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(
             lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected)

@@ -1583,9 +1583,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         try:
             await self.storage.stop()
         except qubes.exc.StoragePoolException:
-            self.log.exception(
-                "Failed to stop storage"
-            )
+            self.log.exception("Failed to stop storage")
         self._qdb_connection = None
         self.fire_event("property-reset:xid", name="xid")
         self.fire_event("property-reset:stubdom_xid", name="stubdom_xid")

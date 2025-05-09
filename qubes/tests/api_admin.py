@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-""" Tests for management calls endpoints """
+"""Tests for management calls endpoints"""
 
 import asyncio
 import operator
@@ -590,9 +590,9 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf[
-            "__getitem__.return_value.is_outdated.return_value"
-        ] = False
+        volumes_conf["__getitem__.return_value.is_outdated.return_value"] = (
+            False
+        )
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(
             b"admin.vm.volume.Info", b"test-vm1", b"private"
@@ -620,9 +620,9 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf[
-            "__getitem__.return_value.is_outdated.side_effect"
-        ] = NotImplementedError
+        volumes_conf["__getitem__.return_value.is_outdated.side_effect"] = (
+            NotImplementedError
+        )
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(
             b"admin.vm.volume.Info", b"test-vm1", b"private"
@@ -3110,9 +3110,9 @@ netvm default=True type=vm \n"""
         self.vm.volumes["private"].import_volume.return_value = self.vm.volumes[
             "private"
         ]
-        self.vm2.volumes[
-            "private"
-        ].import_volume.return_value = self.vm2.volumes["private"]
+        self.vm2.volumes["private"].import_volume.return_value = (
+            self.vm2.volumes["private"]
+        )
 
         self.addCleanup(self.cleanup_for_clone)
 

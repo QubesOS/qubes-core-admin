@@ -202,9 +202,7 @@ class TestEmitter(qubes.events.Emitter):
                 (
                     frozenset(value.items())
                     if isinstance(value, dict)
-                    else tuple(value)
-                    if isinstance(value, list)
-                    else value
+                    else tuple(value) if isinstance(value, list) else value
                 ),
             )
             for key, value in kwargs.items()
