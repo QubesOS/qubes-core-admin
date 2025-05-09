@@ -1365,7 +1365,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     f"Qube start is prohibited. Rationale: {prohibit_rationale}"
                 )
 
-            self.log.info("Starting {}".format(self.name))
+            self.log.info("Starting qube")
 
             try:
                 await self.fire_event_async(
@@ -1484,7 +1484,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     "domain-spawn", start_guid=start_guid
                 )
 
-                self.log.info("Setting Qubes DB info for the VM")
+                self.log.info("Setting Qubes DB info for the qube")
                 await self.start_qubesdb()
                 if self.untrusted_qdb is None:
                     # this can happen if vm.is_running() is False
@@ -1494,7 +1494,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.create_qdb_entries()
                 self.start_qdb_watch()
 
-                self.log.warning("Activating the {} VM".format(self.name))
+                self.log.info("Activating qube")
                 self.libvirt_domain.resume()
 
                 if (
@@ -1584,7 +1584,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             await self.storage.stop()
         except qubes.exc.StoragePoolException:
             self.log.exception(
-                "Failed to stop storage for domain %s", self.name
+                "Failed to stop storage"
             )
         self._qdb_connection = None
         self.fire_event("property-reset:xid", name="xid")
@@ -1678,17 +1678,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
             except subprocess.CalledProcessError as e:
                 self.log.warning(
-                    "qubes.SuspendPre for %s failed with %d (stderr: %s), "
-                    "suspending anyway",
-                    self.name,
+                    "qubes.SuspendPre failed with %d (stderr: %s), suspending "
+                    "anyway",
                     e.returncode,
                     qubes.utils.sanitize_stderr_for_log(e.stderr),
                 )
             except asyncio.TimeoutError:
                 self.log.warning(
-                    "qubes.SuspendPre for %s timed out after %d seconds, "
-                    "suspending anyway",
-                    self.name,
+                    "qubes.SuspendPre timed out after %d seconds, suspending "
+                    "anyway",
                     qubes.config.suspend_timeout,
                 )
         try:
@@ -1700,7 +1698,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 # OS inside doesn't support full suspend, just pause it
                 self.libvirt_domain.suspend()
             else:
-                self.log.warning("Failed to suspend '%s'", self.name)
+                self.log.warning("Failed to suspend qube")
                 raise
 
         return self
@@ -1734,15 +1732,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     )
                 except subprocess.CalledProcessError as e:
                     self.log.warning(
-                        "qubes.SuspendPost for %s failed with %d (stderr: %s)",
-                        self.name,
+                        "qubes.SuspendPost failed with %d (stderr: %s)",
                         e.returncode,
                         qubes.utils.sanitize_stderr_for_log(e.stderr),
                     )
                 except asyncio.TimeoutError:
                     self.log.warning(
-                        "qubes.SuspendPost for %s timed out after %d seconds",
-                        self.name,
+                        "qubes.SuspendPost timed out after %d seconds",
                         qubes.config.suspend_timeout,
                     )
         else:
@@ -2175,7 +2171,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 os.rmdir(self.dir_path)
             except:  # pylint: disable=bare-except
                 self.log.exception(
-                    "failed to cleanup {} after failed VM "
+                    "failed to cleanup {} after failed qube "
                     "creation".format(self.dir_path)
                 )
             raise
