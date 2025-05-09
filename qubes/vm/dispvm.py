@@ -195,19 +195,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.tags.update(template.tags)
 
-    # TODO: ben: @qubes.stateless_property
-    #
-    # Marek: I wonder if this shouldn't be a public property (like
-    # @qubes.stateless_property) - this way GUI will be able to better
-    # distinguish this case, instead of relying on just internal feature. But
-    # for this to work reliably, you'd need to manually fire
-    # property-reset:is_preload event when the value might change. With
-    # internal feature you get that for free.
-    #
-    # Ben: checking for internal feature is not enough in case the appvm
-    # (default-mgmt-dvm) has it also. Checking for paused state is also not
-    # enough because it is late (when preloading has finished) and may also not
-    # occur in case the qube is requested prior to being paused.
     @qubes.stateless_property
     def is_preload(self) -> bool:
         appvm = self.template
@@ -323,14 +310,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def on_feature_set_preload_dispvm_request(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
-        # TODO: ben: review and cleanup
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-request")
     def on_feature_delete_preload_dispvm_request(
         self, event, feature
     ):  # pylint: disable=unused-argument
-        # TODO: ben: review and cleanup
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.events.handler("property-pre-reset:template")

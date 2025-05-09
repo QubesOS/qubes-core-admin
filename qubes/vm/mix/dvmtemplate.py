@@ -178,7 +178,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 f"{error_prefix} non qube(s): '{', '.join(nonqube)}'"
             )
 
-        # TODO: ben: add setter to @dispvms, it is outdated at this point.
         nonderived = [
             qube
             for qube in new_list_diff
@@ -325,7 +324,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
                 )
 
-    # TODO: ben: missing setter?
     @property
     def dispvms(self):
         """Returns a generator containing all Disposable VMs based on the
