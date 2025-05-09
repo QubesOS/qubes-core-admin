@@ -3830,7 +3830,7 @@ netvm default=True type=vm \n"""
         self.vm.template_for_dispvms = True
         self.app.default_dispvm = self.vm
         self.vm.add_handler(
-            "domain-preloaded-dispvm-autostart", self._test_event_handler
+            "domain-preload-dispvm-autostart", self._test_event_handler
         )
 
         # This is necessary to avoid preloading more than the maximum on the
@@ -3847,7 +3847,7 @@ netvm default=True type=vm \n"""
 
         self.assertTrue(
             self._test_event_was_handled(
-                self.vm.name, "domain-preloaded-dispvm-autostart"
+                self.vm.name, "domain-preload-dispvm-autostart"
             )
         )
         dispvm_preload = self.vm.get_feat_preload()

@@ -3,7 +3,7 @@
 import qubesadmin
 
 def get_max(qube):
-    return int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
+    return int(qube.features.get("preload-dispvm-max", 0) or 0)
 
 def main():
     domains = qubesadmin.Qubes().domains

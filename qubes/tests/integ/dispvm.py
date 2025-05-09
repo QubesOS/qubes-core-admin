@@ -297,7 +297,7 @@ class TC_20_DispVMMixin(object):
         dispvm = self.disp_base.get_feat_preload()[0]
         dispvm = self.app.domains[dispvm]
         self.assertEqual(self.disp_base.get_feat_preload(), [dispvm.name])
-        self.assertTrue(dispvm.is_preloaded())
+        self.assertTrue(dispvm.is_preload)
         self.assertTrue(dispvm.features.get("internal", False))
         dispvm.add_handler("domain-paused", self._test_event_handler)
         dispvm.add_handler("domain-unpaused", self._test_event_handler)
@@ -306,6 +306,7 @@ class TC_20_DispVMMixin(object):
         )
         dispvm_name = dispvm.name
         stdout = await self._test_012_run_disp()
+        self.assertEqual(stdout, dispvm_name)
         self.assertTrue(
             self._test_event_was_handled(dispvm_name, "domain-paused")
         )
@@ -317,7 +318,7 @@ class TC_20_DispVMMixin(object):
                 dispvm_name, "domain-feature-delete:internal"
             )
         )
-        self.assertEqual(stdout, dispvm_name)
+        # TODO: ben: is the list populated yet?
         next_preload_list = self.disp_base.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)
@@ -329,12 +330,13 @@ class TC_20_DispVMMixin(object):
     async def _test_012_dvm_run_preload_general(self):
         self.disp_base.features["gui"] = True
         self.disp_base.features["preload-dispvm-max"] = "1"
-        print("Preloading with GUI enabled")
+        print("\nPreloading with GUI enabled")
         for _ in range(10):
             if len(self.disp_base.get_feat_preload()) == 1:
                 break
             await asyncio.sleep(1)
-        else: self.fail("didn't preload in time")
+        else:
+            self.fail("didn't preload in time")
         self.disp_base.features["gui"] = False
         await self._test_012_run_preload()
         print("Preloading with GUI disabled")
@@ -351,7 +353,8 @@ class TC_20_DispVMMixin(object):
             if len(self.disp_base.get_feat_preload()) == 5:
                 break
             await asyncio.sleep(1)
-        else: self.fail("didn't preload in time")
+        else:
+            self.fail("didn't preload in time")
 
         last_disp_name = self.disp_base.get_feat_preload()[4]
         last_disp = self.app.domains[last_disp_name]
@@ -359,7 +362,8 @@ class TC_20_DispVMMixin(object):
             if last_disp.is_paused():
                 break
             await asyncio.sleep(1)
-        else: self.fail("last preloaded didn't pause in time")
+        else:
+            self.fail("last preloaded didn't pause in time")
         old_preload = self.disp_base.get_feat_preload()
         tasks = [self._test_012_run_disp() for _ in range(5)]
         targets = await asyncio.gather(*tasks)
@@ -367,7 +371,8 @@ class TC_20_DispVMMixin(object):
             if len(self.disp_base.get_feat_preload()) == 5:
                 break
             await asyncio.sleep(1)
-        else: self.fail("didn't preload again in time")
+        else:
+            self.fail("didn't preload again in time")
         preload_dispvm = self.disp_base.get_feat_preload()
         self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
         self.assertEqual(len(targets), 5)
@@ -379,7 +384,12 @@ class TC_20_DispVMMixin(object):
 
     async def _test_012_dvm_run_preload_race_less(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
-        await asyncio.sleep(5)
+        for _ in range(60):
+            if len(self.disp_base.get_feat_preload()) == 1:
+                break
+            await asyncio.sleep(1)
+        else:
+            self.fail("didn't preload in time")
         tasks = [self._test_012_run_disp(), self._test_012_no_preload()]
         target = await asyncio.gather(*tasks)
         target_dispvm = target[0]
@@ -398,22 +408,22 @@ class TC_20_DispVMMixin(object):
             if len(self.disp_base.get_feat_preload()) == 1:
                 break
             self.loop.run_until_complete(asyncio.sleep(1))
-        else: self.fail("didn't preload in time")
+        else:
+            self.fail("didn't preload in time")
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        for _ in range(10):
-            if len(self.disp_base.get_feat_preload()) == 1:
-                break
-            self.loop.run_until_complete(asyncio.sleep(1))
-        else: self.fail("didn't preload in time")
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
+        self.loop.run_until_complete(asyncio.sleep(2))
         preload_dispvm = self.disp_base.get_feat_preload()
-        proc.terminate()
         self.loop.run_until_complete(proc.wait())
         self.assertEqual(len(old_preload), 1)
         self.assertEqual(len(preload_dispvm), 1)
-        self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
+        self.assertTrue(
+            set(old_preload).isdisjoint(preload_dispvm),
+            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        )
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"

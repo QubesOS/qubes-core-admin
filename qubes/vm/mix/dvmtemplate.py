@@ -19,12 +19,11 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+from typing import Optional
 
 import qubes.config
 import qubes.events
 import qubes.vm.dispvm
-
-from typing import Optional
 
 
 class DVMTemplateMixin(qubes.events.Emitter):
@@ -59,7 +58,18 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
+    def remove_preload_from_list(self, disp) -> None:
+        assert isinstance(self, qubes.vm.BaseVM)
+        preload_dispvm = self.get_feat_preload()
+        preload_dispvm.remove(disp)
+        self.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+
     def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
+        """Removes excessive preloaded qubes:
+
+        - Qubes that exceed the maximum
+        - Qubes that are in the list but do not exist anymore
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         if max_preload is None:
             max_preload = self.get_feat_preload_max()
@@ -100,6 +110,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
+        if not self.features.check_with_template("qrexec", None):
+            raise qubes.exc.QubesValueError("Qube does not support qrexec")
         value = value or "0"
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
@@ -112,7 +124,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     ):  # pylint: disable=unused-argument
         # Preload if there is vacancy, offload if there is excess.
         asyncio.ensure_future(
-            self.fire_event_async("domain-preloaded-dispvm-start")
+            self.fire_event_async("domain-preload-dispvm-start")
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
@@ -178,6 +190,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 f"'{', '.join(nonderived)}'"
             )
 
+    @qubes.events.handler("domain-feature-set:preload-dispvm")
+    def on_feature_set_preload_dispvm(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        # TODO: ben: review and cleanup
+        value = value.split(" ") if value else []
+        oldvalue = oldvalue.split(" ") if oldvalue else []
+        exclusive = list(set(oldvalue).symmetric_difference(value))
+        for qube in exclusive:
+            if qube in self.app.domains:
+                qube = self.app.domains[qube]
+                qube.fire_event("property-reset:is_preload", name="is_preload")
+
     @qubes.events.handler("property-pre-set:template_for_dispvms")
     def __on_pre_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
@@ -213,11 +238,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         pass
 
     @qubes.events.handler(
-        "domain-preloaded-dispvm-used",
-        "domain-preloaded-dispvm-autostart",
-        "domain-preloaded-dispvm-start",
+        "domain-preload-dispvm-used",
+        "domain-preload-dispvm-autostart",
+        "domain-preload-dispvm-start",
     )
-    async def on_domain_preloaded_dispvm_used(
+    async def on_domain_preload_dispvm_used(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
         """When preloaded DispVM is used or after boot, preload another one.
@@ -225,7 +250,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param event: event which was fired
         :returns:
         """
-        event = event.removeprefix("domain-preloaded-dispvm-")
+        event = event.removeprefix("domain-preload-dispvm-")
         event_log = "Received preload event '%s'" % str(event)
         if event == "used":
             event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))

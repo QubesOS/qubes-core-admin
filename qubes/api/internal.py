@@ -46,7 +46,7 @@ class SystemInfoCache:
         "domain-tag-add:*",
         "domain-tag-delete:*",
         "domain-feature-set:internal",
-        "domain-feature-delete:internal"
+        "domain-feature-delete:internal",
         "property-set:template_for_dispvms",
         "property-reset:template_for_dispvms",
         "property-set:default_dispvm",

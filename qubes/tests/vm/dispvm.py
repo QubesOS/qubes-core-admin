@@ -61,6 +61,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
+        self.template.features["qrexec"] = True
         self.appvm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name="test-vm",
@@ -166,16 +167,27 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_start.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
+
         self.appvm.features["preload-dispvm-max"] = "1"
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
+            # TODO: ben: deleteme
+            import traceback
+
+            def debug_unused_dispid(*args, **kwargs):
+                print("get_new_unused_dispid called!")
+                traceback.print_stack()
+                return 42
+
             mock_qube = mock.Mock()
             mock_qube.template = self.appvm
             mock_domains.configure_mock(
                 **{
-                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "get_new_unused_dispid": mock.Mock(
+                        return_value=42, side_effect=debug_unused_dispid
+                    ),
                     "__contains__.return_value": True,
                     "__getitem__.side_effect": lambda key: mock_qube
                     if key == "disp42"
@@ -186,7 +198,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
             )
             self.assertEqual(self.appvm.get_feat_preload(), ["disp42"])
-            self.assertTrue(dispvm.is_preloaded())
+            self.assertTrue(dispvm.is_preload)
             self.assertTrue(dispvm.features.get("internal", False))
             self.assertEqual(dispvm.name, "disp42")
             self.assertEqual(dispvm.template, self.appvm)
@@ -198,7 +210,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
+            # TODO: ben: cleanup
+            print(
+                f"GET DISPID CALLS: '{mock_domains.get_new_unused_dispid.call_args_list}'"
+            )
             mock_domains.get_new_unused_dispid.assert_called_once_with()
+
         mock_start.assert_called_once_with()
         mock_makedirs.assert_called_once_with(
             "/var/lib/qubes/appvms/" + dispvm.name, mode=0o775, exist_ok=True
