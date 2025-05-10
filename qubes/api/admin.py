@@ -993,6 +993,22 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         await self.dest.unpause()
 
     @qubes.api.method(
+        "admin.vm.Suspend", no_payload=True, scope="local", execute=True
+    )
+    async def vm_suspend(self):
+        self.enforce(not self.arg)
+        self.fire_event_for_permission()
+        await self.dest.suspend()
+
+    @qubes.api.method(
+        "admin.vm.Resume", no_payload=True, scope="local", execute=True
+    )
+    async def vm_resume(self):
+        self.enforce(not self.arg)
+        self.fire_event_for_permission()
+        await self.dest.resume()
+
+    @qubes.api.method(
         "admin.vm.Kill", no_payload=True, scope="local", execute=True
     )
     async def vm_kill(self):

@@ -1439,6 +1439,17 @@ netvm default=True type=vm \n"""
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
+    def test_241_suspend(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.suspend = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Suspend", b"test-vm1")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
     def test_250_unpause(self):
         func_mock = unittest.mock.Mock()
 
@@ -1447,6 +1458,17 @@ netvm default=True type=vm \n"""
 
         self.vm.unpause = coroutine_mock
         value = self.call_mgmt_func(b"admin.vm.Unpause", b"test-vm1")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
+    def test_251_resume(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.resume = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Resume", b"test-vm1")
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
