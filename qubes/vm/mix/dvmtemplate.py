@@ -125,16 +125,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if not self.features.check_with_template("qrexec", None):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
-        gui = bool(self.guivm and self.features.get("gui", True))
-        service = "supported-rpc."
-        if gui:
-            service += "qubes.WaitForSession"
-        else:
-            service += "qubes.WaitForRunningSystem"
+        service = "supported-rpc.qubes.WaitForRunningSystem"
         if not self.features.check_with_template(service, False):
             raise qubes.exc.QubesValueError(
-                "Qube GUI is '%s' and does not support the RPC '%s'"
-                % (gui, service)
+                "Qube does not support the RPC '%s'" % service
             )
 
         value = value or "0"

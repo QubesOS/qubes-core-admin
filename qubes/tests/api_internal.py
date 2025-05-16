@@ -64,6 +64,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             features = {}
         vm = mock.Mock()
         vm.features.check_with_template.side_effect = features.get
+        vm.features.get.side_effect = features.get
         vm.run_service.return_value.wait = mock_coro(
             vm.run_service.return_value.wait
         )

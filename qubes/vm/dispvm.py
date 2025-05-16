@@ -77,8 +77,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
       - Full start: Preloaded disposable must only be interrupted
         (paused/suspended) or used after all basic services in it have been
-        started. Autostarted applications allows user interaction before the it
-        should, that is a bug.
+        started. Failure to complete this step must remove the qube from the
+        preload list.
 
     - **Prevents accidental tampering**:
 
@@ -92,12 +92,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         GUI applications, that is a bug because features cannot be set before
         that event.
 
-      - Preloaded qubes must be marked as used when prior to being
-        unpaused/resumed, even if it was not requested. The goal of
-        pause/suspend in case of preloaded disposables is mostly detecting
-        whether a qube was used or not, and not managing resource consumption;
-        thus, even with abundant system resources, they should not be
-        unpaused/resumed without being requested.
+      - Preloaded qubes must be marked as used after being unpaused/resumed,
+        even if it was not requested. The goal of pause/suspend in case of
+        preloaded disposables is mostly detecting whether a qube was used or
+        not, not managing resource consumption; thus, even with abundant system
+        resources, they should not be unpaused/resumed without being requested.
 
     **Stages**:
 
@@ -114,14 +113,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
       applicable). Only in this phase, GUI applications treat the qube as any
       other unnamed disposable and the qube object is returned to the caller if
       requested.
-
-    **Outstanding bugs**:
-
-    - GUI applications set to autostart can appear on the screen and be
-      interactive for a brief moment before the qube is allowed to be used
-      followed by a sudden freeze.
-    - Can't interrupt qubes before the GUI session has started if the qube's
-      usage will require a GUI (GUI daemon cannot handle an interrupted qube).
     """
 
     template = qubes.VMProperty(
@@ -328,37 +319,33 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not self.is_preload:
             return
-        # TODO: pause is late for autostarted GUI applications
-        #   https://github.com/QubesOS/qubes-issues/issues/9907
         timeout = self.qrexec_timeout
-        gui = bool(self.guivm and self.features.get("gui", True))
-        service = "qubes.WaitForSession"
-        if not gui:
-            service = "qubes.WaitForRunningSystem"
+        # https://github.com/QubesOS/qubes-issues/issues/9964
+        rpc = "qubes.WaitForRunningSystem"
+        path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
+        service = '$(PATH="' + path + '" command -v ' + rpc + ")"
         try:
             self.log.info(
-                "Waiting '%s' with timeout of '%d' seconds", service, timeout
+                "Waiting for '%s' with timeout of '%d' seconds",
+                service,
+                timeout,
             )
             await asyncio.wait_for(
-                self.run_service_for_stdio(
+                self.run(
                     service,
-                    user=self.default_user,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 ),
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
-            # TODO: if pause occurs before the GUI session starts (on boot
-            # before login manager), results in an unusable GUI for the qube:
-            # https://github.com/QubesOS/qubes-issues/issues/9940
             raise qubes.exc.QubesException(
-                "Timed out Qrexec call to '%s' after '%d' seconds during "
-                "preload startup" % (service, timeout)
+                "Timed out call to '%s' after '%d' seconds during preload "
+                "startup" % (service, timeout)
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             raise qubes.exc.QubesException(
-                "Error on Qrexec call to '%s' during preload startup" % service
+                "Error on call to '%s' during preload startup" % service
             )
 
         if self.is_preload:
@@ -376,11 +363,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.is_preload:
             self.log.info("Paused preloaded qube")
 
-    @qubes.events.handler("domain-pre-unpaused")
-    def on_domain_pre_unpaused(
+    @qubes.events.handler("domain-unpaused")
+    def on_domain_unpaused(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
-        """Mark preloaded domains as used before being unpaused."""
+        """Mark preloaded disposables as used."""
         # Qube start triggers unpause via 'libvirt_domain.resume()'.
         if self.is_preload and self.is_fully_usable():
             self.log.info("Unpaused preloaded qube will be marked as used")
@@ -490,7 +477,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # requesting the qube.
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.features["preload-dispvm-request"] = True
-            tries, sleep = 1200, 0.1
+            sleep = 0.1
+            tries = int(dispvm.qrexec_timeout * 1.2 / sleep)
             for _ in range(tries):
                 if dispvm.features.get(
                     "preload-dispvm-skip-interrupt", None
