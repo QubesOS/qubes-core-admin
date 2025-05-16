@@ -1,9 +1,0 @@
-[Desktop Entry]
-Icon=qubes
-Name=Qubes Preload Disposables
-Comment=Workaround for session monitoring with qubes.WaitForSession
-Categories=System;Monitor;
-Exec=systemctl start qubes-preload-dispvm.service
-Terminal=false
-NoDisplay=true
-Type=Application

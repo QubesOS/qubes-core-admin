@@ -368,7 +368,6 @@ done
 /usr/bin/qubes-*
 /usr/bin/qmemmand
 /usr/bin/qubesd*
-/etc/xdg/autostart/qubes-preload-dispvm.desktop
 
 %{_mandir}/man1/qubes*.1*
 
