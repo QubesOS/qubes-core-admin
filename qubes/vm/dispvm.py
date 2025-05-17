@@ -40,6 +40,16 @@ def _setter_template(self, prop, value):
     return value
 
 
+def get_preload_templates(domains) -> list:
+    return [
+        qube
+        for qube in domains
+        if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
+        and qube.klass == "AppVM"
+        and getattr(qube, "template_for_dispvms", False)
+    ]
+
+
 class DispVM(qubes.vm.qubesvm.QubesVM):
     """Disposable VM
 
@@ -343,7 +353,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info(
                 "Waiting '%s' with timeout of '%d' seconds", service, timeout
             )
-            runner = self.run_service_for_stdio if gui else self.run
+            runner = self.run_service_for_stdio if gui else self.run_for_stdio
             await asyncio.wait_for(
                 runner(
                     service,

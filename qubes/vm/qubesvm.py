@@ -408,8 +408,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-pre-paused (subject, event)
 
-            Fired at the beginning of :py:meth:`paused` method and before
+            Fired at the beginning of :py:meth:`pause` method and before
             ``libvirt_domain.suspend()``.
+
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-paused'``)
@@ -423,8 +425,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-pre-unpaused (subject, event)
 
-            Fired at the beginning of :py:meth:`unpaused` method and before
+            Fired at the beginning of :py:meth:`unpause` method and before
             ``libvirt_domain.resume()``.
+
+            Handler for this event may be asynchronous.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-unpaused'``)
@@ -755,11 +759,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=_default_with_template(
             "memory",
             lambda self: qubes.config.defaults[
-                (
-                    "hvm_memory"  # type: ignore
-                    if self.virt_mode == "hvm"
-                    else "memory"
-                )
+                ("hvm_memory" if self.virt_mode == "hvm" else "memory")  # type: ignore
             ],
         ),
         doc="Memory currently available for this VM. TemplateBasedVMs use its "
@@ -1381,7 +1381,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     f"Qube start is prohibited. Rationale: {prohibit_rationale}"
                 )
 
-            self.log.info("Starting qube")
+            self.log.info("Starting qube {}".format(self.name))
 
             try:
                 await self.fire_event_async(
@@ -1511,7 +1511,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.start_qdb_watch()
 
                 self.log.info("Activating qube")
-                self.fire_event("domain-pre-unpaused", pre_event=True)
+                await self.fire_event_async(
+                    "domain-pre-unpaused", pre_event=True
+                )
                 self.libvirt_domain.resume()
 
                 if (
@@ -1711,7 +1713,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_UNSUPPORTED:
                 # OS inside doesn't support full suspend, just pause it
-                self.fire_event("domain-pre-paused", pre_event=True)
+                await self.fire_event_async("domain-pre-paused", pre_event=True)
                 self.libvirt_domain.suspend()
             else:
                 self.log.warning("Failed to suspend qube")
@@ -1725,7 +1727,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
 
-        self.fire_event("domain-pre-paused", pre_event=True)
+        await self.fire_event_async("domain-pre-paused", pre_event=True)
         self.libvirt_domain.suspend()
 
         return self
@@ -1770,7 +1772,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if not self.is_paused():
             raise qubes.exc.QubesVMNotPausedError(self)
 
-        self.fire_event("domain-pre-unpaused", pre_event=True)
+        await self.fire_event_async("domain-pre-unpaused", pre_event=True)
         self.libvirt_domain.resume()
 
         return self

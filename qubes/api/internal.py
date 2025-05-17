@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-""" Internal interface for dom0 components to communicate with qubesd. """
+"""Internal interface for dom0 components to communicate with qubesd."""
 
 import asyncio
 import json
@@ -265,16 +265,9 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
-        # TODO: ben: to Marek: where is a good place to deduplicate the disp
-        # template gathering? Would be nice to also use it on
-        # linux/aux-tools/preload-dispvm
-        preload_templates = [
-            qube
-            for qube in self.app.domains
-            if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
-            and qube.klass == "AppVM"
-            and getattr(qube, "template_for_dispvms", False)
-        ]
+        preload_templates = qubes.vm.dispvm.get_preload_templates(
+            self.app.domains
+        )
         for qube in preload_templates:
             qube.remove_preload_excess(0)
 
@@ -423,13 +416,9 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                         "qubes.SuspendPostAll",
                     )
 
-        preload_templates = [
-            qube
-            for qube in self.app.domains
-            if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
-            and qube.klass == "AppVM"
-            and getattr(qube, "template_for_dispvms", False)
-        ]
+        preload_templates = qubes.vm.dispvm.get_preload_templates(
+            self.app.domains
+        )
         for qube in preload_templates:
             asyncio.ensure_future(
                 qube.fire_event_async("domain-preload-dispvm-autostart")

@@ -8,7 +8,7 @@ def get_max(qube):
     return int(qube.features.get("preload-dispvm-max", 0) or 0)
 
 
-async def main():
+def main():
     domains = qubesadmin.Qubes().domains
     appvms = [
         qube

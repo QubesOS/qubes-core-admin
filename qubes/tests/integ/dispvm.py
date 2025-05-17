@@ -225,34 +225,12 @@ class TC_20_DispVMMixin(object):
             self.event_handler = {}
         return self.event_handler.get(vm, {}).get(event)
 
-    def test_010_dvm_run_simple(self):
-        dispvm = self.loop.run_until_complete(
-            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
-        )
-        try:
-            self.loop.run_until_complete(dispvm.start())
-            (stdout, _) = self.loop.run_until_complete(
-                dispvm.run_service_for_stdio(
-                    "qubes.VMShell", input=b"echo test"
-                )
-            )
-            self.assertEqual(stdout, b"test\n")
-        finally:
-            self.loop.run_until_complete(dispvm.cleanup())
-
-    def test_011_dvm_run_preload_reject_max(self):
-        """Test preloading when max has been reached"""
-        with self.assertRaises(qubes.exc.QubesException):
-            self.loop.run_until_complete(
-                qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
-            )
-
-    async def _test_012_no_preload(self):
+    async def no_preload(self):
         # Trick to gather this function as an async task.
         await asyncio.sleep(0)
         self.disp_base.features["preload-dispvm-max"] = False
 
-    async def _test_012_run_disp(self):
+    async def run_preload_proc(self):
         proc = await asyncio.create_subprocess_exec(
             *self.preload_cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -260,11 +238,10 @@ class TC_20_DispVMMixin(object):
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
         return stdout.decode()
 
-    async def _test_012_run_preload(self):
+    async def run_preload(self):
         appvm = self.disp_base
         dispvm = appvm.get_feat_preload()[0]
         dispvm = self.app.domains[dispvm]
-        self.assertEqual(appvm.get_feat_preload(), [dispvm.name])
         self.assertTrue(dispvm.is_preload)
         self.assertTrue(dispvm.features.get("internal", False))
         appvm.add_handler(
@@ -294,7 +271,7 @@ class TC_20_DispVMMixin(object):
             "domain-feature-delete:internal", self._test_event_handler
         )
         dispvm_name = dispvm.name
-        stdout = await self._test_012_run_disp()
+        stdout = await self.run_preload_proc()
         self.assertEqual(stdout, dispvm_name)
         self.assertFalse(
             self._test_event_was_handled(
@@ -311,7 +288,6 @@ class TC_20_DispVMMixin(object):
                 appvm.name, "domain-preload-dispvm-used"
             )
         )
-
         self.assertTrue(
             self._test_event_was_handled(
                 dispvm_name, "domain-feature-set:preload-dispvm-request"
@@ -341,6 +317,28 @@ class TC_20_DispVMMixin(object):
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)
 
+    def test_010_dvm_run_simple(self):
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        )
+        try:
+            self.loop.run_until_complete(dispvm.start())
+            (stdout, _) = self.loop.run_until_complete(
+                dispvm.run_service_for_stdio(
+                    "qubes.VMShell", input=b"echo test"
+                )
+            )
+            self.assertEqual(stdout, b"test\n")
+        finally:
+            self.loop.run_until_complete(dispvm.cleanup())
+
+    def test_011_dvm_run_preload_reject_max(self):
+        """Test preloading when max has been reached"""
+        with self.assertRaises(qubes.exc.QubesException):
+            self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+            )
+
     def test_012_dvm_run_preload_low_mem(self):
         """Test preloading with low memory"""
         self.loop.run_until_complete(self._test_012_dvm_run_preload_low_mem())
@@ -348,6 +346,7 @@ class TC_20_DispVMMixin(object):
     async def _test_012_dvm_run_preload_low_mem(self):
         # pylint: disable=unspecified-encoding
         unpatched_open = open
+
         def mock_open_mem(file, *args, **kwargs):
             if file == qubes.config.qmemman_avail_mem_file:
                 memory = str(getattr(self.disp_base, "memory", 0) * 1024 * 1024)
@@ -362,11 +361,11 @@ class TC_20_DispVMMixin(object):
                 await asyncio.sleep(1)
             self.assertEqual(1, len(self.disp_base.get_feat_preload()))
 
-    def test_012_dvm_run_preload_gui(self):
+    def test_013_dvm_run_preload_gui(self):
         """Test preloading with GUI feature enabled"""
-        self.loop.run_until_complete(self._test_012_dvm_run_preload_gui())
+        self.loop.run_until_complete(self._test_013_dvm_run_preload_gui())
 
-    async def _test_012_dvm_run_preload_gui(self):
+    async def _test_013_dvm_run_preload_gui(self):
         self.disp_base.features["gui"] = True
         self.disp_base.features["preload-dispvm-max"] = "1"
         for _ in range(10):
@@ -375,13 +374,13 @@ class TC_20_DispVMMixin(object):
             await asyncio.sleep(1)
         else:
             self.fail("didn't preload in time")
-        await self._test_012_run_preload()
+        await self.run_preload()
 
-    def test_012_dvm_run_preload_nogui(self):
+    def test_014_dvm_run_preload_nogui(self):
         """Test preloading with GUI feature disabled"""
-        self.loop.run_until_complete(self._test_012_dvm_run_preload_nogui())
+        self.loop.run_until_complete(self._test_014_dvm_run_preload_nogui())
 
-    async def _test_012_dvm_run_preload_nogui(self):
+    async def _test_014_dvm_run_preload_nogui(self):
         self.disp_base.features["gui"] = False
         self.disp_base.features["preload-dispvm-max"] = "1"
         for _ in range(10):
@@ -391,13 +390,13 @@ class TC_20_DispVMMixin(object):
         else:
             self.fail("didn't preload in time")
         self.preload_cmd.insert(1, "--no-gui")
-        await self._test_012_run_preload()
+        await self.run_preload()
 
-    def test_012_dvm_run_preload_race_more(self):
+    def test_015_dvm_run_preload_race_more(self):
         """Test race requesting multiple preloaded qubes."""
-        self.loop.run_until_complete(self._test_012_dvm_run_preload_race_more())
+        self.loop.run_until_complete(self._test_015_dvm_run_preload_race_more())
 
-    async def _test_012_dvm_run_preload_race_more(self):
+    async def _test_015_dvm_run_preload_race_more(self):
         self.disp_base.features["preload-dispvm-max"] = "5"
         for _ in range(100):
             if len(self.disp_base.get_feat_preload()) == 5:
@@ -415,7 +414,7 @@ class TC_20_DispVMMixin(object):
         else:
             self.fail("last preloaded didn't pause in time")
         old_preload = self.disp_base.get_feat_preload()
-        tasks = [self._test_012_run_disp() for _ in range(5)]
+        tasks = [self.run_preload_proc() for _ in range(5)]
         targets = await asyncio.gather(*tasks)
         for _ in range(100):
             if len(self.disp_base.get_feat_preload()) == 5:
@@ -428,11 +427,11 @@ class TC_20_DispVMMixin(object):
         self.assertEqual(len(targets), 5)
         self.assertEqual(len(targets), len(set(targets)))
 
-    def test_012_dvm_run_preload_race_less(self):
+    def test_016_dvm_run_preload_race_less(self):
         """Test race requesting preloaded qube while the maximum is zeroed."""
-        self.loop.run_until_complete(self._test_012_dvm_run_preload_race_less())
+        self.loop.run_until_complete(self._test_016_dvm_run_preload_race_less())
 
-    async def _test_012_dvm_run_preload_race_less(self):
+    async def _test_016_dvm_run_preload_race_less(self):
         self.disp_base.features["preload-dispvm-max"] = "1"
         for _ in range(60):
             if len(self.disp_base.get_feat_preload()) == 1:
@@ -440,12 +439,12 @@ class TC_20_DispVMMixin(object):
             await asyncio.sleep(1)
         else:
             self.fail("didn't preload in time")
-        tasks = [self._test_012_run_disp(), self._test_012_no_preload()]
+        tasks = [self.run_preload_proc(), self.no_preload()]
         target = await asyncio.gather(*tasks)
         target_dispvm = target[0]
         self.assertTrue(target_dispvm.startswith("disp"))
 
-    def test_013_dvm_run_preload_autostart(self):
+    def test_017_dvm_run_preload_autostart(self):
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
@@ -466,7 +465,6 @@ class TC_20_DispVMMixin(object):
         )
         self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.loop.run_until_complete(proc.wait())
         self.assertEqual(len(old_preload), 1)
         self.assertEqual(len(preload_dispvm), 1)
         self.assertTrue(
