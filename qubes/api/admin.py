@@ -1311,9 +1311,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(dispvm_template=appvm)
         if preload_autostart:
-            asyncio.ensure_future(
-                appvm.fire_event_async("domain-preload-dispvm-autostart")
-            )
+            await appvm.fire_event_async("domain-preload-dispvm-autostart")
             return
         dispvm = await qubes.vm.dispvm.DispVM.from_appvm(appvm)
         # TODO: move this to extension (in race-free fashion, better than here)

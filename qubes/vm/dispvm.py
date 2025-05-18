@@ -205,6 +205,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def __init__(self, app, xml, *args, **kwargs):
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
+        self.preload_finished = asyncio.Event()
+        self.preload_requested = None
 
         if xml is None:
             assert template is not None
@@ -291,9 +293,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Returns True if qube is a preloaded disposable."""
         appvm = self.template
         preload_dispvm = appvm.get_feat_preload()
-        if self.name in preload_dispvm:
-            return True
-        if self.features.get("preload-dispvm-request", None):
+        if self.name in preload_dispvm or getattr(
+            self, "preload_requested", None
+        ):
             return True
         return False
 
@@ -306,11 +308,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preload:
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = self.template
-        if self.features.get("preload-dispvm-request", None):
+        if getattr(self, "preload_requested", None):
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
-            del self.features["preload-dispvm-request"]
+            self.preload_requested = None
+            self.fire_event("property-reset:is_preload", name="is_preload")
         else:
             # Happens when unpause/resume occurs without qube being requested.
             self.log.warning("Using a preloaded qube before requesting it")
@@ -375,12 +378,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "Error on Qrexec call to '%s' during preload startup" % service
             )
 
-        if self.is_preload:
-            if self.features.get("preload-dispvm-request", None):
-                self.features["preload-dispvm-skip-interrupt"] = True
-                self.use_preload()
-            else:
-                await self.pause()
+        if not getattr(self, "preload_requested", None):
+            await self.pause()
+        self.preload_finished.set()
 
     @qubes.events.handler("domain-paused")
     def on_domain_paused(
@@ -399,20 +399,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.is_preload and self.is_fully_usable():
             self.log.info("Unpaused preloaded qube will be marked as used")
             self.use_preload()
-
-    @qubes.events.handler("domain-feature-set:preload-dispvm-request")
-    def on_feature_set_preload_dispvm_request(
-        self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
-        """Reset the stateless property ``is_preload``."""
-        self.fire_event("property-reset:is_preload", name="is_preload")
-
-    @qubes.events.handler("domain-feature-delete:preload-dispvm-request")
-    def on_feature_delete_preload_dispvm_request(
-        self, event, feature
-    ):  # pylint: disable=unused-argument
-        """Reset the stateless property ``is_preload``."""
-        self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
@@ -496,31 +482,33 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not preload and (preload_dispvm := appvm.get_feat_preload()):
             dispvm = app.domains[preload_dispvm[0]]
             dispvm.log.info("Requesting preloaded qube")
-            # The feature "preload-dispvm-request" offloads "preload-dispvm"
-            # and thus avoids various race condition:
+            # The property "preload_requested" offloads "preload-dispvm" and
+            # thus avoids various race condition:
             # - Decreasing maximum feature will not remove the qube;
             # - Another request to this function will not return the same qube.
-            # As well help informing that unpause/resume was done before
-            # requesting the qube.
             appvm.remove_preload_from_list([dispvm.name])
-            dispvm.features["preload-dispvm-request"] = True
-            tries, sleep = 1200, 0.1
-            for _ in range(tries):
-                if dispvm.features.get(
-                    "preload-dispvm-skip-interrupt", None
-                ) or (paused := dispvm.is_paused()):
-                    if paused:
-                        await dispvm.unpause()
-                    app.save()
-                    return dispvm
-                await asyncio.sleep(sleep)
-            dispvm.log.warning(
-                "Requested preloaded qube but failed to finish preloading after"
-                " '%d' seconds, falling back to normal disposable",
-                int(tries * sleep),
-            )
-            if dispvm in app.domains:
-                asyncio.ensure_future(dispvm.cleanup())
+            dispvm.preload_requested = True
+            # TODO: ben: setter for "preload_requested" should fire the
+            # "property-reset:is_preload".
+            dispvm.fire_event("property-reset:is_preload", name="is_preload")
+            timeout = dispvm.qrexec_timeout * 1.2
+            try:
+                if not dispvm.is_paused():
+                    async with asyncio.timeout(timeout):
+                        await dispvm.preload_finished.wait()
+                    dispvm.use_preload()
+                else:
+                    await dispvm.unpause()
+                app.save()
+                return dispvm
+            except asyncio.TimeoutError:
+                dispvm.log.warning(
+                    "Requested preloaded qube but failed to finish preloading "
+                    "after '%d' seconds, falling back to normal disposable",
+                    int(timeout),
+                )
+                if dispvm in app.domains:
+                    asyncio.ensure_future(dispvm.cleanup())
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
