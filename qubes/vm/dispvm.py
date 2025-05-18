@@ -206,7 +206,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
         self.preload_finished = asyncio.Event()
-        self.preload_requested = None
 
         if xml is None:
             assert template is not None
@@ -309,9 +308,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Returns True if qube is a preloaded disposable."""
         appvm = self.template
         preload_dispvm = appvm.get_feat_preload()
-        if self.name in preload_dispvm or getattr(
-            self, "preload_requested", None
-        ):
+        if self.name in preload_dispvm or self.preload_requested:
             return True
         return False
 
@@ -324,13 +321,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preload:
             raise qubes.exc.QubesException("DispVM is not preloaded")
         appvm = self.template
-        if getattr(self, "preload_requested", None):
+        if self.preload_requested:
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             self.preload_requested = None
-            # TODO: ben: setter for "preload_requested" should fire.
-            #self.fire_event("property-reset:is_preload", name="is_preload")
         else:
             # Happens when unpause/resume occurs without qube being requested.
             self.log.warning("Using a preloaded qube before requesting it")
@@ -395,8 +390,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "Error on Qrexec call to '%s' during preload startup" % service
             )
 
-        if not getattr(self, "preload_requested", None):
+        if not self.preload_requested:
             await self.pause()
+        self.log.info("Preloading finished")
         self.preload_finished.set()
 
     @qubes.events.handler("domain-paused")
@@ -505,8 +501,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # - Another request to this function will not return the same qube.
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
-            # TODO: ben: setter for "preload_requested" should fire.
-            #dispvm.fire_event("property-reset:is_preload", name="is_preload")
             timeout = dispvm.qrexec_timeout * 1.2
             try:
                 if not dispvm.is_paused():
