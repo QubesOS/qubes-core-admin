@@ -288,6 +288,22 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.tags.update(template.tags)
 
+    @property
+    def preload_requested(self):
+        if not hasattr(self, "_preload_requested"):
+            return None
+        return self._preload_requested
+
+    @preload_requested.setter
+    def preload_requested(self, value):
+        self._preload_requested = value
+        self.fire_event("property-reset:is_preload", name="is_preload")
+
+    @preload_requested.deleter
+    def preload_requested(self):
+        del self._preload_requested
+        self.fire_event("property-reset:is_preload", name="is_preload")
+
     @qubes.stateless_property
     def is_preload(self) -> bool:
         """Returns True if qube is a preloaded disposable."""
@@ -313,7 +329,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             self.preload_requested = None
-            self.fire_event("property-reset:is_preload", name="is_preload")
+            # TODO: ben: setter for "preload_requested" should fire.
+            #self.fire_event("property-reset:is_preload", name="is_preload")
         else:
             # Happens when unpause/resume occurs without qube being requested.
             self.log.warning("Using a preloaded qube before requesting it")
@@ -488,9 +505,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # - Another request to this function will not return the same qube.
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
-            # TODO: ben: setter for "preload_requested" should fire the
-            # "property-reset:is_preload".
-            dispvm.fire_event("property-reset:is_preload", name="is_preload")
+            # TODO: ben: setter for "preload_requested" should fire.
+            #dispvm.fire_event("property-reset:is_preload", name="is_preload")
             timeout = dispvm.qrexec_timeout * 1.2
             try:
                 if not dispvm.is_paused():
