@@ -507,6 +507,7 @@ done
 %dir %{python3_sitelib}/qubes/tests/vm/mix/__pycache__
 %{python3_sitelib}/qubes/tests/vm/mix/__pycache__/*
 %{python3_sitelib}/qubes/tests/vm/mix/__init__.py
+%{python3_sitelib}/qubes/tests/vm/mix/dvmtemplate.py
 %{python3_sitelib}/qubes/tests/vm/mix/net.py
 
 %dir %{python3_sitelib}/qubes/tests/tools
@@ -555,6 +556,7 @@ done
 %{python3_sitelib}/qubes/qmemman/domainstate.py
 %{python3_sitelib}/qubes/qmemman/systemstate.py
 
+/usr/lib/qubes/preload-dispvm
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
@@ -565,6 +567,7 @@ done
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
+%{_unitdir}/qubes-preload-dispvm.service
 %attr(2770,root,qubes) %dir /var/lib/qubes
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms

@@ -18,13 +18,15 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" A disposable vm implementation """
+"""A disposable vm implementation"""
 
+import asyncio
 import copy
+import subprocess
 
-import qubes.vm.qubesvm
-import qubes.vm.appvm
 import qubes.config
+import qubes.vm.appvm
+import qubes.vm.qubesvm
 
 
 def _setter_template(self, prop, value):
@@ -39,7 +41,79 @@ def _setter_template(self, prop, value):
 
 
 class DispVM(qubes.vm.qubesvm.QubesVM):
-    """Disposable VM"""
+    """Disposable VM
+
+    Preloading
+    ----------
+    Preloaded disposables are started in the background and kept hidden from the
+    user when not in use. They are interrupted (paused or suspended, as
+    appropriate) and resumed (transparently) when a disposable qube is requested
+    by the user.
+
+    **Goals**:
+
+    - **Fast**: Usage must be always instantaneous from user perspective when
+      requesting the use of disposables. Pause/suspend must be skipped if qube
+      is requested before the interrupt can be performed.
+
+    - **Easy-to-use**: Preloading requires a single qube feature
+      (*preload-dispvm-max*), and its use must be transparent, indistinguishable
+      from working with normal (non-preloaded) unnamed disposable qubes.
+
+    - **Reliable**:
+
+      - Avoid race conditions: Marking a qube as preloaded or marking the
+        preloaded as used must be synchronous.
+
+      - Recovery from failed or incomplete preload: The system must attempt to
+        preload qubes even if previous preloading attempts failed due to errors
+        or lack of available memory, regardless of whether preloaded disposable
+        qubes have been requested on this instance. If current qube list is
+        invalid, it must be cleaned up.
+
+      - Avoid copy of invalid attributes: Qube operation (in particular cloning,
+        renaming or creating a standalone based on a template) must not result
+        in properties that are invalid on the target.
+
+      - Full start: Preloaded disposable must only be interrupted
+        (paused/suspended) or used after all basic services in it have been
+        started. Failure to complete this step must remove the qube from the
+        preload list.
+
+    - **Prevents accidental tampering**:
+
+      - Preloaded qubes have the *internal* feature set when they are created.
+        This feature hides the qube from GUI tools and discourages user
+        tampering. It is unset when the qube is marked as used. Remember to
+        validate if all GUI applications correctly react to setting and removing
+        the *internal* feature (optionally, the *is_preload* property can be
+        helpful). GUI applications may react to *domain-add* before the
+        *internal* feature is set and the qube entry may briefly appear on some
+        GUI applications, that is a bug because features cannot be set before
+        that event.
+
+      - Preloaded qubes must be marked as used after being unpaused/resumed,
+        even if it was not requested. The goal of pause/suspend in case of
+        preloaded disposables is mostly detecting whether a qube was used or
+        not, not managing resource consumption; thus, even with abundant system
+        resources, they should not be unpaused/resumed without being requested.
+
+    **Stages**:
+
+    - **Preload**: The qube is created and marked as preloaded. Qube is not
+      visible in GUI applications.
+
+      - **Startup**: Begins qube startup, start basic services in it and attempt
+        to interrupt (suspend/pause).
+
+      - **Request**: The qube is removed from the preload list. If *startup* has
+        not yet reached interrupt, the latter is skipped.
+
+    - **Used**: The qube is marked as used and may be unpaused/resumed (if
+      applicable). Only in this phase, GUI applications treat the qube as any
+      other unnamed disposable and the qube object is returned to the caller if
+      requested.
+    """
 
     template = qubes.VMProperty(
         "template",
@@ -184,13 +258,134 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
 
             self.firewall.clone(template.firewall)
-            self.features.update(template.features)
+            self.features.update(
+                [
+                    (key, value)
+                    for key, value in template.features.items()
+                    if not key.startswith("preload-dispvm")
+                ]
+            )
             self.tags.update(template.tags)
+
+    @qubes.stateless_property
+    def is_preload(self) -> bool:
+        """Returns True if qube is a preloaded disposable."""
+        appvm = self.template
+        preload_dispvm = appvm.get_feat_preload()
+        if self.name in preload_dispvm:
+            return True
+        if self.features.get("preload-dispvm-request", None):
+            return True
+        return False
+
+    def use_preload(self):
+        """
+        Marks preloaded DispVM as used (tainted).
+
+        :return:
+        """
+        if not self.is_preload:
+            raise qubes.exc.QubesException("DispVM is not preloaded")
+        appvm = self.template
+        if self.features.get("preload-dispvm-request", None):
+            self.log.info("Using preloaded qube")
+            if not appvm.features.get("internal", None):
+                del self.features["internal"]
+            del self.features["preload-dispvm-request"]
+        else:
+            # Happens when unpause/resume occurs without qube being requested.
+            self.log.warning("Using a preloaded qube before requesting it")
+            if not appvm.features.get("internal", None):
+                del self.features["internal"]
+            appvm.remove_preload_from_list([self.name])
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
+        )
 
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
         """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
         assert self.template
+
+    @qubes.events.handler("domain-start")
+    async def on_domain_started_dispvm(
+        self,
+        event,
+        **kwargs,
+    ):  # pylint: disable=unused-argument
+        """
+        Awaits for basic services to be started on preloaded domains and
+        interrupts the domain if the qube has not been requested yet.
+        """
+        if not self.is_preload:
+            return
+        timeout = self.qrexec_timeout
+        # https://github.com/QubesOS/qubes-issues/issues/9964
+        rpc = "qubes.WaitForRunningSystem"
+        path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
+        service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+        try:
+            self.log.info(
+                "Waiting for '%s' with timeout of '%d' seconds",
+                service,
+                timeout,
+            )
+            await asyncio.wait_for(
+                self.run(
+                    service,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            raise qubes.exc.QubesException(
+                "Timed out call to '%s' after '%d' seconds during preload "
+                "startup" % (service, timeout)
+            )
+        except (subprocess.CalledProcessError, qubes.exc.QubesException):
+            raise qubes.exc.QubesException(
+                "Error on call to '%s' during preload startup" % service
+            )
+
+        if self.is_preload:
+            if self.features.get("preload-dispvm-request", None):
+                self.features["preload-dispvm-skip-interrupt"] = True
+                self.use_preload()
+            else:
+                await self.pause()
+
+    @qubes.events.handler("domain-paused")
+    def on_domain_paused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        """Log preloaded domains when paused."""
+        if self.is_preload:
+            self.log.info("Paused preloaded qube")
+
+    @qubes.events.handler("domain-unpaused")
+    def on_domain_unpaused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        """Mark preloaded disposables as used."""
+        # Qube start triggers unpause via 'libvirt_domain.resume()'.
+        if self.is_preload and self.is_fully_usable():
+            self.log.info("Unpaused preloaded qube will be marked as used")
+            self.use_preload()
+
+    @qubes.events.handler("domain-feature-set:preload-dispvm-request")
+    def on_feature_set_preload_dispvm_request(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        """Reset the stateless property ``is_preload``."""
+        self.fire_event("property-reset:is_preload", name="is_preload")
+
+    @qubes.events.handler("domain-feature-delete:preload-dispvm-request")
+    def on_feature_delete_preload_dispvm_request(
+        self, event, feature
+    ):  # pylint: disable=unused-argument
+        """Reset the stateless property ``is_preload``."""
+        self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
@@ -218,21 +413,26 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     async def on_domain_shutdown(
         self, _event, **_kwargs
     ):  # pylint: disable=invalid-overridden-method
+        """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
         """Do auto cleanup if enabled"""
+        if self.name in self.template.get_feat_preload():
+            self.log.info("Automatic cleanup removes qube from preload list")
+            self.template.remove_preload_from_list([self.name])
         if self.auto_cleanup and self in self.app.domains:
             del self.app.domains[self]
             await self.remove_from_disk()
             self.app.save()
 
     @classmethod
-    async def from_appvm(cls, appvm, **kwargs):
+    async def from_appvm(cls, appvm, preload=False, **kwargs):
         """Create a new instance from given AppVM
 
         :param qubes.vm.appvm.AppVM appvm: template from which the VM should \
             be created
+        :param bool preload: Whether to preload a disposable
         :returns: new disposable vm
 
         *kwargs* are passed to the newly created VM
@@ -243,7 +443,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         >>> dispvm.cleanup()
 
         This method modifies :file:`qubes.xml` file.
-        The qube returned is not started.
+        The qube returned is not started unless the ``preload`` argument is
+        ``True``.
         """
         if not getattr(appvm, "template_for_dispvms", False):
             raise qubes.exc.QubesException(
@@ -251,10 +452,63 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "template_for_dispvms=False"
             )
         app = appvm.app
+
+        if preload and not appvm.can_preload():
+            raise qubes.exc.QubesException(
+                "Failed to create preloaded disposable, limit of "
+                "preloaded DispVMs reached"
+            )
+
+        if not preload and appvm.can_preload():
+            # Not necessary to await for this event as its intent is to fill
+            # gaps and not relevant for this run.
+            asyncio.ensure_future(
+                appvm.fire_event_async("domain-preload-dispvm-start")
+            )
+
+        if not preload and (preload_dispvm := appvm.get_feat_preload()):
+            dispvm = app.domains[preload_dispvm[0]]
+            dispvm.log.info("Requesting preloaded qube")
+            # The feature "preload-dispvm-request" offloads "preload-dispvm"
+            # and thus avoids various race condition:
+            # - Decreasing maximum feature will not remove the qube;
+            # - Another request to this function will not return the same qube.
+            # As well help informing that unpause/resume was done before
+            # requesting the qube.
+            appvm.remove_preload_from_list([dispvm.name])
+            dispvm.features["preload-dispvm-request"] = True
+            sleep = 0.1
+            tries = int(dispvm.qrexec_timeout * 1.2 / sleep)
+            for _ in range(tries):
+                if dispvm.features.get(
+                    "preload-dispvm-skip-interrupt", None
+                ) or (paused := dispvm.is_paused()):
+                    if paused:
+                        await dispvm.unpause()
+                    app.save()
+                    return dispvm
+                await asyncio.sleep(sleep)
+            dispvm.log.warning(
+                "Requested preloaded qube but failed to finish preloading after"
+                " '%d' seconds, falling back to normal disposable",
+                int(tries * sleep),
+            )
+            if dispvm in app.domains:
+                asyncio.ensure_future(dispvm.cleanup())
+
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
         )
+
+        if preload:
+            dispvm.log.info("Marking preloaded qube")
+            preload_dispvm = appvm.get_feat_preload()
+            preload_dispvm.append(dispvm.name)
+            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+            dispvm.features["internal"] = True
         await dispvm.create_on_disk()
+        if preload:
+            await dispvm.start()
         app.save()
         return dispvm
 
@@ -288,6 +542,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await super().start(**kwargs)
         except:
             # Cleanup also on failed startup
+            try:
+                await self.kill()
+            except qubes.exc.QubesVMNotStartedError:
+                pass
             await self._auto_cleanup()
             raise
 
