@@ -177,6 +177,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         ) as mock_domains:
             mock_qube = mock.Mock()
             mock_qube.template = self.appvm
+            mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
+            mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
+            mock_qube.preload_complete.is_set.return_value = True
+            mock_qube.preload_complete.set = self.mock_coro
+            mock_qube.preload_complete.clear = self.mock_coro
+            mock_qube.preload_complete.wait = self.mock_coro
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),

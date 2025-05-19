@@ -756,12 +756,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "memory",
         type=int,
         setter=_setter_positive_int,
+        # fmt: off
         default=_default_with_template(
             "memory",
             lambda self: qubes.config.defaults[
-                ("hvm_memory" if self.virt_mode == "hvm" else "memory")  # type: ignore
+                (
+                    "hvm_memory"  # type: ignore
+                    if self.virt_mode == "hvm"
+                    else "memory"
+                )
             ],
         ),
+        # fmt: on
         doc="Memory currently available for this VM. TemplateBasedVMs use its "
         "template's value by default.",
     )

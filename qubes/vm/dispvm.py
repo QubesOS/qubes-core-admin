@@ -205,7 +205,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def __init__(self, app, xml, *args, **kwargs):
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
-        self.preload_finished = asyncio.Event()
+        self.preload_complete = asyncio.Event()
 
         if xml is None:
             assert template is not None
@@ -393,7 +393,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.preload_requested:
             await self.pause()
         self.log.info("Preloading finished")
-        self.preload_finished.set()
+        self.features["preload-dispvm-complete"] = True
+        self.preload_complete.set()
 
     @qubes.events.handler("domain-paused")
     def on_domain_paused(
@@ -499,16 +500,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # thus avoids various race condition:
             # - Decreasing maximum feature will not remove the qube;
             # - Another request to this function will not return the same qube.
+            # TODO: ben: survive or clean on qubesd restart
+            # 1. Preload is being created but creation stops
+            # 2. Preload is being requested but delivery stops
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
-            timeout = dispvm.qrexec_timeout * 1.2
+            timeout = int(dispvm.qrexec_timeout * 1.2)
             try:
-                if not dispvm.is_paused():
+                if not dispvm.features.get("preload-dispvm-complete", False):
+                    dispvm.log.info(
+                        "Waiting preload completion with timeout of '%s' "
+                        "seconds",
+                        timeout,
+                    )
                     async with asyncio.timeout(timeout):
-                        await dispvm.preload_finished.wait()
-                    dispvm.use_preload()
-                else:
+                        await dispvm.preload_complete.wait()
+                if dispvm.is_paused():
                     await dispvm.unpause()
+                else:
+                    dispvm.use_preload()
                 app.save()
                 return dispvm
             except asyncio.TimeoutError:
