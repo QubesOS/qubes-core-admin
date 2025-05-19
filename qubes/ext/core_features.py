@@ -108,9 +108,11 @@ class CoreFeatures(qubes.ext.Extension):
         # handle boot mode advertisement
         old_bootmode_info = {}
         for feature_key, feature_val in vm.features.items():
-            if feature_key.startswith(
-                "boot-mode.kernelopts."
-            ) or feature_key.startswith("boot-mode.name."):
+            if (
+                feature_key.startswith("boot-mode.kernelopts.")
+                or feature_key.startswith("boot-mode.name.")
+                or feature_key.startswith("boot-mode.default-user.")
+            ):
                 old_bootmode_info[feature_key] = feature_val
         new_bootmode_info = {}
         new_bootmode_names = []
@@ -136,18 +138,26 @@ class CoreFeatures(qubes.ext.Extension):
             untrusted_feature_key,
             untrusted_feature_value,
         ) in untrusted_features.items():
-            if untrusted_feature_key.startswith("boot-mode.name."):
-                bootmode_key_parts = untrusted_feature_key.split(".")
-                if len(bootmode_key_parts) != 3:
-                    # Boot mode key contains unexpected data, reject it
-                    continue
-                bootmode_name = bootmode_key_parts[2]
-                if bootmode_name == "":
-                    continue
+            if not untrusted_feature_key.startswith("boot-mode."):
+                continue
+            bootmode_key_parts = untrusted_feature_key.split(".")
+            if len(bootmode_key_parts) != 3:
+                # Boot mode key contains unexpected data, reject it
+                continue
+            bootmode_name = bootmode_key_parts[2]
+            if bootmode_name == "":
+                continue
+            if (
+                f"boot-mode.kernelopts.{bootmode_name}" not in new_bootmode_info
+            ) and bootmode_name != "default":
+                continue
+            if untrusted_feature_key.startswith(
+                "boot-mode.name."
+            ) or untrusted_feature_key.startswith("boot-mode.default-user."):
                 if (
-                    f"boot-mode.kernelopts.{bootmode_name}"
-                    not in new_bootmode_info
-                ) and bootmode_name != "default":
+                    untrusted_feature_key.startswith("boot-mode.default-user.")
+                    and bootmode_name == "default"
+                ):
                     continue
                 bootmode_feature = untrusted_feature_key
                 bootmode_value = untrusted_feature_value

@@ -1587,6 +1587,95 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ],
         )
 
+    def test_056_bootmode_default_user(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "boot-mode.name.vmreq": "VMReq",
+                    "boot-mode.kernelopts.vmreq": "vmreq1 vmreq2",
+                    "boot-mode.default-user.vmreq": "altuser",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.vmreq", "vmreq1 vmreq2"),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.name.vmreq", "VMReq"),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.default-user.vmreq", "altuser"),
+                    {},
+                ),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
+    def test_056_bootmode_default_user_mismatch(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "boot-mode.name.vmreq": "VMReq",
+                    "boot-mode.kernelopts.vmreq": "vmreq1 vmreq2",
+                    "boot-mode.default-user.nope": "altuser",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.vmreq", "vmreq1 vmreq2"),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.name.vmreq", "VMReq"),
+                    {},
+                ),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
+    def test_057_bootmode_default_user_default_bootmode(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "boot-mode.default-user.default": "altuser",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
     def test_100_servicevm_feature(self):
         self.vm.provides_network = True
         self.ext.set_servicevm_feature(self.vm)

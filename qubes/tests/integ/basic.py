@@ -513,6 +513,30 @@ qvm-features-request boot-mode.appvm-default=mode2
         else:
             self.assertIn("opt1=val1", cmdline)
 
+    async def _test_bootmode_default_user(self, vm):
+        await vm.start()
+        await vm.run_for_stdio(
+            "cat > /etc/qubes/post-install.d/50-test.sh",
+            input=b"""#!/bin/sh
+
+qvm-features-request boot-mode.kernelopts.defuser="opt2"
+qvm-features-request boot-mode.name.defuser="Mode with default user"
+qvm-features-request boot-mode.default-user.defuser="altuser"
+qvm-features-request boot-mode.active="defuser"
+         """,
+            user="root",
+        )
+        await vm.run_for_stdio("useradd -m altuser", user="root")
+        await vm.run_for_stdio(
+            "chmod +x " "/etc/qubes/post-install.d/50-test.sh", user="root"
+        )
+        await vm.run_service_for_stdio("qubes.PostInstall", user="root")
+        await vm.shutdown(wait=True)
+
+        await vm.start()
+        user_id = (await vm.run_for_stdio("id -un"))[0].decode()
+        self.assertEqual(user_id.strip(), "altuser")
+
     def test_210_bootmode_template(self):
         self.test_template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM,
@@ -550,6 +574,20 @@ qvm-features-request boot-mode.appvm-default=mode2
         )
         self.app.save()
         self.loop.run_until_complete(self._test_bootmode(self.vm, self.vm))
+
+    def test_212_bootmode_default_user(self):
+        self.vm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("vm"),
+            label="red",
+        )
+        self.vm.clone_properties(self.app.default_template)
+        self.vm.features.update(self.app.default_template.features)
+        self.loop.run_until_complete(
+            self.vm.clone_disk_files(self.app.default_template)
+        )
+        self.app.save()
+        self.loop.run_until_complete(self._test_bootmode_default_user(self.vm))
 
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
