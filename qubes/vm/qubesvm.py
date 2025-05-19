@@ -1807,7 +1807,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         name = self.name + "-dm" if stubdom else self.name
 
         if user is None:
-            user = self.default_user
+            user = self.get_default_user()
 
         if self.is_paused():
             # XXX what about autostart?
@@ -1876,7 +1876,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """  # pylint: disable=redefined-builtin
 
         if user is None:
-            user = self.default_user
+            user = self.get_default_user()
 
         return await asyncio.create_subprocess_exec(
             qubes.config.system_path["qrexec_client_path"],
@@ -2106,7 +2106,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 "--",
                 str(self.xid),
                 self.name,
-                self.default_user,
+                self.get_default_user(),
             ]
 
         if not self.debug:
@@ -2273,6 +2273,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     #
 
     # state of the machine
+
+    def get_default_user(self):
+        """Return a user account name suitable for use as a default user.
+
+        Usually returns the value of the default_user property, but also
+        allows boot modes to override the default user.
+        """
+        if self.bootmode == "default":
+            return self.default_user
+        bootmode_default_user = self.features.check_with_template(
+            f"boot-mode.default-user.{self.bootmode}", None
+        )
+        if bootmode_default_user is None:
+            return self.default_user
+        return bootmode_default_user
 
     def get_power_state(self):
         """Return power state description string.
@@ -2726,7 +2741,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.untrusted_qdb.write("/name", self.name)
         self.untrusted_qdb.write("/type", self.__class__.__name__)
-        self.untrusted_qdb.write("/default-user", self.default_user)
+        self.untrusted_qdb.write("/default-user", self.get_default_user())
         self.untrusted_qdb.write("/qubes-vm-updateable", str(self.updateable))
         self.untrusted_qdb.write(
             "/qubes-vm-persistence", "full" if self.updateable else "rw-only"

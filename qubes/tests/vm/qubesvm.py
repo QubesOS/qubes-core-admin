@@ -3232,3 +3232,25 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(vm.bootmode, "testmode3")
         del vm.template.features["boot-mode.kernelopts.testmode3"]
         self.assertEqual(vm.bootmode, "default")
+
+    def test_812_bootmode_default_user(self):
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM)
+        vm.template = self.get_vm(cls=qubes.vm.templatevm.TemplateVM)
+        vm.bootmode = qubes.property.DEFAULT
+        self.assertEqual(vm.get_default_user(), "user")
+        vm.features["boot-mode.kernelopts.testmode1"] = "abc def"
+        vm.features["boot-mode.default-user.testmode1"] = "altuser"
+        vm.features["boot-mode.active"] = "testmode1"
+        self.assertEqual(vm.get_default_user(), "altuser")
+        del vm.features["boot-mode.default-user.testmode1"]
+        self.assertEqual(vm.get_default_user(), "user")
+        vm.features["boot-mode.default-user.testmode1"] = "altuser"
+        del vm.features["boot-mode.kernelopts.testmode1"]
+        self.assertEqual(vm.get_default_user(), "user")
+        del vm.features["boot-mode.default-user.testmode1"]
+        vm.template.features["boot-mode.kernelopts.testmode2"] = "ghi jkl"
+        vm.template.features["boot-mode.default-user.testmode2"] = "altuser2"
+        vm.features["boot-mode.active"] = "testmode2"
+        self.assertEqual(vm.get_default_user(), "altuser2")
+        del vm.features["boot-mode.active"]
+        self.assertEqual(vm.get_default_user(), "user")
