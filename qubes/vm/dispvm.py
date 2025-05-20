@@ -296,11 +296,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @preload_requested.setter
     def preload_requested(self, value):
         self._preload_requested = value
+        self.features["preload-dispvm-requested"] = value
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @preload_requested.deleter
     def preload_requested(self):
         del self._preload_requested
+        del self.features["preload-dispvm-requested"]
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.stateless_property
@@ -332,6 +334,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             appvm.remove_preload_from_list([self.name])
+        self.features["preload-dispvm-used"] = True
         asyncio.ensure_future(
             appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
         )
@@ -366,7 +369,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             service = '$(PATH="' + path + '" command -v ' + rpc + ")"
         try:
             self.log.info(
-                "Waiting '%s' with timeout of '%d' seconds", service, timeout
+                "Waiting '%s' with '%d' seconds timeout", service, timeout
             )
             runner = self.run_service_for_stdio if gui else self.run_for_stdio
             await asyncio.wait_for(
@@ -480,6 +483,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
         app = appvm.app
 
+        appvm.remove_preload_excess()
+
         if preload and not appvm.can_preload():
             raise qubes.exc.QubesException(
                 "Failed to create preloaded disposable, limit of "
@@ -500,17 +505,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # thus avoids various race condition:
             # - Decreasing maximum feature will not remove the qube;
             # - Another request to this function will not return the same qube.
-            # TODO: ben: survive or clean on qubesd restart
-            # 1. Preload is being created but creation stops
-            # 2. Preload is being requested but delivery stops
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
             timeout = int(dispvm.qrexec_timeout * 1.2)
             try:
                 if not dispvm.features.get("preload-dispvm-complete", False):
                     dispvm.log.info(
-                        "Waiting preload completion with timeout of '%s' "
-                        "seconds",
+                        "Waiting preload completion with '%s' seconds timeout",
                         timeout,
                     )
                     async with asyncio.timeout(timeout):
@@ -522,6 +523,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 app.save()
                 return dispvm
             except asyncio.TimeoutError:
+                # qubesd restart can prevent preloading to complete,
+                # unfortunately, it takes the whole timeout.
                 dispvm.log.warning(
                     "Requested preloaded qube but failed to finish preloading "
                     "after '%d' seconds, falling back to normal disposable",
@@ -536,6 +539,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         if preload:
             dispvm.log.info("Marking preloaded qube")
+            dispvm.preload_begin = True
             preload_dispvm = appvm.get_feat_preload()
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])

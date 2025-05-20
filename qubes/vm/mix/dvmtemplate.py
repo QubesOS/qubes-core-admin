@@ -88,8 +88,29 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if max_preload is None:
             max_preload = self.get_feat_preload_max()
         old_preload = self.get_feat_preload()
+
+        # TODO: ben: check if this function is fast enough.
+
+        # Qubesd restart: Preloading was requested but not delivered.
+        preload_delivery_incomplete = [
+            qube
+            for qube in self.app.domains
+            if getattr(qube, "template", None) == self
+            and qube.features.get("preload-dispvm-requested", False)
+            and not qube.preload_requested
+            and not qube.features.get("preload-dispvm-used", False)
+        ]
+        if preload_delivery_incomplete:
+            self.log.info(
+                "Removing incomplete preload qube(s) delivery: '%s'",
+                ", ".join(preload_delivery_incomplete),
+            )
+            for dispvm in preload_delivery_incomplete:
+                asyncio.ensure_future(dispvm.cleanup())
+
         if not old_preload:
             return
+
         new_preload = old_preload[:max_preload]
         if excess := old_preload[max_preload:]:
             self.log.info(
@@ -101,6 +122,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 if unwanted_disp in self.app.domains:
                     dispvm = self.app.domains[unwanted_disp]
                     asyncio.ensure_future(dispvm.cleanup())
+
         clean_preload = new_preload.copy()
         for unwanted_disp in new_preload:
             if unwanted_disp not in self.app.domains:
@@ -111,6 +133,25 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 ", ".join(absent),
             )
             self.features["preload-dispvm"] = " ".join(clean_preload or [])
+
+        # Qubesd restart: Preloading began but didn't finish.
+        preload_creation_incomplete = [
+            qube
+            for qube in self.get_feat_preload()
+            if not getattr(self.app.domains[qube], "preload_begin", False)
+            and not self.app.domains[qube].features.get(
+                "preload-dispvm-complete", False
+            )
+        ]
+        if preload_creation_incomplete:
+            self.log.info(
+                "Removing incomplete preload qube(s) creation from preloaded "
+                "list: '%s'",
+                ", ".join(preload_creation_incomplete),
+            )
+            self.remove_preload_from_list(preload_creation_incomplete)
+            for dispvm in preload_creation_incomplete:
+                asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
