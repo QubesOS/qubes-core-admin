@@ -310,7 +310,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @preload_requested.setter
     def preload_requested(self, value):
         self._preload_requested = value
-        self.features["preload-dispvm-requested"] = value
+        if value:
+            self.features["preload-dispvm-requested"] = value
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @preload_requested.deleter
@@ -460,16 +461,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
-    async def _auto_cleanup(self):
-        """Do auto cleanup if enabled"""
-        if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
-            self.template.remove_preload_from_list([self.name])
-        if self.auto_cleanup and self in self.app.domains:
-            del self.app.domains[self]
-            await self.remove_from_disk()
-            self.app.save()
-
     @classmethod
     async def from_appvm(cls, appvm, preload=False, **kwargs):
         """Create a new instance from given AppVM
@@ -535,8 +526,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 app.save()
                 return dispvm
             except asyncio.TimeoutError:
-                # qubesd restart can prevent preloading to complete,
-                # unfortunately, it takes the whole timeout.
                 dispvm.log.warning(
                     "Requested preloaded qube but failed to finish preloading "
                     "after '%d' seconds, falling back to normal disposable",
@@ -562,6 +551,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         app.save()
         return dispvm
 
+    async def _bare_cleanup(self):
+        if self in self.app.domains:
+            del self.app.domains[self]
+            await self.remove_from_disk()
+            self.app.save()
+
     async def cleanup(self):
         """Clean up after the DispVM
 
@@ -571,16 +566,22 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            pass
-        # if auto_cleanup is set, this will be done automatically
+            self._bare_cleanup()
+        # This will be done automatically if event 'domain-shutdown' is
+        # triggered and 'auto_cleanup' evaluates to 'True'.
         if not self.auto_cleanup:
-            del self.app.domains[self]
-            await self.remove_from_disk()
-            self.app.save()
+            await self._bare_cleanup()
+
+    async def _auto_cleanup(self):
+        """Do auto cleanup if enabled"""
+        if self.name in self.template.get_feat_preload():
+            self.log.info("Automatic cleanup removes qube from preload list")
+            self.template.remove_preload_from_list([self.name])
+        if self.auto_cleanup and self in self.app.domains:
+            await self._bare_cleanup()
 
     async def start(self, **kwargs):
         # pylint: disable=arguments-differ
-
         try:
             # sanity check, if template_for_dispvm got changed in the meantime
             if not self.template.template_for_dispvms:
@@ -588,15 +589,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     "template for DispVM ({}) needs to have "
                     "template_for_dispvms=True".format(self.template.name)
                 )
-
             await super().start(**kwargs)
         except:
             # Cleanup also on failed startup
             try:
                 await self.kill()
             except qubes.exc.QubesVMNotStartedError:
-                pass
-            await self._auto_cleanup()
+                await self._auto_cleanup()
             raise
 
     def create_qdb_entries(self):
