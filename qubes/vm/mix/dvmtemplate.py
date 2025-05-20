@@ -134,7 +134,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 [qube.name for qube in preload_creation_incomplete]
             )
             for dispvm in preload_creation_incomplete:
-                dispvm.auto_cleanup = False
                 asyncio.ensure_future(dispvm.cleanup())
 
         # Preloading was requested but qubesd restarted and qube was not used.
@@ -152,7 +151,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 ", ".join(preload_delivery_incomplete),
             )
             for dispvm in preload_delivery_incomplete:
-                dispvm.auto_cleanup = False
                 asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
