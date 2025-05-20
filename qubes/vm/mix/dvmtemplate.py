@@ -89,8 +89,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
             max_preload = self.get_feat_preload_max()
         old_preload = self.get_feat_preload()
 
-        # TODO: ben: check if this function is fast enough.
-
         # Qubesd restart: Preloading was requested but not delivered.
         preload_delivery_incomplete = [
             qube
@@ -136,18 +134,18 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
         # Qubesd restart: Preloading began but didn't finish.
         preload_creation_incomplete = [
-            qube
+            self.app.domains[qube]
             for qube in self.get_feat_preload()
-            if not getattr(self.app.domains[qube], "preload_begin", False)
+            if not getattr(self.app.domains[qube], "preload_began", False)
             and not self.app.domains[qube].features.get(
-                "preload-dispvm-complete", False
+                "preload-dispvm-completed", False
             )
         ]
         if preload_creation_incomplete:
             self.log.info(
                 "Removing incomplete preload qube(s) creation from preloaded "
                 "list: '%s'",
-                ", ".join(preload_creation_incomplete),
+                ", ".join(map(str, preload_creation_incomplete)),
             )
             self.remove_preload_from_list(preload_creation_incomplete)
             for dispvm in preload_creation_incomplete:

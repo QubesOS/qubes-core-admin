@@ -243,6 +243,7 @@ class TC_20_DispVMMixin(object):
         dispvm = appvm.get_feat_preload()[0]
         dispvm = self.app.domains[dispvm]
         self.assertTrue(dispvm.is_preload)
+        self.assertTrue(dispvm.preload_began)
         self.assertTrue(dispvm.features.get("internal", False))
         appvm.add_handler(
             "domain-preload-dispvm-autostart", self._test_event_handler
@@ -256,15 +257,15 @@ class TC_20_DispVMMixin(object):
         dispvm.add_handler("domain-paused", self._test_event_handler)
         dispvm.add_handler("domain-unpaused", self._test_event_handler)
         dispvm.add_handler(
-            "domain-feature-set:preload-dispvm-request",
+            "domain-feature-set:preload-dispvm-completed",
             self._test_event_handler,
         )
         dispvm.add_handler(
-            "domain-feature-delete:preload-dispvm-request",
+            "domain-feature-set:preload-dispvm-requested",
             self._test_event_handler,
         )
         dispvm.add_handler(
-            "domain-feature-set:preload-dispvm-skip-interrupt",
+            "domain-feature-set:preload-dispvm-used",
             self._test_event_handler,
         )
         dispvm.add_handler(
@@ -290,20 +291,15 @@ class TC_20_DispVMMixin(object):
         )
         self.assertTrue(
             self._test_event_was_handled(
-                dispvm_name, "domain-feature-set:preload-dispvm-request"
+                dispvm_name, "domain-feature-set:preload-dispvm-completed"
             )
         )
         self.assertTrue(
             self._test_event_was_handled(
-                dispvm_name, "domain-feature-delete:preload-dispvm-request"
+                dispvm_name, "domain-feature-set:preload-dispvm-requested"
             )
         )
-        if not self._test_event_was_handled(
-            dispvm_name, "domain-feature-set:preload-dispvm-skip-interrupt"
-        ):
-            self.assertTrue(
-                self._test_event_was_handled(dispvm_name, "domain-paused")
-            )
+        if self._test_event_was_handled(dispvm_name, "domain-paused"):
             self.assertTrue(
                 self._test_event_was_handled(dispvm_name, "domain-unpaused")
             )
@@ -313,6 +309,11 @@ class TC_20_DispVMMixin(object):
                     dispvm_name, "domain-feature-delete:internal"
                 )
             )
+        self.assertTrue(
+            self._test_event_was_handled(
+                dispvm_name, "domain-feature-set:preload-dispvm-used"
+            )
+        )
         next_preload_list = appvm.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)

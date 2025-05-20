@@ -76,10 +76,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         preloaded as used must be synchronous.
 
       - Recovery from failed or incomplete preload: The system must attempt to
-        preload qubes even if previous preloading attempts failed due to errors
-        or lack of available memory, regardless of whether preloaded disposable
-        qubes have been requested on this instance. If current qube list is
-        invalid, it must be cleaned up.
+        preload qubes even if previous preloading attempts failed due to errors,
+        qubesd restart or lack of available memory, regardless of whether
+        preloaded disposable qubes have been requested on this instance. If
+        current qube list is invalid, it must be cleaned up before being used.
 
       - Avoid copy of invalid attributes: Qube operation (in particular cloning,
         renaming or creating a standalone based on a template) must not result
@@ -108,6 +108,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         whether a qube was used or not, and not managing resource consumption;
         thus, even with abundant system resources, they should not be
         unpaused/resumed without being requested.
+
+    **Features and properties relationship on stages**:
+
+    - Properties indicate the runtime stage of preloaded qubes and intentionally
+      lost on qubesd restart.
+    - Features indicate that a preloaded qube has reached certain stage at any
+      qubesd cycle.
+    - Comparing the value of certain features and properties can indicate that
+      there were qubes being preloaded or requested but qubesd restarted between
+      the stages, interrupting the process.
+    - Example: a qube that has the `preload_began` property set to `False`
+      but has its name in its template preloaded list, it is an anomaly. If the
+      qube does not have the feature `preload-dispvm-complete`, the preloading
+      stage was interrupted and the qube must be removed.
 
     **Stages**:
 
@@ -396,7 +410,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.preload_requested:
             await self.pause()
         self.log.info("Preloading finished")
-        self.features["preload-dispvm-complete"] = True
+        self.features["preload-dispvm-completed"] = True
         self.preload_complete.set()
 
     @qubes.events.handler("domain-paused")
@@ -509,7 +523,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             dispvm.preload_requested = True
             timeout = int(dispvm.qrexec_timeout * 1.2)
             try:
-                if not dispvm.features.get("preload-dispvm-complete", False):
+                if not dispvm.features.get("preload-dispvm-completed", False):
                     dispvm.log.info(
                         "Waiting preload completion with '%s' seconds timeout",
                         timeout,
@@ -539,7 +553,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         if preload:
             dispvm.log.info("Marking preloaded qube")
-            dispvm.preload_begin = True
+            dispvm.preload_began = True
             preload_dispvm = appvm.get_feat_preload()
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
