@@ -155,7 +155,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 dispvm.auto_cleanup = False
                 asyncio.ensure_future(dispvm.cleanup())
 
-
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
         self, event, feature

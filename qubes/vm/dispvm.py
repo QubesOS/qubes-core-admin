@@ -566,7 +566,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            self._bare_cleanup()
+            await self._bare_cleanup()
         # This will be done automatically if event 'domain-shutdown' is
         # triggered and 'auto_cleanup' evaluates to 'True'.
         if not self.auto_cleanup:
