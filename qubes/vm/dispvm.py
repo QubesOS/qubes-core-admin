@@ -497,8 +497,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
         app = appvm.app
 
-        appvm.remove_preload_excess()
-
         if preload and not appvm.can_preload():
             raise qubes.exc.QubesException(
                 "Failed to create preloaded disposable, limit of "
