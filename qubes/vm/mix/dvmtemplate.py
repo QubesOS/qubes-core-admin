@@ -51,7 +51,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):  # pylint: disable=unused-argument
         """Cleanup invalid preloaded qubes when domain is loaded."""
-        # Preloading began but host rebooted and autostart event didn't run yet.
+        # Preloading began and host rebooted and autostart event didn't run yet.
         old_preload = self.get_feat_preload()
         clean_preload = old_preload.copy()
         for unwanted_disp in old_preload:
@@ -64,38 +64,22 @@ class DVMTemplateMixin(qubes.events.Emitter):
             )
             self.features["preload-dispvm"] = " ".join(clean_preload or [])
 
-        # Preloading began but qubesd restarted before preloading completed.
-        preload_creation_incomplete = [
-            self.app.domains[qube]
-            for qube in self.get_feat_preload()
-            if not self.app.domains[qube].features.get(
-                "preload-dispvm-completed", False
-            )
-        ]
-        if preload_creation_incomplete:
-            self.log.info(
-                "Removing incomplete preloaded qube(s) creation: '%s'",
-                ", ".join(map(str, preload_creation_incomplete)),
-            )
-            self.remove_preload_from_list(
-                [qube.name for qube in preload_creation_incomplete]
-            )
-            for dispvm in preload_creation_incomplete:
-                asyncio.ensure_future(dispvm.cleanup())
-
-        # Preloading was requested but qubesd restarted and qube was not used.
-        preload_delivery_incomplete = [
+        # Preloading was in progress (either preloading but not completed or
+        # requested but not delivered) and qubesd stopped.
+        preload_in_progress = [
             qube
             for qube in self.dispvms
-            if qube.features.get("preload-dispvm-requested", False)
-            and not qube.features.get("preload-dispvm-used", False)
+            if qube.features.get("preload-dispvm-in-progress", False)
         ]
-        if preload_delivery_incomplete:
+        if preload_in_progress:
             self.log.info(
-                "Removing incomplete preload qube(s) delivery: '%s'",
-                ", ".join(preload_delivery_incomplete),
+                "Removing in progress preloaded qube(s): '%s'",
+                ", ".join(map(str, preload_in_progress)),
             )
-            for dispvm in preload_delivery_incomplete:
+            self.remove_preload_from_list(
+                [qube.name for qube in preload_in_progress]
+            )
+            for dispvm in preload_in_progress:
                 asyncio.ensure_future(dispvm.cleanup())
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")

@@ -260,11 +260,11 @@ class TC_20_DispVMMixin(object):
             self._test_event_handler,
         )
         dispvm.add_handler(
-            "domain-feature-set:preload-dispvm-requested",
+            "domain-feature-set:preload-dispvm-in-progress",
             self._test_event_handler,
         )
         dispvm.add_handler(
-            "domain-feature-set:preload-dispvm-used",
+            "domain-feature-delete:preload-dispvm-in-progress",
             self._test_event_handler,
         )
         dispvm.add_handler(
@@ -295,7 +295,12 @@ class TC_20_DispVMMixin(object):
         )
         self.assertTrue(
             self._test_event_was_handled(
-                dispvm_name, "domain-feature-set:preload-dispvm-requested"
+                dispvm_name, "domain-feature-set:preload-dispvm-in-progress"
+            )
+        )
+        self.assertTrue(
+            self._test_event_was_handled(
+                dispvm_name, "domain-feature-delete:preload-dispvm-in-progress"
             )
         )
         if self._test_event_was_handled(dispvm_name, "domain-paused"):
@@ -308,11 +313,6 @@ class TC_20_DispVMMixin(object):
                     dispvm_name, "domain-feature-delete:internal"
                 )
             )
-        self.assertTrue(
-            self._test_event_was_handled(
-                dispvm_name, "domain-feature-set:preload-dispvm-used"
-            )
-        )
         next_preload_list = appvm.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)

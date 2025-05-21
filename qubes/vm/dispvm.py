@@ -308,14 +308,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @preload_requested.setter
     def preload_requested(self, value):
         self._preload_requested = value
-        if value:
-            self.features["preload-dispvm-requested"] = value
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @preload_requested.deleter
     def preload_requested(self):
         del self._preload_requested
-        del self.features["preload-dispvm-requested"]
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.stateless_property
@@ -387,6 +384,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await self.pause()
         self.log.info("Preloading finished")
         self.features["preload-dispvm-completed"] = True
+        if not self.preload_requested:
+            self.features["preload-dispvm-in-progress"] = False
+        self.app.save()
         self.preload_complete.set()
 
     @qubes.events.handler("domain-paused")
@@ -483,6 +483,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # thus avoids various race condition:
             # - Decreasing maximum feature will not remove the qube;
             # - Another request to this function will not return the same qube.
+            dispvm.features["preload-dispvm-in-progress"] = True
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
             app.save()
@@ -516,6 +517,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         if preload:
             dispvm.log.info("Marking preloaded qube")
+            dispvm.features["preload-dispvm-in-progress"] = True
             preload_dispvm = appvm.get_feat_preload()
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
@@ -541,13 +543,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             self.preload_requested = None
+            del self.features["preload-dispvm-in-progress"]
         else:
             # Happens when unpause/resume occurs without qube being requested.
             self.log.warning("Using a preloaded qube before requesting it")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             appvm.remove_preload_from_list([self.name])
-        self.features["preload-dispvm-used"] = True
+            self.features["preload-dispvm-in-progress"] = False
+        self.app.save()
         asyncio.ensure_future(
             appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
         )
