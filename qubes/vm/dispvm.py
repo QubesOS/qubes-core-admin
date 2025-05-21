@@ -508,8 +508,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     "after '%d' seconds, falling back to normal disposable",
                     int(timeout),
                 )
-                if dispvm in app.domains:
-                    asyncio.ensure_future(dispvm.cleanup())
+                asyncio.ensure_future(dispvm.cleanup())
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
@@ -558,12 +557,16 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
     async def _bare_cleanup(self):
         """Cleanup bare DispVM objects."""
-        if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
-            self.template.remove_preload_from_list([self.name])
         if self in self.app.domains:
             del self.app.domains[self]
             await self.remove_from_disk()
+            self.app.save()
+
+    def _preload_cleanup(self):
+        """Cleanup preload from list"""
+        if self.name in self.template.get_feat_preload():
+            self.log.info("Automatic cleanup removes qube from preload list")
+            self.template.remove_preload_from_list([self.name])
 
     async def cleanup(self):
         """Clean up after the DispVM
@@ -571,19 +574,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
         """
+        if self not in self.app.domains:
+            return
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            await self._bare_cleanup()
+            pass
         # This will be done automatically if event 'domain-shutdown' is
         # triggered and 'auto_cleanup' evaluates to 'True'.
         if not self.auto_cleanup:
-            await self._bare_cleanup()
+            self._preload_cleanup()
+            if self in self.app.domains:
+                await self._bare_cleanup()
 
     async def _auto_cleanup(self):
         """Do auto cleanup if enabled"""
-        if self.auto_cleanup and self in self.app.domains:
-            await self._bare_cleanup()
+        if self.auto_cleanup:
+            self._preload_cleanup()
+            if self in self.app.domains:
+                await self._bare_cleanup()
 
     async def start(self, **kwargs):
         # pylint: disable=arguments-differ
@@ -600,7 +609,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             try:
                 await self.kill()
             except qubes.exc.QubesVMNotStartedError:
-                await self._auto_cleanup()
+                pass
+            await self._auto_cleanup()
             raise
 
     def create_qdb_entries(self):
