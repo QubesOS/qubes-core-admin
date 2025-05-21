@@ -51,6 +51,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):  # pylint: disable=unused-argument
         """Cleanup invalid preloaded qubes when domain is loaded."""
+        changes = False
         # Preloading began and host rebooted and autostart event didn't run yet.
         old_preload = self.get_feat_preload()
         clean_preload = old_preload.copy()
@@ -58,6 +59,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             if unwanted_disp not in self.app.domains:
                 clean_preload.remove(unwanted_disp)
         if absent := list(set(old_preload) - set(clean_preload)):
+            changes = True
             self.log.info(
                 "Removing absent preloaded qube(s): '%s'",
                 ", ".join(absent),
@@ -72,6 +74,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             if qube.features.get("preload-dispvm-in-progress", False)
         ]
         if preload_in_progress:
+            changes = True
             self.log.info(
                 "Removing in progress preloaded qube(s): '%s'",
                 ", ".join(map(str, preload_in_progress)),
@@ -81,6 +84,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
             )
             for dispvm in preload_in_progress:
                 asyncio.ensure_future(dispvm.cleanup())
+        if changes:
+            self.app.save()
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
