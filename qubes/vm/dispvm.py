@@ -117,11 +117,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
       qubesd cycle.
     - Comparing the value of certain features and properties can indicate that
       there were qubes being preloaded or requested but qubesd restarted between
-      the stages, interrupting the process.
-    - Example: a qube that has the `preload_began` property set to `False`
-      but has its name in its template preloaded list, it is an anomaly. If the
-      qube does not have the feature `preload-dispvm-complete`, the preloading
-      stage was interrupted and the qube must be removed.
+      the stages, interrupting the process. The only stage that should conserve
+      the preloaded qubes is a qubes that has completed preloading but has not
+      been requested.
 
     **Stages**:
 
@@ -329,31 +327,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return True
         return False
 
-    def use_preload(self):
-        """
-        Marks preloaded DispVM as used (tainted).
-
-        :return:
-        """
-        if not self.is_preload:
-            raise qubes.exc.QubesException("DispVM is not preloaded")
-        appvm = self.template
-        if self.preload_requested:
-            self.log.info("Using preloaded qube")
-            if not appvm.features.get("internal", None):
-                del self.features["internal"]
-            self.preload_requested = None
-        else:
-            # Happens when unpause/resume occurs without qube being requested.
-            self.log.warning("Using a preloaded qube before requesting it")
-            if not appvm.features.get("internal", None):
-                del self.features["internal"]
-            appvm.remove_preload_from_list([self.name])
-        self.features["preload-dispvm-used"] = True
-        asyncio.ensure_future(
-            appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
-        )
-
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
         """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
@@ -432,6 +405,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Unpaused preloaded qube will be marked as used")
             self.use_preload()
 
+    @qubes.events.handler("domain-shutdown")
+    async def on_domain_shutdown(
+        self, _event, **_kwargs
+    ):  # pylint: disable=invalid-overridden-method
+        """Do auto cleanup if enabled"""
+        await self._auto_cleanup()
+
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
         """Forbid deleting template of VM"""  # pylint: disable=unused-argument
@@ -453,13 +433,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         on template change.
         """  # pylint: disable=unused-argument
         qubes.vm.appvm.template_changed_update_storage(self)
-
-    @qubes.events.handler("domain-shutdown")
-    async def on_domain_shutdown(
-        self, _event, **_kwargs
-    ):  # pylint: disable=invalid-overridden-method
-        """Do auto cleanup if enabled"""
-        await self._auto_cleanup()
 
     @classmethod
     async def from_appvm(cls, appvm, preload=False, **kwargs):
@@ -510,6 +483,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # - Another request to this function will not return the same qube.
             appvm.remove_preload_from_list([dispvm.name])
             dispvm.preload_requested = True
+            app.save()
             timeout = int(dispvm.qrexec_timeout * 1.2)
             try:
                 if not dispvm.features.get("preload-dispvm-completed", False):
@@ -540,22 +514,50 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         if preload:
             dispvm.log.info("Marking preloaded qube")
-            dispvm.preload_began = True
             preload_dispvm = appvm.get_feat_preload()
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
             dispvm.features["internal"] = True
+            app.save()
         await dispvm.create_on_disk()
         if preload:
             await dispvm.start()
         app.save()
         return dispvm
 
+    def use_preload(self):
+        """
+        Marks preloaded DispVM as used (tainted).
+
+        :return:
+        """
+        if not self.is_preload:
+            raise qubes.exc.QubesException("DispVM is not preloaded")
+        appvm = self.template
+        if self.preload_requested:
+            self.log.info("Using preloaded qube")
+            if not appvm.features.get("internal", None):
+                del self.features["internal"]
+            self.preload_requested = None
+        else:
+            # Happens when unpause/resume occurs without qube being requested.
+            self.log.warning("Using a preloaded qube before requesting it")
+            if not appvm.features.get("internal", None):
+                del self.features["internal"]
+            appvm.remove_preload_from_list([self.name])
+        self.features["preload-dispvm-used"] = True
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
+        )
+
     async def _bare_cleanup(self):
+        """Cleanup bare DispVM objects."""
+        if self.name in self.template.get_feat_preload():
+            self.log.info("Automatic cleanup removes qube from preload list")
+            self.template.remove_preload_from_list([self.name])
         if self in self.app.domains:
             del self.app.domains[self]
             await self.remove_from_disk()
-            self.app.save()
 
     async def cleanup(self):
         """Clean up after the DispVM
@@ -574,9 +576,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
     async def _auto_cleanup(self):
         """Do auto cleanup if enabled"""
-        if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
-            self.template.remove_preload_from_list([self.name])
         if self.auto_cleanup and self in self.app.domains:
             await self._bare_cleanup()
 

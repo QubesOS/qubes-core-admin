@@ -39,64 +39,14 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
-    def get_feat_preload(self) -> list[str]:
-        """Get the ``preload-dispvm`` feature as a list."""
-        feature = "preload-dispvm"
-        assert isinstance(self, qubes.vm.BaseVM)
-        value = self.features.get(feature, "")
-        return value.split(" ") if value else []
-
-    def get_feat_preload_max(self) -> int:
-        """Get the ``preload-dispvm-max`` feature as an integer."""
-        feature = "preload-dispvm-max"
-        assert isinstance(self, qubes.vm.BaseVM)
-        value = self.features.get(feature, 0)
-        return int(value) if value else 0
-
-    def can_preload(self) -> bool:
-        """Returns ``True`` if there is preload vacancy."""
-        preload_dispvm_max = self.get_feat_preload_max()
-        preload_dispvm = self.get_feat_preload()
-        if len(preload_dispvm) < preload_dispvm_max:
-            return True
-        return False
-
-    def remove_preload_from_list(self, disposables: list[str]) -> None:
-        """Removes list of preload qubes from the list.
-
-        :param disposables: disposable names to remove from the preloaded list.
+    @property
+    def dispvms(self):
+        """Returns a generator containing all Disposable VMs based on the
+        current AppVM.
         """
-        assert isinstance(self, qubes.vm.BaseVM)
-        old_preload = self.get_feat_preload()
-        preload_dispvm = [
-            qube for qube in old_preload if qube not in disposables
-        ]
-        if dispose := list(set(old_preload) - set(preload_dispvm)):
-            self.log.info(
-                "Removing qube(s) from preloaded list: '%s'",
-                ", ".join(dispose),
-            )
-            self.features["preload-dispvm"] = " ".join(preload_dispvm or [])
-
-    def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
-        """Removes preloaded qubes that exceeds the maximum."""
-        assert isinstance(self, qubes.vm.BaseVM)
-        if max_preload is None:
-            max_preload = self.get_feat_preload_max()
-        old_preload = self.get_feat_preload()
-        if not old_preload:
-            return
-        new_preload = old_preload[:max_preload]
-        if excess := old_preload[max_preload:]:
-            self.log.info(
-                "Removing excess qube(s) from preloaded list: '%s'",
-                ", ".join(excess),
-            )
-            self.features["preload-dispvm"] = " ".join(new_preload or [])
-            for unwanted_disp in excess:
-                if unwanted_disp in self.app.domains:
-                    dispvm = self.app.domains[unwanted_disp]
-                    asyncio.ensure_future(dispvm.cleanup())
+        for vm in self.app.domains:
+            if getattr(vm, "template", None) == self:
+                yield vm
 
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):  # pylint: disable=unused-argument
@@ -109,7 +59,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 clean_preload.remove(unwanted_disp)
         if absent := list(set(old_preload) - set(clean_preload)):
             self.log.info(
-                "Removing absent qube(s) from preloaded list: '%s'",
+                "Removing absent preloaded qube(s): '%s'",
                 ", ".join(absent),
             )
             self.features["preload-dispvm"] = " ".join(clean_preload or [])
@@ -118,16 +68,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
         preload_creation_incomplete = [
             self.app.domains[qube]
             for qube in self.get_feat_preload()
-            if qube in self.app.domains
-            and not getattr(self.app.domains[qube], "preload_began", False)
-            and not self.app.domains[qube].features.get(
+            if not self.app.domains[qube].features.get(
                 "preload-dispvm-completed", False
             )
         ]
         if preload_creation_incomplete:
             self.log.info(
-                "Removing incomplete preload qube(s) creation from preloaded "
-                "list: '%s'",
+                "Removing incomplete preloaded qube(s) creation: '%s'",
                 ", ".join(map(str, preload_creation_incomplete)),
             )
             self.remove_preload_from_list(
@@ -140,9 +87,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         preload_delivery_incomplete = [
             qube
             for qube in self.dispvms
-            if getattr(qube, "template", None) == self
-            and qube.features.get("preload-dispvm-requested", False)
-            and not qube.preload_requested
+            if qube.features.get("preload-dispvm-requested", False)
             and not qube.features.get("preload-dispvm-used", False)
         ]
         if preload_delivery_incomplete:
@@ -352,11 +297,61 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
                 )
 
-    @property
-    def dispvms(self):
-        """Returns a generator containing all Disposable VMs based on the
-        current AppVM.
+    def get_feat_preload(self) -> list[str]:
+        """Get the ``preload-dispvm`` feature as a list."""
+        feature = "preload-dispvm"
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, "")
+        return value.split(" ") if value else []
+
+    def get_feat_preload_max(self) -> int:
+        """Get the ``preload-dispvm-max`` feature as an integer."""
+        feature = "preload-dispvm-max"
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.get(feature, 0)
+        return int(value) if value else 0
+
+    def can_preload(self) -> bool:
+        """Returns ``True`` if there is preload vacancy."""
+        preload_dispvm_max = self.get_feat_preload_max()
+        preload_dispvm = self.get_feat_preload()
+        if len(preload_dispvm) < preload_dispvm_max:
+            return True
+        return False
+
+    def remove_preload_from_list(self, disposables: list[str]) -> None:
+        """Removes list of preload qubes from the list.
+
+        :param disposables: disposable names to remove from the preloaded list.
         """
-        for vm in self.app.domains:
-            if getattr(vm, "template", None) == self:
-                yield vm
+        assert isinstance(self, qubes.vm.BaseVM)
+        old_preload = self.get_feat_preload()
+        preload_dispvm = [
+            qube for qube in old_preload if qube not in disposables
+        ]
+        if dispose := list(set(old_preload) - set(preload_dispvm)):
+            self.log.info(
+                "Removing qube(s) from preloaded list: '%s'",
+                ", ".join(dispose),
+            )
+            self.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+
+    def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
+        """Removes preloaded qubes that exceeds the maximum."""
+        assert isinstance(self, qubes.vm.BaseVM)
+        if max_preload is None:
+            max_preload = self.get_feat_preload_max()
+        old_preload = self.get_feat_preload()
+        if not old_preload:
+            return
+        new_preload = old_preload[:max_preload]
+        if excess := old_preload[max_preload:]:
+            self.log.info(
+                "Removing excess qube(s) from preloaded list: '%s'",
+                ", ".join(excess),
+            )
+            self.features["preload-dispvm"] = " ".join(new_preload or [])
+            for unwanted_disp in excess:
+                if unwanted_disp in self.app.domains:
+                    dispvm = self.app.domains[unwanted_disp]
+                    asyncio.ensure_future(dispvm.cleanup())
