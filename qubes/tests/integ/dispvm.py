@@ -235,8 +235,12 @@ class TC_20_DispVMMixin(object):
             *self.preload_cmd,
             stdout=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
-        return stdout.decode()
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
+            return stdout.decode()
+        except asyncio.TimeoutError:
+            proc.terminate()
+            raise
 
     async def run_preload(self):
         appvm = self.disp_base
@@ -393,19 +397,19 @@ class TC_20_DispVMMixin(object):
         await self.run_preload()
 
     def test_015_dvm_run_preload_race_more(self):
-        """Test race requesting multiple preloaded qubes."""
+        """Test race requesting multiple preloaded qubes"""
         self.loop.run_until_complete(self._test_015_dvm_run_preload_race_more())
 
     async def _test_015_dvm_run_preload_race_more(self):
-        self.disp_base.features["preload-dispvm-max"] = "5"
+        preload_max = 5
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         for _ in range(100):
-            if len(self.disp_base.get_feat_preload()) == 5:
+            if len(self.disp_base.get_feat_preload()) == preload_max:
                 break
             await asyncio.sleep(1)
         else:
             self.fail("didn't preload in time")
-
-        last_disp_name = self.disp_base.get_feat_preload()[4]
+        last_disp_name = self.disp_base.get_feat_preload()[preload_max - 1]
         last_disp = self.app.domains[last_disp_name]
         for _ in range(50):
             if last_disp.is_paused():
@@ -414,17 +418,17 @@ class TC_20_DispVMMixin(object):
         else:
             self.fail("last preloaded didn't pause in time")
         old_preload = self.disp_base.get_feat_preload()
-        tasks = [self.run_preload_proc() for _ in range(5)]
+        tasks = [self.run_preload_proc() for _ in range(preload_max)]
         targets = await asyncio.gather(*tasks)
         for _ in range(100):
-            if len(self.disp_base.get_feat_preload()) == 5:
+            if len(self.disp_base.get_feat_preload()) == preload_max:
                 break
             await asyncio.sleep(1)
         else:
             self.fail("didn't preload again in time")
         preload_dispvm = self.disp_base.get_feat_preload()
         self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
-        self.assertEqual(len(targets), 5)
+        self.assertEqual(len(targets), preload_max)
         self.assertEqual(len(targets), len(set(targets)))
 
     def test_016_dvm_run_preload_race_less(self):
