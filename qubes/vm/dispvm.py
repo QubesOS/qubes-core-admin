@@ -357,7 +357,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             service = '$(PATH="' + path + '" command -v ' + rpc + ")"
         try:
             self.log.info(
-                "Waiting '%s' with '%d' seconds timeout", service, timeout
+                "Preload startup waiting '%s' with '%d' seconds timeout",
+                service,
+                timeout,
             )
             runner = self.run_service_for_stdio if gui else self.run_for_stdio
             await asyncio.wait_for(

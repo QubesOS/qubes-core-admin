@@ -95,7 +95,11 @@ class GUI(qubes.ext.Extension):
 
         vm.untrusted_qdb.write(
             "/qubes-gui-enabled",
-            str(bool(getattr(vm, "guivm", None) and vm.features.get("gui", True))),
+            str(
+                bool(
+                    getattr(vm, "guivm", None) and vm.features.get("gui", True)
+                )
+            ),
         )
         # Add GuiVM Xen ID for gui-daemon
         if getattr(vm, "guivm", None):

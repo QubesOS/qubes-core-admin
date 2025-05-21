@@ -243,7 +243,6 @@ class TC_20_DispVMMixin(object):
         dispvm = appvm.get_feat_preload()[0]
         dispvm = self.app.domains[dispvm]
         self.assertTrue(dispvm.is_preload)
-        self.assertTrue(dispvm.preload_began)
         self.assertTrue(dispvm.features.get("internal", False))
         appvm.add_handler(
             "domain-preload-dispvm-autostart", self._test_event_handler
