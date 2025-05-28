@@ -41,6 +41,8 @@ class GrubBase(object):
             supported = True
         elif self.template.startswith("debian-"):
             supported = True
+        elif self.template.startswith("archlinux"):
+            supported = True
         if not supported:
             self.skipTest(
                 "Template {} not supported by this test".format(self.template)
@@ -76,6 +78,12 @@ class GrubBase(object):
                 cmd_install1 += " dracut"
                 cmd_install2 += " && dracut -f"
             cmd_update_grub = "mkdir -p /boot/grub && update-grub2"
+        elif self.template.startswith("archlinux"):
+            cmd_install1 = (
+                "pacman -S --noconfirm linux grub && grub-install /dev/xvda"
+            )
+            cmd_install2 = "pacman -S --noconfirm qubes-vm-kernel-support"
+            cmd_update_grub = "grub-mkconfig -o /boot/grub/grub.cfg"
         else:
             assert False, "Unsupported template?!"
 
@@ -101,6 +109,11 @@ class GrubBase(object):
             cmd_get_kernel_version = (
                 "dpkg-query --showformat='${Package}\\n' --show "
                 "'linux-image-*-amd64'|sort -V|tail -1|cut -d - -f 3-"
+            )
+        elif self.template.startswith("archlinux"):
+            cmd_get_kernel_version = (
+                "pacman -Q linux|sort -V|tail -1|cut -d ' ' -f 2"
+                "|sed 's/\.arch/-arch/'"
             )
         else:
             raise RuntimeError("Unsupported template?!")
@@ -224,6 +237,13 @@ class TC_40_PVGrub(GrubBase):
             # (see grub_file_filter_id enum in grub sources)
             self.skipTest(
                 "Fedora kernel is compressed with zstd "
+                "which is not supported by pvgrub2"
+            )
+        if "archlinux" in self.template:
+            # requires a zstd decompression filter in grub
+            # (see grub_file_filter_id enum in grub sources)
+            self.skipTest(
+                "Archlinux kernel is compressed with zstd "
                 "which is not supported by pvgrub2"
             )
         super().setUp()
