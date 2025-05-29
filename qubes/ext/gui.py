@@ -93,6 +93,14 @@ class GUI(qubes.ext.Extension):
             except KeyError:
                 pass
 
+        vm.untrusted_qdb.write(
+            "/qubes-gui-enabled",
+            str(
+                bool(
+                    getattr(vm, "guivm", None) and vm.features.get("gui", True)
+                )
+            ),
+        )
         # Add GuiVM Xen ID for gui-daemon
         if getattr(vm, "guivm", None):
             if vm != vm.guivm:
@@ -129,6 +137,10 @@ class GUI(qubes.ext.Extension):
             domain for domain in self.attached_vms(vm) if domain.is_running()
         ]
         for attached_vm in attached_vms:
+            attached_vm.untrusted_qdb.write(
+                "/qubes-gui-enabled",
+                str(bool(attached_vm.features.get("gui", True))),
+            )
             attached_vm.untrusted_qdb.write(
                 "/qubes-gui-domain-xid", str(vm.xid)
             )

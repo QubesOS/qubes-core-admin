@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -303,10 +304,14 @@ def demo(verbosity=2):
     return runner.run(suite).wasSuccessful()
 
 
+epilog = """\
+When running only specific tests, write their names like in the log format:
+MODULE+"/"+CLASS+"/"+FUNCTION.
+Example: qubes.tests.basic/TC_00_Basic/test_000_create
+"""
+
 parser = argparse.ArgumentParser(
-    epilog="""When running only specific tests, write their names like in log,
-        in format: MODULE+"/"+CLASS+"/"+FUNCTION. MODULE should omit initial
-        "qubes.tests.". Example: basic/TC_00_Basic/test_000_create"""
+    formatter_class=argparse.RawDescriptionHelpFormatter, epilog=epilog
 )
 
 parser.add_argument(
