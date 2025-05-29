@@ -475,7 +475,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             kill_cmd = "pkill --signal SIGINT parecord"
         record = self.loop.run_until_complete(self.testvm1.run(record_cmd))
         # give it time to start recording
-        self.loop.run_until_complete(asyncio.sleep(0.5))
+        self.loop.run_until_complete(asyncio.sleep(2))
 
         # play sound that will be used as source-output
         play_cmd = [
