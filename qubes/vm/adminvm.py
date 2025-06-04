@@ -347,3 +347,45 @@ class AdminVM(LocalVM):
             )
 
         return stdouterr
+
+    @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
+    def on_feature_delete_preload_dispvm_max(
+        self, event, feature
+    ):  # pylint: disable=unused-argument
+        appvm = getattr(self, "default_dispvm", None)
+        if not appvm:
+            return
+        appvm.preload_max_ignore_global = True
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-start")
+        )
+
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
+    def on_feature_pre_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        appvm = getattr(self, "default_dispvm", None)
+        if not appvm:
+            return
+        appvm.fire_event(
+            "domain-feature-pre-set:preload-dispvm-max",
+            pre_event=True,
+            feature="preload-dispvm-max",
+            value=value,
+            oldvalue=oldvalue,
+        )
+
+    @qubes.events.handler("domain-feature-set:preload-dispvm-max")
+    def on_feature_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        appvm = getattr(self, "default_dispvm", None)
+        if not appvm:
+            return
+        appvm.preload_max_ignore_global = False
+        appvm.fire_event(
+            "domain-feature-set:preload-dispvm-max",
+            feature="preload-dispvm-max",
+            value=value,
+            oldvalue=oldvalue,
+        )

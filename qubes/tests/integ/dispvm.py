@@ -198,6 +198,8 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(self.disp_base.create_on_disk())
         self.app.default_dispvm = self.disp_base
         self.app.save()
+        if "preload-dispvm-max" in self.app.domains["dom0"].features:
+            del self.app.domains["dom0"].features["preload-dispvm-max"]
         self.preload_cmd = [
             "qvm-run",
             "-p",

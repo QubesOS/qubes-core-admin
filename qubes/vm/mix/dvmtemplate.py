@@ -91,6 +91,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_delete_preload_dispvm_max(
         self, event, feature
     ):  # pylint: disable=unused-argument
+        if (
+            self == getattr(self, "default_dispvm", None)
+            and "preload-dispvm-max" in self.app.domains["dom0"].features
+        ):
+            return
         self.remove_preload_excess(0)
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
@@ -294,11 +299,22 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return value.split(" ") if value else []
 
     def get_feat_preload_max(self) -> int:
-        """Get the ``preload-dispvm-max`` feature as an integer."""
+        """Get the ``preload-dispvm-max`` feature as an integer.
+
+        :param global_feat: ignore global setting.
+        """
         feature = "preload-dispvm-max"
         assert isinstance(self, qubes.vm.BaseVM)
-        value = self.features.get(feature, 0)
-        return int(value) if value else 0
+        default_dispvm = getattr(self.app, "default_dispvm", None)
+        value = None
+        if not getattr(self, "preload_max_ignore_global", False):
+            if self == default_dispvm:
+                global_features = self.app.domains["dom0"].features
+                if feature in global_features:
+                    value = global_features.get(feature) or 0
+        if value is None:
+            value = self.features.get(feature) or 0
+        return int(value)
 
     def can_preload(self) -> bool:
         """Returns ``True`` if there is preload vacancy."""

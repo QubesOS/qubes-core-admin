@@ -1732,9 +1732,12 @@ class Qubes(qubes.PropertyHolder):
                     "property-reset:netvm", name="netvm", oldvalue=oldvalue
                 )
 
-    @qubes.events.handler("property-set:default_dispvm")
+    @qubes.events.handler(
+        "property-set:default_dispvm",
+        "property-reset:default_dispvm",
+    )
     def on_property_set_default_dispvm(
-        self, event, name, newvalue, oldvalue=None
+        self, event, name, newvalue=None, oldvalue=None
     ):
         # pylint: disable=unused-argument
         for vm in self.domains:
@@ -1748,6 +1751,25 @@ class Qubes(qubes.PropertyHolder):
                     name="default_dispvm",
                     oldvalue=oldvalue,
                 )
+
+        if not newvalue:
+            newvalue = self.default_dispvm
+        if newvalue == oldvalue:
+            return
+        old_appvm = None
+        appvm = None
+        if oldvalue:
+            old_appvm = self.domains[oldvalue]
+        if newvalue:
+            appvm = self.domains[newvalue]
+            appvm.preload_max_ignore_global = False
+        if oldvalue and not newvalue:
+            old_appvm.preload_max_ignore_global = True
+        fire_appvm = [qube for qube in [appvm, old_appvm] if qube is not None]
+        for qube in fire_appvm:
+            asyncio.ensure_future(
+                qube.fire_event_async("domain-preload-dispvm-start")
+            )
 
     @qubes.events.handler("property-pre-set:default_kernel")
     # pylint: disable-next=invalid-name
