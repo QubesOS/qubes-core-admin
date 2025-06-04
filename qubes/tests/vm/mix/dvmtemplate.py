@@ -34,12 +34,16 @@ import qubes.vm.mix.dvmtemplate
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
         super(TestApp, self).__init__()
-        self.qid_counter = 1
+        self.qid_counter = 0
 
     def add_new_vm(self, cls, **kwargs):
         qid = self.qid_counter
-        self.qid_counter += 1
-        vm = cls(self, None, qid=qid, **kwargs)
+        if self.qid_counter == 0:
+            self.qid_counter += 1
+            vm = cls(self, None, **kwargs)
+        else:
+            self.qid_counter += 1
+            vm = cls(self, None, qid=qid, **kwargs)
         self.domains[vm.name] = vm
         self.domains[vm] = vm
         return vm
@@ -60,6 +64,8 @@ class TC_00_DVMTemplateMixin(
             name="linux-kernel"
         )
         self.app.vmm.offline_mode = True
+        self.adminvm = self.app.add_new_vm(qubes.vm.adminvm.AdminVM)
+        self.addCleanup(self.cleanup_adminvm)
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
@@ -70,14 +76,23 @@ class TC_00_DVMTemplateMixin(
             label="red",
         )
         self.appvm.template_for_dispvms = True
+        self.appvm.features["qrexec"] = True
+        self.appvm.features["gui"] = False
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         self.app.domains[self.appvm.name] = self.appvm
         self.app.domains[self.appvm] = self.appvm
+        self.app.default_dispvm = self.appvm
         self.addCleanup(self.cleanup_dispvm)
         self.emitter = qubes.tests.TestEmitter()
 
     def tearDown(self):
+        self.app.default_dispvm = None
         del self.emitter
         super(TC_00_DVMTemplateMixin, self).tearDown()
+
+    def cleanup_adminvm(self):
+        self.adminvm.close()
+        del self.adminvm
 
     def cleanup_dispvm(self):
         if hasattr(self, "dispvm"):
@@ -94,9 +109,6 @@ class TC_00_DVMTemplateMixin(
         pass
 
     def test_010_dvm_preload_get_max(self):
-        self.appvm.features["qrexec"] = True
-        self.appvm.features["gui"] = False
-        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         cases = [
             (None, 0),
             (False, 0),
@@ -128,6 +140,22 @@ class TC_00_DVMTemplateMixin(
                 with self.assertRaises(qubes.exc.QubesValueError):
                     self.appvm.features["preload-dispvm-max"] = value
 
+        # Global setting from now on.
+        if "preload-dispvm-max" in self.adminvm.features:
+            del self.adminvm.features["preload-dispvm-max"]
+        self.appvm.features["preload-dispvm-max"] = "1"
+        self.assertEqual(self.appvm.get_feat_global_preload_max(), None)
+        self.assertEqual(self.appvm.get_feat_preload_max(), 1)
+
+        self.adminvm.features["preload-dispvm-max"] = ""
+        self.appvm.features["preload-dispvm-max"] = "1"
+        self.assertEqual(self.appvm.get_feat_global_preload_max(), 0)
+        self.assertEqual(self.appvm.get_feat_preload_max(), 0)
+
+        self.app.default_dispvm = None
+        self.assertEqual(self.appvm.get_feat_global_preload_max(), 0)
+        self.assertEqual(self.appvm.get_feat_preload_max(), 1)
+
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
@@ -137,9 +165,6 @@ class TC_00_DVMTemplateMixin(
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_makedirs.return_value.create.side_effect = self.mock_coro
         mock_symlink.return_value.create.side_effect = self.mock_coro
-        self.appvm.features["qrexec"] = True
-        self.appvm.features["gui"] = False
-        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         self.assertEqual(self.appvm.get_feat_preload(), [])
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
@@ -187,9 +212,6 @@ class TC_00_DVMTemplateMixin(
                     )
 
     def test_010_dvm_preload_can(self):
-        self.appvm.features["qrexec"] = True
-        self.appvm.features["gui"] = False
-        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         self.assertFalse(self.appvm.can_preload())
         self.appvm.features["preload-dispvm-max"] = 1
         cases = [
@@ -206,3 +228,25 @@ class TC_00_DVMTemplateMixin(
                 self.appvm.features["preload-dispvm-max"] = preload_max
                 self.appvm.features["preload-dispvm"] = preload_list
                 self.assertEqual(self.appvm.can_preload(), expected_value)
+
+    @mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.remove_preload_excess"
+    )
+    def test_011_dvm_preload_del_max(self, mock_remove_preload_excess):
+        self.appvm.features["preload-dispvm-max"] = ""
+        self.adminvm.features["preload-dispvm-max"] = ""
+        del self.appvm.features["preload-dispvm-max"]
+        mock_remove_preload_excess.assert_not_called()
+
+        del self.adminvm.features["preload-dispvm-max"]
+        self.appvm.features["preload-dispvm-max"] = ""
+        del self.appvm.features["preload-dispvm-max"]
+        mock_remove_preload_excess.assert_called_once_with(0)
+
+    @mock.patch("qubes.events.Emitter.fire_event_async")
+    def test_012_dvm_preload_set_max(self, mock_events):
+        mock_events.side_effect = self.mock_coro
+        self.appvm.features["preload-dispvm-max"] = "1"
+        mock_events.assert_called_once_with(
+            "domain-preload-dispvm-start", reason=mock.ANY
+        )
