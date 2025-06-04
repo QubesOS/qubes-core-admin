@@ -212,7 +212,17 @@ class TC_20_DispVMMixin(object):
             template_for_dispvms=True,
         )
         self.loop.run_until_complete(self.disp_base.create_on_disk())
-        self.app.default_dispvm = self.disp_base
+        # Setting "default_dispvm" fires the preload event before patches of
+        # each test function is applied.
+        if "_dvm_run_preload_" not in self._testMethodName:
+            self.app.default_dispvm = self.disp_base
+        if "preload-dispvm-max" in self.app.domains["dom0"].features:
+            default_dispvm = self.app.default_dispvm
+            if default_dispvm:
+                old_preload = default_dispvm.get_feat_preload()
+                tasks = [self.app.domains[x].cleanup() for x in old_preload]
+                self.loop.run_until_complete(asyncio.gather(*tasks))
+            del self.app.domains["dom0"].features["preload-dispvm-max"]
         self.app.save()
         self.preload_cmd = [
             "qvm-run",
@@ -230,10 +240,13 @@ class TC_20_DispVMMixin(object):
         if "gui" in self.disp_base.features:
             del self.disp_base.features["gui"]
         old_preload = self.disp_base.get_feat_preload()
-        self.app.default_dispvm = None
         tasks = [self.app.domains[x].cleanup() for x in old_preload]
         self.loop.run_until_complete(asyncio.gather(*tasks))
         self.disp_base.features["preload-dispvm-max"] = False
+        # See comment in setUp().
+        if "_dvm_run_preload_" not in self._testMethodName:
+            self.app.default_dispvm = None
+        self.app.save()
         super(TC_20_DispVMMixin, self).tearDown()
         logger.info("end")
 
@@ -245,7 +258,6 @@ class TC_20_DispVMMixin(object):
         logger.info("%s[%s]", vm.name, event)
         self.event_handler.setdefault(vm.name, {}).setdefault(event, 0)
         self.event_handler[vm.name][event] += 1
-
 
     def _test_event_handler_remove(self, vm, event):
         if not hasattr(self, "event_handler"):
