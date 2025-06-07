@@ -198,6 +198,13 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(self.disp_base.create_on_disk())
         self.app.default_dispvm = self.disp_base
         self.app.save()
+        if "preload-dispvm-max" in self.app.domains["dom0"].features:
+            default_dispvm = self.app.default_dispvm
+            if default_dispvm:
+                old_preload = default_dispvm.get_feat_preload()
+                tasks = [self.app.domains[x].cleanup() for x in old_preload]
+                self.loop.run_until_complete(asyncio.gather(*tasks))
+            del self.app.domains["dom0"].features["preload-dispvm-max"]
         self.preload_cmd = [
             "qvm-run",
             "-p",
