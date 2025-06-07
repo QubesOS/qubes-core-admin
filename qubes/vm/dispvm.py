@@ -182,7 +182,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         qubes.vm.appvm.template_changed_update_storage(self)
 
     @qubes.events.handler('domain-shutdown')
-    async def on_domain_shutdown(self, _event, **_kwargs):  # pylint: disable=invalid-overridden-method
+    async def on_domain_shutdown(self, _event, **_kwargs):
         await self._auto_cleanup()
 
     async def _auto_cleanup(self):
