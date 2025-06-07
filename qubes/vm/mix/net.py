@@ -306,7 +306,7 @@ class NetVMMixin(qubes.events.Emitter):
             self.netvm = None
 
     @qubes.events.handler("domain-shutdown")
-    def on_domain_shutdown(self, event, **kwargs):
+    def on_domain_shutdown_net(self, event, **kwargs):
         """Cleanup network interfaces of connected, running VMs.
 
         This will allow re-reconnecting them cleanly later.
