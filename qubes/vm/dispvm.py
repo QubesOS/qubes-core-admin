@@ -410,7 +410,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(
         self, _event, **_kwargs
-    ):  # pylint: disable=invalid-overridden-method
+    ):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
