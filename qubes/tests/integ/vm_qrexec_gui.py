@@ -870,6 +870,66 @@ int main(int argc, char **argv) {
                 f"Dom0 window doesn't match VM window content, saved to {file_basename}*"
             )
 
+    @unittest.skipUnless(
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
+    def test_400_long_window_title(self):
+        self.loop.run_until_complete(self._test_400_long_window_title(False))
+
+    def test_401_long_window_title_utf8(self):
+        self.loop.run_until_complete(self._test_400_long_window_title(True))
+
+    async def get_full_title(self, title):
+        title_part = title[:32]
+        await self.wait_for_window_coro(title_part)
+        await asyncio.sleep(0.5)
+        title = subprocess.check_output(
+            [
+                "xdotool",
+                "search",
+                "--name",
+                title_part,
+                "getwindowname",
+            ]
+        )
+        return title.decode().strip()
+
+    async def _test_400_long_window_title(self, utf8=False):
+        if utf8:
+            self.testvm1.features["gui-allow-utf8-titles"] = "1"
+        else:
+            # don't rely on global default
+            self.testvm1.features["gui-allow-utf8-titles"] = ""
+        await self.testvm1.start()
+        await self.wait_for_session(self.testvm1)
+        title = "B" * 120
+        p = await self.testvm1.run(f"zenity --title={title} --info")
+        try:
+            dom0_title = await self.get_full_title(title)
+            self.assertEqual(dom0_title, title)
+        finally:
+            try:
+                p.terminate()
+                await p.wait()
+            except ProcessLookupError:  # already dead
+                pass
+
+        title = "A" * 128
+        if utf8:
+            truncated_title = title[:124] + "\u2026"
+        else:
+            truncated_title = title[:124] + "..."
+        p = await self.testvm1.run(f"zenity --title={title} --info")
+        try:
+            dom0_title = await self.get_full_title(title)
+            self.assertEqual(dom0_title, truncated_title)
+        finally:
+            try:
+                p.terminate()
+                await p.wait()
+            except ProcessLookupError:  # already dead
+                pass
+
 
 class TC_10_Generic(qubes.tests.SystemTestCase):
     def setUp(self):
