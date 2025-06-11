@@ -4316,6 +4316,33 @@ netvm default=True type=vm \n"""
                 b"abc",
             )
 
+    def test_713_vm_volume_disable_snapshots_while_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with unittest.mock.patch.object(self.vm, "is_running") as _mock:
+            _mock.return_value = True
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                    b'test-vm1', b'private', b'-1')
+
+    def test_714_vm_volume_re_enable_snapshots_while_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.volumes["private"].revisions_to_keep = -1
+        self.vm.storage = unittest.mock.Mock()
+        with unittest.mock.patch.object(self.vm, "is_running") as _mock:
+            _mock.return_value = True
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                    b'test-vm1', b'private', b'2')
+
     def test_720_vm_volume_set_rw(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
