@@ -250,7 +250,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if event == "used":
             event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
         if "reason" in kwargs:
-            event_log += " because %s" % str(kwargs.get("dispvm"))
+            event_log += " because %s" % str(kwargs.get("reason"))
         self.log.info(event_log)
 
         if event == "autostart":
