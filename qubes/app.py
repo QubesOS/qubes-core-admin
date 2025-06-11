@@ -1765,10 +1765,19 @@ class Qubes(qubes.PropertyHolder):
             appvm.preload_max_ignore_global = False
         if oldvalue and not newvalue:
             old_appvm.preload_max_ignore_global = True
-        fire_appvm = [qube for qube in [appvm, old_appvm] if qube is not None]
-        for qube in fire_appvm:
+        if old_appvm:
             asyncio.ensure_future(
-                qube.fire_event_async("domain-preload-dispvm-start")
+                old_appvm.fire_event_async(
+                    "domain-preload-dispvm-start",
+                    reason="it was the default_dispvm",
+                )
+            )
+        if appvm:
+            asyncio.ensure_future(
+                appvm.fire_event_async(
+                    "domain-preload-dispvm-start",
+                    reason="it became the default_dispvm",
+                )
             )
 
     @qubes.events.handler("property-pre-set:default_kernel")

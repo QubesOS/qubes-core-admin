@@ -20,7 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains the AdminVM implementation """
+"""This module contains the AdminVM implementation"""
 import asyncio
 import grp
 import subprocess
@@ -357,7 +357,10 @@ class AdminVM(LocalVM):
             return
         appvm.preload_max_ignore_global = True
         asyncio.ensure_future(
-            appvm.fire_event_async("domain-preload-dispvm-start")
+            appvm.fire_event_async(
+                "domain-preload-dispvm-start",
+                reason="global feature was deleted",
+            )
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")

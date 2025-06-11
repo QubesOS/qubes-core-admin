@@ -128,7 +128,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
         asyncio.ensure_future(
-            self.fire_event_async("domain-preload-dispvm-start")
+            self.fire_event_async(
+                "domain-preload-dispvm-start", reason="local feature was set"
+            )
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
@@ -247,6 +249,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         event_log = "Received preload event '%s'" % str(event)
         if event == "used":
             event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
+        if "reason" in kwargs:
+            event_log += " because %s" % str(kwargs.get("dispvm"))
         self.log.info(event_log)
 
         if event == "autostart":
