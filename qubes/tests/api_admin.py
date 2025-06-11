@@ -3521,6 +3521,39 @@ netvm default=True type=vm \n"""
                         b"admin.backup.Execute", b"dom0", b"testprofile"
                     )
 
+    def test_612_backup_when_vm_with_disabled_snapshots_is_running(self):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /var/tmp\n'
+            'passphrase_text: test\n'
+        )
+        expected_info = (
+            '------------------+--------------+--------------+\n'
+            '               VM |         type |         size |\n'
+            '------------------+--------------+--------------+\n'
+            '         test-vm1 |           VM |            0 | <-- The VM is \
+running and private volume snapshots are disabled. Backup will fail!\n'
+            '------------------+--------------+--------------+\n'
+            '      Total size: |                           0 |\n'
+            '------------------+--------------+--------------+\n'
+            'VMs not selected for backup:\n'
+            ' - dom0\n'
+            ' - test-template\n'
+        )
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            self.vm.is_running = lambda: True
+            self.vm.volumes["private"].revisions_to_keep = -1
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                                     profile_dir):
+                result = self.call_mgmt_func(b'admin.backup.Info', b'dom0',
+                                             b'testprofile')
+            self.assertEqual(result, expected_info)
+
     @unittest.mock.patch("qubes.backup.Backup")
     def test_620_backup_execute(self, mock_backup):
         backup_profile = (
@@ -3596,6 +3629,35 @@ netvm default=True type=vm \n"""
         self.vm.run_service_for_stdio.assert_called_with(
             "qubes.BackupPassphrase+testprofile"
         )
+
+    @unittest.mock.patch('qubes.backup.Backup')
+    def test_622_backup_execute_when_disable_snapshot_vm_running(self, mock_backup):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /home/user\n'
+            'passphrase_text: test\n'
+        )
+        mock_backup.return_value.backup_do.side_effect = self.dummy_coro
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                                     profile_dir):
+                result = self.call_mgmt_func(b'admin.backup.Execute', b'dom0',
+                                             b'testprofile')
+        self.assertIsNone(result)
+        mock_backup.assert_called_once_with(
+            self.app,
+            {self.vm},
+            set(),
+            target_vm=self.vm,
+            target_dir='/home/user',
+            compressed=True,
+            passphrase='test')
+        mock_backup.return_value.backup_do.assert_called_once_with()
 
     def test_630_vm_stats(self):
         send_event = unittest.mock.Mock(spec=[])
