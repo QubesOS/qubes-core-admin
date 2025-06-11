@@ -224,7 +224,9 @@ class TC_20_DispVMMixin(object):
         tasks = [self.app.domains[x].cleanup() for x in old_preload]
         self.loop.run_until_complete(asyncio.gather(*tasks))
         self.disp_base.features["preload-dispvm-max"] = False
-        self.app.default_dispvm = None
+        # See comment in setUp().
+        if "_dvm_run_preload_" not in self._testMethodName:
+            self.app.default_dispvm = None
         super(TC_20_DispVMMixin, self).tearDown()
 
     def _test_event_handler(
