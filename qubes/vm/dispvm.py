@@ -475,7 +475,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # Not necessary to await for this event as its intent is to fill
             # gaps and not relevant for this run.
             asyncio.ensure_future(
-                appvm.fire_event_async("domain-preload-dispvm-start")
+                appvm.fire_event_async(
+                    "domain-preload-dispvm-start", reason="there is a gap"
+                )
             )
 
         if not preload and (preload_dispvm := appvm.get_feat_preload()):
