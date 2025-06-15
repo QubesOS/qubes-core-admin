@@ -554,7 +554,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(newvalue=newvalue)
 
-        if newvalue == -1 and self.dest.is_running():
+        currentvalue = self.dest.volumes[self.arg].revisions_to_keep
+        if self.dest.is_running() and newvalue != currentvalue and \
+                (currentvalue == -1 or newvalue == -1):
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         self.dest.volumes[self.arg].revisions_to_keep = newvalue
