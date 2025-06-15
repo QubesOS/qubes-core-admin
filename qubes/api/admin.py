@@ -552,6 +552,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.arg in self.dest.volumes.keys())
         newvalue = self.validate_size(untrusted_payload, allow_negative=True)
 
+        if newvalue < -1:
+            raise qubes.api.ProtocolError("Invalid value for revisions_to_keep")
+
         self.fire_event_for_permission(newvalue=newvalue)
 
         currentvalue = self.dest.volumes[self.arg].revisions_to_keep
@@ -826,6 +829,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
         newvalue = self.validate_size(untrusted_payload, allow_negative=True)
+
+        if newvalue < -1:
+            raise qubes.api.ProtocolError("Invalid value for revisions_to_keep")
 
         self.fire_event_for_permission(newvalue=newvalue)
 
