@@ -525,7 +525,7 @@ class Volume:
     def state_file(self) -> str:
         return os.path.join(
             VOLUME_STATE_DIR,
-            f"{self.pool.name}__{self.vid}".replace(
+            VOLUME_STATE_PREFIX + f"{self.pool.name}__{self.vid}".replace(
                 '-', '--').replace('/', '-'))
 
     def is_running(self) -> bool:
@@ -806,6 +806,12 @@ class Storage:
 
     async def start(self):
         """Execute the start method on each volume"""
+        for vol in self.vm.volumes.values():
+            if (vol.source and vol.source.snapshots_disabled
+                    and vol.source.is_running()):
+                raise qubes.exc.QubesVMError(
+                    self.vm, f"Volume {vol.source.vid} is running"
+                )
         await qubes.utils.void_coros_maybe(
             # pylint: disable=line-too-long
             (
