@@ -4333,19 +4333,11 @@ running and private volume snapshots are disabled. Backup will fail!\n'
             "keys.return_value": ["root", "private", "volatile", "kernel"],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm.storage = unittest.mock.Mock()
-        value = self.call_mgmt_func(
-            b"admin.vm.volume.Set.revisions_to_keep",
-            b"test-vm1",
-            b"private",
-            b"2",
-        )
+        value = self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+            b'test-vm1', b'private', b'2')
         self.assertIsNone(value)
-        self.assertEqual(self.vm.volumes.mock_calls,
-            [unittest.mock.call.keys(),
-            ("__getitem__", ("private",), {}),
-            ("__getitem__", ("private",), {})])
-        self.assertEqual(self.vm.volumes["private"].revisions_to_keep, 2)
+        self.assertIn(('__getitem__', ('private',), {}), self.vm.volumes.mock_calls)
+        self.assertEqual(self.vm.volumes['private'].revisions_to_keep, 2)
         self.app.save.assert_called_once_with()
 
     def test_711_vm_volume_set_revisions_to_keep_negative(self):
@@ -4354,13 +4346,12 @@ running and private volume snapshots are disabled. Backup will fail!\n'
             "keys.return_value": ["root", "private", "volatile", "kernel"],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.exc.ProtocolError):
+        with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(
-                b"admin.vm.volume.Set.revisions_to_keep",
-                b"test-vm1",
-                b"private",
-                b"-2",
+                b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1',
+                b'private',
+                b'-2',
             )
 
     def test_712_vm_volume_set_revisions_to_keep_not_a_number(self):
@@ -4369,13 +4360,12 @@ running and private volume snapshots are disabled. Backup will fail!\n'
             "keys.return_value": ["root", "private", "volatile", "kernel"],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.exc.ProtocolError):
+        with self.assertRaises(qubes.api.ProtocolError):
             self.call_mgmt_func(
-                b"admin.vm.volume.Set.revisions_to_keep",
-                b"test-vm1",
-                b"private",
-                b"abc",
+                b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1',
+                b'private',
+                b'abc',
             )
 
     def test_713_vm_volume_disable_snapshots_while_running(self):
@@ -4384,12 +4374,15 @@ running and private volume snapshots are disabled. Backup will fail!\n'
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm.storage = unittest.mock.Mock()
         with unittest.mock.patch.object(self.vm, "is_running") as _mock:
             _mock.return_value = True
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
-                    b'test-vm1', b'private', b'-1')
+                self.call_mgmt_func(
+                    b'admin.vm.volume.Set.revisions_to_keep',
+                    b'test-vm1',
+                    b'private',
+                    b'-1',
+                )
 
     def test_714_vm_volume_re_enable_snapshots_while_running(self):
         self.vm.volumes = unittest.mock.MagicMock()
@@ -4398,12 +4391,15 @@ running and private volume snapshots are disabled. Backup will fail!\n'
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.volumes["private"].revisions_to_keep = -1
-        self.vm.storage = unittest.mock.Mock()
         with unittest.mock.patch.object(self.vm, "is_running") as _mock:
             _mock.return_value = True
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
-                    b'test-vm1', b'private', b'2')
+                self.call_mgmt_func(
+                    b'admin.vm.volume.Set.revisions_to_keep',
+                    b'test-vm1',
+                    b'private',
+                    b'2',
+                )
 
     def test_715_start_volume_sourcing_running_volume_without_snapshot(self):
         self.vm.volumes = {
@@ -4418,6 +4414,37 @@ running and private volume snapshots are disabled. Backup will fail!\n'
         with self.assertRaises(qubes.exc.QubesVMError):
             self.loop.run_until_complete(
                 asyncio.wait_for(self.vm.storage.start(), 1))
+
+    def test_716_enable_or_disable_snapshots_while_dispvm_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.volumes['private'].revisions_to_keep = 2
+
+        fake_running_dispvm = unittest.mock.MagicMock()
+        fake_running_dispvm.is_running.return_value = True
+        type(self.vm).dispvms = unittest.mock.PropertyMock(
+            return_value=[fake_running_dispvm])
+
+        # Trying to disable snapshot on a VM having a running DispVM based on
+        # it and currently running
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                                b'test-vm1', b'private', b'-1')
+
+        # Trying to renable snapshot on a VM having a running DispVM based on
+        # it and currently running
+        self.vm.volumes['private'].revisions_to_keep = -1
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                                b'test-vm1', b'private', b'1')
+
+        # Changing the number of revisions should work
+        self.vm.volumes['private'].revisions_to_keep = 1
+        self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                            b'test-vm1', b'private', b'2')
 
     def test_720_vm_volume_set_rw(self):
         self.vm.volumes = unittest.mock.MagicMock()

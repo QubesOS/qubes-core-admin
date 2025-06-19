@@ -807,6 +807,24 @@ class Storage:
                 else:
                     yield block_dev
 
+    def set_revisions_to_keep(self, volume, value):
+        if value < -1:
+            raise qubes.exc.QubesValueError(
+                "Invalid value for revisions_to_keep")
+
+        currentvalue = self.vm.volumes[volume].revisions_to_keep
+        enabling_disabling_snapshots = value != currentvalue and \
+                (currentvalue == -1 or value == -1)
+        if self.vm.is_running() and enabling_disabling_snapshots:
+            raise qubes.exc.QubesVMNotHaltedError(self.vm)
+
+        if self.vm.klass == 'AppVM' and enabling_disabling_snapshots:
+            for vm in self.vm.dispvms:
+                if vm.is_running():
+                    raise qubes.exc.QubesVMNotHaltedError(vm)
+
+        self.vm.volumes[volume].revisions_to_keep = value
+
     async def start(self):
         """Execute the start method on each volume"""
         for vol in self.vm.volumes.values():
