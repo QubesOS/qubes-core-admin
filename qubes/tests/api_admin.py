@@ -261,6 +261,11 @@ class TC_00_VMs(AdminAPITestCase):
             b"admin.vm.property.Get", b"test-vm1", b"vcpus"
         )
         self.assertEqual(value, "default=True type=int 2")
+        # check also if type is preserved on stateless property
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"xid"
+        )
+        self.assertEqual(value, "default=True type=int -1")
 
     def test_022_vm_property_get_bool(self):
         value = self.call_mgmt_func(
