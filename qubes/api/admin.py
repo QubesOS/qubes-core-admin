@@ -551,18 +551,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_volume_set_revisions_to_keep(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
         newvalue = self.validate_size(untrusted_payload, allow_negative=True)
-
-        if newvalue < -1:
-            raise qubes.api.ProtocolError("Invalid value for revisions_to_keep")
-
         self.fire_event_for_permission(newvalue=newvalue)
-
-        currentvalue = self.dest.volumes[self.arg].revisions_to_keep
-        if self.dest.is_running() and newvalue != currentvalue and \
-                (currentvalue == -1 or newvalue == -1):
-            raise qubes.exc.QubesVMNotHaltedError(self.dest)
-
-        self.dest.volumes[self.arg].revisions_to_keep = newvalue
+        self.dest.storage.set_revisions_to_keep(self.arg, newvalue)
         self.app.save()
 
     @qubes.api.method("admin.vm.volume.Set.rw", scope="local", write=True)
