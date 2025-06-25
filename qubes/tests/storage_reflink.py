@@ -26,6 +26,7 @@ import os
 import shutil
 import subprocess
 import sys
+import unittest.mock
 from contextlib import nullcontext
 
 import qubes.tests
@@ -346,6 +347,30 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
     def test_111_remove_stale_precache_stale_orphan(self):
         self._test_remove_stale_precache(stale=True, orphan=True)
 
+    def test_120_private_snapshots_disabled(self):
+        config = {
+            'name': 'private',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+            'revisions_to_keep': -1,
+        }
+
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.pool.init_volume(vm, config)
+        self.assertIsInstance(volume, reflink.ReflinkVolume)
+        self.assertEqual(volume.name, 'private')
+        self.assertEqual(volume.pool, self.pool.name)
+        volume._copy_file = unittest.mock.Mock()
+        self.loop.run_until_complete(volume.create())
+        self.assertEqual(volume.block_device().path,
+                         "/var/tmp/test-reflink-units-on-btrfs/appvms/test-inst-appvm/private.img")
+        self.assertFalse(os.path.exists(volume._path_dirty))
+        self.assertFalse(os.path.exists(volume._path_precache))
+        self.loop.run_until_complete(volume.stop())
+        self.loop.run_until_complete(volume.remove())
+        volume._copy_file.assert_not_called()
 
 def setup_loopdev(img, cleanup_via=None):
     dev = str.strip(cmd("sudo", "losetup", "-f", "--show", img).decode())
