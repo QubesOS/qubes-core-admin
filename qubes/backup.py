@@ -520,8 +520,8 @@ class Backup:
                 if [volume for volume in vm_info.vm.volumes.values()
                            if volume.snapshots_disabled]:
                     summary_line += (
-                        " <-- The VM is running, backup will contain "
-                        "its state from before its start!"
+                        " <-- The VM is running and private volume snapshots "
+                        "are disabled. Backup will fail!"
                     )
                 else:
                     summary_line += " <-- The VM is running, backup will " \
