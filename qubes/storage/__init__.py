@@ -513,6 +513,12 @@ class Volume:
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
+    @property
+    def snapshots_disabled(self) -> bool:
+        return (self.revisions_to_keep == -1 and
+                not self.snap_on_start and
+                self.save_on_stop)
+
 
 class Storage:
     """Class for handling VM virtual disks.

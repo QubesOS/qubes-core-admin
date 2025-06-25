@@ -550,7 +550,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def vm_volume_set_revisions_to_keep(self, untrusted_payload):
         self.enforce(self.arg in self.dest.volumes.keys())
-        newvalue = self.validate_size(untrusted_payload)
+        newvalue = self.validate_size(untrusted_payload, allow_negative=True)
 
         self.fire_event_for_permission(newvalue=newvalue)
 
@@ -820,7 +820,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.dest.name == "dom0")
         self.enforce(self.arg in self.app.pools.keys())
         pool = self.app.pools[self.arg]
-        newvalue = self.validate_size(untrusted_payload)
+        newvalue = self.validate_size(untrusted_payload, allow_negative=True)
 
         self.fire_event_for_permission(newvalue=newvalue)
 
