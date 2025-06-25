@@ -830,11 +830,7 @@ class TC_10_ZFSPool(ZFSBase):
         deinit()
 
     def test_026_snapshots_disabled(self) -> None:
-        v = self.get_vol(
-            ONEMEG_SAVE_ON_STOP,
-            name="026",
-            revisions_to_keep = 0
-        )
+        v = self.get_vol(ONEMEG_SAVE_ON_STOP, name="026", revisions_to_keep=0)
         self.rc(v.create())
         self.assertEqual(len(v.revisions), 0)
         self.rc(v.start())
@@ -843,11 +839,7 @@ class TC_10_ZFSPool(ZFSBase):
         self.assertEqual(len(v.revisions), 0)
 
     def test_027_snapshots_disabled_removes_old_snapshots(self) -> None:
-        v = self.get_vol(
-            ONEMEG_SAVE_ON_STOP,
-            name="027",
-            revisions_to_keep=1
-        )
+        v = self.get_vol(ONEMEG_SAVE_ON_STOP, name="027", revisions_to_keep=1)
         self.rc(v.create())
         self.rc(v.start())
         self.rc(v.stop())
@@ -859,11 +851,7 @@ class TC_10_ZFSPool(ZFSBase):
         self.assertEqual(len(v.revisions), 0)
 
     def test_028_prevent_export_when_volume_in_use(self) -> None:
-        v = self.get_vol(
-            ONEMEG_SAVE_ON_STOP,
-            name="028",
-            revisions_to_keep=-1
-        )
+        v = self.get_vol(ONEMEG_SAVE_ON_STOP, name="028", revisions_to_keep=-1)
 
         v.is_running = lambda: True
         self.rc(v.create())
@@ -875,18 +863,14 @@ class TC_10_ZFSPool(ZFSBase):
 
     def test_029_prevent_cloning_running_volume_with_snapshots_disabled(self):
         v1 = self.get_vol(
-            ONEMEG_SAVE_ON_STOP,
-            name="029_1",
-            revisions_to_keep=-1
+            ONEMEG_SAVE_ON_STOP, name="029_1", revisions_to_keep=-1
         )
         v1.is_running = lambda: True
         self.rc(v1.create())
         self.rc(v1.start())
 
         v2 = self.get_vol(
-            ONEMEG_SAVE_ON_STOP,
-            name="029_2",
-            revisions_to_keep=1
+            ONEMEG_SAVE_ON_STOP, name="029_2", revisions_to_keep=1
         )
         self.rc(v2.create())
         with self.assertRaises(qubes.storage.StoragePoolException):

@@ -2013,11 +2013,12 @@ class ZFSVolume(qubes.storage.Volume):
                         f"Volume {samepoolsource.vid} must be stopped before "
                         "being cloned."
                     )
-                assert not samepoolsource.is_running(), \
-                    f"Volume {samepoolsource.vid} is running"
+                assert (
+                    not samepoolsource.is_running()
+                ), f"Volume {samepoolsource.vid} is running"
                 await samepoolsource.pool.accessor.snapshot_volume_async(
                     samepoolsource.volume.clean_snapshot(),
-                    log=samepoolsource.log
+                    log=samepoolsource.log,
                 )
             try:
                 src = samepoolsource.latest_clean_snapshot[0]
@@ -2523,9 +2524,8 @@ class ZFSVolume(qubes.storage.Volume):
                     f"Volume {self.vid} must be stopped before being cloned"
                 )
             await self.pool.accessor.snapshot_volume_async(
-                    self.volume.clean_snapshot(),
-                    log=self.log
-                  )
+                self.volume.clean_snapshot(), log=self.log
+            )
         try:
             src = self.latest_clean_snapshot[0]
         except DatasetDoesNotExist:

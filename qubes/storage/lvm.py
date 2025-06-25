@@ -833,8 +833,9 @@ class ThinVolume(qubes.storage.Volume):
         """
         if self.snap_on_start or self.save_on_stop:
             vid = self.vid if self.snapshots_disabled else self._vid_snap
-            snap_path = ("/dev/mapper/" +
-                         vid.replace("-", "--").replace("/", "-"))
+            snap_path = "/dev/mapper/" + vid.replace("-", "--").replace(
+                "/", "-"
+            )
             return qubes.storage.BlockDevice(
                 snap_path, self.name, None, self.rw, self.domain, self.devtype
             )

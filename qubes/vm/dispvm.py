@@ -408,9 +408,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.use_preload()
 
     @qubes.events.handler("domain-shutdown")
-    async def on_domain_shutdown(
-        self, _event, **_kwargs
-    ):
+    async def on_domain_shutdown(self, _event, **_kwargs):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
