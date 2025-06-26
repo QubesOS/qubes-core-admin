@@ -529,6 +529,76 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertEqual(volume_data.strip(b"\0"), b"test")
         self.assertEqual(len(volume_data), new_size)
 
+    def test_025_private_snapshots_disabled(self):
+        config = {
+            "name": "private",
+            "pool": self.POOL_NAME,
+            "size": defaults["root_img_size"],
+            "rw": True,
+            "save_on_stop": True,
+            "revisions_to_keep": -1,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        self.assertEqual(volume.name, "private")
+        self.assertEqual(volume.pool, self.POOL_NAME)
+        self.assertEqual(volume.size, defaults["root_img_size"])
+        self.assertFalse(volume.snap_on_start)
+        self.assertTrue(volume.save_on_stop)
+        self.assertTrue(volume.rw)
+
+        volume.commit = unittest.mock.MagicMock()
+
+        volume.create()
+        self.loop.run_until_complete(volume.start())
+
+        self.assertTrue(os.path.exists(volume.path))
+        self.assertFalse(os.path.exists(volume.path_cow))
+        self.assertEqual(
+            volume.block_device().path,
+            os.path.join("/tmp/test-pool/appvms/", vm.name, "private.img"),
+        )
+
+        self.loop.run_until_complete(volume.stop())
+        self.loop.run_until_complete(volume.remove())
+        volume.commit.assert_not_called()
+
+    def test_026_private_snapshots_disabled_pool_level(self):
+        config = {
+            "name": "private",
+            "pool": self.POOL_NAME,
+            "size": defaults["root_img_size"],
+            "rw": True,
+            "save_on_stop": True,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        pool = self.app.get_pool(self.POOL_NAME)
+        pool.revisions_to_keep = -1
+        volume = pool.init_volume(vm, config)
+        self.assertEqual(volume.revisions_to_keep, -1)
+        self.assertEqual(volume.name, "private")
+        self.assertEqual(volume.pool, self.POOL_NAME)
+        self.assertEqual(volume.size, defaults["root_img_size"])
+        self.assertFalse(volume.snap_on_start)
+        self.assertTrue(volume.save_on_stop)
+        self.assertTrue(volume.rw)
+
+        volume.commit = unittest.mock.MagicMock()
+
+        volume.create()
+        self.loop.run_until_complete(volume.start())
+
+        self.assertTrue(os.path.exists(volume.path))
+        self.assertFalse(os.path.exists(volume.path_cow))
+        self.assertEqual(
+            volume.block_device().path,
+            os.path.join("/tmp/test-pool/appvms/", vm.name, "private.img"),
+        )
+
+        self.loop.run_until_complete(volume.stop())
+        self.loop.run_until_complete(volume.remove())
+        volume.commit.assert_not_called()
+
     def _get_loop_size(self, path):
         try:
             loop_name = (
@@ -716,6 +786,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         with self.assertRaises((NotImplementedError, ValueError)):
             pool.revisions_to_keep = 2
         self.assertEqual(pool.revisions_to_keep, 1)
+        pool.revisions_to_keep = -1
+        self.assertEqual(pool.revisions_to_keep, -1)
 
     def test_011_appvm_file_images(self):
         """Check if all the needed image files are created for an AppVm"""
