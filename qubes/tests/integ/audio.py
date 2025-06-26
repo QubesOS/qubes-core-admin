@@ -285,27 +285,11 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                 if s["properties"].get("application.name") == vm_name
             ][0]
         except IndexError:
-            self.fail("source-output for VM {} not found".format(vm.name))
-            # self.fail never returns
-            assert False
+            return None
 
-    def _configure_audio_recording(self, vm):
+    def _configure_audio_recording(self, vm, expect_stream=True):
         """Connect VM's source-output to sink monitor instead of mic"""
         audiovm = vm.audiovm
-
-        source_outputs = json.loads(
-            self._call_in_audiovm(
-                audiovm, ["pactl", "-f", "json", "list", "source-outputs"]
-            )
-        )
-
-        if not source_outputs:
-            self.fail("no source-output found in {}".format(audiovm.name))
-            assert False
-
-        output_info = self._find_pactl_entry_for_vm(source_outputs, vm.name)
-        output_index = output_info["index"]
-        current_source = output_info["source"]
 
         sources = json.loads(
             self._call_in_audiovm(
@@ -326,11 +310,42 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             # self.fail never returns
             assert False
 
+        assert isinstance(source_index, int)
+
+        source_outputs = json.loads(
+            self._call_in_audiovm(
+                audiovm, ["pactl", "-f", "json", "list", "source-outputs"]
+            )
+        )
+
+        output_info = self._find_pactl_entry_for_vm(source_outputs, vm.name)
+        if expect_stream and not output_info:
+            self.fail("source-output for VM {} not found".format(vm.name))
+            # self.fail never returns
+            assert False
+        elif not expect_stream and output_info:
+            self.fail(
+                "source-output for VM {} unexpecedly present".format(vm.name)
+            )
+            # self.fail never returns
+            assert False
+
+        if not expect_stream:
+            cmd = [
+                "pactl",
+                "set-default-source",
+                str(source_index),
+            ]
+            self._call_in_audiovm(audiovm, cmd)
+            return
+
+        output_index = output_info["index"]
+        current_source = output_info["source"]
+
         attempts_left = 5
         # pactl seems to fail sometimes, still with exit code 0...
         while current_source != source_index and attempts_left:
             assert isinstance(output_index, int)
-            assert isinstance(source_index, int)
             cmd = [
                 "pactl",
                 "move-source-output",
@@ -392,7 +407,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
     def common_audio_record_muted(self):
         # connect VM's recording source output monitor (instead of mic)
-        self._configure_audio_recording(self.testvm1)
+        self._configure_audio_recording(self.testvm1, expect_stream=False)
 
         # generate some "audio" data
         audio_in = b"\x20" * 4 * 44100
