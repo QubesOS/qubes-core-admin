@@ -950,7 +950,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # VMM-related
 
     @qubes.stateless_property
-    def xid(self):
+    def xid(self) -> int:
         """Xen ID.
 
         Or not Xen, but ID.
@@ -970,7 +970,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise
 
     @qubes.stateless_property
-    def stubdom_uuid(self):
+    def stubdom_uuid(self) -> str:
         stubdom_xid = self.stubdom_xid
         if stubdom_xid == -1:
             return ""
@@ -981,7 +981,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return stubdom_uuid[4:].decode("ascii", "strict")
 
     @qubes.stateless_property
-    def stubdom_xid(self):
+    def stubdom_xid(self) -> int:
         if not self.is_running():
             return -1
 
@@ -2653,7 +2653,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return None
 
     @qubes.stateless_property
-    def icon(self):
+    def icon(self) -> str:
         """freedesktop icon name, suitable for use in
         :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
         raw_icon_name = self.label.name
