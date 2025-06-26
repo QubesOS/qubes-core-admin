@@ -3866,7 +3866,7 @@ netvm default=True type=vm \n"""
             "domain-preload-dispvm-autostart", self._test_event_handler
         )
         self.vm.features["qrexec"] = "1"
-        self.vm.features["supported-rpc.qubes.WaitForSession"] = "1"
+        self.vm.features["supported-rpc.qubes.WaitForRunningSystem"] = "1"
         self.vm.features["preload-dispvm-max"] = "1"
         for _ in range(10):
             if len(self.vm.get_feat_preload()) == 1:
