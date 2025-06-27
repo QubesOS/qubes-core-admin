@@ -1762,18 +1762,26 @@ class Qubes(qubes.PropertyHolder):
             old_appvm = self.domains[oldvalue]
         if newvalue:
             appvm = self.domains[newvalue]
-        if old_appvm and old_appvm.is_global_preload_distinct():
+        if (
+            old_appvm
+            and old_appvm.get_feat_global_preload_max() is not None
+            and old_appvm.is_global_preload_distinct()
+        ):
+            reason = "it was the default_dispvm"
             asyncio.ensure_future(
                 old_appvm.fire_event_async(
-                    "domain-preload-dispvm-start",
-                    reason="it was the default_dispvm",
+                    "domain-preload-dispvm-start", reason=reason
                 )
             )
-        if appvm and appvm.is_global_preload_distinct():
+        if (
+            appvm
+            and appvm.get_feat_global_preload_max() is not None
+            and appvm.is_global_preload_distinct()
+        ):
+            reason = "it became the default_dispvm"
             asyncio.ensure_future(
                 appvm.fire_event_async(
-                    "domain-preload-dispvm-start",
-                    reason="it became the default_dispvm",
+                    "domain-preload-dispvm-start", reason=reason
                 )
             )
 

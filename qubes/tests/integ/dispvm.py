@@ -216,13 +216,7 @@ class TC_20_DispVMMixin(object):
         # each test function is applied.
         if "_dvm_run_preload_" not in self._testMethodName:
             self.app.default_dispvm = self.disp_base
-        if "preload-dispvm-max" in self.app.domains["dom0"].features:
-            default_dispvm = self.app.default_dispvm
-            if default_dispvm:
-                old_preload = default_dispvm.get_feat_preload()
-                tasks = [self.app.domains[x].cleanup() for x in old_preload]
-                self.loop.run_until_complete(asyncio.gather(*tasks))
-            del self.app.domains["dom0"].features["preload-dispvm-max"]
+        self.loop.run_until_complete(self.cleanup_preload)
         self.app.save()
         self.preload_cmd = [
             "qvm-run",
@@ -239,10 +233,7 @@ class TC_20_DispVMMixin(object):
         logger.info("start")
         if "gui" in self.disp_base.features:
             del self.disp_base.features["gui"]
-        old_preload = self.disp_base.get_feat_preload()
-        tasks = [self.app.domains[x].cleanup() for x in old_preload]
-        self.loop.run_until_complete(asyncio.gather(*tasks))
-        self.disp_base.features["preload-dispvm-max"] = False
+        self.loop.run_until_complete(self.cleanup_preload)
         # See comment in setUp().
         if "_dvm_run_preload_" not in self._testMethodName:
             self.app.default_dispvm = None
@@ -289,6 +280,27 @@ class TC_20_DispVMMixin(object):
 
     def _on_domain_add(self, app, event, vm):  # pylint: disable=unused-argument
         self._register_handlers(vm)
+
+    async def cleanup_preload_run(self, qube):
+        old_preload = qube.get_feat_preload()
+        tasks = [self.app.domains[x].cleanup() for x in old_preload]
+        await asyncio.gather(*tasks)
+
+    async def cleanup_preload(self):
+        logger.info("start")
+        if "preload-dispvm-max" in self.app.domains[self.disp_base].features:
+            logger.info("has local preload")
+            await self.unload(self.disp_base)
+            logger.info("deleting local feature")
+            del self.disp_base.features["preload-dispvm-max"]
+        if "preload-dispvm-max" in self.app.domains["dom0"].features:
+            logger.info("has global preload")
+            default_dispvm = self.app.default_dispvm
+            if default_dispvm:
+                await self.unload(default_dispvm)
+            logger.info("deleting global feature")
+            del self.app.domains["dom0"].features["preload-dispvm-max"]
+        logger.info("end")
 
     async def no_preload(self):
         # Trick to gather this function as an async task.
@@ -554,6 +566,18 @@ class TC_20_DispVMMixin(object):
             f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
         logger.info("end")
+
+    def test_018_dvm_run_preload_global(self):
+        # TODO: ben
+        # set global feat when local is  0
+        # set global feat when local is set to a different value
+        # set global feat when local is set to the same value
+        # del global feat when local is 0
+        # del global feat when local is is not 0
+        # del global feat when local is 0
+        # change default_dispvm when when old and new appvm have their features
+        # set to 0 and bigger.
+        pass
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"

@@ -121,10 +121,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
     ):  # pylint: disable=unused-argument
         if value == oldvalue:
             return
+        if self.is_global_preload_set():
+            return
+        reason = "local feature was set to " + str(value)
         asyncio.ensure_future(
-            self.fire_event_async(
-                "domain-preload-dispvm-start", reason="local feature was set"
-            )
+            self.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
@@ -267,6 +268,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 available_memory = int(file.read())
         except FileNotFoundError:
             can_preload = want_preload
+            self.log.warning("File containing available memory was not found")
         if available_memory is not None:
             memory = getattr(self, "memory", 0) * 1024 * 1024
             unrestricted_preload = int(available_memory / memory)
@@ -279,7 +281,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 )
             if can_preload == 0:
                 # The gap is filled when consuming a preloaded qube or
-                # requesting a disposable.
+                # requesting a non-preloaded disposable.
                 return
 
         self.log.info("Preloading '%d' qube(s)", can_preload)

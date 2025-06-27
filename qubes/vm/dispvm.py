@@ -340,7 +340,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         try:
             self.log.info(
                 "Preload startup waiting '%s' with '%d' seconds timeout",
-                service,
+                rpc,
                 timeout,
             )
             await asyncio.wait_for(
@@ -389,9 +389,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.use_preload()
 
     @qubes.events.handler("domain-shutdown")
-    async def on_domain_shutdown(
-        self, _event, **_kwargs
-    ):
+    async def on_domain_shutdown(self, _event, **_kwargs):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 

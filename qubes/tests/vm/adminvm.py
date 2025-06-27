@@ -239,23 +239,20 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.app.default_dispvm = self.appvm
         with unittest.mock.patch.object(
             self.appvm, "fire_event"
-        ) as mock_events:
+        ) as mock_sync, unittest.mock.patch.object(
+            self.appvm, "fire_event_async"
+        ) as mock_async:
             self.vm.features["preload-dispvm-max"] = "1"
-            assert mock_events.mock_calls == [
-                unittest.mock.call(
-                    "domain-feature-pre-set:preload-dispvm-max",
-                    pre_event=True,
-                    feature="preload-dispvm-max",
-                    value="1",
-                    oldvalue=None,
-                ),
-                unittest.mock.call(
-                    "domain-feature-set:preload-dispvm-max",
-                    feature="preload-dispvm-max",
-                    value="1",
-                    oldvalue=None,
-                ),
-            ]
+            mock_sync.assert_called_once_with(
+                "domain-feature-pre-set:preload-dispvm-max",
+                pre_event=True,
+                feature="preload-dispvm-max",
+                value="1",
+                oldvalue=None,
+            )
+            mock_async.assert_called_once_with(
+                "domain-preload-dispvm-start", reason=unittest.mock.ANY
+            )
 
         # Setting the feature to the same value it has skips firing the event.
         with unittest.mock.patch.object(

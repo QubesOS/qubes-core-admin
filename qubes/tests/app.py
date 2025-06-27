@@ -1121,6 +1121,13 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.appvm.features["preload-dispvm-max"] = "1"
         with mock.patch.object(self.appvm, "fire_event_async") as mock_events:
             self.app.default_dispvm = self.appvm
+            mock_events.assert_not_called()
+
+        self.app.default_dispvm = None
+        del self.appvm.features["preload-dispvm-max"]
+        self.app.domains["dom0"].features["preload-dispvm-max"] = "1"
+        with mock.patch.object(self.appvm, "fire_event_async") as mock_events:
+            self.app.default_dispvm = self.appvm
             mock_events.assert_called_once_with(
                 "domain-preload-dispvm-start", reason=mock.ANY
             )
@@ -1130,6 +1137,20 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.appvm.features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.appvm
         self.appvm_alt.features["preload-dispvm-max"] = "1"
+        # Global is not set and thus there are no events.
+        with mock.patch.object(
+            self.appvm, "fire_event_async"
+        ) as mock_old, mock.patch.object(
+            self.appvm_alt, "fire_event_async"
+        ) as mock_new:
+            self.app.default_dispvm = self.appvm_alt
+            mock_old.assert_not_called()
+            mock_new.assert_not_called()
+
+        self.app.domains["dom0"].features["preload-dispvm-max"] = "1"
+        self.app.default_dispvm = self.appvm
+        self.appvm.features["preload-dispvm-max"] = "2"
+        self.appvm_alt.features["preload-dispvm-max"] = "2"
         with mock.patch.object(
             self.appvm, "fire_event_async"
         ) as mock_old, mock.patch.object(

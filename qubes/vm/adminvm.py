@@ -354,11 +354,9 @@ class AdminVM(LocalVM):
     ):  # pylint: disable=unused-argument
         if not (appvm := getattr(self.app, "default_dispvm", None)):
             return
+        reason = "global feature was deleted"
         asyncio.ensure_future(
-            appvm.fire_event_async(
-                "domain-preload-dispvm-start",
-                reason="global feature was deleted",
-            )
+            appvm.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
@@ -385,9 +383,7 @@ class AdminVM(LocalVM):
             return
         if not (appvm := getattr(self.app, "default_dispvm", None)):
             return
-        appvm.fire_event(
-            "domain-feature-set:preload-dispvm-max",
-            feature="preload-dispvm-max",
-            value=value,
-            oldvalue=oldvalue,
+        reason = "global feature was set to " + str(value)
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
