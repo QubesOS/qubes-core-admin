@@ -379,6 +379,65 @@ class StorageTestMixin(object):
         await qubes.utils.coro_maybe(testvol2.import_volume(testvol))
         self.assertEqual(testvol2.size, size)
 
+    def test_006_no_revisions(self):
+        """Test if no-revisions volume persists data, and blocks parallel
+        access"""
+        return self.loop.run_until_complete(self._test_006_no_revisions())
+
+    async def _test_006_no_revisions(self):
+        size = 32 * 1024 * 1024
+        volume_config = {
+            "pool": self.pool.name,
+            "size": size,
+            "save_on_stop": True,
+            "rw": True,
+            "revisions_to_keep": -1,
+        }
+        testvol = self.vm1.storage.init_volume("testvol", volume_config)
+        await qubes.utils.coro_maybe(testvol.create())
+        volume2_config = {
+            "pool": self.pool.name,
+            "size": size,
+            "snap_on_start": True,
+            "source": testvol.vid,
+            "rw": True,
+        }
+        testvol2 = self.vm2.storage.init_volume("testvol2", volume2_config)
+        await qubes.utils.coro_maybe(testvol2.create())
+        del testvol
+        del testvol2
+        self.app.save()
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        # non-volatile image not clean
+        await self.vm1.run_for_stdio(
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            user="root",
+        )
+
+        await self.vm1.run_for_stdio("echo test123 > /dev/xvde", user="root")
+        await self.vm1.shutdown(wait=True)
+        await self.vm1.start()
+        # non-volatile image volatile
+        with self.assertRaises(subprocess.CalledProcessError):
+            await self.vm1.run_for_stdio(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                    size
+                ),
+                user="root",
+            )
+
+        # should not work
+        with self.assertRaises(qubes.exc.QubesException):
+            await self.vm2.start()
+        # now shutdown vm1 and starting vm2 should work
+        await self.vm1.shutdown(wait=True)
+        await self.vm2.start()
+        stdout, stderr = await self.vm2.run_for_stdio(
+            "head -c 7 /dev/xvde", user="root"
+        )
+        self.assertEqual(stdout, b"test123")
+
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
