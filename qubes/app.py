@@ -1390,7 +1390,6 @@ class Qubes(qubes.PropertyHolder):
             await self.fire_event_async('pool-pre-delete',
                                              pre_event=True, pool=pool)
             del self.pools[name]
-            await qubes.utils.coro_maybe(pool.destroy())
             await self.fire_event_async('pool-delete', pool=pool)
         except KeyError:
             return
