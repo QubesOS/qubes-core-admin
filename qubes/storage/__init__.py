@@ -525,8 +525,11 @@ class Volume:
     def state_file(self) -> str:
         return os.path.join(
             VOLUME_STATE_DIR,
-            f"{self.pool.name}__{self.vid}".replace(
-                '-', '--').replace('/', '-'))
+            VOLUME_STATE_PREFIX
+            + f"{self.pool.name}:{self.vid}".replace("-", "--").replace(
+                "/", "-"
+            ),
+        )
 
     def is_running(self) -> bool:
         return os.path.exists(self.state_file)
@@ -836,8 +839,7 @@ class Storage:
             for name, vol in self.vm.volumes.items()
         )
         for vol in self.vm.volumes.values():
-            if os.path.exists(vol.state_file):
-                os.unlink(vol.state_file)
+            qubes.utils.remove_file(vol.state_file)
 
     def unused_frontend(self):
         """Find an unused device name"""
