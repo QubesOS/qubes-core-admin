@@ -4405,6 +4405,20 @@ running and private volume snapshots are disabled. Backup will fail!\n'
                 self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                     b'test-vm1', b'private', b'2')
 
+    def test_715_start_volume_sourcing_running_volume_without_snapshot(self):
+        self.vm.volumes = {
+            'root': unittest.mock.Mock(),
+            'private': unittest.mock.Mock(),
+            'volatile': unittest.mock.Mock(),
+            'kernel': unittest.mock.Mock(),
+        }
+        self.vm.volumes["private"].source = unittest.mock.Mock()
+        self.vm.volumes["private"].source.snapshots_disabled = True
+        self.vm.volumes["private"].source.is_running.return_value = True
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.loop.run_until_complete(
+                asyncio.wait_for(self.vm.storage.start(), 1))
+
     def test_720_vm_volume_set_rw(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {

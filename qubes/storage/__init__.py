@@ -809,6 +809,12 @@ class Storage:
 
     async def start(self):
         """Execute the start method on each volume"""
+        for vol in self.vm.volumes.values():
+            if (vol.source and vol.source.snapshots_disabled
+                    and vol.source.is_running()):
+                raise qubes.exc.QubesVMError(
+                    self.vm, f"Volume {vol.source.vid} is running"
+                )
         await qubes.utils.void_coros_maybe(
             # pylint: disable=line-too-long
             (
