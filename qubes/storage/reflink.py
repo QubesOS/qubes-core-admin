@@ -176,8 +176,9 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_precache = self._path_vid + "-precache.img"
         self._path_dirty = self._path_vid + "-dirty.img"
         self._path_import = self._path_vid + "-import.img"
-        self.path = self._path_clean if self.snapshots_disabled \
-                                     else self._path_dirty
+        self.path = (
+            self._path_clean if self.snapshots_disabled else self._path_dirty
+        )
 
     @contextmanager
     def _update_precache(self):

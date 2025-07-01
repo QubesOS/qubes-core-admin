@@ -245,12 +245,12 @@ class AbstractQubesAPI:
         if not predicate:
             raise PermissionDenied()
 
-    def validate_size(self,
-                      untrusted_size: bytes,
-                      allow_negative: bool = False) -> int:
+    def validate_size(
+        self, untrusted_size: bytes, allow_negative: bool = False
+    ) -> int:
         self.enforce(isinstance(untrusted_size, bytes))
         coefficient = 1
-        if allow_negative and untrusted_size.startswith(b'-'):
+        if allow_negative and untrusted_size.startswith(b"-"):
             coefficient = -1
             untrusted_size = untrusted_size[1:]
         if not untrusted_size.isdigit():

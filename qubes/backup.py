@@ -517,15 +517,20 @@ class Backup:
             summary_line += fmt.format(size_to_human(vm_size))
 
             if qid != 0 and vm_info.vm.is_running():
-                if [volume for volume in vm_info.vm.volumes.values()
-                           if volume.snapshots_disabled]:
+                if [
+                    volume
+                    for volume in vm_info.vm.volumes.values()
+                    if volume.snapshots_disabled
+                ]:
                     summary_line += (
                         " <-- The VM is running and private volume snapshots "
                         "are disabled. Backup will fail!"
                     )
                 else:
-                    summary_line += " <-- The VM is running, backup will " \
-                                    "contain its state from before its start!"
+                    summary_line += (
+                        " <-- The VM is running, backup will "
+                        "contain its state from before its start!"
+                    )
 
             summary += summary_line + "\n"
 

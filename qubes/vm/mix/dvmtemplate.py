@@ -121,7 +121,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-pre-start")
     def __on_domain_pre_start(self, event, **kwargs):
         """Prevents startup for domain having a volume with disabled snapshots
-           and a DispVM based on this volume started
+        and a DispVM based on this volume started
         """
         # pylint: disable=unused-argument
         volume_with_disabled_snapshots = False

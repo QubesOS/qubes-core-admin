@@ -98,7 +98,7 @@ class Volume:
         snap_on_start=False,
         source=None,
         ephemeral=None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize a volume.
 
@@ -517,9 +517,11 @@ class Volume:
 
     @property
     def snapshots_disabled(self) -> bool:
-        return (self.revisions_to_keep == -1 and
-                not self.snap_on_start and
-                self.save_on_stop)
+        return (
+            self.revisions_to_keep == -1
+            and not self.snap_on_start
+            and self.save_on_stop
+        )
 
     @property
     def state_file(self) -> str:
@@ -810,15 +812,17 @@ class Storage:
     def set_revisions_to_keep(self, volume, value):
         if value < -1:
             raise qubes.exc.QubesValueError(
-                "Invalid value for revisions_to_keep")
+                "Invalid value for revisions_to_keep"
+            )
 
         currentvalue = self.vm.volumes[volume].revisions_to_keep
-        enabling_disabling_snapshots = value != currentvalue and \
-                (currentvalue == -1 or value == -1)
+        enabling_disabling_snapshots = value != currentvalue and (
+            currentvalue == -1 or value == -1
+        )
         if self.vm.is_running() and enabling_disabling_snapshots:
             raise qubes.exc.QubesVMNotHaltedError(self.vm)
 
-        if self.vm.klass == 'AppVM' and enabling_disabling_snapshots:
+        if self.vm.klass == "AppVM" and enabling_disabling_snapshots:
             for vm in self.vm.dispvms:
                 if vm.is_running():
                     raise qubes.exc.QubesVMNotHaltedError(vm)
@@ -828,8 +832,11 @@ class Storage:
     async def start(self):
         """Execute the start method on each volume"""
         for vol in self.vm.volumes.values():
-            if (vol.source and vol.source.snapshots_disabled
-                    and vol.source.is_running()):
+            if (
+                vol.source
+                and vol.source.snapshots_disabled
+                and vol.source.is_running()
+            ):
                 raise qubes.exc.QubesVMError(
                     self.vm, f"Volume {vol.source.vid} is running"
                 )
@@ -846,7 +853,7 @@ class Storage:
         )
 
         for vol in self.vm.volumes.values():
-            with open(vol.state_file, 'w', encoding='ascii'):
+            with open(vol.state_file, "w", encoding="ascii"):
                 pass
 
     async def stop(self):

@@ -1362,24 +1362,22 @@ class TC_00_ThinPool(ThinPoolBase):
             "ephemeral_volatile flag must be ignored for read-only volumes",
         )
 
-
     def test_130_private_snapshots_disabled(self):
         config = {
-            'name': 'private',
-            'pool': self.pool.name,
-            'save_on_stop': True,
-            'rw': True,
-            'size': qubes.config.defaults['root_img_size'],
-            'revisions_to_keep': -1,
+            "name": "private",
+            "pool": self.pool.name,
+            "save_on_stop": True,
+            "rw": True,
+            "size": qubes.config.defaults["root_img_size"],
+            "revisions_to_keep": -1,
         }
 
         vm = qubes.tests.storage.TestVM(self)
         volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
         self.assertIsInstance(volume, self.volume_class)
-        self.assertEqual(volume.name, 'private')
+        self.assertEqual(volume.name, "private")
         self.assertEqual(volume.pool, self.pool.name)
-        self.assertEqual(volume.size,
-                         qubes.config.defaults['root_img_size'])
+        self.assertEqual(volume.size, qubes.config.defaults["root_img_size"])
         self.loop.run_until_complete(volume.create())
 
         volume._commit = unittest.mock.Mock()
@@ -1388,10 +1386,12 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(os.path.exists(f"/dev/{volume.vid}"))
         self.assertFalse(os.path.exists(f"/dev/{volume._vid_snap}"))
 
-        self.assertEqual(volume.block_device().path,
-                         "/dev/mapper/{}-vm--test--inst--appvm--private".format(
-                             self.pool.volume_group
-                         ))
+        self.assertEqual(
+            volume.block_device().path,
+            "/dev/mapper/{}-vm--test--inst--appvm--private".format(
+                self.pool.volume_group
+            ),
+        )
 
         self.loop.run_until_complete(volume.stop())
         self.loop.run_until_complete(volume.remove())
@@ -1400,11 +1400,11 @@ class TC_00_ThinPool(ThinPoolBase):
 
     def test_131_private_snapshots_disabled_pool_level(self):
         config = {
-            'name': 'private',
-            'pool': self.pool.name,
-            'save_on_stop': True,
-            'rw': True,
-            'size': qubes.config.defaults['root_img_size'],
+            "name": "private",
+            "pool": self.pool.name,
+            "save_on_stop": True,
+            "rw": True,
+            "size": qubes.config.defaults["root_img_size"],
         }
 
         vm = qubes.tests.storage.TestVM(self)
@@ -1412,10 +1412,9 @@ class TC_00_ThinPool(ThinPoolBase):
         pool.revisions_to_keep = -1
         volume = pool.init_volume(vm, config)
         self.assertIsInstance(volume, self.volume_class)
-        self.assertEqual(volume.name, 'private')
+        self.assertEqual(volume.name, "private")
         self.assertEqual(volume.pool, self.pool.name)
-        self.assertEqual(volume.size,
-                         qubes.config.defaults['root_img_size'])
+        self.assertEqual(volume.size, qubes.config.defaults["root_img_size"])
         self.loop.run_until_complete(volume.create())
 
         volume._commit = unittest.mock.Mock()
@@ -1424,10 +1423,12 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertTrue(os.path.exists(f"/dev/{volume.vid}"))
         self.assertFalse(os.path.exists(f"/dev/{volume._vid_snap}"))
 
-        self.assertEqual(volume.block_device().path,
-                         "/dev/mapper/{}-vm--test--inst--appvm--private".format(
-                             self.pool.volume_group
-                         ))
+        self.assertEqual(
+            volume.block_device().path,
+            "/dev/mapper/{}-vm--test--inst--appvm--private".format(
+                self.pool.volume_group
+            ),
+        )
 
         self.loop.run_until_complete(volume.stop())
         self.loop.run_until_complete(volume.remove())
