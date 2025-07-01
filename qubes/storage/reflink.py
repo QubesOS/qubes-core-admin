@@ -268,6 +268,8 @@ class ReflinkVolume(qubes.storage.Volume):
     def start(self):  # pylint: disable=invalid-overridden-method
         self._remove_incomplete_images()
         if self.snapshots_disabled:
+            self._prune_revisions(keep=0)
+            _remove_file(self._path_precache)
             return self
         if not self.is_dirty():
             if self.snap_on_start:
