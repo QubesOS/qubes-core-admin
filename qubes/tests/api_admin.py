@@ -3144,6 +3144,11 @@ netvm default=True type=vm \n"""
 
     def test_520_vm_volume_clone(self):
         self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
         token = self.call_mgmt_func(
             b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
         )
@@ -3165,6 +3170,10 @@ netvm default=True type=vm \n"""
     def test_521_vm_volume_clone_invalid_volume(self):
         self.setup_for_clone()
 
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
         with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneFrom", b"test-vm1", b"private123", b""
@@ -3177,6 +3186,10 @@ netvm default=True type=vm \n"""
 
     def test_522_vm_volume_clone_invalid_volume2(self):
         self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
 
         token = self.call_mgmt_func(
             b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
@@ -3196,6 +3209,10 @@ netvm default=True type=vm \n"""
 
     def test_523_vm_volume_clone_removed_volume(self):
         self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
 
         token = self.call_mgmt_func(
             b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
@@ -3224,6 +3241,10 @@ netvm default=True type=vm \n"""
     def test_524_vm_volume_clone_invlid_token(self):
         self.setup_for_clone()
 
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
         with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneTo",
@@ -3236,6 +3257,26 @@ netvm default=True type=vm \n"""
             map(operator.itemgetter(0), self.pool.mock_calls),
         )
         self.assertFalse(self.app.save.called)
+
+    def test_525_vm_volume_clone_snapshots_disabled(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].revisions_to_keep = -1
+        self.vm.volumes["private"].is_running = lambda: True
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+
+        with self.assertRaises(qubes.storage.StoragePoolException):
+            self.call_mgmt_func(
+                b"admin.vm.volume.CloneTo",
+                b"test-vm2",
+                b"private",
+                token.encode(),
+            )
 
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")

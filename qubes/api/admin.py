@@ -502,7 +502,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             src_volume=src_volume, dst_volume=dst_volume
         )
         self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
-            dst_volume.import_volume(src_volume)
+            self.dest.storage.import_volume(dst_volume, src_volume)
         )
         self.app.save()
 

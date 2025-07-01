@@ -921,6 +921,18 @@ class Storage:
             self.get_volume(volume).import_data_end(success=success)
         )
 
+    async def import_volume(self, dst_volume: Volume, src_volume: Volume):
+        """Helper function to import data from another volume"""
+        if src_volume.is_running() and src_volume.snapshots_disabled:
+            raise StoragePoolException(
+                f"Volume {src_volume.vid} must be stopped before importing its "
+                f"data"
+            )
+
+        return await qubes.utils.coro_maybe(
+            dst_volume.import_volume(src_volume)
+        )
+
 
 class VolumesCollection:
     """Convenient collection wrapper for pool.get_volume and
