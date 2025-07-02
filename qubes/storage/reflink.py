@@ -176,9 +176,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_precache = self._path_vid + "-precache.img"
         self._path_dirty = self._path_vid + "-dirty.img"
         self._path_import = self._path_vid + "-import.img"
-        self.path = (
-            self._path_clean if self.snapshots_disabled else self._path_dirty
-        )
+        self.path = self._path_dirty
 
     @contextmanager
     def _update_precache(self):
@@ -270,6 +268,9 @@ class ReflinkVolume(qubes.storage.Volume):
         if self.snapshots_disabled:
             self._prune_revisions(keep=0)
             _remove_file(self._path_precache)
+            if not self.is_dirty():
+                _rename_file(self._path_clean, self._path_dirty)
+
             return self
         if not self.is_dirty():
             if self.snap_on_start:
@@ -291,7 +292,9 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     def stop(self):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
-            if not self.snapshots_disabled:
+            if self.snapshots_disabled:
+                _rename_file(self._path_dirty, self._path_clean)
+            else:
                 self._commit(self._path_dirty)
         elif not self.save_on_stop:
             if not self.snap_on_start:
