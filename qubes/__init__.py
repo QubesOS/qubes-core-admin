@@ -505,7 +505,7 @@ class property:  # pylint: disable=redefined-builtin,invalid-name
 def stateless_property(func):
     """Decorator similar to :py:class:`builtins.property`, but for properties
     exposed through management API (including qvm-prefs etc)"""
-    prop_type = func.__annotations__.get('return', None)
+    prop_type = func.__annotations__.get("return", None)
     return property(
         func.__name__,
         setter=property.forbidden,
