@@ -115,6 +115,23 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 "Invalid preload-dispvm-max value: not a digit"
             )
 
+    @qubes.events.handler("domain-pre-start")
+    def __on_domain_pre_start(self, event, **kwargs):
+        """Prevents startup for domain having a volume with disabled snapshots
+        and a DispVM based on this volume started
+        """
+        # pylint: disable=unused-argument
+        volume_with_disabled_snapshots = False
+        for vol in self.volumes.values():
+            volume_with_disabled_snapshots |= vol.snapshots_disabled
+
+        if not volume_with_disabled_snapshots:
+            return
+
+        for vm in self.dispvms:
+            if vm.is_running():
+                raise qubes.exc.QubesVMNotHaltedError(vm)
+
     @qubes.events.handler("domain-feature-set:preload-dispvm-max")
     def on_feature_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None

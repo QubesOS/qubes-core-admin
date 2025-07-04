@@ -517,10 +517,20 @@ class Backup:
             summary_line += fmt.format(size_to_human(vm_size))
 
             if qid != 0 and vm_info.vm.is_running():
-                summary_line += (
-                    " <-- The VM is running, backup will contain "
-                    "its state from before its start!"
-                )
+                if [
+                    volume
+                    for volume in vm_info.vm.volumes.values()
+                    if volume.snapshots_disabled
+                ]:
+                    summary_line += (
+                        " <-- The VM is running and private volume snapshots "
+                        "are disabled. Backup will fail!"
+                    )
+                else:
+                    summary_line += (
+                        " <-- The VM is running, backup will "
+                        "contain its state from before its start!"
+                    )
 
             summary += summary_line + "\n"
 
@@ -823,6 +833,15 @@ class Backup:
             backup_app.domains[qid].features["backup-content"] = True
             backup_app.domains[qid].features["backup-path"] = vm_info.subdir
             backup_app.domains[qid].features["backup-size"] = vm_info.size
+
+            # VM running private volumes without snapshoting them
+            # (revision_to_keep = -1) must be powered off to be backup
+            if backup_app.domains[qid].is_running:
+                for volume in backup_app.domains[qid].volumes.values():
+                    if volume.snapshots_disabled:
+                        raise qubes.exc.QubesVMNotHaltedError(
+                            backup_app.domains[qid]
+                        )
         backup_app.save()
         del backup_app
 

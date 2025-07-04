@@ -272,7 +272,7 @@ class FileVolume(qubes.storage.Volume):
 
     @revisions_to_keep.setter
     def revisions_to_keep(self, value):
-        if not isinstance(value, int) or value > 1 or value < 0:
+        if not isinstance(value, int) or value > 1 or value < -1:
             raise NotImplementedError(
                 "FileVolume supports maximum 1 volume revision to keep"
             )
@@ -490,9 +490,14 @@ class FileVolume(qubes.storage.Volume):
             # shutdown routine wasn't called (power interrupt or so)
             _remove_if_exists(self.path_cow)
         if not os.path.exists(self.path_cow):
-            create_sparse_file(self.path_cow, self.size)
+            if not self.snapshots_disabled:
+                create_sparse_file(self.path_cow, self.size)
         if not self.snap_on_start:
             _check_path(self.path)
+
+        if self.snapshots_disabled:
+            return self
+
         if hasattr(self, "path_source_cow"):
             if not os.path.exists(self.path_source_cow):
                 create_sparse_file(self.path_source_cow, self.size)
@@ -524,10 +529,12 @@ class FileVolume(qubes.storage.Volume):
             self._export_lock is not FileVolume._marker_exported
         ), "trying to stop exported file volume?"
         if self.save_on_stop or self.snap_on_start:
-            await self._destroy_blockdev()
+            if not self.snapshots_disabled:
+                await self._destroy_blockdev()
         if self.save_on_stop:
             if self.rw:
-                self.commit()
+                if not self.snapshots_disabled:
+                    self.commit()
             else:
                 _remove_if_exists(self.path_cow)
         elif self.snap_on_start:
@@ -569,7 +576,7 @@ class FileVolume(qubes.storage.Volume):
 
     def _block_device_path(self):
         if not self.snap_on_start:
-            if not self.save_on_stop:
+            if not self.save_on_stop or self.snapshots_disabled:
                 return self.path
             return "-".join(
                 [

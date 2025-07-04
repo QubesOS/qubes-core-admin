@@ -41,6 +41,8 @@ import qubes.utils
 from qubes.exc import StoragePoolException
 
 STORAGE_ENTRY_POINT = "qubes.storage"
+VOLUME_STATE_DIR = "/var/run/qubes/"
+VOLUME_STATE_PREFIX = "volume-running-"
 _am_root = os.getuid() == 0
 
 BYTES_TO_ZERO = 1 << 16
@@ -96,7 +98,7 @@ class Volume:
         snap_on_start=False,
         source=None,
         ephemeral=None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize a volume.
 
@@ -513,6 +515,27 @@ class Volume:
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
+    @property
+    def snapshots_disabled(self) -> bool:
+        return (
+            self.revisions_to_keep == -1
+            and not self.snap_on_start
+            and self.save_on_stop
+        )
+
+    @property
+    def state_file(self) -> str:
+        return os.path.join(
+            VOLUME_STATE_DIR,
+            VOLUME_STATE_PREFIX
+            + f"{self.pool.name}:{self.vid}".replace("-", "--").replace(
+                "/", "-"
+            ),
+        )
+
+    def is_running(self) -> bool:
+        return os.path.exists(self.state_file)
+
 
 class Storage:
     """Class for handling VM virtual disks.
@@ -786,8 +809,37 @@ class Storage:
                 else:
                     yield block_dev
 
+    def set_revisions_to_keep(self, volume, value):
+        if value < -1:
+            raise qubes.exc.QubesValueError(
+                "Invalid value for revisions_to_keep"
+            )
+
+        currentvalue = self.vm.volumes[volume].revisions_to_keep
+        enabling_disabling_snapshots = value != currentvalue and (
+            currentvalue == -1 or value == -1
+        )
+        if self.vm.is_running() and enabling_disabling_snapshots:
+            raise qubes.exc.QubesVMNotHaltedError(self.vm)
+
+        if self.vm.klass == "AppVM" and enabling_disabling_snapshots:
+            for vm in self.vm.dispvms:
+                if vm.is_running():
+                    raise qubes.exc.QubesVMNotHaltedError(vm)
+
+        self.vm.volumes[volume].revisions_to_keep = value
+
     async def start(self):
         """Execute the start method on each volume"""
+        for vol in self.vm.volumes.values():
+            if (
+                vol.source
+                and vol.source.snapshots_disabled
+                and vol.source.is_running()
+            ):
+                raise qubes.exc.QubesVMError(
+                    self.vm, f"Volume {vol.source.vid} is running"
+                )
         await qubes.utils.void_coros_maybe(
             # pylint: disable=line-too-long
             (
@@ -799,6 +851,10 @@ class Storage:
             )
             for name, vol in self.vm.volumes.items()
         )
+
+        for vol in self.vm.volumes.values():
+            with open(vol.state_file, "w", encoding="ascii"):
+                pass
 
     async def stop(self):
         """Execute the stop method on each volume"""
@@ -813,6 +869,8 @@ class Storage:
             )
             for name, vol in self.vm.volumes.items()
         )
+        for vol in self.vm.volumes.values():
+            qubes.utils.remove_file(vol.state_file)
 
     def unused_frontend(self):
         """Find an unused device name"""
@@ -861,6 +919,18 @@ class Storage:
         """Helper function to finish/cleanup data import"""
         return await qubes.utils.coro_maybe(
             self.get_volume(volume).import_data_end(success=success)
+        )
+
+    async def import_volume(self, dst_volume: Volume, src_volume: Volume):
+        """Helper function to import data from another volume"""
+        if src_volume.is_running() and src_volume.snapshots_disabled:
+            raise StoragePoolException(
+                f"Volume {src_volume.vid} must be stopped before importing its "
+                f"data"
+            )
+
+        return await qubes.utils.coro_maybe(
+            dst_volume.import_volume(src_volume)
         )
 
 

@@ -1892,7 +1892,7 @@ class ZFSVolume(qubes.storage.Volume):
                 )
             )
         )
-        num = self.revisions_to_keep
+        num = max(0, self.revisions_to_keep)
         for snapshot, _ in revs[num:]:
             vsn = VolumeSnapshot.make(self.vid, snapshot)
             self.log.debug("Pruning %s", vsn)
@@ -1908,8 +1908,9 @@ class ZFSVolume(qubes.storage.Volume):
             )
             if s.name.is_clean_snapshot()
         ]
-        new = self.volume.clean_snapshot()
-        await self.pool.accessor.snapshot_volume_async(new, log=self.log)
+        if not self.snapshots_disabled:
+            new = self.volume.clean_snapshot()
+            await self.pool.accessor.snapshot_volume_async(new, log=self.log)
         for old in existing_cleans:
             await self.pool.accessor.remove_volume_async(
                 old,
@@ -2006,6 +2007,19 @@ class ZFSVolume(qubes.storage.Volume):
             # then clone it from there.
             samepoolsource = cast(ZFSVolume, source)
             self.log.debug("Source shares pool with me")
+            if samepoolsource.snapshots_disabled:
+                if samepoolsource.is_running():
+                    raise qubes.storage.StoragePoolException(
+                        f"Volume {samepoolsource.vid} must be stopped before "
+                        "being cloned."
+                    )
+                assert (
+                    not samepoolsource.is_running()
+                ), f"Volume {samepoolsource.vid} is running"
+                await samepoolsource.pool.accessor.snapshot_volume_async(
+                    samepoolsource.volume.clean_snapshot(),
+                    log=samepoolsource.log,
+                )
             try:
                 src = samepoolsource.latest_clean_snapshot[0]
             except DatasetDoesNotExist:
@@ -2016,6 +2030,11 @@ class ZFSVolume(qubes.storage.Volume):
             async with self._clone_volume_2phase(src):
                 # Do nothing.  The context manager takes care of everything.
                 pass
+
+            if samepoolsource.snapshots_disabled:
+                # This will schedule removing of created clean snapshot
+                # pylint: disable=protected-access
+                await samepoolsource._mark_clean()
         else:
             # Source is not a ZFS one;
             # create the dataset with the size of the
@@ -2499,6 +2518,14 @@ class ZFSVolume(qubes.storage.Volume):
             )
         exported = self.exported_volume_name(get_random_string(8))
         dest_dset = Volume.make(exported)
+        if self.snapshots_disabled:
+            if self.is_running():
+                raise qubes.storage.StoragePoolException(
+                    f"Volume {self.vid} must be stopped before being cloned"
+                )
+            await self.pool.accessor.snapshot_volume_async(
+                self.volume.clean_snapshot(), log=self.log
+            )
         try:
             src = self.latest_clean_snapshot[0]
         except DatasetDoesNotExist:
@@ -2514,6 +2541,8 @@ class ZFSVolume(qubes.storage.Volume):
             NO_AUTO_SNAPSHOT,
             log=self.log,
         )
+        if self.snapshots_disabled:
+            await self._mark_clean()
         return os.path.join(ZVOL_DIR, exported)
 
     async def export_end(self, path: str) -> None:

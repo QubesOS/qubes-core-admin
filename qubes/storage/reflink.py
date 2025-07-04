@@ -182,6 +182,8 @@ class ReflinkVolume(qubes.storage.Volume):
     def _update_precache(self):
         _remove_file(self._path_precache)
         yield
+        if self.snapshots_disabled:
+            return
         _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
 
     def _remove_stale_precache(self):
@@ -263,6 +265,13 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     def start(self):  # pylint: disable=invalid-overridden-method
         self._remove_incomplete_images()
+        if self.snapshots_disabled:
+            self._prune_revisions(keep=0)
+            _remove_file(self._path_precache)
+            if not self.is_dirty():
+                _rename_file(self._path_clean, self._path_dirty)
+
+            return self
         if not self.is_dirty():
             if self.snap_on_start:
                 _remove_file(self._path_clean)
@@ -283,7 +292,10 @@ class ReflinkVolume(qubes.storage.Volume):
     @_coroutinized
     def stop(self):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
-            self._commit(self._path_dirty)
+            if self.snapshots_disabled:
+                _rename_file(self._path_dirty, self._path_clean)
+            else:
+                self._commit(self._path_dirty)
         elif not self.save_on_stop:
             if not self.snap_on_start:
                 self._size = self.size  # preserve manual resize of image
