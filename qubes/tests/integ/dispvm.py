@@ -72,7 +72,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.app.default_dispvm = None
         super(TC_04_DispVM, self).tearDown()
 
-    def wait_for_dispvm_destroy(self, dispvm_name):
+    def wait_for_dispvm_destroy(self, dispvm_name: list):
         timeout = 20
         while dispvm_name in self.app.domains:
             self.loop.run_until_complete(asyncio.sleep(1))
@@ -204,6 +204,7 @@ class TC_20_DispVMMixin(object):
         self.addCleanup(
             self.app.remove_handler, "domain-add", self._on_domain_add
         )
+        self.adminvm = self.app.domains["dom0"]
         self.init_default_template(self.template)
         self.disp_base = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -212,7 +213,18 @@ class TC_20_DispVMMixin(object):
             template_for_dispvms=True,
         )
         self.loop.run_until_complete(self.disp_base.create_on_disk())
-        self.app.default_dispvm = self.disp_base
+        self.disp_base_alt = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("dvm-alt"),
+            label="red",
+            template_for_dispvms=True,
+        )
+        self.loop.run_until_complete(self.disp_base_alt.create_on_disk())
+        # Setting "default_dispvm" fires the preload event before patches of
+        # each test function is applied.
+        if "_preload_" not in self._testMethodName:
+            self.app.default_dispvm = self.disp_base
+        self.cleanup_preload()
         self.app.save()
         self.preload_cmd = [
             "qvm-run",
@@ -229,11 +241,11 @@ class TC_20_DispVMMixin(object):
         logger.info("start")
         if "gui" in self.disp_base.features:
             del self.disp_base.features["gui"]
-        old_preload = self.disp_base.get_feat_preload()
-        self.app.default_dispvm = None
-        tasks = [self.app.domains[x].cleanup() for x in old_preload]
-        self.loop.run_until_complete(asyncio.gather(*tasks))
-        self.disp_base.features["preload-dispvm-max"] = False
+        self.cleanup_preload()
+        # See comment in setUp().
+        if "_preload_" not in self._testMethodName:
+            self.app.default_dispvm = None
+        self.app.save()
         super(TC_20_DispVMMixin, self).tearDown()
         logger.info("end")
 
@@ -245,7 +257,6 @@ class TC_20_DispVMMixin(object):
         logger.info("%s[%s]", vm.name, event)
         self.event_handler.setdefault(vm.name, {}).setdefault(event, 0)
         self.event_handler[vm.name][event] += 1
-
 
     def _test_event_handler_remove(self, vm, event):
         if not hasattr(self, "event_handler"):
@@ -271,6 +282,8 @@ class TC_20_DispVMMixin(object):
             "domain-paused",
             "domain-unpaused",
             "domain-feature-delete:internal",
+            # debug
+            "domain-shutdown",
         ]
         for event in events:
             vm.add_handler(event, self._test_event_handler)
@@ -278,22 +291,66 @@ class TC_20_DispVMMixin(object):
     def _on_domain_add(self, app, event, vm):  # pylint: disable=unused-argument
         self._register_handlers(vm)
 
+    async def cleanup_preload_run(self, qube):
+        old_preload = qube.get_feat_preload()
+        tasks = [self.app.domains[x].cleanup() for x in old_preload]
+        await asyncio.gather(*tasks)
+
+    def cleanup_preload(self):
+        logger.info("start")
+        if "preload-dispvm-max" in self.app.domains[self.disp_base].features:
+            logger.info("has local preload")
+            self.loop.run_until_complete(
+                self.cleanup_preload_run(self.disp_base)
+            )
+            logger.info("deleting local feature")
+            del self.disp_base.features["preload-dispvm-max"]
+        if "preload-dispvm-max" in self.app.domains["dom0"].features:
+            logger.info("has global preload")
+            default_dispvm = self.app.default_dispvm
+            if default_dispvm:
+                self.loop.run_until_complete(
+                    self.cleanup_preload_run(default_dispvm)
+                )
+            logger.info("deleting global feature")
+            del self.app.domains["dom0"].features["preload-dispvm-max"]
+        logger.info("end")
+
     async def no_preload(self):
         # Trick to gather this function as an async task.
         await asyncio.sleep(0)
         self.disp_base.features["preload-dispvm-max"] = False
 
+    def log_preload(self):
+        preload_dict = {}
+        default_dispvm = self.app.default_dispvm
+        global_preload_max = None
+        if default_dispvm:
+            global_preload_max = default_dispvm.get_feat_global_preload_max()
+        preload_dict["global"] = {
+            "name": default_dispvm.name if default_dispvm else None,
+            "max": global_preload_max,
+        }
+        for qube in [self.disp_base, self.disp_base_alt]:
+            preload = qube.get_feat_preload()
+            preload_max = qube.get_feat_preload_max()
+            preload_dict[qube.name] = {"max": preload_max, "list": preload}
+        logger.info(preload_dict)
+
     async def wait_preload(
         self,
         preload_max,
+        appvm=None,
         wait_completion=True,
         fail_on_timeout=True,
         timeout=60,
     ):
         """Waiting for completion avoids coroutine objects leaking."""
         logger.info("start")
+        if not appvm:
+            appvm = self.disp_base
         for _ in range(timeout):
-            preload_dispvm = self.disp_base.get_feat_preload()
+            preload_dispvm = appvm.get_feat_preload()
             if len(preload_dispvm) == preload_max:
                 break
             await asyncio.sleep(1)
@@ -303,7 +360,7 @@ class TC_20_DispVMMixin(object):
         if not wait_completion:
             logger.info("end")
             return
-        preload_dispvm = self.disp_base.get_feat_preload()
+        preload_dispvm = appvm.get_feat_preload()
         preload_unfinished = preload_dispvm
         for _ in range(timeout):
             for qube in preload_unfinished.copy():
@@ -317,6 +374,18 @@ class TC_20_DispVMMixin(object):
         else:
             if fail_on_timeout:
                 self.fail("last preloaded didn't complete in time")
+        logger.info("end")
+
+    def wait_for_dispvm_destroy(self, dispvm_names):
+        logger.info("start")
+        timeout = 20
+        while True:
+            if set(dispvm_names).isdisjoint(self.app.domains):
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+            timeout -= 1
+            if timeout <= 0:
+                self.fail("didn't destroy dispvm(s) in time")
         logger.info("end")
 
     async def run_preload_proc(self):
@@ -414,18 +483,18 @@ class TC_20_DispVMMixin(object):
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
 
-    def test_011_dvm_run_preload_reject_max(self):
+    def test_011_preload_reject_max(self):
         """Test preloading when max has been reached"""
         self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
         )
         self.assertEqual(0, len(self.disp_base.get_feat_preload()))
 
-    def test_012_dvm_run_preload_low_mem(self):
+    def test_012_preload_low_mem(self):
         """Test preloading with low memory"""
-        self.loop.run_until_complete(self._test_012_dvm_run_preload_low_mem())
+        self.loop.run_until_complete(self._test_012_preload_low_mem())
 
-    async def _test_012_dvm_run_preload_low_mem(self):
+    async def _test_012_preload_low_mem(self):
         # pylint: disable=unspecified-encoding
         logger.info("start")
         unpatched_open = open
@@ -445,12 +514,12 @@ class TC_20_DispVMMixin(object):
             self.assertEqual(1, len(self.disp_base.get_feat_preload()))
         logger.info("end")
 
-    def test_013_dvm_run_preload_gui(self):
+    def test_013_preload_gui(self):
         """Test preloading with GUI feature enabled and use after
         completion."""
-        self.loop.run_until_complete(self._test_013_dvm_run_preload_gui())
+        self.loop.run_until_complete(self._test_013_preload_gui())
 
-    async def _test_013_dvm_run_preload_gui(self):
+    async def _test_013_preload_gui(self):
         logger.info("start")
         preload_max = 1
         self.disp_base.features["gui"] = True
@@ -459,12 +528,12 @@ class TC_20_DispVMMixin(object):
         await self.run_preload()
         logger.info("end")
 
-    def test_014_dvm_run_preload_nogui(self):
+    def test_014_preload_nogui(self):
         """Test preloading with GUI feature disabled and use before
         completion."""
-        self.loop.run_until_complete(self._test_014_dvm_run_preload_nogui())
+        self.loop.run_until_complete(self._test_014_preload_nogui())
 
-    async def _test_014_dvm_run_preload_nogui(self):
+    async def _test_014_preload_nogui(self):
         logger.info("start")
         preload_max = 1
         self.disp_base.features["gui"] = False
@@ -474,22 +543,22 @@ class TC_20_DispVMMixin(object):
         await self.run_preload()
         logger.info("end")
 
-    def test_015_dvm_run_preload_race_more(self):
+    def test_015_preload_race_more(self):
         """Test race requesting multiple preloaded qubes"""
-        self.loop.run_until_complete(self._test_015_dvm_run_preload_race_more())
+        self.loop.run_until_complete(self._test_015_preload_race_more())
 
-    async def _test_015_dvm_run_preload_race_more(self):
+    async def _test_015_preload_race_more(self):
         # The limiting factor is how much memory is available on OpenQA and the
         # unreasonable memory allocated before the qube is paused due to:
         #   https://github.com/QubesOS/qubes-issues/issues/9917
-        # Whonix (Kicksecure) 17 fail more due to memory consumption. From the
-        # templates deployed by default, only Debian and Fedora survives due to
-        # using less memory than the other OSes.
+        # Whonix (Kicksecure) 17 fail more due to higher memory consumption.
+        # From the templates deployed by default, only Debian and Fedora
+        # survives due to using less memory than the other OSes.
         logger.info("start")
-        preload_max = 4
-        os_dist = self.disp_base.features.check_with_template("os-distribution")
-        if os_dist in ["whonix", "kicksecure"]:
-            preload_max -= 1
+        preload_max = 3
+        # dist = self.disp_base.features.check_with_template("os-distribution")
+        # if dist in ["whonix", "kicksecure"]:
+        #     preload_max -= 1
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max)
         old_preload = self.disp_base.get_feat_preload()
@@ -502,11 +571,11 @@ class TC_20_DispVMMixin(object):
         self.assertEqual(len(targets), len(set(targets)))
         logger.info("end")
 
-    def test_016_dvm_run_preload_race_less(self):
+    def test_016_preload_race_less(self):
         """Test race requesting preloaded qube while the maximum is zeroed."""
-        self.loop.run_until_complete(self._test_016_dvm_run_preload_race_less())
+        self.loop.run_until_complete(self._test_016_preload_race_less())
 
-    async def _test_016_dvm_run_preload_race_less(self):
+    async def _test_016_preload_race_less(self):
         logger.info("start")
         preload_max = 1
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
@@ -517,7 +586,7 @@ class TC_20_DispVMMixin(object):
         self.assertTrue(target_dispvm.startswith("disp"))
         logger.info("end")
 
-    def test_017_dvm_run_preload_autostart(self):
+    def test_017_preload_autostart(self):
         logger.info("start")
         preload_max = 1
         proc = self.loop.run_until_complete(
@@ -541,6 +610,77 @@ class TC_20_DispVMMixin(object):
             set(old_preload).isdisjoint(preload_dispvm),
             f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
+        logger.info("end")
+
+    def test_018_preload_global(self):
+        """Tweak global preload setting and global dispvm."""
+        self.loop.run_until_complete(self._test_018_preload_global())
+
+    async def _test_018_preload_global(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+
+        logger.info("set global dispvm")
+        self.app.default_dispvm = self.disp_base
+        logger.info("set global feat, state must change")
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("set local feat, state must not change")
+        preload_max += 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max, fail_on_timeout=False, timeout=15)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
+
+        self.log_preload()
+        logger.info("del local feat, state must not change")
+        del self.disp_base.features["preload-dispvm-max"]
+        await asyncio.sleep(5)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
+
+        self.log_preload()
+        logger.info("set local feat and del global feat, state must change")
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        del self.adminvm.features["preload-dispvm-max"]
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("del local feat and set global feat, state must change")
+        preload_max -= 1
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.disp_base.features["preload-dispvm-max"] = ""
+        self.wait_for_dispvm_destroy(preload_remove)
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), preload_max)
+
+        self.log_preload()
+        logger.info("switch global dispvm, state must change")
+        self.app.default_dispvm = self.disp_base_alt
+        await self.wait_preload(preload_max, appvm=self.disp_base_alt)
+
+        self.log_preload()
+        logger.info("set local feat, state must not change")
+        preload_max += 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("switch back global dispvm, state must change")
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.app.default_dispvm = self.disp_base
+        self.wait_for_dispvm_destroy(preload_remove)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("unset global dispvm, state must change")
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.app.default_dispvm = None
+        self.wait_for_dispvm_destroy(preload_remove)
+
+        self.log_preload()
         logger.info("end")
 
     @unittest.skipUnless(

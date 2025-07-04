@@ -91,6 +91,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_delete_preload_dispvm_max(
         self, event, feature
     ):  # pylint: disable=unused-argument
+        if self.is_global_preload_set():
+            return
         self.remove_preload_excess(0)
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
@@ -117,8 +119,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def on_feature_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if self.is_global_preload_set():
+            return
+        reason = "local feature was set to " + str(value)
         asyncio.ensure_future(
-            self.fire_event_async("domain-preload-dispvm-start")
+            self.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
@@ -237,6 +244,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         event_log = "Received preload event '%s'" % str(event)
         if event == "used":
             event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
+        if "reason" in kwargs:
+            event_log += " because %s" % str(kwargs.get("reason"))
         self.log.info(event_log)
 
         if event == "autostart":
@@ -259,6 +268,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 available_memory = int(file.read())
         except FileNotFoundError:
             can_preload = want_preload
+            self.log.warning("File containing available memory was not found")
         if available_memory is not None:
             memory = getattr(self, "memory", 0) * 1024 * 1024
             unrestricted_preload = int(available_memory / memory)
@@ -271,7 +281,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 )
             if can_preload == 0:
                 # The gap is filled when consuming a preloaded qube or
-                # requesting a disposable.
+                # requesting a non-preloaded disposable.
                 return
 
         self.log.info("Preloading '%d' qube(s)", can_preload)
@@ -283,17 +293,57 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
     def get_feat_preload(self) -> list[str]:
         """Get the ``preload-dispvm`` feature as a list."""
-        feature = "preload-dispvm"
         assert isinstance(self, qubes.vm.BaseVM)
+        feature = "preload-dispvm"
         value = self.features.get(feature, "")
         return value.split(" ") if value else []
 
-    def get_feat_preload_max(self) -> int:
-        """Get the ``preload-dispvm-max`` feature as an integer."""
-        feature = "preload-dispvm-max"
+    def get_feat_global_preload_max(self) -> Optional[int]:
+        """Get the global ``preload-dispvm-max`` feature as an integer if it is
+        set, None otherwise."""
         assert isinstance(self, qubes.vm.BaseVM)
-        value = self.features.get(feature, 0)
-        return int(value) if value else 0
+        feature = "preload-dispvm-max"
+        value = None
+        global_features = self.app.domains["dom0"].features
+        if feature in global_features:
+            value = int(global_features.get(feature) or 0)
+        return value
+
+    def get_feat_preload_max(self, force_local=False) -> int:
+        """Get the ``preload-dispvm-max`` feature as an integer.
+
+        :param force_local: ignore global setting.
+        """
+        assert isinstance(self, qubes.vm.BaseVM)
+        feature = "preload-dispvm-max"
+        value = None
+        if not force_local and self == getattr(
+            self.app, "default_dispvm", None
+        ):
+            value = self.get_feat_global_preload_max()
+        if value is None:
+            value = self.features.get(feature)
+        return int(value or 0)
+
+    def is_global_preload_set(self) -> bool:
+        """Returns ``True`` if this qube is the global default_dispvm and the
+        global preload feature is set."""
+        assert isinstance(self, qubes.vm.BaseVM)
+        if (
+            self == getattr(self.app, "default_dispvm", None)
+            and "preload-dispvm-max" in self.app.domains["dom0"].features
+        ):
+            return True
+        return False
+
+    def is_global_preload_distinct(self):
+        """Returns ``True`` if global preload feature is distinct compared to
+        local one."""
+        if (
+            self.get_feat_global_preload_max() or 0
+        ) != self.get_feat_preload_max(force_local=True):
+            return True
+        return False
 
     def can_preload(self) -> bool:
         """Returns ``True`` if there is preload vacancy."""

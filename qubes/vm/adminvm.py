@@ -20,7 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains the AdminVM implementation """
+"""This module contains the AdminVM implementation"""
 import asyncio
 import grp
 import subprocess
@@ -266,7 +266,7 @@ class AdminVM(LocalVM):
         filter_esc=False,
         autostart=False,
         gui=False,
-        **kwargs
+        **kwargs,
     ):
         """Run service on this VM
 
@@ -347,3 +347,43 @@ class AdminVM(LocalVM):
             )
 
         return stdouterr
+
+    @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
+    def on_feature_delete_preload_dispvm_max(
+        self, event, feature
+    ):  # pylint: disable=unused-argument
+        if not (appvm := getattr(self.app, "default_dispvm", None)):
+            return
+        reason = "global feature was deleted"
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-start", reason=reason)
+        )
+
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
+    def on_feature_pre_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if not (appvm := getattr(self.app, "default_dispvm", None)):
+            return
+        appvm.fire_event(
+            "domain-feature-pre-set:preload-dispvm-max",
+            pre_event=True,
+            feature="preload-dispvm-max",
+            value=value,
+            oldvalue=oldvalue,
+        )
+
+    @qubes.events.handler("domain-feature-set:preload-dispvm-max")
+    def on_feature_set_preload_dispvm_max(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if not (appvm := getattr(self.app, "default_dispvm", None)):
+            return
+        reason = "global feature was set to " + str(value)
+        asyncio.ensure_future(
+            appvm.fire_event_async("domain-preload-dispvm-start", reason=reason)
+        )

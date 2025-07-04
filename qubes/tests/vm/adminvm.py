@@ -18,6 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import grp
+import os
 import subprocess
 import unittest
 import unittest.mock
@@ -37,43 +38,43 @@ import qubes.tests
 class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        try:
-            self.app = qubes.tests.vm.TestApp()
-            with unittest.mock.patch.object(
-                qubes.vm.adminvm.AdminVM, "start_qdb_watch"
-            ) as mock_qdb:
-                self.vm = qubes.vm.adminvm.AdminVM(self.app, xml=None)
-                mock_qdb.assert_called_once_with()
-                self.addCleanup(self.cleanup_adminvm)
-        except:  # pylint: disable=bare-except
-            if self.id().endswith(".test_000_init"):
-                raise
-            self.skipTest("setup failed")
+        self.app = qubes.Qubes(
+            "/tmp/qubestest.xml", load=False, offline_mode=True
+        )
+        self.app.load_initial_values()
+        self.vm = self.app.domains["dom0"]
+        self.template = self.app.add_new_vm(
+            "TemplateVM", name="test-template", label="green"
+        )
+        self.template.features["qrexec"] = True
+        self.template.features["supported-rpc.qubes.WaitForRunningSystem"] = (
+            True
+        )
+        self.appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-dvm",
+            template=self.template,
+            label="red",
+        )
+        self.appvm.features["gui"] = False
+        self.appvm.template_for_dispvms = True
+        self.emitter = qubes.tests.TestEmitter()
 
     def tearDown(self) -> None:
-        self.app.domains.clear()
-
-    def add_vm(self, name, cls=qubes.vm.qubesvm.QubesVM, **kwargs):
-        vm = cls(
-            self.app,
-            None,
-            qid=kwargs.pop("qid", 1),
-            name=qubes.tests.VMPREFIX + name,
-            **kwargs
-        )
-        self.app.domains[vm.qid] = vm
-        self.app.domains[vm.uuid] = vm
-        self.app.domains[vm.name] = vm
-        self.app.domains[vm] = vm
-        self.addCleanup(vm.close)
-        return vm
+        del self.appvm
+        del self.template
+        del self.vm
+        self.app.close()
+        del self.app
+        del self.emitter
+        try:
+            os.unlink("/tmp/qubestest.xml")
+        except:
+            pass
+        super().tearDown()
 
     async def coroutine_mock(self, mock, *args, **kwargs):
         return mock(*args, **kwargs)
-
-    def cleanup_adminvm(self):
-        self.vm.close()
-        del self.vm
 
     def test_000_init(self):
         pass
@@ -118,8 +119,6 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
-        self.add_vm("vm")
-
         # if there is a user in 'qubes' group, it should be used by default
         try:
             gr = grp.getgrnam("qubes")
@@ -159,13 +158,13 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             mock_subprocess.reset_mock()
         with self.subTest("other_source"):
             self.loop.run_until_complete(
-                self.vm.run_service("test.service", source="test-inst-vm")
+                self.vm.run_service("test.service", source=self.appvm.name)
             )
             mock_subprocess.assert_called_once_with(
                 *command_prefix,
                 "/usr/lib/qubes/qubes-rpc-multiplexer",
                 "test.service",
-                "test-inst-vm",
+                self.appvm.name,
                 "name",
                 "dom0"
             )
@@ -227,3 +226,56 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         assert self.vm < qubes.vm.qubesvm.QubesVM(
             self.app, None, qid=1, name="dom0"
         )
+
+    def test_800_preload_set_max(self):
+        self.app.default_dispvm = None
+        with unittest.mock.patch.object(
+            self.appvm, "fire_event"
+        ) as mock_events:
+            self.vm.features["preload-dispvm-max"] = "1"
+            mock_events.assert_not_called()
+        del self.vm.features["preload-dispvm-max"]
+
+        self.app.default_dispvm = self.appvm
+        with unittest.mock.patch.object(
+            self.appvm, "fire_event"
+        ) as mock_sync, unittest.mock.patch.object(
+            self.appvm, "fire_event_async"
+        ) as mock_async:
+            self.vm.features["preload-dispvm-max"] = "1"
+            mock_sync.assert_called_once_with(
+                "domain-feature-pre-set:preload-dispvm-max",
+                pre_event=True,
+                feature="preload-dispvm-max",
+                value="1",
+                oldvalue=None,
+            )
+            mock_async.assert_called_once_with(
+                "domain-preload-dispvm-start", reason=unittest.mock.ANY
+            )
+
+        # Setting the feature to the same value it has skips firing the event.
+        with unittest.mock.patch.object(
+            self.appvm, "fire_event"
+        ) as mock_events:
+            self.vm.features["preload-dispvm-max"] = "1"
+            mock_events.assert_not_called()
+
+    def test_801_preload_del_max(self):
+        self.vm.features["preload-dispvm-max"] = "1"
+        self.app.default_dispvm = None
+        with unittest.mock.patch.object(
+            self.appvm, "fire_event_async"
+        ) as mock_events:
+            del self.vm.features["preload-dispvm-max"]
+            mock_events.assert_not_called()
+
+        self.vm.features["preload-dispvm-max"] = "1"
+        self.app.default_dispvm = self.appvm
+        with unittest.mock.patch.object(
+            self.appvm, "fire_event_async"
+        ) as mock_events:
+            del self.vm.features["preload-dispvm-max"]
+            mock_events.assert_called_once_with(
+                "domain-preload-dispvm-start", reason=unittest.mock.ANY
+            )

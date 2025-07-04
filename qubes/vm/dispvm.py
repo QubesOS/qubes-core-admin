@@ -340,7 +340,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         try:
             self.log.info(
                 "Preload startup waiting '%s' with '%d' seconds timeout",
-                service,
+                rpc,
                 timeout,
             )
             await asyncio.wait_for(
@@ -389,9 +389,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.use_preload()
 
     @qubes.events.handler("domain-shutdown")
-    async def on_domain_shutdown(
-        self, _event, **_kwargs
-    ):
+    async def on_domain_shutdown(self, _event, **_kwargs):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
@@ -456,7 +454,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # Not necessary to await for this event as its intent is to fill
             # gaps and not relevant for this run.
             asyncio.ensure_future(
-                appvm.fire_event_async("domain-preload-dispvm-start")
+                appvm.fire_event_async(
+                    "domain-preload-dispvm-start", reason="there is a gap"
+                )
             )
 
         if not preload and (preload_dispvm := appvm.get_feat_preload()):

@@ -95,11 +95,13 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self, vm, event, *args, **kwargs
     ):  # pylint: disable=unused-argument
         if not hasattr(self, "event_handler"):
+            # pylint: disable=attribute-defined-outside-init
             self.event_handler = {}
         self.event_handler.setdefault(vm.name, {})[event] = True
 
     def _test_event_was_handled(self, vm, event):
         if not hasattr(self, "event_handler"):
+            # pylint: disable=attribute-defined-outside-init
             self.event_handler = {}
         return self.event_handler.get(vm, {}).get(event)
 
@@ -216,6 +218,59 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         # Marking as preloaded is done on integration tests, checking if we
         # can use the same qube that was preloaded is enough for unit tests.
         self.assertEqual(dispvm.name, fresh_dispvm.name)
+
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_000_from_appvm_preload_fill_gap(
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
+        mock_start,
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_start.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch("qubes.events.Emitter.fire_event_async") as mock_events:
+            self.appvm.features["preload-dispvm-max"] = "1"
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains, mock.patch(
+            "qubes.events.Emitter.fire_event_async"
+        ) as mock_events:
+            mock_events.assert_not_called()
+            mock_qube = mock.Mock()
+            mock_qube.template = self.appvm
+            mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
+            mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
+            mock_qube.preload_complete.is_set.return_value = True
+            mock_qube.preload_complete.set = self.mock_coro
+            mock_qube.preload_complete.clear = self.mock_coro
+            mock_qube.preload_complete.wait = self.mock_coro
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__contains__.return_value": True,
+                    "__getitem__.side_effect": lambda key: (
+                        mock_qube if key == "disp42" else orig_getitem(key)
+                    ),
+                }
+            )
+            self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
+            )
+            assert mock_events.mock_calls == [
+                mock.call(
+                    "domain-preload-dispvm-start", reason=unittest.mock.ANY
+                ),
+                mock.call("domain-create-on-disk"),
+            ]
+        mock_symlink.assert_not_called()
+        mock_makedirs.assert_called_once()
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
