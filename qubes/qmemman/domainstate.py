@@ -1,4 +1,3 @@
-# pylint: skip-file
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -20,14 +19,14 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 
-class DomainState:
-    def __init__(self, id):
+class DomainState:  # pylint: disable=too-few-public-methods
+    def __init__(self, domid):
         self.memory_current = 0  # the current memory size
         self.memory_actual = None  # the current memory allocation (what VM
         # is using or can use at any time)
         self.memory_maximum = None  # the maximum memory size
         self.mem_used = None  # used memory, computed based on meminfo
-        self.id = id  # domain id
+        self.domid = domid  # domain id
         self.last_target = 0  # the last memset target
         self.use_hotplug = False  # use memory hotplug for mem-set
         self.no_progress = False  # no react to memset
