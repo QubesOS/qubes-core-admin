@@ -37,9 +37,6 @@ CHECK_MB_S = 100
 MIN_TOTAL_MEMORY_TRANSFER = 150 * 1024 * 1024
 MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15 * 1024 * 1024
 
-no_progress_msg = "VM refused to give back requested memory"
-slow_memset_react_msg = "VM didn't give back all requested memory"
-
 
 class SystemState:
     def __init__(self):
@@ -56,9 +53,9 @@ class SystemState:
         self.xs = xen.lowlevel.xs.xs()
         # Overhead of per-page Xen structures, taken from OpenStack
         # nova/virt/xenapi/driver.py
-        # see https://wiki.openstack.org/wiki/XenServer/Overhead
-        # we divide total and free physical memory by this to get
-        # "assignable" memory
+        # See https://wiki.openstack.org/wiki/XenServer/Overhead
+        # We divide total and free physical memory by this to get "assignable"
+        # memory
         try:
             self.all_phys_mem = int(
                 self.xc.physinfo()["total_memory"] * 1024 * MEM_OVERHEAD_FACTOR
@@ -66,13 +63,20 @@ class SystemState:
         except xen.lowlevel.xc.Error:
             pass
 
+    def xs_wrapper(self, key, value=None):
+        if value:
+            self.xs.write("", key, value)
+            return None
+        return self.xs.read("", key)
+
+    def get_xs_path(self, domid, key):
+        return "/local/domain/" + str(domid) + "/memory/" + key
+
     def add_domain(self, domid):
         self.log.debug("add_domain(domid={!r})".format(domid))
         self.domdict[domid] = DomainState(domid)
         # TODO: move to DomainState.__init__
-        target_str = self.xs.read(
-            "", "/local/domain/" + domid + "/memory/target"
-        )
+        target_str = self.xs_wrapper(self.get_xs_path(domid, "target"))
         if target_str:
             self.domdict[domid].last_target = int(target_str) * 1024
 
@@ -84,19 +88,17 @@ class SystemState:
         xen_free = int(
             self.xc.physinfo()["free_memory"] * 1024 * MEM_OVERHEAD_FACTOR
         )
-        # now check for domains which have assigned more memory than really
-        # used - do not count it as "free", because domain is free to use it
-        # at any time
-        # assumption: self.refresh_memactual was called before
-        # (so dom.memory_actual is up-to-date)
+        # Check for domains which have assigned more memory than really used -
+        # do not count it as "free", because domain is free to use it at any
+        # time. Assumption: self.refresh_memactual was called before (so
+        # dom.memory_actual is up-to-date)
         assigned_but_unused = functools.reduce(
             lambda acc, dom: acc + max(0, dom.last_target - dom.memory_current),
             self.domdict.values(),
             0,
         )
-        # If, at any time, Xen have less memory than XEN_FREE_MEM_MIN,
-        # it is a failure of qmemman. Collect as much data as possible to
-        # debug it
+        # If, at any time, Xen have less memory than XEN_FREE_MEM_MIN, it is a
+        # failure of qmemman. Collect as much data as possible to debug it
         if xen_free < XEN_FREE_MEM_MIN:
             self.log.error(
                 "Xen free = {!r} below acceptable value! "
@@ -113,24 +115,24 @@ class SystemState:
             )
         return xen_free - assigned_but_unused
 
-    # refresh information on memory assigned to all domains
+    # Refresh information on memory assigned to all domains
     def refresh_memactual(self):
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
             if domid in self.domdict:
                 dom = self.domdict[domid]
-                # real memory usage
+                # Real memory usage
                 dom.memory_current = domain["mem_kb"] * 1024
-                # what VM is using or can use
+                # What VM is using or can use
                 dom.memory_actual = max(
                     dom.memory_current,
                     dom.last_target,
                 )
-                hotplug_max = self.xs.read(
-                    "", "/local/domain/%s/memory/hotplug-max" % str(domid)
+                hotplug_max = self.xs_wrapper(
+                    self.get_xs_path(domid, "hotplug-max")
                 )
-                static_max = self.xs.read(
-                    "", "/local/domain/%s/memory/static-max" % str(domid)
+                static_max = self.xs_wrapper(
+                    self.get_xs_path(domid, "static-max")
                 )
                 if hotplug_max:
                     dom.memory_maximum = int(hotplug_max) * 1024
@@ -148,15 +150,15 @@ class SystemState:
                     # is dom0, see #307
 
     def clear_outdated_error_markers(self):
-        # Clear outdated errors
+        # Clear outdated errors.
         for _, dom in self.domdict.items():
             if dom.mem_used is None:
                 continue
-            # clear markers excluding VM from memory balance, if:
+            # Clear markers excluding VM from memory balance, if:
             #  - VM have responded to previous request (with some safety margin)
             #  - VM request more memory than it has assigned
             # The second condition avoids starving a VM, even when there is
-            # some free memory available
+            # some free memory available.
             if (
                 dom.memory_actual <= dom.last_target + XEN_FREE_MEM_LEFT / 2
                 or dom.memory_actual < qubes.qmemman.algo.prefmem(dom)
@@ -164,14 +166,14 @@ class SystemState:
                 dom.slow_memset_react = False
                 dom.no_progress = False
 
-    # the below works (and is fast), but then 'xm list' shows unchanged
-    # memory value
+    # The below works (and is fast), but then 'xm list' shows unchanged memory
+    # value.
     def mem_set(self, domid, val):
         self.log.info("mem-set domain {} to {}".format(domid, val))
         dom = self.domdict[domid]
         dom.last_target = val
-        # can happen in the middle of domain shutdown
-        # apparently xc.lowlevel throws exceptions too
+        # Can happen in the middle of domain shutdown apparently xc.lowlevel
+        # throws exceptions too.
         try:
             self.xc.domain_setmaxmem(
                 int(domid), int(val / 1024) + 1024
@@ -181,20 +183,19 @@ class SystemState:
             pass
         # VM sees about 16MB memory less, so adjust for it here - qmemman
         #  handle Xen view of memory
-        self.xs.write(
-            "",
-            "/local/domain/" + domid + "/memory/target",
+        # handle Xen view of memory.
+        self.xs_wrapper(
+            self.get_xs_path(domid, "target"),
             str(int(val / 1024 - 16 * 1024)),
         )
         if dom.use_hotplug:
-            self.xs.write(
-                "",
-                "/local/domain/" + domid + "/memory/static-max",
+            self.xs_wrapper(
+                self.get_xs_path(domid, "static-max"),
                 str(int(val / 1024)),
             )
 
-    # this is called at the end of ballooning, when we have Xen free mem already
-    # make sure that past mem_set will not decrease Xen free mem
+    # This is called at the end of ballooning, when we have Xen free mem
+    # already, make sure that past mem_set will not decrease Xen free mem.
     def inhibit_balloon_up(self):
         self.log.debug("inhibit_balloon_up()")
         for domid, dom in self.domdict.items():
@@ -207,8 +208,8 @@ class SystemState:
                 )
                 self.mem_set(domid, dom.memory_actual)
 
-    # perform memory ballooning, across all domains, to add "memsize" to Xen
-    #  free memory
+    # Perform memory ballooning, across all domains, to add "memsize" to Xen
+    # free memory
     def do_balloon(self, memsize):
         self.log.info("do_balloon(memsize={!r})".format(memsize))
         niter = 0
@@ -281,8 +282,8 @@ class SystemState:
         )
         self.do_balance()
 
-    # is the computed balance request big enough ?
-    # so that we do not trash with small adjustments
+    # Is the computed balance request big enough so that we do not trash with
+    # small adjustments.
     def is_balance_req_significant(self, memset_reqs, xenfree):
         self.log.debug(
             "is_balance_req_significant(memset_reqs={}, xenfree={})".format(
@@ -292,7 +293,7 @@ class SystemState:
 
         total_memory_transfer = 0
 
-        # If xenfree to low, return immediately
+        # If xenfree to low, return immediately.
         if XEN_FREE_MEM_LEFT - xenfree > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
             self.log.debug("xenfree is too low, returning")
             return True
@@ -339,37 +340,36 @@ class SystemState:
             "stat: xenfree={} memset_reqs={}".format(xenfree, memset_reqs)
         )
 
-    def debug_stuck_balance(self, domid, memset_reqs, prev_memactual):
-        for rq2 in memset_reqs:
-            domid2, mem2 = rq2
-            if domid2 == domid:
-                # All donors have been processed
+    def debug_stuck_balance(self, stuck_domid, memset_reqs, prev_memactual):
+        for req in memset_reqs:
+            domid, mem = req
+            if domid == stuck_domid:
+                # All donors have been processed.
                 break
-            dom2 = self.domdict[domid2]
-            # allow some small margin
-            if dom2.memory_actual > dom2.last_target + XEN_FREE_MEM_LEFT / 4:
-                # VM didn't react to memory request at all,
-                # remove from donors
-                if prev_memactual[domid2] == dom2.memory_actual:
+            dom = self.domdict[domid]
+            # Allow some small margin.
+            if dom.memory_actual > dom.last_target + XEN_FREE_MEM_LEFT / 4:
+                # VM didn't react to memory request at all, remove from donors.
+                if prev_memactual[domid] == dom.memory_actual:
                     self.log.warning(
-                        "dom {!r} did not react to memory request"
-                        " (holds {}, requested balloon down to {})".format(
-                            domid2,
-                            dom2.memory_actual,
-                            mem2,
+                        "dom {!r} did not react to memory request (holds {}, "
+                        "requested balloon down to {})".format(
+                            domid,
+                            dom.memory_actual,
+                            mem,
                         )
                     )
-                    dom2.no_progress = True
+                    dom.no_progress = True
                 else:
                     self.log.warning(
-                        "dom {!r} still holds more"
-                        " memory than assigned ({} > {})".format(
-                            domid2,
-                            dom2.memory_actual,
-                            mem2,
+                        "dom {!r} still holds more memory than assigned ({} > "
+                        "{})".format(
+                            domid,
+                            dom.memory_actual,
+                            mem,
                         )
                     )
-                    dom2.slow_memset_react = True
+                    dom.slow_memset_react = True
 
     def do_balance(self):
         self.log.debug("do_balance()")
@@ -394,10 +394,9 @@ class SystemState:
         for req in memset_reqs:
             domid, mem = req
             dom = self.domdict[domid]
-            # Force to always have at least 0.9*XEN_FREE_MEM_LEFT (some
-            # margin for rounding errors). Before giving memory to
-            # domain, ensure that others have gave it back.
-            # If not - wait a little.
+            # Force to always have at least 0.9*XEN_FREE_MEM_LEFT (some margin
+            # for rounding errors). Before giving memory to domain, ensure that
+            # others have gave it back. If not, wait a little.
             ntries = 5
             while (
                 self.get_free_xen_memory() - (mem - dom.memory_actual)
@@ -412,8 +411,8 @@ class SystemState:
                 self.refresh_memactual()
                 ntries -= 1
                 if ntries <= 0:
-                    # Waiting haven't helped; Find which domain get stuck and
-                    # abort balance (after distributing what we have)
+                    # Waiting hasn't helped. Find which domain got stuck and
+                    # abort balance (after distributing what we have).
                     self.debug_stuck_balance(domid, memset_reqs, prev_memactual)
                     self.mem_set(
                         domid,
