@@ -190,9 +190,6 @@ def balance_when_enough_memory(
             donors_rq.append((domid, target))
         else:
             acceptors_rq.append((domid, target))
-
-    # print 'balance(enough): xen_free_memory=', xen_free_memory, \
-    #  'requests:', donors_rq + acceptors_rq
     return donors_rq + acceptors_rq
 
 
@@ -233,8 +230,6 @@ def balance_when_low_on_memory(
         # do not try to give more memory than static max
         target = min(int(0.999 * target_nonint), dom.memory_maximum)
         acceptors_rq.append((domid, target))
-    # print 'balance(low): xen_free_memory=', xen_free_memory, 'requests:',
-    # donors_rq + acceptors_rq
     return donors_rq + acceptors_rq
 
 
@@ -270,9 +265,6 @@ def memory_info(xen_free_memory, domain_dictionary):
         if dom.no_progress:
             continue
         need = memory_needed(dom)
-        # print 'domain' , domid, 'act/pref', \
-        #  dom.memory_actual, prefmem(dom), \
-        #  'need=', need
         if need < 0 or dom.memory_actual >= dom.memory_maximum:
             donors.append(domid)
         else:

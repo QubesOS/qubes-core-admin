@@ -143,10 +143,9 @@ class SystemState:
                     # the previous line used to be
                     #   dom.memory_maximum = domain['maxmem_kb']*1024
                     # but domain['maxmem_kb'] changes in self.mem_set as well,
-                    # and this results in the memory never increasing
-                    # in fact, the only possible case of nonexisting
-                    # memory/static-max is dom0
-                    # see #307
+                    # and this results in the memory never increasing in fact,
+                    # the only possible case of nonexisting memory/static-max
+                    # is dom0, see #307
 
     def clear_outdated_error_markers(self):
         # Clear outdated errors
@@ -437,9 +436,3 @@ class SystemState:
             file.write(str(memory_dictionary["total_available_memory"]))
         os.chmod(avail_mem_file_tmp, 0o644)
         os.replace(avail_mem_file_tmp, avail_mem_file)
-
-        # pylint: disable=line-too-long
-        # for i in self.domdict.keys():
-        #     print 'domain ', i, ' meminfo=', dom.mem_used, 'actual mem', dom.memory_actual
-        #     print 'domain ', i, 'actual mem', dom.memory_actual
-        # print 'xen free mem', self.get_free_xen_memory()
