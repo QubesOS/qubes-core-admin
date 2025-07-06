@@ -134,21 +134,21 @@ class VmNetworkingMixin(object):
 
         super(VmNetworkingMixin, self).tearDown()
 
+    def run_netvm_cmd(self, cmd):
+        try:
+            self.loop.run_until_complete(
+                self.testnetvm.run_for_stdio(cmd, user="root")
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                "Command '%s' failed: %s%s"
+                % (cmd, e.stdout.decode(), e.stderr.decode())
+            )
+
     def configure_netvm(self):
         """
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
         """
-
-        def run_netvm_cmd(cmd):
-            try:
-                self.loop.run_until_complete(
-                    self.testnetvm.run_for_stdio(cmd, user="root")
-                )
-            except subprocess.CalledProcessError as e:
-                self.fail(
-                    "Command '%s' failed: %s%s"
-                    % (cmd, e.stdout.decode(), e.stderr.decode())
-                )
 
         if not self.testnetvm.is_running():
             self.loop.run_until_complete(self.testnetvm.start())
@@ -160,28 +160,28 @@ class VmNetworkingMixin(object):
         except subprocess.CalledProcessError:
             self.skipTest("dnsmasq not installed")
 
-        run_netvm_cmd("ip link add test0 type dummy")
-        run_netvm_cmd("ip link set test0 up")
-        run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
-        run_netvm_cmd(
+        self.run_netvm_cmd("ip link add test0 type dummy")
+        self.run_netvm_cmd("ip link set test0 up")
+        self.run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
+        self.run_netvm_cmd(
             "nft add ip qubes custom-input ip daddr {} accept".format(
                 self.test_ip
             )
         )
         # ignore failure
         self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
-        run_netvm_cmd(
+        self.run_netvm_cmd(
             "dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
                 ip=self.test_ip, name=self.test_name
             )
         )
-        run_netvm_cmd(
+        self.run_netvm_cmd(
             "rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
                 self.test_ip
             )
         )
-        run_netvm_cmd("systemctl try-restart systemd-resolved || :")
-        run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns")
+        self.run_netvm_cmd("systemctl try-restart systemd-resolved || :")
+        self.run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns")
 
     def test_000_simple_networking(self):
         """
