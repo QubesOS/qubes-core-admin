@@ -341,24 +341,50 @@ netvm default=True type=vm \n"""
         self.assertEqual(value, expected)
 
     def test_028_vm_property_get_list(self):
+        self.vm.features["ipv6"] = "1"
         self.vm.provides_network = True
         value = self.call_mgmt_func(
             b"admin.vm.property.Get", b"test-vm1", b"dns"
         )
         self.assertEqual(value, "default=True type=str 10.139.1.1 10.139.1.2")
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
+        )
+        self.assertEqual(value, "default=True type=str ")
+        self.vm.features["supported-feature.ipv6dns"] = "1"
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
+        )
+        self.assertEqual(value, "default=True type=str fd09:24ef:4179::a8b:1 fd09:24ef:4179::a8b:2")
 
     def test_029_vm_property_get_list_none(self):
+        self.vm.features["ipv6"] = "1"
         value = self.call_mgmt_func(
-            b"admin.vm.property.Get", b"test-vm1", b"dns"
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
+        )
+        self.assertEqual(value, "default=True type=str ")
+        self.vm.features["supported-feature.ipv6dns"] = "1"
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
         )
         self.assertEqual(value, "default=True type=str ")
 
     def test_029_vm_property_get_list_default(self):
+        self.vm.features["ipv6"] = "1"
         self.vm.provides_network = True
         value = self.call_mgmt_func(
             b"admin.vm.property.GetDefault", b"test-vm1", b"dns"
         )
         self.assertEqual(value, "type=str 10.139.1.1 10.139.1.2")
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
+        )
+        self.assertEqual(value, "type=str ")
+        self.vm.features["supported-feature.ipv6dns"] = "1"
+        value = self.call_mgmt_func(
+            b"admin.vm.property.Get", b"test-vm1", b"dns6"
+        )
+        self.assertEqual(value, "type=str fd09:24ef:4179::a8b:1 fd09:24ef:4179::a8b:2")
 
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm(
