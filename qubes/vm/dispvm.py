@@ -209,6 +209,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
         self.preload_complete = asyncio.Event()
+        self.clean_shutdown = False
 
         if xml is None:
             assert template is not None
@@ -559,6 +560,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if self not in self.app.domains:
             return
+        self.clean_shutdown = True
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
