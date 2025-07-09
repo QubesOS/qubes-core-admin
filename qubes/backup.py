@@ -836,7 +836,7 @@ class Backup:
 
             # VM running private volumes without snapshoting them
             # (revision_to_keep = -1) must be powered off to be backup
-            if backup_app.domains[qid].is_running:
+            if backup_app.domains[qid].is_running():
                 for volume in backup_app.domains[qid].volumes.values():
                     if volume.snapshots_disabled:
                         raise qubes.exc.QubesVMNotHaltedError(
