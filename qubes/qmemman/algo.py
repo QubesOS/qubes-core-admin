@@ -19,6 +19,7 @@
 #
 
 import logging
+from typing import Optional
 
 # These defaults can be overridden by QMemmanServer with values from config
 # file.
@@ -33,7 +34,7 @@ REQ_SAFETY_NET_FACTOR = 1.05
 log = logging.getLogger("qmemman.daemon.algo")
 
 
-def sanitize_and_parse_meminfo(untrusted_meminfo):
+def sanitize_and_parse_meminfo(untrusted_meminfo) -> Optional[int]:
     # Untrusted meminfo size is read from xenstore, thus its size is limited
     # and splits do not require excessive memory.
     if not untrusted_meminfo:
@@ -43,14 +44,14 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
     return int(untrusted_meminfo) * 1024
 
 
-def refresh_meminfo_for_domain(dom, untrusted_xenstore_key):
+def refresh_meminfo_for_domain(dom, untrusted_xenstore_key) -> None:
     """
     Called when a domain updates its 'meminfo' xenstore key.
     """
     dom.mem_used = sanitize_and_parse_meminfo(untrusted_xenstore_key)
 
 
-def pref_mem(dom):
+def pref_mem(dom) -> int:
     # As dom0 must have large cache for vbds, give it a special boost.
     mem_used = dom.mem_used * CACHE_FACTOR
     if dom.domid == "0":
@@ -59,7 +60,7 @@ def pref_mem(dom):
     return int(max(min(mem_used, dom.mem_max), MIN_PREFMEM))
 
 
-def needed_mem(dom):
+def needed_mem(dom) -> int:
     # Do not change. In balance(), "distribute total_available_mem
     # proportionally to pref_mem" relies on this exact formula.
     ret = pref_mem(dom) - dom.mem_actual
@@ -69,7 +70,7 @@ def needed_mem(dom):
 # Prepare list of (dom, mem_target) pairs that need to be passed to "xm
 # memset" equivalent in order to obtain "mem_size".
 # Returns empty list when the request cannot be satisfied.
-def balloon(mem_size, dom_dict):
+def balloon(mem_size, dom_dict) -> list:
     log.debug(
         "balloon(mem_size={!r}, dom_dict={!r})".format(mem_size, dom_dict)
     )
@@ -212,7 +213,7 @@ def balance_when_low_on_mem(
 # Get memory information.
 # Called before and after domain balances.
 # Return a dictionary of various memory data points.
-def mem_info(xen_free_mem, dom_dict):
+def mem_info(xen_free_mem, dom_dict) -> dict:
     log.debug(
         "mem_info(xen_free_mem={!r}, dom_dict={!r})".format(
             xen_free_mem, dom_dict
@@ -264,7 +265,7 @@ def mem_info(xen_free_mem, dom_dict):
 # Called when one of domains update its 'meminfo' xenstore key.
 # Return the list of (domain, mem_target) pairs to be passed to "xm memset"
 # equivalent
-def balance(xen_free_mem, dom_dict):
+def balance(xen_free_mem, dom_dict) -> dict:
     log.debug(
         "balance(xen_free_mem={!r}, dom_dict={!r})".format(
             xen_free_mem, dom_dict

@@ -18,20 +18,29 @@
 # You should have received a copy of the GNU General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
+from typing import Optional
+
 
 class DomainState:  # pylint: disable=too-few-public-methods
-    def __init__(self, domid):
-        self.mem_current = 0  # the current memory size
-        self.mem_actual = None  # the current memory allocation (what VM
-        # is using or can use at any time)
-        self.mem_max = None  # the maximum memory size
-        self.mem_used = None  # used memory, computed based on meminfo
-        self.domid = domid  # domain id
-        self.last_target = 0  # the last memset target
-        self.use_hotplug = False  # use memory hotplug for mem-set
-        self.no_progress = False  # no react to memset
-        self.slow_memset_react = False  # slow react to memset (after few
-        # tries still above target)
+    def __init__(self, domid) -> None:
+        # Current memory size.
+        self.mem_current: int = 0
+        # Current memory allocation (what VM is using or can use at any time).
+        self.mem_actual: Optional[int] = None
+        # Maximum memory size.
+        self.mem_max: Optional[int] = None
+        # Used memory, computed based on meminfo.
+        self.mem_used: Optional[int] = None
+        # Domain ID.
+        self.domid: str = domid
+        # Last memset target.
+        self.last_target: int = 0
+        # Use memory hotplug for mem-set.
+        self.use_hotplug: bool = False
+        # No reaction to memset.
+        self.no_progress: bool = False
+        # Slow react to memset (after few tries still above target).
+        self.slow_memset_react: bool = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__dict__.__repr__()

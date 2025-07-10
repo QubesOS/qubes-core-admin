@@ -24,6 +24,7 @@ import os
 import time
 import xen.lowlevel  # pylint: disable=import-error
 from pathlib import Path
+from typing import Optional
 
 import qubes.qmemman
 from qubes.qmemman.domainstate import DomainState
@@ -42,16 +43,16 @@ MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15 * 1024 * 1024
 
 
 class SystemState:
-    def __init__(self):
+    def __init__(self) -> None:
         self.log = logging.getLogger("qmemman.systemstate")
         self.log.debug("SystemState()")
 
-        self.dom_dict = {}
-        self.xc = None
-        self.xs = None
-        self.all_phys_mem = 0
+        self.dom_dict: dict[str, DomainState] = {}
+        self.xc: xen.lowlevel.xc.xc = None
+        self.xs: xen.lowlevel.xs.xs = None
+        self.all_phys_mem: int = 0
 
-    def init(self):
+    def init(self) -> None:
         self.xc = xen.lowlevel.xc.xc()
         self.xs = xen.lowlevel.xs.xs()
         # We divide total and free physical memory by this to get "assignable"
@@ -63,10 +64,10 @@ class SystemState:
         except xen.lowlevel.xc.Error:
             pass
 
-    def get_xs_path(self, domid, key):
+    def get_xs_path(self, domid, key) -> str:
         return "/local/domain/" + str(domid) + "/memory/" + key
 
-    def add_domain(self, domid):
+    def add_domain(self, domid) -> None:
         self.log.debug("add_domain(domid={!r})".format(domid))
         self.dom_dict[domid] = DomainState(domid)
         # TODO: move to DomainState.__init__
@@ -74,11 +75,11 @@ class SystemState:
         if target_str:
             self.dom_dict[domid].last_target = int(target_str) * 1024
 
-    def del_domain(self, domid):
+    def del_domain(self, domid) -> None:
         self.log.debug("del_domain(domid={!r})".format(domid))
         self.dom_dict.pop(domid)
 
-    def get_free_xen_mem(self):
+    def get_free_xen_mem(self) -> int:
         xen_free = int(
             self.xc.physinfo()["free_memory"] * 1024 * MEM_OVERHEAD_FACTOR
         )
@@ -110,7 +111,7 @@ class SystemState:
         return xen_free - assigned_but_unused
 
     # Refresh information on memory assigned to all domains
-    def refresh_mem_actual(self):
+    def refresh_mem_actual(self) -> None:
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
             if domid in self.dom_dict:
@@ -143,8 +144,8 @@ class SystemState:
                     # the only possible case of nonexisting memory/static-max
                     # is dom0, see #307
 
-    def clear_outdated_error_markers(self):
-        # Clear outdated errors
+    def clear_outdated_error_markers(self) -> None:
+        # Clear outdated errors.
         for dom in self.dom_dict.values():
             if dom.mem_used is None:
                 continue
@@ -153,6 +154,7 @@ class SystemState:
             #  - VM request more memory than it has assigned
             # The second condition avoids starving a VM, even when there is
             # some free memory available.
+            assert isinstance(dom.mem_actual, int)
             if (
                 dom.mem_actual <= dom.last_target + XEN_FREE_MEM_LEFT / 2
                 or dom.mem_actual < qubes.qmemman.algo.pref_mem(dom)
@@ -162,7 +164,7 @@ class SystemState:
 
     # The below works (and is fast), but then 'xm list' shows unchanged memory
     # value.
-    def mem_set(self, domid, val):
+    def mem_set(self, domid, val) -> None:
         self.log.info("mem-set domain {} to {}".format(domid, val))
         dom = self.dom_dict[domid]
         dom.last_target = val
@@ -192,7 +194,7 @@ class SystemState:
 
     # This is called at the end of ballooning, when we have Xen free mem
     # already, make sure that past mem_set will not decrease Xen free mem.
-    def inhibit_balloon_up(self):
+    def inhibit_balloon_up(self) -> None:
         self.log.debug("inhibit_balloon_up()")
         for domid, dom in self.dom_dict.items():
             if (
@@ -206,10 +208,10 @@ class SystemState:
 
     # Perform memory ballooning, across all domains, to add "mem_size" to Xen
     # free memory
-    def do_balloon(self, mem_size):
+    def do_balloon(self, mem_size) -> bool:
         self.log.info("do_balloon(mem_size={!r})".format(mem_size))
         niter = 0
-        prev_mem_actual = None
+        prev_mem_actual: dict[str, Optional[int]] = {}
 
         for dom in self.dom_dict.values():
             dom.no_progress = False
@@ -240,18 +242,15 @@ class SystemState:
             ):
                 return False
             xenfree_ring[ring_slot] = xenfree
-            if prev_mem_actual is not None:
-                for domid, prev_mem in prev_mem_actual.items():
-                    dom = self.dom_dict[domid]
-                    if prev_mem == dom.memory_actual:
-                        # domain not responding to memset requests, remove it
-                        #  from donors
-                        dom.no_progress = True
-                        self.log.info(
-                            "domain {} stuck at {}".format(
-                                domid, dom.mem_actual
-                            )
-                        )
+            for domid, prev_mem in prev_mem_actual.items():
+                dom = self.dom_dict[domid]
+                if prev_mem == dom.mem_actual:
+                    # domain not responding to memset requests, remove it
+                    #  from donors
+                    dom.no_progress = True
+                    self.log.info(
+                        "domain {} stuck at {}".format(domid, dom.mem_actual)
+                    )
             memset_reqs = qubes.qmemman.algo.balloon(
                 mem_size + XEN_FREE_MEM_LEFT - xenfree, self.dom_dict
             )
@@ -259,15 +258,14 @@ class SystemState:
             if len(memset_reqs) == 0:
                 return False
             prev_mem_actual = {}
-            for req in memset_reqs:
-                dom, mem = req
-                self.mem_set(dom, mem)
-                prev_mem_actual[dom] = self.dom_dict[dom].mem_actual
+            for domid, memset in memset_reqs:
+                self.mem_set(domid, memset)
+                prev_mem_actual[domid] = self.dom_dict[domid].mem_actual
             self.log.debug("sleeping for {} s".format(BALOON_DELAY))
             time.sleep(BALOON_DELAY)
             niter = niter + 1
 
-    def refresh_meminfo(self, domid, untrusted_meminfo_key):
+    def refresh_meminfo(self, domid, untrusted_meminfo_key) -> None:
         self.log.debug(
             "refresh_meminfo(domid={}, untrusted_meminfo_key={!r})".format(
                 domid, untrusted_meminfo_key
@@ -281,7 +279,7 @@ class SystemState:
 
     # Is the computed balance request big enough so that we do not trash with
     # small adjustments.
-    def is_balance_req_significant(self, memset_reqs, xenfree):
+    def is_balance_req_significant(self, memset_reqs, xenfree) -> bool:
         self.log.debug(
             "is_balance_req_significant(memset_reqs={}, xenfree={})".format(
                 memset_reqs, xenfree
@@ -295,19 +293,18 @@ class SystemState:
             self.log.debug("xenfree is too low, returning")
             return True
 
-        for req in memset_reqs:
-            dom, mem = req
-            last_target = self.dom_dict[dom].last_target
-            mem_change = mem - last_target
+        for domid, memset in memset_reqs:
+            last_target = self.dom_dict[domid].last_target
+            mem_change = memset - last_target
             total_mem_transfer += abs(mem_change)
-            pref = qubes.qmemman.algo.pref_mem(self.dom_dict[dom])
+            pref = qubes.qmemman.algo.pref_mem(self.dom_dict[domid])
 
             if (
                 0 < last_target < pref
                 and mem_change > MIN_MEM_CHANGE_WHEN_UNDER_PREF
             ):
                 self.log.info(
-                    "dom {} is below pref, allowing balance".format(dom)
+                    "dom {} is below pref, allowing balance".format(domid)
                 )
                 return True
 
@@ -318,7 +315,7 @@ class SystemState:
         self.log.debug("is_balance_req_significant return {}".format(ret))
         return ret
 
-    def print_stats(self, xenfree, memset_reqs):
+    def print_stats(self, xenfree, memset_reqs) -> None:
         for domid, dom in self.dom_dict.items():
             if dom.mem_used is not None:
                 self.log.info(
@@ -337,7 +334,9 @@ class SystemState:
             "stat: xenfree={} memset_reqs={}".format(xenfree, memset_reqs)
         )
 
-    def debug_stuck_balance(self, stuck_domid, memset_reqs, prev_mem_actual):
+    def debug_stuck_balance(
+        self, stuck_domid, memset_reqs, prev_mem_actual
+    ) -> None:
         for req in memset_reqs:
             domid, mem = req
             if domid == stuck_domid:
@@ -345,6 +344,7 @@ class SystemState:
                 break
             dom = self.dom_dict[domid]
             # Allow some small margin.
+            assert isinstance(dom.mem_actual, int)
             if dom.mem_actual > dom.last_target + XEN_FREE_MEM_LEFT / 4:
                 # VM didn't react to memory request at all, remove from donors.
                 if prev_mem_actual[domid] == dom.mem_actual:
@@ -368,7 +368,7 @@ class SystemState:
                     )
                     dom.slow_memset_react = True
 
-    def do_balance(self):
+    def do_balance(self) -> None:
         self.log.debug("do_balance()")
         if os.path.isfile("/var/run/qubes/do-not-membalance"):
             self.log.debug("do-not-membalance file present, returning")
@@ -385,7 +385,7 @@ class SystemState:
 
         self.print_stats(xenfree, memset_reqs)
 
-        prev_mem_actual = {}
+        prev_mem_actual: dict[str, Optional[int]] = {}
         for domid, dom in self.dom_dict.items():
             prev_mem_actual[domid] = dom.mem_actual
         for req in memset_reqs:
@@ -413,6 +413,7 @@ class SystemState:
                     self.debug_stuck_balance(
                         domid, memset_reqs, prev_mem_actual
                     )
+                    assert isinstance(dom.mem_actual, int)
                     self.mem_set(
                         domid,
                         self.get_free_xen_mem()
