@@ -84,7 +84,7 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
-        for feature in ("gui-videoram-overhead", "gui-videoram-min"):
+        for feature in ("gui-videoram-overhead", "gui-videoram-min", "gui-background-color"):
             try:
                 vm.untrusted_qdb.write(
                     "/qubes-{}".format(feature),
