@@ -19,13 +19,14 @@
 
 import socket
 import fcntl
+from typing import Optional
 
 
 class QMemmanClient:
-    def __init__(self):
-        self.sock = None
+    def __init__(self) -> None:
+        self.sock: Optional[socket.socket] = None
 
-    def request_mem(self, amount):
+    def request_mem(self, amount) -> bool:
         self.sock = socket.socket(socket.AF_UNIX)
         flags = fcntl.fcntl(self.sock.fileno(), fcntl.F_GETFD)
         flags |= fcntl.FD_CLOEXEC
@@ -35,5 +36,5 @@ class QMemmanClient:
         received = self.sock.recv(1024).strip()
         return bool(received == b"OK")
 
-    def close(self):
-        self.sock.close()
+    def close(self) -> None:
+        self.sock.close()  # type: ignore
