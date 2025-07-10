@@ -25,7 +25,7 @@ class QMemmanClient:
     def __init__(self):
         self.sock = None
 
-    def request_memory(self, amount):
+    def request_mem(self, amount):
         self.sock = socket.socket(socket.AF_UNIX)
         flags = fcntl.fcntl(self.sock.fileno(), fcntl.F_GETFD)
         flags |= fcntl.FD_CLOEXEC
