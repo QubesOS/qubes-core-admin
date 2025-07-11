@@ -596,6 +596,7 @@ class TC_20_DispVMMixin(object):
             asyncio.wait_for(proc.communicate(), timeout=10)
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
+
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         old_preload = self.disp_base.get_feat_preload()
@@ -610,6 +611,14 @@ class TC_20_DispVMMixin(object):
             set(old_preload).isdisjoint(preload_dispvm),
             f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
+
+        self.adminvm.features["preload-dispvm-max"] = "0"
+        self.loop.run_until_complete(self.wait_preload(preload_max))
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
+        self.assertEqual(self.disp_base.get_feat_preload(), [])
         logger.info("end")
 
     def test_018_preload_global(self):
