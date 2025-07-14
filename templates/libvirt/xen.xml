@@ -186,6 +186,8 @@
                     audiovm_xid ~ " " ~
                     vm.features.check_with_template('qemu-extra-args', '') -%}
                 {% set qemu_opts_common = qemu_opts_common | trim -%}
+                {% set qemu_opts_common = qemu_opts_common ~
+                    (" -trace xen_platform_log" if vm.debug else "") -%}
                 <emulator
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         type="stubdom-linux"

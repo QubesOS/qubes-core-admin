@@ -1143,7 +1143,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1"/>
+            <emulator type="stubdom-linux"
+            cmdline="-qubes-audio:audiovm_xid=-1 -trace xen_platform_log"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
@@ -1210,7 +1211,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <emulator type="stubdom-linux" cmdline="-qubes-audio:audiovm_xid=-1 -some-option"/>
+            <emulator type="stubdom-linux"
+            cmdline="-qubes-audio:audiovm_xid=-1 -some-option -trace xen_platform_log"/>
             <input type="tablet" bus="usb"/>
             <video>
                 <model type="vga"/>
