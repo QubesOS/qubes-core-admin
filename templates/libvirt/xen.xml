@@ -183,7 +183,9 @@
             {% if vm.virt_mode == 'hvm' %}
                 <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
                 {% set qemu_opts_common = "-qubes-audio:audiovm_xid=" ~
-                    audiovm_xid -%}
+                    audiovm_xid ~ " " ~
+                    vm.features.check_with_template('qemu-extra-args', '') -%}
+                {% set qemu_opts_common = qemu_opts_common | trim -%}
                 <emulator
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         type="stubdom-linux"
