@@ -182,6 +182,8 @@
 
             {% if vm.virt_mode == 'hvm' %}
                 <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+                {% set qemu_opts_common = "-qubes-audio:audiovm_xid=" ~
+                    audiovm_xid -%}
                 <emulator
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         type="stubdom-linux"
@@ -190,20 +192,20 @@
                     {% endif %}
                     {% if vm.netvm %}
                       {% if vm.features.check_with_template('linux-stubdom', True) %}
-                        cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }} -qubes-net:client_ip={{ vm.ip -}}
+                        cmdline="{{ qemu_opts_common }} -qubes-net:client_ip={{ vm.ip -}}
                             ,dns_0={{ vm.dns[0] -}}
                             ,dns_1={{ vm.dns[1] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                       {% else %}
-                        cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }} -net lwip,client_ip={{ vm.ip -}}
+                        cmdline="{{ qemu_opts_common }} -net lwip,client_ip={{ vm.ip -}}
                             ,server_ip={{ vm.dns[1] -}}
                             ,dns={{ vm.dns[0] -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                       {% endif %}
                     {% else %}
-                      cmdline="-qubes-audio:audiovm_xid={{ audiovm_xid }}"
+                      cmdline="{{ qemu_opts_common }}"
                     {% endif %}
                     {% if vm.stubdom_mem %}
                         memory="{{ vm.stubdom_mem * 1024 -}}"
