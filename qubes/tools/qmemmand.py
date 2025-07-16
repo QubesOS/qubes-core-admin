@@ -191,6 +191,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
             # self.request is the TCP socket connected to the client
             while True:
                 self.data = self.request.recv(1024).strip()
+                data_args = self.data.decode("ascii").split()
                 self.log.debug("data=%r", self.data)
                 if len(self.data) == 0:
                     self.log.info("client disconnected, resuming membalance")
@@ -210,12 +211,25 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 self.log.debug("GLOBAL_LOCK acquired")
 
                 got_lock = True
-                if self.data.isdigit() and system_state.do_balloon(
-                    int(self.data.decode("ascii"))
-                ):
-                    resp = b"OK\n"
-                else:
-                    resp = b"FAIL\n"
+
+                resp = "INVALID_ARG"
+                if self.data.isdigit():
+                    resp = "FAIL"
+                    memory = int(data_args[0])
+                    if system_state.do_balloon(memory):
+                        resp = "OK"
+                elif ":" in data_args[0]:
+                    resp = "FAIL"
+                    dom_memset = {
+                        str(key): int(value)
+                        for key, value in (
+                            pair.split(":") for pair in data_args
+                        )
+                    }
+                    if system_state.do_balloon_dom(dom_memset):
+                        resp = "OK"
+                resp = str(resp + "\n").encode("ascii")
+
                 self.log.debug("resp={!r}".format(resp))
                 self.request.send(resp)
         except BaseException as e:

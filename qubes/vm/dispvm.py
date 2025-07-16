@@ -370,6 +370,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.app.save()
         self.preload_complete.set()
 
+    @qubes.events.handler("domain-pre-paused")
+    async def on_domain_pre_paused(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        if not self.is_preload or self.maxmem == 0:
+            return
+        qmemman_client = None
+        try:
+            qmemman_client = await asyncio.get_event_loop().run_in_executor(
+                None, self.set_mem
+            )
+        except Exception as exc:
+            self.log.warning(
+                "Preload memory request before pause failed: %s", str(exc)
+            )
+            if qmemman_client:
+                qmemman_client.close()
+            raise
+
     @qubes.events.handler("domain-paused")
     def on_domain_paused(
         self, event, **kwargs

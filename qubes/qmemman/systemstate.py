@@ -40,6 +40,11 @@ CHECK_PERIOD_S = 3
 CHECK_MB_S = 100
 MIN_TOTAL_MEMORY_TRANSFER = 150 * 1024 * 1024
 MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15 * 1024 * 1024
+#: number of loop iterations for CHECK_PERIOD_S seconds
+CHECK_PERIOD = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
+#: number of free memory bytes expected to get during CHECK_PERIOD_S
+#: seconds
+CHECK_DELTA = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
 
 
 class SystemState:
@@ -110,11 +115,13 @@ class SystemState:
             )
         return xen_free - assigned_but_unused
 
-    # Refresh information on memory assigned to all domains
-    def refresh_mem_actual(self) -> None:
+    # Refresh information on memory assigned to all or specific domains
+    def refresh_mem_actual(self, domid_list: Optional[list] = None) -> None:
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
             if domid in self.dom_dict:
+                if domid_list and domid not in domid_list:
+                    continue
                 dom = self.dom_dict[domid]
                 # Real memory usage
                 dom.mem_current = domain["mem_kb"] * 1024
@@ -216,17 +223,12 @@ class SystemState:
         for dom in self.dom_dict.values():
             dom.no_progress = False
 
-        #: number of loop iterations for CHECK_PERIOD_S seconds
-        check_period = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
-        #: number of free memory bytes expected to get during CHECK_PERIOD_S
-        #: seconds
-        check_delta = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
         #: helper array for holding free memory size, CHECK_PERIOD_S seconds
         #: ago, at every loop iteration
-        xenfree_ring = [0] * check_period
+        xenfree_ring = [0] * CHECK_PERIOD
 
         while True:
-            self.log.debug("niter={:2d}".format(niter))
+            self.log.debug("niter={:d}".format(niter))
             self.refresh_mem_actual()
             xenfree = self.get_free_xen_mem()
             self.log.info("xenfree={!r}".format(xenfree))
@@ -235,10 +237,10 @@ class SystemState:
                 return True
             # fail the request if over past CHECK_PERIOD_S seconds,
             # we got less than CHECK_MB_S MB/s on average
-            ring_slot = niter % check_period
+            ring_slot = niter % CHECK_PERIOD
             if (
-                niter >= check_period
-                and xenfree < xenfree_ring[ring_slot] + check_delta
+                niter >= CHECK_PERIOD
+                and xenfree < xenfree_ring[ring_slot] + CHECK_DELTA
             ):
                 return False
             xenfree_ring[ring_slot] = xenfree
@@ -264,6 +266,56 @@ class SystemState:
             self.log.debug("sleeping for {} s".format(BALLOON_DELAY))
             time.sleep(BALLOON_DELAY)
             niter = niter + 1
+
+    def do_balloon_dom(self, dom_memset: dict) -> bool:
+        self.log.info("do_balloon_dom(dom_memset={!r})".format(dom_memset))
+        niter = 0
+        if not dom_memset:
+            return False
+
+        domid_list = list(dom_memset.keys())
+        dom_dict = {
+            domid: state
+            for domid, state in self.dom_dict.items()
+            if domid in domid_list
+        }
+
+        for _, dom in dom_dict.items():
+            dom.no_progress = False
+
+        memset_reqs = {}
+        for domid, memset in dom_memset.items():
+            if memset == 0:
+                mem_pref = qubes.qmemman.algo.pref_mem(dom_dict[domid])
+                memset_reqs[domid] = mem_pref
+                self.log.debug(
+                    "mem for dom '%s' is 0, using its pref '%s'",
+                    domid,
+                    mem_pref,
+                )
+            else:
+                memset_reqs[domid] = memset
+
+        succeeded = []
+        while True:
+            self.log.debug("niter={:d}".format(niter))
+            self.refresh_mem_actual(domid_list)
+            for domid, dom in dom_dict.items():
+                assert isinstance(dom.mem_actual, int)
+                if (
+                    domid not in succeeded
+                    and dom.mem_actual / memset_reqs[domid] < 1.1
+                ):
+                    succeeded.append(domid)
+            if all(dom in succeeded for dom in domid_list):
+                return True
+            if niter >= CHECK_PERIOD:
+                return False
+            for domid, memset in memset_reqs.items():
+                self.mem_set(domid, memset)
+            self.log.debug("sleeping for {} s".format(BALLOON_DELAY))
+            time.sleep(BALLOON_DELAY)
+            niter += 1
 
     def refresh_meminfo(self, domid, untrusted_meminfo_key) -> None:
         self.log.debug(

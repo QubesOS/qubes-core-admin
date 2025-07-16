@@ -19,22 +19,30 @@
 
 import socket
 import fcntl
-from typing import Optional
 
 
 class QMemmanClient:
     def __init__(self) -> None:
-        self.sock: Optional[socket.socket] = None
+        self.sock: socket.socket | None = None
 
-    def request_mem(self, amount) -> bool:
+    def _send(self, data: str) -> bool:
         self.sock = socket.socket(socket.AF_UNIX)
         flags = fcntl.fcntl(self.sock.fileno(), fcntl.F_GETFD)
         flags |= fcntl.FD_CLOEXEC
         fcntl.fcntl(self.sock.fileno(), fcntl.F_SETFD, flags)
         self.sock.connect("/var/run/qubes/qmemman.sock")
-        self.sock.send(str(int(amount)).encode("ascii") + b"\n")
+        self.sock.send(data.encode("ascii"))
         received = self.sock.recv(1024).strip()
         return bool(received == b"OK")
+
+    def request_mem(self, amount: int | float) -> bool:
+        return self._send("{}\n".format(int(amount)))
+
+    def set_mem(self, dom_memset: dict[int | str, int | float]) -> bool:
+        dom_memset_str = " ".join(
+            "{}:{}".format(key, value) for key, value in dom_memset.items()
+        )
+        return self._send("{}\n".format(dom_memset_str))
 
     def close(self) -> None:
         assert isinstance(self.sock, socket.socket)

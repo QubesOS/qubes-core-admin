@@ -2076,6 +2076,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         return qmemman_client
 
+    def set_mem(self):
+        """
+        Balloon to mem_pref.
+        """
+        if not qmemman_present or self.maxmem == 0:
+            return None
+
+        qmemman_client = qubes.qmemman.client.QMemmanClient()
+        try:
+            result = qmemman_client.set_mem({self.xid: 0})
+        except IOError as e:
+            raise IOError("Failed to connect to qmemman: {!s}".format(e))
+
+        if not result:
+            qmemman_client.close()
+            self.log.warning("Failed to set memory")
+
+        return qmemman_client
+
     @staticmethod
     async def start_daemon(*command, input=None, **kwargs):
         """Start a daemon for the VM
