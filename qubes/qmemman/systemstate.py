@@ -29,7 +29,7 @@ from typing import Optional
 import qubes.qmemman
 from qubes.qmemman.domainstate import DomainState
 
-BALOON_DELAY = 0.1
+BALLOON_DELAY = 0.1
 XEN_FREE_MEM_LEFT = 50 * 1024 * 1024
 XEN_FREE_MEM_MIN = 25 * 1024 * 1024
 # Overhead of per-page Xen structures, taken from OpenStack
@@ -217,7 +217,7 @@ class SystemState:
             dom.no_progress = False
 
         #: number of loop iterations for CHECK_PERIOD_S seconds
-        check_period = max(1, int((CHECK_PERIOD_S + 0.0) / BALOON_DELAY))
+        check_period = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
         #: number of free memory bytes expected to get during CHECK_PERIOD_S
         #: seconds
         check_delta = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
@@ -261,8 +261,8 @@ class SystemState:
             for domid, memset in memset_reqs:
                 self.mem_set(domid, memset)
                 prev_mem_actual[domid] = self.dom_dict[domid].mem_actual
-            self.log.debug("sleeping for {} s".format(BALOON_DELAY))
-            time.sleep(BALOON_DELAY)
+            self.log.debug("sleeping for {} s".format(BALLOON_DELAY))
+            time.sleep(BALLOON_DELAY)
             niter = niter + 1
 
     def refresh_meminfo(self, domid, untrusted_meminfo_key) -> None:
@@ -404,7 +404,7 @@ class SystemState:
                         domid, ntries
                     )
                 )
-                time.sleep(BALOON_DELAY)
+                time.sleep(BALLOON_DELAY)
                 self.refresh_mem_actual()
                 ntries -= 1
                 if ntries <= 0:
