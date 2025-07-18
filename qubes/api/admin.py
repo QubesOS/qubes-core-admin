@@ -29,7 +29,7 @@ import re
 import string
 import subprocess
 
-from ctypes import CDLL
+from ctypes import CDLL, c_bool
 
 import libvirt
 import lxml.etree
@@ -2115,15 +2115,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         # Sanitise the incoming utf8 notes with libqubes-pure
         try:
-            libqubespure = CDLL(LIBQUBES_PURE)
+            lib = CDLL(LIBQUBES_PURE)
+            safe_for_display = lib.qubes_pure_code_point_safe_for_display
+            safe_for_display.restype = c_bool
             notes = "".join(
                 [
                     (
                         c
                         # first we check with our advanced unicode sanitisation
-                        if libqubespure.qubes_pure_code_point_safe_for_display(
-                            ord(c)
-                        )
+                        if safe_for_display(ord(c))
                         # validate tab and newline since qubespure excludes them
                         or c in "\t\n"
                         else "_"
