@@ -646,10 +646,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
             new_cache[domain.name] = {}
             if domain == vm:
                 for dev_id, front_vm in self.devices_cache[domain.name].items():
-                    if front_vm is None:
-                        continue
                     dev = BlockDevice(Port(vm, dev_id, "block"))
                     vm.fire_event("device-removed:block", port=dev.port)
+                    if front_vm is None:
+                        continue
                     await self.detach_and_notify(front_vm, dev.port)
                 continue
             for dev_id, front_vm in self.devices_cache[domain.name].items():
