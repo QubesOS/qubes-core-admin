@@ -167,9 +167,11 @@
                 {% endfor %}
             {% endfor %}
 
-            {% if vm.netvm %}
-                {% include 'libvirt/devices/net.xml' with context %}
-            {% endif %}
+            {% block network %}
+                {% if vm.netvm %}
+                    {% include 'libvirt/devices/net.xml' with context %}
+                {% endif %}
+            {% endblock %}
 
             {% for assignment in vm.devices.pci.get_assigned_devices(True) %}
                 {% for device in assignment.devices %}
