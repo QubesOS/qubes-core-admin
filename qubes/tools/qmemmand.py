@@ -38,30 +38,25 @@ import qubes.qmemman.systemstate
 import qubes.utils
 
 SOCK_PATH = "/var/run/qubes/qmemman.sock"
-
+GLOBAL_LOCK = threading.Lock()
 system_state = qubes.qmemman.systemstate.SystemState()
-global_lock = threading.Lock()
-# If XSWatcher will
-# handle meminfo event before @introduceDomain, it will use
-# incomplete domain list for that and may redistribute memory
-# allocated to some VM, but not yet used (see #1389).
-# To fix that, system_state should be updated (refresh domain
-# list) before processing other changes, every time some process requested
-# memory for a new VM, before releasing the lock. Then XS_Watcher will check
-# this flag before processing other event.
-force_refresh_domain_list = False
+# If XSWatcher handles meminfo event before @introduceDomain, it will use
+# incomplete domain list for that and may redistribute memory allocated to some
+# VM, but not yet used (see #1389). To fix that, system_state should be updated
+# (refresh domain list) before processing other changes, every time some
+# process requested memory for a new VM, before releasing the lock. Then
+# XS_Watcher will check this flag before processing other event.
+FORCE_REFRESH_DOMAIN_LIST = False
 
 
-def only_in_first_list(list1, list2):
-    ret = []
-    for i in list1:
-        if i not in list2:
-            ret.append(i)
-    return ret
+def unique_per_list(list1, list2):
+    first = [item for item in list1 if item not in list2]
+    second = [item for item in list2 if item not in list1]
+    return first, second
 
 
-def get_domain_meminfo_key(domain_id):
-    return "/local/domain/" + domain_id + "/memory/meminfo"
+def get_domain_meminfo_key(domid):
+    return "/local/domain/" + domid + "/memory/meminfo"
 
 
 @dataclass
@@ -91,7 +86,7 @@ class XSWatcher:
 
         :param refresh_only If True, only refresh domain list, do not
         redistribute memory. In this mode, caller must already hold
-        global_lock.
+        GLOBAL_LOCK.
         """
         self.log.debug(
             "domain_list_changed(only_refresh={!r})".format(refresh_only)
@@ -99,43 +94,40 @@ class XSWatcher:
 
         got_lock = False
         if not refresh_only:
-            self.log.debug("acquiring global_lock")
+            self.log.debug("acquiring GLOBAL_LOCK")
             # pylint: disable=consider-using-with
-            global_lock.acquire()
+            GLOBAL_LOCK.acquire()
             got_lock = True
-            self.log.debug("global_lock acquired")
+            self.log.debug("GLOBAL_LOCK acquired")
         try:
             curr = self.handle.ls("", "/local/domain")
             if curr is None:
                 return
 
-            # check if domain is really there, it may happen that some empty
+            # Check if domain is really there, it may happen that some empty
             # directories are left in xenstore
-            curr = list(
-                filter(
-                    lambda x: self.handle.read(
-                        "", "/local/domain/{}/domid".format(x)
-                    )
-                    is not None,
-                    curr,
-                )
-            )
+            curr = [
+                domid
+                for domid in curr
+                if self.handle.read("", "/local/domain/{}/domid".format(domid))
+                is not None
+            ]
             self.log.debug("curr={!r}".format(curr))
 
-            for i in only_in_first_list(curr, self.watch_token_dict.keys()):
-                # new domain has been created
-                watch = WatchType(XSWatcher.meminfo_changed, i)
-                self.watch_token_dict[i] = watch
-                self.handle.watch(get_domain_meminfo_key(i), watch)
-                system_state.add_domain(i)
-
-            for i in only_in_first_list(self.watch_token_dict.keys(), curr):
-                # domain destroyed
+            created, destroyed = unique_per_list(
+                curr, self.watch_token_dict.keys()
+            )
+            for domid in created:
+                watch = WatchType(XSWatcher.meminfo_changed, domid)
+                self.watch_token_dict[domid] = watch
+                self.handle.watch(get_domain_meminfo_key(domid), watch)
+                system_state.add_domain(domid)
+            for domid in destroyed:
                 self.handle.unwatch(
-                    get_domain_meminfo_key(i), self.watch_token_dict[i]
+                    get_domain_meminfo_key(domid), self.watch_token_dict[domid]
                 )
-                self.watch_token_dict.pop(i)
-                system_state.del_domain(i)
+                self.watch_token_dict.pop(domid)
+                system_state.del_domain(domid)
 
             if not refresh_only:
                 try:
@@ -146,33 +138,33 @@ class XSWatcher:
             self.log.exception("Updating domain list failed")
         finally:
             if got_lock:
-                global_lock.release()
-                self.log.debug("global_lock released")
+                GLOBAL_LOCK.release()
+                self.log.debug("GLOBAL_LOCK released")
 
-    def meminfo_changed(self, domain_id):
-        self.log.debug("meminfo_changed(domain_id={!r})".format(domain_id))
+    def meminfo_changed(self, domid):
+        self.log.debug("meminfo_changed(domid={!r})".format(domid))
         untrusted_meminfo_key = self.handle.read(
-            "", get_domain_meminfo_key(domain_id)
+            "", get_domain_meminfo_key(domid)
         )
         if untrusted_meminfo_key is None or untrusted_meminfo_key == b"":
             return
 
-        self.log.debug("acquiring global_lock")
-        with global_lock:
-            self.log.debug("global_lock acquired")
+        self.log.debug("acquiring GLOBAL_LOCK")
+        with GLOBAL_LOCK:
+            self.log.debug("GLOBAL_LOCK acquired")
             try:
-                global force_refresh_domain_list
-                if force_refresh_domain_list:
+                global FORCE_REFRESH_DOMAIN_LIST
+                if FORCE_REFRESH_DOMAIN_LIST:
                     self.domain_list_changed(refresh_only=True)
-                    force_refresh_domain_list = False
-                if domain_id not in self.watch_token_dict:
-                    # domain just destroyed
+                    FORCE_REFRESH_DOMAIN_LIST = False
+                if domid not in self.watch_token_dict:
+                    # Domain was just destroyed.
                     return
 
-                system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
+                system_state.refresh_meminfo(domid, untrusted_meminfo_key)
             except:  # pylint: disable=bare-except
-                self.log.exception("Updating meminfo for %s failed", domain_id)
-        self.log.debug("global_lock released")
+                self.log.exception("Updating meminfo for %s failed", domid)
+        self.log.debug("GLOBAL_LOCK released")
 
     def watch_loop(self):
         self.log.debug("watch_loop()")
@@ -187,9 +179,8 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
     """
     The RequestHandler class for our server.
 
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
+    It is instantiated once per connection to the server, and must override the
+    handle() method to implement communication to the client.
     """
 
     def handle(self):
@@ -204,8 +195,8 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 if len(self.data) == 0:
                     self.log.info("client disconnected, resuming membalance")
                     if got_lock:
-                        global force_refresh_domain_list
-                        force_refresh_domain_list = True
+                        global FORCE_REFRESH_DOMAIN_LIST
+                        FORCE_REFRESH_DOMAIN_LIST = True
                     return
 
                 # XXX something is wrong here: return without release?
@@ -213,10 +204,10 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                     self.log.warning("Second request over qmemman.sock?")
                     return
 
-                self.log.debug("acquiring global_lock")
+                self.log.debug("acquiring GLOBAL_LOCK")
                 # pylint: disable=consider-using-with
-                global_lock.acquire()
-                self.log.debug("global_lock acquired")
+                GLOBAL_LOCK.acquire()
+                self.log.debug("GLOBAL_LOCK acquired")
 
                 got_lock = True
                 if self.data.isdigit() and system_state.do_balloon(
@@ -233,33 +224,30 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
             )
         finally:
             if got_lock:
-                global_lock.release()
-                self.log.debug("global_lock released")
-
-
-parser = qubes.tools.QubesArgumentParser(want_app=False)
-
-parser.add_argument(
-    "--config",
-    "-c",
-    metavar="FILE",
-    action="store",
-    default="/etc/qubes/qmemman.conf",
-    help="qmemman config file",
-)
-
-parser.add_argument(
-    "--foreground",
-    action="store_true",
-    default=False,
-    help="do not close stdio",
-)
+                GLOBAL_LOCK.release()
+                self.log.debug("GLOBAL_LOCK released")
 
 
 def main():
+    parser = qubes.tools.QubesArgumentParser(want_app=False)
+    parser.add_argument(
+        "--config",
+        "-c",
+        metavar="FILE",
+        action="store",
+        default="/etc/qubes/qmemman.conf",
+        help="qmemman config file",
+    )
+    parser.add_argument(
+        "--foreground",
+        "-f",
+        action="store_true",
+        default=False,
+        help="do not close stdio",
+    )
     args = parser.parse_args()
 
-    # setup logging
+    # Setup logging.
     ha_syslog = logging.handlers.SysLogHandler("/dev/log")
     ha_syslog.setFormatter(
         logging.Formatter("%(name)s[%(process)d]: %(message)s")
@@ -313,13 +301,13 @@ def main():
     log.debug("instantiating server")
     os.umask(0)
 
-    # Initialize the connection to Xen and to XenStore
+    # Initialize the connection to Xen and to XenStore.
     system_state.init()
 
     server = socketserver.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
     os.umask(0o077)
 
-    # notify systemd
+    # Notify systemd.
     nofity_socket = os.getenv("NOTIFY_SOCKET")
     if nofity_socket:
         log.debug("notifying systemd")

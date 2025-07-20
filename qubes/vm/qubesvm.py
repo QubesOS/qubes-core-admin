@@ -1432,7 +1432,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                             )
 
                 qmemman_client = await asyncio.get_event_loop().run_in_executor(
-                    None, self.request_memory, mem_required
+                    None, self.request_mem, mem_required
                 )
 
                 await self.storage.start()
@@ -2032,7 +2032,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return bool(feature)
         return False
 
-    def request_memory(self, mem_required=None):
+    def request_mem(self, mem_required=None):
         if not qmemman_present:
             return None
 
@@ -2065,9 +2065,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 # 2 pages per 1MB of RAM, see
                 # libxl__get_required_paging_memory()
                 mem_required_with_overhead += maxmem * 8192
-            got_memory = qmemman_client.request_memory(
-                mem_required_with_overhead
-            )
+            got_memory = qmemman_client.request_mem(mem_required_with_overhead)
 
         except IOError as e:
             raise IOError("Failed to connect to qmemman: {!s}".format(e))
@@ -2863,7 +2861,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # workshop -- those are to be reworked later
     #
 
-    def get_prefmem(self):
+    def get_pref_mem(self):
         # TODO: qmemman is still xen specific
         untrusted_meminfo_key = self.app.vmm.xs.read(
             "", "/local/domain/{}/memory/meminfo".format(self.xid)
@@ -2879,9 +2877,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if domain.mem_used is None:
             # apparently invalid xenstore content
             return 0
-        domain.memory_maximum = self.get_mem_static_max() * 1024
+        domain.mem_max = self.get_mem_static_max() * 1024
 
-        return qubes.qmemman.algo.prefmem(domain) / 1024
+        return qubes.qmemman.algo.pref_mem(domain) / 1024
 
 
 def _clean_volume_config(config):
