@@ -879,6 +879,41 @@ class TC_20_DispVMMixin(object):
         else:
             raise KeyError(window_title)
 
+    def _whonix_ws_dispvm_confirm(self, action_str):
+        try:
+            winid = self.wait_for_window(
+                "qrexec-policy-agent",
+                search_class=True,
+                include_tray=False,
+                timeout=5,
+            )
+        except Exception:
+            return (
+                False,
+                "Failed to find qrexec confirmation window for "
+                f"{action_str} action",
+            )
+        try:
+            subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    "--",
+                    f"xdotool windowfocus {winid}; sleep 1.1; "
+                    "xdotool key enter",
+                ],
+                check=True,
+            )
+        except subprocess.CalledProcessError as err:
+            return (
+                False,
+                "Failed to activate qrexec confirmation window for "
+                "{} action: exit code {}, {}{}".format(
+                    action_str, err.returncode, err.stdout, err.stderr
+                ),
+            )
+        return (True, "")
+
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
@@ -904,6 +939,11 @@ class TC_20_DispVMMixin(object):
                 stderr=subprocess.STDOUT,
             )
         )
+
+        if "whonix-workstation" in self.template:
+            dvm_confirm_rslt = self._whonix_ws_dispvm_confirm("edit file")
+            if not dvm_confirm_rslt[0]:
+                self.fail(dvm_confirm_rslt[1])
 
         # if first 5 windows isn't expected editor, there is no hope
         winid = None
@@ -1073,6 +1113,11 @@ class TC_20_DispVMMixin(object):
                     err.cmd, err.returncode, err.stdout, err.stderr
                 )
             )
+
+        if "whonix-workstation" in self.template:
+            dvm_confirm_rslt = self._whonix_ws_dispvm_confirm("DispVM open")
+            if not dvm_confirm_rslt[0]:
+                self.fail(dvm_confirm_rslt[1])
 
         # if first 5 windows isn't expected editor, there is no hope
         winid = None
