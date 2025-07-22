@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+This script is outside of qubesd because it relies on systemd to:
+
+- Order this action after the autostart or standard qubes;
+- Skip preloading if kernel command line prevents autostart.
+"""
+
 import asyncio
 import concurrent.futures
 import qubesadmin
