@@ -63,6 +63,10 @@ Helper classes and functions
    :members:
    :show-inheritance:
 
+.. autoclass:: qubes.vm.mix.dvmtemplate.DVMTemplateMixin
+   :members:
+   :show-inheritance:
+
 Particular VM classes
 ^^^^^^^^^^^^^^^^^^^^^
 
