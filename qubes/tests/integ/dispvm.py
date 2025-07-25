@@ -548,9 +548,7 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(self._test_015_preload_race_more())
 
     async def _test_015_preload_race_more(self):
-        # The limiting factor is how much memory is available on OpenQA and the
-        # unreasonable memory allocated before the qube is paused due to:
-        #   https://github.com/QubesOS/qubes-issues/issues/9917
+        # The limiting factor is how much memory is available on OpenQA:
         # Whonix (Kicksecure) 17 fail more due to higher memory consumption.
         # From the templates deployed by default, only Debian and Fedora
         # survives due to using less memory than the other OSes.
@@ -587,7 +585,13 @@ class TC_20_DispVMMixin(object):
         logger.info("end")
 
     def test_017_preload_autostart(self):
+        """The script triggers the API call
+        'admin.vm.CreateDisposable+preload-autostart' which fires the event
+        'domain-preload-dispvm-autostart', clearing the current preload list
+        and filling with new ones."""
         logger.info("start")
+        self.app.default_dispvm = self.disp_base
+
         preload_max = 1
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
@@ -612,13 +616,24 @@ class TC_20_DispVMMixin(object):
             f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
 
-        self.adminvm.features["preload-dispvm-max"] = "0"
+        preload_max += 1
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
+        del self.disp_base.features["preload-dispvm-max"]
+        old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
         self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
-        self.assertEqual(self.disp_base.get_feat_preload(), [])
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertEqual(len(old_preload), preload_max)
+        self.assertEqual(len(preload_dispvm), preload_max)
+        self.assertTrue(
+            set(old_preload).isdisjoint(preload_dispvm),
+            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        )
+
+        self.app.default_dispvm = None
         logger.info("end")
 
     def test_018_preload_global(self):
