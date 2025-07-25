@@ -472,6 +472,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not preload and appvm.can_preload():
             # Not necessary to await for this event as its intent is to fill
             # gaps and not relevant for this run.
+            # TODO: ben: preload with delay? Delay can help because the preload
+            #   is not relevant to this run.
             asyncio.ensure_future(
                 appvm.fire_event_async(
                     "domain-preload-dispvm-start", reason="there is a gap"
@@ -479,38 +481,66 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
 
         if not preload and (preload_dispvm := appvm.get_feat_preload()):
-            dispvm = app.domains[preload_dispvm[0]]
-            dispvm.log.info("Requesting preloaded qube")
-            # The property "preload_requested" offloads "preload-dispvm" and
-            # thus avoids various race condition:
-            # - Decreasing maximum feature will not remove the qube;
-            # - Another request to this function will not return the same qube.
-            dispvm.features["preload-dispvm-in-progress"] = True
-            appvm.remove_preload_from_list([dispvm.name])
-            dispvm.preload_requested = True
-            app.save()
-            timeout = int(dispvm.qrexec_timeout * 1.2)
-            try:
-                if not dispvm.features.get("preload-dispvm-completed", False):
-                    dispvm.log.info(
-                        "Waiting preload completion with '%s' seconds timeout",
-                        timeout,
+            dispvm = None
+            for item in preload_dispvm:
+                qube = app.domains[item]
+                if any(vol.is_outdated() for vol in qube.volumes.values()):
+                    qube.log.warning(
+                        "Requested preloaded qube but it is outdated, trying "
+                        "another one if available"
                     )
-                    async with asyncio.timeout(timeout):
-                        await dispvm.preload_complete.wait()
-                if dispvm.is_paused():
-                    await dispvm.unpause()
-                else:
-                    dispvm.use_preload()
+                    # The gap is filled after the delay set by the
+                    # 'domain-shutdown' of its ancestors. Not refilling now to
+                    # deliver a disposable faster.
+                    appvm.remove_preload_from_list([qube.name])
+                    # TODO: ben: cleanup with delay? Delay can help because the
+                    #   cleanup is not relevant to this run.
+                    asyncio.ensure_future(qube.cleanup())
+                    continue
+                dispvm = qube
+                break
+            if dispvm:
+                dispvm.log.info("Requesting preloaded qube")
+                # The property "preload_requested" offloads "preload-dispvm"
+                # and thus avoids various race condition:
+                # - Decreasing maximum feature will not remove the qube;
+                # - Another request to this function will not return the same
+                #   qube.
+                dispvm.features["preload-dispvm-in-progress"] = True
+                appvm.remove_preload_from_list([dispvm.name])
+                dispvm.preload_requested = True
                 app.save()
-                return dispvm
-            except asyncio.TimeoutError:
-                dispvm.log.warning(
-                    "Requested preloaded qube but failed to finish preloading "
-                    "after '%d' seconds, falling back to normal disposable",
-                    int(timeout),
+                timeout = int(dispvm.qrexec_timeout * 1.2)
+                try:
+                    if not dispvm.features.get(
+                        "preload-dispvm-completed", False
+                    ):
+                        dispvm.log.info(
+                            "Waiting preload completion with '%s' seconds "
+                            "timeout",
+                            timeout,
+                        )
+                        async with asyncio.timeout(timeout):
+                            await dispvm.preload_complete.wait()
+                    if dispvm.is_paused():
+                        await dispvm.unpause()
+                    else:
+                        dispvm.use_preload()
+                    app.save()
+                    return dispvm
+                except asyncio.TimeoutError:
+                    dispvm.log.warning(
+                        "Requested preloaded qube but failed to finish "
+                        "preloading after '%d' seconds, falling back to normal "
+                        "disposable",
+                        int(timeout),
+                    )
+                    asyncio.ensure_future(dispvm.cleanup())
+            else:
+                appvm.log.warning(
+                    "Found only outdated preloaded qube(s), falling back to "
+                    "normal disposable"
                 )
-                asyncio.ensure_future(dispvm.cleanup())
 
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
@@ -553,6 +583,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm.remove_preload_from_list([self.name])
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
+        # TODO: ben: preload with delay? Adding a delay can help on concurrent
+        #   requests if the max is bigger than 1. No delay is better if we
+        #   expect multiple requests to be spread.
         asyncio.ensure_future(
             appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
         )
