@@ -180,6 +180,13 @@ class TC_40_PVGrub(GrubBase):
             # (see grub_file_filter_id enum in grub sources)
             self.skipTest('Fedora kernel is compressed with zstd '
                           'which is not supported by pvgrub2')
+        if "debian-13" in self.template:
+            # requires a zstd decompression filter in grub
+            # (see grub_file_filter_id enum in grub sources)
+            self.skipTest(
+                "Debian 13 kernel is compressed with zstd "
+                "which is not supported by pvgrub2"
+            )
         super().setUp()
 
 
