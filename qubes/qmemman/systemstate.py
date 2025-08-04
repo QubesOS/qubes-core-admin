@@ -283,9 +283,15 @@ class SystemState:
         for _, dom in dom_dict.items():
             dom.no_progress = False
 
+        succeeded = []
         memset_reqs = {}
         for domid, memset in dom_memset.items():
             if memset == 0:
+                # Domain hasn't meminfo back to the server, it is still at the
+                # initial amount. pref_mem can't be calculated yet.
+                if dom_dict[domid].mem_used is None:
+                    succeeded.append(domid)
+                    continue
                 mem_pref = qubes.qmemman.algo.pref_mem(dom_dict[domid])
                 memset_reqs[domid] = mem_pref
                 self.log.debug(
@@ -296,7 +302,6 @@ class SystemState:
             else:
                 memset_reqs[domid] = memset
 
-        succeeded = []
         while True:
             self.log.debug("niter={:d}".format(niter))
             self.refresh_mem_actual(domid_list)
