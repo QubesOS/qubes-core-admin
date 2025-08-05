@@ -2682,6 +2682,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return "dispvm-" + raw_icon_name
         if self.klass == "StandaloneVM":
             return "standalonevm-" + raw_icon_name
+        if self.klass == "RemoteVM":
+            return "remotevm-" + raw_icon_name
         return "appvm-" + raw_icon_name
 
     @property
