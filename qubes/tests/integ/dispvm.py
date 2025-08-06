@@ -498,20 +498,38 @@ class TC_20_DispVMMixin(object):
         # pylint: disable=unspecified-encoding
         logger.info("start")
         unpatched_open = open
+        memory = int(getattr(self.disp_base, "memory", 0) * 1024**2)
 
         def mock_open_mem(file, *args, **kwargs):
             if file == qubes.config.qmemman_avail_mem_file:
-                memory = str(getattr(self.disp_base, "memory", 0) * 1024 * 1024)
-                return mock_open(read_data=memory)()
+                return mock_open(read_data=str(memory))()
             return unpatched_open(file, *args, **kwargs)
 
+        def mock_open_mem_threshold(file, *args, **kwargs):
+            if file == qubes.config.qmemman_avail_mem_file:
+                return mock_open(read_data=str(memory * 2))()
+            return unpatched_open(file, *args, **kwargs)
+
+        preload_max = 2
         with patch("builtins.open", side_effect=mock_open_mem):
-            preload_max = 2
+            logger.info("low mem standard")
             self.disp_base.features["preload-dispvm-max"] = str(preload_max)
             await self.wait_preload(
                 preload_max, fail_on_timeout=False, timeout=15
             )
             self.assertEqual(1, len(self.disp_base.get_feat_preload()))
+            # Nothing will be done here, just to prepare to the next test.
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max - 1)
+
+        with patch("builtins.open", side_effect=mock_open_mem_threshold):
+            logger.info("low mem threshold")
+            self.adminvm.features["preload-dispvm-threshold"] = memory
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+            await self.wait_preload(
+                preload_max, fail_on_timeout=False, timeout=15
+            )
+            self.assertEqual(1, len(self.disp_base.get_feat_preload()))
+
         logger.info("end")
 
     def test_013_preload_gui(self):

@@ -250,3 +250,12 @@ class TC_00_DVMTemplateMixin(
         mock_events.assert_called_once_with(
             "domain-preload-dispvm-start", reason=mock.ANY
         )
+
+    def test_013_dvm_preload_get_treshold(self):
+        cases = [None, False, "0", "2", "1000"]
+        self.assertEqual(self.appvm.get_feat_preload_threshold(), 0)
+        for value in cases:
+            with self.subTest(value=value):
+                self.adminvm.features["preload-dispvm-threshold"] = value
+                threshold = self.appvm.get_feat_preload_threshold()
+                self.assertEqual(threshold, int(value or 0) * 1024**2)

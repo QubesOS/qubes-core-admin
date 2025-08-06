@@ -279,3 +279,14 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             mock_events.assert_called_once_with(
                 "domain-preload-dispvm-start", reason=unittest.mock.ANY
             )
+
+    def test_802_preload_set_threshold(self):
+        cases_valid = ["", "0", "1"]
+        cases_invalid = ["a", "-1", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.vm.features["preload-dispvm-threshold"] = value
+        for value in cases_valid:
+            with self.subTest(value=value):
+                self.vm.features["preload-dispvm-threshold"] = value

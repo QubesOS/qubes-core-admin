@@ -348,6 +348,16 @@ class AdminVM(LocalVM):
 
         return stdouterr
 
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-threshold")
+    def on_feature_pre_set_preload_dispvm_threshold(
+        self, event, feature, value, oldvalue=None
+    ):  # pylint: disable=unused-argument
+        value = value or "0"
+        if not value.isdigit():
+            raise qubes.exc.QubesValueError(
+                "Invalid preload-dispvm-threshold value: not a digit"
+            )
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
         self, event, feature
