@@ -104,6 +104,8 @@ Requires:       dmidecode
 Conflicts:      python3-qubesadmin < 4.3.7
 Conflicts:      qubes-usb-proxy-dom0 < 4.3.0
 Conflicts:      qubes-audio-dom0 < 4.3.5
+# dispvm performance tests require python3-qubesadmin >= 4.3.20
+# but since it's only about tests, don't enforce it at the package level
 
 # Required for qvm-console* tools
 Requires:       socat
