@@ -527,6 +527,7 @@ done
 %{python3_sitelib}/qubes/tests/integ/devices_block.py
 %{python3_sitelib}/qubes/tests/integ/devices_pci.py
 %{python3_sitelib}/qubes/tests/integ/dispvm.py
+%{python3_sitelib}/qubes/tests/integ/dispvm_perf.py
 %{python3_sitelib}/qubes/tests/integ/dom0_update.py
 %{python3_sitelib}/qubes/tests/integ/vm_update.py
 %{python3_sitelib}/qubes/tests/integ/mime.py
@@ -560,6 +561,7 @@ done
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
+/usr/lib/qubes/tests/dispvm_perf.py
 /usr/lib/qubes/tests/qrexec_perf.py
 /usr/lib/qubes/tests/storage_perf.py
 %{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
