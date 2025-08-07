@@ -73,13 +73,6 @@ class TC_00_DispVMPerfMixin:
                     self.vm2.shutdown(),
                 )
             )
-        if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
-            # Avoid previous test load interfering with new test.
-            if self._testMethodName.startswith("vm"):
-                delay = 5
-            else:
-                delay = 15
-            time.sleep(delay)
 
     def run_test(self, name):
         dvm = self.dvm.name

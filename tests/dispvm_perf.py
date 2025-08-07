@@ -170,10 +170,17 @@ ALL_TESTS = [
         preload_max=MAX_CONCURRENCY,
     ),
     TestConfig("dispvm-api", admin_api=True),
-    TestConfig("dispvm-concurrent-api", concurrent=True, admin_api=True),
+    TestConfig(
+        "dispvm-concurrent-api",
+        concurrent=True,
+        admin_api=True,
+    ),
     TestConfig("dispvm-gui-api", gui=True, admin_api=True),
     TestConfig(
-        "dispvm-gui-concurrent-api", gui=True, concurrent=True, admin_api=True
+        "dispvm-gui-concurrent-api",
+        gui=True,
+        concurrent=True,
+        admin_api=True,
     ),
     TestConfig(
         "dispvm-preload-more-api",
@@ -189,7 +196,7 @@ ALL_TESTS = [
     TestConfig(
         "dispvm-preload-concurrent-api",
         concurrent=True,
-        preload_max=MAX_PRELOAD,
+        preload_max=MAX_CONCURRENCY,
         admin_api=True,
     ),
     TestConfig(
@@ -202,10 +209,16 @@ ALL_TESTS = [
         "dispvm-preload-gui-concurrent-api",
         gui=True,
         concurrent=True,
-        preload_max=MAX_PRELOAD,
+        preload_max=MAX_CONCURRENCY,
         admin_api=True,
     ),
 ]
+
+
+def get_load() -> str:
+    with open("/proc/loadavg", "r", encoding="ascii") as file:
+        load = file.read()
+    return load.rstrip()
 
 
 def get_time():
@@ -327,8 +340,12 @@ class TestRun:
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
-        except subprocess.TimeoutExpired:
-            raise Exception(f"service '{cmd}' failed: timeout expired")
+        except subprocess.TimeoutExpired as e:
+            raise Exception(
+                f"service '{cmd}' failed: timeout expired:"
+                f" {e.stdout},"
+                f" {e.stderr}"
+            )
         end_time = get_time()
         return round(end_time - start_time, ROUND_PRECISION)
 
@@ -342,17 +359,22 @@ class TestRun:
             target_qube = self.vm1
         else:
             target_qube = qubesadmin.vm.DispVM.from_appvm(app, appvm)
+        name = target_qube.name
         target_time = get_time()
         try:
             target_qube.run_service_for_stdio(service, timeout=60)
         except subprocess.CalledProcessError as e:
             raise Exception(
-                f"service '{service}' failed ({e.returncode}):"
+                f"'{name}': service '{service}' failed ({e.returncode}):"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
-        except subprocess.TimeoutExpired:
-            raise Exception(f"service '{service}' failed: timeout expired")
+        except subprocess.TimeoutExpired as e:
+            raise Exception(
+                f"'{name}': service '{service}' failed: timeout expired:"
+                f" {e.stdout},"
+                f" {e.stderr}"
+            )
         run_service_time = get_time()
         if not test.non_dispvm:
             target_qube.cleanup()
@@ -514,6 +536,7 @@ class TestRun:
                 preload_max = test.preload_max
                 self.dvm.features["preload-dispvm-max"] = str(preload_max)
                 asyncio.run(self.wait_preload(preload_max))
+            print(f"Load before test: '{get_load()}'")
             if test.admin_api:
                 result = self.run_latency_api_calls(test)
             else:
@@ -534,6 +557,18 @@ class TestRun:
                     if orig_preload_max != 0:
                         asyncio.run(self.wait_preload(orig_preload_max))
             os.unlink(POLICY_FILE)
+            if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
+                print(f"Load before sleep: '{get_load()}'")
+                delay = 5
+                if not test.non_dispvm:
+                    delay += 10
+                    if test.gui:
+                        delay += 2
+                    if test.concurrent:
+                        delay += 8
+                print(f"Sleeping for '{delay}' seconds")
+                time.sleep(delay)
+                print(f"Load after sleep: '{get_load()}'")
 
 
 def main():
@@ -567,7 +602,7 @@ def main():
     if args.iterations:
         run.iterations = args.iterations
 
-    for index, test in enumerate(tests):
+    for test in tests:
         run.run_test(test)
 
 
