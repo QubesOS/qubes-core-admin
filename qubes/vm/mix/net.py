@@ -322,7 +322,7 @@ class NetVMMixin(qubes.events.Emitter):
                 pass
 
     @qubes.events.handler("domain-start")
-    def on_domain_started(self, event, **kwargs):
+    def on_domain_started_net(self, event, **kwargs):
         """Connect this domain to its downstream domains. Also reload firewall
         in its netvm.
 
