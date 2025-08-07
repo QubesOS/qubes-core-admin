@@ -812,6 +812,48 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 existence.side_effect = [True, False]
                 self.app.default_kernel = 'unittest_GNU_Hurd_1.0.0'
 
+    def test_208_default_netvm_change(self):
+        netvm1 = self.app.add_new_vm(
+            "AppVM",
+            name="netvm1",
+            template=self.template,
+            label="red",
+            provides_network=True,
+            netvm=None,
+        )
+        netvm2 = self.app.add_new_vm(
+            "AppVM",
+            name="netvm2",
+            template=self.template,
+            label="red",
+            provides_network=True,
+            netvm=None,
+        )
+        vm1 = self.app.add_new_vm(
+            "AppVM",
+            name="test-vm1",
+            template=self.template,
+            label="red",
+        )
+        self.app.default_netvm = netvm1
+        with (
+            mock.patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.attach_network"
+            ) as mock_attach,
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.detach_network"
+            ) as mock_detach,
+            mock.patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+        ):
+
+            self.app.default_netvm = netvm2
+            mock_detach.assert_called()
+            mock_attach.assert_called()
+
+        self.app.default_netvm = None
+
+
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(

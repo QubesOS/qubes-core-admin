@@ -1,4 +1,7 @@
 class QubesDB:
+    def __init__(self, name):
+        pass
+
     def read(self, key):
         return b'testvm'
 
