@@ -1582,8 +1582,7 @@ class Qubes(qubes.PropertyHolder):
                                       oldvalue=None):
         # pylint: disable=unused-argument
         for vm in self.domains:
-            if hasattr(vm, 'provides_network') and not vm.provides_network and \
-                    hasattr(vm, 'netvm') and vm.property_is_default('netvm'):
+            if hasattr(vm, "netvm") and vm.property_is_default("netvm"):
                 # fire property-reset:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-reset:netvm',
