@@ -63,6 +63,10 @@ qubes.StartApp          *           @anyvm          @anyvm      ask
 # otherwise earlier policy will redirect it
 qubes.SyncAppMenus      *           @anyvm          dom0        allow
 
+# notifications - relevant for GUI in dom0, otherwise earlier policy will
+# redirect it
+qubes.Notifications     *           @anyvm          @default    allow target=dom0
+
 # HTTP proxy for downloading updates
 # Upgrade all TemplateVMs through sys-whonix.
 #qubes.UpdatesProxy     *    @type:TemplateVM        @default    allow target=sys-whonix
