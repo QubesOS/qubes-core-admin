@@ -1700,18 +1700,18 @@ class Qubes(qubes.PropertyHolder):
         self, event, name, newvalue, oldvalue=None
     ):
         # pylint: disable=unused-argument,invalid-name
-        if (
-            newvalue is not None
-            and oldvalue is not None
-            and oldvalue.is_running()
-            and not newvalue.is_running()
-            and self.domains.get_vms_connected_to(oldvalue)
-        ):
-            raise qubes.exc.QubesVMNotRunningError(
-                newvalue,
-                "Cannot change {!r} to domain that "
-                "is not running ({!r}).".format(name, newvalue.name),
-            )
+        for vm in self.domains:
+            if hasattr(vm, "netvm") and vm.property_is_default("netvm"):
+                # Use pre-set event instead of pre-reset, so it can get both
+                # old and new values, and perform necessary actions.
+                # Especially, it needs to detach old netvm.
+                vm.fire_event(
+                    "property-pre-set:netvm",
+                    pre_event=True,
+                    name="netvm",
+                    newvalue=newvalue,
+                    oldvalue=oldvalue,
+                )
 
     @qubes.events.handler("property-set:default_netvm")
     def on_property_set_default_netvm(
