@@ -19,7 +19,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional
+from typing import Optional, Union
 
 import qubes.config
 import qubes.events
@@ -87,6 +87,27 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if changes:
             self.app.save()
 
+    @qubes.events.handler("domain-pre-start")
+    def __on_domain_pre_start(self, event, **kwargs):
+        """Prevents startup for domain having a volume with disabled snapshots
+        and a DispVM based on this volume started
+        """
+        # pylint: disable=unused-argument
+        volume_with_disabled_snapshots = False
+        for vol in self.volumes.values():
+            volume_with_disabled_snapshots |= vol.snapshots_disabled
+
+        if not volume_with_disabled_snapshots:
+            return
+
+        for vm in self.dispvms:
+            if vm.is_running():
+                raise qubes.exc.QubesVMNotHaltedError(vm)
+
+    @qubes.events.handler("domain-shutdown")
+    async def on_dvmtemplate_domain_shutdown(self, _event, **_kwargs):
+        await self.refresh_preload()
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(
         self, event, feature
@@ -114,23 +135,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
             raise qubes.exc.QubesValueError(
                 "Invalid preload-dispvm-max value: not a digit"
             )
-
-    @qubes.events.handler("domain-pre-start")
-    def __on_domain_pre_start(self, event, **kwargs):
-        """Prevents startup for domain having a volume with disabled snapshots
-        and a DispVM based on this volume started
-        """
-        # pylint: disable=unused-argument
-        volume_with_disabled_snapshots = False
-        for vol in self.volumes.values():
-            volume_with_disabled_snapshots |= vol.snapshots_disabled
-
-        if not volume_with_disabled_snapshots:
-            return
-
-        for vm in self.dispvms:
-            if vm.is_running():
-                raise qubes.exc.QubesVMNotHaltedError(vm)
 
     @qubes.events.handler("domain-feature-set:preload-dispvm-max")
     def on_feature_set_preload_dispvm_max(
@@ -249,21 +253,39 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "domain-preload-dispvm-start",
     )
     async def on_domain_preload_dispvm_used(
-        self, event, **kwargs
-    ):  # pylint: disable=unused-argument
+        self,
+        event: str,
+        dispvm: Optional[qubes.vm.BaseVM] = None,
+        reason: Optional[str] = None,
+        delay: Union[int, float] = 0,
+        **kwargs,  # pylint: disable=unused-argument
+    ) -> None:
         """
-        Preloads on vacancy and offloads on excess. If the event suffix is
+        Offloads on excess and preload on vacancy.
         ``autostart``, the preloaded list is emptied before preloading.
 
-        :param event: event which was fired
+        :param str event: Event which was fired. Events have the prefix \
+            ``domain-preload-dispvm-``. If the suffix is ``autostart``, the \
+            preload list is emptied before attempting to preload. If the \
+            suffix is ``used`` or ``start``, tries to preload until it fills \
+            gaps.
+        :param qubes.vm.dispvm.DispVM dispvm: Disposable that was used
+        :param str reason: Why the event was fired
+        :param float delay: Proceed only after sleeping that many seconds
         """
+        assert isinstance(self, qubes.vm.BaseVM)
         event = event.removeprefix("domain-preload-dispvm-")
         event_log = "Received preload event '%s'" % str(event)
-        if event == "used":
-            event_log += " for dispvm '%s'" % str(kwargs.get("dispvm"))
-        if "reason" in kwargs:
-            event_log += " because %s" % str(kwargs.get("reason"))
+        if event == "used" and dispvm:
+            event_log += " for dispvm '%s'" % str(dispvm)
+        if reason:
+            event_log += " because %s" % str(reason)
+        if delay:
+            event_log += " with a delay of %s second(s)" % f"{delay:.1f}"
         self.log.info(event_log)
+
+        if delay:
+            await asyncio.sleep(delay)
 
         if event == "autostart":
             self.remove_preload_excess(0)
@@ -339,7 +361,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     def get_feat_preload_max(self, force_local=False) -> int:
         """Get the ``preload-dispvm-max`` feature as an integer.
 
-        :param force_local: ignore global setting.
+        :param bool force_local: ignore global setting.
         """
         assert isinstance(self, qubes.vm.BaseVM)
         feature = "preload-dispvm-max"
@@ -380,10 +402,32 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
+    async def refresh_preload(self) -> None:
+        assert isinstance(self, qubes.vm.BaseVM)
+        outdated = []
+        for qube in self.dispvms:
+            if not qube.is_preload or not any(
+                vol.is_outdated() for vol in qube.volumes.values()
+            ):
+                continue
+            outdated.append(qube)
+            self.remove_preload_from_list([qube.name])
+        if outdated:
+            tasks = [self.app.domains[qube].cleanup() for qube in outdated]
+            asyncio.ensure_future(asyncio.gather(*tasks))
+            # Delay to not overload the system with cleanup+preload.
+            asyncio.ensure_future(
+                self.fire_event_async(
+                    "domain-preload-dispvm-start",
+                    reason="of outdated volume(s)",
+                    delay=4,
+                )
+            )
+
     def remove_preload_from_list(self, disposables: list[str]) -> None:
         """Removes list of preload qubes from the list.
 
-        :param disposables: disposable names to remove from the preloaded list.
+        :param list[str] disposables: disposable names to remove from list.
         """
         assert isinstance(self, qubes.vm.BaseVM)
         old_preload = self.get_feat_preload()

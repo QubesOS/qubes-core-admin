@@ -206,6 +206,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             mock_qube.name = dispvm.name
             mock_qube.features = dispvm.features
             mock_qube.unpause = self.mock_coro
+            mock_qube.volumes = {}
             fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
@@ -265,7 +266,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             )
             assert mock_events.mock_calls == [
                 mock.call(
-                    "domain-preload-dispvm-start", reason=unittest.mock.ANY
+                    "domain-preload-dispvm-start",
+                    reason=unittest.mock.ANY,
+                    delay=unittest.mock.ANY,
                 ),
                 mock.call("domain-create-on-disk"),
             ]

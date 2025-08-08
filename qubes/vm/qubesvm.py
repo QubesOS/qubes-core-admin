@@ -31,6 +31,8 @@ import shutil
 import string
 import subprocess
 
+from typing import Awaitable
+
 import libvirt  # pylint: disable=import-error
 import lxml.etree
 
@@ -2901,6 +2903,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         domain.mem_max = self.get_mem_static_max() * 1024
 
         return qubes.qmemman.algo.pref_mem(domain) / 1024
+
+    async def delay(self, delay: float | int, coros: list[Awaitable]) -> None:
+        self.log.debug(
+            "Scheduled awaitables to run after '%s' seconds: %s",
+            f"{delay:.1f}",
+            repr(coros),
+        )
+        await asyncio.sleep(delay)
+        await asyncio.gather(*coros)
 
 
 def _clean_volume_config(config):

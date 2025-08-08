@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains the TemplateVM implementation """
+"""This module contains the TemplateVM implementation"""
 
 import qubes
 import qubes.config
@@ -107,6 +107,17 @@ class TemplateVM(QubesVM):
             },
         }
         super().__init__(*args, **kwargs)
+
+    @qubes.events.handler("domain-shutdown")
+    async def on_template_domain_shutdown(self, _event, **_kwargs):
+        appvms = [
+            qube
+            for qube in self.app.domains
+            if getattr(qube, "template", None) == self
+            and getattr(qube, "template_for_dispvms", False)
+        ]
+        for qube in appvms:
+            await qube.refresh_preload()
 
     @qubes.events.handler("domain-feature-set:boot-mode.appvm-default")
     def on_feature_bootmode_appvm_set(

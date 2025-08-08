@@ -725,6 +725,32 @@ class TC_20_DispVMMixin(object):
         self.log_preload()
         logger.info("end")
 
+    def test_019_preload_refresh(self):
+        """Refresh preload on volume change."""
+        self.loop.run_until_complete(self._test_019_preload_refresh())
+
+    async def _test_019_preload_refresh(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        for qube in [self.disp_base, self.disp_base.template]:
+            await self.wait_preload(preload_max)
+            old_preload = self.disp_base.get_feat_preload()
+            await qube.start()
+            logger.info("shutdown '%s'", qube.name)
+            await qube.shutdown(wait=True)
+            await self.wait_preload(preload_max)
+            preload_dispvm = self.disp_base.get_feat_preload()
+            self.assertTrue(
+                set(old_preload).isdisjoint(preload_dispvm),
+                f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+            )
+
+        self.log_preload()
+        logger.info("end")
+
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
