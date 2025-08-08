@@ -322,7 +322,7 @@ class NetVMMixin(qubes.events.Emitter):
                 pass
 
     @qubes.events.handler("domain-start")
-    def on_domain_started(self, event, **kwargs):
+    def on_domain_started_net(self, event, **kwargs):
         """Connect this domain to its downstream domains. Also reload firewall
         in its netvm.
 
@@ -467,7 +467,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler("property-pre-reset:netvm")
     def on_property_pre_reset_netvm(self, event, name, oldvalue=None):
-        """Sets the the NetVM to default NetVM"""
+        """Sets the NetVM to default NetVM"""
         # pylint: disable=unused-argument
         # we are changing to default netvm
         newvalue = type(self).netvm.get_default(self)
@@ -485,7 +485,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler("property-reset:netvm")
     def on_property_reset_netvm(self, event, name, oldvalue=None):
-        """Sets the the NetVM to default NetVM"""
+        """Sets the NetVM to default NetVM"""
         # pylint: disable=unused-argument
         # we are changing to default netvm
         newvalue = self.netvm

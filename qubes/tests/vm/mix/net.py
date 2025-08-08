@@ -21,6 +21,7 @@
 #
 import ipaddress
 import unittest
+from unittest.mock import patch
 
 import qubes
 import qubes.vm.qubesvm
@@ -121,6 +122,42 @@ class TC_00_NetVMMixin(
         vm.provides_network = True
         self.netvm1.netvm = vm
         self.assertPropertyInvalidValue(vm, "netvm", self.netvm2)
+
+    def test_145_netvm_change(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        with (
+            patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            patch("qubes.vm.mix.net.NetVMMixin.attach_network") as mock_attach,
+            patch("qubes.vm.mix.net.NetVMMixin.detach_network") as mock_detach,
+            patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+        ):
+
+            with self.subTest("setting netvm to none"):
+                vm.netvm = None
+                mock_detach.assert_called_once()
+                mock_attach.assert_not_called()
+                mock_detach.reset_mock()
+
+            with self.subTest("connecting netvm again"):
+                vm.netvm = self.netvm1
+                mock_detach.assert_not_called()
+                mock_attach.assert_called_once()
+                mock_attach.reset_mock()
+
+            with self.subTest("changing netvm"):
+                vm.netvm = self.netvm2
+                mock_detach.assert_called_once()
+                mock_attach.assert_called_once()
+                mock_detach.reset_mock()
+                mock_attach.reset_mock()
+
+            with self.subTest("resetting netvm to default"):
+                del vm.netvm
+                mock_detach.assert_called_once()
+                mock_attach.assert_called_once()
+                mock_detach.reset_mock()
+                mock_attach.reset_mock()
 
     def test_150_ip(self):
         vm = self.get_vm()

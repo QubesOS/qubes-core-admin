@@ -1230,7 +1230,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.netvm = None
         vm.virt_mode = "hvm"
         vm.debug = True
-        vm.features['qemu-extra-args'] = '-some-option'
+        vm.features["qemu-extra-args"] = "-some-option"
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(
             lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected)

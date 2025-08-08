@@ -1116,6 +1116,41 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 existence.side_effect = [True, False]
                 self.app.default_kernel = "unittest_GNU_Hurd_1.0.0"
 
+    def test_208_default_netvm_change(self):
+        netvm1 = self.app.add_new_vm(
+            "AppVM",
+            name="netvm1",
+            template=self.template,
+            label="red",
+            provides_network=True,
+            netvm=None,
+        )
+        netvm2 = self.app.add_new_vm(
+            "AppVM",
+            name="netvm2",
+            template=self.template,
+            label="red",
+            provides_network=True,
+            netvm=None,
+        )
+        self.app.default_netvm = netvm1
+        with (
+            mock.patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.attach_network"
+            ) as mock_attach,
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.detach_network"
+            ) as mock_detach,
+            mock.patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+        ):
+
+            self.app.default_netvm = netvm2
+            mock_detach.assert_called()
+            mock_attach.assert_called()
+
+        self.app.default_netvm = None
+
     def test_300_preload_default_dispvm(self):
         """Fire event for new setting from no previous one."""
         self.appvm.features["preload-dispvm-max"] = "1"
@@ -1138,11 +1173,10 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.app.default_dispvm = self.appvm
         self.appvm_alt.features["preload-dispvm-max"] = "1"
         # Global is not set and thus there are no events.
-        with mock.patch.object(
-            self.appvm, "fire_event_async"
-        ) as mock_old, mock.patch.object(
-            self.appvm_alt, "fire_event_async"
-        ) as mock_new:
+        with (
+            mock.patch.object(self.appvm, "fire_event_async") as mock_old,
+            mock.patch.object(self.appvm_alt, "fire_event_async") as mock_new,
+        ):
             self.app.default_dispvm = self.appvm_alt
             mock_old.assert_not_called()
             mock_new.assert_not_called()
@@ -1151,11 +1185,10 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.app.default_dispvm = self.appvm
         self.appvm.features["preload-dispvm-max"] = "2"
         self.appvm_alt.features["preload-dispvm-max"] = "2"
-        with mock.patch.object(
-            self.appvm, "fire_event_async"
-        ) as mock_old, mock.patch.object(
-            self.appvm_alt, "fire_event_async"
-        ) as mock_new:
+        with (
+            mock.patch.object(self.appvm, "fire_event_async") as mock_old,
+            mock.patch.object(self.appvm_alt, "fire_event_async") as mock_new,
+        ):
             self.app.default_dispvm = self.appvm_alt
             mock_old.assert_called_once_with(
                 "domain-preload-dispvm-start", reason=mock.ANY
@@ -1172,11 +1205,10 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.appvm_alt.features["preload-dispvm-max"] = "1"
         self.app.domains["dom0"].features["preload-dispvm-max"] = "1"
         self.app.default_dispvm = self.appvm
-        with mock.patch.object(
-            self.appvm, "fire_event_async"
-        ) as mock_old, mock.patch.object(
-            self.appvm_alt, "fire_event_async"
-        ) as mock_new:
+        with (
+            mock.patch.object(self.appvm, "fire_event_async") as mock_old,
+            mock.patch.object(self.appvm_alt, "fire_event_async") as mock_new,
+        ):
             self.app.default_dispvm = self.appvm_alt
             mock_old.assert_not_called()
             mock_new.assert_not_called()
@@ -1189,11 +1221,10 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.appvm_alt.features["preload-dispvm-max"] = "1"
         self.app.domains["dom0"].features["preload-dispvm-max"] = "2"
         self.app.default_dispvm = self.appvm
-        with mock.patch.object(
-            self.appvm, "fire_event_async"
-        ) as mock_old, mock.patch.object(
-            self.appvm_alt, "fire_event_async"
-        ) as mock_new:
+        with (
+            mock.patch.object(self.appvm, "fire_event_async") as mock_old,
+            mock.patch.object(self.appvm_alt, "fire_event_async") as mock_new,
+        ):
             self.app.default_dispvm = self.appvm_alt
             mock_old.assert_not_called()
             mock_new.assert_called_once_with(
