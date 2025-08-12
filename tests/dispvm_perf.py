@@ -30,12 +30,22 @@ import argparse
 import asyncio
 import concurrent.futures
 import dataclasses
+import logging
 import os
 import subprocess
 import time
 
-
 import qubesadmin
+
+# nose will duplicate this logger.
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    "%(asctime)s: %(levelname)s: %(funcName)s: %(message)s"
+)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 @dataclasses.dataclass
@@ -61,7 +71,7 @@ class TestConfig:
               via wrappers such as qvm-run.
         - vm-dispvm:
             - qrexec-client-vm: scripts
-        - *-vm: Fast way to test if the tests itself are working.
+        - *-vm: Fast way to test if the tests are working.
             -
     GUI VS non-GUI:
         - GUI tests workflows that uses disposables to open untrusted files or
@@ -81,7 +91,7 @@ class TestConfig:
           the reverse is not true. Normal disposables are a control group for
           preloaded disposables.
         - Preloading more than 2 is not useful on sequential calls as long as
-          long as on the next call, there is a preload that has been completed.
+          on the next call, there is a preload that has been completed.
     """
 
     name: str
@@ -231,6 +241,8 @@ class TestRun:
         self.dvm = dvm
         self.vm1 = vm1
         self.vm2 = vm2
+        self.app = self.dom0.app
+        self.adminvm = self.dom0
         self.iterations = ITERATIONS
 
     async def wait_preload(
@@ -242,6 +254,7 @@ class TestRun:
         timeout=60,
     ):
         """Waiting for completion avoids coroutine objects leaking."""
+        logger.info("preload_max='%s'", preload_max)
         if not appvm:
             appvm = self.dvm
         for _ in range(timeout):
@@ -254,14 +267,15 @@ class TestRun:
             if fail_on_timeout:
                 raise Exception("didn't preload in time")
         if not wait_completion:
+            logger.info("end")
             return
         preload_dispvm = appvm.features.get("preload-dispvm", "")
         preload_dispvm = preload_dispvm.split(" ") or []
         preload_unfinished = preload_dispvm
         for _ in range(timeout):
             for qube in preload_unfinished.copy():
-                self.dom0.app.domains.refresh_cache(force=True)
-                qube = self.dom0.app.domains[qube]
+                self.app.domains.refresh_cache(force=True)
+                qube = self.app.domains[qube]
                 completed = qube.features.get("preload-dispvm-completed")
                 if completed:
                     preload_unfinished.remove(qube)
@@ -272,12 +286,14 @@ class TestRun:
         else:
             if fail_on_timeout:
                 raise Exception("last preloaded didn't complete in time")
+        logger.info("end")
 
     def wait_for_dispvm_destroy(self, dispvm_names):
+        logger.info("Waiting for destruction of disposables: %s", dispvm_names)
         timeout = 60
         while True:
-            self.dom0.app.domains.refresh_cache(force=True)
-            if set(dispvm_names).isdisjoint(self.dom0.app.domains):
+            self.app.domains.refresh_cache(force=True)
+            if set(dispvm_names).isdisjoint(self.app.domains):
                 break
             time.sleep(1)
             timeout -= 1
@@ -533,15 +549,18 @@ class TestRun:
             )
             orig_preload_max = self.dom0.features.get("preload-dispvm-max")
             if orig_preload_threshold is not None:
+                logger.info("Deleting threshold feature")
                 del self.dom0.features["preload-dispvm-threshold"]
             if orig_preload_max is not None:
+                logger.info("Deleting global max feature")
                 del self.dom0.features["preload-dispvm-max"]
         try:
             if test.preload_max:
                 preload_max = test.preload_max
+                logger.info("Setting local max feature: '%s'", preload_max)
                 self.dvm.features["preload-dispvm-max"] = str(preload_max)
                 asyncio.run(self.wait_preload(preload_max))
-            print(f"Load before test: '{get_load()}'")
+            logger.info("Load before test: '%s'", get_load())
             if test.admin_api:
                 result = self.run_latency_api_calls(test)
             else:
@@ -552,22 +571,34 @@ class TestRun:
                 old_preload_max = int(
                     self.dvm.features.get("preload-dispvm-max", 0) or 0
                 )
+                logger.info(
+                    "Waiting to preload the old test setting: '%s'",
+                    old_preload_max,
+                )
                 asyncio.run(self.wait_preload(old_preload_max))
                 old_preload = self.dvm.features.get("preload-dispvm", "")
                 old_preload = old_preload.split(" ") or []
+                logger.info("Deleting local max feature")
                 del self.dvm.features["preload-dispvm-max"]
                 self.wait_for_dispvm_destroy(old_preload)
                 if orig_preload_threshold is not None:
+                    logger.info(
+                        "Setting the original threshold feature: '%s'",
+                        orig_preload_threshold,
+                    )
                     self.dom0.features["preload-dispvm-threshold"] = (
                         orig_preload_threshold
                     )
                 if orig_preload_max is not None:
+                    logger.info(
+                        "Setting the global max feature: '%s'", orig_preload_max
+                    )
                     self.dom0.features["preload-dispvm-max"] = orig_preload_max
                     if orig_preload_max != 0:
                         asyncio.run(self.wait_preload(orig_preload_max))
             os.unlink(POLICY_FILE)
             if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
-                print(f"Load before sleep: '{get_load()}'")
+                logger.info("Load before sleep: '%s'", get_load())
                 delay = 5
                 if not test.non_dispvm:
                     delay += 10
@@ -575,9 +606,9 @@ class TestRun:
                         delay += 2
                     if test.concurrent:
                         delay += 8
-                print(f"Sleeping for '{delay}' seconds")
+                logger.info("Sleeping for '%d' seconds", delay)
                 time.sleep(delay)
-                print(f"Load after sleep: '{get_load()}'")
+                logger.info("Load after sleep: '%s'", get_load())
 
 
 def main():
@@ -612,6 +643,7 @@ def main():
         run.iterations = args.iterations
 
     for test in tests:
+        logger.info("Running test '%s'", test.name)
         run.run_test(test)
 
 

@@ -330,9 +330,11 @@ class TC_20_DispVMMixin(object):
         global_preload_max = None
         if default_dispvm:
             global_preload_max = default_dispvm.get_feat_global_preload_max()
+        threshold = self.adminvm.features.get("preload-dispvm-threshold", None)
         preload_dict["global"] = {
             "name": default_dispvm.name if default_dispvm else None,
             "max": global_preload_max,
+            "threshold": threshold,
         }
         for qube in [self.disp_base, self.disp_base_alt]:
             preload = qube.get_feat_preload()
