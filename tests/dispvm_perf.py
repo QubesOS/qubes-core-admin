@@ -528,7 +528,12 @@ class TestRun:
                 f"{nogui_prefix} {target} allow\n"
             )
         if test.preload_max:
+            orig_preload_threshold = self.dom0.features.get(
+                "preload-dispvm-threshold"
+            )
             orig_preload_max = self.dom0.features.get("preload-dispvm-max")
+            if orig_preload_threshold is not None:
+                del self.dom0.features["preload-dispvm-threshold"]
             if orig_preload_max is not None:
                 del self.dom0.features["preload-dispvm-max"]
         try:
@@ -552,6 +557,10 @@ class TestRun:
                 old_preload = old_preload.split(" ") or []
                 del self.dvm.features["preload-dispvm-max"]
                 self.wait_for_dispvm_destroy(old_preload)
+                if orig_preload_threshold is not None:
+                    self.dom0.features["preload-dispvm-threshold"] = (
+                        orig_preload_threshold
+                    )
                 if orig_preload_max is not None:
                     self.dom0.features["preload-dispvm-max"] = orig_preload_max
                     if orig_preload_max != 0:

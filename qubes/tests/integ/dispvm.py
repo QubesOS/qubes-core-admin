@@ -314,6 +314,9 @@ class TC_20_DispVMMixin(object):
                 )
             logger.info("deleting global feature")
             del self.app.domains["dom0"].features["preload-dispvm-max"]
+        if "preload-dispvm-threshold" in self.app.domains["dom0"].features:
+            logger.info("deleting global threshold feature")
+            del self.app.domains["dom0"].features["preload-dispvm-threshold"]
         logger.info("end")
 
     async def no_preload(self):
