@@ -543,17 +543,16 @@ class TestRun:
                 f"{gui_prefix} {target} allow\n"
                 f"{nogui_prefix} {target} allow\n"
             )
-        if test.preload_max:
-            orig_preload_threshold = self.dom0.features.get(
-                "preload-dispvm-threshold"
-            )
-            orig_preload_max = self.dom0.features.get("preload-dispvm-max")
-            if orig_preload_threshold is not None:
-                logger.info("Deleting threshold feature")
-                del self.dom0.features["preload-dispvm-threshold"]
-            if orig_preload_max is not None:
-                logger.info("Deleting global max feature")
-                del self.dom0.features["preload-dispvm-max"]
+        orig_preload_threshold = self.dom0.features.get(
+            "preload-dispvm-threshold"
+        )
+        orig_preload_max = self.dom0.features.get("preload-dispvm-max")
+        if orig_preload_threshold is not None:
+            logger.info("Deleting threshold feature")
+            del self.dom0.features["preload-dispvm-threshold"]
+        if orig_preload_max is not None:
+            logger.info("Deleting global max feature")
+            del self.dom0.features["preload-dispvm-max"]
         try:
             if test.preload_max:
                 preload_max = test.preload_max
@@ -581,21 +580,19 @@ class TestRun:
                 logger.info("Deleting local max feature")
                 del self.dvm.features["preload-dispvm-max"]
                 self.wait_for_dispvm_destroy(old_preload)
-                if orig_preload_threshold is not None:
-                    logger.info(
-                        "Setting the original threshold feature: '%s'",
-                        orig_preload_threshold,
-                    )
-                    self.dom0.features["preload-dispvm-threshold"] = (
-                        orig_preload_threshold
-                    )
-                if orig_preload_max is not None:
-                    logger.info(
-                        "Setting the global max feature: '%s'", orig_preload_max
-                    )
-                    self.dom0.features["preload-dispvm-max"] = orig_preload_max
-                    if orig_preload_max != 0:
-                        asyncio.run(self.wait_preload(orig_preload_max))
+            if orig_preload_threshold is not None:
+                logger.info(
+                    "Setting the original threshold feature: '%s'",
+                    orig_preload_threshold,
+                )
+                self.dom0.features["preload-dispvm-threshold"] = (
+                    orig_preload_threshold
+                )
+            if orig_preload_max is not None:
+                logger.info(
+                    "Setting the global max feature: '%s'", orig_preload_max
+                )
+                self.dom0.features["preload-dispvm-max"] = orig_preload_max
             os.unlink(POLICY_FILE)
             if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
                 logger.info("Load before sleep: '%s'", get_load())
