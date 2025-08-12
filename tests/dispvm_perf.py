@@ -254,7 +254,7 @@ class TestRun:
         timeout=60,
     ):
         """Waiting for completion avoids coroutine objects leaking."""
-        logger.info("preload_max='%s'", preload_max)
+        logger.info("preload_max: '%s'", preload_max)
         if not appvm:
             appvm = self.dvm
         for _ in range(timeout):
@@ -332,7 +332,8 @@ class TestRun:
             "set -eu --; "
             f'max_concurrency="{MAX_CONCURRENCY}"; '
             f"for i in $(seq {self.iterations}); do "
-            f"  out=$({cmd}) {term}"
+            '  echo "$i"; '
+            f"  {cmd} {term}"
             '  pid="${!-}"; '
             '  if test -n "${pid}"; then '
             '    set -- "${@}" "${pid}"; '
@@ -347,7 +348,7 @@ class TestRun:
         start_time = get_time()
         try:
             if test.from_dom0:
-                subprocess.run(code, shell=True, check=True, timeout=timeout)
+                subprocess.run(code, shell=True, check=True, capture_output=True, timeout=timeout)
             else:
                 self.vm1.run(code, timeout=timeout)
         except subprocess.CalledProcessError as e:
@@ -565,6 +566,9 @@ class TestRun:
             else:
                 result = self.run_latency_calls(test)
             self.report_result(test, result)
+        except:
+            logger.error("Failed to run test: '%s'", test.name)
+            raise
         finally:
             if test.preload_max:
                 old_preload_max = int(
