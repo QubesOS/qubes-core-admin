@@ -742,6 +742,10 @@ class TC_20_DispVMMixin(object):
             await self.wait_preload(preload_max)
             old_preload = self.disp_base.get_feat_preload()
             await qube.start()
+            # If services are still starting, it may delay shutdown longer than
+            # the default timeout. Because we can't just kill default
+            # templates, wait gracefully for system services to have started.
+            await qube.run_service_for_stdio("qubes.WaitForRunningSystem")
             logger.info("shutdown '%s'", qube.name)
             await qube.shutdown(wait=True)
             await self.wait_preload(preload_max)
