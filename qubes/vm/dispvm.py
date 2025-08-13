@@ -40,14 +40,27 @@ def _setter_template(self, prop, value):
     return value
 
 
-def get_preload_templates(domains) -> list:
-    return [
-        qube
-        for qube in domains
-        if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
-        and qube.klass == "AppVM"
-        and getattr(qube, "template_for_dispvms", False)
-    ]
+def get_preload_templates(app) -> list:
+    domains = app.domains
+    appvms = []
+    default_dispvm = getattr(app, "default_dispvm", None)
+    # Only add default_dispvm now if it will not be added by the other clause.
+    if (
+        int(domains["dom0"].features.get("preload-dispvm-max", 0) or 0) > 0
+        and default_dispvm
+        and int(default_dispvm.features.get("preload-dispvm-max", 0) or 0) == 0
+    ):
+        appvms.append(default_dispvm)
+    appvms.extend(
+        [
+            qube
+            for qube in domains
+            if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
+            and qube.klass == "AppVM"
+            and getattr(qube, "template_for_dispvms", False)
+        ]
+    )
+    return appvms
 
 
 class DispVM(qubes.vm.qubesvm.QubesVM):
