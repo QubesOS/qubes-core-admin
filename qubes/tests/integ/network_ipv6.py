@@ -69,30 +69,36 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testnetvm.features["ipv6"] = True
         super(VmIPv6NetworkingMixin, self).configure_netvm()
 
-        def run_netvm_cmd(cmd):
-            try:
-                self.loop.run_until_complete(
-                    self.testnetvm.run_for_stdio(cmd, user="root")
-                )
-            except subprocess.CalledProcessError as e:
-                self.fail(
-                    "Command '%s' failed: %s%s"
-                    % (cmd, e.stdout.decode(), e.stderr.decode())
-                )
-
-        run_netvm_cmd("ip addr add {}/128 dev test0".format(self.test_ip6))
-        run_netvm_cmd(
+        self.run_netvm_cmd("ip addr add {}/128 dev test0".format(
+            self.test_ip6))
+        self.run_netvm_cmd(
             "nft add ip6 qubes custom-input ip6 daddr {} accept".format(
                 self.test_ip6
             )
         )
         # ignore failure
         self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
-        run_netvm_cmd(
+        self.run_netvm_cmd(
             "dnsmasq -a {ip} -A /{name}/{ip} -A /{name}/{ip6} -i test0 -z".format(
                 ip=self.test_ip, ip6=self.test_ip6, name=self.test_name
             )
         )
+
+    def setup_ipv6_dns(self, ipv6_only=False):
+        """
+        Enable IPv6 DNS, needs configure_netvm to be called already
+        :return:
+        """
+        self.run_netvm_cmd(
+            "echo nameserver {} {} /etc/resolv.conf".format(
+                self.test_ip6,
+                ">" if ipv6_only else ">>"
+            )
+        )
+
+        self.run_netvm_cmd("systemctl try-restart systemd-resolved || :")
+        self.run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns; "
+                           "[ $? -eq 0 -o $? -eq 100 ]")
 
     def test_500_ipv6_simple_networking(self):
         """
@@ -522,6 +528,30 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         output = output.decode().splitlines()
         packets = output[line].lstrip().split()[index]
         self.assertEqual(packets, "0", "Some packet hit the INPUT rule")
+
+    def test_560_ipv6_dns(self):
+        """DNS over IPv6/IPv4
+
+        :return:
+        """
+        self.setup_ipv6_dns()
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+
+    def test_560_ipv6_dns_only(self):
+        """DNS over IPv6
+
+        :return:
+        """
+        self.setup_ipv6_dns(ipv6_only=True)
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
     def test_710_ipv6_custom_ip_simple(self):
         """Custom AppVM IP
