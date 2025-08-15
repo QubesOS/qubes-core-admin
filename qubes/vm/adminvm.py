@@ -393,7 +393,7 @@ class AdminVM(LocalVM):
             return
         if not (appvm := getattr(self.app, "default_dispvm", None)):
             return
-        reason = "global feature was set to " + str(value)
+        reason = "global feature was set to " + repr(str(value))
         asyncio.ensure_future(
             appvm.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
