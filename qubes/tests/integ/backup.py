@@ -174,6 +174,22 @@ class BackupTestsMixin(object):
         self.loop.run_until_complete(testvm4.create_on_disk(pool=pool))
         vms.append(testvm4)
 
+        vmname = self.make_vm_name("dvm")
+        self.log.debug("Creating %s" % vmname)
+        testvm5 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=testvm3,
+            label="red",
+            template_for_dispvms=True,
+        )
+        self.loop.run_until_complete(testvm5.create_on_disk(pool=pool))
+        testvm5.features["qrexec"] = True
+        testvm5.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        testvm5.features["preload-dispvm-max"] = 0
+        testvm5.features["preload-dispvm"] = ""
+        vms.append(testvm5)
+
         self.app.save()
 
         return vms
@@ -318,6 +334,7 @@ class BackupTestsMixin(object):
             vm_info = {
                 "properties": {},
                 "default": {},
+                "features": {},
                 "devices": {},
             }
             for prop in (
@@ -328,7 +345,7 @@ class BackupTestsMixin(object):
                 "kernelopts",
                 "services",
                 "vcpus",
-                "features" "include_in_backups",
+                "include_in_backups",
                 "default_user",
                 "qrexec_timeout",
                 "autostart",
@@ -343,6 +360,7 @@ class BackupTestsMixin(object):
                     continue
                 vm_info["properties"][prop] = str(getattr(vm, prop))
                 vm_info["default"][prop] = vm.property_is_default(prop)
+            vm_info["features"].update(vm.features)
             for dev_class in vm.devices.keys():
                 vm_info["devices"][dev_class] = {}
                 for ass in vm.devices[dev_class].get_assigned_devices():
@@ -379,6 +397,20 @@ class BackupTestsMixin(object):
                             vm_name, prop
                         ),
                     )
+            for feature in vm_info["features"]:
+                if (
+                    feature.startswith("preload-dispvm")
+                    and feature != "preload-dispvm-max"
+                ):
+                    self.assertIsNone(restored_vm.features.get(feature, None))
+                    continue
+                self.assertEqual(
+                    vm_info["features"][feature],
+                    restored_vm.features.get(feature),
+                    "VM {} - feature {} not properly restored".format(
+                        vm_name, feature
+                    ),
+                )
             for dev_class in vm_info["devices"]:
                 for dev in vm_info["devices"][dev_class]:
                     found = False
