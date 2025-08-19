@@ -3,6 +3,7 @@
 #
 # Copyright (C) 2016 Marek Marczykowski-Górecki
 #                                        <marmarek@invisiblethingslab.com>
+# Copyright (C) 2025 Benjamin Grande <ben.grande.b@gmail.com>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
