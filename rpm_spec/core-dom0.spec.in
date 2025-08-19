@@ -567,6 +567,7 @@ done
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/lib/qubes/tests/dispvm_perf.py
+/usr/lib/qubes/tests/dispvm_perf_reader.py
 /usr/lib/qubes/tests/qrexec_perf.py
 /usr/lib/qubes/tests/storage_perf.py
 %{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
@@ -585,6 +586,8 @@ done
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
 /usr/share/qubes/tests-data/dispvm-open-thunderbird-attachment
+%dir /usr/share/qubes/tests-data/dispvm_perf/
+/usr/share/qubes/tests-data/dispvm_perf/*
 /usr/share/qubes/tests-data/sysfs
 /usr/lib/tmpfiles.d/qubes.conf
 %attr(0755,root,root) /usr/lib/qubes/create-snapshot
