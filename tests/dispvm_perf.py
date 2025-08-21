@@ -30,12 +30,14 @@ import argparse
 import asyncio
 import concurrent.futures
 import dataclasses
-import logging
 import json
+import logging
 import os
 import statistics
 import subprocess
 import time
+import yaml
+from datetime import datetime, timezone
 
 from deepmerge import Merger
 import qubesadmin
@@ -125,8 +127,10 @@ MAX_PRELOAD = 2
 # The preload number is set to MAX_CONCURRENCY on concurrent calls. This number
 # is also used by non preloaded disposables to set the maximum workers/jobs.
 MAX_CONCURRENCY = MAX_PRELOAD * 2
-# How was this amazing algorithm chosen? Yes.
-ITERATIONS = MAX_CONCURRENCY * 4
+# A value that is not too short that would impact accuracy and not too long to
+# burn OpenQA. It is a multiple of MAX_CONCURRENCY so there is no remainder
+# when using concurrency.
+ITERATIONS = MAX_CONCURRENCY * 3
 # A small round precision excludes noise. It is also used to have 0 padding (as
 # a string) to align fields.
 ROUND_PRECISION = 3
@@ -247,6 +251,30 @@ def get_load() -> str:
 
 def get_time():
     return time.clock_gettime(time.CLOCK_MONOTONIC)
+
+
+def hcl() -> dict:
+    completed_process = subprocess.run(
+        ["qubes-hcl-report", "--yaml-only"], capture_output=True, check=True
+    )
+    report = yaml.safe_load(completed_process.stdout)
+    data = {
+        "hcl-qubes": report["versions"][0]["qubes"].rstrip(),
+        "hcl-xen": report["versions"][0]["xen"].rstrip(),
+        "hcl-kernel": report["versions"][0]["kernel"].rstrip(),
+        "hcl-memory": int(report["memory"].rstrip()),
+    }
+    if os.environ.get("QUBES_TEST_PERF_HWINFO"):
+        data.update(
+            {
+                "hcl-certified": report["certified"].rstrip() != "no",
+                "hcl-brand": report["brand"].rstrip(),
+                "hcl-model": report["model"].rstrip(),
+                "hcl-bios": report["bios"].rstrip(),
+                "hcl-cpu": report["cpu"].rstrip(),
+            }
+        )
+    return data
 
 
 class TestRun:
@@ -537,13 +565,52 @@ class TestRun:
         else:
             total_time = result
         mean = round(total_time / self.iterations, ROUND_PRECISION)
+
         data.update(
             {
                 "iterations": self.iterations,
                 "mean": mean,
                 "total": total_time,
+                "date": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%S"
+                ),
             }
         )
+
+        template_properties = {}
+        int_properties = [
+            "memory",
+            "maxmem",
+            "vcpus",
+            "qrexec_timeout",
+            "shutdown_timeout",
+        ]
+        wanted_properties = [*int_properties, "kernel", "kernelopts"]
+        for prop in wanted_properties:
+            val = getattr(self.vm1, prop, "")
+            if prop in int_properties:
+                val = int(val or 0)
+            template_properties[prop] = val
+        data.update(template_properties)
+
+        template_features = {}
+        int_features = ["os-version"]
+        wanted_features = [
+            "template-buildtime",
+            "last-update",
+            "os",
+            "os-distribution",
+            *int_features,
+        ]
+        for feature in wanted_features:
+            val = self.vm1.features.check_with_template(feature, "")
+            if feature in int_features:
+                val = int(val or 0)
+            template_features[feature] = val
+        data.update(template_features)
+
+        data.update(hcl())
+
         pretty_mean = f"{mean:.{ROUND_PRECISION}f}"
         pretty_total_time = f"{total_time:.{ROUND_PRECISION}f}"
         pretty_items = "iterations=" + str(self.iterations)
@@ -659,7 +726,9 @@ class TestRun:
 def main():
     parser = argparse.ArgumentParser(
         epilog="You can set QUBES_TEST_PERF_FILE env variable to a path where "
-        "machine-readable results should be saved."
+        "machine-readable results should be saved. If you want to share a "
+        "detailed result containing hardware information, set "
+        "QUBES_TEST_PERF_HWINFO to a non empty value."
     )
     parser.add_argument("--dvm", required=True)
     parser.add_argument("--vm1", required=True)
