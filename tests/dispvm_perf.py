@@ -348,7 +348,13 @@ class TestRun:
         start_time = get_time()
         try:
             if test.from_dom0:
-                subprocess.run(code, shell=True, check=True, capture_output=True, timeout=timeout)
+                subprocess.run(
+                    code,
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    timeout=timeout,
+                )
             else:
                 self.vm1.run(code, timeout=timeout)
         except subprocess.CalledProcessError as e:
@@ -370,13 +376,18 @@ class TestRun:
         start_time = get_time()
         app = qubesadmin.Qubes()
         domains = app.domains
-        appvm = domains[qube]
-        domain_time = get_time()
         if test.non_dispvm:
-            target_qube = self.vm1
+            # Even though we already have the qube object passed from the
+            # class, assume we don't so we can calculate gathering.
+            target_qube = domains[self.vm1.name]
+            domain_time = get_time()
         else:
+            appvm = domains[qube]
+            domain_time = get_time()
             target_qube = qubesadmin.vm.DispVM.from_appvm(app, appvm)
         name = target_qube.name
+        # A very small number, if it appears, it will show a bottleneck at
+        # DispVM.from_appvm.
         target_time = get_time()
         try:
             target_qube.run_service_for_stdio(service, timeout=60)
@@ -560,6 +571,15 @@ class TestRun:
                 logger.info("Setting local max feature: '%s'", preload_max)
                 self.dvm.features["preload-dispvm-max"] = str(preload_max)
                 asyncio.run(self.wait_preload(preload_max))
+            for qube in [self.vm1, self.vm2]:
+                if not qube:
+                    # Might be an empty string.
+                    continue
+                logger.info(
+                    "Waiting for VM '%s' to finish startup",
+                    qube.name,
+                )
+                qube.run_service_for_stdio("qubes.WaitForSession", timeout=60)
             logger.info("Load before test: '%s'", get_load())
             if test.admin_api:
                 result = self.run_latency_api_calls(test)
