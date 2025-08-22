@@ -577,6 +577,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
+            self.apply_deferred_netvm()
             self.preload_requested = None
             del self.features["preload-dispvm-in-progress"]
         else:
@@ -584,6 +585,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.warning("Using a preloaded qube before requesting it")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
+            self.apply_deferred_netvm()
             appvm.remove_preload_from_list([self.name])
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()

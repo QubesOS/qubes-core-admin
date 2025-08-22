@@ -1691,7 +1691,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
         dom0 = self.get_vm(name="dom0", qid=0)
         vm = self.get_vm(uuid=my_uuid)
-        vm.netvm = None
+        vm.paused = lambda x: False
+        with unittest.mock.patch(
+            "qubes.vm.qubesvm.QubesVM.is_paused"
+        ) as mock_is_paused:
+            mock_is_paused.return_value = False
+            vm.netvm = None
         vm.virt_mode = "hvm"
         vm.kernel = None
         # even with meminfo-writer enabled, should have memory==maxmem
@@ -1803,7 +1808,11 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         dom0 = self.get_vm(name="dom0", qid=0)
         dom0.features["suspend-s0ix"] = True
         vm = self.get_vm(uuid=my_uuid)
-        vm.netvm = None
+        with unittest.mock.patch(
+            "qubes.vm.qubesvm.QubesVM.is_paused"
+        ) as mock_is_paused:
+            mock_is_paused.return_value = False
+            vm.netvm = None
         vm.virt_mode = "hvm"
         vm.kernel = None
         # even with meminfo-writer enabled, should have memory==maxmem
