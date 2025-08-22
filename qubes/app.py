@@ -1621,7 +1621,12 @@ class Qubes(qubes.PropertyHolder):
                 )
         elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             try:
-                vm.fire_event("domain-unpaused")
+                if getattr(vm, "skip_unpause_event", False):
+                    vm.skip_unpause_event = False
+                else:
+                    asyncio.ensure_future(
+                        vm.fire_event_async("domain-unpaused")
+                    )
             except Exception:  # pylint: disable=broad-except
                 self.log.exception(
                     "Uncaught exception from domain-unpaused handler "
