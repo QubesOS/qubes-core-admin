@@ -8,4 +8,4 @@
     <script path="vif-route-qubes" />
 </interface>
 
-{# vim : set ft=jinja ts=4 sts=4 sw=4 et : #}
+{# vim: set ft=jinja ts=4 sts=4 sw=4 et : #}

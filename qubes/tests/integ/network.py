@@ -42,6 +42,15 @@ class VmNetworkingMixin(object):
     ping_cmd = "ping -W 1 -n -c 1 {target}"
     ping_ip = ping_cmd.format(target=test_ip)
     ping_name = ping_cmd.format(target=test_name)
+    ping_deadline_cmd = (
+        "i=0;"
+        "while test $i -le 10; do "
+        "  if ping -w 2 -n -c 1 {target}; then exit 0; fi;"
+        "  i=$((i+1)); sleep 1; "
+        "done; exit 4"
+    )
+    ping_deadline_ip = ping_deadline_cmd.format(target=test_ip)
+    ping_deadline_name = ping_deadline_cmd.format(target=test_name)
 
     # filled by load_tests
     template = None
@@ -59,12 +68,17 @@ class VmNetworkingMixin(object):
                 asyncio.wait_for(vm.run_for_stdio(cmd, user=user), timeout)
             )
         except subprocess.CalledProcessError as e:
+            self.log.critical(
+                "Command failed on {}: {}: stdout: {}: stderr: {}".format(
+                    vm.name, cmd, e.stdout, e.stderr
+                )
+            )
             return e.returncode
         return 0
 
     def setUp(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         super(VmNetworkingMixin, self).setUp()
         if self.template.startswith("whonix-"):
@@ -76,12 +90,17 @@ class VmNetworkingMixin(object):
         self.testnetvm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("netvm1"), label="red"
         )
-        self.loop.run_until_complete(self.testnetvm.create_on_disk())
-        self.testnetvm.provides_network = True
-        self.testnetvm.netvm = None
-        # avoid races with NetworkManager, self.configure_netvm() configures
-        # everything directly
-        self.testnetvm.features["service.network-manager"] = False
+        self.testnetvm2 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("netvm2"), label="red"
+        )
+        self.netvms = [self.testnetvm, self.testnetvm2]
+        for qube in self.netvms:
+            self.loop.run_until_complete(qube.create_on_disk())
+            qube.provides_network = True
+            qube.netvm = None
+            # avoid races with NetworkManager, self.configure_netvm() configures
+            # everything directly
+            qube.features["service.network-manager"] = False
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("vm1"), label="red"
         )
@@ -95,17 +114,25 @@ class VmNetworkingMixin(object):
         """Used in tearDown to collect more info"""
         if not vm.is_running():
             return
-        with contextlib.suppress(subprocess.CalledProcessError):
-            output, _ = self.loop.run_until_complete(
-                vm.run_for_stdio(cmd, user="root", stderr=subprocess.STDOUT)
-            )
-            self.log.critical("{}: {}: {}".format(vm.name, cmd, output))
+        try:
+            if vm.klass == "AdminVM":
+                proc = subprocess.run(
+                    cmd, capture_output=True, check=True, shell=True
+                )
+                stdout = proc.stdout
+            else:
+                stdout, _ = self.loop.run_until_complete(
+                    vm.run_for_stdio(cmd, user="root", stderr=subprocess.STDOUT)
+                )
+        except subprocess.CalledProcessError as e:
+            stdout = getattr(e, "stdout", str(e))
+        self.log.critical("{}: {}: {}".format(vm.name, cmd, stdout))
 
     def tearDown(self):
         # collect more info on failure
         if not self.success():
             for vm in (
-                self.testnetvm,
+                *self.netvms,
                 self.testvm1,
                 getattr(self, "proxy", None),
             ):
@@ -129,71 +156,259 @@ class VmNetworkingMixin(object):
                     vm, "systemctl --no-pager status xendriverdomain"
                 )
                 self._run_cmd_and_log_output(
+                    vm, "journalctl --no-pager --since '10 seconds ago'"
+                )
+                self._run_cmd_and_log_output(
                     vm, "cat /var/log/xen/xen-hotplug.log"
                 )
-
+            self._run_cmd_and_log_output(self.app.domains[0], "xl list")
+        del self.netvms
         super(VmNetworkingMixin, self).tearDown()
 
     def configure_netvm(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
 
-        def run_netvm_cmd(cmd):
+        def run_netvm_cmd(qube, cmd):
             try:
                 self.loop.run_until_complete(
-                    self.testnetvm.run_for_stdio(cmd, user="root")
+                    qube.run_for_stdio(cmd, user="root")
                 )
             except subprocess.CalledProcessError as e:
                 self.fail(
-                    "Command '%s' failed: %s%s"
-                    % (cmd, e.stdout.decode(), e.stderr.decode())
+                    "Command failed on %s: '%s': stdout: %s: stderr: %s"
+                    % (qube, cmd, e.stdout.decode(), e.stderr.decode())
                 )
 
-        if not self.testnetvm.is_running():
-            self.loop.run_until_complete(self.testnetvm.start())
-        # Ensure that dnsmasq is installed:
-        try:
-            self.loop.run_until_complete(
-                self.testnetvm.run_for_stdio("dnsmasq --version", user="root")
-            )
-        except subprocess.CalledProcessError:
-            self.skipTest("dnsmasq not installed")
+        for qube in self.netvms:
+            if not qube.is_running():
+                self.loop.run_until_complete(self.start_vm(qube))
+            # Ensure that dnsmasq is installed:
+            try:
+                self.loop.run_until_complete(
+                    qube.run_for_stdio("dnsmasq --version", user="root")
+                )
+            except subprocess.CalledProcessError:
+                self.skipTest("dnsmasq not installed")
 
-        run_netvm_cmd("ip link add test0 type dummy")
-        run_netvm_cmd("ip link set test0 up")
-        run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
-        run_netvm_cmd(
-            "nft add ip qubes custom-input ip daddr {} accept".format(
-                self.test_ip
+            run_netvm_cmd(qube, "ip link add test0 type dummy")
+            run_netvm_cmd(qube, "ip link set test0 up")
+            run_netvm_cmd(
+                qube, "ip addr add {}/24 dev test0".format(self.test_ip)
             )
-        )
-        # ignore failure
-        self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
-        run_netvm_cmd(
-            "dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
-                ip=self.test_ip, name=self.test_name
+            run_netvm_cmd(
+                qube,
+                "nft add ip qubes custom-input ip daddr {} accept".format(
+                    self.test_ip
+                ),
             )
-        )
-        run_netvm_cmd(
-            "rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
-                self.test_ip
+            # ignore failure
+            self.run_cmd(qube, "while pkill dnsmasq; do sleep 1; done")
+            run_netvm_cmd(
+                qube,
+                "dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
+                    ip=self.test_ip, name=self.test_name
+                ),
             )
-        )
-        run_netvm_cmd("systemctl try-restart systemd-resolved || :")
-        run_netvm_cmd("/usr/lib/qubes/qubes-setup-dnat-to-ns")
+            run_netvm_cmd(
+                qube,
+                "rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
+                    self.test_ip
+                ),
+            )
+            run_netvm_cmd(qube, "systemctl try-restart systemd-resolved || :")
+            run_netvm_cmd(qube, "/usr/lib/qubes/qubes-setup-dnat-to-ns")
 
     def test_000_simple_networking(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
+    def _networking_paused_from_none_to_existent(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        test = "netvm=none -> netvm=something"
+        self.log.critical(test)
+        print(test)
+        self.testvm1.netvm = None
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = self.testnetvm
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), ""
+        )
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self._run_cmd_and_log_output(self.testvm1, ip_deadline)
+        self._run_cmd_and_log_output(self.testvm1, name_deadline)
+        self.assertEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " failed",
+        )
+        self.assertEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " failed",
+        )
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def _networking_paused_from_existent_to_none(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        # pylint: disable=unused-argument
+        test = "netvm=something -> netvm=none"
+        self.log.critical(test)
+        print(test)
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = None
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm.name,
+        )
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self.assertNotEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " succeeded but should have failed",
+        )
+        self.assertNotEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " succeeded but should have failed",
+        )
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def _networking_paused_change_shutdown_old(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        test = "netvm=something -> netvm=something (shutdown old)"
+        self.log.critical(test)
+        print(test)
+        self.testvm1.netvm = self.testnetvm2
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = self.testnetvm
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm2.name,
+        )
+        self.shutdown_and_wait(self.testnetvm2)
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self._run_cmd_and_log_output(self.testvm1, ip_deadline)
+        self._run_cmd_and_log_output(self.testvm1, name_deadline)
+        self.assertEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " failed",
+        )
+        self.assertEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " failed",
+        )
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def _networking_paused_change_purge_old(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        test = "netvm=something -> netvm=something (purge old)"
+        self.log.critical(test)
+        print(test)
+        self.testvm1.netvm = self.testnetvm2
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.start_vm(self.testnetvm2))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = self.testnetvm
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm2.name,
+        )
+        self.loop.run_until_complete(self.testnetvm2.kill())
+        del self.app.domains[self.testnetvm2]
+        self.loop.run_until_complete(self.testnetvm2.remove_from_disk())
+        self.app.save()
+        self.testnetvm2 = None
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self._run_cmd_and_log_output(self.testvm1, ip_deadline)
+        self._run_cmd_and_log_output(self.testvm1, name_deadline)
+        self.assertEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " failed",
+        )
+        self.assertEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " failed",
+        )
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def test_001_simple_networking_paused_from_none_to_existent(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_from_none_to_existent(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
+    def test_001_simple_networking_paused_from_existent_to_none(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_from_existent_to_none(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
+    @unittest.skip("kernel issue")
+    def test_001_simple_networking_paused_change_shutdown_old(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_change_shutdown_old(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
+    @unittest.skip("kernel issue")
+    def test_001_simple_networking_paused_change_purge_old(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_change_purge_old(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
     def test_010_simple_proxyvm(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -228,7 +443,8 @@ class VmNetworkingMixin(object):
         )
 
         self.proxy.netvm = None
-        self.loop.run_until_complete(self.testnetvm.shutdown(wait=True))
+        for qube in self.netvms:
+            self.shutdown_and_wait(qube)
         # change IP to test if all info is updated, especially DNS redirect
         self.test_ip = "192.168.45.123"
         self.ping_ip = self.ping_cmd.format(target=self.test_ip)
@@ -263,7 +479,7 @@ class VmNetworkingMixin(object):
     )
     def test_020_simple_proxyvm_nm(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -340,7 +556,7 @@ class VmNetworkingMixin(object):
 
     def test_030_firewallvm_firewall(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -389,7 +605,7 @@ class VmNetworkingMixin(object):
             # block all except ICMP
 
             self.testvm1.firewall.rules = [
-                (qubes.firewall.Rule(None, action="accept", proto="icmp"))
+                qubes.firewall.Rule(None, action="accept", proto="icmp")
             ]
             self.testvm1.firewall.save()
             # Ugly hack b/c there is no feedback when the rules are actually
@@ -477,7 +693,7 @@ class VmNetworkingMixin(object):
 
     def test_031_firewall_dynamic_block(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -576,7 +792,7 @@ class VmNetworkingMixin(object):
 
     def test_040_inter_vm(self):
         """
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -639,7 +855,7 @@ class VmNetworkingMixin(object):
     def test_050_spoof_ip(self):
         """Test if VM IP spoofing is blocked
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.loop.run_until_complete(self.start_vm(self.testvm1))
 
@@ -707,17 +923,17 @@ class VmNetworkingMixin(object):
     def test_100_late_xldevd_startup(self):
         """Regression test for #1990
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         # Simulater late xl devd startup
         cmd = "systemctl stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
-            self.fail("Command '%s' failed" % cmd)
+            self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
         self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         cmd = "systemctl start xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
-            self.fail("Command '%s' failed" % cmd)
+            self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
 
         # let it initialize the interface(s)
         time.sleep(1)
@@ -798,7 +1014,7 @@ class VmNetworkingMixin(object):
     def test_200_fake_ip_simple(self):
         """Test hiding VM real IP
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.testvm1.features["net.fake-ip"] = "192.168.1.128"
         self.testvm1.features["net.fake-gateway"] = "192.168.1.1"
@@ -833,7 +1049,7 @@ class VmNetworkingMixin(object):
     def test_201_fake_ip_without_gw(self):
         """Test hiding VM real IP
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.testvm1.features["net.fake-ip"] = "192.168.1.128"
         self.app.save()
@@ -855,7 +1071,7 @@ class VmNetworkingMixin(object):
     def test_202_fake_ip_firewall(self):
         """Test hiding VM real IP, firewall
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.testvm1.features["net.fake-ip"] = "192.168.1.128"
         self.testvm1.features["net.fake-gateway"] = "192.168.1.1"
@@ -918,7 +1134,7 @@ class VmNetworkingMixin(object):
     def test_203_fake_ip_inter_vm_allow(self):
         """Access VM with "fake IP" from other VM (when firewall allows)
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -990,7 +1206,7 @@ class VmNetworkingMixin(object):
     def test_204_fake_ip_proxy(self):
         """Test hiding VM real IP
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -1054,7 +1270,7 @@ class VmNetworkingMixin(object):
     def test_210_custom_ip_simple(self):
         """Custom AppVM IP
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.testvm1.ip = "192.168.1.1"
         self.app.save()
@@ -1065,7 +1281,7 @@ class VmNetworkingMixin(object):
     def test_211_custom_ip_proxy(self):
         """Custom ProxyVM IP
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.proxy = self.app.add_new_vm(
             qubes.vm.appvm.AppVM, name=self.make_vm_name("proxy"), label="red"
@@ -1085,7 +1301,7 @@ class VmNetworkingMixin(object):
     def test_212_custom_ip_firewall(self):
         """Custom VM IP and firewall
 
-        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self.testvm1.ip = "192.168.1.1"
 

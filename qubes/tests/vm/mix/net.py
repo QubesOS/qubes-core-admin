@@ -159,6 +159,162 @@ class TC_00_NetVMMixin(
                 mock_detach.reset_mock()
                 mock_attach.reset_mock()
 
+    def test_146_netvm_defer(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        with (
+            patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            patch("qubes.vm.qubesvm.QubesVM.is_paused", lambda x: True),
+            patch("qubes.vm.mix.net.NetVMMixin.attach_network") as mock_attach,
+            patch("qubes.vm.mix.net.NetVMMixin.detach_network") as mock_detach,
+            patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+            patch("qubes.vm.qubesvm.QubesVM.run_service_for_stdio"),
+        ):
+
+            with self.subTest("try to apply deferred netvm when not set"):
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    self.loop.run_until_complete(vm.apply_deferred_netvm())
+                    mock_detach.assert_not_called()
+                    mock_attach.assert_not_called()
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest("changing netvm and restoring original netvm"):
+                original_netvm = vm.netvm.name
+                vm.netvm = self.netvm2
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                vm.netvm = original_netvm
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None), None
+                )
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest(
+                "changing netvm and restoring original netvm from none"
+            ):
+                original_netvm = vm.netvm.name
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    vm.netvm = None
+                mock_detach.reset_mock()
+                mock_attach.reset_mock()
+                vm.netvm = original_netvm
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    "",
+                )
+                vm.netvm = None
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None), None
+                )
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    vm.netvm = original_netvm
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest("changing netvm"):
+                original_netvm = vm.netvm.name
+                vm.netvm = self.netvm2
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    self.loop.run_until_complete(vm.apply_deferred_netvm())
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None), None
+                )
+                mock_detach.assert_called()
+                mock_attach.assert_called()
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest("setting netvm to none"):
+                original_netvm = vm.netvm.name
+                vm.netvm = None
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    self.loop.run_until_complete(vm.apply_deferred_netvm())
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None), None
+                )
+                mock_detach.assert_called()
+                mock_attach.assert_not_called()
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest("resetting netvm to default"):
+                original_netvm = vm.netvm.name if vm.netvm else ""
+                del vm.netvm
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    self.loop.run_until_complete(vm.apply_deferred_netvm())
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None), None
+                )
+                mock_detach.assert_called()
+                mock_attach.assert_called_once()
+
+            mock_detach.reset_mock()
+            mock_attach.reset_mock()
+            with self.subTest("skip apply of preload"):
+                original_netvm = vm.netvm.name
+                vm.is_preload = True
+                vm.netvm = self.netvm2
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                with patch(
+                    "qubes.vm.qubesvm.QubesVM.is_paused", lambda x: False
+                ):
+                    self.loop.run_until_complete(vm.apply_deferred_netvm())
+                self.assertEqual(
+                    vm.features.get("deferred-netvm-original", None),
+                    original_netvm,
+                )
+                mock_detach.assert_not_called()
+                mock_attach.assert_not_called()
+            vm.is_preload = False
+            del vm.features["deferred-netvm-original"]
+
     def test_150_ip(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
