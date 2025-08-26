@@ -833,6 +833,12 @@ class Backup:
             backup_app.domains[qid].features["backup-content"] = True
             backup_app.domains[qid].features["backup-path"] = vm_info.subdir
             backup_app.domains[qid].features["backup-size"] = vm_info.size
+            for feature in backup_app.domains[qid].features.copy():
+                if (
+                    feature.startswith("preload-dispvm")
+                    and feature != "preload-dispvm-max"
+                ):
+                    del backup_app.domains[qid].features[feature]
 
             # VM running private volumes without snapshoting them
             # (revision_to_keep = -1) must be powered off to be backup
