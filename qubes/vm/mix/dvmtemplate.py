@@ -124,8 +124,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
         service = "qubes.WaitForRunningSystem"
-        supported_service = "supported-rpc." + service
-        if not self.features.check_with_template(supported_service, False):
+        if not self.supports_preload():
             raise qubes.exc.QubesValueError(
                 "Qube does not support the RPC '%s'" % service
             )
@@ -283,7 +282,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay:
             event_log += " with a delay of %s second(s)" % f"{delay:.1f}"
         self.log.info(event_log)
-
+        service = "qubes.WaitForRunningSystem"
+        if not self.supports_preload():
+            raise qubes.exc.QubesValueError(
+                "Qube does not support the RPC '%s' but tried to preload, "
+                "check if template is outdated" % service
+            )
         if delay:
             await asyncio.sleep(delay)
 
@@ -460,3 +464,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 if unwanted_disp in self.app.domains:
                     dispvm = self.app.domains[unwanted_disp]
                     asyncio.ensure_future(dispvm.cleanup())
+
+    def supports_preload(self) -> bool:
+        """Returns ``True`` if the necessary RPC is supported."""
+        assert isinstance(self, qubes.vm.BaseVM)
+        service = "qubes.WaitForRunningSystem"
+        supported_service = "supported-rpc." + service
+        if self.features.check_with_template(supported_service, False):
+            return True
+        return False
