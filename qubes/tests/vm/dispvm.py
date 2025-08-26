@@ -35,12 +35,16 @@ import qubes.tests.vm.appvm
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
         super(TestApp, self).__init__()
-        self.qid_counter = 1
+        self.qid_counter = 0
 
     def add_new_vm(self, cls, **kwargs):
         qid = self.qid_counter
-        self.qid_counter += 1
-        vm = cls(self, None, qid=qid, **kwargs)
+        if self.qid_counter == 0:
+            self.qid_counter += 1
+            vm = cls(self, None, **kwargs)
+        else:
+            self.qid_counter += 1
+            vm = cls(self, None, qid=qid, **kwargs)
         self.domains[vm.name] = vm
         self.domains[vm] = vm
         return vm
@@ -58,6 +62,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             name="linux-kernel"
         )
         self.app.vmm.offline_mode = True
+        self.app.default_dispvm = None
+        self.adminvm = self.app.add_new_vm(qubes.vm.adminvm.AdminVM)
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
@@ -68,8 +74,12 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             template=self.template,
             label="red",
         )
-        self.app.domains[self.appvm.name] = self.appvm
-        self.app.domains[self.appvm] = self.appvm
+        self.appvm_alt = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name="test-vm-alt",
+            template=self.template,
+            label="red",
+        )
         self.addCleanup(self.cleanup_dispvm)
         self.emitter = qubes.tests.TestEmitter()
 
@@ -83,10 +93,15 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             del self.dispvm
         self.template.close()
         self.appvm.close()
-        del self.template
+        self.appvm_alt.close()
         del self.appvm
+        del self.appvm_alt
+        del self.template
+        del self.adminvm
+        self.app.close()
         self.app.domains.clear()
         self.app.pools.clear()
+        del self.app
 
     async def mock_coro(self, *args, **kwargs):
         pass
@@ -274,6 +289,49 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             ]
         mock_symlink.assert_not_called()
         mock_makedirs.assert_called_once()
+
+    def test_000_get_preload_max(self):
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), None)
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["preload-dispvm-max"] = 1
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.adminvm), None)
+        self.adminvm.features["preload-dispvm-max"] = ""
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.adminvm), "")
+        self.adminvm.features["preload-dispvm-max"] = 2
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.adminvm), 2)
+
+    def test_000_get_preload_templates(self):
+        get_preload_templates = qubes.vm.dispvm.get_preload_templates
+        self.assertEqual(get_preload_templates(self.app), [])
+        self.appvm.template_for_dispvms = True
+        self.appvm_alt.template_for_dispvms = True
+        self.assertEqual(get_preload_templates(self.app), [])
+
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm_alt.features["supported-rpc.qubes.WaitForRunningSystem"] = (
+            True
+        )
+        self.appvm.features["preload-dispvm-max"] = 1
+        self.appvm_alt.features["preload-dispvm-max"] = 0
+        self.assertEqual(get_preload_templates(self.app), [self.appvm])
+
+        self.adminvm.features["preload-dispvm-max"] = ""
+        # Still not default_dispvm
+        self.appvm_alt.features["preload-dispvm-max"] = 1
+        self.assertEqual(
+            get_preload_templates(self.app), [self.appvm, self.appvm_alt]
+        )
+
+        with mock.patch.object(self.appvm, "fire_event_async"):
+            self.app.default_dispvm = self.appvm
+        self.assertEqual(get_preload_templates(self.app), [self.appvm_alt])
+
+        self.app.default_dispvm = None
+        self.adminvm.features["preload-dispvm-max"] = 1
+        self.assertEqual(
+            get_preload_templates(self.app), [self.appvm, self.appvm_alt]
+        )
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):

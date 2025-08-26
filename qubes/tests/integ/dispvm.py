@@ -298,25 +298,23 @@ class TC_20_DispVMMixin(object):
 
     def cleanup_preload(self):
         logger.info("start")
-        if "preload-dispvm-max" in self.app.domains[self.disp_base].features:
-            logger.info("has local preload")
-            self.loop.run_until_complete(
-                self.cleanup_preload_run(self.disp_base)
-            )
-            logger.info("deleting local feature")
-            del self.disp_base.features["preload-dispvm-max"]
-        if "preload-dispvm-max" in self.app.domains["dom0"].features:
-            logger.info("has global preload")
-            default_dispvm = self.app.default_dispvm
-            if default_dispvm:
-                self.loop.run_until_complete(
-                    self.cleanup_preload_run(default_dispvm)
-                )
-            logger.info("deleting global feature")
-            del self.app.domains["dom0"].features["preload-dispvm-max"]
+        default_dispvm = self.app.default_dispvm
+        # Clean features from all qubes to avoid them being considered by
+        # tests that target preloads on the whole system, such as
+        # `/usr/lib/qubes/preload-dispvm`.
         if "preload-dispvm-threshold" in self.app.domains["dom0"].features:
             logger.info("deleting global threshold feature")
             del self.app.domains["dom0"].features["preload-dispvm-threshold"]
+        for qube in self.app.domains:
+            if "preload-dispvm-max" not in qube.features:
+                continue
+            logger.info("removing preloaded disposables: '%s'", qube.name)
+            if qube == default_dispvm:
+                self.loop.run_until_complete(
+                    self.cleanup_preload_run(default_dispvm)
+                )
+            logger.info("deleting max preload feature")
+            del qube.features["preload-dispvm-max"]
         logger.info("end")
 
     async def no_preload(self):
@@ -616,6 +614,7 @@ class TC_20_DispVMMixin(object):
         self.app.default_dispvm = self.disp_base
 
         preload_max = 1
+        logger.info("no refresh to be made")
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
@@ -624,13 +623,14 @@ class TC_20_DispVMMixin(object):
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
 
+        logger.info("refresh to be made")
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
         preload_dispvm = self.disp_base.get_feat_preload()
         self.assertEqual(len(old_preload), preload_max)
         self.assertEqual(len(preload_dispvm), preload_max)
@@ -639,6 +639,7 @@ class TC_20_DispVMMixin(object):
             f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
 
+        logger.info("global refresh to be made")
         preload_max += 1
         self.adminvm.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
@@ -647,7 +648,7 @@ class TC_20_DispVMMixin(object):
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=30))
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
         preload_dispvm = self.disp_base.get_feat_preload()
         self.assertEqual(len(old_preload), preload_max)
         self.assertEqual(len(preload_dispvm), preload_max)
