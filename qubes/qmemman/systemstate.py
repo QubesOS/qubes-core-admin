@@ -45,6 +45,7 @@ CHECK_PERIOD = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
 #: number of free memory bytes expected to get during CHECK_PERIOD_S
 #: seconds
 CHECK_DELTA = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
+LAST_SECOND = max(1, int(1 / BALLOON_DELAY))
 
 
 class SystemState:
@@ -283,42 +284,93 @@ class SystemState:
         for _, dom in dom_dict.items():
             dom.no_progress = False
 
+        mem_set_threshold = 1.1
         succeeded = []
         memset_reqs = {}
         for domid, memset in dom_memset.items():
+            dom = dom_dict[domid]
             if memset == 0:
-                # Domain hasn't meminfo back to the server, it is still at the
-                # initial amount. pref_mem can't be calculated yet.
-                if dom_dict[domid].mem_used is None:
+                # Domain hasn't sent meminfo back to the server, it is still at
+                # the initial amount. pref_mem can't be calculated yet.
+                if dom.mem_used is None:
+                    self.log.info(
+                        "mem requested for dom '%s' is 0 but meminfo was not "
+                        + "reported back, skipping ballooning",
+                        domid,
+                    )
                     succeeded.append(domid)
                     continue
-                mem_pref = qubes.qmemman.algo.pref_mem(dom_dict[domid])
+                mem_pref = qubes.qmemman.algo.pref_mem(dom)
                 memset_reqs[domid] = mem_pref
-                self.log.debug(
-                    "mem for dom '%s' is 0, using its pref '%s'",
+                diff = round(getattr(dom, "mem_actual", 0) / mem_pref, 2)
+                self.log.info(
+                    "mem requested for dom '%s' is 0, using its pref '%s' while"
+                    + " actual mem is '%s' (%sx)",
                     domid,
                     mem_pref,
+                    dom.mem_actual,
+                    diff,
                 )
             else:
                 memset_reqs[domid] = memset
+                diff = round(dom.mem_actual / memset, 2)
+                self.log.info(
+                    "mem requested for dom '%s' is '%s' while actual mem is "
+                    + "'%s' (%sx)",
+                    domid,
+                    memset,
+                    dom.mem_actual,
+                    diff,
+                )
 
+        actual_mem_ring: dict[str, list[int]] = {}
         while True:
-            self.log.debug("niter={:d}".format(niter))
             self.refresh_mem_actual(domid_list)
             for domid, dom in dom_dict.items():
+                if domid in succeeded:
+                    continue
                 assert isinstance(dom.mem_actual, int)
-                if (
-                    domid not in succeeded
-                    and dom.mem_actual / memset_reqs[domid] < 1.1
-                ):
+                if niter > 0 and niter % 10 == 0 and dom_memset[domid] == 0:
+                    mem_pref = qubes.qmemman.algo.pref_mem(dom)
+                    if mem_pref != memset_reqs[domid]:
+                        memset_reqs[domid] = mem_pref
+                        self.log.info("adjusted pref to '%s'", mem_pref)
+                diff = round(dom.mem_actual / memset_reqs[domid], 2)
+                if domid not in succeeded and diff <= mem_set_threshold:
                     succeeded.append(domid)
+                self.log.debug(
+                    "round '%d' dom '%s' has actual mem of %s (%sx)",
+                    niter,
+                    dom.domid,
+                    dom.mem_actual,
+                    diff,
+                )
             if all(dom in succeeded for dom in domid_list):
                 return True
-            if niter >= CHECK_PERIOD:
+            slow = []
+            for domid, dom in dom_dict.items():
+                if domid in succeeded:
+                    continue
+                assert isinstance(dom.mem_actual, int)
+                actual_mem_ring.setdefault(domid, []).append(dom.mem_actual)
+                if niter >= CHECK_PERIOD:
+                    ring = actual_mem_ring[domid]
+                    transfer_speed_mib = int(
+                        (ring[-LAST_SECOND] - ring[-1]) / 1024**2
+                    )
+                    if transfer_speed_mib < CHECK_MB_S:
+                        self.log.warning(
+                            "slow transfer speed of %sMiB/s on the last second",
+                            transfer_speed_mib,
+                        )
+                        slow.append(domid)
+            if any(dom in slow for dom in domid_list):
                 return False
             for domid, memset in memset_reqs.items():
+                if domid in succeeded:
+                    continue
                 self.mem_set(domid, memset)
-            self.log.debug("sleeping for {} s".format(BALLOON_DELAY))
+            self.log.debug("sleeping for {}s".format(BALLOON_DELAY))
             time.sleep(BALLOON_DELAY)
             niter += 1
 

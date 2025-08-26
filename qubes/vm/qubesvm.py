@@ -2085,6 +2085,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if not qmemman_present or self.maxmem == 0:
             return None
 
+        self.log.info("Setting qube memory to pref mem")
         qmemman_client = qubes.qmemman.client.QMemmanClient()
         try:
             result = qmemman_client.set_mem({self.xid: 0})
