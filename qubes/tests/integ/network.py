@@ -191,6 +191,37 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
+    def test_001_simple_networking_paused(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        """
+        self.testvm1.netvm = None
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = self.testnetvm
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), ""
+        )
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.testvm1.netvm = None
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm.name,
+        )
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None), None
+        )
+
     def test_010_simple_proxyvm(self):
         """
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
@@ -389,7 +420,7 @@ class VmNetworkingMixin(object):
             # block all except ICMP
 
             self.testvm1.firewall.rules = [
-                (qubes.firewall.Rule(None, action="accept", proto="icmp"))
+                qubes.firewall.Rule(None, action="accept", proto="icmp")
             ]
             self.testvm1.firewall.save()
             # Ugly hack b/c there is no feedback when the rules are actually

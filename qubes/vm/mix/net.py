@@ -20,12 +20,13 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains the NetVMMixin """
+"""This module contains the NetVMMixin"""
 import ipaddress
 import os
 import re
 
 import libvirt  # pylint: disable=import-error
+import lxml.etree
 import qubes
 import qubes.config
 import qubes.events
@@ -341,6 +342,45 @@ class NetVMMixin(qubes.events.Emitter):
             except (qubes.exc.QubesException, libvirt.libvirtError):
                 vm.log.warning("Cannot attach network", exc_info=1)
 
+    def apply_deferred_netvm(self):
+        """Apply deferred netvm changes in case qube could not apply it at the
+        time it was requested."""
+        deferred_from = self.features.get("deferred-netvm-original", None)
+        if deferred_from is None:
+            return
+        oldvalue = None
+        if deferred_from in self.app.domains:
+            oldvalue = self.app.domains[deferred_from]
+        if oldvalue:
+            self.fire_event(
+                "property-pre-set:netvm",
+                pre_event=True,
+                name="netvm",
+                newvalue=self.netvm,
+                oldvalue=oldvalue,
+            )
+        if self.netvm:
+            self.fire_event(
+                "property-set:netvm",
+                name="netvm",
+                newvalue=self.netvm,
+                oldvalue=oldvalue,
+            )
+        del self.features["deferred-netvm-original"]
+
+    @qubes.events.handler("domain-unpaused")
+    def on_domain_unpaused_net(
+        self, event, **kwargs
+    ):  # pylint: disable=unused-argument
+        """Check for deferred netvm changes in case qube was paused while
+        changes happened."""
+        if getattr(self, "is_preload", False):
+            # Networking of preloaded disposable must be done when it is being
+            # marked as used, so we guarantee that it finishes before the user
+            # can use the disposable.
+            return
+        self.apply_deferred_netvm()
+
     @qubes.events.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, event, force=False):
         """Checks before NetVM shutdown if any connected domains are running.
@@ -373,6 +413,12 @@ class NetVMMixin(qubes.events.Emitter):
             self.netvm.start()
 
         self.netvm.set_mapped_ip_info_for_vm(self)
+
+        if self.is_paused():
+            self.log.warning(
+                "Deferred attaching libvirt net device because qube is paused"
+            )
+            return
         self.libvirt_domain.attachDevice(
             self.app.env.get_template("libvirt/devices/net.xml").render(vm=self)
         )
@@ -383,13 +429,24 @@ class NetVMMixin(qubes.events.Emitter):
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
         if self.netvm is None:
-            raise qubes.exc.QubesVMError(
-                self, "netvm should not be {}".format(self.netvm)
-            )
+            deferred_from = self.features.get("deferred-netvm", None)
+            if deferred_from is not None:
+                raise qubes.exc.QubesVMError(
+                    self, "netvm should not be {}".format(self.netvm)
+                )
 
-        self.libvirt_domain.detachDevice(
-            self.app.env.get_template("libvirt/devices/net.xml").render(vm=self)
-        )
+        if self.is_paused():
+            self.log.warning(
+                "Deferred detaching libvirt net device because qube is paused"
+            )
+            return
+
+        # Properties extracted from libvirt_domain to support deferred netvm.
+        root = lxml.etree.fromstring(self.libvirt_domain.XMLDesc())
+        eth = root.find(".//interface[@type='ethernet']")
+        if eth is None:
+            return
+        self.libvirt_domain.detachDevice(lxml.etree.tostring(eth).decode())
 
     def is_networked(self):
         """Check whether this VM can reach network (firewall notwithstanding).
@@ -515,10 +572,20 @@ class NetVMMixin(qubes.events.Emitter):
                     ),
                 )
 
-        # don't check oldvalue, because it's missing if it was default
-        if self.netvm is not None:
-            if self.is_running() and self.netvm.is_running():
-                self.detach_network()
+        if self.is_paused():
+            if "deferred-netvm-original" not in self.features:
+                self.features["deferred-netvm-original"] = (
+                    oldvalue.name if oldvalue else None
+                )
+            return
+        deferred_from = self.features.get("deferred-netvm-original", None)
+        if deferred_from is None:
+            # don't check oldvalue, because it's missing if it was default
+            if self.netvm is None:
+                return
+            if not (self.is_running() and self.netvm.is_running()):
+                return
+        self.detach_network()
 
     @qubes.events.handler("property-set:netvm")
     def on_property_set_netvm(self, event, name, newvalue, oldvalue=None):
@@ -526,7 +593,6 @@ class NetVMMixin(qubes.events.Emitter):
         net-domain-connect event
         """
         # pylint: disable=unused-argument
-
         if oldvalue is not None and oldvalue.is_running():
             oldvalue.reload_connected_ips()
 
@@ -539,7 +605,8 @@ class NetVMMixin(qubes.events.Emitter):
         if self.is_running():
             # refresh IP, DNS etc
             self.create_qdb_entries()
-            self.attach_network()
+            if not self.is_paused():
+                self.attach_network()
 
             newvalue.fire_event("net-domain-connect", vm=self)
 
