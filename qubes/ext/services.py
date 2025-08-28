@@ -19,7 +19,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 """Extension responsible for qvm-service framework"""
-
+import base64
+import hashlib
 import os
 import qubes.ext
 import qubes.config
@@ -63,6 +64,21 @@ class ServicesExtension(qubes.ext.Extension):
                 )
             )
 
+    def update_app_dispvm_entry(self, vm, app_name, value=None):
+        """Update /hash-app-dispvm/ entry for service.app-dispvm. feature"""
+
+        if value is None:
+            value = vm.features.get(f"service.app-dispvm.{app_name}", False)
+        app_hash = (
+            base64.urlsafe_b64encode(hashlib.sha256(app_name.encode()).digest())
+            .decode()
+            .rstrip("=")
+        )
+        if value:
+            vm.untrusted_qdb.write(f"/hash-app-dispvm/{app_hash}", app_name)
+        else:
+            vm.untrusted_qdb.rm(f"/hash-app-dispvm/{app_hash}")
+
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
         """Actually export features"""
@@ -74,8 +90,15 @@ class ServicesExtension(qubes.ext.Extension):
             if not service:
                 vm.log.warning("Empty service name, ignoring: " + service)
                 continue
+            if service.startswith("app-dispvm."):
+                self.update_app_dispvm_entry(vm, service[len("app-dispvm.") :])
             if len(service) > 48:
-                vm.log.warning("Too long service name, ignoring: " + service)
+                # don't log warning for long app-dispvm. names - those are
+                # handled specially above
+                if not service.startswith("app-dispvm."):
+                    vm.log.warning(
+                        "Too long service name, ignoring: " + service
+                    )
                 continue
             # forcefully convert to '0' or '1'
             vm.untrusted_qdb.write(
@@ -109,7 +132,8 @@ class ServicesExtension(qubes.ext.Extension):
                 'Service name cannot be "." or ".."'
             )
 
-        if len(service) > 48:
+        # app-dispvm. have hash-based handling for long names
+        if len(service) > 48 and not service.startswith("app-dispvm."):
             raise qubes.exc.QubesValueError(
                 "Service name must not exceed 48 bytes"
             )
@@ -137,10 +161,15 @@ class ServicesExtension(qubes.ext.Extension):
         if not feature.startswith("service."):
             return
         service = feature[len("service.") :]
-        # forcefully convert to '0' or '1'
-        vm.untrusted_qdb.write(
-            "/qubes-service/{}".format(service), str(int(bool(value)))
-        )
+        if service.startswith("app-dispvm."):
+            self.update_app_dispvm_entry(
+                vm, service[len("app-dispvm.") :], value
+            )
+        if len(service) <= 48:
+            # forcefully convert to '0' or '1'
+            vm.untrusted_qdb.write(
+                "/qubes-service/{}".format(service), str(int(bool(value)))
+            )
 
         if vm.name == "dom0":
             if str(int(bool(value))) == "1":
@@ -160,7 +189,12 @@ class ServicesExtension(qubes.ext.Extension):
         # this one is excluded from user control
         if service == "meminfo-writer":
             return
-        vm.untrusted_qdb.rm("/qubes-service/{}".format(service))
+        if service.startswith("app-dispvm."):
+            self.update_app_dispvm_entry(
+                vm, service[len("app-dispvm.") :], False
+            )
+        if len(service) <= 48:
+            vm.untrusted_qdb.rm("/qubes-service/{}".format(service))
 
         if vm.name == "dom0":
             self.remove_dom0_service(vm, service)
