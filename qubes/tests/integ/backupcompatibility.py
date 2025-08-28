@@ -473,7 +473,7 @@ class TC_00_BackupCompatibility(
 
         with self.assertNotRaises((KeyError, qubes.exc.QubesException)):
             vm = self.app.domains[name]
-            asyncio.get_event_loop().run_until_complete(vm.storage.verify())
+            asyncio.run(vm.storage.verify())
             for prop, value in kwargs.items():
                 if prop == "klass":
                     self.assertIsInstance(vm, value)

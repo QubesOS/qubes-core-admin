@@ -40,7 +40,7 @@ def main(args=None):
     """
 
     args = parser.parse_args(args)
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         qubes.Qubes.create_empty_store(
             args.app, offline_mode=args.offline_mode
         ).setup_pools()
