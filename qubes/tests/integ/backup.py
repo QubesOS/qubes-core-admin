@@ -542,7 +542,10 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
                         self.app.default_netvm
                     )
                     vms_info[vm_name]["default"]["netvm"] = True
-                elif vm_name == self.make_vm_name("custom"):
+                elif vm_name in [
+                    self.make_vm_name("custom"),
+                    self.make_vm_name("dvm"),
+                ]:
                     # template was set to 'test-inst-template' - excluded
                     vms_info[vm_name]["properties"]["template"] = str(
                         self.app.default_template
