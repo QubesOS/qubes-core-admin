@@ -442,6 +442,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-unpaused'``)
 
+        .. event:: domain-resumed (subject, event)
+
+            Fired when the domain has been resumed from suspend.
+
+            Handler for this event may be asynchronous.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-resumed'``)
+
         .. event:: domain-stopped (subject, event)
 
             Fired when domain has been stopped.
@@ -1770,6 +1779,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         "qubes.SuspendPost timed out after %d seconds",
                         qubes.config.suspend_timeout,
                     )
+            await self.fire_event_async("domain-resumed")
         else:
             await self.unpause()
 
