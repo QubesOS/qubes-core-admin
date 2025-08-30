@@ -265,9 +265,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         :return:
         """
 
-        preload_templates = qubes.vm.dispvm.get_preload_templates(
-            self.app.domains
-        )
+        preload_templates = qubes.vm.dispvm.get_preload_templates(self.app)
         for qube in preload_templates:
             qube.remove_preload_excess(0)
 
@@ -416,9 +414,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                         "qubes.SuspendPostAll",
                     )
 
-        preload_templates = qubes.vm.dispvm.get_preload_templates(
-            self.app.domains
-        )
+        preload_templates = qubes.vm.dispvm.get_preload_templates(self.app)
         for qube in preload_templates:
             asyncio.ensure_future(
                 qube.fire_event_async("domain-preload-dispvm-autostart")

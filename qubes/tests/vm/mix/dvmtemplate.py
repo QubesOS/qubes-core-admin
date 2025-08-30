@@ -259,3 +259,9 @@ class TC_00_DVMTemplateMixin(
                 self.adminvm.features["preload-dispvm-threshold"] = value
                 threshold = self.appvm.get_feat_preload_threshold()
                 self.assertEqual(threshold, int(value or 0) * 1024**2)
+
+    def test_100_get_preload_templates(self):
+        print(qubes.vm.dispvm.get_preload_templates(self.app))
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["preload-dispvm-max"] = 1
+        self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)

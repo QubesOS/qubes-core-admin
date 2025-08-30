@@ -40,14 +40,33 @@ def _setter_template(self, prop, value):
     return value
 
 
-def get_preload_templates(domains) -> list:
-    return [
+# Keep in sync with linux/aux-tools/preload-dispvm
+def get_preload_max(qube) -> int | None:
+    value = qube.features.get("preload-dispvm-max", None)
+    return int(value) if value else value
+
+
+# Keep in sync with linux/aux-tools/preload-dispvm
+def get_preload_templates(app) -> list:
+    domains = app.domains
+    default_dispvm = getattr(app, "default_dispvm", None)
+    global_max = get_preload_max(domains["dom0"])
+    appvms = [
         qube
         for qube in domains
-        if int(qube.features.get("preload-dispvm-max", 0) or 0) > 0
-        and qube.klass == "AppVM"
-        and getattr(qube, "template_for_dispvms", False)
+        if (
+            qube.klass == "AppVM"
+            and getattr(qube, "template_for_dispvms", False)
+            and (
+                (qube != default_dispvm and get_preload_max(qube))
+                or (
+                    (qube == default_dispvm and global_max)
+                    or (global_max is None and get_preload_max(qube))
+                )
+            )
+        )
     ]
+    return appvms
 
 
 class DispVM(qubes.vm.qubesvm.QubesVM):
