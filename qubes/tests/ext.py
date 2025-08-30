@@ -2022,6 +2022,122 @@ class TC_20_Services(qubes.tests.QubesTestCase):
 
         self.assertEqual(os.path.exists(service_path), False)
 
+    def test_020_app_dispvm_init(self):
+        self.features["service.app-dispvm.short-name"] = "1"
+        short_name_hash = "uRc_3Q51DYlZXclkZX_BN2iYvUkKh8qXRxkqvvGAwEI"
+        long_name = "long-nameeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        long_name_hash = "Szm7u1YaqyWBAi2tG6eCWfXYIE7YHxQU7hpcCYZ1qbc"
+        self.features[(f"service.app-dispvm.{long_name}")] = "1"
+
+        self.ext.on_domain_qdb_create(self.vm, "domain-qdb-create")
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                (
+                    "write",
+                    (f"/hash-app-dispvm/{long_name_hash}", long_name),
+                    {},
+                ),
+                (
+                    "write",
+                    (f"/hash-app-dispvm/{short_name_hash}", "short-name"),
+                    {},
+                ),
+                ("write", ("/qubes-service/app-dispvm.short-name", "1"), {}),
+                ("write", ("/qubes-service/meminfo-writer", "1"), {}),
+            ],
+        )
+
+    def test_021_app_dispvm_add(self):
+        short_name_hash = "uRc_3Q51DYlZXclkZX_BN2iYvUkKh8qXRxkqvvGAwEI"
+        long_name = "long-nameeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        long_name_hash = "Szm7u1YaqyWBAi2tG6eCWfXYIE7YHxQU7hpcCYZ1qbc"
+        self.ext.on_domain_feature_pre_set(
+            self.vm,
+            "feature-set:service.app-dispvm.short-name",
+            "service.app-dispvm.short-name",
+            "1",
+        )
+        self.ext.on_domain_feature_set(
+            self.vm,
+            "feature-set:service.app-dispvm.short-name",
+            "service.app-dispvm.short-name",
+            "1",
+        )
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                (
+                    "write",
+                    (f"/hash-app-dispvm/{short_name_hash}", "short-name"),
+                    {},
+                ),
+                ("write", ("/qubes-service/app-dispvm.short-name", "1"), {}),
+            ],
+        )
+
+        self.ext.on_domain_feature_pre_set(
+            self.vm,
+            f"feature-set:service.app-dispvm.{long_name}",
+            f"service.app-dispvm.{long_name}",
+            "1",
+        )
+        self.ext.on_domain_feature_set(
+            self.vm,
+            f"feature-set:service.app-dispvm.{long_name}",
+            f"service.app-dispvm.{long_name}",
+            "1",
+        )
+
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                (
+                    "write",
+                    (f"/hash-app-dispvm/{long_name_hash}", long_name),
+                    {},
+                ),
+                (
+                    "write",
+                    (f"/hash-app-dispvm/{short_name_hash}", "short-name"),
+                    {},
+                ),
+                ("write", ("/qubes-service/app-dispvm.short-name", "1"), {}),
+            ],
+        )
+
+    def test_022_app_dispvm_del(self):
+        short_name_hash = "uRc_3Q51DYlZXclkZX_BN2iYvUkKh8qXRxkqvvGAwEI"
+        long_name = "long-nameeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        long_name_hash = "Szm7u1YaqyWBAi2tG6eCWfXYIE7YHxQU7hpcCYZ1qbc"
+        self.ext.on_domain_feature_delete(
+            self.vm,
+            "feature-set:service.app-dispvm.short-name",
+            "service.app-dispvm.short-name",
+        )
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                ("rm", (f"/hash-app-dispvm/{short_name_hash}",), {}),
+                ("rm", ("/qubes-service/app-dispvm.short-name",), {}),
+            ],
+        )
+
+        self.ext.on_domain_feature_delete(
+            self.vm,
+            f"feature-set:service.app-dispvm.{long_name}",
+            f"service.app-dispvm.{long_name}",
+        )
+
+        self.assertEqual(
+            sorted(self.vm.untrusted_qdb.mock_calls),
+            [
+                ("rm", (f"/hash-app-dispvm/{long_name_hash}",), {}),
+                ("rm", (f"/hash-app-dispvm/{short_name_hash}",), {}),
+                ("rm", ("/qubes-service/app-dispvm.short-name",), {}),
+            ],
+        )
+
 
 class TC_20_VmConfig(qubes.tests.QubesTestCase):
     def setUp(self):
