@@ -40,7 +40,8 @@ parser.add_argument(
 
 
 def main(args=None):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     libvirtaio.virEventRegisterAsyncIOImpl(loop=loop)
     try:
         args = parser.parse_args(args)
