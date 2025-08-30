@@ -30,11 +30,16 @@ import argparse
 import asyncio
 import concurrent.futures
 import dataclasses
+import json
 import logging
 import os
+import statistics
 import subprocess
 import time
+import yaml
+from datetime import datetime, timezone
 
+from deepmerge import Merger
 import qubesadmin
 
 # nose will duplicate this logger.
@@ -46,6 +51,13 @@ formatter = logging.Formatter(
 )
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+
+merger = Merger(
+    [(list, ["override"]), (dict, ["merge"]), (set, ["override"])],
+    ["override"],
+    ["override"],
+)
 
 
 @dataclasses.dataclass
@@ -60,6 +72,7 @@ class TestConfig:
     :param int preload_max: number of disposables to preload
     :param bool non_dispvm: target a non disposable qube
     :param bool admin_api: use the Admin API directly
+    :param bool extra_id: base test that extra ID varies from
 
     Notes
     -----
@@ -84,8 +97,8 @@ class TestConfig:
           it is simpler to achieve.
         - Concurrent calls are multiple requests that are done without regards
           to the previous request completion.
-        - Concurrency average time is skewed as there are multiples
-          simultaneous calls.
+        - Concurrency mean time is skewed as there are multiples simultaneous
+          calls.
     Normal VS Preloaded:
         - Improving normal qube startup will shorten preload usage time, but
           the reverse is not true. Normal disposables are a control group for
@@ -101,6 +114,7 @@ class TestConfig:
     preload_max: int = 0
     non_dispvm: bool = False
     admin_api: bool = False
+    extra_id: str = ""
 
 
 POLICY_FILE = "/run/qubes/policy.d/10-test-dispvm-perf.policy"
@@ -113,8 +127,10 @@ MAX_PRELOAD = 2
 # The preload number is set to MAX_CONCURRENCY on concurrent calls. This number
 # is also used by non preloaded disposables to set the maximum workers/jobs.
 MAX_CONCURRENCY = MAX_PRELOAD * 2
-# How was this amazing algorithm chosen? Yes.
-ITERATIONS = MAX_CONCURRENCY * 4
+# A value that is not too short that would impact accuracy and not too long to
+# burn OpenQA. It is a multiple of MAX_CONCURRENCY so there is no remainder
+# when using concurrency.
+ITERATIONS = MAX_CONCURRENCY * 3
 # A small round precision excludes noise. It is also used to have 0 padding (as
 # a string) to align fields.
 ROUND_PRECISION = 3
@@ -196,11 +212,13 @@ ALL_TESTS = [
         "dispvm-preload-more-api",
         preload_max=MAX_PRELOAD + 1,
         admin_api=True,
+        extra_id="dispvm-preload-api",
     ),
     TestConfig(
         "dispvm-preload-less-api",
         preload_max=MAX_PRELOAD - 1,
         admin_api=True,
+        extra_id="dispvm-preload-api",
     ),
     TestConfig("dispvm-preload-api", preload_max=MAX_PRELOAD, admin_api=True),
     TestConfig(
@@ -233,6 +251,30 @@ def get_load() -> str:
 
 def get_time():
     return time.clock_gettime(time.CLOCK_MONOTONIC)
+
+
+def hcl() -> dict:
+    completed_process = subprocess.run(
+        ["qubes-hcl-report", "--yaml-only"], capture_output=True, check=True
+    )
+    report = yaml.safe_load(completed_process.stdout)
+    data = {
+        "hcl-qubes": report["versions"][0]["qubes"].rstrip(),
+        "hcl-xen": report["versions"][0]["xen"].rstrip(),
+        "hcl-kernel": report["versions"][0]["kernel"].rstrip(),
+        "hcl-memory": int(report["memory"].rstrip()),
+    }
+    if os.environ.get("QUBES_TEST_PERF_HWINFO"):
+        data.update(
+            {
+                "hcl-certified": report["certified"].rstrip() != "no",
+                "hcl-brand": report["brand"].rstrip(),
+                "hcl-model": report["model"].rstrip(),
+                "hcl-bios": report["bios"].rstrip(),
+                "hcl-cpu": report["cpu"].rstrip(),
+            }
+        )
+    return data
 
 
 class TestRun:
@@ -446,19 +488,22 @@ class TestRun:
             qube = self.dvm
 
         results = {}
+        results["api_results"] = {}
+        results["api_results"]["iteration"] = {}
+        results["api_results"]["stage"] = {}
         start_time = get_time()
         if test.concurrent:
             all_results = asyncio.run(self.api_thread(test, service, qube))
             for i in range(1, self.iterations + 1):
-                results[i] = all_results[i - 1]
+                results["api_results"]["iteration"][i] = all_results[i - 1]
         else:
             for i in range(1, self.iterations + 1):
-                results[i] = self.call_api(
+                results["api_results"]["iteration"][i] = self.call_api(
                     test=test, service=service, qube=qube
                 )
         end_time = get_time()
 
-        sample_keys = list(results[1].keys())
+        sample_keys = list(results["api_results"]["iteration"][1].keys())
         value_keys = [k for k in sample_keys if k != "total"]
         headers = (
             ["iter"]
@@ -467,7 +512,7 @@ class TestRun:
             + [f"{k}%" for k in value_keys]
         )
         rows = []
-        for key, values in results.items():
+        for key, values in results["api_results"]["iteration"].items():
             total = values.get("total", 0)
             row_values = [str(key)]
             for k in value_keys:
@@ -492,56 +537,102 @@ class TestRun:
                 " ".join(val.rjust(col_widths[i]) for i, val in enumerate(row))
             )
 
+        values_by_stage = {key: {} for key in sample_keys}
+        for subdict in results["api_results"]["iteration"].values():
+            for key, value in subdict.items():
+                values_by_stage[key].setdefault("values", []).append(value)
+        for key, value in values_by_stage.items():
+            values = value["values"]
+            mean = round(statistics.mean(values), ROUND_PRECISION)
+            median = round(statistics.median(values), ROUND_PRECISION)
+            values_by_stage[key]["mean"] = mean
+            values_by_stage[key]["median"] = median
+        results["api_results"]["stage"].update(values_by_stage)
+
         total_time = round(end_time - start_time, ROUND_PRECISION)
         return total_time, results
 
     def report_result(self, test, result):
-        items = " ".join(
-            "{}={}".format(key, value) for key, value in vars(test).items()
-        )
+        try:
+            template = self.vm1.template.name
+        except AttributeError:
+            template = self.vm1.name
+        data = vars(test)
+        data["template"] = str(template)
         if test.admin_api:
             total_time = result[0]
-            average = round(total_time / self.iterations, ROUND_PRECISION)
-            pretty_average = f"{average:.{ROUND_PRECISION}f}"
-            compiled_result = []
-            for key, value in result[1].items():
-                individual_result = (
-                    f"{key}=("
-                    + ",".join(
-                        f"{k}={v:.{ROUND_PRECISION}f}" for k, v in value.items()
-                    )
-                    + ")"
-                )
-                compiled_result.append(individual_result)
-            items += f" iterations={self.iterations} average={pretty_average} "
-            items += " ".join(compiled_result)
+            data.update(result[1].items())
         else:
             total_time = result
-            average = total_time / self.iterations
-            pretty_average = f"{average:.{ROUND_PRECISION}f}"
-            items += f" iterations={self.iterations} average={pretty_average}"
+        mean = round(total_time / self.iterations, ROUND_PRECISION)
+
+        data.update(
+            {
+                "iterations": self.iterations,
+                "mean": mean,
+                "total": total_time,
+                "date": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%S"
+                ),
+            }
+        )
+
+        template_properties = {}
+        int_properties = [
+            "memory",
+            "maxmem",
+            "vcpus",
+            "qrexec_timeout",
+            "shutdown_timeout",
+        ]
+        wanted_properties = [*int_properties, "kernel", "kernelopts"]
+        for prop in wanted_properties:
+            val = getattr(self.vm1, prop, "")
+            if prop in int_properties:
+                val = int(val or 0)
+            template_properties[prop] = val
+        data.update(template_properties)
+
+        template_features = {}
+        int_features = ["os-version"]
+        wanted_features = [
+            "template-buildtime",
+            "last-update",
+            "os",
+            "os-distribution",
+            *int_features,
+        ]
+        for feature in wanted_features:
+            val = self.vm1.features.check_with_template(feature, "")
+            if feature in int_features:
+                val = int(val or 0)
+            template_features[feature] = val
+        data.update(template_features)
+
+        data.update(hcl())
+
+        pretty_mean = f"{mean:.{ROUND_PRECISION}f}"
         pretty_total_time = f"{total_time:.{ROUND_PRECISION}f}"
-        final_result = pretty_total_time + " " + items
         pretty_items = "iterations=" + str(self.iterations)
-        pretty_items += " average=" + pretty_average
+        pretty_items += " mean=" + pretty_mean
         print(f"Run time ({pretty_items}): {pretty_total_time}s")
         results_file = os.environ.get("QUBES_TEST_PERF_FILE")
         if not results_file:
             return
         try:
-            if self.vm2 and self.vm1.template != self.vm2.template:
-                name_prefix = (
-                    f"{self.vm1.template!s}_" f"{self.vm2.template!s}_"
-                )
-            else:
-                name_prefix = f"{self.vm1.template!s}_"
+            name_prefix = f"{template!s}_"
         except AttributeError:
-            if self.vm2:
-                name_prefix = f"{self.vm1!s}_{self.vm2!s}_"
-            else:
-                name_prefix = f"{self.vm1!s}_"
-        with open(results_file, "a", encoding="ascii") as file:
-            file.write(name_prefix + test.name + " " + str(final_result) + "\n")
+            name_prefix = f"{template!s}_"
+        data_final = {}
+        data_final[name_prefix + test.name] = data
+        try:
+            with open(results_file, "r", encoding="ascii") as file:
+                old_data = json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            old_data = {}
+        data_final = merger.merge(old_data, data_final)
+        with open(results_file, "w", encoding="ascii") as file:
+            json.dump(data_final, file, indent=2)
 
     def run_test(self, test: TestConfig):
         with open(POLICY_FILE, "w", encoding="ascii") as policy:
@@ -635,7 +726,9 @@ class TestRun:
 def main():
     parser = argparse.ArgumentParser(
         epilog="You can set QUBES_TEST_PERF_FILE env variable to a path where "
-        "machine-readable results should be saved."
+        "machine-readable results should be saved. If you want to share a "
+        "detailed result containing hardware information, set "
+        "QUBES_TEST_PERF_HWINFO to a non empty value."
     )
     parser.add_argument("--dvm", required=True)
     parser.add_argument("--vm1", required=True)
