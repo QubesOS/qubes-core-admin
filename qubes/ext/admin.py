@@ -28,6 +28,14 @@ from qrexec.policy import utils, parser
 from qubes.device_protocol import DeviceInterface
 
 
+PROHIBITED_FEATURES = [
+    "deferred-netvm-original",
+    "preload-dispvm",
+    "preload-dispvm-completed",
+    "preload-dispvm-in-progress",
+]
+
+
 class JustEvaluateAskResolution(parser.AskResolution):
     async def execute(self):
         pass
@@ -39,6 +47,8 @@ class JustEvaluateAllowResolution(parser.AllowResolution):
 
 
 class AdminExtension(qubes.ext.Extension):
+    # pylint: disable=too-few-public-methods
+
     def __init__(self):
         super().__init__()
         # during tests, __init__() of the extension can be called multiple
@@ -47,7 +57,20 @@ class AdminExtension(qubes.ext.Extension):
             self.policy_cache = utils.PolicyCache(lazy_load=True)
             self.policy_cache.initialize_watcher()
 
-    # pylint: disable=too-few-public-methods
+    @qubes.ext.handler(
+        "admin-permission:admin.vm.feature.Set",
+        "admin-permission:admin.vm.feature.Remove",
+    )
+    def on_feature_set_or_remove(self, vm, event, arg, **kwargs):
+        """Forbid changing specific features"""
+        # pylint: disable=unused-argument
+        if arg in PROHIBITED_FEATURES:
+            raise qubes.exc.PermissionDenied(
+                "changing this feature is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
+
     @qubes.ext.handler(
         "admin-permission:admin.vm.tag.Set",
         "admin-permission:admin.vm.tag.Remove",
