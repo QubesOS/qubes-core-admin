@@ -80,8 +80,9 @@ if __name__ == '__main__':
             'qubes.devices': [
                 'pci = qubes.ext.pci:PCIDevice',
                 'block = qubes.ext.block:BlockDevice',
+            ] + [
                 'testclass = qubes.tests.devices:TestDevice',
-            ],
+            ] if os.environ.get("QUBES_TEST") else [],
             'qubes.storage': [
                 'file = qubes.storage.file:FilePool',
                 'file-reflink = qubes.storage.reflink:ReflinkPool',

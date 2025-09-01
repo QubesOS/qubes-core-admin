@@ -45,6 +45,7 @@ unset dir
 
 PYTHONPATH=${TESTPYTHONPATH}${PYTHONPATH+":${PYTHONPATH}"}
 export PYTHONPATH
+export QUBES_TEST=1
 
 "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
 "${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
