@@ -373,11 +373,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         except asyncio.TimeoutError:
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
-                "startup" % (service, timeout)
+                "startup" % (rpc, timeout)
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup" % service
+                "Error on call to '%s' during preload startup. To debug, run "
+                "the following on a new disposable of '%s': systemctl "
+                "--failed" % (rpc, self.template)
             )
 
         if not self.preload_requested:
