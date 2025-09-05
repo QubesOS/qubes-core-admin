@@ -143,7 +143,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if self.is_global_preload_set():
             return
-        reason = "local feature was set to " + str(value)
+        reason = "local feature was set to " + repr(str(value))
         asyncio.ensure_future(
             self.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )

@@ -1456,6 +1456,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
                 if qmemman_client:
                     qmemman_client.close()
+                if getattr(self, "clean_shutdown", False):
+                    return
                 raise
 
             try:
@@ -1520,10 +1522,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.log.info("Setting Qubes DB info for the qube")
                 await self.start_qubesdb()
                 if self.untrusted_qdb is None:
+                    msg = "qubesdb not connected, VM was killed in the meantime"
+                    if getattr(self, "clean_shutdown", False):
+                        self.log.error(msg)
+                        return
                     # this can happen if vm.is_running() is False
-                    raise qubes.exc.QubesException(
-                        "qubesdb not connected, VM was killed in the meantime"
-                    )
+                    raise qubes.exc.QubesException(msg)
                 self.create_qdb_entries()
                 self.start_qdb_watch()
 
@@ -1560,6 +1564,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.fire_event_async(
                     "domain-start-failed", reason=str(exc)
                 )
+                if getattr(self, "clean_shutdown", False):
+                    return
                 raise
 
         return self
@@ -2181,6 +2187,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
         except subprocess.CalledProcessError as err:
             if err.returncode == 3:
+                if getattr(self, "clean_shutdown", False):
+                    return
                 raise qubes.exc.QubesVMError(
                     self,
                     "Cannot connect to qrexec agent for {} seconds, "
