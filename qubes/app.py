@@ -1632,6 +1632,8 @@ class Qubes(qubes.PropertyHolder):
     @qubes.events.handler("domain-pre-delete")
     def on_domain_pre_deleted(self, event, vm):
         # pylint: disable=unused-argument
+        preloads = set()
+        dependencies = []
         for obj in itertools.chain(self.domains, (self,)):
             if obj is vm:
                 # allow removed VM to reference itself
@@ -1642,18 +1644,32 @@ class Qubes(qubes.PropertyHolder):
                         isinstance(prop, qubes.vm.VMProperty)
                         and getattr(obj, prop.__name__) == vm
                     ):
-                        self.log.error(
-                            "Cannot remove %s, used by %s.%s",
-                            vm,
-                            obj,
-                            prop.__name__,
-                        )
-                        raise qubes.exc.QubesVMInUseError(
-                            vm,
-                            "Domain is in use: {!r};"
-                            "see 'journalctl -u qubesd -e' in dom0 for "
-                            "details".format(vm.name),
-                        )
+                        if getattr(obj, "is_preload", False) and (
+                            prop.__name__ == "template"
+                            or (
+                                prop.__name__ == "default_dispvm"
+                                and getattr(obj, "template", None) == vm
+                            )
+                        ):
+                            preloads.add(obj.name)
+                            continue
+                        if isinstance(obj, qubes.app.Qubes):
+                            dependencies.insert(0, ('"GLOBAL"', prop.__name__))
+                        elif not obj.property_is_default(prop):
+                            dependencies.append((obj.name, prop.__name__))
+        if dependencies:
+            self.log.error(
+                "Cannot remove %s as it is used by %s",
+                vm,
+                ", ".join(
+                    ":".join(str(i) for i in tup) for tup in dependencies
+                ),
+            )
+            raise qubes.exc.QubesVMInUseError(
+                vm,
+                "Domain is in use: {!r};  see 'journalctl -u qubesd -e' in dom0"
+                " for details".format(vm.name),
+            )
         if isinstance(vm, qubes.vm.qubesvm.QubesVM):
             assignments = vm.get_provided_assignments()
         else:
@@ -1663,6 +1679,9 @@ class Qubes(qubes.PropertyHolder):
             raise qubes.exc.QubesVMInUseError(
                 vm, "VM has devices assigned to other VMs: " + desc
             )
+
+        if preloads:
+            vm.remove_preload_excess(0, reason="domain will be deleted")
 
     @qubes.events.handler("domain-delete")
     def on_domain_deleted(self, event, vm):
