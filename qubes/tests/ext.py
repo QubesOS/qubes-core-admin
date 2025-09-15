@@ -22,6 +22,7 @@ import os
 import unittest.mock
 
 import qubes.ext.admin
+import qubes.ext.audio
 import qubes.ext.core_features
 import qubes.ext.custom_persist
 import qubes.ext.services
@@ -2610,3 +2611,58 @@ class TC_50_Admin(qubes.tests.QubesTestCase):
                 "admin-permission:admin.vm.tag.Set",
                 tag,
             )
+
+
+class TC_60_Audio(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.audio.AUDIO()
+        self.audiovm = mock.MagicMock()
+        self.audiovm.name = "sys-audio"
+        self.client = mock.MagicMock()
+        self.client.name = "client"
+        self.client_alt = mock.MagicMock()
+        self.client_alt.name = "client"
+
+    def test_000_shutdown(self):
+        self.ext.on_domain_pre_shutdown(
+            self.audiovm,
+            "domain-pre-shutdown",
+        )
+
+    def test_000_shutdown_used(self):
+        with unittest.mock.patch.object(
+            self.ext, "attached_vms", return_value=[self.client]
+        ), unittest.mock.patch.object(
+            self.client, "is_running", return_value=True
+        ):
+            self.client.is_preload = False
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.ext.on_domain_pre_shutdown(
+                    self.audiovm,
+                    "domain-pre-shutdown",
+                )
+
+            self.client.is_preload = True
+            self.ext.on_domain_pre_shutdown(
+                self.audiovm,
+                "domain-pre-shutdown",
+            )
+
+    def test_000_shutdown_used_by_some(self):
+        with unittest.mock.patch.object(
+            self.ext,
+            "attached_vms",
+            return_value=[self.client, self.client_alt],
+        ), unittest.mock.patch.object(
+            self.client, "is_running", return_value=True
+        ), unittest.mock.patch.object(
+            self.client_alt, "is_running", return_value=True
+        ):
+            self.client.is_preload = False
+            self.client_alt.is_preload = True
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.ext.on_domain_pre_shutdown(
+                    self.audiovm,
+                    "domain-pre-shutdown",
+                )

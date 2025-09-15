@@ -69,6 +69,11 @@ class TC_00_DVMTemplateMixin(
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
+        self.template_alt = self.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM,
+            name="test-template-alt",
+            label="red",
+        )
         self.appvm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name="test-vm",
@@ -98,9 +103,14 @@ class TC_00_DVMTemplateMixin(
         if hasattr(self, "dispvm"):
             self.dispvm.close()
             del self.dispvm
+        if hasattr(self, "dispvm_alt"):
+            self.dispvm_alt.close()
+            del self.dispvm_alt
         self.template.close()
+        self.template_alt.close()
         self.appvm.close()
         del self.template
+        del self.template_alt
         del self.appvm
         self.app.domains.clear()
         self.app.pools.clear()
@@ -241,7 +251,7 @@ class TC_00_DVMTemplateMixin(
         del self.adminvm.features["preload-dispvm-max"]
         self.appvm.features["preload-dispvm-max"] = ""
         del self.appvm.features["preload-dispvm-max"]
-        mock_remove_preload_excess.assert_called_once_with(0)
+        mock_remove_preload_excess.assert_called_once_with(0, reason=mock.ANY)
 
     @mock.patch("qubes.events.Emitter.fire_event_async")
     def test_012_dvm_preload_set_max(self, mock_events):
@@ -251,6 +261,11 @@ class TC_00_DVMTemplateMixin(
             "domain-preload-dispvm-start", reason=mock.ANY
         )
 
+        mock_events.reset_mock()
+        self.appvm.template_for_dispvms = False
+        self.appvm.features["preload-dispvm-max"] = "2"
+        mock_events.assert_not_called()
+
     def test_013_dvm_preload_get_treshold(self):
         cases = [None, False, "0", "2", "1000"]
         self.assertEqual(self.appvm.get_feat_preload_threshold(), 0)
@@ -259,6 +274,163 @@ class TC_00_DVMTemplateMixin(
                 self.adminvm.features["preload-dispvm-threshold"] = value
                 threshold = self.appvm.get_feat_preload_threshold()
                 self.assertEqual(threshold, int(value or 0) * 1024**2)
+
+    @mock.patch("qubes.events.Emitter.fire_event_async")
+    @mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.remove_preload_excess"
+    )
+    def test_030_dvm_preload_set_template(self, mock_remove, mock_events):
+        # Don't try to preload if max is not set.
+        mock_events.side_effect = self.mock_coro
+        self.appvm.template = self.template_alt
+        mock_events.assert_not_called()
+        mock_remove.assert_called_once_with(0, reason=mock.ANY)
+
+        # Try to remove and preload if max is set and template has changed.
+        mock_remove.reset_mock()
+        self.appvm.features["preload-dispvm-max"] = "1"
+        mock_events.reset_mock()
+        self.appvm.template = self.template
+        mock_remove.assert_called_once_with(0, reason=mock.ANY)
+        mock_events.assert_called_once_with(
+            "domain-preload-dispvm-start", reason=mock.ANY
+        )
+
+        # Don't change anything if template hasn't changed.
+        mock_remove.reset_mock()
+        mock_events.reset_mock()
+        self.appvm.template = self.template
+        mock_remove.assert_not_called()
+        mock_events.assert_not_called()
+
+        self.dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm",
+            template=self.appvm,
+            label="red",
+            dispid=42,
+        )
+        self.dispvm_alt = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm-alt",
+            template=self.appvm,
+            label="red",
+            dispid=43,
+        )
+        # Can't switch templates if disposable is running.
+        mock_remove.reset_mock()
+        mock_events.reset_mock()
+        with mock.patch.object(self.dispvm, "is_running", return_value=True):
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.appvm.template = self.template_alt
+        mock_remove.assert_not_called()
+        mock_events.assert_not_called()
+
+        # Can't switch templates if not all running disposable are preloads.
+        mock_remove.reset_mock()
+        self.appvm.features["preload-dispvm-max"] = "1"
+        self.appvm.features["preload-dispvm"] = self.dispvm.name
+        with mock.patch.object(
+            self.dispvm, "is_running", return_value=True
+        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.appvm.template = self.template_alt
+        mock_remove.assert_not_called()
+        mock_events.assert_not_called()
+
+        # Can switch templates if all running disposable are preloads.
+        self.appvm.features["preload-dispvm-max"] = "2"
+        self.appvm.features["preload-dispvm"] = (
+            self.dispvm.name + " " + self.dispvm_alt.name
+        )
+        with mock.patch.object(
+            self.dispvm, "is_running", return_value=True
+        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
+            self.appvm.template = self.template_alt
+        mock_remove.assert_called_once_with(0, reason=mock.ANY)
+        mock_events.assert_called_once_with(
+            "domain-preload-dispvm-start", reason=mock.ANY
+        )
+
+    @mock.patch("qubes.events.Emitter.fire_event_async")
+    @mock.patch(
+        "qubes.vm.mix.dvmtemplate.DVMTemplateMixin.remove_preload_excess"
+    )
+    def test_040_dvm_preload_set_template_for_dispvms(
+        self, mock_remove, mock_events
+    ):
+        # Remove preloads when disabling property.
+        mock_events.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = False
+        mock_events.assert_not_called()
+        mock_remove.assert_called_once_with(0, reason=mock.ANY)
+
+        # Disabling again does nothing.
+        mock_remove.reset_mock()
+        self.appvm.template_for_dispvms = False
+        mock_events.assert_not_called()
+        mock_remove.assert_not_called()
+
+        # Preload when enabling property.
+        self.appvm.features["preload-dispvm-max"] = "1"
+        mock_events.reset_mock()
+        mock_remove.reset_mock()
+        self.appvm.template_for_dispvms = True
+        mock_remove.assert_not_called()
+        mock_events.assert_called_once_with(
+            "domain-preload-dispvm-start", reason=mock.ANY
+        )
+
+        # Enabling again does nothing.
+        mock_events.reset_mock()
+        mock_remove.reset_mock()
+        self.appvm.template_for_dispvms = True
+        mock_remove.assert_not_called()
+        mock_events.assert_not_called()
+
+        # Try to disable property if it has dependents.
+        mock_events.reset_mock()
+        self.dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm",
+            template=self.appvm,
+            label="red",
+            dispid=42,
+        )
+        self.dispvm_alt = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm-alt",
+            template=self.appvm,
+            label="red",
+            dispid=43,
+        )
+        with self.assertRaises(qubes.exc.QubesVMInUseError):
+            self.appvm.template_for_dispvms = False
+            mock_remove.assert_not_called()
+            mock_events.assert_not_called()
+
+        # Disabling property when not all dependents are preloads
+        self.appvm.features["preload-dispvm-max"] = 1
+        self.appvm.features["preload-dispvm"] = self.dispvm.name
+        mock_events.reset_mock()
+        mock_remove.reset_mock()
+        with self.assertRaises(qubes.exc.QubesVMInUseError):
+            self.appvm.template_for_dispvms = False
+            mock_remove.assert_not_called()
+            mock_events.assert_not_called()
+
+        # Disabling property when all dependents are preloads
+        self.appvm.features["preload-dispvm-max"] = 2
+        mock_events.reset_mock()
+        mock_remove.reset_mock()
+        self.appvm.features["preload-dispvm"] = (
+            self.dispvm.name + " " + self.dispvm_alt.name
+        )
+        mock_events.reset_mock()
+        mock_remove.reset_mock()
+        del self.appvm.template_for_dispvms
+        mock_remove.assert_called_once_with(0, reason=mock.ANY)
+        mock_events.assert_not_called()
 
     def test_100_get_preload_templates(self):
         print(qubes.vm.dispvm.get_preload_templates(self.app))
