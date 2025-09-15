@@ -21,6 +21,7 @@
 #
 
 """This module contains the NetVMMixin"""
+
 import asyncio
 import ipaddress
 import os
@@ -397,9 +398,13 @@ class NetVMMixin(qubes.events.Emitter):
         vms
         """  # pylint: disable=unused-argument
 
-        connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
+        connected_vms = [
+            vm
+            for vm in self.connected_vms
+            if vm.is_running() and not getattr(vm, "is_preload", False)
+        ]
         if connected_vms and not force:
-            raise qubes.exc.QubesVMError(
+            raise qubes.exc.QubesVMInUseError(
                 self,
                 "There are other VMs connected to this VM: {}".format(
                     ", ".join(vm.name for vm in connected_vms)
