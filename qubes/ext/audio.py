@@ -69,10 +69,12 @@ class AUDIO(qubes.ext.Extension):
     @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
         attached_vms = [
-            domain for domain in self.attached_vms(vm) if domain.is_running()
+            domain
+            for domain in self.attached_vms(vm)
+            if domain.is_running() and not getattr(domain, "is_preload", False)
         ]
         if attached_vms and not kwargs.get("force", False):
-            raise qubes.exc.QubesVMError(
+            raise qubes.exc.QubesVMInUseError(
                 self,
                 "There are running VMs using this VM as AudioVM: "
                 "{}".format(", ".join(vm.name for vm in attached_vms)),

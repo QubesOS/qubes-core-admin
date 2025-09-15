@@ -511,7 +511,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     # The gap is filled after the delay set by the
                     # 'domain-shutdown' of its ancestors. Not refilling now to
                     # deliver a disposable faster.
-                    appvm.remove_preload_from_list([qube.name])
+                    appvm.remove_preload_from_list(
+                        [qube.name], reason="of outdated volume(s)"
+                    )
                     # Delay to not  affect this run.
                     asyncio.ensure_future(
                         qube.delay(delay=2, coros=[qube.cleanup()])
@@ -527,7 +529,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 # - Another request to this function will not return the same
                 #   qube.
                 dispvm.features["preload-dispvm-in-progress"] = True
-                appvm.remove_preload_from_list([dispvm.name])
+                appvm.remove_preload_from_list(
+                    [dispvm.name], reason="qube was requested"
+                )
                 dispvm.preload_requested = True
                 app.save()
                 timeout = int(dispvm.qrexec_timeout * 1.2)
@@ -603,7 +607,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.warning("Using a preloaded qube before requesting it")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
-            appvm.remove_preload_from_list([self.name])
+            appvm.remove_preload_from_list(
+                [self.name], reason="qube was used without being requested"
+            )
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
         asyncio.ensure_future(
@@ -620,8 +626,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def _preload_cleanup(self):
         """Cleanup preload from list"""
         if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
-            self.template.remove_preload_from_list([self.name])
+            self.template.remove_preload_from_list(
+                [self.name], reason="automatic cleanup was called"
+            )
 
     async def cleanup(self):
         """Clean up after the DispVM
