@@ -505,7 +505,7 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             b"vendor='ITL' name='Some untrusted garbage' devclass='bus' "
             b"backend_domain='vm' interfaces=' ******u03**01' "
             b"_additional_info='' _date='06.12.23' "
-            b"parent_ident='1-1.1' parent_devclass='None'"
+            b"parent_port_id='1-1.1' parent_devclass='bus'"
         )
         actual = DeviceInfo.deserialize(serialized, self.vm)
         expected = DeviceInfo(
@@ -519,6 +519,9 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
             additional_info="",
             date="06.12.23",
             device_id="0000:0000::?******",
+            parent=DeviceInfo(
+                Port(backend_domain=self.vm, port_id="1-1.1", devclass="bus")
+            ),
         )
 
         self.assertEqual(actual.backend_domain, expected.backend_domain)
