@@ -75,12 +75,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
         ]
         if preload_in_progress:
             changes = True
-            self.log.info(
-                "Removing in progress preloaded qube(s): '%s'",
-                ", ".join(map(str, preload_in_progress)),
-            )
             self.remove_preload_from_list(
-                [qube.name for qube in preload_in_progress]
+                [qube.name for qube in preload_in_progress],
+                reason="their progress was interrupted",
             )
             for dispvm in preload_in_progress:
                 asyncio.ensure_future(dispvm.cleanup())
@@ -114,7 +111,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     ):  # pylint: disable=unused-argument
         if self.is_global_preload_set():
             return
-        self.remove_preload_excess(0)
+        self.remove_preload_excess(0, reason="local feature was deleted")
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
@@ -140,6 +137,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self, event, feature, value, oldvalue=None
     ):  # pylint: disable=unused-argument
         if value == oldvalue:
+            return
+        if not getattr(self, "template_for_dispvms"):
             return
         if self.is_global_preload_set():
             return
@@ -217,34 +216,78 @@ class DVMTemplateMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         if newvalue:
             return
-        if any(self.dispvms):
-            raise qubes.exc.QubesVMInUseError(
-                self,
+        if not newvalue and not oldvalue:
+            return
+        dependencies = [
+            disp.name for disp in self.dispvms if not disp.is_preload
+        ]
+        if dependencies:
+            msg = (
                 "Cannot change template_for_dispvms to False while there are "
-                "some DispVMs based on this DVM template",
+                "DispVMs based on this DVM template",
             )
+            self.log.error("%s: %s", msg, ", ".join(dependencies))
+            raise qubes.exc.QubesVMInUseError(self, msg)
+        self.remove_preload_excess(
+            0, reason="template_for_dispvms was set to False"
+        )
 
     @qubes.events.handler("property-pre-del:template_for_dispvms")
     def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None):
         self.__on_pre_set_dvmtemplate(event, name, False, oldvalue)
+
+    @qubes.events.handler("property-set:template_for_dispvms")
+    def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if not newvalue:
+            return
+        if newvalue == oldvalue:
+            return
+        if not self.can_preload():
+            return
+        asyncio.ensure_future(
+            self.fire_event_async(
+                "domain-preload-dispvm-start",
+                reason="template_for_dispvms was set to True",
+            )
+        )
 
     @qubes.events.handler("property-pre-set:template")
     def __on_pre_property_set_template(
         self, event, name, newvalue, oldvalue=None
     ):
         # pylint: disable=unused-argument
-        for vm in self.dispvms:
-            if vm.is_running():
-                raise qubes.exc.QubesVMNotHaltedError(
-                    self,
-                    "Cannot change template while there are running DispVMs "
-                    "based on this DVM template",
-                )
+        if newvalue == oldvalue:
+            return
+        dependencies = [
+            disp.name
+            for disp in self.dispvms
+            if disp.is_running() and not disp.is_preload
+        ]
+        if dependencies:
+            msg = (
+                "Cannot change template while there are DispVMs running based "
+                "on this DVM template"
+            )
+            self.log.error("%s: %s", msg, ", ".join(dependencies))
+            raise qubes.exc.QubesVMInUseError(self, msg)
+        self.remove_preload_excess(0, reason="template will change")
 
     @qubes.events.handler("property-set:template")
     def __on_property_set_template(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
-        pass
+        if newvalue == oldvalue:
+            return
+        if not getattr(self, "template_for_dispvms"):
+            return
+        if not self.can_preload():
+            return
+        asyncio.ensure_future(
+            self.fire_event_async(
+                "domain-preload-dispvm-start",
+                reason="template has changed",
+            )
+        )
 
     @qubes.events.handler(
         "domain-preload-dispvm-used",
@@ -292,9 +335,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
             await asyncio.sleep(delay)
 
         if event == "autostart":
-            self.remove_preload_excess(0)
+            self.remove_preload_excess(0, reason="event autostart was called")
         elif not self.can_preload():
-            self.remove_preload_excess()
+            self.remove_preload_excess(reason="there may be absent qubes")
             # Absent qubes might be removed above.
             if not self.can_preload():
                 return
@@ -415,8 +458,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
             ):
                 continue
             outdated.append(qube)
-            self.remove_preload_from_list([qube.name])
         if outdated:
+            self.remove_preload_from_list(
+                [qube.name for qube in outdated], reason="of outdated volume(s)"
+            )
             tasks = [self.app.domains[qube].cleanup() for qube in outdated]
             asyncio.ensure_future(asyncio.gather(*tasks))
             # Delay to not overload the system with cleanup+preload.
@@ -428,7 +473,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 )
             )
 
-    def remove_preload_from_list(self, disposables: list[str]) -> None:
+    def remove_preload_from_list(
+        self, disposables: list[str], reason: Optional[str] = None
+    ) -> None:
         """Removes list of preload qubes from the list.
 
         :param list[str] disposables: disposable names to remove from list.
@@ -439,13 +486,16 @@ class DVMTemplateMixin(qubes.events.Emitter):
             qube for qube in old_preload if qube not in disposables
         ]
         if dispose := list(set(old_preload) - set(preload_dispvm)):
-            self.log.info(
-                "Removing qube(s) from preloaded list: '%s'",
-                ", ".join(dispose),
-            )
+            event_log = "Removing qube(s) from preloaded list"
+            if reason:
+                event_log += " because %s" % str(reason)
+            event_log += ": '%s'" % ", ".join(dispose)
+            self.log.info(event_log)
             self.features["preload-dispvm"] = " ".join(preload_dispvm or [])
 
-    def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
+    def remove_preload_excess(
+        self, max_preload: Optional[int] = None, reason: Optional[str] = None
+    ) -> None:
         """Removes preloaded qubes that exceeds the maximum."""
         assert isinstance(self, qubes.vm.BaseVM)
         if max_preload is None:
@@ -455,10 +505,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         new_preload = old_preload[:max_preload]
         if excess := old_preload[max_preload:]:
-            self.log.info(
-                "Removing excess qube(s) from preloaded list: '%s'",
-                ", ".join(excess),
-            )
+            event_log = "Removing excess qube(s) from preloaded list"
+            if reason:
+                event_log += " because %s" % str(reason)
+            event_log += ": '%s'" % ", ".join(excess)
+            self.log.info(event_log)
             self.features["preload-dispvm"] = " ".join(new_preload or [])
             for unwanted_disp in excess:
                 if unwanted_disp in self.app.domains:
