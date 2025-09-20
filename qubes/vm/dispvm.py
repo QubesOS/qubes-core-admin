@@ -419,14 +419,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Paused preloaded qube")
 
     @qubes.events.handler("domain-unpaused")
-    def on_domain_unpaused(
+    async def on_domain_unpaused(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
         """Mark preloaded disposables as used."""
         # Qube start triggers unpause via 'libvirt_domain.resume()'.
         if self.is_preload and self.is_fully_usable():
             self.log.info("Unpaused preloaded qube will be marked as used")
-            self.use_preload()
+            await self.use_preload()
 
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(self, _event, **_kwargs):
@@ -547,7 +547,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     if dispvm.is_paused():
                         await dispvm.unpause()
                     else:
-                        dispvm.use_preload()
+                        await dispvm.use_preload()
                     app.save()
                     return dispvm
                 except asyncio.TimeoutError:
@@ -585,7 +585,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         app.save()
         return dispvm
 
-    def use_preload(self):
+    async def use_preload(self):
         """
         Marks preloaded DispVM as used (tainted).
 
@@ -598,6 +598,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
+            await self.apply_deferred_netvm()
             self.preload_requested = None
             del self.features["preload-dispvm-in-progress"]
         else:
@@ -605,6 +606,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.warning("Using a preloaded qube before requesting it")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
+            await self.apply_deferred_netvm()
             appvm.remove_preload_from_list([self.name])
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
