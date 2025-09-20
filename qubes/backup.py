@@ -28,6 +28,7 @@ import grp
 import itertools
 import logging
 import os
+from pathlib import Path
 import pwd
 import shutil
 import stat
@@ -452,6 +453,15 @@ class Backup:
         if 0 in [vm.qid for vm in self.vms_for_backup]:
             local_user = grp.getgrnam("qubes").gr_mem[0]
             home_dir = pwd.getpwnam(local_user).pw_dir
+
+            # Checking if target is not user home directory in dom0
+            if self.target_dir in ["", "~"] or Path(
+                self.target_dir
+            ).is_relative_to(home_dir):
+                raise qubes.exc.QubesException(
+                    "Can not backup dom0 home directory to itself!"
+                )
+
             # Home dir should have only user-owned files, so fix it now
             # to prevent permissions problems - some root-owned files can
             # left after 'sudo bash' and similar commands
