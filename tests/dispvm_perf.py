@@ -2,8 +2,7 @@
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
-# Copyright (C) 2025 Marek Marczykowski-Górecki
-#                           <marmarek@invisiblethingslab.com>
+# Copyright (C) 2025 Benjamin Grande <ben.grande.b@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -21,9 +20,31 @@
 """
 Test disposable qube call latency
 
-The tests report call latency in seconds (float) in the second field. The
-remaining fields are key=value pairs of the test configuration and call
-results.
+Methodology:
+    - Source must be up and running
+    - Target must be up and running if:
+        - if it is the first batch of preloaded disposables; or
+        - it is not a disposable.
+
+Reading:
+    - Different data points may be used differently. Keys such as "iterations",
+      "hcl-*" and "os-*" can be used to enforce comparison to happen only
+      against the same system. In some circumstances, keys such as
+      "os-version", "kernel" and "date" can be used to compare against
+      different version across time.
+    - Some results may be skewed, "mean and "median" is useful when the test is
+      stable, as they will be very close to each other. If the test is not
+      stable, "mean" and "median" can be very similar, therefore it is
+      recommended to render line graphs per iteration or a distribution graph
+      for a better analysis.
+    - The "median" is skewed on concurrent tests as it doesn't consider the
+      bursts of concurrency. Using "mean" and "total" is recommended.
+    - On preload tests, "mean" and "median" is relevant when iterations is
+      higher than the number of preloaded disposables, as it will represent the
+      average. This average is not the best metric when measuring workflows
+      that are spread out, such as clicking on app menus, where just a few
+      requests are made. The best metric for this use case is the data points
+      of the initial iterations.
 """
 
 import argparse
@@ -72,20 +93,30 @@ class TestConfig:
     :param int preload_max: number of disposables to preload
     :param bool non_dispvm: target a non disposable qube
     :param bool admin_api: use the Admin API directly
-    :param bool extra_id: base test that extra ID varies from
+    :param str extra_id: base test that extra ID varies from
+    :param str pretty_name: human-readable name
 
     Notes
     -----
     Source-Target:
-        - dom0-dispvm:
-            - qvm-run: Menu items and scripts.
+        - dom0-dispvm: Menu items, management scripts
+        - vm-dispvm: Offloading dangerous operations to disposable,
+          opening/sanitizing files, fetching web pages, building.
+        - *-vm: Fast way to test if the tests are working.
             - qubesadmin: Raw call to measure phases. Doesn't represent the
               most realistic output as users would most likely interact with it
               via wrappers such as qvm-run.
         - vm-dispvm:
             - qrexec-client-vm: scripts
-        - *-vm: Fast way to test if the tests are working.
-            -
+    Wrappers vs API
+        - Wrappers represent the most realistic output as users normally
+          interact with if for common use cases, such as clicking on the app
+          menu (qvm-run) or opening file in a disposable (qrexec-client-vm).
+        - API calls are made directly with qubesadmin, but it doesn't represent
+          the most realistic output as users would most likely interact with it
+          via wrappers. Calls are only made from dom0, it would require deeper
+          setup (install package on templates, configure Qrexec policy) to
+          allow a domU to be the source of API calls.
     GUI VS non-GUI:
         - GUI tests workflows that uses disposables to open untrusted files or
           programs that requires graphics. Instead of relying on what xdg-open
@@ -115,6 +146,62 @@ class TestConfig:
     non_dispvm: bool = False
     admin_api: bool = False
     extra_id: str = ""
+    pretty_name: str = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        if self.admin_api:
+            pretty_type = "API"
+        elif self.from_dom0:
+            pretty_type = "qvm-run"
+        else:
+            pretty_type = "qrexec-client-vm"
+
+        if self.from_dom0:
+            pretty_from = "dom0"
+        else:
+            pretty_from = "qube"
+
+        if self.concurrent:
+            pretty_strategy = "{} concurrent".format(MAX_CONCURRENCY)
+        else:
+            pretty_strategy = ""
+
+        if self.gui:
+            pretty_what = "GUI"
+        else:
+            pretty_what = "simple"
+
+        if self.non_dispvm:
+            pretty_to = "in another running qube"
+        else:
+            disp_suffix = ""
+            disp_prefix = "a "
+            if self.preload_max:
+                disp_prefix = ""
+                disp_suffix = "s"
+                if self.preload_max > 1:
+                    disp_suffix = "s"
+                pretty_to = "in {}disposable{} ({} preloaded)".format(
+                    disp_prefix, disp_suffix, self.preload_max
+                )
+            else:
+                if self.concurrent:
+                    disp_prefix = ""
+                    disp_suffix = "s"
+                pretty_to = "in {}disposable{}".format(disp_prefix, disp_suffix)
+
+        pretty_name = "{} runs".format(pretty_from.capitalize())
+        if pretty_strategy:
+            pretty_name += " {}".format(pretty_strategy)
+        if pretty_what:
+            app_suffix = ""
+            if self.concurrent:
+                app_suffix = "s"
+            pretty_name += " {} app{} ".format(pretty_what, app_suffix)
+        pretty_name += "{}".format(pretty_to)
+        if pretty_type:
+            pretty_name += " ({})".format(pretty_type)
+        self.pretty_name = pretty_name
 
 
 POLICY_FILE = "/run/qubes/policy.d/10-test-dispvm-perf.policy"
@@ -123,10 +210,10 @@ POLICY_FILE = "/run/qubes/policy.d/10-test-dispvm-perf.policy"
 # "dispvm-preload(-(more|less))-api" (tested on fedora-42-xfce). Machines with
 # different hardware or domains that boot faster or slower can theoretically
 # have a different best value.
-MAX_PRELOAD = 2
+MAX_PRELOAD = 4
 # The preload number is set to MAX_CONCURRENCY on concurrent calls. This number
 # is also used by non preloaded disposables to set the maximum workers/jobs.
-MAX_CONCURRENCY = MAX_PRELOAD * 2
+MAX_CONCURRENCY = 4
 # A value that is not too short that would impact accuracy and not too long to
 # burn OpenQA. It is a multiple of MAX_CONCURRENCY so there is no remainder
 # when using concurrency.
@@ -136,109 +223,148 @@ ITERATIONS = MAX_CONCURRENCY * 3
 ROUND_PRECISION = 3
 
 ALL_TESTS = [
-    TestConfig("vm", non_dispvm=True),
-    TestConfig("vm-gui", gui=True, non_dispvm=True),
-    TestConfig("vm-concurrent", concurrent=True, non_dispvm=True),
-    TestConfig("vm-gui-concurrent", gui=True, concurrent=True, non_dispvm=True),
-    TestConfig("vm-api", non_dispvm=True, admin_api=True),
-    TestConfig("vm-gui-api", gui=True, non_dispvm=True, admin_api=True),
+    TestConfig("vm-vm", non_dispvm=True),
+    TestConfig("vm-vm-gui", gui=True, non_dispvm=True),
+    TestConfig("vm-vm-concurrent", concurrent=True, non_dispvm=True),
     TestConfig(
-        "vm-concurrent-api", concurrent=True, non_dispvm=True, admin_api=True
+        "vm-vm-gui-concurrent", gui=True, concurrent=True, non_dispvm=True
+    ),
+    TestConfig("dom0-vm-api", non_dispvm=True, admin_api=True, from_dom0=True),
+    TestConfig(
+        "dom0-vm-gui-api",
+        gui=True,
+        non_dispvm=True,
+        admin_api=True,
+        from_dom0=True,
     ),
     TestConfig(
-        "vm-gui-concurrent-api",
+        "dom0-vm-concurrent-api",
+        concurrent=True,
+        non_dispvm=True,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-vm-gui-concurrent-api",
         gui=True,
         concurrent=True,
         non_dispvm=True,
         admin_api=True,
+        from_dom0=True,
     ),
-    TestConfig("dispvm"),
-    TestConfig("dispvm-gui", gui=True),
-    TestConfig("dispvm-concurrent", concurrent=True),
-    TestConfig("dispvm-gui-concurrent", gui=True, concurrent=True),
-    TestConfig("dispvm-dom0", from_dom0=True),
-    TestConfig("dispvm-dom0-gui", gui=True, from_dom0=True),
-    TestConfig("dispvm-dom0-concurrent", concurrent=True, from_dom0=True),
+    TestConfig("vm-dispvm"),
+    TestConfig("vm-dispvm-gui", gui=True),
+    TestConfig("vm-dispvm-concurrent", concurrent=True),
+    TestConfig("vm-dispvm-gui-concurrent", gui=True, concurrent=True),
+    TestConfig("dom0-dispvm", from_dom0=True),
+    TestConfig("dom0-dispvm-gui", gui=True, from_dom0=True),
+    TestConfig("dom0-dispvm-concurrent", concurrent=True, from_dom0=True),
     TestConfig(
-        "dispvm-dom0-gui-concurrent", gui=True, concurrent=True, from_dom0=True
+        "dom0-dispvm-gui-concurrent", gui=True, concurrent=True, from_dom0=True
     ),
-    TestConfig("dispvm-preload", preload_max=MAX_PRELOAD),
-    TestConfig("dispvm-preload-gui", gui=True, preload_max=MAX_PRELOAD),
+    TestConfig("vm-dispvm-preload", preload_max=MAX_PRELOAD),
+    TestConfig("vm-dispvm-preload-gui", gui=True, preload_max=MAX_PRELOAD),
     TestConfig(
-        "dispvm-preload-concurrent",
+        "vm-dispvm-preload-concurrent",
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
     ),
     TestConfig(
-        "dispvm-preload-gui-concurrent",
+        "vm-dispvm-preload-gui-concurrent",
         gui=True,
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
     ),
-    TestConfig("dispvm-preload-dom0", from_dom0=True, preload_max=MAX_PRELOAD),
+    TestConfig("dom0-dispvm-preload", from_dom0=True, preload_max=MAX_PRELOAD),
     TestConfig(
-        "dispvm-preload-dom0-gui",
+        "dom0-dispvm-preload-gui",
         gui=True,
         from_dom0=True,
         preload_max=MAX_PRELOAD,
     ),
     TestConfig(
-        "dispvm-preload-dom0-concurrent",
+        "dom0-dispvm-preload-concurrent",
         concurrent=True,
         from_dom0=True,
         preload_max=MAX_CONCURRENCY,
     ),
     TestConfig(
-        "dispvm-preload-dom0-gui-concurrent",
+        "dom0-dispvm-preload-gui-concurrent",
         gui=True,
         concurrent=True,
         from_dom0=True,
         preload_max=MAX_CONCURRENCY,
     ),
-    TestConfig("dispvm-api", admin_api=True),
+    TestConfig("dom0-dispvm-api", admin_api=True, from_dom0=True),
     TestConfig(
-        "dispvm-concurrent-api",
+        "dom0-dispvm-concurrent-api",
         concurrent=True,
         admin_api=True,
+        from_dom0=True,
     ),
-    TestConfig("dispvm-gui-api", gui=True, admin_api=True),
+    TestConfig("dom0-dispvm-gui-api", gui=True, admin_api=True, from_dom0=True),
     TestConfig(
-        "dispvm-gui-concurrent-api",
+        "dom0-dispvm-gui-concurrent-api",
         gui=True,
         concurrent=True,
         admin_api=True,
+        from_dom0=True,
     ),
     TestConfig(
-        "dispvm-preload-more-api",
-        preload_max=MAX_PRELOAD + 1,
+        "dom0-dispvm-preload-less-less-api",
+        preload_max=MAX_PRELOAD - 2,
         admin_api=True,
         extra_id="dispvm-preload-api",
+        from_dom0=True,
     ),
     TestConfig(
-        "dispvm-preload-less-api",
+        "dom0-dispvm-preload-less-api",
         preload_max=MAX_PRELOAD - 1,
         admin_api=True,
         extra_id="dispvm-preload-api",
+        from_dom0=True,
     ),
-    TestConfig("dispvm-preload-api", preload_max=MAX_PRELOAD, admin_api=True),
     TestConfig(
-        "dispvm-preload-concurrent-api",
+        "dom0-dispvm-preload-api",
+        preload_max=MAX_PRELOAD,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-concurrent-api",
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
         admin_api=True,
+        from_dom0=True,
     ),
     TestConfig(
-        "dispvm-preload-gui-api",
+        "dom0-dispvm-preload-more-api",
+        preload_max=MAX_PRELOAD + 1,
+        admin_api=True,
+        extra_id="dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-more-more-api",
+        preload_max=MAX_PRELOAD + 2,
+        admin_api=True,
+        extra_id="dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-gui-api",
         gui=True,
         preload_max=MAX_PRELOAD,
         admin_api=True,
+        from_dom0=True,
     ),
     TestConfig(
-        "dispvm-preload-gui-concurrent-api",
+        "dom0-dispvm-preload-gui-concurrent-api",
         gui=True,
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
         admin_api=True,
+        from_dom0=True,
     ),
 ]
 
@@ -286,6 +412,8 @@ class TestRun:
         self.app = self.dom0.app
         self.adminvm = self.dom0
         self.iterations = ITERATIONS
+        self.gui_service = "qubes.WaitForSession"
+        self.nogui_service = "qubes.WaitForRunningSystem"
 
     async def wait_preload(
         self,
@@ -344,9 +472,9 @@ class TestRun:
 
     def run_latency_calls(self, test):
         if test.gui:
-            service = "qubes.WaitForSession"
+            service = self.gui_service
         else:
-            service = "qubes.WaitForRunningSystem"
+            service = self.nogui_service
 
         if test.concurrent:
             term = "&"
@@ -366,9 +494,10 @@ class TestRun:
             cmd = f"{caller} -- {service}"
         else:
             if test.non_dispvm:
-                cmd = f"qrexec-client-vm -- {self.vm2.name} {service}"
+                target = self.vm2.name
             else:
-                cmd = f"qrexec-client-vm -- @dispvm {service}"
+                target = "@dispvm"
+            cmd = f"qrexec-client-vm -- {target} {service}"
 
         code = (
             "set -eu --; "
@@ -477,11 +606,11 @@ class TestRun:
             all_results = await asyncio.gather(*tasks)
         return all_results
 
-    def run_latency_api_calls(self, test):
+    async def run_latency_api_calls(self, test):
         if test.gui:
-            service = "qubes.WaitForSession"
+            service = self.gui_service
         else:
-            service = "qubes.WaitForRunningSystem"
+            service = self.nogui_service
         if test.non_dispvm:
             qube = self.vm2
         else:
@@ -493,14 +622,18 @@ class TestRun:
         results["api_results"]["stage"] = {}
         start_time = get_time()
         if test.concurrent:
-            all_results = asyncio.run(self.api_thread(test, service, qube))
+            all_results = await self.api_thread(test, service, qube)
             for i in range(1, self.iterations + 1):
                 results["api_results"]["iteration"][i] = all_results[i - 1]
         else:
             for i in range(1, self.iterations + 1):
-                results["api_results"]["iteration"][i] = self.call_api(
-                    test=test, service=service, qube=qube
-                )
+                try:
+                    results["api_results"]["iteration"][i] = self.call_api(
+                        test=test, service=service, qube=qube
+                    )
+                except:
+                    logger.critical("Failed call_api() on iteration %d", i)
+                    raise
         end_time = get_time()
 
         sample_keys = list(results["api_results"]["iteration"][1].keys())
@@ -634,10 +767,10 @@ class TestRun:
         with open(results_file, "w", encoding="ascii") as file:
             json.dump(data_final, file, indent=2)
 
-    def run_test(self, test: TestConfig):
+    async def run_test(self, test: TestConfig):
         with open(POLICY_FILE, "w", encoding="ascii") as policy:
-            gui_prefix = f"qubes.WaitForSession * {self.vm1.name}"
-            nogui_prefix = f"qubes.WaitForRunningSystem * {self.vm1.name}"
+            gui_prefix = f"{self.gui_service} * {self.vm1.name}"
+            nogui_prefix = f"{self.nogui_service} * {self.vm1.name}"
             if test.non_dispvm:
                 target = f"{self.vm2.name}"
             else:
@@ -661,19 +794,22 @@ class TestRun:
                 preload_max = test.preload_max
                 logger.info("Setting local max feature: '%s'", preload_max)
                 self.dvm.features["preload-dispvm-max"] = str(preload_max)
-                asyncio.run(self.wait_preload(preload_max))
+                await self.wait_preload(preload_max)
             for qube in [self.vm1, self.vm2]:
                 if not qube:
                     # Might be an empty string.
                     continue
                 logger.info(
-                    "Waiting for VM '%s' to finish startup",
+                    "Waiting for qube '%s' to finish startup",
                     qube.name,
                 )
-                qube.run_service_for_stdio("qubes.WaitForSession", timeout=60)
+                # GUI wait for user is-system-running while noGUI service waits
+                # for system is-system-running.
+                qube.run_service_for_stdio(self.nogui_service, timeout=60)
+                qube.run_service_for_stdio(self.gui_service, timeout=60)
             logger.info("Load before test: '%s'", get_load())
             if test.admin_api:
-                result = self.run_latency_api_calls(test)
+                result = await self.run_latency_api_calls(test)
             else:
                 result = self.run_latency_calls(test)
             self.report_result(test, result)
@@ -689,7 +825,7 @@ class TestRun:
                     "Waiting to preload the old test setting: '%s'",
                     old_preload_max,
                 )
-                asyncio.run(self.wait_preload(old_preload_max))
+                await self.wait_preload(old_preload_max)
                 old_preload = self.dvm.features.get("preload-dispvm", "")
                 old_preload = old_preload.split(" ") or []
                 logger.info("Deleting local max feature")
@@ -728,7 +864,10 @@ def main():
         epilog="You can set QUBES_TEST_PERF_FILE env variable to a path where "
         "machine-readable results should be saved. If you want to share a "
         "detailed result containing hardware information, set "
-        "QUBES_TEST_PERF_HWINFO to a non empty value."
+        "QUBES_TEST_PERF_HWINFO to a non empty value. Many qubes will be "
+        "created if running a lot of these tests, it is recommended to disable "
+        "LVM archiving in backup.archive in /etc/lvm/lvm.conf and restart "
+        "lvm2-monitor.service, else tests may fail."
     )
     parser.add_argument("--dvm", required=True)
     parser.add_argument("--vm1", required=True)
@@ -757,8 +896,8 @@ def main():
         run.iterations = args.iterations
 
     for test in tests:
-        logger.info("Running test '%s'", test.name)
-        run.run_test(test)
+        logger.info("Running test %s: %s", test.name, test.pretty_name)
+        asyncio.run(run.run_test(test))
 
 
 if __name__ == "__main__":
