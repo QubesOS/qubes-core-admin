@@ -29,6 +29,8 @@ import shutil
 import sys
 
 import asyncio
+import grp
+import pwd
 
 import qubes
 import qubes.backup
@@ -198,7 +200,9 @@ class BackupTestsMixin(object):
         if target is None:
             target = self.backupdir
         try:
-            backup = qubes.backup.Backup(self.app, vms, **kwargs)
+            backup = qubes.backup.Backup(
+                self.app, vms, target_dir=target, **kwargs
+            )
         except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_prepare: %s" % str(e))
@@ -207,7 +211,6 @@ class BackupTestsMixin(object):
 
         if "passphrase" not in kwargs:
             backup.passphrase = "qubes"
-        backup.target_dir = target
 
         try:
             self.loop.run_until_complete(backup.backup_do())
@@ -574,6 +577,21 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
         self.backupdir = "/var/tmp/test-backup"
         self.make_backup([self.app.domains[0]])
         # TODO: think of some safe way to test restore...
+
+    def test_101_backup_dom0_to_dom0_home(self):
+        # Assure backing up dom0 to dom0 home itself is refused...
+        local_user = grp.getgrnam("qubes").gr_mem[0]
+        home_dir = pwd.getpwnam(local_user).pw_dir
+        with self.assertRaises(qubes.exc.QubesException):
+            self.make_backup(
+                [self.app.domains[0]], target=home_dir, expect_failure=True
+            )
+        with self.assertRaises(qubes.exc.QubesException):
+            self.make_backup(
+                [self.app.domains[0]],
+                target=os.path.join(home_dir, "somedir"),
+                expect_failure=True,
+            )
 
     def test_200_restore_over_existing_directory(self):
         """
