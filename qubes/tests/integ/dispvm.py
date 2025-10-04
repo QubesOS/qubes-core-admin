@@ -3,6 +3,7 @@
 #
 # Copyright (C) 2016 Marek Marczykowski-Górecki
 #                                        <marmarek@invisiblethingslab.com>
+# Copyright (C) 2025 Benjamin Grande <ben.grande.b@gmail.com>
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -57,6 +58,8 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         )
         self.loop.run_until_complete(self.disp_base.create_on_disk())
         self.disp_base.template_for_dispvms = True
+        self.loop.run_until_complete(self.start_vm(self.disp_base))
+        self.shutdown_and_wait(self.disp_base)
         self.app.default_dispvm = self.disp_base
         self.testvm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -220,6 +223,16 @@ class TC_20_DispVMMixin(object):
             template_for_dispvms=True,
         )
         self.loop.run_until_complete(self.disp_base_alt.create_on_disk())
+        start_tasks = [
+            self.start_vm(self.disp_base),
+            self.start_vm(self.disp_base_alt),
+        ]
+        shutdown_tasks = [
+            self.disp_base.shutdown(wait=True),
+            self.disp_base_alt.shutdown(wait=True),
+        ]
+        self.loop.run_until_complete(asyncio.gather(*start_tasks))
+        self.loop.run_until_complete(asyncio.gather(*shutdown_tasks))
         # Setting "default_dispvm" fires the preload event before patches of
         # each test function is applied.
         if "_preload_" not in self._testMethodName:
