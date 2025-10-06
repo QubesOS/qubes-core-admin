@@ -44,6 +44,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.app = mock.NonCallableMock()
         self.dom0 = mock.NonCallableMock(spec=qubes.vm.adminvm.AdminVM)
         self.dom0.name = "dom0"
+        self.dom0.klass = "AdminVM"
         self.dom0.features = {}
         self.domains = {
             "dom0": self.dom0,
@@ -88,17 +89,24 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def test_000_suspend_pre(self):
         running_vm = self.create_mockvm(features={"qrexec": True})
         running_vm.is_running.return_value = True
+        running_vm.klass = "AppVM"
 
-        not_running_vm = self.create_mockvm(features={"qrexec": True})
+        not_running_vm = self.create_mockvm(
+            features={"qrexec": True, "preload-dispvm-max": "1"}
+        )
         not_running_vm.is_running.return_value = False
+        not_running_vm.template_for_dispvms = True
+        not_running_vm.klass = "AppVM"
 
         no_qrexec_vm = self.create_mockvm()
         no_qrexec_vm.is_running.return_value = True
+        no_qrexec_vm.klass = "AppVM"
 
         paused_vm = self.create_mockvm(features={"qrexec": True})
         paused_vm.is_running.return_value = True
         paused_vm.get_power_state.return_value = "Paused"
         paused_vm.name = "SleepingBeauty"
+        paused_vm.klass = "AppVM"
 
         self.domains.update(
             {
@@ -113,8 +121,11 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             qubes.api.internal,
             "PREVIOUSLY_PAUSED",
             "/tmp/qubes-previously-paused.tmp",
-        ):
+        ), mock.patch.object(
+            not_running_vm, "remove_preload_excess"
+        ) as mock_remove:
             ret = self.call_mgmt_func(b"internal.SuspendPre")
+            mock_remove.assert_called_once_with(0, reason=mock.ANY)
         self.assertIsNone(ret)
         self.assertFalse(self.dom0.called)
 
