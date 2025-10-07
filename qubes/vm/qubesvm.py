@@ -439,6 +439,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             Fired when the domain has been unpaused.
 
+            Handler for this event may be asynchronous.
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-unpaused'``)
 
@@ -1161,6 +1163,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # start(). This should not be accessed anywhere else.
         self._domain_stopped_lock = asyncio.Lock()
 
+        self.skip_unpause_event = None
+
         if xml is None:
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, "qid")
@@ -1531,7 +1535,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.fire_event_async(
                     "domain-pre-unpaused", pre_event=True
                 )
+                self.skip_unpause_event = True
                 self.libvirt_domain.resume()
+                await self.fire_event_async("domain-unpaused")
 
                 if (
                     self.virt_mode == "hvm"
@@ -1790,7 +1796,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise qubes.exc.QubesVMNotPausedError(self)
 
         await self.fire_event_async("domain-pre-unpaused", pre_event=True)
+        self.skip_unpause_event = True
         self.libvirt_domain.resume()
+        await self.fire_event_async("domain-unpaused")
 
         return self
 
