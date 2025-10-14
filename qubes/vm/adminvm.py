@@ -116,6 +116,9 @@ class AdminVM(LocalVM):
 
         .. seealso:
            :py:attr:`qubes.vm.qubesvm.QubesVM.xid`
+
+        :return: 0
+        :rtype: int
         """
         return 0
 
@@ -351,7 +354,16 @@ class AdminVM(LocalVM):
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-threshold")
     def on_feature_pre_set_preload_dispvm_threshold(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        Before accepting the ``preload-dispvm-threshold`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         value = value or "0"
         if not value.isdigit():
             raise qubes.exc.QubesValueError(
@@ -359,9 +371,16 @@ class AdminVM(LocalVM):
             )
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
-    def on_feature_delete_preload_dispvm_max(
-        self, event, feature
-    ):  # pylint: disable=unused-argument
+    def on_feature_delete_preload_dispvm_max(self, event, feature):
+        """
+        On deletion of the ``preload-dispvm-max`` feature, fire
+        ``domain-preload-dispvm-start`` event on the system's
+        ``default_dispvm``.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        """
+        # pylint: disable=unused-argument
         if not (appvm := getattr(self.app, "default_dispvm", None)):
             return
         reason = "global feature was deleted"
@@ -372,7 +391,16 @@ class AdminVM(LocalVM):
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        Before accepting the ``preload-dispvm-max`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         if value == oldvalue:
             return
         if not (appvm := getattr(self.app, "default_dispvm", None)):
@@ -388,7 +416,18 @@ class AdminVM(LocalVM):
     @qubes.events.handler("domain-feature-set:preload-dispvm-max")
     def on_feature_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        After setting the ``preload-dispvm-max`` feature, fire
+        ``domain-preload-dispvm-start`` event on the system's
+        ``default_dispvm``.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         if value == oldvalue:
             return
         if not (appvm := getattr(self.app, "default_dispvm", None)):

@@ -1391,7 +1391,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             await self._ensure_shutdown_handled()
 
-            prohibit_rationale: str = self.features.get("prohibit-start", False)
+            prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
                 await self.fire_event_async(
                     "domain-start-failed",
@@ -2097,7 +2097,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     def set_mem(self):
         """
-        Balloon to mem_pref.
+        Balloon qube to preferred memory, which is just enough for it to be
+        running without problems.
         """
         if not qmemman_present or self.maxmem == 0:
             return None
@@ -2923,6 +2924,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return qubes.qmemman.algo.pref_mem(domain) / 1024
 
     async def delay(self, delay: float | int, coros: list[Awaitable]) -> None:
+        """
+        Delay awaitables gathering until the delay is met.
+
+        :param float|int delay: Delay in seconds (can be fractional).
+        :param list[Awaitable] coros: Awaitables to gather.
+        """
         self.log.debug(
             "Scheduled awaitables to run after '%s' seconds: %s",
             f"{delay:.1f}",

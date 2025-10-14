@@ -261,8 +261,6 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     async def suspend_pre(self):
         """
         Method called before host system goes to sleep.
-
-        :return:
         """
 
         preload_templates = qubes.vm.dispvm.get_preload_templates(self.app)
@@ -346,8 +344,6 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     async def suspend_post(self):
         """
         Method called after host system wake up from sleep.
-
-        :return:
         """
 
         # Reload list of previously paused qubes before suspending

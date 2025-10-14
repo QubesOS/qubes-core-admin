@@ -110,6 +110,10 @@ class TemplateVM(QubesVM):
 
     @qubes.events.handler("domain-shutdown")
     async def on_template_domain_shutdown(self, _event, **_kwargs):
+        """
+        On template shutdown, refresh preloaded disposables as their volumes
+        are outdated.
+        """
         appvms = [
             qube
             for qube in self.app.domains

@@ -18,11 +18,14 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-"""A disposable vm implementation"""
+"""
+A disposable qube implementation
+"""
 
 import asyncio
 import copy
 import subprocess
+from typing import Optional
 
 import qubes.config
 import qubes.vm.appvm
@@ -35,19 +38,33 @@ def _setter_template(self, prop, value):
             self,
             prop,
             value,
-            "template for DispVM must have template_for_dispvms=True",
+            "template for disposable must have template_for_dispvms=True",
         )
     return value
 
 
 # Keep in sync with linux/aux-tools/preload-dispvm
 def get_preload_max(qube) -> int | None:
+    """
+    Get the ``preload-dispvm-max`` feature as an integer.
+
+    :param qubes.vm.qubes.QubesVM qube: Qube to query the feature from.
+    :rtype: int | None
+    """
     value = qube.features.get("preload-dispvm-max", None)
     return int(value) if value else value
 
 
 # Keep in sync with linux/aux-tools/preload-dispvm
 def get_preload_templates(app) -> list:
+    """
+    Get all disposable templates that have the ``preload-dispvm-max`` feature
+    greater than 0, either directly or indirectly by being the global
+    default_dispvm and dom0 has the feature enabled.
+
+    :param qubes.app.Qubes app: Qubes application.
+    :rtype: list
+    """
     domains = app.domains
     default_dispvm = getattr(app, "default_dispvm", None)
     global_max = get_preload_max(domains["dom0"])
@@ -70,10 +87,55 @@ def get_preload_templates(app) -> list:
 
 
 class DispVM(qubes.vm.qubesvm.QubesVM):
-    """Disposable VM
+    """
+    Disposable qube.
 
-    Preloading
-    ----------
+    Disposable behavior
+    -------------------
+    A :term:`disposable template` is a qube which has the :py:class:`AppVM
+    <qubes.vm.appvm.AppVM>` class and the :py:attr:`template_for_dispvms
+    <qubes.vm.mix.dvmtemplate.DVMTemplateMixin.template_for_dispvms>` property
+    enabled, being a :py:class:`DVMTemplateMixin
+    <qubes.vm.mix.dvmtemplate.DVMTemplateMixin>`.
+
+    A :term:`disposable` is a qube with the :py:class:`DispVM
+    <qubes.vm.dispvm.DispVM>` class and is based on a disposable template.
+    Every disposable type has all of its volumes configured to disable
+    :py:attr:`save_on_stop <qubes.storage.Volume.save_on_stop>`, therefore no
+    changes are saved on shutdown. Unnamed disposables enables the property
+    :py:attr:`auto_cleanup <qubes.vm.dispvm.DispVM.auto_cleanup>` by default,
+    thus automatically removes the qube upon shutdown.
+
+    Named disposables are useful for service qubes, as referencing static names
+    is easier when the qube name is mentioned on Qrexec policies
+    (:file:`qubes.UpdatesProxy` target) or as a property of another qube, such
+    as a disposable :term:`net qube` which is referenced by downstream clients
+    in the ``netvm`` property.
+
+    Unnamed disposables have their names in the format :samp:`disp{1234}`,
+    where :samp:`{1234}` is derived from the :py:attr:`dispid
+    <qubes.vm.dispvm.DispVM.dispid>` property, a random integer ranging from 0
+    to 9999 with a fail-safe mechanism to avoid reusing the same value in a
+    short period.
+
+    The system and every qube can have the :py:attr:`default_dispvm
+    <qubes.vm.dispvm.DispVM.default_dispvm>` property. If the qube property is
+    set to the default value, it will use the system's property.  This property
+    can only have disposable template as value or an empty value.  Qubes which
+    have this property set are allowed to request the creation of a disposable
+    from this property. An exception to the rule is the property of
+    disposables, which always default to their disposables templates to avoid
+    data leaks such as using unintended network paths.
+
+    There are some Qrexec services that which allows execution to disposables
+    created from the :py:attr:`default_dispvm
+    <qubes.vm.dispvm.DispVM.default_dispvm>` property when the destination qube
+    of the Qrexec field uses the :doc:`@dispvm <core-qrexec:qrexec-policy>`
+    tag, most commonly used to open files and URLs, (:file:`qubes.OpenInVM` and
+    :file:`qubes.OpenURL`, respectively).
+
+    Preload queue
+    -------------
     Preloaded disposables are started in the background and kept hidden from the
     user when not in use. They are interrupted (paused or suspended, as
     appropriate) and resumed (transparently) when a disposable qube is requested
@@ -160,7 +222,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "template",
         load_stage=4,
         setter=_setter_template,
-        doc="AppVM, on which this DispVM is based.",
+        doc="AppVM, on which this disposable is based.",
     )
 
     dispid = qubes.property(
@@ -168,14 +230,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         type=int,
         write_once=True,
         clone=False,
-        doc="""Internal, persistent identifier of particular DispVM.""",
+        doc="Internal, persistent identifier of particular disposable.",
     )
 
     auto_cleanup = qubes.property(
         "auto_cleanup",
         type=bool,
         default=False,
-        doc="automatically remove this VM upon shutdown",
+        doc="automatically remove this qube upon shutdown",
     )
 
     include_in_backups = qubes.property(
@@ -190,7 +252,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         load_stage=4,
         allow_none=True,
         default=(lambda self: self.template),
-        doc="Default VM to be used as Disposable VM for service calls.",
+        doc="Default disposable template to be used for service calls.",
     )
 
     default_volume_config = {
@@ -224,7 +286,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         },
     }
 
-    def __init__(self, app, xml, *args, **kwargs):
+    def __init__(self, app, xml, *args, **kwargs) -> None:
+        assert isinstance(self, qubes.vm.BaseVM)
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
         self.preload_complete = asyncio.Event()
@@ -234,7 +297,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
             if not getattr(template, "template_for_dispvms", False):
                 raise qubes.exc.QubesValueError(
-                    "template for DispVM ({}) needs to be an AppVM with "
+                    "template for disposable ({}) needs to be an AppVM with "
                     "template_for_dispvms=True".format(template.name)
                 )
 
@@ -244,6 +307,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 kwargs["name"] = "disp" + str(kwargs["dispid"])
 
         if template is not None:
+            assert isinstance(self, qubes.vm.qubesvm.QubesVM)
             # template is only passed if the AppVM is created, in other cases we
             # don't need to patch the volume_config because the config is
             # coming from XML, already as we need it
@@ -281,8 +345,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         super().__init__(app, xml, *args, **kwargs)
 
-        if xml is None:
-            # by default inherit properties from the DispVM template
+        if xml is None and template is not None:
+            assert isinstance(self, qubes.vm.qubesvm.QubesVM)
+            # by default inherit properties from the disposable template
             proplist = [
                 prop.__name__
                 for prop in template.property_list()
@@ -310,24 +375,39 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.tags.update(template.tags)
 
     @property
-    def preload_requested(self):
-        if not hasattr(self, "_preload_requested"):
-            return None
-        return self._preload_requested
+    def preload_requested(self) -> bool:
+        """
+        Check if preloaded disposable was requested and still is preloaded (not
+        used yet).
+
+        This property exists because the qube may still be a preloaded
+        disposable and not be on the ``preload-dispvm`` feature of the
+        disposable template. This offload is done to avoid race conditions:
+
+        - Decreasing ``preload-dispvm-max`` feature will not remove the qube;
+        - Another request to this function will not return the same qube.
+
+        :rtype: bool
+        """
+        return getattr(self, "_preload_requested", False)
 
     @preload_requested.setter
-    def preload_requested(self, value):
+    def preload_requested(self, value) -> None:
         self._preload_requested = value
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @preload_requested.deleter
-    def preload_requested(self):
+    def preload_requested(self) -> None:
         del self._preload_requested
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.stateless_property
     def is_preload(self) -> bool:
-        """Returns True if qube is a preloaded disposable."""
+        """
+        Check if qube is a preloaded disposable.
+
+        :rtype: bool
+        """
         appvm = self.template
         preload_dispvm = appvm.get_feat_preload()
         if self.name in preload_dispvm or self.preload_requested:
@@ -335,8 +415,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         return False
 
     @qubes.events.handler("domain-load")
-    def on_domain_loaded(self, event):
-        """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
+    def on_domain_loaded(self, event) -> None:
+        """
+        When qube is loaded, assert that this qube has a template.
+        """
+        # pylint: disable=unused-argument
         assert self.template
 
     @qubes.events.handler("domain-start")
@@ -344,10 +427,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self,
         event,
         **kwargs,
-    ):  # pylint: disable=unused-argument
+    ):
+        # pylint: disable=unused-argument
         """
-        Awaits for basic services to be started on preloaded domains and
-        interrupts the domain if the qube has not been requested yet.
+        When starting a qube, await for basic services to be started on
+        preloaded disposables and interrupts the domain if the qube has not
+        been requested yet.
+
+        :param str event: Event which was fired.
         """
         if not self.is_preload:
             return
@@ -392,9 +479,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.preload_complete.set()
 
     @qubes.events.handler("domain-pre-paused")
-    async def on_domain_pre_paused(
-        self, event, **kwargs
-    ):  # pylint: disable=unused-argument
+    async def on_domain_pre_paused(self, event, **kwargs) -> None:
+        """
+        Before the qube is paused, if the qube is a preloaded disposable
+        that has memory balancing enabled, attempt to set it's memory to its
+        preferred memory configuration, which is just enough to get the qube
+        working at that time.
+
+        This helps preloaded disposables to be paused with just enough memory.
+
+        :param str event: Event which was fired.
+        """
+        # pylint: disable=unused-argument
         if not self.is_preload or self.maxmem == 0:
             return
         qmemman_client = None
@@ -414,7 +510,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def on_domain_paused(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
-        """Log preloaded domains when paused."""
+        """
+        On pause, log if it is a preloaded disposable.
+
+        :param str event: Event which was fired.
+        """
         if self.is_preload:
             self.log.info("Paused preloaded qube")
 
@@ -422,15 +522,21 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     async def on_domain_unpaused(
         self, event, **kwargs
     ):  # pylint: disable=unused-argument
-        """Mark preloaded disposables as used."""
+        """
+        When qube is unpaused, mark preloaded disposables as used.
+
+        :param str event: Event which was fired.
+        """
         # Qube start triggers unpause via 'libvirt_domain.resume()'.
         if self.is_preload and self.is_fully_usable():
             self.log.info("Unpaused preloaded qube will be marked as used")
             await self.use_preload()
 
     @qubes.events.handler("domain-shutdown")
-    async def on_domain_shutdown(self, _event, **_kwargs):
-        """Do auto cleanup if enabled"""
+    async def on_domain_shutdown(self, _event, **_kwargs) -> None:
+        """
+        Do auto cleanup if enabled.
+        """
         await self._auto_cleanup()
 
     @qubes.events.handler("domain-remove-from-disk")
@@ -445,37 +551,72 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self._preload_cleanup()
 
     @qubes.events.handler("property-pre-reset:template")
-    def on_property_pre_reset_template(self, event, name, oldvalue=None):
-        """Forbid deleting template of VM"""  # pylint: disable=unused-argument
+    def on_property_pre_reset_template(
+        self, event, name, oldvalue=None
+    ) -> None:
+        """
+        Forbid deleting template of qube.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin oldvalue: Old value \
+            of the property.
+        """
+        # pylint: disable=unused-argument
         raise qubes.exc.QubesValueError("Cannot unset template")
 
     @qubes.events.handler("property-pre-set:template")
     def on_property_pre_set_template(
         self, event, name, newvalue, oldvalue=None
     ):
-        """Forbid changing template of running VM"""  # pylint: disable=unused-argument
+        """
+        Forbid changing template of running qube.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin newvalue: New value \
+            of the property.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin oldvalue: Old value \
+            of the property.
+        """
+        # pylint: disable=unused-argument
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, "Cannot change template while qube is running"
             )
 
     @qubes.events.handler("property-set:template")
-    def on_property_set_template(self, event, name, newvalue, oldvalue=None):
-        """Adjust root (and possibly other snap_on_start=True) volume
-        on template change.
-        """  # pylint: disable=unused-argument
+    def on_property_set_template(
+        self, event, name, newvalue, oldvalue=None
+    ) -> None:
+        """
+        Adjust root (and possibly other snap_on_start=True) volume on template
+        change.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin newvalue: New value \
+            of the property.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin oldvalue: Old value \
+            of the property.
+        """
+        # pylint: disable=unused-argument
         qubes.vm.appvm.template_changed_update_storage(self)
 
     @classmethod
-    async def from_appvm(cls, appvm, preload=False, **kwargs):
-        """Create a new instance from given AppVM
+    async def from_appvm(
+        cls, appvm, preload=False, **kwargs
+    ) -> Optional["qubes.vm.dispvm.DispVM"]:
+        """
+        Create a new instance from given AppVM.
 
-        :param qubes.vm.appvm.AppVM appvm: template from which the VM should \
-            be created
+        :param qubes.vm.appvm.AppVM appvm: template from which the qube \
+            should be created
         :param bool preload: Whether to preload a disposable
         :returns: new disposable vm
+        :rtype: qubes.vm.dispvm.DispVM
 
-        *kwargs* are passed to the newly created VM
+        *kwargs* are passed to the newly created disposable.
 
         >>> import qubes.vm.dispvm.DispVM
         >>> dispvm = qubes.vm.dispvm.DispVM.from_appvm(appvm).start()
@@ -488,7 +629,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not getattr(appvm, "template_for_dispvms", False):
             raise qubes.exc.QubesException(
-                "Refusing to create DispVM out of this AppVM, because "
+                "Refusing to create disposable out of this AppVM, because "
                 "template_for_dispvms=False"
             )
         app = appvm.app
@@ -499,7 +640,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm.log.warning(
                 "Failed to create preloaded disposable, limit reached"
             )
-            return
+            return None
 
         if not preload and appvm.can_preload():
             # Not necessary to await for this event as its intent is to fill
@@ -534,11 +675,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 break
             if dispvm:
                 dispvm.log.info("Requesting preloaded qube")
-                # The property "preload_requested" offloads "preload-dispvm"
-                # and thus avoids various race condition:
-                # - Decreasing maximum feature will not remove the qube;
-                # - Another request to this function will not return the same
-                #   qube.
                 dispvm.features["preload-dispvm-in-progress"] = True
                 appvm.remove_preload_from_list([dispvm.name])
                 dispvm.preload_requested = True
@@ -596,21 +732,21 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         app.save()
         return dispvm
 
-    async def use_preload(self):
+    async def use_preload(self) -> None:
         """
-        Marks preloaded DispVM as used (tainted).
-
-        :return:
+        Marks preloaded disposable as used (tainted), delete the ``internal``
+        when appropriate, making GUI applications show the qube as any other
+        disposable. Start the preload cycle to fill gaps.
         """
         if not self.is_preload:
-            raise qubes.exc.QubesException("DispVM is not preloaded")
+            raise qubes.exc.QubesException("Disposable is not preloaded")
         appvm = self.template
         if self.preload_requested:
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             await self.apply_deferred_netvm()
-            self.preload_requested = None
+            self.preload_requested = False
             del self.features["preload-dispvm-in-progress"]
         else:
             # Happens when unpause/resume occurs without qube being requested.
@@ -625,29 +761,36 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
         )
 
-    def _preload_cleanup(self):
-        """Cleanup preload from list"""
+    def _preload_cleanup(self) -> None:
+        """
+        Cleanup preload from list.
+        """
         if self.name in self.template.get_feat_preload():
             self.log.info("Automatic cleanup removes qube from preload list")
             self.template.remove_preload_from_list([self.name])
 
-    async def _bare_cleanup(self):
-        """Cleanup bare DispVM objects."""
+    async def _bare_cleanup(self) -> None:
+        """
+        Cleanup bare disposable objects.
+        """
         if self in self.app.domains:
             del self.app.domains[self]
             await self.remove_from_disk()
             self.app.save()
 
-    async def _auto_cleanup(self):
-        """Do auto cleanup if enabled"""
+    async def _auto_cleanup(self) -> None:
+        """
+        Do auto cleanup if enabled.
+        """
         if not self.auto_cleanup:
             return
         self._preload_cleanup()
         if self in self.app.domains:
             await self._bare_cleanup()
 
-    async def cleanup(self):
-        """Clean up after the DispVM
+    async def cleanup(self) -> None:
+        """
+        Clean up after the disposable.
 
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
@@ -667,12 +810,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 await self._bare_cleanup()
 
     async def start(self, **kwargs):
+        """
+        Start disposable qube, but if it fails, make sure to clean it up.
+        """
         # pylint: disable=arguments-differ
         try:
             # sanity check, if template_for_dispvm got changed in the meantime
             if not self.template.template_for_dispvms:
                 raise qubes.exc.QubesException(
-                    "template for DispVM ({}) needs to have "
+                    "template for disposable ({}) needs to have "
                     "template_for_dispvms=True".format(self.template.name)
                 )
             await super().start(**kwargs)
@@ -685,6 +831,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await self._auto_cleanup()
             raise
 
-    def create_qdb_entries(self):
+    def create_qdb_entries(self) -> None:
         super().create_qdb_entries()
         self.untrusted_qdb.write("/qubes-vm-persistence", "none")

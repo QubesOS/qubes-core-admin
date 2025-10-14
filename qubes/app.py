@@ -1636,6 +1636,12 @@ class Qubes(qubes.PropertyHolder):
 
     @qubes.events.handler("domain-pre-delete")
     def on_domain_pre_deleted(self, event, vm):
+        """
+        Forbid deleting qube if it is a dependency of another qube.
+
+        :param str event: Event which was fired.
+        :param qubes.vm.QubesVM name: Qube name.
+        """
         # pylint: disable=unused-argument
         for obj in itertools.chain(self.domains, (self,)):
             if obj is vm:
@@ -1738,6 +1744,21 @@ class Qubes(qubes.PropertyHolder):
     def on_property_set_default_dispvm(
         self, event, name, newvalue=None, oldvalue=None
     ):
+        """
+        When system's default_dispvm is (re)set, alert every domain that has
+        the default value.
+
+        If there is a difference between the maximum number of preloaded
+        disposables configured globally and on the new and old setting, adapt
+        it to match the current scenario.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin newvalue: New value \
+            of the property.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin oldvalue: Old value \
+            of the property.
+        """
         # pylint: disable=unused-argument
         for vm in self.domains:
             if hasattr(vm, "default_dispvm") and vm.property_is_default(

@@ -19,7 +19,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional, Union
+from typing import Optional, Union, Iterator
 
 import qubes.config
 import qubes.events
@@ -27,7 +27,9 @@ import qubes.vm.dispvm
 
 
 class DVMTemplateMixin(qubes.events.Emitter):
-    """VM class capable of being DVM template"""
+    """
+    VM class capable of being disposable template.
+    """
 
     # pylint doesn't see event handlers being registered via decorator
     # pylint: disable=unused-private-member
@@ -40,17 +42,26 @@ class DVMTemplateMixin(qubes.events.Emitter):
     )
 
     @property
-    def dispvms(self):
-        """Returns a generator containing all Disposable VMs based on the
-        current AppVM.
+    def dispvms(self) -> Iterator["qubes.vm.dispvm.DispVM"]:
         """
+        Get all disposables based on the current disposable template.
+
+        :rtype: Iterator[qubes.vm.dispvm.DispVM]
+        """
+        assert isinstance(self, qubes.vm.BaseVM)
         for vm in self.app.domains:
             if getattr(vm, "template", None) == self:
                 yield vm
 
     @qubes.events.handler("domain-load")
-    def on_domain_loaded(self, event):  # pylint: disable=unused-argument
-        """Cleanup invalid preloaded qubes when domain is loaded."""
+    def on_domain_loaded(self, event) -> None:
+        """
+        Cleanup invalid preloaded qubes when domain is loaded.
+
+        :param str event: Event which was fired.
+        """
+        # pylint: disable=unused-argument
+        assert isinstance(self, qubes.vm.BaseVM)
         changes = False
         # Preloading began and host rebooted and autostart event didn't run yet.
         old_preload = self.get_feat_preload()
@@ -100,11 +111,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
             self.app.save()
 
     @qubes.events.handler("domain-pre-start")
-    def __on_domain_pre_start(self, event, **kwargs):
-        """Prevents startup for domain having a volume with disabled snapshots
-        and a DispVM based on this volume started
+    def __on_domain_pre_start(self, event, **kwargs) -> None:
+        """
+        Prevents startup for domain having a volume with disabled snapshots
+        and a disposable based on this volume started.
+
+        :param str event: Event which was fired.
         """
         # pylint: disable=unused-argument
+        assert isinstance(self, qubes.vm.qubesvm.QubesVM)
         volume_with_disabled_snapshots = False
         for vol in self.volumes.values():
             volume_with_disabled_snapshots |= vol.snapshots_disabled
@@ -117,13 +132,22 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 raise qubes.exc.QubesVMNotHaltedError(vm)
 
     @qubes.events.handler("domain-shutdown")
-    async def on_dvmtemplate_domain_shutdown(self, _event, **_kwargs):
+    async def on_dvmtemplate_domain_shutdown(self, _event, **_kwargs) -> None:
+        """
+        Refresh preloaded disposables on shutdown.
+        """
         await self.refresh_preload()
 
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
-    def on_feature_delete_preload_dispvm_max(
-        self, event, feature
-    ):  # pylint: disable=unused-argument
+    def on_feature_delete_preload_dispvm_max(self, event, feature) -> None:
+        """
+        On deletion of the ``preload-dispvm-max`` feature, remove all preloaded
+        disposables if the global preload is not set.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        """
+        # pylint: disable=unused-argument
         if self.is_global_preload_set():
             return
         self.remove_preload_excess(0)
@@ -131,7 +155,16 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-max")
     def on_feature_pre_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        Before accepting the ``preload-dispvm-max`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         if not self.features.check_with_template("qrexec", None):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
@@ -150,7 +183,16 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-feature-set:preload-dispvm-max")
     def on_feature_set_preload_dispvm_max(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        After setting the ``preload-dispvm-max`` feature, attempt to preload.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         if value == oldvalue:
             return
         if self.is_global_preload_set():
@@ -163,7 +205,16 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm")
     def on_feature_pre_set_preload_dispvm(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        Before accepting the ``preload-dispvm`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param str value: New value of the feature.
+        :param str oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         preload_dispvm_max = self.get_feat_preload_max()
         old_list = oldvalue.split(" ") if oldvalue else []
         new_list = value.split(" ") if value else []
@@ -215,7 +266,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-feature-set:preload-dispvm")
     def on_feature_set_preload_dispvm(
         self, event, feature, value, oldvalue=None
-    ):  # pylint: disable=unused-argument
+    ):
+        """
+        After setting the ``preload-dispvm`` feature, reset the ``is_preload``
+        property.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param str value: New value of the feature.
+        :param str oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
         value = value.split(" ") if value else []
         oldvalue = oldvalue.split(" ") if oldvalue else []
         exclusive = list(set(oldvalue).symmetric_difference(value))
@@ -225,7 +286,18 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 qube.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.events.handler("property-pre-set:template_for_dispvms")
-    def __on_pre_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
+    def __on_pre_set_dvmtemplate(
+        self, event, name, newvalue, oldvalue=None
+    ) -> None:
+        """
+        Forbid disabling ``template_for_dispvms`` while there are disposables
+        running.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param bool newvalue: New value of the property.
+        :param bool oldvalue: Old value of the property.
+        """
         # pylint: disable=unused-argument
         if newvalue:
             return
@@ -233,28 +305,48 @@ class DVMTemplateMixin(qubes.events.Emitter):
             raise qubes.exc.QubesVMInUseError(
                 self,
                 "Cannot change template_for_dispvms to False while there are "
-                "some DispVMs based on this DVM template",
+                "some disposables based on this disposable template",
             )
 
     @qubes.events.handler("property-pre-del:template_for_dispvms")
-    def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None):
+    def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None) -> None:
+        """
+        Forbid disabling ``template_for_dispvms`` while there are disposables
+        running.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param bool oldvalue: Old value of the property.
+        """
         self.__on_pre_set_dvmtemplate(event, name, False, oldvalue)
 
     @qubes.events.handler("property-pre-set:template")
     def __on_pre_property_set_template(
         self, event, name, newvalue, oldvalue=None
     ):
+        """
+        Forbid changing ``template`` while there are disposables running.
+
+        :param str event: Event which was fired.
+        :param str name: Property name.
+        :param qubes.vm.templatevm.TemplateVM newvalue: New value of the \
+                property.
+        :param qubes.vm.templatevm.TemplateVM oldvalue: Old value of the \
+                property.
+        """
         # pylint: disable=unused-argument
         for vm in self.dispvms:
             if vm.is_running():
                 raise qubes.exc.QubesVMNotHaltedError(
                     self,
-                    "Cannot change template while there are running DispVMs "
-                    "based on this DVM template",
+                    "Cannot change template while there are running disposables"
+                    " based on this disposable template",
                 )
 
     @qubes.events.handler("property-set:template")
-    def __on_property_set_template(self, event, name, newvalue, oldvalue=None):
+    def __on_property_set_template(
+        self, event, name, newvalue, oldvalue=None
+    ) -> None:
         # pylint: disable=unused-argument
         pass
 
@@ -266,14 +358,14 @@ class DVMTemplateMixin(qubes.events.Emitter):
     async def on_domain_preload_dispvm_used(
         self,
         event: str,
-        dispvm: Optional[qubes.vm.BaseVM] = None,
+        dispvm: Optional["qubes.vm.dispvm.DispVM"] = None,
         reason: Optional[str] = None,
         delay: Union[int, float] = 0,
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         """
-        Offloads on excess and preload on vacancy.
-        ``autostart``, the preloaded list is emptied before preloading.
+        Offloads on excess and preload on vacancy. On ``autostart``, the
+        preloaded list is emptied before preloading.
 
         :param str event: Event which was fired. Events have the prefix \
             ``domain-preload-dispvm-``. If the suffix is ``autostart``, the \
@@ -349,7 +441,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 )
 
     def get_feat_preload_threshold(self) -> int:
-        """Get the ``preload-dispvm-threshold`` feature as int (bytes unit)."""
+        """
+        Get the ``preload-dispvm-threshold`` feature as int (bytes unit).
+
+        :rtype: int
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         feature = "preload-dispvm-threshold"
         global_features = self.app.domains["dom0"].features
@@ -357,15 +453,23 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return value * 1024**2
 
     def get_feat_preload(self) -> list[str]:
-        """Get the ``preload-dispvm`` feature as a list."""
+        """
+        Get the ``preload-dispvm`` feature as a list.
+
+        :rtype: list[str]
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         feature = "preload-dispvm"
         value = self.features.get(feature, "")
         return value.split(" ") if value else []
 
     def get_feat_global_preload_max(self) -> Optional[int]:
-        """Get the global ``preload-dispvm-max`` feature as an integer if it is
-        set, None otherwise."""
+        """
+        Get the global ``preload-dispvm-max`` feature as an integer if it is
+        set, None otherwise.
+
+        :rtype: Optional[int]
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         feature = "preload-dispvm-max"
         value = None
@@ -375,9 +479,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return value
 
     def get_feat_preload_max(self, force_local=False) -> int:
-        """Get the ``preload-dispvm-max`` feature as an integer.
+        """
+        Get the ``preload-dispvm-max`` feature as an integer.
 
         :param bool force_local: ignore global setting.
+        :rtype: Optional[int]
         """
         assert isinstance(self, qubes.vm.BaseVM)
         feature = "preload-dispvm-max"
@@ -391,8 +497,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return int(value or 0)
 
     def is_global_preload_set(self) -> bool:
-        """Returns ``True`` if this qube is the global default_dispvm and the
-        global preload feature is set."""
+        """
+        Check if this qube is the global default_dispvm and the global preload
+        feature is set.
+
+        :rtype: bool
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         if (
             self == getattr(self.app, "default_dispvm", None)
@@ -401,9 +511,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
-    def is_global_preload_distinct(self):
-        """Returns ``True`` if global preload feature is distinct compared to
-        local one."""
+    def is_global_preload_distinct(self) -> bool:
+        """
+        Check if global preload feature is distinct compared to local one.
+
+        :rtype: bool
+        """
         if (
             self.get_feat_global_preload_max() or 0
         ) != self.get_feat_preload_max(force_local=True):
@@ -411,7 +524,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return False
 
     def can_preload(self) -> bool:
-        """Returns ``True`` if there is preload vacancy."""
+        """
+        Check if there is preload vacancy.
+
+        :rtype: bool
+        """
         preload_dispvm_max = self.get_feat_preload_max()
         preload_dispvm = self.get_feat_preload()
         if len(preload_dispvm) < preload_dispvm_max:
@@ -419,6 +536,9 @@ class DVMTemplateMixin(qubes.events.Emitter):
         return False
 
     async def refresh_preload(self) -> None:
+        """
+        Refresh disposables which have outdated volumes.
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         outdated = []
         for qube in self.dispvms:
@@ -441,7 +561,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
             )
 
     def remove_preload_from_list(self, disposables: list[str]) -> None:
-        """Removes list of preload qubes from the list.
+        """
+        Removes list of preload qubes from the list.
 
         :param list[str] disposables: disposable names to remove from list.
         """
@@ -458,7 +579,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
             self.features["preload-dispvm"] = " ".join(preload_dispvm or [])
 
     def remove_preload_excess(self, max_preload: Optional[int] = None) -> None:
-        """Removes preloaded qubes that exceeds the maximum."""
+        """
+        Removes preloaded qubes that exceeds the maximum specified.
+
+        :param Optional[int] max_preload: Maximum number of preloaded that \
+                should exist.
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         if max_preload is None:
             max_preload = self.get_feat_preload_max()
@@ -478,7 +604,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     asyncio.ensure_future(dispvm.cleanup())
 
     def supports_preload(self) -> bool:
-        """Returns ``True`` if the necessary RPC is supported."""
+        """
+        Check if the necessary RPC is supported.
+
+        :rtype: bool
+        """
         assert isinstance(self, qubes.vm.BaseVM)
         service = "qubes.WaitForRunningSystem"
         supported_service = "supported-rpc." + service

@@ -13,6 +13,11 @@ import qubesadmin
 
 
 def get_preload_max(qube) -> int | None:
+    """
+    Get the ``preload-dispvm-max`` feature as an integer.
+
+    :param qubes.vm.qubes.QubesVM qube: Qube to query the feature from.
+    """
     value = qube.features.get("preload-dispvm-max", None)
     return int(value) if value else value
 
