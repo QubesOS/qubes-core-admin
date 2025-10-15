@@ -1,6 +1,6 @@
 [MASTER]
 persistent=no
-ignore=tests
+ignore-paths=qubes/tests
 init-hook="import astroid.bases; astroid.bases.POSSIBLE_PROPERTIES.add('stateless_property')"
 
 [MESSAGES CONTROL]
