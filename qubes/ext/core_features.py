@@ -237,8 +237,3 @@ class CoreFeatures(qubes.ext.Extension):
     def on_property_reset(self, subject, event, name, oldvalue=None):
         # pylint: disable=unused-argument
         self.set_servicevm_feature(subject)
-
-    @qubes.ext.handler("domain-load")
-    def on_domain_load(self, subject, event):
-        # pylint: disable=unused-argument
-        self.set_servicevm_feature(subject)
