@@ -46,7 +46,7 @@ system_state = qubes.qmemman.systemstate.SystemState()
 # (refresh domain list) before processing other changes, every time some
 # process requested memory for a new VM, before releasing the lock. Then
 # XS_Watcher will check this flag before processing other event.
-FORCE_REFRESH_DOMAIN_LIST = False
+force_refresh_domain_list = False
 
 
 def unique_per_list(list1, list2):
@@ -153,10 +153,10 @@ class XSWatcher:
         with GLOBAL_LOCK:
             self.log.debug("GLOBAL_LOCK acquired")
             try:
-                global FORCE_REFRESH_DOMAIN_LIST
-                if FORCE_REFRESH_DOMAIN_LIST:
+                global force_refresh_domain_list
+                if force_refresh_domain_list:
                     self.domain_list_changed(refresh_only=True)
-                    FORCE_REFRESH_DOMAIN_LIST = False
+                    force_refresh_domain_list = False
                 if domid not in self.watch_token_dict:
                     # Domain was just destroyed.
                     return
@@ -196,8 +196,8 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 if len(self.data) == 0:
                     self.log.info("client disconnected, resuming membalance")
                     if got_lock:
-                        global FORCE_REFRESH_DOMAIN_LIST
-                        FORCE_REFRESH_DOMAIN_LIST = True
+                        global force_refresh_domain_list
+                        force_refresh_domain_list = True
                     return
 
                 # XXX something is wrong here: return without release?
