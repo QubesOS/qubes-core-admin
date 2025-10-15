@@ -1352,9 +1352,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             )
 
         async with self.dest.startup_lock:
-            if not self.dest.is_halted():
-                raise qubes.exc.QubesVMNotHaltedError(self.dest)
-
             if (
                 isinstance(self.dest, qubes.vm.qubesvm.QubesVM)
                 and self.dest.installed_by_rpm
