@@ -189,7 +189,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "default_dispvm",
         load_stage=4,
         allow_none=True,
-        default=(lambda self: self.template),
+        default=(
+            lambda self: (
+                self.template
+                if any(tag.startswith("disp-created-by-") for tag in self.tags)
+                else self.app.default_dispvm
+            )
+        ),
         doc="Default VM to be used as Disposable VM for service calls.",
     )
 
