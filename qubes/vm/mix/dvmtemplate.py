@@ -68,10 +68,21 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
         # Preloading was in progress (either preloading but not completed or
         # requested but not delivered) and qubesd stopped.
+        #
+        # Or qubesd stopped and the qube was destroyed/killed in the meantime,
+        # shutdown was not called by qubesd so the qube is still present. The
+        # "preload-dispvm-completed" is used to check if this was a preloaded
+        # qube instead of "is_preload()" because it might not be in the
+        # "preload-dispvm" list anymore if the following happened: "removed
+        # from list -> scheduled cleanup -> stopped qubesd".
         preload_in_progress = [
             qube
             for qube in self.dispvms
-            if qube.features.get("preload-dispvm-in-progress", False)
+            if (
+                not qube.is_running()
+                and qube.features.get("preload-dispvm-completed", False)
+            )
+            or qube.features.get("preload-dispvm-in-progress", False)
         ]
         if preload_in_progress:
             changes = True
@@ -84,6 +95,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             )
             for dispvm in preload_in_progress:
                 asyncio.ensure_future(dispvm.cleanup())
+
         if changes:
             self.app.save()
 
