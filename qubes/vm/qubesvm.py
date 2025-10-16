@@ -348,7 +348,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             Fired after the qube was loaded from :file:`qubes.xml`
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-loaded'``)
+            :param event: Event name (``'domain-load'``)
 
         .. event:: domain-pre-start \
                 (subject, event, start_guid, mem_required)
