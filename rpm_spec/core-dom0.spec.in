@@ -122,6 +122,8 @@ Provides:	qubes-core-dom0-doc
 Obsoletes:	preupgrade < 2.0
 Provides:	preupgrade = 2.0
 
+Recommends: qubes-core-admin-addon-kicksecure
+
 Source0: %{name}-%{version}.tar.gz
 
 %description
