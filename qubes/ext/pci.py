@@ -34,7 +34,8 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.device_protocol import Port
+from qubes.device_protocol import Port, UnknownDevice
+from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 #: cache of PCI device classes
@@ -165,6 +166,8 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             sbdf = path_to_sbdf(port.port_id)
         else:
             sbdf = port.port_id
+        if sbdf is None:
+            raise DeviceNotFound(port.port_id)
         dev_match = self.regex.match(sbdf)
         if not dev_match:
             raise ValueError(
@@ -542,7 +545,12 @@ class PCIDeviceExtension(qubes.ext.Extension):
         _cache_get.cache_clear()
 
 
+# FIXME: needs to be smarter when pci-hotplug arrives
 @functools.lru_cache(maxsize=None)
 def _cache_get(vm, port_id):
     """Caching wrapper around `PCIDevice(vm, port_id)`."""
-    return PCIDevice(Port(vm, port_id, "pci"))
+    try:
+        dev = PCIDevice(Port(vm, port_id, "pci"))
+    except DeviceNotFound:
+        dev = UnknownDevice(Port(vm, port_id, "pci"))
+    return dev

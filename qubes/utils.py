@@ -365,7 +365,7 @@ def sbdf_to_path(device_id: str):
 
     :param device_id: sbdf, for example 0000:02:03.0; accepts also libvirt
     format like 0000_02_03_0
-    :return: converted identifier of None if device is not found
+    :return: converted identifier or None if device is not found
     """
     regex = re.compile(
         r"\A(?:pci_)?((?P<segment>[0-9a-f]{4})[_:])?(?P<bus>[0-9a-f]{2})[_:]"
@@ -455,7 +455,9 @@ def path_to_sbdf(path: str):
     bus_offset = 0
     current_dev = ""
     for path_part in path.split("-"):
-        assert bus_offset != -1
+        if bus_offset == -1:
+            # no such bus
+            return None
         # first part may include segment
         if bus_offset == 0:
             segment_match = segment_re.match(path_part)
