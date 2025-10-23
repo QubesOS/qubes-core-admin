@@ -277,6 +277,12 @@ class DeviceNotAssigned(QubesException, KeyError):
     """
 
 
+class DeviceNotFound(QubesException, KeyError):
+    """
+    Non-existing device.
+    """
+
+
 class DeviceAlreadyAttached(QubesException, KeyError):
     """
     Trying to attach already attached device.

@@ -17,29 +17,38 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+import functools
 import os.path
 import unittest
 from unittest import mock
 
 import qubes.tests
 import qubes.ext.pci
-from qubes.device_protocol import DeviceInterface
+import qubes.devices
+from qubes.device_protocol import (
+    DeviceInterface,
+    DeviceAssignment,
+    VirtualDevice,
+)
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 orig_open = open
 
 
 class TestVM(object):
-    def __init__(self, running=True, name="dom0", qid=0):
+    def __init__(self, running=True, name="dom0", qid=0, app=None):
         self.name = name
         self.qid = qid
         self.is_running = lambda: running
         self.log = mock.Mock()
-        self.app = mock.Mock()
+        self.app = app or mock.Mock()
 
     def __eq__(self, other):
         if isinstance(other, TestVM):
             return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
 
 
 PCI_XML = """<device>
@@ -157,6 +166,10 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
         path = path_to_sbdf("0000_00_18.4")
         self.assertEqual(path, "0000:00:18.4")
 
+    def test_012_path_to_sbdf_missing(self):
+        path = path_to_sbdf("0000_c0_03.7-00_00.0-00_00.0")
+        self.assertEqual(path, None)
+
     def test_020_is_pci_path(self):
         self.assertTrue(is_pci_path("0000_00_18.4"))
 
@@ -171,6 +184,9 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
 class TC_10_PCI(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
+        self.dom0 = TestVM(name="dom0", qid=0)
+        self.app = self.dom0.app
+        self.app.domains = {"dom0": self.dom0, self.dom0: self.dom0}
         self.ext = qubes.ext.pci.PCIDeviceExtension()
 
     @mock.patch("builtins.open", new=mock_file_open)
@@ -218,3 +234,58 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             "Chipset Family USB xHCI Controller",
         )
         self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")
+
+    def _mock_fire_event(self, vm, event, pre_event=False, **kwargs):
+        if event == "device-get:pci":
+            return list(self.ext.on_device_get_pci(vm, event, **kwargs))
+        elif event.startswith("admin-permission:"):
+            pass
+        else:
+            assert False
+
+    def test_010_unassign_missing(self):
+        vm = TestVM(name="testvm", qid=1, app=self.app)
+        vm.app.vmm.offline_mode = False
+        vm.events_enabled = False
+        vm.fire_event_async = mock.AsyncMock()
+        vm.fire_event = functools.partial(self._mock_fire_event, vm)
+        pci_devices = qubes.devices.DeviceCollection(vm, "pci")
+        vm.devices = {"pci": pci_devices}
+        self.dom0.fire_event = functools.partial(
+            self._mock_fire_event, self.dom0
+        )
+        dom0_pci_devices = qubes.devices.DeviceCollection(self.dom0, "pci")
+        self.dom0.devices = {"pci": dom0_pci_devices}
+        self.app.domains["testvm"] = vm
+        self.app.domains[vm] = vm
+        missing_port_id = "0000_c0_03.7-00_00.0-00_00.0"
+        missing_device_id = "0x8086:0x8cb1::p0c0330"
+        device_assignment = qubes.device_protocol.DeviceAssignment(
+            qubes.device_protocol.VirtualDevice(
+                qubes.device_protocol.Port(
+                    backend_domain=self.dom0,
+                    port_id=missing_port_id,
+                    devclass="pci",
+                ),
+                device_id=missing_device_id,
+            ),
+            frontend_domain=vm,
+            options={},
+            mode=qubes.device_protocol.AssignmentMode.REQUIRED,
+        )
+        pci_devices.load_assignment(device_assignment)
+
+        vm.events_enabled = True
+        mgmt_obj = qubes.api.admin.QubesAdminAPI(
+            self.app,
+            b"dom0",
+            b"admin.vm.device.pci.Unassign",
+            b"testvm",
+            ("dom0+" + missing_port_id + ":" + missing_device_id).encode(),
+        )
+
+        response = self.loop.run_until_complete(
+            mgmt_obj.execute(untrusted_payload=b"")
+        )
+        self.assertEqual(response, None)
+        self.assertListEqual(list(pci_devices.get_assigned_devices()), [])
