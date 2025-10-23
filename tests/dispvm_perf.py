@@ -398,6 +398,8 @@ def hcl() -> dict:
                 "hcl-model": report["model"].rstrip(),
                 "hcl-bios": report["bios"].rstrip(),
                 "hcl-cpu": report["cpu"].rstrip(),
+                "hcl-scsi": report["scsi"].rstrip(),
+                "hcl-nvme": report["nvme"].rstrip(),
             }
         )
     return data
