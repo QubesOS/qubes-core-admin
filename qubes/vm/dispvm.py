@@ -433,6 +433,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """Do auto cleanup if enabled"""
         await self._auto_cleanup()
 
+    @qubes.events.handler("domain-remove-from-disk")
+    async def on_domain_delete(self, _event, **_kwargs) -> None:
+        """
+        On volume removal, remove preloaded disposable from ``preload-dispvm``
+        feature in disposable template. If the feature is still here, it means
+        the ``domain-shutdown`` cleanup was bypassed, possibly by improper
+        shutdown, which can happen when a disposable is running, qubesd stops
+        and system reboots.
+        """
+        self._preload_cleanup()
+
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
         """Forbid deleting template of VM"""  # pylint: disable=unused-argument
@@ -612,6 +623,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
         )
 
+    def _preload_cleanup(self):
+        """Cleanup preload from list"""
+        if self.name in self.template.get_feat_preload():
+            self.log.info("Automatic cleanup removes qube from preload list")
+            self.template.remove_preload_from_list([self.name])
+
     async def _bare_cleanup(self):
         """Cleanup bare DispVM objects."""
         if self in self.app.domains:
@@ -619,11 +636,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await self.remove_from_disk()
             self.app.save()
 
-    def _preload_cleanup(self):
-        """Cleanup preload from list"""
-        if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
-            self.template.remove_preload_from_list([self.name])
+    async def _auto_cleanup(self):
+        """Do auto cleanup if enabled"""
+        if not self.auto_cleanup:
+            return
+        self._preload_cleanup()
+        if self in self.app.domains:
+            await self._bare_cleanup()
 
     async def cleanup(self):
         """Clean up after the DispVM
@@ -633,20 +652,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if self not in self.app.domains:
             return
+        running = True
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            pass
-        # This will be done automatically if event 'domain-shutdown' is
-        # triggered and 'auto_cleanup' evaluates to 'True'.
-        if not self.auto_cleanup:
-            self._preload_cleanup()
-            if self in self.app.domains:
-                await self._bare_cleanup()
-
-    async def _auto_cleanup(self):
-        """Do auto cleanup if enabled"""
-        if self.auto_cleanup:
+            running = False
+        # Full cleanup will be done automatically if event 'domain-shutdown' is
+        # triggered and "auto_cleanup=True".
+        if not running or not self.auto_cleanup:
             self._preload_cleanup()
             if self in self.app.domains:
                 await self._bare_cleanup()
