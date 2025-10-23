@@ -37,17 +37,30 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
     test_ip6 = "2000:abcd::1"
 
     ping6_cmd = "ping -6 -W 1 -n -c 1 {target}"
+    ping6_deadline_cmd = (
+        "i=0;"
+        "while test $i -le 10; do "
+        "  if ping -6 -w 2 -n -c 1 {target}; then exit 0; fi;"
+        "  i=$((i+1)); sleep 1; "
+        "done; exit 4"
+    )
 
     def setUp(self):
         super(VmIPv6NetworkingMixin, self).setUp()
         self.ping6_ip = self.ping6_cmd.format(target=self.test_ip6)
         self.ping6_name = self.ping6_cmd.format(target=self.test_name)
+        self.ping6_deadline_ip = self.ping6_deadline_cmd.format(
+            target=self.test_ip6
+        )
+        self.ping6_deadline_name = self.ping6_deadline_cmd.format(
+            target=self.test_name
+        )
 
     def tearDown(self):
         # collect more info on failure (ipv4 info collected in parent)
         if self._outcome and not self._outcome.success:
             for vm in (
-                self.testnetvm,
+                *self.netvms,
                 self.testvm1,
                 getattr(self, "proxy", None),
             ):
@@ -59,20 +72,17 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
                 self._run_cmd_and_log_output(
                     vm, "nft list table ip6 qubes-firewall"
                 )
-
         super().tearDown()
 
     def configure_netvm(self):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
         """
-        self.testnetvm.features["ipv6"] = True
-        super(VmIPv6NetworkingMixin, self).configure_netvm()
 
-        def run_netvm_cmd(cmd):
+        def run_netvm_cmd(qube, cmd):
             try:
                 self.loop.run_until_complete(
-                    self.testnetvm.run_for_stdio(cmd, user="root")
+                    qube.run_for_stdio(cmd, user="root")
                 )
             except subprocess.CalledProcessError as e:
                 self.fail(
@@ -80,19 +90,28 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
                     % (cmd, e.stdout.decode(), e.stderr.decode())
                 )
 
-        run_netvm_cmd("ip addr add {}/128 dev test0".format(self.test_ip6))
-        run_netvm_cmd(
-            "nft add ip6 qubes custom-input ip6 daddr {} accept".format(
-                self.test_ip6
+        for qube in self.netvms:
+            qube.features["ipv6"] = True
+        super(VmIPv6NetworkingMixin, self).configure_netvm()
+
+        for qube in self.netvms:
+            run_netvm_cmd(
+                qube, "ip addr add {}/128 dev test0".format(self.test_ip6)
             )
-        )
-        # ignore failure
-        self.run_cmd(self.testnetvm, "while pkill dnsmasq; do sleep 1; done")
-        run_netvm_cmd(
-            "dnsmasq -a {ip} -A /{name}/{ip} -A /{name}/{ip6} -i test0 -z".format(
-                ip=self.test_ip, ip6=self.test_ip6, name=self.test_name
+            run_netvm_cmd(
+                qube,
+                "nft add ip6 qubes custom-input ip6 daddr {} accept".format(
+                    self.test_ip6
+                ),
             )
-        )
+            # ignore failure
+            self.run_cmd(qube, "while pkill dnsmasq; do sleep 1; done")
+            run_netvm_cmd(
+                qube,
+                "dnsmasq -a {ip} -A /{name}/{ip} -A /{name}/{ip6} -i test0 -z".format(
+                    ip=self.test_ip, ip6=self.test_ip6, name=self.test_name
+                ),
+            )
 
     def test_500_ipv6_simple_networking(self):
         """
@@ -101,6 +120,52 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
+
+    def test_501_simple_networking_paused_from_none_to_existent(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_from_none_to_existent(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    def test_501_simple_networking_paused_from_existent_to_none(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_from_existent_to_none(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    @unittest.skip("kernel issue")
+    def test_501_simple_networking_paused_change_shutdown_old(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_change_shutdown_old(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    @unittest.skip("kernel issue")
+    def test_501_simple_networking_paused_change_purge_old(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_change_purge_old(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
 
     def test_510_ipv6_simple_proxyvm(self):
         """
@@ -277,7 +342,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             # block all except ICMP
 
             self.testvm1.firewall.rules = [
-                (qubes.firewall.Rule(None, action="accept", proto="icmp"))
+                qubes.firewall.Rule(None, action="accept", proto="icmp")
             ]
             self.testvm1.firewall.save()
             # Ugly hack b/c there is no feedback when the rules are actually

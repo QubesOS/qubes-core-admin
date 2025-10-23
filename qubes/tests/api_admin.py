@@ -43,6 +43,7 @@ import qubes.api.internal
 import qubes.tests
 import qubes.storage
 
+
 from qubes.device_protocol import (
     DeviceInfo,
     VirtualDevice,
@@ -1666,6 +1667,25 @@ netvm default=True type=vm \n"""
                 b"admin.vm.feature.Remove", b"test-vm1", b"test-feature"
             )
         self.assertFalse(self.app.save.called)
+
+    def test_303_feature_prohibited(self):
+        del self.app.domains[0].fire_event
+        feature = qubes.ext.admin.PROHIBITED_FEATURES[0]
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Set",
+                b"test-vm1",
+                str(feature).encode(),
+                b"some-value",
+            )
+
+        self.vm.features[feature] = False
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Remove",
+                b"test-vm1",
+                str(feature).encode(),
+            )
 
     def test_310_feature_checkwithtemplate(self):
         self.vm.features["test-feature"] = "some-value"

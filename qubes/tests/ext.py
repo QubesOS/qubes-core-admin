@@ -21,6 +21,7 @@
 import os
 import unittest.mock
 
+import qubes.ext.admin
 import qubes.ext.core_features
 import qubes.ext.custom_persist
 import qubes.ext.services
@@ -2579,3 +2580,33 @@ class TC_40_CustomPersist(qubes.tests.QubesTestCase):
         self.vm.untrusted_qdb.write.assert_called_with(
             "/persist/test", "/var/test:dir:with:colon"
         )
+
+
+class TC_50_Admin(qubes.tests.QubesTestCase):
+    maxDiff = None
+
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.admin.AdminExtension()
+
+    def tearDown(self):
+        self.ext.on_qubes_close("app", "qubes-close")
+        super().tearDown()
+
+    def test_000_features_permission(self):
+        feature = qubes.ext.admin.PROHIBITED_FEATURES[0]
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.ext.on_feature_set_or_remove(
+                "test-vm1",
+                "admin-permission:admin.vm.feature.Set",
+                feature,
+            )
+
+    def test_000_tags_permission(self):
+        tag = "created-by-test"
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.ext.on_tag_set_or_remove(
+                "test-vm1",
+                "admin-permission:admin.vm.tag.Set",
+                tag,
+            )
