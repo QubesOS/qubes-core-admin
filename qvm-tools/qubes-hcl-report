@@ -103,6 +103,11 @@ cat /etc/qubes-release > "$TEMP_DIR/qubes-release" || exit
 cat /proc/cpuinfo > "$TEMP_DIR/cpuinfo" || exit
 sudo lspci -nnvk > "$TEMP_DIR/lspci"
 cat /proc/scsi/scsi > "$TEMP_DIR/scsi"
+for drive in /sys/class/nvme-subsystem/nvme-subsys*/; do
+  test -d "$drive" || continue
+  cat "$drive"/{serial,model,firmware_rev} |
+    tr "\n" " " | sed "s/\s$//" > "$TEMP_DIR/nvme"
+done
 sudo dmidecode > "$TEMP_DIR/dmidecode"
 xl info > "$TEMP_DIR/xl-info" || exit
 xl dmesg > "$TEMP_DIR/xl-dmesg" || exit
@@ -204,6 +209,11 @@ CHIPSET=$(grep "00:00.0.*Host bridge" "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e
 VGA=$(grep -E 'VGA|Display' "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /")
 NET=$(grep -E 'Network|Ethernet' "$TEMP_DIR/lspci" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /")
 SCSI=$(grep Model "$TEMP_DIR/scsi"|cut -d ':' -f3-|sed -e "s/^[[:space:]]*/\  /")
+if test -s "$TEMP_DIR/nvme"; then
+  NVME=$(sed -e "s/^[[:space:]]*/  /" "$TEMP_DIR/nvme")
+else
+  NVME=""
+fi
 RAM=$(grep total_memory "$TEMP_DIR/xl-info"|cut -d ':' -f2 |tr -d ' ')
 USB=$(grep -c USB "$TEMP_DIR/lspci")
 XEN_MAJOR=$(grep xen_major "$TEMP_DIR/xl-info"|cut -d: -f2 |tr -d ' ')
@@ -378,6 +388,8 @@ memory: |
   $RAM
 scsi: |
 $SCSI
+nvme: |
+$NVME
 usb: |
   $USB
 certified:

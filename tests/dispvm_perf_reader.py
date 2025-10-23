@@ -566,6 +566,8 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             "hcl-model": data["hcl-model"],
             "hcl-bios": data["hcl-bios"],
             "hcl-cpu": data["hcl-cpu"],
+            "hcl-scsi": data.get("hcl-scsi", None),
+            "hcl-nvme": data.get("hcl-nvme", None),
         }
         specs_text = """
         System specifications:
@@ -580,6 +582,8 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         - RAM: {} MiB
         - CPU: {}
         - BIOS: {}
+        - SCSI: {}
+        - NVMe: {}
         """.format(
             specs["date"],
             self.default_template,
@@ -591,6 +595,8 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             specs["hcl-memory"],
             specs["hcl-cpu"],
             specs["hcl-bios"],
+            specs["hcl-scsi"],
+            specs["hcl-nvme"],
         )
         fig = plt.figure(figsize=(2 * WIDTH, 2 * HEIGHT))
         fig.clf()
@@ -950,7 +956,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 preload_max = get_value(preload_tests, "preload_max")[0]
                 caption = (
                     f"Compares workflows of normal disposables with "
-                    + "{preload_max} preloaded disposables."
+                    + f"{preload_max} preloaded disposables."
                 )
                 self.bar_plot(
                     [dom0_api, dom0_qvm, vm_qrexec],
