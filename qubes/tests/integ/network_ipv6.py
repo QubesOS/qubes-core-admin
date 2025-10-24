@@ -143,7 +143,6 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             self.ping6_deadline_name,
         )
 
-    @unittest.skip("kernel issue")
     def test_501_simple_networking_paused_change_shutdown_old(self):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
@@ -155,7 +154,6 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             self.ping6_deadline_name,
         )
 
-    @unittest.skip("kernel issue")
     def test_501_simple_networking_paused_change_purge_old(self):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
