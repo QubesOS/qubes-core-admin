@@ -342,6 +342,7 @@ HiddenServiceVersion 3
 
     def test_001_update_check(self):
         """Check if dom0 updates check works"""
+        self.app.domains[0].features["updates-available"] = False
         filename = self.create_pkg(self.tmpdir, self.pkg_name, "1.0")
         subprocess.check_call(["rpm", "-i", filename])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, "2.0")
