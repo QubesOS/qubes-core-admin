@@ -159,6 +159,12 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler("property-set:keyboard_layout")
     def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
+        if newvalue == oldvalue:
+            return
+
+        if vm.is_running():
+            vm.untrusted_qdb.write("/keyboard-layout", newvalue)
+
         for domain in vm.app.domains:
             if getattr(
                 domain, "guivm", None
@@ -168,9 +174,6 @@ class GUI(qubes.ext.Extension):
                     name="keyboard_layout",
                     oldvalue=oldvalue,
                 )
-
-        if vm.is_running():
-            vm.untrusted_qdb.write("/keyboard-layout", newvalue)
 
     @qubes.ext.handler("domain-tag-add:created-by-*")
     def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
