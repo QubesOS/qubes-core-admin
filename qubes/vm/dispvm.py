@@ -540,7 +540,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         await self._auto_cleanup()
 
     @qubes.events.handler("domain-remove-from-disk")
-    async def on_domain_delete(self, _event, **_kwargs) -> None:
+    async def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
         """
         On volume removal, remove preloaded disposable from ``preload-dispvm``
         feature in disposable template. If the feature is still here, it means
@@ -765,7 +765,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Cleanup preload from list.
         """
-        if self.name in self.template.get_feat_preload():
+        name = getattr(self, "name", None)
+        template = getattr(self, "template", None)
+        if not (name and template):
+            # Objects from self may be absent.
+            return
+        if name in template.get_feat_preload():
             self.log.info("Automatic cleanup removes qube from preload list")
             self.template.remove_preload_from_list([self.name])
 
@@ -804,7 +809,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             running = False
         # Full cleanup will be done automatically if event 'domain-shutdown' is
         # triggered and "auto_cleanup=True".
-        if not running or not self.auto_cleanup:
+        if not self.auto_cleanup or (not running and self.auto_cleanup):
             self._preload_cleanup()
             if self in self.app.domains:
                 await self._bare_cleanup()
