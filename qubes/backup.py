@@ -455,9 +455,10 @@ class Backup:
             home_dir = pwd.getpwnam(local_user).pw_dir
 
             # Checking if target is not user home directory in dom0
-            if self.target_dir in ["", "~"] or Path(
-                self.target_dir
-            ).is_relative_to(home_dir):
+            if self.target_vm == self.app.domains[0] and (
+                self.target_dir in ["", "~"]
+                or Path(self.target_dir).is_relative_to(home_dir)
+            ):
                 raise qubes.exc.QubesException(
                     "Can not backup dom0 home directory to itself!"
                 )
