@@ -540,7 +540,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         await self._auto_cleanup()
 
     @qubes.events.handler("domain-remove-from-disk")
-    async def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
+    def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
         """
         On volume removal, remove preloaded disposable from ``preload-dispvm``
         feature in disposable template. If the feature is still here, it means
@@ -774,31 +774,32 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Automatic cleanup removes qube from preload list")
             self.template.remove_preload_from_list([self.name])
 
-    async def _bare_cleanup(self) -> None:
-        """
-        Cleanup bare disposable objects.
-        """
-        if self in self.app.domains:
-            del self.app.domains[self]
-            await self.remove_from_disk()
-            self.app.save()
-
-    async def _auto_cleanup(self) -> None:
+    async def _auto_cleanup(self, force: bool = False) -> None:
         """
         Do auto cleanup if enabled.
+
+        :param bool force: Auto clean up even if property is disabled
         """
-        if not self.auto_cleanup:
+        if not self.auto_cleanup and not force:
             return
         self._preload_cleanup()
-        if self in self.app.domains:
-            await self._bare_cleanup()
+        if self not in self.app.domains:
+            return
+        del self.app.domains[self]
+        await self.remove_from_disk()
+        self.app.save()
 
-    async def cleanup(self) -> None:
+    async def cleanup(self, force: bool = False) -> None:
         """
         Clean up after the disposable.
 
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
+
+        :param bool force: Auto clean up if property is enabled and domain \
+                is not running, should be used in special circumstances only \
+                as the sole purpose of this option is because using it may not \
+                be reliable.
         """
         if self not in self.app.domains:
             return
@@ -809,10 +810,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             running = False
         # Full cleanup will be done automatically if event 'domain-shutdown' is
         # triggered and "auto_cleanup=True".
-        if not self.auto_cleanup or (not running and self.auto_cleanup):
-            self._preload_cleanup()
-            if self in self.app.domains:
-                await self._bare_cleanup()
+        if not self.auto_cleanup or (
+            force and not running and self.auto_cleanup
+        ):
+            await self._auto_cleanup(force=force)
 
     async def start(self, **kwargs):
         """
@@ -829,11 +830,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await super().start(**kwargs)
         except:
             # Cleanup also on failed startup
-            try:
-                await self.kill()
-            except qubes.exc.QubesVMNotStartedError:
-                pass
-            await self._auto_cleanup()
+            await self.cleanup()
             raise
 
     def create_qdb_entries(self) -> None:

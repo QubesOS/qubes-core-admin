@@ -105,7 +105,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 [qube.name for qube in preload_in_progress]
             )
             for dispvm in preload_in_progress:
-                asyncio.ensure_future(dispvm.cleanup())
+                asyncio.ensure_future(dispvm.cleanup(force=True))
 
         if changes:
             self.app.save()
