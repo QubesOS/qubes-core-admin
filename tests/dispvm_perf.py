@@ -207,7 +207,7 @@ class TestConfig:
 POLICY_FILE = "/run/qubes/policy.d/10-test-dispvm-perf.policy"
 # MAX_PRELOAD is the number doesn't overpreload or underpreload (best
 # performance) on sequential calls between the tests
-# "dispvm-preload(-(more|less))-api" (tested on fedora-42-xfce). Machines with
+# "dispvm-preload(-NUMBER)-api" (tested on fedora-42-xfce). Machines with
 # different hardware or domains that boot faster or slower can theoretically
 # have a different best value.
 MAX_PRELOAD = 4
@@ -256,12 +256,6 @@ ALL_TESTS = [
     TestConfig("vm-dispvm-gui", gui=True),
     TestConfig("vm-dispvm-concurrent", concurrent=True),
     TestConfig("vm-dispvm-gui-concurrent", gui=True, concurrent=True),
-    TestConfig("dom0-dispvm", from_dom0=True),
-    TestConfig("dom0-dispvm-gui", gui=True, from_dom0=True),
-    TestConfig("dom0-dispvm-concurrent", concurrent=True, from_dom0=True),
-    TestConfig(
-        "dom0-dispvm-gui-concurrent", gui=True, concurrent=True, from_dom0=True
-    ),
     TestConfig("vm-dispvm-preload", preload_max=MAX_PRELOAD),
     TestConfig("vm-dispvm-preload-gui", gui=True, preload_max=MAX_PRELOAD),
     TestConfig(
@@ -274,6 +268,12 @@ ALL_TESTS = [
         gui=True,
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
+    ),
+    TestConfig("dom0-dispvm", from_dom0=True),
+    TestConfig("dom0-dispvm-gui", gui=True, from_dom0=True),
+    TestConfig("dom0-dispvm-concurrent", concurrent=True, from_dom0=True),
+    TestConfig(
+        "dom0-dispvm-gui-concurrent", gui=True, concurrent=True, from_dom0=True
     ),
     TestConfig("dom0-dispvm-preload", from_dom0=True, preload_max=MAX_PRELOAD),
     TestConfig(
@@ -311,50 +311,97 @@ ALL_TESTS = [
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-less-less-api",
-        preload_max=MAX_PRELOAD - 2,
+        "dom0-dispvm-preload-1-api",
+        preload_max=1,
         admin_api=True,
-        extra_id="dispvm-preload-api",
+        extra_id="dom0-dispvm-preload-api",
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-less-api",
-        preload_max=MAX_PRELOAD - 1,
+        "dom0-dispvm-preload-1-gui-api",
+        preload_max=1,
+        gui=True,
         admin_api=True,
-        extra_id="dispvm-preload-api",
+        extra_id="dom0-dispvm-preload-gui-api",
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-api",
-        preload_max=MAX_PRELOAD,
+        "dom0-dispvm-preload-2-api",
+        preload_max=2,
         admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-2-gui-api",
+        preload_max=2,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-3-api",
+        preload_max=3,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-3-gui-api",
+        preload_max=3,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-4-api",
+        preload_max=4,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-4-gui-api",
+        preload_max=4,
+        gui=True,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-5-api",
+        preload_max=5,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-5-gui-api",
+        preload_max=5,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-api",
+        preload_max=6,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-gui-api",
+        preload_max=6,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
         from_dom0=True,
     ),
     TestConfig(
         "dom0-dispvm-preload-concurrent-api",
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
-        admin_api=True,
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-more-api",
-        preload_max=MAX_PRELOAD + 1,
-        admin_api=True,
-        extra_id="dispvm-preload-api",
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-more-more-api",
-        preload_max=MAX_PRELOAD + 2,
-        admin_api=True,
-        extra_id="dispvm-preload-api",
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-gui-api",
-        gui=True,
-        preload_max=MAX_PRELOAD,
         admin_api=True,
         from_dom0=True,
     ),
@@ -557,7 +604,8 @@ class TestRun:
         else:
             appvm = domains[qube]
             domain_time = get_time()
-            target_qube = qubesadmin.vm.DispVM.from_appvm(app, appvm)
+            target_wrapper = qubesadmin.vm.DispVM.from_appvm(app, appvm)
+            target_qube = target_wrapper.create_disposable()
         name = target_qube.name
         # A very small number, if it appears, it will show a bottleneck at
         # DispVM.from_appvm.
