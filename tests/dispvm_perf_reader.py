@@ -235,12 +235,23 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             )
             if not self.data:
                 logging.critical(
-                    "Default template specified not found: '%s'",
+                    "Template specified not found: '%s'",
                     self.default_template,
                 )
                 sys.exit(1)
         else:
             logging.info("Default template not specified, using newest fedora")
+            fedora_templates = [
+                v
+                for v in self.orig_data.values()
+                if v["os-distribution"] == "fedora"
+            ]
+            if not fedora_templates:
+                logging.critical(
+                    "Tried to find any fedora template but ultimately failed",
+                    self.default_template,
+                )
+                sys.exit(1)
             fedora_template = max(
                 (
                     v
@@ -818,72 +829,126 @@ class Graph:  # pylint: disable=too-many-instance-attributes
     def graph_04_line(self) -> None:
         """Line graph of performance of each iteration."""
 
-        def filter_preload(value, cond):  # pylint: disable=unused-argument
-            return value == 0 or (3 <= value <= 5)
+        def filter_preload_small(value, _cond):
+            return value <= 3
 
-        tests = filter_data(
+        def filter_preload(value, _cond):
+            return value == 0 or (4 <= value <= 6)
+
+        base_tests = filter_data(
             self.api_tests,
             {
                 "non_dispvm": False,
                 "admin_api": True,
                 "concurrent": False,
-                "gui": False,
-                "preload_max": None,
-            },
-            {
-                "preload_max": filter_preload,
             },
         )
+        base_tests_gui = filter_data(base_tests, {"gui": True})
+        base_tests_nogui = filter_data(base_tests, {"gui": False})
+
+        tests = filter_data(
+            base_tests_nogui,
+            {"preload_max": None},
+            {"preload_max": filter_preload},
+        )
+        tests_small = filter_data(
+            base_tests_nogui,
+            {"preload_max": None},
+            {"preload_max": filter_preload_small},
+        )
+
+        tests_gui = filter_data(
+            base_tests_gui,
+            {"preload_max": None},
+            {"preload_max": filter_preload},
+        )
+        tests_small_gui = filter_data(
+            base_tests_gui,
+            {"preload_max": None},
+            {"preload_max": filter_preload_small},
+        )
+
         tests = dict(sorted(tests.items(), key=lambda x: x[1]["preload_max"]))
-        for num, stage in enumerate(["exec", "clean", "total"]):
-            fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
-            points_seen = set()
-            for test in tests.values():
-                name = test["pretty_name"]
-                iteration_data = test.get("api_results", {}).get(
-                    "iteration", {}
-                )
-                iterations = range(1, test["iterations"] + 1)
-                stage_data = test.get("api_results", {}).get("stage", {})
-                mean = round(stage_data[stage]["mean"], 1)
-                times = [iteration_data[str(it)][stage] for it in iterations]
-                axs.plot(
-                    iterations,
-                    times,
-                    label=f"{name} \u03bc {mean}",
-                    linestyle="--",
-                    linewidth=3,
-                )
-                rounder = 1
-                for x_val, y_val in zip(iterations, times):
-                    if (x_val, round(y_val, rounder)) in points_seen:
-                        continue
-                    points_seen.add((x_val, round(y_val, rounder)))
-                    axs.text(
-                        x_val,
-                        y_val,
-                        str(round(y_val, rounder)),
-                        ha="center",
-                        fontsize="xx-large",
+        tests_small = dict(
+            sorted(tests_small.items(), key=lambda x: x[1]["preload_max"])
+        )
+        tests_gui = dict(
+            sorted(tests_gui.items(), key=lambda x: x[1]["preload_max"])
+        )
+        tests_small_gui = dict(
+            sorted(tests_small_gui.items(), key=lambda x: x[1]["preload_max"])
+        )
+        all_tests = {
+            "nogui-small": {
+                "for simple calls with some preloaded disposables": tests_small
+            },
+            "gui-small": {
+                "for GUI calls with some preloaded disposables": tests_small_gui
+            },
+            "nogui-large": {
+                "for simple calls with some preloaded disposables": tests
+            },
+            "gui-large": {
+                "for GUI calls with some preloaded disposables": tests_gui
+            },
+        }
+
+        for test_type, test_value in all_tests.items():
+            desc = list(test_value.keys())[0]
+            tests = list(test_value.values())[0]
+            for num, stage in enumerate(["exec", "clean", "total"]):
+                fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
+                points_seen = set()
+                for test in tests.values():
+                    name = test["pretty_name"]
+                    iteration_data = test.get("api_results", {}).get(
+                        "iteration", {}
                     )
-            if stage == "total":
-                stage_pretty = stage
-            else:
-                stage_pretty = self.stage_dict[stage]["legend"].lower()
-            axs.set_ylabel("Time (seconds)")
-            axs.set_title(f"{stage_pretty.capitalize()} time per iteration")
-            axs.set_xticks(iterations)
-            axs.legend()
-            caption = (
-                f"Compares the {stage_pretty} per iteration of normal "
-                + "disposables with preloaded disposables."
-            )
-            fig.supxlabel(
-                caption,
-                wrap=True,
-                color=CAPTION_COLOR,
-            )
-            self.end(plt, str(num) + "_" + stage)
+                    iterations = range(1, test["iterations"] + 1)
+                    stage_data = test.get("api_results", {}).get("stage", {})
+                    mean = round(stage_data[stage]["mean"], 1)
+                    times = [
+                        iteration_data[str(it)][stage] for it in iterations
+                    ]
+                    axs.plot(
+                        iterations,
+                        times,
+                        label=f"{name} \u03bc {mean}",
+                        linestyle="--",
+                        linewidth=3,
+                    )
+                    rounder = 1
+                    for x_val, y_val in zip(iterations, times):
+                        if (x_val, round(y_val, rounder)) in points_seen:
+                            continue
+                        points_seen.add((x_val, round(y_val, rounder)))
+                        axs.text(
+                            x_val,
+                            y_val,
+                            str(round(y_val, rounder)),
+                            ha="center",
+                            fontsize="xx-large",
+                        )
+                if stage == "total":
+                    stage_pretty = stage
+                else:
+                    stage_pretty = self.stage_dict[stage]["legend"].lower()
+                axs.set_ylabel("Time (seconds)")
+                axs.set_title(
+                    f"{stage_pretty.capitalize()} time per iteration {desc}"
+                )
+                axs.set_xticks(iterations)
+                axs.legend()
+                caption = (
+                    f"Compares the {stage_pretty} per iteration of normal "
+                    + "disposables with preloaded disposables."
+                )
+                fig.supxlabel(
+                    caption,
+                    wrap=True,
+                    color=CAPTION_COLOR,
+                )
+                self.end(plt, str(num) + "_" + stage + "_" + test_type)
 
     def graph_08_template(self) -> None:
         """Graph including all available templates."""
@@ -923,9 +988,18 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         orig_tests = filter_data(
             self.data, {"non_dispvm": False, "extra_id": ""}
         )
+
+        concurrent_tests = filter_data(orig_tests, {"concurrent": True})
+        gui_tests = filter_data(orig_tests, {"gui": True})
+        # TODO: ben: some issue here
         for query in ["concurrent-gui", "gui", "concurrent", "gui-concurrent"]:
+            if ("concurrent" in query and not concurrent_tests) or (
+                "gui" in query and not gui_tests
+            ):
+                logging.warning("Skipped query without tests: %s", query)
+                continue
             if query == "concurrent-gui":
-                tests = filter_data(orig_tests, {"concurrent": True})
+                tests = concurrent_tests
                 query_name = "with concurrency (with and without GUI),"
                 query_file = "wconc_nogui_gui"
             elif query == "gui":
@@ -937,7 +1011,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 query_name = "with and without concurrency,"
                 query_file = "noconc_conc"
             elif query == "gui-concurrent":
-                tests = filter_data(orig_tests, {"gui": True})
+                tests = gui_tests
                 query_name = "with GUI (with and without concurrency),"
                 query_file = "wgui_noconc_conc"
             else:
@@ -952,7 +1026,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             vm_qrexec = filter_data(
                 tests, {"from_dom0": False, "admin_api": False}
             )
-
+            method_tests = [t for t in [dom0_api, dom0_qvm, vm_qrexec] if t]
             for key in ["mean", "total"]:
                 preload_tests = filter_data(
                     tests, {"preload_max": 1}, {"preload_max": operator.ge}
@@ -960,11 +1034,11 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 assert_items_match(preload_tests, ["preload_max"])
                 preload_max = get_value(preload_tests, "preload_max")[0]
                 caption = (
-                    f"Compares workflows of normal disposables with "
+                    "Compares workflows of normal disposables with "
                     + f"{preload_max} preloaded disposables."
                 )
                 self.bar_plot(
-                    [dom0_api, dom0_qvm, vm_qrexec],
+                    method_tests,
                     titles=["dom0 API", "dom0 qvm", "qube qrexec-client-vm"],
                     title_prefix=False,
                     keys=[key],

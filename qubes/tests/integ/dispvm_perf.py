@@ -21,8 +21,25 @@ import os
 import shutil
 import sys
 import tempfile
-
+import unittest
 import qubes.tests
+
+
+def env_with_reason(env_var, default):
+    env_var = "QUBES_TEST_PERF_" + env_var
+    value = os.environ.get(env_var, default)
+    reason = "environment variable is empty: " + env_var
+    return value, reason
+
+
+CONCURRENCY = env_with_reason("CONCURRENCY", False)
+GUI = env_with_reason("GUI", True)
+EXTENDED = env_with_reason("EXTENDED", False)
+DOM0_DISPVM = env_with_reason("DOM0_DISPVM", False)
+DOM0_DISPVM_API = env_with_reason("DOM0_DISPVM_API", True)
+DOM0_VM_API = env_with_reason("DOM0_VM_API", True)
+VM_DISPVM = env_with_reason("VM_DISPVM", False)
+VM_VM = env_with_reason("VM_VM", False)
 
 
 class TC_00_DispVMPerfMixin:
@@ -129,147 +146,256 @@ class TC_00_DispVMPerfMixin:
         if p.returncode:
             self.fail(f"'{' '.join(cmd)}' failed: {p.returncode}")
 
+    @unittest.skipUnless(*VM_DISPVM)
     def test_000_vm_dispvm(self):
         """Latency of vm-dispvm calls"""
         self.run_test("vm-dispvm")
 
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*GUI)
     def test_001_vm_dispvm_gui(self):
         """Latency of vm-dispvm GUI calls"""
         self.run_test("vm-dispvm-gui")
 
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*CONCURRENCY)
     def test_002_vm_dispvm_concurrent(self):
         """Latency of vm-dispvm concurrent calls"""
         self.run_test("vm-dispvm-concurrent")
 
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
     def test_003_vm_dispvm_gui_concurrent(self):
         """Latency of vm-dispvm concurrent GUI calls"""
         self.run_test("vm-dispvm-gui-concurrent")
 
-    def test_006_dom0_dispvm(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    def test_100_dom0_dispvm(self):
         """Latency of dom0-dispvm calls"""
         self.run_test("dom0-dispvm")
 
-    def test_007_dom0_dispvm_gui(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*GUI)
+    def test_101_dom0_dispvm_gui(self):
         """Latency of dom0-dispvm GUI calls"""
         self.run_test("dom0-dispvm-gui")
 
-    def test_008_dom0_dispvm_concurrent(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_102_dom0_dispvm_concurrent(self):
         """Latency of dom0-dispvm concurrent calls"""
         self.run_test("dom0-dispvm-concurrent")
 
-    def test_009_dom0_dispvm_gui_concurrent(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_103_dom0_dispvm_gui_concurrent(self):
         """Latency of dom0-dispvm concurrent GUI calls"""
         self.run_test("dom0-dispvm-gui-concurrent")
 
-    def test_020_vm_dispvm_preload(self):
+    @unittest.skipUnless(*VM_DISPVM)
+    def test_200_vm_dispvm_preload(self):
         """Latency of vm-dispvm (preload) calls"""
         self.run_test("vm-dispvm-preload")
 
-    def test_021_vm_dispvm_preload_gui(self):
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*GUI)
+    def test_201_vm_dispvm_preload_gui(self):
         """Latency of vm-dispvm (preload) GUI calls"""
         self.run_test("vm-dispvm-preload-gui")
 
-    def test_022_vm_dispvm_preload_concurrent(self):
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_202_vm_dispvm_preload_concurrent(self):
         """Latency of vm-dispvm (preload) concurrent calls"""
         self.run_test("vm-dispvm-preload-concurrent")
 
-    def test_023_vm_dispvm_preload_gui_concurrent(self):
+    @unittest.skipUnless(*VM_DISPVM)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_203_vm_dispvm_preload_gui_concurrent(self):
         """Latency of vm-dispvm (preload) concurrent GUI calls"""
         self.run_test("vm-dispvm-preload-gui-concurrent")
 
-    def test_026_dom0_dispvm_preload(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    def test_300_dom0_dispvm_preload(self):
         """Latency of dom0-dispvm (preload) calls"""
         self.run_test("dom0-dispvm-preload")
 
-    def test_027_dom0_dispvm_preload_gui(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*GUI)
+    def test_301_dom0_dispvm_preload_gui(self):
         """Latency of dom0-dispvm (preload) GUI calls"""
         self.run_test("dom0-dispvm-preload-gui")
 
-    def test_028_dom0_dispvm_preload_concurrent(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_302_dom0_dispvm_preload_concurrent(self):
         """Latency of dom0-dispvm (preload) concurrent calls"""
         self.run_test("dom0-dispvm-preload-concurrent")
 
-    def test_029_dom0_dispvm_preload_gui_concurrent(self):
+    @unittest.skipUnless(*DOM0_DISPVM)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_303_dom0_dispvm_preload_gui_concurrent(self):
         """Latency of dom0-dispvm (preload) concurrent GUI calls"""
         self.run_test("dom0-dispvm-preload-gui-concurrent")
 
+    @unittest.skipUnless(*DOM0_DISPVM_API)
     def test_400_dom0_dispvm_api(self):
         """Latency of dom0-dispvm API calls"""
         self.run_test("dom0-dispvm-api")
 
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
     def test_401_dom0_dispvm_gui_api(self):
         """Latency of dom0-dispvm GUI API calls"""
         self.run_test("dom0-dispvm-gui-api")
 
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*CONCURRENCY)
     def test_402_dom0_dispvm_concurrent_api(self):
         """Latency of dom0-dispvm concurrent API calls"""
         self.run_test("dom0-dispvm-concurrent-api")
 
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
     def test_403_dom0_dispvm_gui_concurrent_api(self):
         """Latency of dom0-dispvm concurrent GUI API calls"""
         self.run_test("dom0-dispvm-gui-concurrent-api")
 
-    def test_404_dom0_dispvm_preload_less_less_api(self):
-        """Latency of dom0-dispvm (preload less less) API calls"""
-        self.run_test("dom0-dispvm-preload-less-less-api")
-
-    def test_405_dom0_dispvm_preload_less_api(self):
-        """Latency of dom0-dispvm (preload less) API calls"""
-        self.run_test("dom0-dispvm-preload-less-api")
-
-    def test_406_dom0_dispvm_preload_api(self):
-        """Latency of dom0-dispvm (preload) API calls"""
-        self.run_test("dom0-dispvm-preload-api")
-
-    def test_407_dom0_dispvm_preload_more_api(self):
-        """Latency of dom0-dispvm (preload more) API calls"""
-        self.run_test("dom0-dispvm-preload-more-api")
-
-    def test_408_dom0_dispvm_preload_more_more_api(self):
-        """Latency of dom0-dispvm (preload more more) API calls"""
-        self.run_test("dom0-dispvm-preload-more-more-api")
-
-    def test_409_dom0_dispvm_preload_gui_api(self):
-        """Latency of dom0-dispvm (preload) GUI API calls"""
-        self.run_test("dom0-dispvm-preload-gui-api")
-
-    def test_410_dom0_dispvm_preload_concurrent_api(self):
-        """Latency of dom0-dispvm (preload) concurrent GUI API calls"""
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_404_dom0_dispvm_preload_concurrent_api(self):
+        """Latency of dom0-dispvm (preload) concurrent API calls"""
         self.run_test("dom0-dispvm-preload-concurrent-api")
 
-    def test_411_dom0_dispvm_preload_gui_concurrent_api(self):
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_405_dom0_dispvm_preload_gui_concurrent_api(self):
         """Latency of dom0-dispvm (preload) concurrent GUI API calls"""
         self.run_test("dom0-dispvm-preload-gui-concurrent-api")
 
-    def test_800_vm_vm(self):
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
+    def test_410_dom0_dispvm_preload_1_api(self):
+        """Latency of dom0-dispvm (1 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-1-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_411_dom0_dispvm_preload_2_api(self):
+        """Latency of dom0-dispvm (2 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-2-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
+    def test_412_dom0_dispvm_preload_3_api(self):
+        """Latency of dom0-dispvm (3 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-3-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_413_dom0_dispvm_preload_4_api(self):
+        """Latency of dom0-dispvm (4 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-4-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
+    def test_414_dom0_dispvm_preload_5_api(self):
+        """Latency of dom0-dispvm (5 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-5-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_415_dom0_dispvm_preload_6_api(self):
+        """Latency of dom0-dispvm (6 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-6-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*EXTENDED)
+    def test_420_dom0_dispvm_preload_1_gui_api(self):
+        """Latency of dom0-dispvm (1 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-1-gui-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    def test_421_dom0_dispvm_preload_2_gui_api(self):
+        """Latency of dom0-dispvm (2 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-2-gui-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*EXTENDED)
+    def test_422_dom0_dispvm_preload_3_gui_api(self):
+        """Latency of dom0-dispvm (3 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-3-gui-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    def test_423_dom0_dispvm_preload_4_gui_api(self):
+        """Latency of dom0-dispvm (4 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-4-gui-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*EXTENDED)
+    def test_424_dom0_dispvm_preload_5_gui_api(self):
+        """Latency of dom0-dispvm (5 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-5-gui-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*GUI)
+    def test_425_dom0_dispvm_preload_6_gui_api(self):
+        """Latency of dom0-dispvm (6 preload) GUI API calls"""
+        self.run_test("dom0-dispvm-preload-6-gui-api")
+
+    @unittest.skipUnless(*VM_VM)
+    def test_700_vm_vm(self):
         """Latency of vm-vm calls"""
         self.run_test("vm-vm")
 
-    def test_801_vm_vm_gui(self):
+    @unittest.skipUnless(*VM_VM)
+    @unittest.skipUnless(*GUI)
+    def test_701_vm_vm_gui(self):
         """Latency of vm-vm GUI calls"""
         self.run_test("vm-vm-gui")
 
-    def test_802_vm_vm_concurrent(self):
+    @unittest.skipUnless(*VM_VM)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_702_vm_vm_concurrent(self):
         """Latency of vm-vm concurrent calls"""
         self.run_test("vm-vm-concurrent")
 
-    def test_803_vm_vm_gui_concurrent(self):
+    @unittest.skipUnless(*VM_VM)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_703_vm_vm_gui_concurrent(self):
         """Latency of vm-vm concurrent GUI calls"""
         self.run_test("vm-vm-gui-concurrent")
 
-    def test_804_dom0_vm_api(self):
+    @unittest.skipUnless(*DOM0_VM_API)
+    def test_800_dom0_vm_api(self):
         """Latency of dom0-vm API calls"""
         self.run_test("dom0-vm-api")
 
-    def test_805_dom0_vm_gui_api(self):
+    @unittest.skipUnless(*DOM0_VM_API)
+    @unittest.skipUnless(*GUI)
+    def test_801_dom0_vm_gui_api(self):
         """Latency of dom0-vm GUI API calls"""
         self.run_test("dom0-vm-gui-api")
 
-    def test_806_dom0_vm_concurrent_api(self):
+    @unittest.skipUnless(*DOM0_VM_API)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_802_dom0_vm_concurrent_api(self):
         """Latency of dom0-vm concurrent API calls"""
         self.run_test("dom0-vm-concurrent-api")
 
-    def test_807_dom0_vm_gui_concurrent_api(self):
+    @unittest.skipUnless(*DOM0_VM_API)
+    @unittest.skipUnless(*GUI)
+    @unittest.skipUnless(*CONCURRENCY)
+    def test_803_dom0_vm_gui_concurrent_api(self):
         """Latency of dom0-vm concurrent GUI API calls"""
         self.run_test("dom0-vm-gui-concurrent-api")
 
