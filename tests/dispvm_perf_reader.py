@@ -372,7 +372,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         else:
             if not skip_fname:
                 name = get_fname()
-        name = self.default_template + "_" + name
+        name = "dispvm_perf-" + self.default_template + "_" + name
 
         if self.output_dir:
             logging.info("Saving figure %s", name)
@@ -555,48 +555,53 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         """System specifications graph."""
         first_test = list(self.data.keys())[0]
         data = self.data[first_test]
-        specs = {
-            "date": data["date"],
-            "template-buildtime": data["template-buildtime"],
-            "kernel": data["kernel"],
-            "hcl-memory": data["hcl-memory"],
-            "hcl-certified": data["hcl-certified"],
-            "hcl-qubes": data["hcl-qubes"],
-            "hcl-xen": data["hcl-xen"],
-            "hcl-model": data["hcl-model"],
-            "hcl-bios": data["hcl-bios"],
-            "hcl-cpu": data["hcl-cpu"],
-            "hcl-scsi": data.get("hcl-scsi", None),
-            "hcl-nvme": data.get("hcl-nvme", None),
-        }
         specs_text = """
         System specifications:
 
-        - Date: {}
-        - Template: {}
-        - Template build time: {}
-        - Certified: {}
-        - Qubes: {}
-        - Kernel: {}
-        - Xen: {}
-        - RAM: {} MiB
-        - CPU: {}
-        - BIOS: {}
-        - SCSI: {}
-        - NVMe: {}
+        - Global:
+          - Date: {date}
+          - Qubes: {hcl_qubes}
+          - Xen: {hcl_xen}
+          - Global Kernel: {hcl_kernel}
+        - Template:
+          - Name: {template}
+          - Build time: {template_buildtime}
+          - Last update: {template_last_update}
+          - Virtual CPUs: {vcpus}
+          - Bootstrap memory: {memory}
+          - Maximum memory: {maxmem}
+          - Kernel: {kernel}
+          - Kernel options: {kernelopts}
+        - Hardware:
+          - Certified: {hcl_certified}
+          - Brand: {hcl_brand}
+          - Model: {hcl_model}
+          - CPU: {hcl_cpu}
+          - RAM: {hcl_memory} MiB
+          - BIOS: {hcl_bios}
+          - SCSI: {hcl_scsi}
+          - NVMe: {hcl_nvme}
         """.format(
-            specs["date"],
-            self.default_template,
-            specs["template-buildtime"],
-            specs["hcl-certified"],
-            specs["hcl-qubes"],
-            specs["kernel"],
-            specs["hcl-xen"],
-            specs["hcl-memory"],
-            specs["hcl-cpu"],
-            specs["hcl-bios"],
-            specs["hcl-scsi"],
-            specs["hcl-nvme"],
+            date=data["date"],
+            template=self.default_template,
+            template_buildtime=data["template-buildtime"],
+            template_last_update=data["last-update"] or None,
+            memory=data["memory"],
+            maxmem=data["maxmem"],
+            vcpus=data["vcpus"],
+            kernel=data["kernel"],
+            kernelopts=data["kernelopts"],
+            hcl_memory=data["hcl-memory"],
+            hcl_certified=data.get("hcl-certified"),
+            hcl_qubes=data["hcl-qubes"],
+            hcl_xen=data["hcl-xen"],
+            hcl_kernel=data["hcl-kernel"],
+            hcl_brand=data.get("hcl-brand"),
+            hcl_model=data.get("hcl-model"),
+            hcl_bios=data.get("hcl-bios"),
+            hcl_cpu=data.get("hcl-cpu"),
+            hcl_scsi=data.get("hcl-scsi"),
+            hcl_nvme=data.get("hcl-nvme"),
         )
         fig = plt.figure(figsize=(2 * WIDTH, 2 * HEIGHT))
         fig.clf()
