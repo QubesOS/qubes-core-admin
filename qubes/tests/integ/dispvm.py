@@ -227,11 +227,11 @@ class TC_20_DispVMMixin:
             self.start_vm(self.disp_base),
             self.start_vm(self.disp_base_alt),
         ]
+        self.loop.run_until_complete(asyncio.gather(*start_tasks))
         shutdown_tasks = [
             self.disp_base.shutdown(wait=True),
             self.disp_base_alt.shutdown(wait=True),
         ]
-        self.loop.run_until_complete(asyncio.gather(*start_tasks))
         self.loop.run_until_complete(asyncio.gather(*shutdown_tasks))
         # Setting "default_dispvm" fires the preload event before patches of
         # each test function is applied.
