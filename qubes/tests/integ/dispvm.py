@@ -305,9 +305,16 @@ class TC_20_DispVMMixin(object):
         self._register_handlers(vm)
 
     async def cleanup_preload_run(self, qube):
-        old_preload = qube.get_feat_preload()
+        old_preload = qube.features.get("preload-dispvm", "")
+        old_preload = old_preload.split(" ") if old_preload else []
+        if not old_preload:
+            return
+        logger.info(
+            "cleaning up preloaded disposables: %s:%s", qube.name, old_preload
+        )
         tasks = [self.app.domains[x].cleanup() for x in old_preload]
         await asyncio.gather(*tasks)
+        self.wait_for_dispvm_destroy(old_preload)
 
     def cleanup_preload(self):
         logger.info("start")
@@ -319,13 +326,24 @@ class TC_20_DispVMMixin(object):
             logger.info("deleting global threshold feature")
             del self.app.domains["dom0"].features["preload-dispvm-threshold"]
         for qube in self.app.domains:
-            if "preload-dispvm-max" not in qube.features:
+            if "preload-dispvm-max" not in qube.features or qube not in [
+                self.app.domains["dom0"],
+                default_dispvm,
+                self.disp_base,
+                self.disp_base_alt,
+            ]:
                 continue
             logger.info("removing preloaded disposables: '%s'", qube.name)
-            if qube == default_dispvm:
-                self.loop.run_until_complete(
-                    self.cleanup_preload_run(default_dispvm)
+            target = qube
+            if qube.klass == "AdminVM" and default_dispvm:
+                target = default_dispvm
+            old_preload_max = qube.features.get("preload-dispvm-max") or 0
+            self.loop.run_until_complete(
+                self.wait_preload(
+                    old_preload_max, fail_on_timeout=False, timeout=20
                 )
+            )
+            self.loop.run_until_complete(self.cleanup_preload_run(target))
             logger.info("deleting max preload feature")
             del qube.features["preload-dispvm-max"]
         logger.info("end")

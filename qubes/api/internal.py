@@ -265,7 +265,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         preload_templates = qubes.vm.dispvm.get_preload_templates(self.app)
         for qube in preload_templates:
-            qube.remove_preload_excess(0)
+            qube.remove_preload_excess(0, reason="system wants to suspend")
 
         # first keep track of VMs which were paused before suspending
         previously_paused = [

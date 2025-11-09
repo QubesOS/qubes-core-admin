@@ -1096,6 +1096,40 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[appvm]
 
+    def test_205_remove_appvm_dispvm_preload(self):
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-appvm",
+            template=self.template,
+            template_for_dispvms=True,
+            label="red",
+        )
+        dispvm = self.app.add_new_vm(
+            "DispVM", name="test-dispvm", template=appvm, label="red"
+        )
+        dispvm_alt = self.app.add_new_vm(
+            "DispVM", name="test-dispvm-alt", template=appvm, label="red"
+        )
+        with mock.patch.object(self.app, "vmm"):
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                del self.app.domains[appvm]
+
+        with mock.patch.object(self.app, "vmm"):
+            with mock.patch.object(appvm, "fire_event_async"):
+                appvm.features["preload-dispvm-max"] = "1"
+                appvm.features["preload-dispvm"] = str(dispvm.name)
+                with self.assertRaises(qubes.exc.QubesVMInUseError):
+                    del self.app.domains[appvm]
+
+        with mock.patch.object(self.app, "vmm"):
+            with mock.patch.object(appvm, "fire_event_async"):
+                appvm.features["preload-dispvm-max"] = "2"
+                appvm.features["preload-dispvm"] = dispvm.name
+                appvm.features["preload-dispvm"] = (
+                    dispvm.name + " " + dispvm_alt.name
+                )
+                del self.app.domains[appvm]
+
     def test_206_remove_attached(self):
         # See also qubes.tests.api_admin.
         vm = self.app.add_new_vm(

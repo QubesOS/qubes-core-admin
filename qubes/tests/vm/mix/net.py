@@ -369,6 +369,19 @@ class TC_00_NetVMMixin(
         self.assertPropertyValue(vm2, "netvm", "", None, "")
         self.assertPropertyValue(vm, "provides_network", False, False, "False")
 
+    @patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @patch("qubes.vm.qubesvm.QubesVM.is_halted", return_value=False)
+    def test_180_shutdown(self, mock_halted, mock_shutdown):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        with patch.object(vm, "is_running", return_value=True):
+            vm.is_preload = False
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.loop.run_until_complete(vm.netvm.shutdown())
+            vm.is_preload = True
+            self.loop.run_until_complete(vm.netvm.shutdown())
+
     def test_200_vmid_to_ipv4(self):
         testcases = (
             (1, "0.1"),

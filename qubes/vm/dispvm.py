@@ -540,7 +540,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         await self._auto_cleanup()
 
     @qubes.events.handler("domain-remove-from-disk")
-    async def on_domain_delete(self, _event, **_kwargs) -> None:
+    async def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
         """
         On volume removal, remove preloaded disposable from ``preload-dispvm``
         feature in disposable template. If the feature is still here, it means
@@ -665,7 +665,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     # The gap is filled after the delay set by the
                     # 'domain-shutdown' of its ancestors. Not refilling now to
                     # deliver a disposable faster.
-                    appvm.remove_preload_from_list([qube.name])
+                    appvm.remove_preload_from_list(
+                        [qube.name], reason="of outdated volume(s)"
+                    )
                     # Delay to not  affect this run.
                     asyncio.ensure_future(
                         qube.delay(delay=2, coros=[qube.cleanup()])
@@ -676,7 +678,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if dispvm:
                 dispvm.log.info("Requesting preloaded qube")
                 dispvm.features["preload-dispvm-in-progress"] = True
-                appvm.remove_preload_from_list([dispvm.name])
+                appvm.remove_preload_from_list(
+                    [dispvm.name], reason="qube was requested"
+                )
                 dispvm.preload_requested = True
                 app.save()
                 timeout = int(dispvm.qrexec_timeout * 1.2)
@@ -754,7 +758,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             await self.apply_deferred_netvm()
-            appvm.remove_preload_from_list([self.name])
+            appvm.remove_preload_from_list(
+                [self.name], reason="qube was used without being requested"
+            )
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
         asyncio.ensure_future(
@@ -765,8 +771,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Cleanup preload from list.
         """
-        if self.name in self.template.get_feat_preload():
-            self.log.info("Automatic cleanup removes qube from preload list")
+        name = getattr(self, "name", None)
+        template = getattr(self, "template", None)
+        if not (name and template):
+            # Objects from self may be absent.
+            return
+        if name in template.get_feat_preload():
+            self.template.remove_preload_from_list(
+                [self.name], reason="automatic cleanup was called"
+            )
             self.template.remove_preload_from_list([self.name])
 
     async def _bare_cleanup(self) -> None:
@@ -804,7 +817,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             running = False
         # Full cleanup will be done automatically if event 'domain-shutdown' is
         # triggered and "auto_cleanup=True".
-        if not running or not self.auto_cleanup:
+        if not self.auto_cleanup or (not running and self.auto_cleanup):
             self._preload_cleanup()
             if self in self.app.domains:
                 await self._bare_cleanup()
