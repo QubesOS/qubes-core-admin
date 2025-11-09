@@ -30,7 +30,7 @@ import uuid
 import qubes
 import qubes.exc
 import qubes.vm
-from qubes.vm.qubesvm import _setter_kbd_layout
+from qubes.vm.qubesvm import _setter_denied_list, _setter_kbd_layout
 from qubes.vm import LocalVM, BaseVM
 
 
@@ -74,6 +74,14 @@ class AdminVM(LocalVM):
         type=bool,
         setter=qubes.property.forbidden,
         doc="True if this machine may be updated on its own.",
+    )
+
+    devices_denied = qubes.property(
+        "devices_denied",
+        default="",
+        type=str,
+        setter=_setter_denied_list,
+        doc="List of device interface codes that are denied for this VM.",
     )
 
     # for changes in keyboard_layout, see also the same property in QubesVM
