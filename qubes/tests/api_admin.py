@@ -3977,7 +3977,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             self.call_mgmt_func(b"admin.vm.CreateDisposable", b"test-vm1")
         self.assertFalse(self.app.save.called)
 
-    @unittest.mock.patch("qubes.vm.dispvm.DispVM._bare_cleanup")
     @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @unittest.mock.patch("qubes.storage.Storage.verify")
     @unittest.mock.patch("qubes.storage.Storage.create")
@@ -3986,12 +3985,10 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         mock_storage_create,
         mock_storage_verify,
         mock_dispvm_start,
-        mock_bare_cleanup,
     ):
         mock_storage_create.side_effect = self.dummy_coro
         mock_storage_verify.side_effect = self.dummy_coro
         mock_dispvm_start.side_effect = self.dummy_coro
-        mock_bare_cleanup.side_effect = self.dummy_coro
         self.vm.template_for_dispvms = True
         self.app.default_dispvm = self.vm
         self.vm.add_handler(

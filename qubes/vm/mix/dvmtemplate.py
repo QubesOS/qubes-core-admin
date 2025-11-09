@@ -102,7 +102,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 reason="their progress was interrupted",
             )
             for dispvm in preload_in_progress:
-                asyncio.ensure_future(dispvm.cleanup())
+                asyncio.ensure_future(dispvm.cleanup(force=True))
 
         if changes:
             self.app.save()
