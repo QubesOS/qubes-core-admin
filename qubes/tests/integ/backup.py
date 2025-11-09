@@ -584,11 +584,15 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
         home_dir = pwd.getpwnam(local_user).pw_dir
         with self.assertRaises(qubes.exc.QubesException):
             self.make_backup(
-                [self.app.domains[0]], target=home_dir, expect_failure=True
+                [self.app.domains[0]],
+                target_vm=self.app.domains[0],
+                target=home_dir,
+                expect_failure=True,
             )
         with self.assertRaises(qubes.exc.QubesException):
             self.make_backup(
                 [self.app.domains[0]],
+                target_vm=self.app.domains[0],
                 target=os.path.join(home_dir, "somedir"),
                 expect_failure=True,
             )
