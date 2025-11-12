@@ -1,12 +1,12 @@
 [Unit]
-Description=Preload Qubes' Disposables
+Description=Preload Qubes' Disposables after DISPLAY is available
 ConditionKernelCommandLine=!qubes.skip_autostart
 # After qmemman so the daemon can create the file containing available memory.
 After=qubesd.service qubes-meminfo-writer-dom0.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/lib/qubes/preload-dispvm
+ExecStart=/usr/lib/qubes/preload-dispvm --gui
 Group=qubes
 RemainAfterExit=yes
 

@@ -378,6 +378,8 @@ done
 
 %{_mandir}/man1/qubes*.1*
 
+%{_sysconfdir}/xdg/autostart/qubes-preload-dispvm-gui.desktop
+
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
 
@@ -578,6 +580,7 @@ done
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
 %{_unitdir}/qubes-preload-dispvm.service
+%{_unitdir}/qubes-preload-dispvm-gui.service
 %attr(2770,root,qubes) %dir /var/lib/qubes
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms

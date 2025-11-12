@@ -3,10 +3,11 @@
 """
 This script is outside of qubesd because it relies on systemd to:
 
-- Order this action after the autostart or standard qubes;
+- Order this action after the autostart of normal qubes;
 - Skip preloading if kernel command line prevents autostart.
 """
 
+import argparse
 import asyncio
 import concurrent.futures
 import qubesadmin
@@ -23,6 +24,18 @@ def get_preload_max(qube) -> int | None:
 
 
 async def main():
+    parser = argparse.ArgumentParser(
+        description="Autostart preloaded disposable cycle"
+    )
+    parser.add_argument(
+        "--gui", action="store_true", help="start qubes with GUI session"
+    )
+    args = parser.parse_args()
+
+    call_arg = "preload-autostart"
+    if args.gui:
+        call_arg += "+gui"
+
     app = qubesadmin.Qubes()
     domains = app.domains
     default_dispvm = getattr(app, "default_dispvm", None)
@@ -54,7 +67,7 @@ async def main():
                 maximum = get_preload_max(qube)
                 msg = f"{qube}:{maximum}"
             print(repr(msg))
-            exec_args = qube.qubesd_call, qube.name, method, "preload-autostart"
+            exec_args = qube.qubesd_call, qube.name, method, call_arg
             future = loop.run_in_executor(executor, *exec_args)
             tasks.append(future)
         await asyncio.gather(*tasks)
