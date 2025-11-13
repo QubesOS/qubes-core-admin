@@ -122,6 +122,7 @@ admin.vm.property.Get               +audiovm {vm}     @tag:audiovm-{vm}  allow  
 admin.vm.property.Get               +xid     {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.property.Get               +stubdom_xid     {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.property.Get               +virt_mode     {vm}     @tag:audiovm-{vm}  allow   target=dom0
+admin.vm.property.Get               +is_preload     {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio   {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  allow   target=dom0
 """.format(
