@@ -63,7 +63,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         assert isinstance(self, qubes.vm.BaseVM)
         changes = False
-        # Preloading began and host rebooted and autostart event didn't run yet.
+        # Began preloading, host rebooted and autostart event didn't run since.
         old_preload = self.get_feat_preload()
         clean_preload = old_preload.copy()
         for unwanted_disp in old_preload:
@@ -180,7 +180,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if not self.features.check_with_template("qrexec", None):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
-        service = "qubes.WaitForRunningSystem"
+        service = self.get_preload_service()
         if not self.supports_preload():
             raise qubes.exc.QubesValueError(
                 "Qube does not support the RPC '%s'" % service
@@ -412,6 +412,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler(
         "domain-preload-dispvm-used",
         "domain-preload-dispvm-autostart",
+        "domain-preload-dispvm-autostart-gui",
         "domain-preload-dispvm-start",
     )
     async def on_domain_preload_dispvm_used(
@@ -445,16 +446,30 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay:
             event_log += " with a delay of %s second(s)" % f"{delay:.1f}"
         self.log.info(event_log)
-        service = "qubes.WaitForRunningSystem"
+
         if not self.supports_preload():
             raise qubes.exc.QubesValueError(
                 "Qube does not support the RPC '%s' but tried to preload, "
-                "check if template is outdated" % service
+                "check if template is outdated" % self.get_preload_service()
             )
+        if event.startswith("autostart"):
+            early_gui = self.features.get("preload-dispvm-early-gui", None)
+            if event == "autostart" and early_gui:
+                self.log.info(
+                    "Skipping preload autostart as early GUI was requested"
+                )
+                return
+            if event == "autostart-gui" and not early_gui:
+                self.log.info(
+                    "Skipping early GUI preload autostart as it was not "
+                    "configured"
+                )
+                return
+
         if delay:
             await asyncio.sleep(delay)
 
-        if event == "autostart":
+        if event.startswith("autostart"):
             self.remove_preload_excess(0, reason="event autostart was called")
         elif not self.can_preload():
             self.remove_preload_excess(reason="there may be absent qubes")
@@ -672,6 +687,14 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     dispvm = self.app.domains[unwanted_disp]
                     asyncio.ensure_future(dispvm.cleanup())
 
+    def get_preload_service(self) -> str:
+        """
+        Check which service is requires to check if system is ready.
+
+        :rtype: str
+        """
+        return qubes.vm.dispvm.DispVM.get_preload_service(self)
+
     def supports_preload(self) -> bool:
         """
         Check if the necessary RPC is supported.
@@ -679,8 +702,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :rtype: bool
         """
         assert isinstance(self, qubes.vm.BaseVM)
-        service = "qubes.WaitForRunningSystem"
-        supported_service = "supported-rpc." + service
+        supported_service = "supported-rpc." + self.get_preload_service()
         if self.features.check_with_template(supported_service, False):
             return True
         return False

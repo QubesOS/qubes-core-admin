@@ -287,7 +287,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     }
 
     def __init__(self, app, xml, *args, **kwargs) -> None:
-        assert isinstance(self, qubes.vm.BaseVM)
+        assert isinstance(self, qubes.vm.qubesvm.QubesVM)
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
         self.preload_complete = asyncio.Event()
@@ -370,6 +370,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     (key, value)
                     for key, value in template.features.items()
                     if not key.startswith("preload-dispvm")
+                    and key != "preload-dispvm-early-gui"
                 ]
             )
             self.tags.update(template.tags)
@@ -440,7 +441,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         timeout = self.qrexec_timeout
         # https://github.com/QubesOS/qubes-issues/issues/9964
-        rpc = "qubes.WaitForRunningSystem"
+        rpc = self.get_preload_service(self)
         path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
         service = '$(PATH="' + path + '" command -v ' + rpc + ")"
         try:
@@ -844,3 +845,21 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def create_qdb_entries(self) -> None:
         super().create_qdb_entries()
         self.untrusted_qdb.write("/qubes-vm-persistence", "none")
+
+    @staticmethod
+    def get_preload_service(obj) -> str:
+        """
+        Check which service is requires to check if system is ready.
+
+        :rtype: str
+        """
+        # pylint: disable=unused-argument
+        if (
+            obj.features.get("preload-dispvm-early-gui", None)
+            and obj.guivm
+            and obj.features.get("gui", True)
+        ):
+            service = "qubes.WaitForSession"
+        else:
+            service = "qubes.WaitForRunningSystem"
+        return service
