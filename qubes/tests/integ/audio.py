@@ -418,10 +418,14 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                 f"pw-record {self.pwplay_opts} --format=f32 --rate=44100 "
                 f"--channels=1 - > audio_rec.snd"
             )
-            kill_cmd = "pkill --signal SIGINT pw-record"
+            kill_cmd = (
+                "kill -SIGINT $(grep -l pw-record /proc/*/comm | cut -f 3 -d /)"
+            )
         else:
             cmd = "parecord --raw audio_rec.snd"
-            kill_cmd = "pkill --signal SIGINT parecord"
+            kill_cmd = (
+                "kill -SIGINT $(grep -l parecord /proc/*/comm | cut -f 3 -d /)"
+            )
         record = self.loop.run_until_complete(
             self.testvm1.run(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -481,13 +485,17 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                 f"pw-record {self.pwplay_opts} --format=f32 --rate=44100 "
                 "--channels=1 - > audio_rec.snd"
             )
-            kill_cmd = "pkill --signal SIGINT pw-record"
+            kill_cmd = (
+                "kill -SIGINT $(grep -l pw-record /proc/*/comm | cut -f 3 -d /)"
+            )
         else:
             record_cmd = (
                 "parecord --raw --format=float32le --rate=44100 "
                 "--channels=1 audio_rec.snd"
             )
-            kill_cmd = "pkill --signal SIGINT parecord"
+            kill_cmd = (
+                "kill -SIGINT $(grep -l parecord /proc/*/comm | cut -f 3 -d /)"
+            )
         record = self.loop.run_until_complete(self.testvm1.run(record_cmd))
         # give it time to start recording
         self.loop.run_until_complete(asyncio.sleep(2))
