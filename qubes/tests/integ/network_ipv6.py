@@ -167,6 +167,28 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             self.ping6_deadline_name,
         )
 
+    def test_501_simple_networking_paused_restart_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_restart_netvm(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    def test_501_simple_networking_paused_shutdown_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_shutdown_netvm(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
     def test_510_ipv6_simple_proxyvm(self):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin

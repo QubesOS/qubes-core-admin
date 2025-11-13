@@ -29,6 +29,7 @@ from qubes.device_protocol import DeviceInterface
 
 
 PROHIBITED_FEATURES = [
+    "deferred-netvm-force",
     "deferred-netvm-original",
     "preload-dispvm",
     "preload-dispvm-completed",
