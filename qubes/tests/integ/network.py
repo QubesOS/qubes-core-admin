@@ -165,9 +165,11 @@ class VmNetworkingMixin(object):
         del self.netvms
         super(VmNetworkingMixin, self).tearDown()
 
-    def configure_netvm(self):
+    def configure_netvm(self, netvms: list = None):
         """
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+
+        :param list netvms: Use specified netvms or self.netvms.
         """
 
         def run_netvm_cmd(qube, cmd):
@@ -181,7 +183,9 @@ class VmNetworkingMixin(object):
                     % (qube, cmd, e.stdout.decode(), e.stderr.decode())
                 )
 
-        for qube in self.netvms:
+        if not netvms:
+            netvms = self.netvms
+        for qube in netvms:
             if not qube.is_running():
                 self.loop.run_until_complete(self.start_vm(qube))
             # Ensure that dnsmasq is installed:
@@ -241,6 +245,9 @@ class VmNetworkingMixin(object):
         self.assertEqual(
             self.testvm1.features.get("deferred-netvm-original", None), ""
         )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
+        )
         self.loop.run_until_complete(self.testvm1.unpause())
         self._run_cmd_and_log_output(self.testvm1, ip_deadline)
         self._run_cmd_and_log_output(self.testvm1, name_deadline)
@@ -254,8 +261,11 @@ class VmNetworkingMixin(object):
             0,
             "Ping by name on " + test + " failed",
         )
-        self.assertEqual(
-            self.testvm1.features.get("deferred-netvm-original", None), None
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
         )
         self.shutdown_and_wait(self.testvm1)
 
@@ -273,6 +283,9 @@ class VmNetworkingMixin(object):
             self.testvm1.features.get("deferred-netvm-original", None),
             self.testnetvm.name,
         )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
+        )
         self.loop.run_until_complete(self.testvm1.unpause())
         self.assertNotEqual(
             self.run_cmd(self.testvm1, ip),
@@ -284,8 +297,11 @@ class VmNetworkingMixin(object):
             0,
             "Ping by name on " + test + " succeeded but should have failed",
         )
-        self.assertEqual(
-            self.testvm1.features.get("deferred-netvm-original", None), None
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
         )
         self.shutdown_and_wait(self.testvm1)
 
@@ -303,6 +319,9 @@ class VmNetworkingMixin(object):
             self.testvm1.features.get("deferred-netvm-original", None),
             self.testnetvm2.name,
         )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
+        )
         self.shutdown_and_wait(self.testnetvm2)
         self.loop.run_until_complete(self.testvm1.unpause())
         self._run_cmd_and_log_output(self.testvm1, ip_deadline)
@@ -317,8 +336,11 @@ class VmNetworkingMixin(object):
             0,
             "Ping by name on " + test + " failed",
         )
-        self.assertEqual(
-            self.testvm1.features.get("deferred-netvm-original", None), None
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
         )
         self.shutdown_and_wait(self.testvm1)
 
@@ -336,6 +358,9 @@ class VmNetworkingMixin(object):
         self.assertEqual(
             self.testvm1.features.get("deferred-netvm-original", None),
             self.testnetvm2.name,
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
         )
         self.loop.run_until_complete(self.testnetvm2.kill())
         del self.app.domains[self.testnetvm2]
@@ -355,8 +380,86 @@ class VmNetworkingMixin(object):
             0,
             "Ping by name on " + test + " failed",
         )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def _networking_paused_restart_netvm(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        test = "restart netvm and unpause client"
+        self.log.critical(test)
+        print(test)
+        self.testvm1.netvm = self.testnetvm
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.shutdown_and_wait(self.testnetvm, force=True)
         self.assertEqual(
-            self.testvm1.features.get("deferred-netvm-original", None), None
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm.name,
+        )
+        self.assertTrue(self.testvm1.features.get("deferred-netvm-force", None))
+        self.loop.run_until_complete(self.start_vm(self.testnetvm))
+        self.configure_netvm([self.testnetvm])
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self._run_cmd_and_log_output(self.testvm1, ip_deadline)
+        self._run_cmd_and_log_output(self.testvm1, name_deadline)
+        self.assertEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " failed",
+        )
+        self.assertEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " failed",
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
+        )
+        self.shutdown_and_wait(self.testvm1)
+
+    def _networking_paused_shutdown_netvm(
+        self, ip, name, ip_deadline, name_deadline
+    ):
+        test = "shutdown netvm and unpause client"
+        self.log.critical(test)
+        print(test)
+        self.testvm1.netvm = self.testnetvm
+        self.loop.run_until_complete(self.start_vm(self.testvm1))
+        self.loop.run_until_complete(self.testvm1.pause())
+        self.shutdown_and_wait(self.testnetvm, force=True)
+        self.assertEqual(
+            self.testvm1.features.get("deferred-netvm-original", None),
+            self.testnetvm.name,
+        )
+        self.assertTrue(self.testvm1.features.get("deferred-netvm-force", None))
+        self.loop.run_until_complete(self.testvm1.unpause())
+        self.configure_netvm([self.testnetvm])
+        self._run_cmd_and_log_output(self.testvm1, ip_deadline)
+        self._run_cmd_and_log_output(self.testvm1, name_deadline)
+        self.assertEqual(
+            self.run_cmd(self.testvm1, ip),
+            0,
+            "Ping by IP on " + test + " failed",
+        )
+        self.assertEqual(
+            self.run_cmd(self.testvm1, name),
+            0,
+            "Ping by name on " + test + " failed",
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-original", None)
+        )
+        self.assertIsNone(
+            self.testvm1.features.get("deferred-netvm-force", None)
         )
         self.shutdown_and_wait(self.testvm1)
 
@@ -400,6 +503,28 @@ class VmNetworkingMixin(object):
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
         self._networking_paused_change_purge_old(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
+    def test_001_simple_networking_paused_restart_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_restart_netvm(
+            self.ping_ip,
+            self.ping_name,
+            self.ping_deadline_ip,
+            self.ping_deadline_name,
+        )
+
+    def test_001_simple_networking_paused_shutdown_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        """
+        self._networking_paused_shutdown_netvm(
             self.ping_ip,
             self.ping_name,
             self.ping_deadline_ip,

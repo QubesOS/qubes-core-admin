@@ -315,17 +315,24 @@ class NetVMMixin(qubes.events.Emitter):
         This will allow re-reconnecting them cleanly later.
         """
         # pylint: disable=unused-argument
+        for feature in ["deferred-netvm-original", "deferred-netvm-force"]:
+            deferred_feat = self.features.get(feature, None)
+            if deferred_feat is None:
+                continue
+            del self.features[feature]
         for vm in self.connected_vms:
             if not vm.is_running():
                 continue
             try:
                 vm.detach_network()
+                if vm.is_paused():
+                    vm.features["deferred-netvm-force"] = True
             except (qubes.exc.QubesException, libvirt.libvirtError):
                 # ignore errors
                 pass
 
     @qubes.events.handler("domain-start")
-    def on_domain_started_net(self, event, **kwargs):
+    async def on_domain_started_net(self, event, **kwargs):
         """Connect this domain to its downstream domains. Also reload firewall
         in its netvm.
 
@@ -336,11 +343,15 @@ class NetVMMixin(qubes.events.Emitter):
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
         for vm in self.connected_vms:
-            if not vm.is_running():
+            if not vm.is_running() or vm.is_paused():
                 continue
             vm.log.info("Attaching network")
             try:
-                vm.attach_network()
+                deferred_from = vm.features.get("deferred-netvm-original", None)
+                if deferred_from is not None:
+                    await vm.apply_deferred_netvm()
+                else:
+                    vm.attach_network()
             except (qubes.exc.QubesException, libvirt.libvirtError):
                 vm.log.warning("Cannot attach network", exc_info=1)
 
@@ -358,6 +369,11 @@ class NetVMMixin(qubes.events.Emitter):
         oldvalue = None
         if deferred_from in self.app.domains:
             oldvalue = self.app.domains[deferred_from]
+        if self.netvm and not self.netvm.is_running():
+            # Too early to create routing table. Happens when shutting down
+            # netvm and not starting it before attempting to use the client.
+            # This function will be called again by domain-start of the netvm.
+            return
         self.fire_event(
             "property-pre-set:netvm",
             pre_event=True,
@@ -373,6 +389,9 @@ class NetVMMixin(qubes.events.Emitter):
                 oldvalue=oldvalue,
             )
         del self.features["deferred-netvm-original"]
+        deferred_force = self.features.get("deferred-netvm-force", None)
+        if deferred_force is not None:
+            del self.features["deferred-netvm-force"]
         # Guarantee that uplink has been concluded (established or absent).
         await asyncio.wait_for(
             self.run_service_for_stdio(
@@ -442,22 +461,32 @@ class NetVMMixin(qubes.events.Emitter):
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
+        deferred_from = self.features.get("deferred-netvm", None)
         if self.netvm is None:
-            deferred_from = self.features.get("deferred-netvm", None)
             if deferred_from is not None:
                 raise qubes.exc.QubesVMError(
                     self, "netvm should not be {}".format(self.netvm)
                 )
 
+        # Properties extracted from libvirt_domain to support deferred netvm.
+        root = lxml.etree.fromstring(self.libvirt_domain.XMLDesc())
+        eth = root.find(".//interface[@type='ethernet']")
+
         if self.is_paused():
             self.log.warning(
                 "Deferred detaching libvirt net device because qube is paused"
             )
+            if deferred_from is not None or eth is None:
+                return
+            backend = eth.find("backenddomain")
+            if backend is None:
+                return
+            backend_name = backend.get("name")
+            if backend_name not in self.app.domains:
+                return
+            self.features["deferred-netvm-original"] = str(backend_name)
             return
 
-        # Properties extracted from libvirt_domain to support deferred netvm.
-        root = lxml.etree.fromstring(self.libvirt_domain.XMLDesc())
-        eth = root.find(".//interface[@type='ethernet']")
         if eth is None:
             return
         self.libvirt_domain.detachDevice(lxml.etree.tostring(eth).decode())
@@ -587,10 +616,11 @@ class NetVMMixin(qubes.events.Emitter):
                 )
 
         deferred_from = self.features.get("deferred-netvm-original", None)
-        if deferred_from is not None and (
-            (not deferred_from and not newvalue)
-            or (newvalue and deferred_from == newvalue.name)
-        ):
+        deferred_force = self.features.get("deferred-netvm-force", None)
+        same_name = (not deferred_from and not newvalue) or (
+            newvalue and deferred_from == newvalue.name
+        )
+        if not deferred_force and deferred_from is not None and same_name:
             # No deferred netvm as original value is restored.
             del self.features["deferred-netvm-original"]
             return

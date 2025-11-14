@@ -749,18 +749,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
-            await self.apply_deferred_netvm()
             self.preload_requested = False
+            await self.apply_deferred_netvm()
             del self.features["preload-dispvm-in-progress"]
         else:
             # Happens when unpause/resume occurs without qube being requested.
             self.log.warning("Using a preloaded qube before requesting it")
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
-            await self.apply_deferred_netvm()
             appvm.remove_preload_from_list(
                 [self.name], reason="qube was used without being requested"
             )
+            await self.apply_deferred_netvm()
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
         asyncio.ensure_future(
