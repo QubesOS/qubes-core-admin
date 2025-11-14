@@ -43,7 +43,7 @@ call for effect). Instead consider writing in negative form, implying expected
 state: "Domain is not running" instead of "Domain is paused" (yeah, what's wrong
 with that?).
 
-Also avoid implying the personhood of the computer, including adressing user in
+Also avoid implying the personhood of the computer, including addressing user in
 second person. For example, write "Sending message failed" instead of "I failed
 to send the message".
 
