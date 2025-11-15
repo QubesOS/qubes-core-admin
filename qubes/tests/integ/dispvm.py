@@ -864,39 +864,7 @@ class TC_20_DispVMMixin(object):
             .replace(")", r"\)")
         )
         time.sleep(1)
-        if (
-            "gedit" in window_title
-            or "KWrite" in window_title
-            or "Mousepad" in window_title
-            or "Geany" in window_title
-            or "Text Editor" in window_title
-        ):
-            subprocess.check_call(
-                ["xdotool", "windowactivate", "--sync", winid]
-            )
-            if copy:
-                subprocess.check_call(
-                    [
-                        "xdotool",
-                        "key",
-                        "--window",
-                        winid,
-                        "key",
-                        "ctrl+a",
-                        "ctrl+c",
-                        "ctrl+shift+c",
-                    ]
-                )
-            else:
-                subprocess.check_call(["xdotool", "type", "Test test 2"])
-                subprocess.check_call(
-                    ["xdotool", "key", "--window", winid, "key", "Return"]
-                )
-                time.sleep(0.5)
-                subprocess.check_call(["xdotool", "key", "ctrl+s"])
-            time.sleep(0.5)
-            subprocess.check_call(["xdotool", "key", "ctrl+q"])
-        elif "LibreOffice" in window_title:
+        if "LibreOffice" in window_title:
             # wait for actual editor (we've got splash screen)
             search = subprocess.Popen(
                 [
@@ -976,6 +944,40 @@ class TC_20_DispVMMixin(object):
                 subprocess.check_call(
                     ["xdotool", "key", "Escape", "colon", "w", "q", "Return"]
                 )
+        elif (
+            "gedit" in window_title
+            or "KWrite" in window_title
+            or "Mousepad" in window_title
+            or "Geany" in window_title
+            or "Text Editor" in window_title
+            # FeatherPad (default in Whonix 18), no app name in the title...
+            or "test.txt" in window_title
+        ):
+            subprocess.check_call(
+                ["xdotool", "windowactivate", "--sync", winid]
+            )
+            if copy:
+                subprocess.check_call(
+                    [
+                        "xdotool",
+                        "key",
+                        "--window",
+                        winid,
+                        "key",
+                        "ctrl+a",
+                        "ctrl+c",
+                        "ctrl+shift+c",
+                    ]
+                )
+            else:
+                subprocess.check_call(["xdotool", "type", "Test test 2"])
+                subprocess.check_call(
+                    ["xdotool", "key", "--window", winid, "key", "Return"]
+                )
+                time.sleep(0.5)
+                subprocess.check_call(["xdotool", "key", "ctrl+s"])
+            time.sleep(0.5)
+            subprocess.check_call(["xdotool", "key", "ctrl+q"])
         else:
             raise KeyError(window_title)
 
