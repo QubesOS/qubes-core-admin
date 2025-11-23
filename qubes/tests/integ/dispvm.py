@@ -1139,6 +1139,10 @@ class TC_20_DispVMMixin(object):
         spawn.find_executable("xdotool"), "xdotool not installed"
     )
     def test_100_open_in_dispvm(self):
+        if "whonix-w" in self.template:
+            self.skipTest(
+                "whonix workstation does not have default mail client"
+            )
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("vm1"),
