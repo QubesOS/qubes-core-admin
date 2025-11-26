@@ -1,7 +1,7 @@
 [MASTER]
 persistent=no
 extension-pkg-whitelist=lxml.etree
-ignore-paths=qubes/tests
+ignore-paths=^qubes/tests/(?!integ/(dispvm|network).*$)(?!(app|api|ext|vm/(adminvm|appvm|dispvm|mix/(dvmtemplate|net))).py$).*
 init-hook="import astroid.bases; astroid.bases.POSSIBLE_PROPERTIES.add('stateless_property')"
 
 [MESSAGES CONTROL]
@@ -62,10 +62,10 @@ class-rgx=([A-Z_][a-zA-Z0-9]+|TC_\d\d_[a-zA-Z0-9_]+)$
 function-rgx=(test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,50})$
 
 # Regular expression which should only match correct method names
-method-rgx=(test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,50})$
+method-rgx=(setUp|setUpClass|tearDown|tearDownClass|test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,50})$
 
 # Regular expression which should only match correct instance attribute names
-attr-rgx=[a-z_][a-z0-9_]{2,40}$
+attr-rgx=(maxDiff|[a-z_][a-z0-9_]{2,40})$
 
 # Regular expression which should only match correct argument names
 argument-rgx=[a-z_][a-z0-9_]{2,40}$
@@ -199,6 +199,6 @@ max-positional-arguments=7
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=Exception,EnvironmentError
+overgeneral-exceptions=builtins.Exception,builtins.EnvironmentError
 
 # vim: ft=conf

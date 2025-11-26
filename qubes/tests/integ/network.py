@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import contextlib
-from distutils import spawn
+from shutil import which
 
 import asyncio
 import subprocess
@@ -35,7 +35,7 @@ import qubes.vm.appvm
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
 @qubes.tests.skipIfTemplate("whonix")
-class VmNetworkingMixin(object):
+class VmNetworkingMixin:
     test_ip = "192.168.123.45"
     test_name = "test.example.com"
 
@@ -80,7 +80,7 @@ class VmNetworkingMixin(object):
         """
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
         """
-        super(VmNetworkingMixin, self).setUp()
+        super().setUp()
         if self.template.startswith("whonix-"):
             self.skipTest(
                 "Test not supported here - Whonix uses its own "
@@ -163,7 +163,7 @@ class VmNetworkingMixin(object):
                 )
             self._run_cmd_and_log_output(self.app.domains[0], "xl list")
         del self.netvms
-        super(VmNetworkingMixin, self).tearDown()
+        super().tearDown()
 
     def configure_netvm(self, netvms: list = None):
         """
@@ -215,11 +215,10 @@ class VmNetworkingMixin(object):
                     ip=self.test_ip, name=self.test_name
                 ),
             )
+            cmd = "rm -f /etc/resolv.conf && echo nameserver"
             run_netvm_cmd(
                 qube,
-                "rm -f /etc/resolv.conf && echo nameserver {} > /etc/resolv.conf".format(
-                    self.test_ip
-                ),
+                "{} {} > /etc/resolv.conf".format(cmd, self.test_ip),
             )
             run_netvm_cmd(qube, "systemctl try-restart systemd-resolved || :")
             run_netvm_cmd(qube, "/usr/lib/qubes/qubes-setup-dnat-to-ns")
@@ -565,9 +564,7 @@ class VmNetworkingMixin(object):
         )
 
     @qubes.tests.expectedFailureIfTemplate("debian-7")
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
         """
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
@@ -1248,9 +1245,8 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.start_vm(self.testvm1))
         self.loop.run_until_complete(self.start_vm(self.testvm2))
 
-        cmd = "nft add ip qubes custom-forward ip saddr {} ip daddr {} accept".format(
-            self.testvm2.ip, self.testvm1.ip
-        )
+        cmd = "nft add ip qubes custom-forward ip saddr "
+        cmd += "{} ip daddr {} accept".format(self.testvm2.ip, self.testvm1.ip)
         try:
             self.loop.run_until_complete(
                 self.proxy.run_for_stdio(cmd, user="root")
@@ -1261,9 +1257,8 @@ class VmNetworkingMixin(object):
             ) from None
 
         try:
-            cmd = "nft add ip qubes custom-input ip saddr {} counter accept".format(
-                self.testvm2.ip
-            )
+            cmd = "nft add ip qubes custom-input ip saddr "
+            cmd += "{} counter accept".format(self.testvm2.ip)
             self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(cmd, user="root")
             )
@@ -1460,7 +1455,7 @@ def create_testcases_for_templates():
     )
 
 
-def load_tests(loader, tests, pattern):
+def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
     return tests
 

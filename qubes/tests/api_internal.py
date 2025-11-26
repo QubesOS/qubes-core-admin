@@ -26,9 +26,9 @@ import json
 import uuid
 
 
-def mock_coro(f):
+def mock_coro(coro):
     async def coro_f(*args, **kwargs):
-        return f(*args, **kwargs)
+        return coro(*args, **kwargs)
 
     return coro_f
 

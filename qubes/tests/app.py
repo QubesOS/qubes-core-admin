@@ -21,8 +21,7 @@
 #
 
 import os
-import unittest
-import unittest.mock as mock
+from unittest import mock
 
 import lxml.etree
 
@@ -139,7 +138,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
     ]
 
     def setUp(self):
-        super(TC_20_QubesHost, self).setUp()
+        super().setUp()
         self.app = TestApp()
         self.app.vmm = mock.Mock()
         self.qubes_host = qubes.app.QubesHost(self.app)
@@ -234,7 +233,7 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         vm.xid = 1
         vm.name = "somevm"
 
-        info_time, info = self.qubes_host.get_vm_stats(only_vm=vm)
+        info_time, _info = self.qubes_host.get_vm_stats(only_vm=vm)
         self.assertIsNotNone(info_time)
         self.assertEqual(
             self.app.vmm.mock_calls,
@@ -491,7 +490,7 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
     def tearDown(self):
         try:
             os.unlink("/tmp/qubestest.xml")
-        except:
+        except:  # pylint: disable=bare-except
             pass
         try:
             self.app.close()
@@ -558,93 +557,85 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
         </qubes>
         """
         with self.subTest("default_setup"):
-            with open("/tmp/qubestest.xml", "w") as xml_file:
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
                 xml_file.write(
                     xml_template.format(
                         default_netvm="sys-firewall", default_fw_netvm="sys-net"
                     )
                 )
-            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
-            self.assertEqual(self.app.domains["sys-net"].netvm, None)
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(app.domains["sys-net"].netvm, None)
             self.assertEqual(
-                self.app.domains["sys-firewall"].netvm,
-                self.app.domains["sys-net"],
+                app.domains["sys-firewall"].netvm,
+                app.domains["sys-net"],
             )
             # property is no longer "default"
             self.assertFalse(
-                self.app.domains["sys-firewall"].property_is_default("netvm")
+                app.domains["sys-firewall"].property_is_default("netvm")
             )
             # verify that appvm.netvm is unaffected
-            self.assertTrue(
-                self.app.domains["appvm"].property_is_default("netvm")
-            )
+            self.assertTrue(app.domains["appvm"].property_is_default("netvm"))
             self.assertEqual(
-                self.app.domains["appvm"].netvm,
-                self.app.domains["sys-firewall"],
+                app.domains["appvm"].netvm,
+                app.domains["sys-firewall"],
             )
             with self.assertRaises(AttributeError):
-                self.app.default_fw_netvm
+                app.default_fw_netvm  # pylint: disable=no-member
 
-            self.app.close()
-            del self.app
+            app.close()
+            del app
 
         with self.subTest("same"):
-            with open("/tmp/qubestest.xml", "w") as xml_file:
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
                 xml_file.write(
                     xml_template.format(
                         default_netvm="sys-net", default_fw_netvm="sys-net"
                     )
                 )
-            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
-            self.assertEqual(self.app.domains["sys-net"].netvm, None)
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(app.domains["sys-net"].netvm, None)
             self.assertEqual(
-                self.app.domains["sys-firewall"].netvm,
-                self.app.domains["sys-net"],
+                app.domains["sys-firewall"].netvm,
+                app.domains["sys-net"],
             )
             self.assertTrue(
-                self.app.domains["sys-firewall"].property_is_default("netvm")
+                app.domains["sys-firewall"].property_is_default("netvm")
             )
             # verify that appvm.netvm is unaffected
-            self.assertTrue(
-                self.app.domains["appvm"].property_is_default("netvm")
-            )
-            self.assertEqual(
-                self.app.domains["appvm"].netvm, self.app.domains["sys-net"]
-            )
+            self.assertTrue(app.domains["appvm"].property_is_default("netvm"))
+            self.assertEqual(app.domains["appvm"].netvm, app.domains["sys-net"])
             with self.assertRaises(AttributeError):
-                self.app.default_fw_netvm
+                app.default_fw_netvm  # pylint: disable=no-member
 
-            self.app.close()
-            del self.app
+            app.close()
+            del app
 
         with self.subTest("loop"):
-            with open("/tmp/qubestest.xml", "w") as xml_file:
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
                 xml_file.write(
                     xml_template.format(
                         default_netvm="sys-firewall",
                         default_fw_netvm="sys-firewall",
                     )
                 )
-            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
-            self.assertEqual(self.app.domains["sys-net"].netvm, None)
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(app.domains["sys-net"].netvm, None)
             # this was netvm loop, better set to none, to not crash qubesd
-            self.assertEqual(self.app.domains["sys-firewall"].netvm, None)
+            self.assertEqual(app.domains["sys-firewall"].netvm, None)
             self.assertFalse(
-                self.app.domains["sys-firewall"].property_is_default("netvm")
+                app.domains["sys-firewall"].property_is_default("netvm")
             )
             # verify that appvm.netvm is unaffected
-            self.assertTrue(
-                self.app.domains["appvm"].property_is_default("netvm")
-            )
+            self.assertTrue(app.domains["appvm"].property_is_default("netvm"))
             self.assertEqual(
-                self.app.domains["appvm"].netvm,
-                self.app.domains["sys-firewall"],
+                app.domains["appvm"].netvm,
+                app.domains["sys-firewall"],
             )
             with self.assertRaises(AttributeError):
-                self.app.default_fw_netvm
+                app.default_fw_netvm  # pylint: disable=no-member
 
-            self.app.close()
-            del self.app
+            app.close()
+            del app
 
     def test_101_property_migrate_label(self):
         xml_template = """<?xml version="1.0" encoding="utf-8" ?>
@@ -672,25 +663,25 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
         </qubes>
         """
         with self.subTest("replace_label"):
-            with open("/tmp/qubestest.xml", "w") as xml_file:
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
                 xml_file.write(xml_template.format(old_gray="0x555753"))
-            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
-            self.assertEqual(self.app.get_label("gray").color, "0x555555")
-            self.app.close()
-            del self.app
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(app.get_label("gray").color, "0x555555")
+            app.close()
+            del app
 
         with self.subTest("dont_replace_label"):
-            with open("/tmp/qubestest.xml", "w") as xml_file:
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
                 xml_file.write(xml_template.format(old_gray="0x123456"))
-            self.app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
-            self.assertEqual(self.app.get_label("gray").color, "0x123456")
-            self.app.close()
-            del self.app
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            self.assertEqual(app.get_label("gray").color, "0x123456")
+            app.close()
+            del app
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     def setUp(self):
-        super(TC_90_Qubes, self).setUp()
+        super().setUp()
         self.app = qubes.Qubes(
             "/tmp/qubestest.xml", load=False, offline_mode=True
         )
@@ -725,7 +716,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
     def tearDown(self):
         try:
             os.unlink("/tmp/qubestest.xml")
-        except:
+        except:  # pylint: disable=bare-except
             pass
         del self.emitter
         super().tearDown()
@@ -813,7 +804,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
     def test_113_guivm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            guivm = qubes.property("guivm", default=(lambda self: "dom0"))
+            guivm = qubes.property("guivm", default=lambda self: "dom0")
 
         holder = MyTestHolder(None)
         guivm = self.app.add_new_vm(
@@ -893,7 +884,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
     def test_115_audiovm(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            audiovm = qubes.property("audiovm", default=(lambda self: "dom0"))
+            audiovm = qubes.property("audiovm", default=lambda self: "dom0")
 
         holder = MyTestHolder(None)
         audiovm = self.app.add_new_vm(
@@ -968,7 +959,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             remotevm1.get_mem(),
         ] == ["Running", 0, 0]
 
-    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
     def test_118_remotevm_set_relayvm(self, mock_qubesdb):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             relayvm = qubes.property("relayvm")
@@ -1020,7 +1011,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         )
 
     def test_200_remove_template(self):
-        appvm = self.app.add_new_vm(
+        self.app.add_new_vm(
             "AppVM", name="test-vm", template=self.template, label="red"
         )
         with mock.patch.object(self.app, "vmm"):
@@ -1070,7 +1061,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         dispvm = self.app.add_new_vm(
             "AppVM", name="test-appvm", template=self.template, label="red"
         )
-        appvm = self.app.add_new_vm(
+        self.app.add_new_vm(
             "AppVM",
             name="test-appvm2",
             template=self.template,
@@ -1089,7 +1080,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             template_for_dispvms=True,
             label="red",
         )
-        dispvm = self.app.add_new_vm(
+        self.app.add_new_vm(
             "DispVM", name="test-dispvm", template=appvm, label="red"
         )
         with mock.patch.object(self.app, "vmm"):
@@ -1267,9 +1258,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
-        self.assertXMLIsValid(
-            lxml.etree.parse(
-                open(os.path.join(qubes.tests.in_git, "doc/example.xml"), "rb")
-            ),
-            "qubes.rng",
-        )
+        path = os.path.join(qubes.tests.in_git, "doc/example.xml")
+        with open(path, "rb") as file:
+            tree = lxml.etree.parse(file)
+        self.assertXMLIsValid(tree, "qubes.rng")

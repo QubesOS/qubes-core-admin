@@ -19,7 +19,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 import os
-import unittest.mock
+
+from unittest import mock
 
 import qubes.ext.admin
 import qubes.ext.audio
@@ -31,8 +32,6 @@ import qubes.ext.supported_features
 import qubes.ext.vm_config
 import qubes.tests
 import qubes.vm.qubesvm
-
-from unittest import mock
 
 
 class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
@@ -233,7 +232,7 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                 ("template.__bool__", (), {}),
                 (
                     "log.warning",
-                    ("Ignoring qubes.NotifyTools for template-based " "VM",),
+                    ("Ignoring qubes.NotifyTools for template-based VM",),
                     {},
                 ),
             ],
@@ -430,8 +429,8 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     ("os-distribution-like", "debian"),
                     {},
                 ),
-                ("log.warning", unittest.mock.ANY, {}),
-                ("log.warning", unittest.mock.ANY, {}),
+                ("log.warning", mock.ANY, {}),
+                ("log.warning", mock.ANY, {}),
                 ("features.items", (), {}),
                 ("features.get", ("qrexec", False), {}),
             ],
@@ -462,8 +461,8 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
                     ("os-distribution-like", "debian"),
                     {},
                 ),
-                ("log.warning", unittest.mock.ANY, {}),
-                ("log.warning", unittest.mock.ANY, {}),
+                ("log.warning", mock.ANY, {}),
+                ("log.warning", mock.ANY, {}),
                 ("features.items", (), {}),
                 ("features.get", ("qrexec", False), {}),
             ],
@@ -1698,19 +1697,18 @@ class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
         self.vm.configure_mock(
             **{
                 "features.get.side_effect": self.features.get,
-                "features.check_with_template.side_effect": self.mock_check_with_template,
+                "features.check_with_template.side_effect": self.mock_check_tpl,
                 "features.__contains__.side_effect": self.features.__contains__,
                 "features.__setitem__.side_effect": self.features.__setitem__,
             }
         )
 
-    def mock_check_with_template(self, name, default):
+    def mock_check_tpl(self, name, default):
         if hasattr(self.vm, "template"):
             return self.features.get(
                 name, self.template_features.get(name, default)
             )
-        else:
-            return self.features.get(name, default)
+        return self.features.get(name, default)
 
     def test_000_notify_tools_full(self):
         del self.vm.template
@@ -1963,14 +1961,14 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         )
 
     def test_013_feature_set_dom0(self):
-        self.test_base_dir = "/tmp/qubes-test-dir"
-        self.base_dir_patch = mock.patch.dict(
-            qubes.config.system_path, {"dom0_services_dir": self.test_base_dir}
+        test_base_dir = "/tmp/qubes-test-dir"
+        base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {"dom0_services_dir": test_base_dir}
         )
-        self.base_dir_patch.start()
-        self.addCleanup(self.base_dir_patch.stop)
+        base_dir_patch.start()
+        self.addCleanup(base_dir_patch.stop)
         service = "guivm-gui-agent"
-        service_path = self.test_base_dir + "/" + service
+        service_path = test_base_dir + "/" + service
 
         self.ext.on_domain_feature_set(
             self.dom0,
@@ -1981,14 +1979,14 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.assertEqual(os.path.exists(service_path), True)
 
     def test_014_feature_delete_dom0(self):
-        self.test_base_dir = "/tmp/qubes-test-dir"
-        self.base_dir_patch = mock.patch.dict(
-            qubes.config.system_path, {"dom0_services_dir": self.test_base_dir}
+        test_base_dir = "/tmp/qubes-test-dir"
+        base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {"dom0_services_dir": test_base_dir}
         )
-        self.base_dir_patch.start()
-        self.addCleanup(self.base_dir_patch.stop)
+        base_dir_patch.start()
+        self.addCleanup(base_dir_patch.stop)
         service = "guivm-gui-agent"
-        service_path = self.test_base_dir + "/" + service
+        service_path = test_base_dir + "/" + service
 
         self.ext.on_domain_feature_set(
             self.dom0,
@@ -2006,14 +2004,14 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.assertEqual(os.path.exists(service_path), False)
 
     def test_014_feature_set_empty_value_dom0(self):
-        self.test_base_dir = "/tmp/qubes-test-dir"
-        self.base_dir_patch = mock.patch.dict(
-            qubes.config.system_path, {"dom0_services_dir": self.test_base_dir}
+        test_base_dir = "/tmp/qubes-test-dir"
+        base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {"dom0_services_dir": test_base_dir}
         )
-        self.base_dir_patch.start()
-        self.addCleanup(self.base_dir_patch.stop)
+        base_dir_patch.start()
+        self.addCleanup(base_dir_patch.stop)
         service = "guivm-gui-agent"
-        service_path = self.test_base_dir + "/" + service
+        service_path = test_base_dir + "/" + service
 
         self.ext.on_domain_feature_set(
             self.dom0,
@@ -2631,11 +2629,9 @@ class TC_60_Audio(qubes.tests.QubesTestCase):
         )
 
     def test_000_shutdown_used(self):
-        with unittest.mock.patch.object(
+        with mock.patch.object(
             self.ext, "attached_vms", return_value=[self.client]
-        ), unittest.mock.patch.object(
-            self.client, "is_running", return_value=True
-        ):
+        ), mock.patch.object(self.client, "is_running", return_value=True):
             self.client.is_preload = False
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 self.ext.on_domain_pre_shutdown(
@@ -2650,13 +2646,13 @@ class TC_60_Audio(qubes.tests.QubesTestCase):
             )
 
     def test_000_shutdown_used_by_some(self):
-        with unittest.mock.patch.object(
+        with mock.patch.object(
             self.ext,
             "attached_vms",
             return_value=[self.client, self.client_alt],
-        ), unittest.mock.patch.object(
+        ), mock.patch.object(
             self.client, "is_running", return_value=True
-        ), unittest.mock.patch.object(
+        ), mock.patch.object(
             self.client_alt, "is_running", return_value=True
         ):
             self.client.is_preload = False

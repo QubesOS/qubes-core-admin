@@ -121,7 +121,7 @@ class Element:
                 number = "\\+"
             else:
                 print(parent.tag)
-                raise Exception(
+                raise ValueError(
                     f"Cannot choose number format for tag {parent.tag}"
                 )
 
