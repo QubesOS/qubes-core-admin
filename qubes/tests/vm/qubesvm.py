@@ -29,9 +29,6 @@ import uuid
 from uuid import UUID
 import datetime
 
-import asyncio
-
-import functools
 import lxml.etree
 import unittest.mock
 

@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 import unittest
-from distutils import spawn
+from shutil import which
 
 import qubes.firewall
 import qubes.tests
@@ -46,7 +46,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
     )
 
     def setUp(self):
-        super(VmIPv6NetworkingMixin, self).setUp()
+        super().setUp()
         self.ping6_ip = self.ping6_cmd.format(target=self.test_ip6)
         self.ping6_name = self.ping6_cmd.format(target=self.test_name)
         self.ping6_deadline_ip = self.ping6_deadline_cmd.format(
@@ -92,7 +92,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
         for qube in self.netvms:
             qube.features["ipv6"] = True
-        super(VmIPv6NetworkingMixin, self).configure_netvm()
+        super().configure_netvm()
 
         for qube in self.netvms:
             run_netvm_cmd(
@@ -106,12 +106,11 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             )
             # ignore failure
             self.run_cmd(qube, "while pkill dnsmasq; do sleep 1; done")
-            run_netvm_cmd(
-                qube,
-                "dnsmasq -a {ip} -A /{name}/{ip} -A /{name}/{ip6} -i test0 -z".format(
-                    ip=self.test_ip, ip6=self.test_ip6, name=self.test_name
-                ),
+            dnsmasq_args = "-a {ip} -A /{name}/{ip} -A /{name}/{ip6}".format(
+                ip=self.test_ip, ip6=self.test_ip6, name=self.test_name
             )
+            dnsmasq_cmd = "dnsmasq {} -i test0 -z".format(dnsmasq_args)
+            run_netvm_cmd(qube, dnsmasq_cmd)
 
     def test_500_ipv6_simple_networking(self):
         """
@@ -204,9 +203,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         )
 
     @qubes.tests.expectedFailureIfTemplate("debian-7")
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_520_ipv6_simple_proxyvm_nm(self):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
@@ -533,13 +530,10 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         )
         retcode = self.run_cmd(self.testnetvm, cmd)
         if retcode == 127:
+            ip6_args = "! -s {} -p icmpv6 -j LOG".format(self.testvm1.ip6)
+            ip6_cmd = "ip6tables -I INPUT -i vif+ {}".format(ip6_args)
             self.assertEqual(
-                self.run_cmd(
-                    self.testnetvm,
-                    "ip6tables -I INPUT -i vif+ ! -s {} -p icmpv6 -j LOG".format(
-                        self.testvm1.ip6
-                    ),
-                ),
+                self.run_cmd(self.testnetvm, ip6_cmd),
                 0,
             )
             iptables = True
@@ -690,7 +684,7 @@ def create_testcases_for_templates():
     )
 
 
-def load_tests(loader, tests, pattern):
+def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
     return tests
 

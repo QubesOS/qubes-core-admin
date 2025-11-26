@@ -114,6 +114,7 @@ class AppVM(
     @qubes.stateless_property
     def icon(self):
         if self.template_for_dispvms:
+            # pylint: disable=no-member
             return "templatevm-" + self.label.name
         # multi-inheritance and properties confuses pylint here
         # pylint: disable=no-member

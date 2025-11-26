@@ -20,7 +20,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import ipaddress
-import unittest
 from unittest.mock import patch
 
 import qubes
@@ -35,7 +34,7 @@ class TC_00_NetVMMixin(
     qubes.tests.vm.qubesvm.QubesVMTestsMixin, qubes.tests.QubesTestCase
 ):
     def setUp(self):
-        super(TC_00_NetVMMixin, self).setUp()
+        super().setUp()
         self.app = qubes.tests.vm.TestApp()
         self.app.vmm.offline_mode = True
 

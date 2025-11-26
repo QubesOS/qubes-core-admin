@@ -26,7 +26,7 @@ import subprocess
 import time
 import unittest
 from contextlib import suppress
-from distutils import spawn
+from shutil import which
 from unittest.mock import patch, mock_open
 import asyncio
 import sys
@@ -34,7 +34,6 @@ import logging
 
 import qubes.config
 import qubes.tests
-import qubesadmin.exc
 
 # nose will duplicate this logger.
 logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ logger.addHandler(handler)
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
     def setUp(self):
-        super(TC_04_DispVM, self).setUp()
+        super().setUp()
         self.init_default_template()
         self.disp_base = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -73,7 +72,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
 
     def tearDown(self):
         self.app.default_dispvm = None
-        super(TC_04_DispVM, self).tearDown()
+        super().tearDown()
 
     def wait_for_dispvm_destroy(self, dispvm_name: list):
         timeout = 20
@@ -138,6 +137,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertNotIn(dispvm_name, self.app.domains)
 
     def _count_dispvms(self, *args, **kwargs):
+        # pylint: disable=unused-argument
         self.startup_counter += 1
 
     def test_010_failed_start(self):
@@ -195,10 +195,10 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(self.startup_counter, 1)
 
 
-class TC_20_DispVMMixin(object):
+class TC_20_DispVMMixin:
     def setUp(self):  # pylint: disable=invalid-name
         logger.info("start")
-        super(TC_20_DispVMMixin, self).setUp()
+        super().setUp()
         if "whonix-g" in self.template:
             self.skipTest(
                 "whonix gateway is not supported as DisposableVM Template"
@@ -259,7 +259,7 @@ class TC_20_DispVMMixin(object):
         if "_preload_" not in self._testMethodName:
             self.app.default_dispvm = None
         self.app.save()
-        super(TC_20_DispVMMixin, self).tearDown()
+        super().tearDown()
         logger.info("end")
 
     def _test_event_handler(
@@ -787,9 +787,7 @@ class TC_20_DispVMMixin(object):
         self.log_preload()
         logger.info("end")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_020_gui_app(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
@@ -807,8 +805,8 @@ class TC_20_DispVMMixin(object):
             # wait for DispVM startup:
             p.stdin.write(b"echo test\n")
             self.loop.run_until_complete(p.stdin.drain())
-            l = self.loop.run_until_complete(p.stdout.readline())
-            self.assertEqual(l, b"test\n")
+            line = self.loop.run_until_complete(p.stdout.readline())
+            self.assertEqual(line, b"test\n")
 
             self.assertTrue(dispvm.is_running())
             try:
@@ -849,9 +847,10 @@ class TC_20_DispVMMixin(object):
         )
 
     def _handle_editor(self, winid, copy=False):
-        (window_title, _) = subprocess.Popen(
+        with subprocess.Popen(
             ["xdotool", "getwindowname", winid], stdout=subprocess.PIPE
-        ).communicate()
+        ) as proc:
+            (window_title, _) = proc.communicate()
         window_title = (
             window_title.decode()
             .strip()
@@ -861,7 +860,7 @@ class TC_20_DispVMMixin(object):
         time.sleep(1)
         if "LibreOffice" in window_title:
             # wait for actual editor (we've got splash screen)
-            search = subprocess.Popen(
+            with subprocess.Popen(
                 [
                     "xdotool",
                     "search",
@@ -873,11 +872,11 @@ class TC_20_DispVMMixin(object):
                     "disp*|Writer",
                 ],
                 stdout=subprocess.PIPE,
-                stderr=open(os.path.devnull, "w"),
-            )
-            retcode = search.wait()
-            if retcode == 0:
-                winid = search.stdout.read().strip()
+                stderr=subprocess.DEVNULL,
+            ) as search:
+                retcode = search.wait()
+                if retcode == 0:
+                    winid = search.stdout.read().strip()
             time.sleep(0.5)
             subprocess.check_call(
                 ["xdotool", "windowactivate", "--sync", winid]
@@ -929,24 +928,25 @@ class TC_20_DispVMMixin(object):
             )
             if copy:
                 raise NotImplementedError("copy not implemented for vim")
-            else:
-                subprocess.check_call(
-                    ["xdotool", "key", "i", "type", "Test test 2"]
-                )
-                subprocess.check_call(
-                    ["xdotool", "key", "--window", winid, "key", "Return"]
-                )
-                subprocess.check_call(
-                    ["xdotool", "key", "Escape", "colon", "w", "q", "Return"]
-                )
-        elif (
-            "gedit" in window_title
-            or "KWrite" in window_title
-            or "Mousepad" in window_title
-            or "Geany" in window_title
-            or "Text Editor" in window_title
-            # FeatherPad (default in Whonix 18), no app name in the title...
-            or "test.txt" in window_title
+            subprocess.check_call(
+                ["xdotool", "key", "i", "type", "Test test 2"]
+            )
+            subprocess.check_call(
+                ["xdotool", "key", "--window", winid, "key", "Return"]
+            )
+            subprocess.check_call(
+                ["xdotool", "key", "Escape", "colon", "w", "q", "Return"]
+            )
+        elif any(
+            e in window_title
+            for e in (
+                "gedit",
+                "KWrite",
+                "Mousepad",
+                "Geany",
+                "Text Editor",
+                "test.txt",
+            )
         ):
             subprocess.check_call(
                 ["xdotool", "windowactivate", "--sync", winid]
@@ -984,7 +984,7 @@ class TC_20_DispVMMixin(object):
                 include_tray=False,
                 timeout=5,
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             return (
                 False,
                 "Failed to find qrexec confirmation window for "
@@ -1011,9 +1011,7 @@ class TC_20_DispVMMixin(object):
             )
         return (True, "")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_030_edit_file(self):
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -1052,18 +1050,17 @@ class TC_20_DispVMMixin(object):
                     include_tray=False,
                     timeout=60,
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 try:
                     self.loop.run_until_complete(asyncio.wait_for(p.wait(), 1))
                 except asyncio.TimeoutError:
                     raise e
-                else:
-                    stdout = self.loop.run_until_complete(p.stdout.read())
-                    self.fail(
-                        "qvm-open-in-dvm exited prematurely with {}: {}".format(
-                            p.returncode, stdout
-                        )
+                stdout = self.loop.run_until_complete(p.stdout.read())
+                self.fail(
+                    "qvm-open-in-dvm exited prematurely with {}: {}".format(
+                        p.returncode, stdout
                     )
+                )
             # let the application initialize
             self.loop.run_until_complete(asyncio.sleep(1))
             try:
@@ -1106,8 +1103,8 @@ class TC_20_DispVMMixin(object):
                 "/usr/share/qubes/tests-data/"
                 "dispvm-open-thunderbird-attachment",
                 "rb",
-            ) as f:
-                return f.read()
+            ) as file:
+                return file.read()
         assert False
 
     def _get_apps_list(self, template):
@@ -1130,9 +1127,7 @@ class TC_20_DispVMMixin(object):
             if l.endswith(".desktop")
         ]
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_100_open_in_dispvm(self):
         if "whonix-w" in self.template:
             self.skipTest(
@@ -1197,7 +1192,7 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(asyncio.sleep(3))
 
         try:
-            click_to_open = self.loop.run_until_complete(
+            self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     "./open-file test.txt",
                     stdout=subprocess.PIPE,
@@ -1211,7 +1206,7 @@ class TC_20_DispVMMixin(object):
                 self.skipTest("{} not installed".format(app_id))
             self.fail(
                 "'./open-file test.txt' failed with {}: {}{}".format(
-                    err.cmd, err.returncode, err.stdout, err.stderr
+                    err.returncode, err.stdout, err.stderr
                 )
             )
 
@@ -1241,8 +1236,8 @@ class TC_20_DispVMMixin(object):
             self.wait_for_window_hide_coro("editor", winid)
         )
 
-        with open("/var/run/qubes/qubes-clipboard.bin", "rb") as f:
-            test_txt_content = f.read()
+        with open("/var/run/qubes/qubes-clipboard.bin", "rb") as file:
+            test_txt_content = file.read()
         self.assertEqual(test_txt_content.strip(), b"test1")
 
         # this doesn't really close the application, only the qrexec-client
@@ -1260,7 +1255,7 @@ def create_testcases_for_templates():
     )
 
 
-def load_tests(loader, tests, pattern):
+def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
     return tests
 

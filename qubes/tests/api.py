@@ -27,7 +27,7 @@ import qubes.exc
 import qubes.tests
 
 
-class TestMgmt(object):
+class TestMgmt:
     def __init__(self, app, src, method, dest, arg, send_event=None):
         self.app = app
         self.src = src
@@ -35,6 +35,7 @@ class TestMgmt(object):
         self.dest = dest
         self.arg = arg
         self.send_event = send_event
+        self.task = None
         try:
             self.function = {
                 "mgmt.success": self.success,
@@ -67,12 +68,14 @@ class TestMgmt(object):
         raise qubes.exc.QubesException("qubes-exception")
 
     async def exception(self, untrusted_payload):
+        # pylint: disable=broad-exception-raised
         raise Exception("exception")
 
     async def event(self, untrusted_payload):
         future = asyncio.get_event_loop().create_future()
 
         class Subject:
+            # pylint: disable=too-few-public-methods
             name = "subject"
 
             def __str__(self):
@@ -93,7 +96,7 @@ class TestMgmt(object):
 
 class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
     def setUp(self):
-        super(TC_00_QubesDaemonProtocol, self).setUp()
+        super().setUp()
         self.app = unittest.mock.Mock()
         self.app.log = self.log
         self.sock_client, self.sock_server = socket.socketpair()
@@ -116,7 +119,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         except AttributeError:  # old python in travis
             pass
         self.transport.close()
-        super(TC_00_QubesDaemonProtocol, self).tearDown()
+        super().tearDown()
 
     def test_000_message_ok(self):
         self.writer.write(b"mgmt.success+arg src name dest\0payload")

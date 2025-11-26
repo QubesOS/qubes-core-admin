@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 import unittest
-import unittest.mock as mock
+from unittest import mock
 
 import asyncio
 
@@ -34,7 +34,7 @@ import qubes.tests.vm.appvm
 
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
-        super(TestApp, self).__init__()
+        super().__init__()
         self.qid_counter = 0
 
     def add_new_vm(self, cls, **kwargs):
@@ -52,7 +52,7 @@ class TestApp(qubes.tests.vm.TestApp):
 
 class TC_00_DispVM(qubes.tests.QubesTestCase):
     def setUp(self):
-        super(TC_00_DispVM, self).setUp()
+        super().setUp()
         self.app = TestApp()
         self.app.save = mock.Mock()
         self.app.pools["default"] = qubes.tests.vm.appvm.TestPool(
@@ -85,7 +85,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         del self.emitter
-        super(TC_00_DispVM, self).tearDown()
+        super().tearDown()
 
     def cleanup_dispvm(self):
         if hasattr(self, "dispvm"):
@@ -335,7 +335,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     def test_001_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
-            dispvm = self.loop.run_until_complete(
+            self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
 
@@ -352,20 +352,20 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__getitem__.side_effect": orig_getitem,
                 }
             )
-            self.dispvm = self.app.add_new_vm(
+            dispvm = self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
 
-            self.dispvm.template = self.appvm
-            self.loop.run_until_complete(self.dispvm.start())
+            dispvm.template = self.appvm
+            self.loop.run_until_complete(dispvm.start())
             if not self.app.vmm.offline_mode:
                 assert not dispvm.is_halted()
                 with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                    self.dispvm.template = self.appvm
+                    dispvm.template = self.appvm
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.dispvm.template = qubes.property.DEFAULT
-            self.loop.run_until_complete(self.dispvm.kill())
-            self.dispvm.template = self.appvm
+                dispvm.template = qubes.property.DEFAULT
+            self.loop.run_until_complete(dispvm.kill())
+            dispvm.template = self.appvm
 
     def test_003_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
@@ -381,7 +381,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__setitem__.side_effect": orig_domains.__setitem__,
                 }
             )
-            self.dispvm = self.app.add_new_vm(
+            self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
 
@@ -403,7 +403,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__setitem__.side_effect": orig_domains.__setitem__,
                 }
             )
-            self.dispvm = self.app.add_new_vm(
+            self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
 
@@ -422,11 +422,10 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__getitem__.side_effect": orig_getitem,
                 }
             )
-            self.dispvm = self.app.add_new_vm(
+            dispvm = self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
             mock_domains.get_new_unused_dispid.assert_called_once_with()
-        dispvm = self.dispvm
         self.assertEqual(dispvm.name, "test-dispvm")
         self.assertEqual(dispvm.template, self.appvm)
         self.assertEqual(dispvm.label, self.appvm.label)
@@ -475,7 +474,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
-    def test_020_copy_storage_pool(self, mock_makedirs, mock_symlink):
+    def test_020_copy_storage_pool(self, _mock_makedirs, _mock_symlink):
         self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
             name="alternative"
         )
@@ -525,11 +524,11 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__setitem__.side_effect": orig_domains.__setitem__,
                 }
             )
-            vm = self.dispvm = self.app.add_new_vm(
+            dispvm = self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
             self.assertIs(
-                vm.volume_config["root"]["source"],
+                dispvm.volume_config["root"]["source"],
                 self.template.volumes["root"],
             )
             # create new mock, so new template will get different volumes
@@ -543,20 +542,21 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.app.domains[template2] = template2
             self.appvm.template = template2
 
-        self.assertFalse(vm.volume_config["root"]["save_on_stop"])
-        self.assertTrue(vm.volume_config["root"]["snap_on_start"])
+        self.assertFalse(dispvm.volume_config["root"]["save_on_stop"])
+        self.assertTrue(dispvm.volume_config["root"]["snap_on_start"])
         self.assertNotEqual(
-            vm.volume_config["root"]["source"], self.template.volumes["root"]
+            dispvm.volume_config["root"]["source"],
+            self.template.volumes["root"],
         )
         self.assertIs(
-            vm.volume_config["root"]["source"], template2.volumes["root"]
+            dispvm.volume_config["root"]["source"], template2.volumes["root"]
         )
         self.assertIs(
-            vm.volume_config["root"]["source"],
+            dispvm.volume_config["root"]["source"],
             self.appvm.volume_config["root"]["source"],
         )
         self.assertIs(
-            vm.volume_config["private"]["source"],
+            dispvm.volume_config["private"]["source"],
             self.appvm.volumes["private"],
         )
 
@@ -575,7 +575,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__setitem__.side_effect": orig_domains.__setitem__,
                 }
             )
-            vm = self.dispvm = self.app.add_new_vm(
+            vm = dispvm = self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
             self.assertTrue(vm.events_enabled)
@@ -600,9 +600,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             app2.template_for_dispvms = True
             self.app.domains[app2.name] = app2
             self.app.domains[app2] = app2
-            self.dispvm.template = app2
+            dispvm.template = app2
 
-        self.assertIs(vm, self.dispvm)
+        self.assertIs(vm, dispvm)
         self.assertFalse(vm.volume_config["root"]["save_on_stop"])
         self.assertTrue(vm.volume_config["root"]["snap_on_start"])
         self.assertFalse(vm.volume_config["private"]["save_on_stop"])
@@ -630,7 +630,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
-    def test_023_inherit_ephemeral(self, mock_makedirs, mock_symlink):
+    def test_023_inherit_ephemeral(self, _mock_makedirs, _mock_symlink):
         self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
             name="alternative"
         )

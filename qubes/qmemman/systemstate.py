@@ -183,7 +183,7 @@ class SystemState:
                 int(domid), int(val / 1024) + 1024
             )  # LIBXL_MAXMEM_CONSTANT=1024
             self.xc.domain_set_target_mem(int(domid), int(val / 1024))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
         # VM sees about 16MB memory less, so adjust for it here - qmemman
         #  handle Xen view of memory
