@@ -29,19 +29,20 @@ import qubes.vm.appvm
 import qubes.vm.templatevm
 
 
-class TestApp(object):
+class TestApp:
+    # pylint: disable=too-few-public-methods
     labels = {1: qubes.Label(1, "0xcc0000", "red")}
 
     def __init__(self):
         self.domains = {}
 
 
-class TestProp(object):
+class TestProp:
     # pylint: disable=too-few-public-methods
     __name__ = "testprop"
 
 
-class TestVM(object):
+class TestVM:
     # pylint: disable=too-few-public-methods
     app = TestApp()
 
@@ -56,13 +57,13 @@ class TestVM(object):
 
 
 class TestVolume(qubes.storage.Volume):
-    def create(self):
+    def create(self):  # pylint: disable=invalid-overridden-method
         pass
 
 
 class TestPool(qubes.storage.Pool):
     def __init__(self, *args, **kwargs):
-        super(TestPool, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._volumes = {}
 
     def init_volume(self, vm, volume_config):
@@ -98,7 +99,7 @@ class TC_90_AppVM(
         self.app.domains.clear()
         self.app.pools.clear()
 
-    def get_vm(self, **kwargs):
+    def get_vm(self, *_args, **kwargs):
         vm = qubes.vm.appvm.AppVM(
             self.app,
             None,
@@ -189,13 +190,13 @@ class TC_90_AppVM(
         vm = qubes.vm.appvm.AppVM(self.app, xml)
         self.assertEqual(vm.template_for_dispvms, True)
         with self.assertRaises(AttributeError):
-            vm.dispvm_allowed
+            vm.dispvm_allowed  # pylint: disable=no-member,pointless-statement
 
         xml = lxml.etree.XML(xml_template.format(value="False"))
         vm = qubes.vm.appvm.AppVM(self.app, xml)
         self.assertEqual(vm.template_for_dispvms, False)
         with self.assertRaises(AttributeError):
-            vm.dispvm_allowed
+            vm.dispvm_allowed  # pylint: disable=no-member,pointless-statement
 
     def test_600_load_volume_config(self):
         xml_template = """
