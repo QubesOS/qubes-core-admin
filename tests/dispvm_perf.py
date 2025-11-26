@@ -928,6 +928,8 @@ class TestRun:
                 self.dvm.features["preload-dispvm-delay"] = str(
                     test.preload_delay
                 )
+            if not test.gui:
+                self.dvm.guivm = None
             if test.preload_max:
                 preload_max = test.preload_max
                 logger.info("Setting local max feature: '%s'", preload_max)

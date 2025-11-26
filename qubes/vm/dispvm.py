@@ -451,14 +451,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.log.info("Preload startup completed '%s'", rpc)
         except asyncio.TimeoutError:
-            debug_msg = "systemd-analyze blame"
+            if rpc == "qubes.WaitForSession":
+                debug_msg = "systemd-analyze --user blame"
+            else:
+                debug_msg = "systemd-analyze blame"
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
                 "startup. To debug, run the following on a new disposable of "
                 "'%s': %s" % (rpc, timeout, self.template, debug_msg)
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            debug_msg = "systemctl --failed"
+            if rpc == "qubes.WaitForSession":
+                debug_msg = "systemctl --user --failed"
+            else:
+                debug_msg = "systemctl --failed"
             raise qubes.exc.QubesException(
                 "Error on call to '%s' during preload startup. To debug, "
                 "run the following on a new disposable of '%s': %s"
@@ -486,6 +492,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # https://github.com/QubesOS/qubes-issues/issues/9964
             path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
             rpcs = ["qubes.WaitForRunningSystem"]
+            if (
+                self.guivm
+                and self.features.check_with_template("gui", False)
+                and self.features.check_with_template(
+                    "supported-feature.late-gui-daemon", False
+                )
+            ):
+                rpcs.append("qubes.WaitForSession")
             start_tasks = []
             for rpc in rpcs:
                 service = '$(PATH="{}" command -v "{}")'.format(path, rpc)

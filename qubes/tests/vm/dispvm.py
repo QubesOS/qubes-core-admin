@@ -155,6 +155,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = "0"
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
@@ -186,6 +187,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.appvm.template_for_dispvms = True
 
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = "1"
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
@@ -252,6 +254,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_start.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch("qubes.events.Emitter.fire_event_async") as mock_events:
             self.appvm.features["preload-dispvm-max"] = "1"
@@ -295,6 +298,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     def test_000_get_preload_max(self):
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), None)
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = 1
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.adminvm), None)
@@ -311,9 +315,11 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertEqual(get_preload_templates(self.app), [])
 
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm_alt.features["supported-rpc.qubes.WaitForRunningSystem"] = (
             True
         )
+        self.appvm_alt.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = 1
         self.appvm_alt.features["preload-dispvm-max"] = 0
         self.assertEqual(get_preload_templates(self.app), [self.appvm])

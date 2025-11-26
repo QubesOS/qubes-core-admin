@@ -188,6 +188,7 @@ class BackupTestsMixin(object):
         self.loop.run_until_complete(testvm5.create_on_disk(pool=pool))
         testvm5.features["qrexec"] = True
         testvm5.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        testvm5.features["supported-rpc.qubes.WaitForSession"] = True
         testvm5.features["preload-dispvm-max"] = 0
         testvm5.features["preload-dispvm"] = ""
         vms.append(testvm5)
