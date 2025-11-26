@@ -512,7 +512,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.log.info("Preload startup completed '%s'", service)
         except asyncio.TimeoutError:
-            debug_msg = "systemd-analyze blame"
+            if service == "qubes.WaitForSession":
+                debug_msg = "systemd-analyze --user blame"
+            else:
+                debug_msg = "systemd-analyze blame"
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
                 "startup. To debug, run the following on a new disposable of "
@@ -546,6 +549,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.preload_requested:
             timeout = self.qrexec_timeout
             services = ["qubes.WaitForRunningSystem"]
+            if (
+                self.guivm
+                and self.features.check_with_template("gui", False)
+                and self.features.check_with_template(
+                    "supported-feature.late-gui-daemon", False
+                )
+            ):
+                services.append("qubes.WaitForSession")
             start_tasks = []
             for service in services:
                 start_tasks.append(
