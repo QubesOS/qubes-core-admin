@@ -169,7 +169,7 @@ def compare_device_cache(vm, devices_cache, current_devices):
 async def confirm_device_attachment(device, frontends) -> str:
     try:
         return await _do_confirm_device_attachment(device, frontends)
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         print(str(exc.__class__.__name__) + ":", str(exc), file=sys.stderr)
         return ""
 
