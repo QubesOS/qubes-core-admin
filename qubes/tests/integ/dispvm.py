@@ -285,7 +285,6 @@ class TC_20_DispVMMixin(object):
     def _register_handlers(self, vm):  # pylint: disable=unused-argument
         events = [
             # appvm
-            "domain-preload-dispvm-autostart",
             "domain-preload-dispvm-start",
             "domain-preload-dispvm-used",
             # dispvm
@@ -333,7 +332,9 @@ class TC_20_DispVMMixin(object):
                 self.disp_base_alt,
             ]:
                 continue
-            logger.info("removing preloaded disposables: '%s'", qube.name)
+            logger.info(
+                "removing preloaded disposables configured in: '%s'", qube.name
+            )
             target = qube
             if qube.klass == "AdminVM" and default_dispvm:
                 target = default_dispvm
@@ -453,7 +454,6 @@ class TC_20_DispVMMixin(object):
         stdout = await self.run_preload_proc()
         self.assertEqual(stdout, dispvm_name)
         test_cases = [
-            (False, appvm.name, "domain-preload-dispvm-autostart", True),
             (False, appvm.name, "domain-preload-dispvm-start", True),
             (True, appvm.name, "domain-preload-dispvm-used", True),
             (
@@ -637,15 +637,12 @@ class TC_20_DispVMMixin(object):
         logger.info("end")
 
     def test_017_preload_autostart(self):
-        """The script triggers the API call
-        'admin.vm.CreateDisposable+preload-autostart' which fires the event
-        'domain-preload-dispvm-autostart', clearing the current preload list
-        and filling with new ones."""
+        """The script triggers the API call 'admin.vm.CreateDisposable+preload'
+        which is responsible for bootstrapping."""
         logger.info("start")
         self.app.default_dispvm = self.disp_base
 
-        preload_max = 1
-        logger.info("no refresh to be made")
+        logger.info("must not change as max is 0")
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
@@ -654,39 +651,36 @@ class TC_20_DispVMMixin(object):
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
 
-        logger.info("refresh to be made")
+        preload_max = 1
+        logger.info("must not change existing preloaded disposables")
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=10))
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
-        self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        self.assertEqual(
+            old_preload,
+            preload_dispvm,
+            msg=f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
 
-        logger.info("global refresh to be made")
         preload_max += 1
+        logger.info("global refill must work")
         self.adminvm.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         del self.disp_base.features["preload-dispvm-max"]
         old_preload = self.disp_base.get_feat_preload()
+        self.assertEqual(len(old_preload), preload_max)
+        self.loop.run_until_complete(self.cleanup_preload_run(self.disp_base))
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
         self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
         self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
-        )
 
         self.app.default_dispvm = None
         logger.info("end")
