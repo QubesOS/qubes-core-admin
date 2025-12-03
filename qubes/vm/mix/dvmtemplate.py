@@ -63,7 +63,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         assert isinstance(self, qubes.vm.BaseVM)
         changes = False
-        # Preloading began and host rebooted and autostart event didn't run yet.
+        # Began preloading, host rebooted, autostart script didn't run yet.
         old_preload = self.get_feat_preload()
         clean_preload = old_preload.copy()
         for unwanted_disp in old_preload:
@@ -411,7 +411,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
 
     @qubes.events.handler(
         "domain-preload-dispvm-used",
-        "domain-preload-dispvm-autostart",
         "domain-preload-dispvm-start",
     )
     async def on_domain_preload_dispvm_used(
@@ -423,14 +422,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         **kwargs,  # pylint: disable=unused-argument
     ) -> None:
         """
-        Offloads on excess and preload on vacancy. On ``autostart``, the
-        preloaded list is emptied before preloading.
+        Offloads on excess and preload on vacancy.
 
         :param str event: Event which was fired. Events have the prefix \
-            ``domain-preload-dispvm-``. If the suffix is ``autostart``, the \
-            preload list is emptied before attempting to preload. If the \
-            suffix is ``used`` or ``start``, tries to preload until it fills \
-            gaps.
+            ``domain-preload-dispvm-``. It always tries to preload until it \
+            fills the gaps if there is enough memory.
         :param qubes.vm.dispvm.DispVM dispvm: Disposable that was used
         :param str reason: Why the event was fired
         :param float delay: Proceed only after sleeping that many seconds
@@ -454,9 +450,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay:
             await asyncio.sleep(delay)
 
-        if event == "autostart":
-            self.remove_preload_excess(0, reason="event autostart was called")
-        elif not self.can_preload():
+        if not self.can_preload():
             self.remove_preload_excess(reason="there may be absent qubes")
             # Absent qubes might be removed above.
             if not self.can_preload():
