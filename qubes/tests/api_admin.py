@@ -4018,7 +4018,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.vm.template_for_dispvms = True
         self.app.default_dispvm = self.vm
         self.vm.add_handler(
-            "domain-preload-dispvm-autostart", self._test_event_handler
+            "domain-preload-dispvm-start", self._test_event_handler
         )
         self.vm.features["qrexec"] = "1"
         self.vm.features["supported-rpc.qubes.WaitForRunningSystem"] = "1"
@@ -4031,27 +4031,23 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             self.fail("didn't preload in time")
         old_preload = self.vm.get_feat_preload()
         retval = self.call_mgmt_func(
-            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload-autostart"
+            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload"
         )
         self.assertTrue(
             self._test_event_was_handled(
-                self.vm.name, "domain-preload-dispvm-autostart"
+                self.vm.name, "domain-preload-dispvm-start"
             )
         )
-        for _ in range(10):
-            if (
-                old_preload != self.vm.get_feat_preload()
-                and self.vm.get_feat_preload() != []
-            ):
-                break
-            self.loop.run_until_complete(asyncio.sleep(1))
-        else:
-            self.fail("didn't preload again in time")
-        dispvm_preload = self.vm.get_feat_preload()
-        self.assertEqual(len(dispvm_preload), 1)
+        self.call_mgmt_func(
+            b"admin.vm.CreateDisposable", b"dom0", arg=b"preload"
+        )
+        self.assertEqual(1, mock_storage_create.call_count)
+        new_preload = self.vm.get_feat_preload()
+        self.assertEqual(len(old_preload), 1)
+        self.assertEqual(len(new_preload), 1)
+        self.assertEqual(old_preload, new_preload)
         self.assertIsNone(retval)
-        self.assertEqual(2, mock_storage_create.call_count)
-        self.assertEqual(2, mock_dispvm_start.call_count)
+        self.assertEqual(1, mock_dispvm_start.call_count)
         self.assertTrue(self.app.save.called)
 
     def test_650_vm_device_set_mode_required(self):
