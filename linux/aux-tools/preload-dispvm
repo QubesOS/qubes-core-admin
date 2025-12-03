@@ -54,7 +54,7 @@ async def main():
                 maximum = get_preload_max(qube)
                 msg = f"{qube}:{maximum}"
             print(repr(msg))
-            exec_args = qube.qubesd_call, qube.name, method, "preload-autostart"
+            exec_args = qube.qubesd_call, qube.name, method, "preload"
             future = loop.run_in_executor(executor, *exec_args)
             tasks.append(future)
         await asyncio.gather(*tasks)

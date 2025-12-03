@@ -262,6 +262,20 @@ class TC_20_DispVMMixin(object):
         super(TC_20_DispVMMixin, self).tearDown()
         logger.info("end")
 
+    def _run_cmd_and_log_output(self, qube, cmd, user="root", timeout=30):
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    qube.run_for_stdio(
+                        cmd, user=user, stderr=subprocess.STDOUT
+                    ),
+                    timeout=timeout,
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            stdout = getattr(e, "stdout", str(e))
+        logger.critical("{}: {}: {}".format(qube.name, cmd, stdout))
+
     def _test_event_handler(
         self, vm, event, *args, **kwargs
     ):  # pylint: disable=unused-argument
@@ -285,7 +299,6 @@ class TC_20_DispVMMixin(object):
     def _register_handlers(self, vm):  # pylint: disable=unused-argument
         events = [
             # appvm
-            "domain-preload-dispvm-autostart",
             "domain-preload-dispvm-start",
             "domain-preload-dispvm-used",
             # dispvm
@@ -304,11 +317,12 @@ class TC_20_DispVMMixin(object):
     def _on_domain_add(self, app, event, vm):  # pylint: disable=unused-argument
         self._register_handlers(vm)
 
-    async def cleanup_preload_run(self, qube):
+    async def cleanup_preload_run(self, qube, down_to=0):
         old_preload = qube.features.get("preload-dispvm", "")
         old_preload = old_preload.split(" ") if old_preload else []
         if not old_preload:
             return
+        old_preload = old_preload[:down_to]
         logger.info(
             "cleaning up preloaded disposables: %s:%s", qube.name, old_preload
         )
@@ -333,7 +347,9 @@ class TC_20_DispVMMixin(object):
                 self.disp_base_alt,
             ]:
                 continue
-            logger.info("removing preloaded disposables: '%s'", qube.name)
+            logger.info(
+                "removing preloaded disposables configured in: '%s'", qube.name
+            )
             target = qube
             if qube.klass == "AdminVM" and default_dispvm:
                 target = default_dispvm
@@ -455,7 +471,6 @@ class TC_20_DispVMMixin(object):
         stdout = await self.run_preload_proc()
         self.assertEqual(stdout, dispvm_name)
         test_cases = [
-            (False, appvm.name, "domain-preload-dispvm-autostart", True),
             (False, appvm.name, "domain-preload-dispvm-start", True),
             (True, appvm.name, "domain-preload-dispvm-used", True),
             (
@@ -632,15 +647,12 @@ class TC_20_DispVMMixin(object):
         logger.info("end")
 
     def test_017_preload_autostart(self):
-        """The script triggers the API call
-        'admin.vm.CreateDisposable+preload-autostart' which fires the event
-        'domain-preload-dispvm-autostart', clearing the current preload list
-        and filling with new ones."""
+        """The script triggers the API call 'admin.vm.CreateDisposable+preload'
+        which is responsible for bootstrapping."""
         logger.info("start")
         self.app.default_dispvm = self.disp_base
 
-        preload_max = 1
-        logger.info("no refresh to be made")
+        logger.info("must not change as max is 0")
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
@@ -649,39 +661,70 @@ class TC_20_DispVMMixin(object):
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
 
-        logger.info("refresh to be made")
+        preload_max = 1
+        logger.info("must not change existing preloaded disposables")
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=10))
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
-        self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        self.assertEqual(
+            old_preload,
+            preload_dispvm,
+            msg=f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
 
-        logger.info("global refresh to be made")
         preload_max += 1
+        logger.info("global refill must work")
         self.adminvm.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
-        del self.disp_base.features["preload-dispvm-max"]
+        old_old_preload = self.disp_base.get_feat_preload()
+        self.loop.run_until_complete(
+            self.cleanup_preload_run(self.disp_base, down_to=preload_max - 1)
+        )
         old_preload = self.disp_base.get_feat_preload()
+        self.assertEqual(len(old_preload), preload_max - 1)
+        self.assertIn(old_preload[0], old_old_preload)
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(proc.wait(), timeout=40)
+            )
+        except asyncio.TimeoutError:
+            debug_preload = self.disp_base.get_feat_preload()
+            for qube in debug_preload:
+                qube = self.app.domains[qube]
+                if qube.is_paused():
+                    self.loop.run_until_complete(
+                        asyncio.wait_for(qube.unpause(), timeout=5)
+                    )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl --user is-system-running", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl is-system-running", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager --user blame", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager blame", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager --user", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager", user="root"
+                )
+            raise
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
+        self.assertIn(old_preload[0], preload_dispvm)
         self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
-        )
 
         self.app.default_dispvm = None
         logger.info("end")
