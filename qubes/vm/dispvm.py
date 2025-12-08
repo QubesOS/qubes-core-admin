@@ -291,6 +291,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
         self.preload_complete = asyncio.Event()
+        self.preload_requested_event = asyncio.Event()
 
         if xml is None:
             assert template is not None
@@ -394,11 +395,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @preload_requested.setter
     def preload_requested(self, value) -> None:
         self._preload_requested = value
+        self.preload_requested_event.set()
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @preload_requested.deleter
     def preload_requested(self) -> None:
         del self._preload_requested
+        self.preload_requested_event.clear()
         self.fire_event("property-reset:is_preload", name="is_preload")
 
     @qubes.stateless_property
@@ -422,6 +425,46 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=unused-argument
         assert self.template
 
+    async def wait_operational_preload(
+        self, rpc: str, service: str, timeout: int | float
+    ) -> None:
+        """
+        Await for preloaded disposable to become fully operational.
+
+        :param str rpc: Pretty RPC service name.
+        :param str service: Full command-line.
+        :param int|float timeout: Fail after timeout is reached.
+        """
+        try:
+            self.log.info(
+                "Preload startup waiting '%s' with '%d' seconds timeout",
+                rpc,
+                timeout,
+            )
+            await asyncio.wait_for(
+                self.run_for_stdio(
+                    service,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+                timeout=timeout,
+            )
+            self.log.info("Preload startup completed '%s'", rpc)
+        except asyncio.TimeoutError:
+            debug_msg = "systemd-analyze blame"
+            raise qubes.exc.QubesException(
+                "Timed out call to '%s' after '%d' seconds during preload "
+                "startup. To debug, run the following on a new disposable of "
+                "'%s': %s" % (rpc, timeout, self.template, debug_msg)
+            )
+        except (subprocess.CalledProcessError, qubes.exc.QubesException):
+            debug_msg = "systemctl --failed"
+            raise qubes.exc.QubesException(
+                "Error on call to '%s' during preload startup. To debug, "
+                "run the following on a new disposable of '%s': %s"
+                % (rpc, self.template, debug_msg)
+            )
+
     @qubes.events.handler("domain-start")
     async def on_domain_started_dispvm(
         self,
@@ -438,37 +481,47 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not self.is_preload:
             return
-        timeout = self.qrexec_timeout
-        # https://github.com/QubesOS/qubes-issues/issues/9964
-        rpc = "qubes.WaitForRunningSystem"
-        path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
-        service = '$(PATH="' + path + '" command -v ' + rpc + ")"
-        try:
-            self.log.info(
-                "Preload startup waiting '%s' with '%d' seconds timeout",
-                rpc,
-                timeout,
+        if not self.preload_requested:
+            timeout = self.qrexec_timeout
+            # https://github.com/QubesOS/qubes-issues/issues/9964
+            path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
+            rpcs = ["qubes.WaitForRunningSystem"]
+            start_tasks = []
+            for rpc in rpcs:
+                service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+                start_tasks.append(
+                    asyncio.create_task(
+                        self.wait_operational_preload(rpc, service, timeout)
+                    )
+                )
+            break_task = asyncio.create_task(
+                self.preload_requested_event.wait()
             )
-            await asyncio.wait_for(
-                self.run_for_stdio(
-                    service,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                ),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            raise qubes.exc.QubesException(
-                "Timed out call to '%s' after '%d' seconds during preload "
-                "startup" % (rpc, timeout)
-            )
-        except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, run "
-                "the following on a new disposable of '%s': systemctl "
-                "--failed" % (rpc, self.template)
-            )
-
+            tasks = [break_task] + start_tasks
+            try:
+                # CI uses Python 3.12 and asynchronous iterator requires >=3.13
+                # pylint: disable=not-an-iterable
+                async for earliest_task in asyncio.as_completed(tasks):
+                    await earliest_task
+                    if earliest_task == break_task:
+                        for incomplete_task in [
+                            t for t in start_tasks if not t.done()
+                        ]:
+                            incomplete_task.cancel()
+                    else:
+                        if all(t.done() for t in start_tasks):
+                            break_task.cancel()
+            except asyncio.CancelledError:
+                pass
+            except ExceptionGroup as e:
+                # Show detailed exception in desktop notification.
+                wanted_ex_group, _ = e.split(qubes.exc.QubesException)
+                if wanted_ex_group:
+                    messages = [
+                        "\n" + str(exc) for exc in wanted_ex_group.exceptions
+                    ]
+                    raise qubes.exc.QubesException("\n".join(messages))
+                raise
         if not self.preload_requested:
             await self.pause()
         self.log.info("Preloading finished")
