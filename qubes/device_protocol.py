@@ -536,6 +536,15 @@ class VirtualDevice:
     def __repr__(self):
         return f"{self.port!r}:{self.device_id}"
 
+    @property
+    def repr_for_qarg(self):
+        """Object representation for qrexec argument"""
+        res = repr(self).replace(":", "+")
+        # replace '?' in category
+        unknown_dev = repr(DeviceInterface.unknown())
+        res = res.replace(unknown_dev, "_" * len(unknown_dev))
+        return res.replace("*", "_")
+
     def __str__(self):
         return f"{self.port}:{self.device_id}"
 
@@ -595,12 +604,20 @@ class VirtualDevice:
         """
         if backend is None:
             backend_name, identity = representation.split(sep, 1)
+            if backend_name == "_":
+                backend_name = "*"
             if backend_name != "*":
                 backend = get_domain(backend_name)
         else:
             identity = representation
 
-        port_id, _, devid = identity.partition(":")
+        port_id, _, devid = identity.replace(sep, ":").partition(":")
+        if port_id == "_":
+            port_id = "*"
+        if devid == "_":
+            devid = "*"
+        unknown_dev = repr(DeviceInterface.unknown())
+        devid = devid.replace("_" * len(unknown_dev), unknown_dev)
         return cls(
             Port(backend_domain=backend, port_id=port_id, devclass=devclass),
             device_id=devid or None,
@@ -1275,6 +1292,11 @@ class DeviceAssignment:
 
     def __repr__(self):
         return f"{self.virtual_device!r}"
+
+    @property
+    def repr_for_qarg(self):
+        """Object representation for qrexec argument"""
+        return self.virtual_device.repr_for_qarg
 
     def __str__(self):
         return f"{self.virtual_device}"
