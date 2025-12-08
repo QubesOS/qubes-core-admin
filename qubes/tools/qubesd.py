@@ -21,8 +21,9 @@ import qubes.vm.qubesvm
 os.getrandom(1)
 
 
-def sighandler(loop, signame, servers):
+def sighandler(loop, signame, servers, app):
     print("caught {}, exiting".format(signame))
+    app.save()
     for server in servers:
         server.close()
         server.close_clients()
@@ -73,7 +74,12 @@ def main(args=None):
 
     for signame in ("SIGINT", "SIGTERM"):
         loop.add_signal_handler(
-            getattr(signal, signame), sighandler, loop, signame, servers
+            getattr(signal, signame),
+            sighandler,
+            loop,
+            signame,
+            servers,
+            args.app,
         )
 
     qubes.utils.systemd_notify()
