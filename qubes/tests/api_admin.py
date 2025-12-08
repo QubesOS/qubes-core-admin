@@ -4027,7 +4027,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertIsNone(retval)
         self.assertEqual(2, mock_storage_create.call_count)
         self.assertEqual(2, mock_dispvm_start.call_count)
-        self.assertTrue(self.app.save.called)
 
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(

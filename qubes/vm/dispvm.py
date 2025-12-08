@@ -514,7 +514,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.features["preload-dispvm-completed"] = True
         if not self.preload_requested:
             self.features["preload-dispvm-in-progress"] = False
-        self.app.save()
+            # If self.preload_requested, use_preload() saves the file.
+            self.app.save()
         self.preload_complete.set()
 
     @qubes.events.handler("domain-pre-paused")
@@ -721,7 +722,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     [dispvm.name], reason="qube was requested"
                 )
                 dispvm.preload_requested = True
-                app.save()
                 timeout = int(dispvm.qrexec_timeout * 1.2)
                 try:
                     if not dispvm.features.get(
@@ -738,7 +738,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                         await dispvm.unpause()
                     else:
                         await dispvm.use_preload()
-                    app.save()
                     return dispvm
                 except asyncio.TimeoutError:
                     dispvm.log.warning(
@@ -768,11 +767,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
             dispvm.features["internal"] = True
-            app.save()
         await dispvm.create_on_disk()
         if preload:
             await dispvm.start()
-        app.save()
+        else:
+            # Start method already saves the file.
+            app.save()
         return dispvm
 
     async def use_preload(self) -> None:
