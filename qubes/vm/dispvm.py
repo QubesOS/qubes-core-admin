@@ -523,7 +523,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     raise qubes.exc.QubesException("\n".join(messages))
                 raise
         if not self.preload_requested:
-            await self.pause()
+            try:
+                await self.pause()
+            except qubes.exc.QubesVMCancelledPauseError:
+                pass
         self.log.info("Preloading finished")
         self.features["preload-dispvm-completed"] = True
         if not self.preload_requested:
@@ -547,11 +550,26 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=unused-argument
         if not self.is_preload or self.maxmem == 0:
             return
+        if self.preload_requested:
+            return
         qmemman_client = None
+        break_task = asyncio.create_task(self.preload_requested_event.wait())
+        qmemman_task = asyncio.get_event_loop().run_in_executor(
+            None, self.set_mem
+        )
+        tasks = [break_task, qmemman_task]
         try:
-            qmemman_client = await asyncio.get_event_loop().run_in_executor(
-                None, self.set_mem
-            )
+            # CI uses Python 3.12 and asynchronous iterator requires >=3.13
+            # pylint: disable=not-an-iterable
+            async for earliest_task in asyncio.as_completed(tasks):
+                await earliest_task
+                if earliest_task == break_task:
+                    qmemman_task.cancel()
+                else:
+                    break_task.cancel()
+        except asyncio.CancelledError:
+            if qmemman_client:
+                qmemman_client.close()
         except Exception as exc:
             self.log.warning(
                 "Preload memory request before pause failed: %s", str(exc)
@@ -559,6 +577,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if qmemman_client:
                 qmemman_client.close()
             raise
+        finally:
+            if self.preload_requested:
+                raise qubes.exc.QubesVMCancelledPauseError(
+                    self,
+                    "preload was requested before memory request completed",
+                )
 
     @qubes.events.handler("domain-paused")
     def on_domain_paused(
