@@ -487,11 +487,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 return
 
         self.log.info("Preloading '%d' qube(s)", can_preload)
-        async with asyncio.TaskGroup() as task_group:
-            for _ in range(can_preload):
-                task_group.create_task(
-                    qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-                )
+        await asyncio.gather(
+            *[
+                qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+                for _ in range(can_preload)
+            ]
+        )
 
     def get_feat_preload_threshold(self) -> int:
         """
