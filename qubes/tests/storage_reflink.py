@@ -17,7 +17,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" Tests for the file-reflink storage driver """
+"""Tests for the file-reflink storage driver"""
 
 # pylint: disable=protected-access
 # pylint: disable=invalid-name

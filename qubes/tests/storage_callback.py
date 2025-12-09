@@ -16,9 +16,9 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
-""" Tests for the callback storage driver.
+"""Tests for the callback storage driver.
 
-    They are mostly based upon the lvm storage driver tests.
+They are mostly based upon the lvm storage driver tests.
 """
 # pylint: disable=line-too-long
 

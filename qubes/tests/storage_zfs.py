@@ -1,4 +1,4 @@
-""" Tests for the ZFS storage driver """
+"""Tests for the ZFS storage driver"""
 
 # FIXME: copy tests from storage_reflink and storage_lvm when it makes sense.
 # pylint: disable=protected-access

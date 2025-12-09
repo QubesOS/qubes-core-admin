@@ -16,13 +16,13 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
-""" Tests for lvm storage driver. By default tests are going to use the
-    'qubes_dom0/pool00'. An alternative LVM thin pool may be provided via
-    :envvar:`DEFAULT_LVM_POOL` shell variable.
+"""Tests for lvm storage driver. By default tests are going to use the
+'qubes_dom0/pool00'. An alternative LVM thin pool may be provided via
+:envvar:`DEFAULT_LVM_POOL` shell variable.
 
-    Any pool variables prefixed with 'LVM_' or 'lvm_' represent a LVM
-    'volume_group/thin_pool' combination. Pool variables without a prefix
-    represent a :py:class:`qubes.storage.lvm.ThinPool`.
+Any pool variables prefixed with 'LVM_' or 'lvm_' represent a LVM
+'volume_group/thin_pool' combination. Pool variables without a prefix
+represent a :py:class:`qubes.storage.lvm.ThinPool`.
 """
 import os
 import subprocess

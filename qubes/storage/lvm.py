@@ -17,7 +17,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" Driver for storing vm images in a LVM thin pool """
+"""Driver for storing vm images in a LVM thin pool"""
 import logging
 import os
 import subprocess

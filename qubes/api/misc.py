@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
-""" Interface for methods not being part of Admin API, but still handled by
-qubesd. """
+"""Interface for methods not being part of Admin API, but still handled by
+qubesd."""
 
 import string
 from datetime import datetime

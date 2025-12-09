@@ -18,7 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" Qubes PCI Extensions """
+"""Qubes PCI Extensions"""
 
 import functools
 import os

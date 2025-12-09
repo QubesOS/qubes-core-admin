@@ -17,9 +17,9 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" Driver for handling VM images as files, without any device-mapper
-    involvement. A reflink-capable filesystem is strongly recommended,
-    but not required.
+"""Driver for handling VM images as files, without any device-mapper
+involvement. A reflink-capable filesystem is strongly recommended,
+but not required.
 """
 
 import asyncio

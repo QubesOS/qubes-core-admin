@@ -19,7 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains pool implementations for different OS kernels. """
+"""This module contains pool implementations for different OS kernels."""
 
 import os
 

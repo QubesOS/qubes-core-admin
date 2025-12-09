@@ -18,8 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-"""Qubes' command line tools
-"""
+"""Qubes' command line tools"""
 
 import argparse
 import importlib

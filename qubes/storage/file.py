@@ -20,7 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-""" This module contains pool implementations backed by file images"""
+"""This module contains pool implementations backed by file images"""
 import asyncio
 import errno
 import os
