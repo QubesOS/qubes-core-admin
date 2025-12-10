@@ -58,8 +58,13 @@ class TC_00_DispVMPerfMixin:
             self.test_dir = tempfile.mkdtemp(prefix=prefix)
             self.vm2 = None
             return
-        self.app.domains["dom0"].features["preload-dispvm-max"] = ""
-        self.app.domains["dom0"].features["preload-dispvm-threshold"] = ""
+        for feat in [
+            "preload-dispvm-max",
+            "preload-dispvm-threshold",
+            "preload-dispvm-delay",
+        ]:
+            if self.app.domains["dom0"].features.get(feat, None) is not None:
+                del self.app.domains["dom0"].features[feat]
         self.dvm = self.app.add_new_vm(
             "AppVM",
             name=self.make_vm_name("dvm"),
@@ -291,6 +296,16 @@ class TC_00_DispVMPerfMixin:
         self.run_test("dom0-dispvm-preload-2-api")
 
     @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_411_dom0_dispvm_preload_2_delay_0_api(self):
+        """Latency of dom0-dispvm (2 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-2-delay-0-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_411_dom0_dispvm_preload_2_delay_minus_1d2_api(self):
+        """Latency of dom0-dispvm (2 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-2-delay-minus-1d2-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
     @unittest.skipUnless(*EXTENDED)
     def test_412_dom0_dispvm_preload_3_api(self):
         """Latency of dom0-dispvm (3 preload) API calls"""
@@ -302,15 +317,38 @@ class TC_00_DispVMPerfMixin:
         self.run_test("dom0-dispvm-preload-4-api")
 
     @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_413_dom0_dispvm_preload_4_delay_0_api(self):
+        """Latency of dom0-dispvm (4 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-4-delay-0-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    def test_413_dom0_dispvm_preload_4_delay_minus_1d2_api(self):
+        """Latency of dom0-dispvm (4 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-4-delay-minus-1d2-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
     @unittest.skipUnless(*EXTENDED)
     def test_414_dom0_dispvm_preload_5_api(self):
         """Latency of dom0-dispvm (5 preload) API calls"""
         self.run_test("dom0-dispvm-preload-5-api")
 
     @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
     def test_415_dom0_dispvm_preload_6_api(self):
         """Latency of dom0-dispvm (6 preload) API calls"""
         self.run_test("dom0-dispvm-preload-6-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
+    def test_415_dom0_dispvm_preload_6_delay_0_api(self):
+        """Latency of dom0-dispvm (6 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-6-delay-0-api")
+
+    @unittest.skipUnless(*DOM0_DISPVM_API)
+    @unittest.skipUnless(*EXTENDED)
+    def test_415_dom0_dispvm_preload_6_delay_minus_1d2_api(self):
+        """Latency of dom0-dispvm (6 preload) API calls"""
+        self.run_test("dom0-dispvm-preload-6-delay-minus-1d2-api")
 
     @unittest.skipUnless(*DOM0_DISPVM_API)
     @unittest.skipUnless(*GUI)

@@ -723,13 +723,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not preload and appvm.can_preload():
             # Not necessary to await for this event as its intent is to fill
             # gaps and not relevant for this run. Delay to not affect this run.
-            asyncio.ensure_future(
-                appvm.fire_event_async(
-                    "domain-preload-dispvm-start",
-                    reason="there is a gap",
-                    delay=5,
+            delay = appvm.get_feat_preload_delay()
+            if delay < 0 and appvm.get_feat_preload():
+                pass
+            else:
+                asyncio.ensure_future(
+                    appvm.fire_event_async(
+                        "domain-preload-dispvm-start",
+                        reason="there is a gap",
+                        delay=max(5, delay),
+                    )
                 )
-            )
 
         if not preload and (preload_dispvm := appvm.get_feat_preload()):
             dispvm = None
@@ -840,8 +844,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await self.apply_deferred_netvm()
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
+        delay = appvm.get_feat_preload_delay()
+        if delay < 0 and appvm.get_feat_preload():
+            return
         asyncio.ensure_future(
-            appvm.fire_event_async("domain-preload-dispvm-used", dispvm=self)
+            appvm.fire_event_async(
+                "domain-preload-dispvm-used", dispvm=self, delay=delay
+            )
         )
 
     def _preload_cleanup(self) -> None:

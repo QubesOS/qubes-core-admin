@@ -118,6 +118,29 @@ class TC_00_DVMTemplateMixin(
     async def mock_coro(self, *args, **kwargs):
         pass
 
+    def test_010_dvm_preload_get_delay(self):
+        cases = [
+            (None, 0),
+            (False, 0),
+            ("0", 0),
+            ("2", 2),
+            ("10000", 10000),
+            ("-1", -1),
+            ("-3.14", -3.14),
+        ]
+        self.assertEqual(self.appvm.get_feat_preload_max(), 0)
+        for value, expected_value in cases:
+            with self.subTest(value=value, expected_value=expected_value):
+                self.appvm.features["preload-dispvm-delay"] = value
+                self.assertEqual(
+                    self.appvm.get_feat_preload_delay(), expected_value
+                )
+        cases_invalid = ["a", ".2.", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.appvm.features["preload-dispvm-delay"] = value
+
     def test_010_dvm_preload_get_max(self):
         cases = [
             (None, 0),

@@ -94,6 +94,7 @@ class TestConfig:
     :param bool target_dispvm: target or not a disposable qube
     :param bool admin_api: use the Admin API directly
     :param str extra_id: base test that extra ID varies from
+    :param int preload_delay: time to start generating fresh preload after use
     :param str pretty_name: human-readable name
 
     Notes
@@ -146,6 +147,7 @@ class TestConfig:
     target_dispvm: bool = True
     admin_api: bool = False
     extra_id: str = ""
+    preload_delay: int = None
     pretty_name: str = dataclasses.field(init=False)
 
     def __post_init__(self):
@@ -190,6 +192,14 @@ class TestConfig:
         else:
             pretty_to = "in another running qube"
 
+        pretty_delay = ""
+        if self.target_dispvm and self.preload_max:
+            if self.preload_delay is None:
+                delay = "default"
+            else:
+                delay = "{}s".format(self.preload_delay)
+            pretty_delay = " with {} delay".format(delay)
+
         pretty_name = "{} runs".format(pretty_from.capitalize())
         if pretty_strategy:
             pretty_name += " {}".format(pretty_strategy)
@@ -199,6 +209,8 @@ class TestConfig:
                 app_suffix = "s"
             pretty_name += " {} app{} ".format(pretty_what, app_suffix)
         pretty_name += "{}".format(pretty_to)
+        if pretty_delay:
+            pretty_name += "{}".format(pretty_delay)
         if pretty_type:
             pretty_name += " ({})".format(pretty_type)
         self.pretty_name = pretty_name
@@ -335,6 +347,22 @@ ALL_TESTS = [
         from_dom0=True,
     ),
     TestConfig(
+        "dom0-dispvm-preload-2-delay-0-api",
+        preload_max=2,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=0,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-2-delay-minus-1d2-api",
+        preload_max=2,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=-1.2,
+    ),
+    TestConfig(
         "dom0-dispvm-preload-2-gui-api",
         preload_max=2,
         gui=True,
@@ -364,6 +392,22 @@ ALL_TESTS = [
         from_dom0=True,
     ),
     TestConfig(
+        "dom0-dispvm-preload-4-delay-0-api",
+        preload_max=4,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=0,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-4-delay-minus-1d2-api",
+        preload_max=4,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=-1.2,
+    ),
+    TestConfig(
         "dom0-dispvm-preload-4-gui-api",
         preload_max=4,
         gui=True,
@@ -391,6 +435,22 @@ ALL_TESTS = [
         admin_api=True,
         extra_id="dom0-dispvm-preload-api",
         from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-delay-0-api",
+        preload_max=6,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=0,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-delay-minus-1d2-api",
+        preload_max=6,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+        preload_delay=-1.2,
     ),
     TestConfig(
         "dom0-dispvm-preload-6-gui-api",
@@ -486,7 +546,7 @@ class TestRun:
             await asyncio.sleep(1)
         else:
             if fail_on_timeout:
-                raise Exception("didn't preload in time")
+                raise TimeoutError("didn't preload in time")
         if not wait_completion:
             logger.info("end")
             return
@@ -506,7 +566,8 @@ class TestRun:
             await asyncio.sleep(1)
         else:
             if fail_on_timeout:
-                raise Exception("last preloaded didn't complete in time")
+                # pylint: disable=broad-exception-raised
+                raise TimeoutError("last preloaded didn't complete in time")
         logger.info("end")
 
     def wait_for_dispvm_destroy(self, dispvm_names):
@@ -519,7 +580,7 @@ class TestRun:
             time.sleep(1)
             timeout -= 1
             if timeout <= 0:
-                raise Exception("didn't destroy dispvm(s) in time")
+                raise TimeoutError("didn't destroy dispvm(s) in time")
 
     def run_latency_calls(self, test):
         if test.gui:
@@ -580,13 +641,15 @@ class TestRun:
             else:
                 self.vm1.run(code, timeout=timeout)
         except subprocess.CalledProcessError as e:
-            raise Exception(
+            # pylint: disable=broad-exception-raised
+            raise AssertionError(
                 f"service '{cmd}' failed ({e.returncode}):"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
         except subprocess.TimeoutExpired as e:
-            raise Exception(
+            # pylint: disable=broad-exception-raised
+            raise TimeoutError(
                 f"service '{cmd}' failed: timeout expired:"
                 f" {e.stdout},"
                 f" {e.stderr}"
@@ -622,14 +685,14 @@ class TestRun:
             target_qube.run_service_for_stdio(service, timeout=60)
         except subprocess.CalledProcessError as e:
             name = target_qube.name
-            raise Exception(
+            raise AssertionError(
                 f"'{name}': service '{service}' failed ({e.returncode}):"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
         except subprocess.TimeoutExpired as e:
             name = target_qube.name
-            raise Exception(
+            raise TimeoutError(
                 f"'{name}': service '{service}' failed: timeout expired:"
                 f" {e.stdout},"
                 f" {e.stderr}"
@@ -757,6 +820,8 @@ class TestRun:
         except AttributeError:
             template = self.vm1.name
         data = vars(test)
+        data["default_preload_max"] = MAX_PRELOAD
+        data["default_concurrency"] = MAX_CONCURRENCY
         data["template"] = str(template)
         if test.admin_api:
             total_time = result[0]
@@ -856,6 +921,13 @@ class TestRun:
             logger.info("Deleting global max feature")
             del self.dom0.features["preload-dispvm-max"]
         try:
+            if test.preload_delay is not None:
+                logger.info(
+                    "Setting local delay feature: '%s'", test.preload_delay
+                )
+                self.dvm.features["preload-dispvm-delay"] = str(
+                    test.preload_delay
+                )
             if test.preload_max:
                 preload_max = test.preload_max
                 logger.info("Setting local max feature: '%s'", preload_max)
@@ -890,6 +962,10 @@ class TestRun:
                 logger.info(
                     "Waiting to preload the old test setting: '%s'",
                     old_preload_max,
+                )
+                # If the delay is negative, assure it fills up.
+                self.dvm.qubesd_call(
+                    self.dvm.name, "admin.vm.CreateDisposable", "preload"
                 )
                 await self.wait_preload(old_preload_max)
                 old_preload = self.dvm.features.get("preload-dispvm", "")
