@@ -269,6 +269,10 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             )
             self.default_template = fedora_template
 
+        self.default_preload_max = [
+            v["default_preload_max"] for v in self.data.values()
+        ][0]
+
         items_must_match = [
             "iterations",
             "kernel",
@@ -581,14 +585,16 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         first_test = list(self.data.keys())[0]
         data = self.data[first_test]
         specs_text = """
-        System specifications:
+        System specifications
+        -------------------------------
 
-        - Global:
+        Global:
           - Date: {date}
           - Qubes: {hcl_qubes}
           - Xen: {hcl_xen}
           - Global Kernel: {hcl_kernel}
-        - Template:
+
+        Template:
           - Name: {template}
           - Build time: {template_buildtime}
           - Last update: {template_last_update}
@@ -597,7 +603,8 @@ class Graph:  # pylint: disable=too-many-instance-attributes
           - Maximum memory: {maxmem}
           - Kernel: {kernel}
           - Kernel options: {kernelopts}
-        - Hardware:
+
+        Hardware:
           - Certified: {hcl_certified}
           - Brand: {hcl_brand}
           - Model: {hcl_model}
@@ -641,12 +648,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_01_bar(self) -> None:
         """Simplest and smallest bar graph."""
+
+        def filter_preload(value, _cond):
+            return value in [0, self.default_preload_max]
+
+        tests = filter_data(
+            self.dispvm_api_tests,
+            {"preload_max": None, "preload_delay": None},
+            {"preload_max": filter_preload},
+        )
         normal_tests = filter_data(self.dispvm_api_tests, {"preload_max": 0})
         assert_items_match(normal_tests, ["iterations"])
         preload_tests = filter_data(
-            self.dispvm_api_tests,
-            {"preload_max": 1},
-            {"preload_max": operator.ge},
+            tests,
+            {"preload_max": self.default_preload_max, "preload_delay": None},
+            {"preload_max": operator.eq},
         )
         assert_items_match(preload_tests, ["iterations"])
 
@@ -657,7 +673,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             + "disposables."
         )
 
-        self.bar_plot([self.dispvm_api_tests], supxlabel=caption)
+        self.bar_plot([tests], supxlabel=caption)
 
     def graph_02_stage_stack(self) -> None:
         """Stacked bar by stage graph."""
@@ -668,8 +684,8 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         tests_names_pretty = get_value(tests, "pretty_name")
         preload_tests = filter_data(
             self.dispvm_api_tests,
-            {"preload_max": 1},
-            {"preload_max": operator.ge},
+            {"preload_max": self.default_preload_max, "preload_delay": None},
+            {"preload_max": operator.eq},
         )
 
         label_array = np.arange(len(tests_names_pretty))
@@ -848,12 +864,14 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_03_stage_dist(self) -> None:
         """Scattered and jittered stage distribution graph."""
+
+        def filter_preload(value, _cond):
+            return value in [0, self.default_preload_max]
+
         tests = filter_data(
             self.api_tests,
-            {
-                "concurrent": False,
-                "extra_id": "",
-            },
+            {"concurrent": False, "preload_max": None},
+            {"preload_max": filter_preload},
         )
         assert_items_match(tests, ["iterations"])
         tests_names_pretty = get_value(tests, "pretty_name")
@@ -878,7 +896,12 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                     stage_values.append(
                         api_results.get(stage, {}).get("values", [])
                     )
-            fig, axs = plt.subplots(figsize=(WIDTH * 4, HEIGHT * 4))
+            fig, axs = plt.subplots(
+                figsize=(
+                    WIDTH * (len(tests) / 1.5),
+                    HEIGHT * (len(tests) / 1.5),
+                )
+            )
             x_pos = np.arange(1, len(stage_values) + 1)
             jitter_strength = 0.1
             for i, values in enumerate(stage_values, start=1):
@@ -1040,10 +1063,34 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                             ]
                     else:
                         continue
+                    label = str(name)
+                    if pmax := test["preload_max"]:
+                        if pmax > 2:
+                            few = 2
+                        elif pmax == 2:
+                            few = 1
+                        else:
+                            few = None
+                        if few:
+                            upto_few_preload_mean = round(
+                                sum(times[:few]) / few, rounder
+                            )
+                        upto_preload_mean = round(
+                            sum(times[:pmax]) / pmax, rounder
+                        )
+                        label += " ("
+                        if few:
+                            label += "first {}: \u03bc {}, ".format(
+                                few, upto_few_preload_mean
+                            )
+                        label += "first {}: \u03bc {})".format(
+                            pmax, upto_preload_mean
+                        )
+                    label += f" \u03bc {mean}"
                     axs.plot(
                         iterations,
                         times,
-                        label=f"{name} \u03bc {mean}",
+                        label=label,
                         linestyle="--",
                         linewidth=3,
                     )
@@ -1085,6 +1132,10 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_08_template(self) -> None:
         """Graph including all available templates."""
+
+        def filter_preload(value, cond):  # pylint: disable=unused-argument
+            return value in [0, self.default_preload_max]
+
         tests = filter_data(
             self.orig_data,
             {
@@ -1092,8 +1143,14 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 "target_dispvm": True,
                 "extra_id": "",
                 "concurrent": False,
+                "preload_max": None,
+                "preload_delay": None,
+            },
+            {
+                "preload_max": filter_preload,
             },
         )
+
         template_tests = []
         for template in self.templates:
             template_tests.append(filter_data(tests, {"template": template}))
@@ -1118,8 +1175,19 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_09_method(self) -> None:
         """Graph including different callers comparing GUI and concurrency."""
+
+        def filter_preload(value, cond):  # pylint: disable=unused-argument
+            return value in [0, self.default_preload_max]
+
         orig_tests = filter_data(
-            self.data, {"target_dispvm": True, "extra_id": ""}
+            self.data,
+            {
+                "target_dispvm": True,
+                "extra_id": "",
+                "preload_delay": None,
+                "preload_max": None,
+            },
+            {"preload_max": filter_preload},
         )
 
         concurrent_tests = filter_data(orig_tests, {"concurrent": True})

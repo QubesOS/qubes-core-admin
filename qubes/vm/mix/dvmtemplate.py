@@ -150,6 +150,30 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         await self.refresh_preload()
 
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-delay")
+    def on_feature_pre_set_preload_dispvm_delay(
+        self, event, feature, value, oldvalue=None
+    ):
+        """
+        Before accepting the ``preload-dispvm-delay`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if not value:
+            value = "0"
+        try:
+            float(value)
+        except ValueError:
+            raise qubes.exc.QubesValueError(
+                "Invalid preload-dispvm-delay value: not an integer or float"
+            )
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(self, event, feature) -> None:
         """
@@ -448,7 +472,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 "check if template is outdated" % service
             )
         if delay:
-            await asyncio.sleep(delay)
+            await asyncio.sleep(abs(delay))
 
         if not self.can_preload():
             self.remove_preload_excess(reason="there may be absent qubes")
@@ -493,6 +517,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 for _ in range(can_preload)
             ]
         )
+
+    def get_feat_preload_delay(self) -> float:
+        """
+        Get the ``preload-dispvm-delay`` feature as float.
+
+        :rtype: float
+        """
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.check_with_adminvm("preload-dispvm-delay", 3)
+        value = float(value or 0)
+        return value
 
     def get_feat_preload_threshold(self) -> int:
         """

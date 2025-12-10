@@ -514,6 +514,8 @@ class TC_20_DispVMMixin:
                         self.assertTrue(event_result)
                     else:
                         self.assertFalse(event_result)
+        delay = appvm.get_feat_preload_delay()
+        await asyncio.sleep(abs(delay))
         next_preload_list = appvm.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)

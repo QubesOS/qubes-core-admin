@@ -286,3 +286,14 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         for value in cases_valid:
             with self.subTest(value=value):
                 self.vm.features["preload-dispvm-threshold"] = value
+
+    def test_803_preload_set_delay(self):
+        cases_valid = ["", "0", "1", "-1", "3.14"]
+        cases_invalid = ["a", ".2.", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.vm.features["preload-dispvm-delay"] = value
+        for value in cases_valid:
+            with self.subTest(value=value):
+                self.vm.features["preload-dispvm-delay"] = value
