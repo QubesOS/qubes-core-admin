@@ -475,13 +475,10 @@ class QubesArgumentParser(argparse.ArgumentParser):
         This is done by configuring global logging.
         :param argparse.Namespace args: args as parsed by parser
         """
-
         verbose = namespace.verbose - namespace.quiet
-
-        if verbose >= 2:
-            qubes.log.enable_debug()
-        elif verbose >= 1:
-            qubes.log.enable()
+        levels = [logging.NOTSET, logging.INFO, logging.DEBUG]
+        log_level = levels[min(verbose, 2)]
+        qubes.log.enable(log_level=log_level)
 
     def print_error(self, *args, **kwargs):
         """Print to ``sys.stderr``"""

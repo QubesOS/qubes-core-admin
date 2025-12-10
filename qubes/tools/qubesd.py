@@ -54,7 +54,7 @@ def main(args=None):
     loop.run_until_complete(args.app.stop_storage())
 
     if args.debug:
-        qubes.log.enable_debug()
+        qubes.log.enable(log_level=10)
 
     servers = loop.run_until_complete(
         qubes.api.create_servers(
