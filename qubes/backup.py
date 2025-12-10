@@ -775,7 +775,7 @@ class Backup:
                 await tar_sparse.wait()
                 if tar_sparse.returncode:
                     raise qubes.exc.QubesException(
-                        "Failed to archive {} file".format(file_info.path)
+                        "Failed to archive {} file".format(path)
                     )
 
             # This VM done, update progress
