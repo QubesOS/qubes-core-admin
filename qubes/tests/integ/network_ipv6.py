@@ -74,9 +74,11 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
                 )
         super().tearDown()
 
-    def configure_netvm(self):
+    def configure_netvm(self, netvms: list = None):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+
+        :param list netvms: Use specified netvms or self.netvms.
         """
 
         def run_netvm_cmd(qube, cmd):
@@ -90,11 +92,13 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
                     % (cmd, e.stdout.decode(), e.stderr.decode())
                 )
 
-        for qube in self.netvms:
+        if not netvms:
+            netvms = self.netvms
+        for qube in netvms:
             qube.features["ipv6"] = True
-        super(VmIPv6NetworkingMixin, self).configure_netvm()
+        super(VmIPv6NetworkingMixin, self).configure_netvm(netvms)
 
-        for qube in self.netvms:
+        for qube in netvms:
             run_netvm_cmd(
                 qube, "ip addr add {}/128 dev test0".format(self.test_ip6)
             )
@@ -161,6 +165,28 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
         """
         self._networking_paused_change_purge_old(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    def test_501_simple_networking_paused_restart_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_restart_netvm(
+            self.ping6_ip,
+            self.ping6_name,
+            self.ping6_deadline_ip,
+            self.ping6_deadline_name,
+        )
+
+    def test_501_simple_networking_paused_shutdown_netvm(self):
+        """
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        """
+        self._networking_paused_shutdown_netvm(
             self.ping6_ip,
             self.ping6_name,
             self.ping6_deadline_ip,
