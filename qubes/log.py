@@ -43,7 +43,7 @@ class Formatter(logging.Formatter):
         return fmt % record.__dict__
 
 
-def enable():
+def enable(log_level: int = logging.INFO):
     """Enable global logging
 
     Use :py:mod:`logging` module from standard library to log messages.
@@ -61,21 +61,10 @@ def enable():
     handler_console.setFormatter(Formatter())
     logging.root.addHandler(handler_console)
 
-    logging.root.setLevel(logging.INFO)
-
-
-def enable_debug():
-    """Enable debug logging
-
-    Enable more messages and additional info to message format.
-    """
-
-    enable()
-
-    for handler in logging.root.handlers:
-        handler.setFormatter(Formatter(debug=True))
-
-    logging.root.setLevel(logging.DEBUG)
+    if log_level == logging.DEBUG:
+        for handler in logging.root.handlers:
+            handler.setFormatter(Formatter(debug=True))
+    logging.root.setLevel(log_level)
 
 
 def get_vm_logger(vmname):
