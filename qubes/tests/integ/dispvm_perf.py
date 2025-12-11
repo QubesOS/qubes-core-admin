@@ -41,6 +41,8 @@ class TC_00_DispVMPerfMixin:
             self.test_dir = tempfile.mkdtemp(prefix=prefix)
             self.vm2 = None
             return
+        self.app.domains["dom0"].features["preload-dispvm-max"] = ""
+        self.app.domains["dom0"].features["preload-dispvm-threshold"] = ""
         self.dvm = self.app.add_new_vm(
             "AppVM",
             name=self.make_vm_name("dvm"),
