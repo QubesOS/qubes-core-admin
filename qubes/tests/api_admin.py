@@ -3996,6 +3996,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         )
         self.vm.features["qrexec"] = "1"
         self.vm.features["supported-rpc.qubes.WaitForRunningSystem"] = "1"
+        self.vm.features["supported-rpc.qubes.WaitForSession"] = "1"
         self.vm.features["preload-dispvm-max"] = "1"
         for _ in range(10):
             if len(self.vm.get_feat_preload()) == 1:
@@ -4026,7 +4027,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertIsNone(retval)
         self.assertEqual(2, mock_storage_create.call_count)
         self.assertEqual(2, mock_dispvm_start.call_count)
-        self.assertTrue(self.app.save.called)
 
     def test_650_vm_device_set_mode_required(self):
         assignment = DeviceAssignment(

@@ -19,7 +19,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterator, Tuple
 
 import qubes.config
 import qubes.events
@@ -150,6 +150,30 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         await self.refresh_preload()
 
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-delay")
+    def on_feature_pre_set_preload_dispvm_delay(
+        self, event, feature, value, oldvalue=None
+    ):
+        """
+        Before accepting the ``preload-dispvm-delay`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if not value:
+            value = "0"
+        try:
+            float(value)
+        except ValueError:
+            raise qubes.exc.QubesValueError(
+                "Invalid preload-dispvm-delay value: not an integer or float"
+            )
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(self, event, feature) -> None:
         """
@@ -180,10 +204,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if not self.features.check_with_template("qrexec", None):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
-        service = "qubes.WaitForRunningSystem"
-        if not self.supports_preload():
+        supported, missing_services = self.supports_preload()
+        if not supported:
             raise qubes.exc.QubesValueError(
-                "Qube does not support the RPC '%s'" % service
+                "Qube does not support the RPC(s) '%s'"
+                % ", ".join(missing_services)
             )
 
         value = value or "0"
@@ -445,11 +470,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay:
             event_log += " with a delay of %s second(s)" % f"{delay:.1f}"
         self.log.info(event_log)
-        service = "qubes.WaitForRunningSystem"
-        if not self.supports_preload():
+
+        supported, missing_services = self.supports_preload()
+        if not supported:
             raise qubes.exc.QubesValueError(
-                "Qube does not support the RPC '%s' but tried to preload, "
-                "check if template is outdated" % service
+                "Qube does not support the RPC(s) '%s' but tried to preload, "
+                "check if template is outdated" % ", ".join(missing_services)
             )
         if delay:
             await asyncio.sleep(delay)
@@ -493,11 +519,23 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 return
 
         self.log.info("Preloading '%d' qube(s)", can_preload)
-        async with asyncio.TaskGroup() as task_group:
-            for _ in range(can_preload):
-                task_group.create_task(
-                    qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
-                )
+        await asyncio.gather(
+            *[
+                qubes.vm.dispvm.DispVM.from_appvm(self, preload=True)
+                for _ in range(can_preload)
+            ]
+        )
+
+    def get_feat_preload_delay(self) -> float:
+        """
+        Get the ``preload-dispvm-delay`` feature as float.
+
+        :rtype: int
+        """
+        assert isinstance(self, qubes.vm.BaseVM)
+        value = self.features.check_with_adminvm("preload-dispvm-delay", 5)
+        value = float(value or 0)
+        return value
 
     def get_feat_preload_threshold(self) -> int:
         """
@@ -672,15 +710,21 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     dispvm = self.app.domains[unwanted_disp]
                     asyncio.ensure_future(dispvm.cleanup())
 
-    def supports_preload(self) -> bool:
+    def supports_preload(self) -> Tuple[bool, list]:
         """
-        Check if the necessary RPC is supported.
+        Check if the necessary RPCs are supported.
 
-        :rtype: bool
+        The first returned value indicates success while the second value is
+        non empty and contains the missing services if they are not supported.
+
+        :rtype: (bool, list)
         """
         assert isinstance(self, qubes.vm.BaseVM)
-        service = "qubes.WaitForRunningSystem"
-        supported_service = "supported-rpc." + service
-        if self.features.check_with_template(supported_service, False):
-            return True
-        return False
+        supported = True
+        missing_services = []
+        for service in ["qubes.WaitForRunningSystem", "qubes.WaitForSession"]:
+            feature = "supported-rpc." + service
+            if not self.features.check_with_template(feature, False):
+                missing_services.append(service)
+                supported = False
+        return (supported, missing_services)

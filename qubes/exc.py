@@ -107,6 +107,19 @@ class QubesVMNotPausedError(QubesVMNotStartedError):
         )
 
 
+class QubesVMCancelledPauseError(QubesVMError):
+    """Cancelled pause during domain-pre-paused event.
+
+    This exception is thrown when machine should skip pause as it doesn't make
+    sense to pause anymore.
+    """
+
+    def __init__(self, vm, msg=None):
+        super().__init__(
+            vm, msg or "Domain won't be paused: {!r}".format(vm.name)
+        )
+
+
 class QubesVMNotSuspendedError(QubesVMError):
     """Domain is not suspended.
 

@@ -84,6 +84,7 @@ class TC_00_DVMTemplateMixin(
         self.appvm.features["qrexec"] = True
         self.appvm.features["gui"] = False
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.app.domains[self.appvm.name] = self.appvm
         self.app.domains[self.appvm] = self.appvm
         self.app.default_dispvm = self.appvm
@@ -118,6 +119,29 @@ class TC_00_DVMTemplateMixin(
     async def mock_coro(self, *args, **kwargs):
         pass
 
+    def test_010_dvm_preload_get_delay(self):
+        cases = [
+            (None, 0),
+            (False, 0),
+            ("0", 0),
+            ("2", 2),
+            ("10000", 10000),
+            ("-1", -1),
+            ("-3.14", -3.14),
+        ]
+        self.assertEqual(self.appvm.get_feat_preload_max(), 0)
+        for value, expected_value in cases:
+            with self.subTest(value=value, expected_value=expected_value):
+                self.appvm.features["preload-dispvm-delay"] = value
+                self.assertEqual(
+                    self.appvm.get_feat_preload_delay(), expected_value
+                )
+        cases_invalid = ["a", ".2.", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.appvm.features["preload-dispvm-delay"] = value
+
     def test_010_dvm_preload_get_max(self):
         cases = [
             (None, 0),
@@ -140,9 +164,13 @@ class TC_00_DVMTemplateMixin(
         self.appvm.features["qrexec"] = True
         self.appvm.features["gui"] = False
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = False
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = False
         with self.assertRaises(qubes.exc.QubesValueError):
             self.appvm.features["preload-dispvm-max"] = "1"
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.appvm.features["preload-dispvm-max"] = "1"
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = "1"
         cases_invalid = ["a", "-1", "1 1"]
         for value in cases_invalid:
@@ -435,5 +463,6 @@ class TC_00_DVMTemplateMixin(
     def test_100_get_preload_templates(self):
         print(qubes.vm.dispvm.get_preload_templates(self.app))
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = 1
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)

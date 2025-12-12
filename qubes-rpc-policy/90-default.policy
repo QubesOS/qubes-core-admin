@@ -67,6 +67,11 @@ qubes.SyncAppMenus      *           @anyvm          dom0        allow
 # redirect it
 qubes.Notifications     *           @anyvm          @default    allow target=dom0
 
+# Services on GUIVM that requires the session to have started, otherwise,
+# earlier policy will redirect it to another GUIVM.
+qubes.WaitForSession    *   @tag:guivm-dom0         @adminvm    allow
+qubes.WaitForSession    *   @tag:guivm-dom0         @default    allow target=dom0
+
 # HTTP proxy for downloading updates
 # Upgrade all TemplateVMs through sys-whonix.
 #qubes.UpdatesProxy     *    @type:TemplateVM        @default    allow target=sys-whonix
