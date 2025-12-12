@@ -91,7 +91,7 @@ class TestConfig:
     :param bool concurrent: request concurrently
     :param bool from_dom0: initiate call from dom0
     :param int preload_max: number of disposables to preload
-    :param bool non_dispvm: target a non disposable qube
+    :param bool target_dispvm: target or not a disposable qube
     :param bool admin_api: use the Admin API directly
     :param str extra_id: base test that extra ID varies from
     :param str pretty_name: human-readable name
@@ -143,7 +143,7 @@ class TestConfig:
     concurrent: bool = False
     from_dom0: bool = False
     preload_max: int = 0
-    non_dispvm: bool = False
+    target_dispvm: bool = True
     admin_api: bool = False
     extra_id: str = ""
     pretty_name: str = dataclasses.field(init=False)
@@ -171,9 +171,7 @@ class TestConfig:
         else:
             pretty_what = "simple"
 
-        if self.non_dispvm:
-            pretty_to = "in another running qube"
-        else:
+        if self.target_dispvm:
             disp_suffix = ""
             disp_prefix = "a "
             if self.preload_max:
@@ -189,6 +187,8 @@ class TestConfig:
                     disp_prefix = ""
                     disp_suffix = "s"
                 pretty_to = "in {}disposable{}".format(disp_prefix, disp_suffix)
+        else:
+            pretty_to = "in another running qube"
 
         pretty_name = "{} runs".format(pretty_from.capitalize())
         if pretty_strategy:
@@ -207,7 +207,7 @@ class TestConfig:
 POLICY_FILE = "/run/qubes/policy.d/10-test-dispvm-perf.policy"
 # MAX_PRELOAD is the number doesn't overpreload or underpreload (best
 # performance) on sequential calls between the tests
-# "dispvm-preload(-(more|less))-api" (tested on fedora-42-xfce). Machines with
+# "dispvm-preload(-NUMBER)-api" (tested on fedora-42-xfce). Machines with
 # different hardware or domains that boot faster or slower can theoretically
 # have a different best value.
 MAX_PRELOAD = 4
@@ -223,24 +223,26 @@ ITERATIONS = MAX_CONCURRENCY * 3
 ROUND_PRECISION = 3
 
 ALL_TESTS = [
-    TestConfig("vm-vm", non_dispvm=True),
-    TestConfig("vm-vm-gui", gui=True, non_dispvm=True),
-    TestConfig("vm-vm-concurrent", concurrent=True, non_dispvm=True),
+    TestConfig("vm-vm", target_dispvm=False),
+    TestConfig("vm-vm-gui", gui=True, target_dispvm=False),
+    TestConfig("vm-vm-concurrent", concurrent=True, target_dispvm=False),
     TestConfig(
-        "vm-vm-gui-concurrent", gui=True, concurrent=True, non_dispvm=True
+        "vm-vm-gui-concurrent", gui=True, concurrent=True, target_dispvm=False
     ),
-    TestConfig("dom0-vm-api", non_dispvm=True, admin_api=True, from_dom0=True),
+    TestConfig(
+        "dom0-vm-api", target_dispvm=False, admin_api=True, from_dom0=True
+    ),
     TestConfig(
         "dom0-vm-gui-api",
         gui=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
     TestConfig(
         "dom0-vm-concurrent-api",
         concurrent=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
@@ -248,7 +250,7 @@ ALL_TESTS = [
         "dom0-vm-gui-concurrent-api",
         gui=True,
         concurrent=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
@@ -256,12 +258,6 @@ ALL_TESTS = [
     TestConfig("vm-dispvm-gui", gui=True),
     TestConfig("vm-dispvm-concurrent", concurrent=True),
     TestConfig("vm-dispvm-gui-concurrent", gui=True, concurrent=True),
-    TestConfig("dom0-dispvm", from_dom0=True),
-    TestConfig("dom0-dispvm-gui", gui=True, from_dom0=True),
-    TestConfig("dom0-dispvm-concurrent", concurrent=True, from_dom0=True),
-    TestConfig(
-        "dom0-dispvm-gui-concurrent", gui=True, concurrent=True, from_dom0=True
-    ),
     TestConfig("vm-dispvm-preload", preload_max=MAX_PRELOAD),
     TestConfig("vm-dispvm-preload-gui", gui=True, preload_max=MAX_PRELOAD),
     TestConfig(
@@ -274,6 +270,12 @@ ALL_TESTS = [
         gui=True,
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
+    ),
+    TestConfig("dom0-dispvm", from_dom0=True),
+    TestConfig("dom0-dispvm-gui", gui=True, from_dom0=True),
+    TestConfig("dom0-dispvm-concurrent", concurrent=True, from_dom0=True),
+    TestConfig(
+        "dom0-dispvm-gui-concurrent", gui=True, concurrent=True, from_dom0=True
     ),
     TestConfig("dom0-dispvm-preload", from_dom0=True, preload_max=MAX_PRELOAD),
     TestConfig(
@@ -311,50 +313,97 @@ ALL_TESTS = [
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-less-less-api",
-        preload_max=MAX_PRELOAD - 2,
+        "dom0-dispvm-preload-1-api",
+        preload_max=1,
         admin_api=True,
-        extra_id="dispvm-preload-api",
+        extra_id="dom0-dispvm-preload-api",
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-less-api",
-        preload_max=MAX_PRELOAD - 1,
+        "dom0-dispvm-preload-1-gui-api",
+        preload_max=1,
+        gui=True,
         admin_api=True,
-        extra_id="dispvm-preload-api",
+        extra_id="dom0-dispvm-preload-gui-api",
         from_dom0=True,
     ),
     TestConfig(
-        "dom0-dispvm-preload-api",
-        preload_max=MAX_PRELOAD,
+        "dom0-dispvm-preload-2-api",
+        preload_max=2,
         admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-2-gui-api",
+        preload_max=2,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-3-api",
+        preload_max=3,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-3-gui-api",
+        preload_max=3,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-4-api",
+        preload_max=4,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-4-gui-api",
+        preload_max=4,
+        gui=True,
+        admin_api=True,
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-5-api",
+        preload_max=5,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-5-gui-api",
+        preload_max=5,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-api",
+        preload_max=6,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-api",
+        from_dom0=True,
+    ),
+    TestConfig(
+        "dom0-dispvm-preload-6-gui-api",
+        preload_max=6,
+        gui=True,
+        admin_api=True,
+        extra_id="dom0-dispvm-preload-gui-api",
         from_dom0=True,
     ),
     TestConfig(
         "dom0-dispvm-preload-concurrent-api",
         concurrent=True,
         preload_max=MAX_CONCURRENCY,
-        admin_api=True,
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-more-api",
-        preload_max=MAX_PRELOAD + 1,
-        admin_api=True,
-        extra_id="dispvm-preload-api",
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-more-more-api",
-        preload_max=MAX_PRELOAD + 2,
-        admin_api=True,
-        extra_id="dispvm-preload-api",
-        from_dom0=True,
-    ),
-    TestConfig(
-        "dom0-dispvm-preload-gui-api",
-        gui=True,
-        preload_max=MAX_PRELOAD,
         admin_api=True,
         from_dom0=True,
     ),
@@ -398,6 +447,8 @@ def hcl() -> dict:
                 "hcl-model": report["model"].rstrip(),
                 "hcl-bios": report["bios"].rstrip(),
                 "hcl-cpu": report["cpu"].rstrip(),
+                "hcl-scsi": report["scsi"].rstrip(),
+                "hcl-nvme": report["nvme"].rstrip(),
             }
         )
     return data
@@ -493,10 +544,10 @@ class TestRun:
             caller += f"--dispvm={self.dvm.name} "
             cmd = f"{caller} -- {service}"
         else:
-            if test.non_dispvm:
-                target = self.vm2.name
-            else:
+            if test.target_dispvm:
                 target = "@dispvm"
+            else:
+                target = self.vm2.name
             cmd = f"qrexec-client-vm -- {target} {service}"
 
         code = (
@@ -547,35 +598,44 @@ class TestRun:
         start_time = get_time()
         app = qubesadmin.Qubes()
         domains = app.domains
-        if test.non_dispvm:
+        target_time = None
+        startup_time = None
+        if test.target_dispvm:
+            appvm = domains[qube]
+            domain_time = get_time()
+            target_wrapper = qubesadmin.vm.DispVM.from_appvm(app, appvm)
+            target_qube = target_wrapper.create_disposable()
+            target_time = get_time()
+            if not test.preload_max:
+                target_qube.start()
+                startup_time = get_time()
+                pre_exec_time = startup_time
+            else:
+                pre_exec_time = target_time
+        else:
             # Even though we already have the qube object passed from the
             # class, assume we don't so we can calculate gathering.
             target_qube = domains[self.vm1.name]
             domain_time = get_time()
-        else:
-            appvm = domains[qube]
-            domain_time = get_time()
-            target_qube = qubesadmin.vm.DispVM.from_appvm(app, appvm)
-        name = target_qube.name
-        # A very small number, if it appears, it will show a bottleneck at
-        # DispVM.from_appvm.
-        target_time = get_time()
+            pre_exec_time = domain_time
         try:
             target_qube.run_service_for_stdio(service, timeout=60)
         except subprocess.CalledProcessError as e:
+            name = target_qube.name
             raise Exception(
                 f"'{name}': service '{service}' failed ({e.returncode}):"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
         except subprocess.TimeoutExpired as e:
+            name = target_qube.name
             raise Exception(
                 f"'{name}': service '{service}' failed: timeout expired:"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
         run_service_time = get_time()
-        if not test.non_dispvm:
+        if test.target_dispvm:
             target_qube.cleanup()
             cleanup_time = get_time()
             end_time = cleanup_time
@@ -583,10 +643,16 @@ class TestRun:
             end_time = get_time()
         runtime = {}
         runtime["dom"] = round(domain_time - start_time, ROUND_PRECISION)
-        if not test.non_dispvm:
+        if test.target_dispvm:
             runtime["disp"] = round(target_time - domain_time, ROUND_PRECISION)
-        runtime["exec"] = round(run_service_time - target_time, ROUND_PRECISION)
-        if not test.non_dispvm:
+            if not test.preload_max:
+                runtime["start"] = round(
+                    startup_time - target_time, ROUND_PRECISION
+                )
+        runtime["exec"] = round(
+            run_service_time - pre_exec_time, ROUND_PRECISION
+        )
+        if test.target_dispvm:
             runtime["clean"] = round(
                 cleanup_time - run_service_time, ROUND_PRECISION
             )
@@ -611,10 +677,10 @@ class TestRun:
             service = self.gui_service
         else:
             service = self.nogui_service
-        if test.non_dispvm:
-            qube = self.vm2
-        else:
+        if test.target_dispvm:
             qube = self.dvm
+        else:
+            qube = self.vm2
 
         results = {}
         results["api_results"] = {}
@@ -771,10 +837,10 @@ class TestRun:
         with open(POLICY_FILE, "w", encoding="ascii") as policy:
             gui_prefix = f"{self.gui_service} * {self.vm1.name}"
             nogui_prefix = f"{self.nogui_service} * {self.vm1.name}"
-            if test.non_dispvm:
-                target = f"{self.vm2.name}"
-            else:
+            if test.target_dispvm:
                 target = "@dispvm"
+            else:
+                target = f"{self.vm2.name}"
             policy.write(
                 f"{gui_prefix} {target} allow\n"
                 f"{nogui_prefix} {target} allow\n"
@@ -848,7 +914,7 @@ class TestRun:
             if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
                 logger.info("Load before sleep: '%s'", get_load())
                 delay = 5
-                if not test.non_dispvm:
+                if test.target_dispvm:
                     delay += 10
                     if test.gui:
                         delay += 2

@@ -30,7 +30,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
     maxDiff = None
 
     def setUp(self):
-        super(TC_00_API_Misc, self).setUp()
+        super().setUp()
         self.tpl = mock.NonCallableMagicMock(name="template")
         del self.tpl.template
         self.async_src = mock.AsyncMock()
@@ -393,9 +393,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.app.mock_calls, [])
 
     def test_028_notify_updates_template_based_dispvm(self):
-        self.dvm = self.src
-        self.dvm.updateable = False
-        self.srv = mock.NonCallableMagicMock(template=self.dvm)
+        dvm = self.src
+        dvm.updateable = False
+        _srv = mock.NonCallableMagicMock(template=dvm)
         self.src.updateable = False
         self.src.features.get.return_value = False
         self.src.template.is_running.return_value = False
@@ -424,7 +424,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             + "\nExpected:\n"
             + str(expected).replace(",", ",\n"),
         )
-        self.assertEqual(self.dvm.mock_calls, [])
+        self.assertEqual(dvm.mock_calls, [])
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 

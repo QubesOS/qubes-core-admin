@@ -33,7 +33,7 @@ import qubes.vm.mix.dvmtemplate
 
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
-        super(TestApp, self).__init__()
+        super().__init__()
         self.qid_counter = 0
 
     def add_new_vm(self, cls, **kwargs):
@@ -54,7 +54,7 @@ class TC_00_DVMTemplateMixin(
     qubes.tests.QubesTestCase,
 ):
     def setUp(self):
-        super(TC_00_DVMTemplateMixin, self).setUp()
+        super().setUp()
         self.app = TestApp()
         self.app.save = mock.Mock()
         self.app.pools["default"] = qubes.tests.vm.appvm.TestPool(
@@ -93,7 +93,7 @@ class TC_00_DVMTemplateMixin(
     def tearDown(self):
         self.app.default_dispvm = None
         del self.emitter
-        super(TC_00_DVMTemplateMixin, self).tearDown()
+        super().tearDown()
 
     def cleanup_adminvm(self):
         self.adminvm.close()
