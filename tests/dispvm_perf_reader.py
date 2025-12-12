@@ -290,7 +290,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         self.dispvm_api_tests = filter_data(
             self.api_tests,
             {
-                "non_dispvm": False,
+                "target_dispvm": True,
                 "admin_api": True,
                 "concurrent": False,
                 "extra_id": "",
@@ -301,7 +301,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         self.dispvm_tests = filter_data(
             self.data,
             {
-                "non_dispvm": False,
+                "target_dispvm": True,
                 "admin_api": False,
                 "concurrent": False,
                 "extra_id": "",
@@ -322,15 +322,30 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             for name, test in self.dispvm_tests.items()
         ]
 
+        self.vm_stage_dict = {
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "exec": {"color": COLORS["Warning Orange"], "legend": "Execution"},
+        }
+
         self.stage_dict = {
-            "dom": {"color": COLORS["Icon Dark Gray"], "legend": "Others"},
-            "disp": {"color": COLORS["Middle Gray"], "legend": "Others"},
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "disp": {"color": COLORS["Purple"], "legend": "Creation"},
+            "start": {"color": COLORS["Danger Red"], "legend": "Startup"},
             "exec": {"color": COLORS["Warning Orange"], "legend": "Execution"},
             "clean": {"color": COLORS["Sub Gray"], "legend": "Cleanup"},
         }
         self.preload_stage_dict = {
-            "dom": {"color": COLORS["Icon Dark Gray"], "legend": "Others"},
-            "disp": {"color": COLORS["Middle Gray"], "legend": "Others"},
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "disp": {"color": COLORS["Purple"], "legend": "Creation"},
             "exec": {"color": COLORS["Primary Blue"], "legend": "Execution"},
             "clean": {"color": COLORS["Sub Gray"], "legend": "Cleanup"},
         }
@@ -339,7 +354,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         for test, result in self.api_tests.items():
             if result.get("api_results", {}).get("stage", {}):
                 self.stages.extend(result["api_results"]["stage"].keys())
-        self.stage_order = ["dom", "disp", "exec", "clean", "total"]
+        self.stage_order = [*self.stage_dict.keys(), "total"]
         self.stages = sorted(
             list(set(self.stages)),
             key=lambda s: (
@@ -354,7 +369,6 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         """Loop through all enabled graphs."""
         avail_graphs = get_graphs()
         failed_graphs = []
-        # TODO: almost every graph should target all templates
         for graph in avail_graphs:
             method = getattr(self, "graph_" + graph.replace("-", "_"))
             if not (not self.graphs or graph in self.graphs):
@@ -415,7 +429,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         supxlabel: str = "",
         file_prefix: str = "",
     ) -> None:
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals,too-many-positional-arguments
         """
         Assemble figure of bar plot where normal and preload tests are grouped.
         Each test passed is subplotted.
@@ -647,6 +661,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_02_stage_stack(self) -> None:
         """Stacked bar by stage graph."""
+        # pylint: disable=too-many-locals
         tests = filter_data(self.dispvm_api_tests, {"preload_max": 0})
         assert_items_match(tests, ["iterations"])
         iterations = get_value(tests, "iterations")[0]
@@ -657,15 +672,23 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             {"preload_max": operator.ge},
         )
 
-        important_stages = ["exec", "clean", "total"]
         label_array = np.arange(len(tests_names_pretty))
         label_count = len(tests_names_pretty)
         width = 0.8 / label_count
+        # Don't count "dom" stage, when there are other large values, it
+        # overlaps the label.
         up_to_exec = self.stages[:-2]
-        for num, stage_intro in enumerate([up_to_exec, self.stages]):
+        up_to_exec.remove("dom")
+        up_to_last = self.stages
+        up_to_last.remove("dom")
+        important_stages = up_to_last
+        # pylint: disable=too-many-nested-blocks
+        for num, stage_intro in enumerate([up_to_exec, up_to_last]):
             fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
             bottom = np.zeros(len(tests_names_pretty))
             bottom_preload = np.zeros(len(tests_names_pretty))
+            stored_means_stage = []
+            stored_preload_means_stage = []
             for stage in stage_intro:
                 means_stage = np.array(
                     [
@@ -673,18 +696,27 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                         for test in tests.values()
                     ]
                 )
-                preload_means_stage = np.array(
-                    [
-                        test["api_results"]["stage"][stage]["mean"]
-                        for test in preload_tests.values()
-                    ]
-                )
+                stored_means_stage.append(means_stage)
+                if stage == "start":
+                    preload_means_stage = np.zeros(len(means_stage))
+                else:
+                    preload_means_stage = np.array(
+                        [
+                            test["api_results"]["stage"][stage]["mean"]
+                            for test in preload_tests.values()
+                        ]
+                    )
+                stored_preload_means_stage.append(preload_means_stage)
 
                 assert_items_length_match(tests, preload_tests)
                 if stage in ["exec", "total"]:
+                    sum_means_stage = [sum(x) for x in zip(*stored_means_stage)]
+                    sum_preload_means_stage = [
+                        sum(x) for x in zip(*stored_preload_means_stage)
+                    ]
                     ratio = np.divide(
-                        means_stage,
-                        preload_means_stage,
+                        sum_means_stage,
+                        sum_preload_means_stage,
                         out=np.zeros_like(means_stage, dtype=float),
                         where=preload_means_stage != 0,
                     )
@@ -695,12 +727,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                         if stage == "exec" and "total" in stage_intro:
                             break
                         xpos = label_array[i]
-                        min_mean = min(means_stage[i], preload_means_stage[i])
-                        max_mean = max(means_stage[i], preload_means_stage[i])
-                        height = max(
-                            min_mean + 1, min_mean + ((max_mean - min_mean) / 2)
-                        )
-                        height = min_mean + 1
+                        if stage == "total":
+                            min_mean = min(
+                                means_stage[i], preload_means_stage[i]
+                            )
+                            max_mean = max(
+                                means_stage[i], preload_means_stage[i]
+                            )
+                            height = max(
+                                min_mean + 1,
+                                min_mean + ((max_mean - min_mean) / 2),
+                            )
+                        else:
+                            height = (
+                                sum_preload_means_stage[i] + sum_means_stage[i]
+                            ) / 2
                         if ratio[i] > 1:
                             color = COLORS["Success Green"]
                         else:
@@ -726,19 +767,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                     bottom += means_stage
 
                     positions = label_array + width / 2
-                    bars_preload = axs.bar(
-                        positions,
-                        preload_means_stage,
-                        width=width,
-                        bottom=bottom_preload,
-                        color=self.preload_stage_dict[stage]["color"],
-                    )
+                    if stage != "start":
+                        bars_preload = axs.bar(
+                            positions,
+                            preload_means_stage,
+                            width=width,
+                            bottom=bottom_preload,
+                            color=self.preload_stage_dict[stage]["color"],
+                        )
                     bottom_preload += preload_means_stage
 
                     if (
                         stage in important_stages
-                        or stage == list(self.stage_dict.keys())[-1]
+                        or stage == list(self.stages)[-1]
                     ):
+                        # pylint: disable=possibly-used-before-assignment
                         for bbar in [bars_normal, bars_preload]:
                             axs.bar_label(
                                 bbar,
@@ -746,7 +789,26 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                                 label_type="center",
                                 fontsize="xx-large",
                             )
+                            if stage not in ["exec", "clean"]:
+                                continue
+                            if stage == "exec" and "total" in stage_intro:
+                                continue
+                            axs.bar_label(bbar, fmt="%.2f", fontsize="xx-large")
 
+            means_stage_total = [
+                test["api_results"]["stage"]["total"]["mean"]
+                for test in tests.values()
+            ]
+            preload_means_stage_total = [
+                test["api_results"]["stage"]["total"]["mean"]
+                for test in preload_tests.values()
+            ]
+            top_value = math.ceil(
+                max(*means_stage_total, *preload_means_stage_total)
+            )
+            top_tick = int(10 * top_value / 10)
+            yticks = [round(x, 1) for x in np.linspace(0, top_tick, 4)]
+            plt.yticks(yticks)
             plt.xticks(label_array, tests_names_pretty)
             plt.ylabel("Time (s)")
             pretty_iterations = " over {} iterations".format(iterations)
@@ -759,7 +821,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 if stage in stage_intro
             ]
             legend_handles.insert(
-                -2,
+                -3,
                 *[
                     matplotlib.patches.Patch(
                         color=value["color"], label="Preload " + value["legend"]
@@ -782,20 +844,41 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 wrap=True,
                 color=CAPTION_COLOR,
             )
-            self.end(plt, str(num))
+            self.end(plt, str(num) + "_until_" + stage_intro[-1])
 
     def graph_03_stage_dist(self) -> None:
         """Scattered and jittered stage distribution graph."""
-        tests = self.dispvm_api_tests
+        tests = filter_data(
+            self.api_tests,
+            {
+                "concurrent": False,
+                "extra_id": "",
+            },
+        )
         assert_items_match(tests, ["iterations"])
         tests_names_pretty = get_value(tests, "pretty_name")
-        for num, stage in enumerate(["exec", "clean", "total"]):
+        for num, stage in enumerate(self.stages + ["response"]):
             stage_values = []
             for _, test in tests.items():
-                stage_values.append(
-                    test["api_results"]["stage"][stage]["values"]
-                )
-            fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
+                api_results = test["api_results"]["stage"]
+                if stage == "response":
+                    if test["target_dispvm"]:
+                        stage_values.append(
+                            [
+                                x - y
+                                for x, y in zip(
+                                    api_results["total"]["values"],
+                                    api_results["clean"]["values"],
+                                )
+                            ]
+                        )
+                    else:
+                        stage_values.append(api_results["total"]["values"])
+                else:
+                    stage_values.append(
+                        api_results.get(stage, {}).get("values", [])
+                    )
+            fig, axs = plt.subplots(figsize=(WIDTH * 4, HEIGHT * 4))
             x_pos = np.arange(1, len(stage_values) + 1)
             jitter_strength = 0.1
             for i, values in enumerate(stage_values, start=1):
@@ -810,7 +893,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 axs.scatter(x_jittered, values, s=100, alpha=0.8, color=color)
             axs.set_xticks(x_pos, wrap_text(tests_names_pretty, 25))
             axs.set_ylabel("Time (s)")
-            if stage == "total":
+            if stage in ["total", "response"]:
                 stage_pretty = stage
             else:
                 stage_pretty = self.stage_dict[stage]["legend"].lower()
@@ -838,7 +921,6 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         base_tests = filter_data(
             self.api_tests,
             {
-                "non_dispvm": False,
                 "admin_api": True,
                 "concurrent": False,
             },
@@ -880,10 +962,10 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         )
         all_tests = {
             "nogui-small": {
-                "for simple calls with some preloaded disposables": tests_small
+                "for simple calls with few preloaded disposables": tests_small
             },
             "gui-small": {
-                "for GUI calls with some preloaded disposables": tests_small_gui
+                "for GUI calls with few preloaded disposables": tests_small_gui
             },
             "nogui-large": {
                 "for simple calls with some preloaded disposables": tests
@@ -893,23 +975,57 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             },
         }
 
-        for test_type, test_value in all_tests.items():
+        num_list = []
+        rounder = 2
+        # pylint: disable=too-many-nested-blocks
+        for idx, (test_type, test_value) in enumerate(all_tests.items()):
             desc = list(test_value.keys())[0]
             tests = list(test_value.values())[0]
-            for num, stage in enumerate(["exec", "clean", "total"]):
+            for num, stage in enumerate(self.stages + ["response"]):
+                num_list.append(num)
                 fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
                 points_seen = set()
                 for test in tests.values():
+                    if (
+                        not test["target_dispvm"]
+                        and stage != "response"
+                        and stage not in self.vm_stage_dict
+                    ):
+                        continue
                     name = test["pretty_name"]
                     iteration_data = test.get("api_results", {}).get(
                         "iteration", {}
                     )
                     iterations = range(1, test["iterations"] + 1)
                     stage_data = test.get("api_results", {}).get("stage", {})
-                    mean = round(stage_data[stage]["mean"], 1)
-                    times = [
-                        iteration_data[str(it)][stage] for it in iterations
-                    ]
+                    if not (stage == "start" and test["preload_max"] > 0):
+                        if stage == "response":
+                            if test["target_dispvm"]:
+                                mean_response = (
+                                    stage_data["total"]["mean"]
+                                    - stage_data["clean"]["mean"]
+                                )
+                                mean = round(mean_response, rounder)
+                                times = [
+                                    iteration_data[str(it)]["total"]
+                                    - iteration_data[str(it)]["clean"]
+                                    for it in iterations
+                                ]
+                            else:
+                                mean_response = stage_data["total"]["mean"]
+                                mean = round(mean_response, rounder)
+                                times = [
+                                    iteration_data[str(it)]["total"]
+                                    for it in iterations
+                                ]
+                        else:
+                            mean = round(stage_data[stage]["mean"], rounder)
+                            times = [
+                                iteration_data[str(it)][stage]
+                                for it in iterations
+                            ]
+                    else:
+                        continue
                     axs.plot(
                         iterations,
                         times,
@@ -917,7 +1033,6 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                         linestyle="--",
                         linewidth=3,
                     )
-                    rounder = 1
                     for x_val, y_val in zip(iterations, times):
                         if (x_val, round(y_val, rounder)) in points_seen:
                             continue
@@ -929,7 +1044,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                             ha="center",
                             fontsize="xx-large",
                         )
-                if stage == "total":
+                if stage in ["total", "response"]:
                     stage_pretty = stage
                 else:
                     stage_pretty = self.stage_dict[stage]["legend"].lower()
@@ -948,7 +1063,15 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                     wrap=True,
                     color=CAPTION_COLOR,
                 )
-                self.end(plt, str(num) + "_" + stage + "_" + test_type)
+                idx_str = str(idx)
+                if idx < 10:
+                    idx_str = "0" + idx_str
+                self.end(
+                    plt,
+                    "{}_{}_{}_{}".format(
+                        str(idx_str), str(num), stage, test_type
+                    ),
+                )
 
     def graph_08_template(self) -> None:
         """Graph including all available templates."""
@@ -956,7 +1079,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             self.orig_data,
             {
                 "admin_api": True,
-                "non_dispvm": False,
+                "target_dispvm": True,
                 "extra_id": "",
                 "concurrent": False,
             },
@@ -986,12 +1109,11 @@ class Graph:  # pylint: disable=too-many-instance-attributes
     def graph_09_method(self) -> None:
         """Graph including different callers comparing GUI and concurrency."""
         orig_tests = filter_data(
-            self.data, {"non_dispvm": False, "extra_id": ""}
+            self.data, {"target_dispvm": True, "extra_id": ""}
         )
 
         concurrent_tests = filter_data(orig_tests, {"concurrent": True})
         gui_tests = filter_data(orig_tests, {"gui": True})
-        # TODO: ben: some issue here
         for query in ["concurrent-gui", "gui", "concurrent", "gui-concurrent"]:
             if ("concurrent" in query and not concurrent_tests) or (
                 "gui" in query and not gui_tests
@@ -1142,6 +1264,7 @@ def main() -> None:
     logging.info("Loaded data")
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
+        logging.info("Output directory is %s", repr(args.output_dir))
     graph = Graph(
         data,
         default_template=args.template,
