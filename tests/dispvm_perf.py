@@ -91,7 +91,7 @@ class TestConfig:
     :param bool concurrent: request concurrently
     :param bool from_dom0: initiate call from dom0
     :param int preload_max: number of disposables to preload
-    :param bool non_dispvm: target a non disposable qube
+    :param bool target_dispvm: target or not a disposable qube
     :param bool admin_api: use the Admin API directly
     :param str extra_id: base test that extra ID varies from
     :param str pretty_name: human-readable name
@@ -143,7 +143,7 @@ class TestConfig:
     concurrent: bool = False
     from_dom0: bool = False
     preload_max: int = 0
-    non_dispvm: bool = False
+    target_dispvm: bool = True
     admin_api: bool = False
     extra_id: str = ""
     pretty_name: str = dataclasses.field(init=False)
@@ -171,9 +171,7 @@ class TestConfig:
         else:
             pretty_what = "simple"
 
-        if self.non_dispvm:
-            pretty_to = "in another running qube"
-        else:
+        if self.target_dispvm:
             disp_suffix = ""
             disp_prefix = "a "
             if self.preload_max:
@@ -189,6 +187,8 @@ class TestConfig:
                     disp_prefix = ""
                     disp_suffix = "s"
                 pretty_to = "in {}disposable{}".format(disp_prefix, disp_suffix)
+        else:
+            pretty_to = "in another running qube"
 
         pretty_name = "{} runs".format(pretty_from.capitalize())
         if pretty_strategy:
@@ -223,24 +223,26 @@ ITERATIONS = MAX_CONCURRENCY * 3
 ROUND_PRECISION = 3
 
 ALL_TESTS = [
-    TestConfig("vm-vm", non_dispvm=True),
-    TestConfig("vm-vm-gui", gui=True, non_dispvm=True),
-    TestConfig("vm-vm-concurrent", concurrent=True, non_dispvm=True),
+    TestConfig("vm-vm", target_dispvm=False),
+    TestConfig("vm-vm-gui", gui=True, target_dispvm=False),
+    TestConfig("vm-vm-concurrent", concurrent=True, target_dispvm=False),
     TestConfig(
-        "vm-vm-gui-concurrent", gui=True, concurrent=True, non_dispvm=True
+        "vm-vm-gui-concurrent", gui=True, concurrent=True, target_dispvm=False
     ),
-    TestConfig("dom0-vm-api", non_dispvm=True, admin_api=True, from_dom0=True),
+    TestConfig(
+        "dom0-vm-api", target_dispvm=False, admin_api=True, from_dom0=True
+    ),
     TestConfig(
         "dom0-vm-gui-api",
         gui=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
     TestConfig(
         "dom0-vm-concurrent-api",
         concurrent=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
@@ -248,7 +250,7 @@ ALL_TESTS = [
         "dom0-vm-gui-concurrent-api",
         gui=True,
         concurrent=True,
-        non_dispvm=True,
+        target_dispvm=False,
         admin_api=True,
         from_dom0=True,
     ),
@@ -542,10 +544,10 @@ class TestRun:
             caller += f"--dispvm={self.dvm.name} "
             cmd = f"{caller} -- {service}"
         else:
-            if test.non_dispvm:
-                target = self.vm2.name
-            else:
+            if test.target_dispvm:
                 target = "@dispvm"
+            else:
+                target = self.vm2.name
             cmd = f"qrexec-client-vm -- {target} {service}"
 
         code = (
@@ -598,13 +600,7 @@ class TestRun:
         domains = app.domains
         target_time = None
         startup_time = None
-        if test.non_dispvm:
-            # Even though we already have the qube object passed from the
-            # class, assume we don't so we can calculate gathering.
-            target_qube = domains[self.vm1.name]
-            domain_time = get_time()
-            pre_exec_time = domain_time
-        else:
+        if test.target_dispvm:
             appvm = domains[qube]
             domain_time = get_time()
             target_wrapper = qubesadmin.vm.DispVM.from_appvm(app, appvm)
@@ -616,6 +612,12 @@ class TestRun:
                 pre_exec_time = startup_time
             else:
                 pre_exec_time = target_time
+        else:
+            # Even though we already have the qube object passed from the
+            # class, assume we don't so we can calculate gathering.
+            target_qube = domains[self.vm1.name]
+            domain_time = get_time()
+            pre_exec_time = domain_time
         try:
             target_qube.run_service_for_stdio(service, timeout=60)
         except subprocess.CalledProcessError as e:
@@ -633,7 +635,7 @@ class TestRun:
                 f" {e.stderr}"
             )
         run_service_time = get_time()
-        if not test.non_dispvm:
+        if test.target_dispvm:
             target_qube.cleanup()
             cleanup_time = get_time()
             end_time = cleanup_time
@@ -641,7 +643,7 @@ class TestRun:
             end_time = get_time()
         runtime = {}
         runtime["dom"] = round(domain_time - start_time, ROUND_PRECISION)
-        if not test.non_dispvm:
+        if test.target_dispvm:
             runtime["disp"] = round(target_time - domain_time, ROUND_PRECISION)
             if not test.preload_max:
                 runtime["start"] = round(
@@ -650,7 +652,7 @@ class TestRun:
         runtime["exec"] = round(
             run_service_time - pre_exec_time, ROUND_PRECISION
         )
-        if not test.non_dispvm:
+        if test.target_dispvm:
             runtime["clean"] = round(
                 cleanup_time - run_service_time, ROUND_PRECISION
             )
@@ -675,10 +677,10 @@ class TestRun:
             service = self.gui_service
         else:
             service = self.nogui_service
-        if test.non_dispvm:
-            qube = self.vm2
-        else:
+        if test.target_dispvm:
             qube = self.dvm
+        else:
+            qube = self.vm2
 
         results = {}
         results["api_results"] = {}
@@ -835,10 +837,10 @@ class TestRun:
         with open(POLICY_FILE, "w", encoding="ascii") as policy:
             gui_prefix = f"{self.gui_service} * {self.vm1.name}"
             nogui_prefix = f"{self.nogui_service} * {self.vm1.name}"
-            if test.non_dispvm:
-                target = f"{self.vm2.name}"
-            else:
+            if test.target_dispvm:
                 target = "@dispvm"
+            else:
+                target = f"{self.vm2.name}"
             policy.write(
                 f"{gui_prefix} {target} allow\n"
                 f"{nogui_prefix} {target} allow\n"
@@ -912,7 +914,7 @@ class TestRun:
             if not os.getenv("QUBES_TEST_SKIP_TEARDOWN_SLEEP"):
                 logger.info("Load before sleep: '%s'", get_load())
                 delay = 5
-                if not test.non_dispvm:
+                if test.target_dispvm:
                     delay += 10
                     if test.gui:
                         delay += 2
