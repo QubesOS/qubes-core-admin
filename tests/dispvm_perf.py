@@ -596,29 +596,37 @@ class TestRun:
         start_time = get_time()
         app = qubesadmin.Qubes()
         domains = app.domains
+        target_time = None
+        startup_time = None
         if test.non_dispvm:
             # Even though we already have the qube object passed from the
             # class, assume we don't so we can calculate gathering.
             target_qube = domains[self.vm1.name]
             domain_time = get_time()
+            pre_exec_time = domain_time
         else:
             appvm = domains[qube]
             domain_time = get_time()
             target_wrapper = qubesadmin.vm.DispVM.from_appvm(app, appvm)
             target_qube = target_wrapper.create_disposable()
-        name = target_qube.name
-        # A very small number, if it appears, it will show a bottleneck at
-        # DispVM.from_appvm.
-        target_time = get_time()
+            target_time = get_time()
+            if not test.preload_max:
+                target_qube.start()
+                startup_time = get_time()
+                pre_exec_time = startup_time
+            else:
+                pre_exec_time = target_time
         try:
             target_qube.run_service_for_stdio(service, timeout=60)
         except subprocess.CalledProcessError as e:
+            name = target_qube.name
             raise Exception(
                 f"'{name}': service '{service}' failed ({e.returncode}):"
                 f" {e.stdout},"
                 f" {e.stderr}"
             )
         except subprocess.TimeoutExpired as e:
+            name = target_qube.name
             raise Exception(
                 f"'{name}': service '{service}' failed: timeout expired:"
                 f" {e.stdout},"
@@ -635,7 +643,13 @@ class TestRun:
         runtime["dom"] = round(domain_time - start_time, ROUND_PRECISION)
         if not test.non_dispvm:
             runtime["disp"] = round(target_time - domain_time, ROUND_PRECISION)
-        runtime["exec"] = round(run_service_time - target_time, ROUND_PRECISION)
+            if not test.preload_max:
+                runtime["start"] = round(
+                    startup_time - target_time, ROUND_PRECISION
+                )
+        runtime["exec"] = round(
+            run_service_time - pre_exec_time, ROUND_PRECISION
+        )
         if not test.non_dispvm:
             runtime["clean"] = round(
                 cleanup_time - run_service_time, ROUND_PRECISION
