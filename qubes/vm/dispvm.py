@@ -25,6 +25,7 @@ A disposable qube implementation
 import asyncio
 import copy
 import subprocess
+import time
 from typing import Optional
 
 import qubes.config
@@ -435,6 +436,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         :param str service: Full command-line.
         :param int|float timeout: Fail after timeout is reached.
         """
+        start_time = time.perf_counter()
         try:
             self.log.info(
                 "Preload startup waiting '%s' with '%d' seconds timeout",
@@ -450,6 +452,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 timeout=timeout,
             )
             self.log.info("Preload startup completed '%s'", rpc)
+            end_time = time.perf_counter()
+            self.log.info(
+                "wait_operational_preload(): %s took: %.3f seconds",
+                rpc,
+                end_time - start_time,
+            )
         except asyncio.TimeoutError:
             if rpc == "qubes.WaitForSession":
                 debug_msg = "systemd-analyze --user blame"
@@ -485,6 +493,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         :param str event: Event which was fired.
         """
+        start_time = time.perf_counter()
         if not self.is_preload:
             return
         if not self.preload_requested:
@@ -535,7 +544,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 raise
         if not self.preload_requested:
             try:
+                pre_pause_time = time.perf_counter()
                 await self.pause()
+                post_pause_time = time.perf_counter()
+                self.log.info(
+                    "start(): pause() took: %.3f seconds",
+                    post_pause_time - pre_pause_time,
+                )
             except qubes.exc.QubesVMCancelledPauseError:
                 pass
         self.log.info("Preloading finished")
@@ -545,6 +560,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # If self.preload_requested, use_preload() saves the file.
             self.app.save()
         self.preload_complete.set()
+        end_time = time.perf_counter()
+        self.log.info("start(): took: %.3f seconds", end_time - start_time)
 
     @qubes.events.handler("domain-pre-paused")
     async def on_domain_pre_paused(self, event, **kwargs) -> None:
@@ -559,6 +576,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         :param str event: Event which was fired.
         """
         # pylint: disable=unused-argument
+        start_time = time.perf_counter()
         if not self.is_preload or self.maxmem == 0:
             return
         if self.preload_requested:
@@ -586,13 +604,28 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             if qmemman_client:
                 qmemman_client.close()
+            end_time = time.perf_counter()
+            self.log.info(
+                "on_domain_pre_paused(): failed and took: %.3f seconds",
+                end_time - start_time,
+            )
             raise
         finally:
             if self.preload_requested:
+                end_time = time.perf_counter()
+                self.log.info(
+                    "on_domain_pre_paused(): cancelled and took: %.3f seconds",
+                    end_time - start_time,
+                )
                 raise qubes.exc.QubesVMCancelledPauseError(
                     self,
                     "preload was requested before memory request completed",
                 )
+            end_time = time.perf_counter()
+            self.log.info(
+                "on_domain_pre_paused(): took: %.3f seconds",
+                end_time - start_time,
+            )
 
     @qubes.events.handler("domain-paused")
     def on_domain_paused(
@@ -625,7 +658,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Do auto cleanup if enabled.
         """
+        start_time = time.perf_counter()
         await self._auto_cleanup()
+        end_time = time.perf_counter()
+        self.log.info(
+            "on_domain_shutdown(): _auto_cleanup() took: %.3f seconds",
+            end_time - start_time,
+        )
 
     @qubes.events.handler("domain-remove-from-disk")
     def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
@@ -715,6 +754,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         The qube returned is not started unless the ``preload`` argument is
         ``True``.
         """
+        start_time = time.perf_counter()
         if not getattr(appvm, "template_for_dispvms", False):
             raise qubes.exc.QubesException(
                 "Refusing to create disposable out of this AppVM, because "
@@ -784,12 +824,34 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                             "timeout",
                             timeout,
                         )
+                        pre_wait_time = time.perf_counter()
                         async with asyncio.timeout(timeout):
                             await dispvm.preload_complete.wait()
+                        post_wait_time = time.perf_counter()
+                        dispvm.log.info(
+                            "from_appvm(): unpause() took: %.3f seconds",
+                            post_wait_time - pre_wait_time,
+                        )
                     if dispvm.is_paused():
+                        pre_unpause_time = time.perf_counter()
                         await dispvm.unpause()
+                        post_unpause_time = time.perf_counter()
+                        dispvm.log.info(
+                            "from_appvm: unpause() took: %.3f seconds",
+                            post_unpause_time - pre_unpause_time,
+                        )
                     else:
+                        pre_use_time = time.perf_counter()
                         await dispvm.use_preload()
+                        post_use_time = time.perf_counter()
+                        dispvm.log.info(
+                            "from_appvm: use_preload() took: %.3f seconds",
+                            post_use_time - pre_use_time,
+                        )
+                    dispvm.log.info(
+                        "from_appvm(): fetching a preload took: %.3f seconds",
+                        time.perf_counter() - start_time,
+                    )
                     return dispvm
                 except asyncio.TimeoutError:
                     dispvm.log.warning(
@@ -819,12 +881,28 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             preload_dispvm.append(dispvm.name)
             appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
             dispvm.features["internal"] = True
+        pre_disk_time = time.perf_counter()
         await dispvm.create_on_disk()
+        post_disk_time = time.perf_counter()
+        dispvm.log.info(
+            "from_appvm(): create_on_disk took: %.3f seconds",
+            post_disk_time - pre_disk_time,
+        )
         if preload:
+            pre_start_time = time.perf_counter()
             await dispvm.start()
+            post_start_time = time.perf_counter()
+            dispvm.log.info(
+                "from_appvm(): start() took: %.3f seconds",
+                post_start_time - pre_start_time,
+            )
         else:
             # Start method already saves the file.
             app.save()
+        dispvm.log.info(
+            "from_appvm(): creating a new disp took: %.3f seconds",
+            time.perf_counter() - start_time,
+        )
         return dispvm
 
     async def use_preload(self) -> None:
@@ -833,6 +911,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         when appropriate, making GUI applications show the qube as any other
         disposable. Start the preload cycle to fill gaps.
         """
+        start_time = time.perf_counter()
         if not self.is_preload:
             raise qubes.exc.QubesException("Disposable is not preloaded")
         appvm = self.template
@@ -856,11 +935,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.app.save()
         delay = appvm.get_feat_preload_delay()
         if delay == -1 and appvm.get_feat_preload():
+            self.log.info(
+                "use_preload took: %.3f seconds",
+                time.perf_counter() - start_time,
+            )
             return
         asyncio.ensure_future(
             appvm.fire_event_async(
                 "domain-preload-dispvm-used", dispvm=self, delay=delay
             )
+        )
+
+        self.log.info(
+            "use_preload took: %.3f seconds", time.perf_counter() - start_time
         )
 
     def _preload_cleanup(self) -> None:
@@ -884,14 +971,30 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         :param bool force: Auto clean up even if property is disabled
         """
+        start_time = time.perf_counter()
         if not self.auto_cleanup and not force:
             return
         self._preload_cleanup()
         if self not in self.app.domains:
             return
+        pre_del_time = time.perf_counter()
         del self.app.domains[self]
+        pre_remove_time = time.perf_counter()
         await self.remove_from_disk()
+        post_remove_time = time.perf_counter()
         self.app.save()
+        end_time = time.perf_counter()
+        self.log.info(
+            "_auto_cleanup(): __del__ took: %.3f seconds",
+            pre_remove_time - pre_del_time,
+        )
+        self.log.info(
+            "_auto_cleanup(): remove_from_disk() took: %.3f seconds",
+            post_remove_time - pre_remove_time,
+        )
+        self.log.info(
+            "_auto_cleanup(): took: %.3f seconds", end_time - start_time
+        )
 
     async def cleanup(self, force: bool = False) -> None:
         """
@@ -905,11 +1008,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 as the sole purpose of this option is because using it may not \
                 be reliable.
         """
+        start_time = time.perf_counter()
         if self not in self.app.domains:
             return
         running = True
         try:
+            pre_kill_time = time.perf_counter()
             await self.kill()
+            post_kill_time = time.perf_counter()
+            self.log.info(
+                "cleanup(): kill() took: %.3f seconds",
+                post_kill_time - pre_kill_time,
+            )
         except qubes.exc.QubesVMNotStartedError:
             running = False
         # Full cleanup will be done automatically if event 'domain-shutdown' is
@@ -917,7 +1027,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.auto_cleanup or (
             force and not running and self.auto_cleanup
         ):
+            pre_auto_cleanup_time = time.perf_counter()
             await self._auto_cleanup(force=force)
+            post_auto_cleanup_time = time.perf_counter()
+            self.log.info(
+                "cleanup(): _auto_cleanup() took: %.3f seconds",
+                post_auto_cleanup_time - pre_auto_cleanup_time,
+            )
+        end_time = time.perf_counter()
+        self.log.info("cleanup(): took: %.3f seconds", end_time - start_time)
 
     async def start(self, **kwargs):
         """

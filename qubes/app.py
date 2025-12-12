@@ -1195,7 +1195,7 @@ class Qubes(qubes.PropertyHolder):
     def __str__(self):
         return type(self).__name__
 
-    def save(self, lock=True, log_level=logging.DEBUG):
+    def save(self, lock=True, log_level=logging.INFO):
         """Save all data to qubes.xml
 
         There are several problems with saving :file:`qubes.xml` which must be
@@ -1209,6 +1209,7 @@ class Qubes(qubes.PropertyHolder):
         :param bool lock: keep file locked after saving
         :throws EnvironmentError: failure on saving
         """
+        start_time = time.perf_counter()
 
         if not self.__locked_fh:
             self._acquire_lock(for_save=True)
@@ -1237,6 +1238,10 @@ class Qubes(qubes.PropertyHolder):
 
         if not lock:
             self._release_lock()
+
+        self.log.info(
+            "app.save(): took: %.3f seconds", time.perf_counter() - start_time
+        )
 
     def close(self):
         """Deconstruct the object and break circular references
