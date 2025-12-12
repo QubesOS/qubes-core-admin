@@ -1,0 +1,1638 @@
+{
+  "debian-13-xfce_dom0-dispvm-api": {
+    "name": "dom0-dispvm-api",
+    "gui": false,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 0,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs simple app in a disposable (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.016,
+          "disp": 0.68,
+          "start": 5.745,
+          "exec": 0.318,
+          "clean": 1.204,
+          "total": 7.963
+        },
+        "2": {
+          "dom": 0.02,
+          "disp": 0.645,
+          "start": 6.093,
+          "exec": 0.274,
+          "clean": 0.958,
+          "total": 7.989
+        },
+        "3": {
+          "dom": 0.013,
+          "disp": 0.863,
+          "start": 5.836,
+          "exec": 0.349,
+          "clean": 0.961,
+          "total": 8.022
+        },
+        "4": {
+          "dom": 0.02,
+          "disp": 0.58,
+          "start": 4.967,
+          "exec": 0.378,
+          "clean": 0.934,
+          "total": 6.879
+        },
+        "5": {
+          "dom": 0.019,
+          "disp": 0.764,
+          "start": 4.981,
+          "exec": 0.475,
+          "clean": 1.207,
+          "total": 7.446
+        },
+        "6": {
+          "dom": 0.016,
+          "disp": 0.463,
+          "start": 5.329,
+          "exec": 0.312,
+          "clean": 0.956,
+          "total": 7.077
+        },
+        "7": {
+          "dom": 0.015,
+          "disp": 0.523,
+          "start": 6.468,
+          "exec": 0.266,
+          "clean": 1.067,
+          "total": 8.338
+        },
+        "8": {
+          "dom": 0.019,
+          "disp": 0.485,
+          "start": 4.68,
+          "exec": 0.455,
+          "clean": 0.856,
+          "total": 6.496
+        },
+        "9": {
+          "dom": 0.016,
+          "disp": 0.438,
+          "start": 5.182,
+          "exec": 0.319,
+          "clean": 1.096,
+          "total": 7.051
+        },
+        "10": {
+          "dom": 0.014,
+          "disp": 0.644,
+          "start": 5.536,
+          "exec": 0.309,
+          "clean": 0.952,
+          "total": 7.454
+        },
+        "11": {
+          "dom": 0.018,
+          "disp": 0.489,
+          "start": 5.324,
+          "exec": 0.487,
+          "clean": 0.99,
+          "total": 7.309
+        },
+        "12": {
+          "dom": 0.025,
+          "disp": 0.622,
+          "start": 5.592,
+          "exec": 0.301,
+          "clean": 0.916,
+          "total": 7.457
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.016,
+            0.02,
+            0.013,
+            0.02,
+            0.019,
+            0.016,
+            0.015,
+            0.019,
+            0.016,
+            0.014,
+            0.018,
+            0.025
+          ],
+          "mean": 0.018,
+          "median": 0.017
+        },
+        "disp": {
+          "values": [
+            0.68,
+            0.645,
+            0.863,
+            0.58,
+            0.764,
+            0.463,
+            0.523,
+            0.485,
+            0.438,
+            0.644,
+            0.489,
+            0.622
+          ],
+          "mean": 0.6,
+          "median": 0.601
+        },
+        "start": {
+          "values": [
+            5.745,
+            6.093,
+            5.836,
+            4.967,
+            4.981,
+            5.329,
+            6.468,
+            4.68,
+            5.182,
+            5.536,
+            5.324,
+            5.592
+          ],
+          "mean": 5.478,
+          "median": 5.432
+        },
+        "exec": {
+          "values": [
+            0.318,
+            0.274,
+            0.349,
+            0.378,
+            0.475,
+            0.312,
+            0.266,
+            0.455,
+            0.319,
+            0.309,
+            0.487,
+            0.301
+          ],
+          "mean": 0.354,
+          "median": 0.319
+        },
+        "clean": {
+          "values": [
+            1.204,
+            0.958,
+            0.961,
+            0.934,
+            1.207,
+            0.956,
+            1.067,
+            0.856,
+            1.096,
+            0.952,
+            0.99,
+            0.916
+          ],
+          "mean": 1.008,
+          "median": 0.96
+        },
+        "total": {
+          "values": [
+            7.963,
+            7.989,
+            8.022,
+            6.879,
+            7.446,
+            7.077,
+            8.338,
+            6.496,
+            7.051,
+            7.454,
+            7.309,
+            7.457
+          ],
+          "mean": 7.457,
+          "median": 7.45
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 7.457,
+    "total": 89.481,
+    "date": "2025-12-12T12:00:33",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-dispvm-gui-api": {
+    "name": "dom0-dispvm-gui-api",
+    "gui": true,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 0,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs GUI app in a disposable (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.016,
+          "disp": 0.581,
+          "start": 4.878,
+          "exec": 2.447,
+          "clean": 1.021,
+          "total": 8.942
+        },
+        "2": {
+          "dom": 0.014,
+          "disp": 0.675,
+          "start": 5.334,
+          "exec": 2.023,
+          "clean": 1.08,
+          "total": 9.126
+        },
+        "3": {
+          "dom": 0.017,
+          "disp": 0.578,
+          "start": 5.065,
+          "exec": 1.629,
+          "clean": 1.077,
+          "total": 8.365
+        },
+        "4": {
+          "dom": 0.015,
+          "disp": 0.467,
+          "start": 4.796,
+          "exec": 1.649,
+          "clean": 1.182,
+          "total": 8.109
+        },
+        "5": {
+          "dom": 0.02,
+          "disp": 0.627,
+          "start": 5.964,
+          "exec": 1.734,
+          "clean": 1.0,
+          "total": 9.346
+        },
+        "6": {
+          "dom": 0.017,
+          "disp": 0.516,
+          "start": 5.865,
+          "exec": 1.562,
+          "clean": 1.132,
+          "total": 9.092
+        },
+        "7": {
+          "dom": 0.015,
+          "disp": 0.462,
+          "start": 5.304,
+          "exec": 1.927,
+          "clean": 0.999,
+          "total": 8.706
+        },
+        "8": {
+          "dom": 0.018,
+          "disp": 0.608,
+          "start": 5.74,
+          "exec": 1.616,
+          "clean": 0.947,
+          "total": 8.93
+        },
+        "9": {
+          "dom": 0.014,
+          "disp": 0.518,
+          "start": 6.002,
+          "exec": 1.743,
+          "clean": 1.028,
+          "total": 9.306
+        },
+        "10": {
+          "dom": 0.021,
+          "disp": 0.839,
+          "start": 5.442,
+          "exec": 1.851,
+          "clean": 1.009,
+          "total": 9.162
+        },
+        "11": {
+          "dom": 0.013,
+          "disp": 0.576,
+          "start": 5.204,
+          "exec": 1.762,
+          "clean": 1.018,
+          "total": 8.575
+        },
+        "12": {
+          "dom": 0.016,
+          "disp": 0.511,
+          "start": 5.189,
+          "exec": 1.597,
+          "clean": 0.886,
+          "total": 8.2
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.016,
+            0.014,
+            0.017,
+            0.015,
+            0.02,
+            0.017,
+            0.015,
+            0.018,
+            0.014,
+            0.021,
+            0.013,
+            0.016
+          ],
+          "mean": 0.016,
+          "median": 0.016
+        },
+        "disp": {
+          "values": [
+            0.581,
+            0.675,
+            0.578,
+            0.467,
+            0.627,
+            0.516,
+            0.462,
+            0.608,
+            0.518,
+            0.839,
+            0.576,
+            0.511
+          ],
+          "mean": 0.58,
+          "median": 0.577
+        },
+        "start": {
+          "values": [
+            4.878,
+            5.334,
+            5.065,
+            4.796,
+            5.964,
+            5.865,
+            5.304,
+            5.74,
+            6.002,
+            5.442,
+            5.204,
+            5.189
+          ],
+          "mean": 5.399,
+          "median": 5.319
+        },
+        "exec": {
+          "values": [
+            2.447,
+            2.023,
+            1.629,
+            1.649,
+            1.734,
+            1.562,
+            1.927,
+            1.616,
+            1.743,
+            1.851,
+            1.762,
+            1.597
+          ],
+          "mean": 1.795,
+          "median": 1.739
+        },
+        "clean": {
+          "values": [
+            1.021,
+            1.08,
+            1.077,
+            1.182,
+            1.0,
+            1.132,
+            0.999,
+            0.947,
+            1.028,
+            1.009,
+            1.018,
+            0.886
+          ],
+          "mean": 1.032,
+          "median": 1.019
+        },
+        "total": {
+          "values": [
+            8.942,
+            9.126,
+            8.365,
+            8.109,
+            9.346,
+            9.092,
+            8.706,
+            8.93,
+            9.306,
+            9.162,
+            8.575,
+            8.2
+          ],
+          "mean": 8.822,
+          "median": 8.936
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 8.822,
+    "total": 105.86,
+    "date": "2025-12-12T12:03:00",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-dispvm-preload-2-api": {
+    "name": "dom0-dispvm-preload-2-api",
+    "gui": false,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 2,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "dom0-dispvm-preload-api",
+    "pretty_name": "Dom0 runs simple app in disposables (2 preloaded) (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.018,
+          "disp": 0.184,
+          "exec": 0.19,
+          "clean": 2.075,
+          "total": 2.466
+        },
+        "2": {
+          "dom": 0.018,
+          "disp": 0.184,
+          "exec": 0.102,
+          "clean": 2.209,
+          "total": 2.513
+        },
+        "3": {
+          "dom": 0.022,
+          "disp": 1.585,
+          "exec": 0.14,
+          "clean": 2.227,
+          "total": 3.973
+        },
+        "4": {
+          "dom": 0.045,
+          "disp": 0.279,
+          "exec": 0.126,
+          "clean": 2.252,
+          "total": 2.702
+        },
+        "5": {
+          "dom": 0.062,
+          "disp": 1.432,
+          "exec": 0.125,
+          "clean": 2.158,
+          "total": 3.776
+        },
+        "6": {
+          "dom": 0.021,
+          "disp": 0.609,
+          "exec": 0.139,
+          "clean": 2.483,
+          "total": 3.252
+        },
+        "7": {
+          "dom": 0.066,
+          "disp": 1.015,
+          "exec": 0.165,
+          "clean": 2.324,
+          "total": 3.57
+        },
+        "8": {
+          "dom": 0.066,
+          "disp": 1.084,
+          "exec": 0.149,
+          "clean": 2.301,
+          "total": 3.599
+        },
+        "9": {
+          "dom": 0.063,
+          "disp": 1.127,
+          "exec": 0.133,
+          "clean": 2.3,
+          "total": 3.624
+        },
+        "10": {
+          "dom": 0.069,
+          "disp": 0.583,
+          "exec": 0.117,
+          "clean": 2.379,
+          "total": 3.149
+        },
+        "11": {
+          "dom": 0.069,
+          "disp": 0.956,
+          "exec": 0.127,
+          "clean": 2.26,
+          "total": 3.411
+        },
+        "12": {
+          "dom": 0.063,
+          "disp": 1.068,
+          "exec": 0.182,
+          "clean": 2.083,
+          "total": 3.396
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.018,
+            0.018,
+            0.022,
+            0.045,
+            0.062,
+            0.021,
+            0.066,
+            0.066,
+            0.063,
+            0.069,
+            0.069,
+            0.063
+          ],
+          "mean": 0.049,
+          "median": 0.062
+        },
+        "disp": {
+          "values": [
+            0.184,
+            0.184,
+            1.585,
+            0.279,
+            1.432,
+            0.609,
+            1.015,
+            1.084,
+            1.127,
+            0.583,
+            0.956,
+            1.068
+          ],
+          "mean": 0.842,
+          "median": 0.985
+        },
+        "exec": {
+          "values": [
+            0.19,
+            0.102,
+            0.14,
+            0.126,
+            0.125,
+            0.139,
+            0.165,
+            0.149,
+            0.133,
+            0.117,
+            0.127,
+            0.182
+          ],
+          "mean": 0.141,
+          "median": 0.136
+        },
+        "clean": {
+          "values": [
+            2.075,
+            2.209,
+            2.227,
+            2.252,
+            2.158,
+            2.483,
+            2.324,
+            2.301,
+            2.3,
+            2.379,
+            2.26,
+            2.083
+          ],
+          "mean": 2.254,
+          "median": 2.256
+        },
+        "total": {
+          "values": [
+            2.466,
+            2.513,
+            3.973,
+            2.702,
+            3.776,
+            3.252,
+            3.57,
+            3.599,
+            3.624,
+            3.149,
+            3.411,
+            3.396
+          ],
+          "mean": 3.286,
+          "median": 3.404
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 3.286,
+    "total": 39.433,
+    "date": "2025-12-12T12:04:34",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-dispvm-preload-4-api": {
+    "name": "dom0-dispvm-preload-4-api",
+    "gui": false,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 4,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs simple app in disposables (4 preloaded) (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.023,
+          "disp": 0.175,
+          "exec": 0.088,
+          "clean": 2.186,
+          "total": 2.472
+        },
+        "2": {
+          "dom": 0.053,
+          "disp": 0.144,
+          "exec": 0.108,
+          "clean": 2.261,
+          "total": 2.566
+        },
+        "3": {
+          "dom": 0.02,
+          "disp": 0.255,
+          "exec": 0.16,
+          "clean": 2.469,
+          "total": 2.904
+        },
+        "4": {
+          "dom": 0.069,
+          "disp": 0.162,
+          "exec": 0.345,
+          "clean": 2.401,
+          "total": 2.978
+        },
+        "5": {
+          "dom": 0.03,
+          "disp": 0.177,
+          "exec": 0.096,
+          "clean": 1.392,
+          "total": 1.695
+        },
+        "6": {
+          "dom": 0.019,
+          "disp": 1.558,
+          "exec": 0.229,
+          "clean": 2.87,
+          "total": 4.676
+        },
+        "7": {
+          "dom": 0.018,
+          "disp": 0.155,
+          "exec": 0.122,
+          "clean": 3.437,
+          "total": 3.731
+        },
+        "8": {
+          "dom": 0.046,
+          "disp": 0.162,
+          "exec": 0.145,
+          "clean": 2.389,
+          "total": 2.742
+        },
+        "9": {
+          "dom": 0.019,
+          "disp": 0.244,
+          "exec": 0.189,
+          "clean": 1.458,
+          "total": 1.909
+        },
+        "10": {
+          "dom": 1.213,
+          "disp": 0.146,
+          "exec": 0.267,
+          "clean": 1.261,
+          "total": 2.887
+        },
+        "11": {
+          "dom": 0.02,
+          "disp": 1.537,
+          "exec": 0.169,
+          "clean": 2.492,
+          "total": 4.218
+        },
+        "12": {
+          "dom": 0.022,
+          "disp": 0.15,
+          "exec": 0.088,
+          "clean": 3.632,
+          "total": 3.893
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.023,
+            0.053,
+            0.02,
+            0.069,
+            0.03,
+            0.019,
+            0.018,
+            0.046,
+            0.019,
+            1.213,
+            0.02,
+            0.022
+          ],
+          "mean": 0.129,
+          "median": 0.022
+        },
+        "disp": {
+          "values": [
+            0.175,
+            0.144,
+            0.255,
+            0.162,
+            0.177,
+            1.558,
+            0.155,
+            0.162,
+            0.244,
+            0.146,
+            1.537,
+            0.15
+          ],
+          "mean": 0.405,
+          "median": 0.168
+        },
+        "exec": {
+          "values": [
+            0.088,
+            0.108,
+            0.16,
+            0.345,
+            0.096,
+            0.229,
+            0.122,
+            0.145,
+            0.189,
+            0.267,
+            0.169,
+            0.088
+          ],
+          "mean": 0.167,
+          "median": 0.152
+        },
+        "clean": {
+          "values": [
+            2.186,
+            2.261,
+            2.469,
+            2.401,
+            1.392,
+            2.87,
+            3.437,
+            2.389,
+            1.458,
+            1.261,
+            2.492,
+            3.632
+          ],
+          "mean": 2.354,
+          "median": 2.395
+        },
+        "total": {
+          "values": [
+            2.472,
+            2.566,
+            2.904,
+            2.978,
+            1.695,
+            4.676,
+            3.731,
+            2.742,
+            1.909,
+            2.887,
+            4.218,
+            3.893
+          ],
+          "mean": 3.056,
+          "median": 2.896
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 3.056,
+    "total": 36.671,
+    "date": "2025-12-12T12:06:10",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-dispvm-preload-2-gui-api": {
+    "name": "dom0-dispvm-preload-2-gui-api",
+    "gui": true,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 2,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "dom0-dispvm-preload-gui-api",
+    "pretty_name": "Dom0 runs GUI app in disposables (2 preloaded) (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.015,
+          "disp": 0.152,
+          "exec": 1.765,
+          "clean": 1.494,
+          "total": 3.426
+        },
+        "2": {
+          "dom": 0.015,
+          "disp": 0.141,
+          "exec": 1.714,
+          "clean": 1.554,
+          "total": 3.424
+        },
+        "3": {
+          "dom": 0.029,
+          "disp": 0.241,
+          "exec": 1.716,
+          "clean": 1.832,
+          "total": 3.819
+        },
+        "4": {
+          "dom": 0.025,
+          "disp": 0.17,
+          "exec": 1.618,
+          "clean": 1.866,
+          "total": 3.679
+        },
+        "5": {
+          "dom": 0.032,
+          "disp": 0.198,
+          "exec": 1.845,
+          "clean": 1.63,
+          "total": 3.705
+        },
+        "6": {
+          "dom": 0.016,
+          "disp": 0.14,
+          "exec": 2.233,
+          "clean": 1.288,
+          "total": 3.677
+        },
+        "7": {
+          "dom": 0.016,
+          "disp": 0.144,
+          "exec": 1.777,
+          "clean": 1.891,
+          "total": 3.828
+        },
+        "8": {
+          "dom": 0.019,
+          "disp": 0.143,
+          "exec": 1.927,
+          "clean": 1.654,
+          "total": 3.743
+        },
+        "9": {
+          "dom": 0.043,
+          "disp": 0.22,
+          "exec": 1.894,
+          "clean": 1.681,
+          "total": 3.838
+        },
+        "10": {
+          "dom": 0.016,
+          "disp": 0.183,
+          "exec": 1.865,
+          "clean": 1.485,
+          "total": 3.549
+        },
+        "11": {
+          "dom": 0.02,
+          "disp": 0.137,
+          "exec": 1.698,
+          "clean": 2.102,
+          "total": 3.957
+        },
+        "12": {
+          "dom": 0.027,
+          "disp": 0.178,
+          "exec": 1.978,
+          "clean": 1.7,
+          "total": 3.883
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.015,
+            0.015,
+            0.029,
+            0.025,
+            0.032,
+            0.016,
+            0.016,
+            0.019,
+            0.043,
+            0.016,
+            0.02,
+            0.027
+          ],
+          "mean": 0.023,
+          "median": 0.019
+        },
+        "disp": {
+          "values": [
+            0.152,
+            0.141,
+            0.241,
+            0.17,
+            0.198,
+            0.14,
+            0.144,
+            0.143,
+            0.22,
+            0.183,
+            0.137,
+            0.178
+          ],
+          "mean": 0.171,
+          "median": 0.161
+        },
+        "exec": {
+          "values": [
+            1.765,
+            1.714,
+            1.716,
+            1.618,
+            1.845,
+            2.233,
+            1.777,
+            1.927,
+            1.894,
+            1.865,
+            1.698,
+            1.978
+          ],
+          "mean": 1.836,
+          "median": 1.811
+        },
+        "clean": {
+          "values": [
+            1.494,
+            1.554,
+            1.832,
+            1.866,
+            1.63,
+            1.288,
+            1.891,
+            1.654,
+            1.681,
+            1.485,
+            2.102,
+            1.7
+          ],
+          "mean": 1.681,
+          "median": 1.667
+        },
+        "total": {
+          "values": [
+            3.426,
+            3.424,
+            3.819,
+            3.679,
+            3.705,
+            3.677,
+            3.828,
+            3.743,
+            3.838,
+            3.549,
+            3.957,
+            3.883
+          ],
+          "mean": 3.711,
+          "median": 3.724
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 3.711,
+    "total": 44.529,
+    "date": "2025-12-12T12:07:52",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-dispvm-preload-4-gui-api": {
+    "name": "dom0-dispvm-preload-4-gui-api",
+    "gui": true,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 4,
+    "target_dispvm": true,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs GUI app in disposables (4 preloaded) (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.017,
+          "disp": 0.183,
+          "exec": 1.741,
+          "clean": 1.462,
+          "total": 3.403
+        },
+        "2": {
+          "dom": 0.018,
+          "disp": 0.192,
+          "exec": 1.94,
+          "clean": 1.57,
+          "total": 3.72
+        },
+        "3": {
+          "dom": 0.024,
+          "disp": 0.209,
+          "exec": 2.207,
+          "clean": 1.472,
+          "total": 3.912
+        },
+        "4": {
+          "dom": 0.037,
+          "disp": 0.171,
+          "exec": 2.418,
+          "clean": 1.129,
+          "total": 3.755
+        },
+        "5": {
+          "dom": 0.019,
+          "disp": 0.196,
+          "exec": 1.932,
+          "clean": 2.053,
+          "total": 4.2
+        },
+        "6": {
+          "dom": 0.022,
+          "disp": 0.764,
+          "exec": 1.849,
+          "clean": 1.806,
+          "total": 4.442
+        },
+        "7": {
+          "dom": 0.028,
+          "disp": 0.153,
+          "exec": 1.73,
+          "clean": 1.83,
+          "total": 3.741
+        },
+        "8": {
+          "dom": 0.02,
+          "disp": 0.136,
+          "exec": 1.71,
+          "clean": 1.831,
+          "total": 3.697
+        },
+        "9": {
+          "dom": 0.022,
+          "disp": 0.163,
+          "exec": 2.422,
+          "clean": 1.134,
+          "total": 3.741
+        },
+        "10": {
+          "dom": 0.02,
+          "disp": 0.152,
+          "exec": 1.992,
+          "clean": 1.62,
+          "total": 3.784
+        },
+        "11": {
+          "dom": 0.024,
+          "disp": 0.173,
+          "exec": 1.817,
+          "clean": 1.715,
+          "total": 3.729
+        },
+        "12": {
+          "dom": 0.022,
+          "disp": 0.138,
+          "exec": 2.053,
+          "clean": 1.523,
+          "total": 3.736
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.017,
+            0.018,
+            0.024,
+            0.037,
+            0.019,
+            0.022,
+            0.028,
+            0.02,
+            0.022,
+            0.02,
+            0.024,
+            0.022
+          ],
+          "mean": 0.023,
+          "median": 0.022
+        },
+        "disp": {
+          "values": [
+            0.183,
+            0.192,
+            0.209,
+            0.171,
+            0.196,
+            0.764,
+            0.153,
+            0.136,
+            0.163,
+            0.152,
+            0.173,
+            0.138
+          ],
+          "mean": 0.219,
+          "median": 0.172
+        },
+        "exec": {
+          "values": [
+            1.741,
+            1.94,
+            2.207,
+            2.418,
+            1.932,
+            1.849,
+            1.73,
+            1.71,
+            2.422,
+            1.992,
+            1.817,
+            2.053
+          ],
+          "mean": 1.984,
+          "median": 1.936
+        },
+        "clean": {
+          "values": [
+            1.462,
+            1.57,
+            1.472,
+            1.129,
+            2.053,
+            1.806,
+            1.83,
+            1.831,
+            1.134,
+            1.62,
+            1.715,
+            1.523
+          ],
+          "mean": 1.595,
+          "median": 1.595
+        },
+        "total": {
+          "values": [
+            3.403,
+            3.72,
+            3.912,
+            3.755,
+            4.2,
+            4.442,
+            3.741,
+            3.697,
+            3.741,
+            3.784,
+            3.729,
+            3.736
+          ],
+          "mean": 3.822,
+          "median": 3.741
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 3.822,
+    "total": 45.86,
+    "date": "2025-12-12T12:09:40",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-vm-api": {
+    "name": "dom0-vm-api",
+    "gui": false,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 0,
+    "target_dispvm": false,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs simple app in another running qube (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.024,
+          "exec": 0.019,
+          "total": 0.042
+        },
+        "2": {
+          "dom": 0.017,
+          "exec": 0.017,
+          "total": 0.035
+        },
+        "3": {
+          "dom": 0.016,
+          "exec": 0.015,
+          "total": 0.031
+        },
+        "4": {
+          "dom": 0.017,
+          "exec": 0.019,
+          "total": 0.036
+        },
+        "5": {
+          "dom": 0.015,
+          "exec": 0.022,
+          "total": 0.037
+        },
+        "6": {
+          "dom": 0.014,
+          "exec": 0.022,
+          "total": 0.037
+        },
+        "7": {
+          "dom": 0.015,
+          "exec": 0.024,
+          "total": 0.039
+        },
+        "8": {
+          "dom": 0.021,
+          "exec": 0.031,
+          "total": 0.051
+        },
+        "9": {
+          "dom": 0.018,
+          "exec": 0.019,
+          "total": 0.038
+        },
+        "10": {
+          "dom": 0.015,
+          "exec": 0.022,
+          "total": 0.037
+        },
+        "11": {
+          "dom": 0.018,
+          "exec": 0.028,
+          "total": 0.046
+        },
+        "12": {
+          "dom": 0.023,
+          "exec": 0.028,
+          "total": 0.051
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.024,
+            0.017,
+            0.016,
+            0.017,
+            0.015,
+            0.014,
+            0.015,
+            0.021,
+            0.018,
+            0.015,
+            0.018,
+            0.023
+          ],
+          "mean": 0.018,
+          "median": 0.017
+        },
+        "exec": {
+          "values": [
+            0.019,
+            0.017,
+            0.015,
+            0.019,
+            0.022,
+            0.022,
+            0.024,
+            0.031,
+            0.019,
+            0.022,
+            0.028,
+            0.028
+          ],
+          "mean": 0.022,
+          "median": 0.022
+        },
+        "total": {
+          "values": [
+            0.042,
+            0.035,
+            0.031,
+            0.036,
+            0.037,
+            0.037,
+            0.039,
+            0.051,
+            0.038,
+            0.037,
+            0.046,
+            0.051
+          ],
+          "mean": 0.04,
+          "median": 0.037
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 0.04,
+    "total": 0.481,
+    "date": "2025-12-12T12:10:32",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  },
+  "debian-13-xfce_dom0-vm-gui-api": {
+    "name": "dom0-vm-gui-api",
+    "gui": true,
+    "concurrent": false,
+    "from_dom0": true,
+    "preload_max": 0,
+    "target_dispvm": false,
+    "admin_api": true,
+    "extra_id": "",
+    "pretty_name": "Dom0 runs GUI app in another running qube (API)",
+    "template": "debian-13-xfce",
+    "api_results": {
+      "iteration": {
+        "1": {
+          "dom": 0.018,
+          "exec": 0.032,
+          "total": 0.049
+        },
+        "2": {
+          "dom": 0.016,
+          "exec": 0.022,
+          "total": 0.038
+        },
+        "3": {
+          "dom": 0.016,
+          "exec": 0.022,
+          "total": 0.038
+        },
+        "4": {
+          "dom": 0.025,
+          "exec": 0.026,
+          "total": 0.05
+        },
+        "5": {
+          "dom": 0.022,
+          "exec": 0.024,
+          "total": 0.046
+        },
+        "6": {
+          "dom": 0.018,
+          "exec": 0.021,
+          "total": 0.039
+        },
+        "7": {
+          "dom": 0.022,
+          "exec": 0.023,
+          "total": 0.045
+        },
+        "8": {
+          "dom": 0.018,
+          "exec": 0.024,
+          "total": 0.042
+        },
+        "9": {
+          "dom": 0.017,
+          "exec": 0.02,
+          "total": 0.037
+        },
+        "10": {
+          "dom": 0.017,
+          "exec": 0.023,
+          "total": 0.04
+        },
+        "11": {
+          "dom": 0.027,
+          "exec": 0.05,
+          "total": 0.077
+        },
+        "12": {
+          "dom": 0.016,
+          "exec": 0.021,
+          "total": 0.036
+        }
+      },
+      "stage": {
+        "dom": {
+          "values": [
+            0.018,
+            0.016,
+            0.016,
+            0.025,
+            0.022,
+            0.018,
+            0.022,
+            0.018,
+            0.017,
+            0.017,
+            0.027,
+            0.016
+          ],
+          "mean": 0.019,
+          "median": 0.018
+        },
+        "exec": {
+          "values": [
+            0.032,
+            0.022,
+            0.022,
+            0.026,
+            0.024,
+            0.021,
+            0.023,
+            0.024,
+            0.02,
+            0.023,
+            0.05,
+            0.021
+          ],
+          "mean": 0.026,
+          "median": 0.023
+        },
+        "total": {
+          "values": [
+            0.049,
+            0.038,
+            0.038,
+            0.05,
+            0.046,
+            0.039,
+            0.045,
+            0.042,
+            0.037,
+            0.04,
+            0.077,
+            0.036
+          ],
+          "mean": 0.045,
+          "median": 0.041
+        }
+      }
+    },
+    "iterations": 12,
+    "mean": 0.045,
+    "total": 0.538,
+    "date": "2025-12-12T12:11:09",
+    "memory": 400,
+    "maxmem": 4000,
+    "vcpus": 2,
+    "qrexec_timeout": 60,
+    "shutdown_timeout": 60,
+    "kernel": "6.17.9-1.fc41",
+    "kernelopts": "swiotlb=2048",
+    "template-buildtime": "2025-09-19 11:46:06",
+    "last-update": "2025-09-22 11:32:55",
+    "os": "Linux",
+    "os-distribution": "debian",
+    "os-version": 13,
+    "hcl-qubes": "R4.3-rc3",
+    "hcl-xen": "4.19.3",
+    "hcl-kernel": "6.17.9-1",
+    "hcl-memory": 32404
+  }
+}
