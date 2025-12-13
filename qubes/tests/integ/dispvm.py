@@ -377,12 +377,14 @@ class TC_20_DispVMMixin(object):
         appvm=None,
         wait_completion=True,
         fail_on_timeout=True,
-        timeout=60,
+        timeout=0,
     ):
         """Waiting for completion avoids coroutine objects leaking."""
         logger.info("start")
         if not appvm:
             appvm = self.disp_base
+        if not timeout:
+            timeout = appvm.qrexec_timeout
         for _ in range(timeout):
             preload_dispvm = appvm.get_feat_preload()
             if len(preload_dispvm) == preload_max:
@@ -600,15 +602,8 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(self._test_015_preload_race_more())
 
     async def _test_015_preload_race_more(self):
-        # The limiting factor is how much memory is available on OpenQA:
-        # Whonix (Kicksecure) 17 fail more due to higher memory consumption.
-        # From the templates deployed by default, only Debian and Fedora
-        # survives due to using less memory than the other OSes.
         logger.info("start")
         preload_max = 3
-        # dist = self.disp_base.features.check_with_template("os-distribution")
-        # if dist in ["whonix", "kicksecure"]:
-        #     preload_max -= 1
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max)
         old_preload = self.disp_base.get_feat_preload()
