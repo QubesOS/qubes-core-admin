@@ -1404,7 +1404,9 @@ class SystemTestCase(QubesTestCase):
         ] + keys
         subprocess.check_call(command)
 
-    def shutdown_and_wait(self, vm, timeout=60):
+    def shutdown_and_wait(self, vm, timeout=0):
+        if not timeout:
+            timeout = vm.shutdown_timeout
         try:
             self.loop.run_until_complete(
                 vm.shutdown(wait=True, timeout=timeout)
@@ -1414,8 +1416,10 @@ class SystemTestCase(QubesTestCase):
             del vm
             self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
-    def shutdown_paused(self, vm, timeout=60):
+    def shutdown_paused(self, vm, timeout=0):
         self.loop.run_until_complete(vm.pause())
+        if not timeout:
+            timeout = vm.shutdown_timeout
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.loop.run_until_complete(
                 vm.shutdown(wait=True, timeout=timeout, force=False)
@@ -1644,7 +1648,7 @@ class SystemTestCase(QubesTestCase):
         if getattr(vm, "template", None) and "whonix-w" in vm.template.name:
             # first boot of whonix-ws takes more time because of /home
             # initialization, including Tor Browser copying
-            timeout = 120
+            timeout = vm.qrexec_timeout
         try:
             await asyncio.wait_for(
                 vm.run_service_for_stdio(
