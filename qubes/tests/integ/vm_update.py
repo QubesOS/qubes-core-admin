@@ -828,13 +828,7 @@ SHA256:
         )
 
     def test_130_no_network_qubes_vm_update(self):
-        expected_ret_codes = (23,)
-        if self.template.count("archlinux"):
-            # updater on Arch doesn't have separate metadata refresh step
-            expected_ret_codes = (
-                23,
-                24,
-            )
+        expected_ret_codes = (23, 24)
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=(),
@@ -844,13 +838,7 @@ SHA256:
         )
 
     def test_131_no_network_qubes_vm_update_cli(self):
-        expected_ret_codes = (23,)
-        if self.template.count("archlinux"):
-            # updater on Arch doesn't have separate metadata refresh step
-            expected_ret_codes = (
-                23,
-                24,
-            )
+        expected_ret_codes = (23, 24)
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=("--no-progress",),
