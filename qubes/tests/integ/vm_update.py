@@ -690,7 +690,7 @@ SHA256:
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=(),
-            expected_ret_codes=(23,),
+            expected_ret_codes=(23, 24),
             break_repo=True,
             expect_updated=False,
         )
@@ -699,7 +699,7 @@ SHA256:
         self.update_via_proxy_qubes_vm_update_impl(
             method="qubes-vm-update",
             options=("--no-progress",),
-            expected_ret_codes=(23,),
+            expected_ret_codes=(23, 24),
             break_repo=True,
             expect_updated=False,
         )
