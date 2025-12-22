@@ -1405,10 +1405,10 @@ class SystemTestCase(QubesTestCase):
         ] + keys
         subprocess.check_call(command)
 
-    def shutdown_and_wait(self, vm, timeout=60):
+    def shutdown_and_wait(self, vm, force=False, timeout=60):
         try:
             self.loop.run_until_complete(
-                vm.shutdown(wait=True, timeout=timeout)
+                vm.shutdown(wait=True, force=force, timeout=timeout)
             )
         except qubes.exc.QubesException:
             name = vm.name
