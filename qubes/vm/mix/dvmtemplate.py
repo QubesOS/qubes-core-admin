@@ -518,6 +518,23 @@ class DVMTemplateMixin(qubes.events.Emitter):
             ]
         )
 
+    def fill_preload_gap(self) -> None:
+        if not self.can_preload():
+            return
+        # Not necessary to await for this event as its intent is to fill
+        # gaps and not relevant for this run. Delay to not affect this run.
+        delay = self.get_feat_preload_delay()
+        if delay < 0 and self.get_feat_preload():
+            pass
+        else:
+            asyncio.ensure_future(
+                self.fire_event_async(
+                    "domain-preload-dispvm-start",
+                    reason="there is a gap",
+                    delay=max(5, delay),
+                )
+            )
+
     def get_feat_preload_delay(self) -> float:
         """
         Get the ``preload-dispvm-delay`` feature as float.
@@ -650,6 +667,48 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     delay=4,
                 )
             )
+
+    def request_preload(self) -> Optional["qubes.vm.dispvm.DispVM"]:
+        """
+        Request preloaded disposable.
+
+        :rtype: Optional["qubes.vm.dispvm.DispVM"]
+        """
+        assert isinstance(self, qubes.vm.BaseVM)
+        self.fill_preload_gap()
+        if not (preload_dispvm := self.get_feat_preload()):
+            return None
+
+        dispvm = None
+        for item in preload_dispvm:
+            qube = self.app.domains[item]
+            if any(vol.is_outdated() for vol in qube.volumes.values()):
+                qube.log.warning(
+                    "Requested preloaded qube but it is outdated, trying "
+                    "another one if available"
+                )
+                # The gap is filled after the delay set by the
+                # 'domain-shutdown' of its ancestors. Not refilling now to
+                # deliver a disposable faster.
+                self.remove_preload_from_list(
+                    [qube.name], reason="of outdated volume(s)"
+                )
+                # Delay to not  affect this run.
+                asyncio.ensure_future(
+                    qube.delay(delay=2, coros=[qube.cleanup()])
+                )
+                continue
+            dispvm = qube
+            break
+
+        if not dispvm:
+            self.log.warning(
+                "Found only outdated preloaded qube(s), falling back to "
+                "normal disposable"
+            )
+            return None
+        dispvm.mark_preload_requested()
+        return dispvm
 
     def remove_preload_from_list(
         self, disposables: list[str], reason: Optional[str] = None
