@@ -488,7 +488,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             rpcs = ["qubes.WaitForRunningSystem"]
             start_tasks = []
             for rpc in rpcs:
-                service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+                service = '$(PATH="{}" command -v "{}")'.format(path, rpc)
                 start_tasks.append(
                     asyncio.create_task(
                         self.wait_operational_preload(rpc, service, timeout)
@@ -527,12 +527,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 await self.pause()
             except qubes.exc.QubesVMCancelledPauseError:
                 pass
-        self.log.info("Preloading finished")
         self.features["preload-dispvm-completed"] = True
         if not self.preload_requested:
             self.features["preload-dispvm-in-progress"] = False
             # If self.preload_requested, use_preload() saves the file.
             self.app.save()
+        self.log.info("Preloading completed")
         self.preload_complete.set()
 
     @qubes.events.handler("domain-pre-paused")
@@ -686,12 +686,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         cls, appvm, preload=False, **kwargs
     ) -> Optional["qubes.vm.dispvm.DispVM"]:
         """
-        Create a new instance from given AppVM.
+        Use a preloaded disposable if available, else fallback to creating a
+        new disposable instance from given app qube.
 
         :param qubes.vm.appvm.AppVM appvm: template from which the qube \
             should be created
         :param bool preload: Whether to preload a disposable
-        :returns: new disposable vm
+        :returns: new disposable qube
         :rtype: qubes.vm.dispvm.DispVM
 
         *kwargs* are passed to the newly created disposable.
@@ -702,120 +703,120 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         >>> dispvm.cleanup()
 
         This method modifies :file:`qubes.xml` file.
-        The qube returned is not started unless the ``preload`` argument is
-        ``True``.
+        """
+        if not cls.can_gen_disposable(appvm, preload=preload):
+            return None
+
+        if (
+            not preload
+            and (dispvm := appvm.request_preload())
+            and await dispvm.get_preload()
+        ):
+            return dispvm
+
+        dispvm = await cls.gen_disposable(appvm, preload=preload, **kwargs)
+        return dispvm
+
+    @classmethod
+    def can_gen_disposable(cls, appvm, preload=False) -> bool:
+        """
+        Check if app qube can be used to generate a disposable.
+
+        :rtype: bool
         """
         if not getattr(appvm, "template_for_dispvms", False):
             raise qubes.exc.QubesException(
-                "Refusing to create disposable out of this AppVM, because "
+                "Refusing to create disposable out of app qube which has "
                 "template_for_dispvms=False"
             )
-        app = appvm.app
-
         if preload and not appvm.can_preload():
             # Using an exception clutters the log when 'used' event is
             # simultaneously called.
             appvm.log.warning(
-                "Failed to create preloaded disposable, limit reached"
+                "Can't create more preloaded disposable as limit has been met"
             )
-            return None
+            return False
+        return True
 
-        if not preload and appvm.can_preload():
-            # Not necessary to await for this event as its intent is to fill
-            # gaps and not relevant for this run. Delay to not affect this run.
-            delay = appvm.get_feat_preload_delay()
-            if delay < 0 and appvm.get_feat_preload():
-                pass
-            else:
-                asyncio.ensure_future(
-                    appvm.fire_event_async(
-                        "domain-preload-dispvm-start",
-                        reason="there is a gap",
-                        delay=max(5, delay),
-                    )
-                )
+    @classmethod
+    async def gen_disposable(
+        cls, appvm, preload=False, **kwargs
+    ) -> "qubes.vm.dispvm.DispVM":
+        """
+        Create a new disposable instance from a given app qube. If preload is
+        truthy, the qube is started.
 
-        if not preload and (preload_dispvm := appvm.get_feat_preload()):
-            dispvm = None
-            for item in preload_dispvm:
-                qube = app.domains[item]
-                if any(vol.is_outdated() for vol in qube.volumes.values()):
-                    qube.log.warning(
-                        "Requested preloaded qube but it is outdated, trying "
-                        "another one if available"
-                    )
-                    # The gap is filled after the delay set by the
-                    # 'domain-shutdown' of its ancestors. Not refilling now to
-                    # deliver a disposable faster.
-                    appvm.remove_preload_from_list(
-                        [qube.name], reason="of outdated volume(s)"
-                    )
-                    # Delay to not  affect this run.
-                    asyncio.ensure_future(
-                        qube.delay(delay=2, coros=[qube.cleanup()])
-                    )
-                    continue
-                dispvm = qube
-                break
-            if dispvm:
-                dispvm.log.info("Requesting preloaded qube")
-                dispvm.features["preload-dispvm-in-progress"] = True
-                appvm.remove_preload_from_list(
-                    [dispvm.name], reason="qube was requested"
-                )
-                dispvm.preload_requested = True
-                timeout = int(dispvm.qrexec_timeout * 1.2)
-                try:
-                    if not dispvm.features.get(
-                        "preload-dispvm-completed", False
-                    ):
-                        dispvm.log.info(
-                            "Waiting preload completion with '%s' seconds "
-                            "timeout",
-                            timeout,
-                        )
-                        async with asyncio.timeout(timeout):
-                            await dispvm.preload_complete.wait()
-                    if dispvm.is_paused():
-                        await dispvm.unpause()
-                    else:
-                        await dispvm.use_preload()
-                    return dispvm
-                except asyncio.TimeoutError:
-                    dispvm.log.warning(
-                        "Requested preloaded qube but failed to finish "
-                        "preloading after '%d' seconds, falling back to normal "
-                        "disposable",
-                        int(timeout),
-                    )
-                    # Delay to not affect this run.
-                    asyncio.ensure_future(
-                        dispvm.delay(delay=2, coros=[dispvm.cleanup()])
-                    )
-            else:
-                appvm.log.warning(
-                    "Found only outdated preloaded qube(s), falling back to "
-                    "normal disposable"
-                )
-
+        :param qubes.vm.appvm.AppVM appvm: template from which the qube \
+            should be created
+        :param bool preload: Whether to preload a disposable
+        :rtype: qubes.vm.dispvm.DispVM
+        """
+        app = appvm.app
         dispvm = app.add_new_vm(
             cls, template=appvm, auto_cleanup=True, **kwargs
         )
-
         if preload:
-            dispvm.log.info("Marking preloaded qube")
-            dispvm.features["preload-dispvm-in-progress"] = True
-            preload_dispvm = appvm.get_feat_preload()
-            preload_dispvm.append(dispvm.name)
-            appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
-            dispvm.features["internal"] = True
+            dispvm.mark_preload()
         await dispvm.create_on_disk()
         if preload:
             await dispvm.start()
         else:
-            # Start method already saves the file.
+            # Start method saves the qubes.xml.
             app.save()
         return dispvm
+
+    def mark_preload(self) -> None:
+        """
+        Mark disposable as a preload.
+        """
+        appvm = self.template
+        self.log.info("Marking preloaded qube")
+        self.features["preload-dispvm-in-progress"] = True
+        preload_dispvm = appvm.get_feat_preload()
+        preload_dispvm.append(self.name)
+        appvm.features["preload-dispvm"] = " ".join(preload_dispvm or [])
+        self.features["internal"] = True
+
+    async def get_preload(self) -> bool:
+        """
+        Get preloaded disposable.
+
+        :rtype: bool
+        """
+        timeout = int(self.qrexec_timeout * 1.2)
+        try:
+            if not self.features.get("preload-dispvm-completed", False):
+                self.log.info(
+                    "Waiting preload completion with '%s' seconds timeout",
+                    timeout,
+                )
+                async with asyncio.timeout(timeout):
+                    await self.preload_complete.wait()
+            if self.is_paused():
+                await self.unpause()
+            else:
+                await self.use_preload()
+            return True
+        except asyncio.TimeoutError:
+            self.log.warning(
+                "Requested preloaded qube but failed to finish "
+                "preloading after '%d' seconds, falling back to normal "
+                "disposable",
+                int(timeout),
+            )
+            # Delay to not affect this run.
+            asyncio.ensure_future(self.delay(delay=2, coros=[self.cleanup()]))
+            return False
+
+    def mark_preload_requested(self) -> None:
+        """
+        Mark preloaded disposable as requested.
+        """
+        appvm = self.template
+        self.log.info("Requesting preloaded qube")
+        self.features["preload-dispvm-in-progress"] = True
+        appvm.remove_preload_from_list([self.name], reason="qube was requested")
+        self.preload_requested = True
 
     async def use_preload(self) -> None:
         """

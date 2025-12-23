@@ -221,6 +221,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             mock_qube.name = dispvm.name
             mock_qube.features = dispvm.features
             mock_qube.unpause = self.mock_coro
+            mock_qube.request_preload.return_value = dispvm
+            mock_qube.get_preload = mock.AsyncMock()
             mock_qube.volumes = {}
             fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
