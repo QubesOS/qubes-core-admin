@@ -426,43 +426,42 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         assert self.template
 
     async def wait_operational_preload(
-        self, rpc: str, service: str, timeout: int | float
+        self, service: str, timeout: int | float
     ) -> None:
         """
         Await for preloaded disposable to become fully operational.
 
-        :param str rpc: Pretty RPC service name.
         :param str service: Full command-line.
         :param int|float timeout: Fail after timeout is reached.
         """
         try:
             self.log.info(
                 "Preload startup waiting '%s' with '%d' seconds timeout",
-                rpc,
+                service,
                 timeout,
             )
             await asyncio.wait_for(
-                self.run_for_stdio(
+                self.run_service_for_stdio(
                     service,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 ),
                 timeout=timeout,
             )
-            self.log.info("Preload startup completed '%s'", rpc)
+            self.log.info("Preload startup completed '%s'", service)
         except asyncio.TimeoutError:
             debug_msg = "systemd-analyze blame"
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
                 "startup. To debug, run the following on a new disposable of "
-                "'%s': %s" % (rpc, timeout, self.template, debug_msg)
+                "'%s': %s" % (service, timeout, self.template, debug_msg)
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             debug_msg = "systemctl --failed"
             raise qubes.exc.QubesException(
                 "Error on call to '%s' during preload startup. To debug, "
-                "run the following on a new disposable of '%s': %s"
-                % (rpc, self.template, debug_msg)
+                "disable preloading from '%s' and run the following on a new "
+                "disposable: %s" % (service, self.template, debug_msg)
             )
 
     @qubes.events.handler("domain-start")
@@ -483,15 +482,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         if not self.preload_requested:
             timeout = self.qrexec_timeout
-            # https://github.com/QubesOS/qubes-issues/issues/9964
-            path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
-            rpcs = ["qubes.WaitForRunningSystem"]
+            services = ["qubes.WaitForRunningSystem"]
             start_tasks = []
-            for rpc in rpcs:
-                service = '$(PATH="{}" command -v "{}")'.format(path, rpc)
+            for service in services:
                 start_tasks.append(
                     asyncio.create_task(
-                        self.wait_operational_preload(rpc, service, timeout)
+                        self.wait_operational_preload(service, timeout)
                     )
                 )
             break_task = asyncio.create_task(
