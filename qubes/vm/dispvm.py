@@ -442,7 +442,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # https://github.com/QubesOS/qubes-issues/issues/9964
         rpc = "qubes.WaitForRunningSystem"
         path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
-        service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+        service = '/bin/sh -c \'$(PATH="{}" command -v "{}")\''.format(
+            path, rpc
+        )
         try:
             self.log.info(
                 "Preload startup waiting '%s' with '%d' seconds timeout",
@@ -464,9 +466,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
         except (subprocess.CalledProcessError, qubes.exc.QubesException):
             raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, run "
-                "the following on a new disposable of '%s': systemctl "
-                "--failed" % (rpc, self.template)
+                "Error on call to '%s' during preload startup. To debug, "
+                "disable preloading from '%s' and run the following on a new "
+                "disposable: systemctl --failed" % (rpc, self.template)
             )
 
         if not self.preload_requested:
