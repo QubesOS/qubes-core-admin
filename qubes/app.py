@@ -1533,6 +1533,7 @@ class Qubes(qubes.PropertyHolder):
             )
             del kwargs["driver"]
             return klass(**kwargs)
+
         except KeyError:
             raise qubes.exc.QubesException(
                 "No driver %s for pool %s" % (driver, name)

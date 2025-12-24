@@ -681,7 +681,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         return "".join(
             "{} {}\n".format(
-                driver, " ".join(qubes.storage.driver_parameters(driver))
+                driver, " ".join(qubes.storage.driver_parameters(driver).keys())
             )
             for driver in drivers
         )
@@ -773,12 +773,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(pool_name not in self.app.pools)
 
         driver_parameters = qubes.storage.driver_parameters(self.arg)
+        dp_names = driver_parameters.keys()
         unexpected_parameters = [
             key for key in untrusted_pool_config if key not in driver_parameters
         ]
         if unexpected_parameters:
             raise qubes.exc.QubesException(
                 "unexpected driver options: " + " ".join(unexpected_parameters)
+            )
+        required_parameters_unmet = [
+            key
+            for key in dp_names
+            if driver_parameters[key] and key not in untrusted_pool_config
+        ]
+
+        if required_parameters_unmet:
+            raise qubes.exc.QubesException(
+                "missing required driver options: "
+                + " ".join(required_parameters_unmet)
             )
         pool_config = untrusted_pool_config
 
