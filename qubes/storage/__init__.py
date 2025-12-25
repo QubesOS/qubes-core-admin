@@ -1136,7 +1136,11 @@ def driver_parameters(name):
     signature = inspect.signature(init_function)
     params = signature.parameters.keys()
     ignored_params = ["self", "name", "kwargs"]
-    return [p for p in params if p not in ignored_params]
+    return {
+        p.name: p.default is inspect.Parameter.empty
+        for p in params.values()
+        if p.name not in ignored_params
+    }
 
 
 def isodate(seconds):

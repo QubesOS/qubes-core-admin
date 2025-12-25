@@ -926,8 +926,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         value = self.call_mgmt_func(b"admin.pool.ListDrivers", b"dom0")
@@ -1026,8 +1026,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
@@ -1055,6 +1055,32 @@ netvm default=True type=vm \n"""
 
     @unittest.mock.patch("qubes.storage.pool_drivers")
     @unittest.mock.patch("qubes.storage.driver_parameters")
+    def test_160_pool_add_missing_param(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            "file": unittest.mock.Mock(),
+            "lvm": unittest.mock.Mock(),
+        }
+
+        mock_drivers.return_value = ["driver1", "driver2"]
+        mock_parameters.side_effect = lambda driver: {
+            "driver1": {"param1": True, "param2": True},
+            "driver2": {"param3": True, "param4": True},
+        }[driver]
+
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
+
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(
+                b"admin.pool.Add",
+                b"dom0",
+                b"driver1",
+                b"name=test-pool\nparam1=some-value\n",
+            )
+        self.assertEqual(add_pool_mock.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.pool_drivers")
+    @unittest.mock.patch("qubes.storage.driver_parameters")
     def test_160_pool_add_invalid_driver(self, mock_parameters, mock_drivers):
         self.app.pools = {
             "file": unittest.mock.Mock(),
@@ -1063,8 +1089,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
@@ -1091,8 +1117,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
@@ -1121,8 +1147,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
@@ -1149,8 +1175,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
@@ -1179,8 +1205,8 @@ netvm default=True type=vm \n"""
 
         mock_drivers.return_value = ["driver1", "driver2"]
         mock_parameters.side_effect = lambda driver: {
-            "driver1": ["param1", "param2"],
-            "driver2": ["param3", "param4"],
+            "driver1": {"param1": False, "param2": False},
+            "driver2": {"param3": False, "param4": False},
         }[driver]
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
