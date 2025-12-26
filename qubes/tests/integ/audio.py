@@ -396,6 +396,33 @@ admin.vm.feature.CheckWithTemplate  +audio-initial-volume   {vm}     {vm}  allow
         self.fail("{} sink-input not found in {}".format(vm.name, audiovm.name))
         assert False
 
+    def _reset_sink_volume(self, vm) -> None:
+        """Reset VM's sink-input volume to 100% and unmuted"""
+        audiovm = vm.audiovm
+
+        sinks = json.loads(
+            self._call_in_audiovm(
+                audiovm, ["pactl", "-f", "json", "list", "sink-inputs"]
+            )
+        )
+
+        if not sinks:
+            self.fail("no sink-inputs found in {}".format(audiovm.name))
+            assert False
+
+        for sink in sinks:
+            if sink["properties"]["application.name"] == vm.name:
+                index = str(sink["index"])
+                self._call_in_audiovm(
+                    audiovm,
+                    ["pactl", "set-sink-input-volume", index, "100%"],
+                )
+                self._call_in_audiovm(
+                    audiovm,
+                    ["pactl", "set-sink-input-mute", index, "0"],
+                )
+                break
+
     async def retrieve_audio_input(self, vm, status):
         try:
             await asyncio.wait_for(
@@ -784,7 +811,12 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.features["audio-initial-volume"] = "42"
         self.loop.run_until_complete(self.testvm1.start())
         self.wait_for_pulseaudio_startup(self.testvm1)
-        assert self._get_sink_volume(self.testvm1) == "42%"
+        try:
+            assert self._get_sink_volume(self.testvm1) == "42%"
+        except AssertionError:
+            raise
+        finally:
+            self._reset_sink_volume(self.testvm1)
 
     @unittest.skipUnless(
         spawn.find_executable("pactl"),
@@ -794,7 +826,12 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.features["audio-initial-volume"] = "mute"
         self.loop.run_until_complete(self.testvm1.start())
         self.wait_for_pulseaudio_startup(self.testvm1)
-        assert self._get_sink_volume(self.testvm1) == "mute"
+        try:
+            assert self._get_sink_volume(self.testvm1) == "mute"
+        except AssertionError:
+            raise
+        finally:
+            self._reset_sink_volume(self.testvm1)
 
 
 def create_testcases_for_templates():
