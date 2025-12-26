@@ -235,12 +235,23 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             )
             if not self.data:
                 logging.critical(
-                    "Default template specified not found: '%s'",
+                    "Template specified not found: '%s'",
                     self.default_template,
                 )
                 sys.exit(1)
         else:
             logging.info("Default template not specified, using newest fedora")
+            fedora_templates = [
+                v
+                for v in self.orig_data.values()
+                if v["os-distribution"] == "fedora"
+            ]
+            if not fedora_templates:
+                logging.critical(
+                    "Tried to find any fedora template but ultimately failed",
+                    self.default_template,
+                )
+                sys.exit(1)
             fedora_template = max(
                 (
                     v
@@ -257,6 +268,10 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 self.orig_data, {"template": fedora_template}
             )
             self.default_template = fedora_template
+
+        self.default_preload_max = [
+            v["default_preload_max"] for v in self.data.values()
+        ][0]
 
         items_must_match = [
             "iterations",
@@ -279,7 +294,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         self.dispvm_api_tests = filter_data(
             self.api_tests,
             {
-                "non_dispvm": False,
+                "target_dispvm": True,
                 "admin_api": True,
                 "concurrent": False,
                 "extra_id": "",
@@ -290,7 +305,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         self.dispvm_tests = filter_data(
             self.data,
             {
-                "non_dispvm": False,
+                "target_dispvm": True,
                 "admin_api": False,
                 "concurrent": False,
                 "extra_id": "",
@@ -311,15 +326,30 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             for name, test in self.dispvm_tests.items()
         ]
 
+        self.vm_stage_dict = {
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "exec": {"color": COLORS["Warning Orange"], "legend": "Execution"},
+        }
+
         self.stage_dict = {
-            "dom": {"color": COLORS["Icon Dark Gray"], "legend": "Others"},
-            "disp": {"color": COLORS["Middle Gray"], "legend": "Others"},
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "disp": {"color": COLORS["Purple"], "legend": "Creation"},
+            "start": {"color": COLORS["Danger Red"], "legend": "Startup"},
             "exec": {"color": COLORS["Warning Orange"], "legend": "Execution"},
             "clean": {"color": COLORS["Sub Gray"], "legend": "Cleanup"},
         }
         self.preload_stage_dict = {
-            "dom": {"color": COLORS["Icon Dark Gray"], "legend": "Others"},
-            "disp": {"color": COLORS["Middle Gray"], "legend": "Others"},
+            "dom": {
+                "color": COLORS["Icon Dark Gray"],
+                "legend": "Initialization",
+            },
+            "disp": {"color": COLORS["Purple"], "legend": "Creation"},
             "exec": {"color": COLORS["Primary Blue"], "legend": "Execution"},
             "clean": {"color": COLORS["Sub Gray"], "legend": "Cleanup"},
         }
@@ -328,7 +358,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         for test, result in self.api_tests.items():
             if result.get("api_results", {}).get("stage", {}):
                 self.stages.extend(result["api_results"]["stage"].keys())
-        self.stage_order = ["dom", "disp", "exec", "clean", "total"]
+        self.stage_order = [*self.stage_dict.keys(), "total"]
         self.stages = sorted(
             list(set(self.stages)),
             key=lambda s: (
@@ -343,7 +373,6 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         """Loop through all enabled graphs."""
         avail_graphs = get_graphs()
         failed_graphs = []
-        # TODO: almost every graph should target all templates
         for graph in avail_graphs:
             method = getattr(self, "graph_" + graph.replace("-", "_"))
             if not (not self.graphs or graph in self.graphs):
@@ -372,7 +401,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         else:
             if not skip_fname:
                 name = get_fname()
-        name = self.default_template + "_" + name
+        name = "dispvm_perf-" + self.default_template + "_" + name
 
         if self.output_dir:
             logging.info("Saving figure %s", name)
@@ -404,7 +433,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         supxlabel: str = "",
         file_prefix: str = "",
     ) -> None:
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals,too-many-positional-arguments
         """
         Assemble figure of bar plot where normal and preload tests are grouped.
         Each test passed is subplotted.
@@ -555,42 +584,56 @@ class Graph:  # pylint: disable=too-many-instance-attributes
         """System specifications graph."""
         first_test = list(self.data.keys())[0]
         data = self.data[first_test]
-        specs = {
-            "date": data["date"],
-            "template-buildtime": data["template-buildtime"],
-            "kernel": data["kernel"],
-            "hcl-memory": data["hcl-memory"],
-            "hcl-certified": data["hcl-certified"],
-            "hcl-qubes": data["hcl-qubes"],
-            "hcl-xen": data["hcl-xen"],
-            "hcl-model": data["hcl-model"],
-            "hcl-bios": data["hcl-bios"],
-            "hcl-cpu": data["hcl-cpu"],
-        }
         specs_text = """
-        System specifications:
+        System specifications
+        -------------------------------
 
-        - Date: {}
-        - Template: {}
-        - Template build time: {}
-        - Certified: {}
-        - Qubes: {}
-        - Kernel: {}
-        - Xen: {}
-        - RAM: {} MiB
-        - CPU: {}
-        - BIOS: {}
+        Global:
+          - Date: {date}
+          - Qubes: {hcl_qubes}
+          - Xen: {hcl_xen}
+          - Global Kernel: {hcl_kernel}
+
+        Template:
+          - Name: {template}
+          - Build time: {template_buildtime}
+          - Last update: {template_last_update}
+          - Virtual CPUs: {vcpus}
+          - Bootstrap memory: {memory}
+          - Maximum memory: {maxmem}
+          - Kernel: {kernel}
+          - Kernel options: {kernelopts}
+
+        Hardware:
+          - Certified: {hcl_certified}
+          - Brand: {hcl_brand}
+          - Model: {hcl_model}
+          - CPU: {hcl_cpu}
+          - RAM: {hcl_memory} MiB
+          - BIOS: {hcl_bios}
+          - SCSI: {hcl_scsi}
+          - NVMe: {hcl_nvme}
         """.format(
-            specs["date"],
-            self.default_template,
-            specs["template-buildtime"],
-            specs["hcl-certified"],
-            specs["hcl-qubes"],
-            specs["kernel"],
-            specs["hcl-xen"],
-            specs["hcl-memory"],
-            specs["hcl-cpu"],
-            specs["hcl-bios"],
+            date=data["date"],
+            template=self.default_template,
+            template_buildtime=data["template-buildtime"],
+            template_last_update=data["last-update"] or None,
+            memory=data["memory"],
+            maxmem=data["maxmem"],
+            vcpus=data["vcpus"],
+            kernel=data["kernel"],
+            kernelopts=data["kernelopts"],
+            hcl_memory=data["hcl-memory"],
+            hcl_certified=data.get("hcl-certified"),
+            hcl_qubes=data["hcl-qubes"],
+            hcl_xen=data["hcl-xen"],
+            hcl_kernel=data["hcl-kernel"],
+            hcl_brand=data.get("hcl-brand"),
+            hcl_model=data.get("hcl-model"),
+            hcl_bios=data.get("hcl-bios"),
+            hcl_cpu=data.get("hcl-cpu"),
+            hcl_scsi=data.get("hcl-scsi"),
+            hcl_nvme=data.get("hcl-nvme"),
         )
         fig = plt.figure(figsize=(2 * WIDTH, 2 * HEIGHT))
         fig.clf()
@@ -605,12 +648,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_01_bar(self) -> None:
         """Simplest and smallest bar graph."""
+
+        def filter_preload(value, _cond):
+            return value in [0, self.default_preload_max]
+
+        tests = filter_data(
+            self.dispvm_api_tests,
+            {"preload_max": None, "preload_delay": None},
+            {"preload_max": filter_preload},
+        )
         normal_tests = filter_data(self.dispvm_api_tests, {"preload_max": 0})
         assert_items_match(normal_tests, ["iterations"])
         preload_tests = filter_data(
-            self.dispvm_api_tests,
-            {"preload_max": 1},
-            {"preload_max": operator.ge},
+            tests,
+            {"preload_max": self.default_preload_max, "preload_delay": None},
+            {"preload_max": operator.eq},
         )
         assert_items_match(preload_tests, ["iterations"])
 
@@ -621,29 +673,38 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             + "disposables."
         )
 
-        self.bar_plot([self.dispvm_api_tests], supxlabel=caption)
+        self.bar_plot([tests], supxlabel=caption)
 
     def graph_02_stage_stack(self) -> None:
         """Stacked bar by stage graph."""
+        # pylint: disable=too-many-locals
         tests = filter_data(self.dispvm_api_tests, {"preload_max": 0})
         assert_items_match(tests, ["iterations"])
         iterations = get_value(tests, "iterations")[0]
         tests_names_pretty = get_value(tests, "pretty_name")
         preload_tests = filter_data(
             self.dispvm_api_tests,
-            {"preload_max": 1},
-            {"preload_max": operator.ge},
+            {"preload_max": self.default_preload_max, "preload_delay": None},
+            {"preload_max": operator.eq},
         )
 
-        important_stages = ["exec", "clean", "total"]
         label_array = np.arange(len(tests_names_pretty))
         label_count = len(tests_names_pretty)
         width = 0.8 / label_count
+        # Don't count "dom" stage, when there are other large values, it
+        # overlaps the label.
         up_to_exec = self.stages[:-2]
-        for num, stage_intro in enumerate([up_to_exec, self.stages]):
+        up_to_exec.remove("dom")
+        up_to_last = self.stages
+        up_to_last.remove("dom")
+        important_stages = up_to_last
+        # pylint: disable=too-many-nested-blocks
+        for num, stage_intro in enumerate([up_to_exec, up_to_last]):
             fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
             bottom = np.zeros(len(tests_names_pretty))
             bottom_preload = np.zeros(len(tests_names_pretty))
+            stored_means_stage = []
+            stored_preload_means_stage = []
             for stage in stage_intro:
                 means_stage = np.array(
                     [
@@ -651,18 +712,27 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                         for test in tests.values()
                     ]
                 )
-                preload_means_stage = np.array(
-                    [
-                        test["api_results"]["stage"][stage]["mean"]
-                        for test in preload_tests.values()
-                    ]
-                )
+                stored_means_stage.append(means_stage)
+                if stage == "start":
+                    preload_means_stage = np.zeros(len(means_stage))
+                else:
+                    preload_means_stage = np.array(
+                        [
+                            test["api_results"]["stage"][stage]["mean"]
+                            for test in preload_tests.values()
+                        ]
+                    )
+                stored_preload_means_stage.append(preload_means_stage)
 
                 assert_items_length_match(tests, preload_tests)
                 if stage in ["exec", "total"]:
+                    sum_means_stage = [sum(x) for x in zip(*stored_means_stage)]
+                    sum_preload_means_stage = [
+                        sum(x) for x in zip(*stored_preload_means_stage)
+                    ]
                     ratio = np.divide(
-                        means_stage,
-                        preload_means_stage,
+                        sum_means_stage,
+                        sum_preload_means_stage,
                         out=np.zeros_like(means_stage, dtype=float),
                         where=preload_means_stage != 0,
                     )
@@ -673,12 +743,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                         if stage == "exec" and "total" in stage_intro:
                             break
                         xpos = label_array[i]
-                        min_mean = min(means_stage[i], preload_means_stage[i])
-                        max_mean = max(means_stage[i], preload_means_stage[i])
-                        height = max(
-                            min_mean + 1, min_mean + ((max_mean - min_mean) / 2)
-                        )
-                        height = min_mean + 1
+                        if stage == "total":
+                            min_mean = min(
+                                means_stage[i], preload_means_stage[i]
+                            )
+                            max_mean = max(
+                                means_stage[i], preload_means_stage[i]
+                            )
+                            height = max(
+                                min_mean + 1,
+                                min_mean + ((max_mean - min_mean) / 2),
+                            )
+                        else:
+                            height = (
+                                sum_preload_means_stage[i] + sum_means_stage[i]
+                            ) / 2
                         if ratio[i] > 1:
                             color = COLORS["Success Green"]
                         else:
@@ -704,19 +783,21 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                     bottom += means_stage
 
                     positions = label_array + width / 2
-                    bars_preload = axs.bar(
-                        positions,
-                        preload_means_stage,
-                        width=width,
-                        bottom=bottom_preload,
-                        color=self.preload_stage_dict[stage]["color"],
-                    )
+                    if stage != "start":
+                        bars_preload = axs.bar(
+                            positions,
+                            preload_means_stage,
+                            width=width,
+                            bottom=bottom_preload,
+                            color=self.preload_stage_dict[stage]["color"],
+                        )
                     bottom_preload += preload_means_stage
 
                     if (
                         stage in important_stages
-                        or stage == list(self.stage_dict.keys())[-1]
+                        or stage == list(self.stages)[-1]
                     ):
+                        # pylint: disable=possibly-used-before-assignment
                         for bbar in [bars_normal, bars_preload]:
                             axs.bar_label(
                                 bbar,
@@ -724,7 +805,26 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                                 label_type="center",
                                 fontsize="xx-large",
                             )
+                            if stage not in ["exec", "clean"]:
+                                continue
+                            if stage == "exec" and "total" in stage_intro:
+                                continue
+                            axs.bar_label(bbar, fmt="%.2f", fontsize="xx-large")
 
+            means_stage_total = [
+                test["api_results"]["stage"]["total"]["mean"]
+                for test in tests.values()
+            ]
+            preload_means_stage_total = [
+                test["api_results"]["stage"]["total"]["mean"]
+                for test in preload_tests.values()
+            ]
+            top_value = math.ceil(
+                max(*means_stage_total, *preload_means_stage_total)
+            )
+            top_tick = int(10 * top_value / 10)
+            yticks = [round(x, 1) for x in np.linspace(0, top_tick, 4)]
+            plt.yticks(yticks)
             plt.xticks(label_array, tests_names_pretty)
             plt.ylabel("Time (s)")
             pretty_iterations = " over {} iterations".format(iterations)
@@ -737,7 +837,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 if stage in stage_intro
             ]
             legend_handles.insert(
-                -2,
+                -3,
                 *[
                     matplotlib.patches.Patch(
                         color=value["color"], label="Preload " + value["legend"]
@@ -760,20 +860,48 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 wrap=True,
                 color=CAPTION_COLOR,
             )
-            self.end(plt, str(num))
+            self.end(plt, str(num) + "_until_" + stage_intro[-1])
 
     def graph_03_stage_dist(self) -> None:
         """Scattered and jittered stage distribution graph."""
-        tests = self.dispvm_api_tests
+
+        def filter_preload(value, _cond):
+            return value in [0, self.default_preload_max]
+
+        tests = filter_data(
+            self.api_tests,
+            {"concurrent": False, "preload_max": None},
+            {"preload_max": filter_preload},
+        )
         assert_items_match(tests, ["iterations"])
         tests_names_pretty = get_value(tests, "pretty_name")
-        for num, stage in enumerate(["exec", "clean", "total"]):
+        for num, stage in enumerate(self.stages + ["response"]):
             stage_values = []
             for _, test in tests.items():
-                stage_values.append(
-                    test["api_results"]["stage"][stage]["values"]
+                api_results = test["api_results"]["stage"]
+                if stage == "response":
+                    if test["target_dispvm"]:
+                        stage_values.append(
+                            [
+                                x - y
+                                for x, y in zip(
+                                    api_results["total"]["values"],
+                                    api_results["clean"]["values"],
+                                )
+                            ]
+                        )
+                    else:
+                        stage_values.append(api_results["total"]["values"])
+                else:
+                    stage_values.append(
+                        api_results.get(stage, {}).get("values", [])
+                    )
+            fig, axs = plt.subplots(
+                figsize=(
+                    WIDTH * (len(tests) / 1.5),
+                    HEIGHT * (len(tests) / 1.5),
                 )
-            fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
+            )
             x_pos = np.arange(1, len(stage_values) + 1)
             jitter_strength = 0.1
             for i, values in enumerate(stage_values, start=1):
@@ -788,7 +916,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 axs.scatter(x_jittered, values, s=100, alpha=0.8, color=color)
             axs.set_xticks(x_pos, wrap_text(tests_names_pretty, 25))
             axs.set_ylabel("Time (s)")
-            if stage == "total":
+            if stage in ["total", "response"]:
                 stage_pretty = stage
             else:
                 stage_pretty = self.stage_dict[stage]["legend"].lower()
@@ -807,84 +935,222 @@ class Graph:  # pylint: disable=too-many-instance-attributes
     def graph_04_line(self) -> None:
         """Line graph of performance of each iteration."""
 
-        def filter_preload(value, cond):  # pylint: disable=unused-argument
-            return value == 0 or (3 <= value <= 5)
+        def filter_preload_small(value, _cond):
+            return value <= 3
 
-        tests = filter_data(
+        def filter_preload(value, _cond):
+            return value == 0 or (4 <= value <= 6)
+
+        base_tests = filter_data(
             self.api_tests,
             {
-                "non_dispvm": False,
                 "admin_api": True,
                 "concurrent": False,
-                "gui": False,
+            },
+        )
+        base_tests_gui = filter_data(base_tests, {"gui": True})
+        base_tests_nogui = filter_data(base_tests, {"gui": False})
+
+        tests = filter_data(
+            base_tests_nogui,
+            {"preload_max": None},
+            {"preload_max": filter_preload},
+        )
+        tests_small = filter_data(
+            base_tests_nogui,
+            {"preload_max": None},
+            {"preload_max": filter_preload_small},
+        )
+
+        tests_gui = filter_data(
+            base_tests_gui,
+            {"preload_max": None},
+            {"preload_max": filter_preload},
+        )
+        tests_small_gui = filter_data(
+            base_tests_gui,
+            {"preload_max": None},
+            {"preload_max": filter_preload_small},
+        )
+
+        tests = dict(
+            sorted(
+                tests.items(),
+                key=lambda x: (x[1]["target_dispvm"], x[1]["preload_max"]),
+            )
+        )
+        tests_small = dict(
+            sorted(
+                tests_small.items(),
+                key=lambda x: (x[1]["target_dispvm"], x[1]["preload_max"]),
+            )
+        )
+        tests_gui = dict(
+            sorted(
+                tests_gui.items(),
+                key=lambda x: (x[1]["target_dispvm"], x[1]["preload_max"]),
+            )
+        )
+        tests_small_gui = dict(
+            sorted(
+                tests_small_gui.items(),
+                key=lambda x: (x[1]["target_dispvm"], x[1]["preload_max"]),
+            )
+        )
+        all_tests = {
+            "nogui-small": {
+                "for simple calls with few preloaded disposables": tests_small
+            },
+            "gui-small": {
+                "for GUI calls with few preloaded disposables": tests_small_gui
+            },
+            "nogui-large": {
+                "for simple calls with some preloaded disposables": tests
+            },
+            "gui-large": {
+                "for GUI calls with some preloaded disposables": tests_gui
+            },
+        }
+
+        num_list = []
+        rounder = 2
+        # pylint: disable=too-many-nested-blocks
+        for idx, (test_type, test_value) in enumerate(all_tests.items()):
+            desc = list(test_value.keys())[0]
+            tests = list(test_value.values())[0]
+            for num, stage in enumerate(self.stages + ["response"]):
+                num_list.append(num)
+                fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
+                points_seen = set()
+                for test in tests.values():
+                    if (
+                        not test["target_dispvm"]
+                        and stage not in ["response", "total"]
+                        and stage not in self.vm_stage_dict
+                    ):
+                        continue
+                    name = test["pretty_name"]
+                    iteration_data = test.get("api_results", {}).get(
+                        "iteration", {}
+                    )
+                    iterations = range(1, test["iterations"] + 1)
+                    stage_data = test.get("api_results", {}).get("stage", {})
+                    if not (stage == "start" and test["preload_max"] > 0):
+                        if stage == "response":
+                            if test["target_dispvm"]:
+                                mean_response = (
+                                    stage_data["total"]["mean"]
+                                    - stage_data["clean"]["mean"]
+                                )
+                                mean = round(mean_response, rounder)
+                                times = [
+                                    iteration_data[str(it)]["total"]
+                                    - iteration_data[str(it)]["clean"]
+                                    for it in iterations
+                                ]
+                            else:
+                                mean_response = stage_data["total"]["mean"]
+                                mean = round(mean_response, rounder)
+                                times = [
+                                    iteration_data[str(it)]["total"]
+                                    for it in iterations
+                                ]
+                        else:
+                            mean = round(stage_data[stage]["mean"], rounder)
+                            times = [
+                                iteration_data[str(it)][stage]
+                                for it in iterations
+                            ]
+                    else:
+                        continue
+                    label = str(name)
+                    if pmax := test["preload_max"]:
+                        if pmax > 2:
+                            few = 2
+                        elif pmax == 2:
+                            few = 1
+                        else:
+                            few = None
+                        if few:
+                            upto_few_preload_mean = round(
+                                sum(times[:few]) / few, rounder
+                            )
+                        upto_preload_mean = round(
+                            sum(times[:pmax]) / pmax, rounder
+                        )
+                        label += " ("
+                        if few:
+                            label += "first {}: \u03bc {}, ".format(
+                                few, upto_few_preload_mean
+                            )
+                        label += "first {}: \u03bc {})".format(
+                            pmax, upto_preload_mean
+                        )
+                    label += f" \u03bc {mean}"
+                    axs.plot(
+                        iterations,
+                        times,
+                        label=label,
+                        linestyle="--",
+                        linewidth=3,
+                    )
+                    for x_val, y_val in zip(iterations, times):
+                        if (x_val, round(y_val, rounder)) in points_seen:
+                            continue
+                        points_seen.add((x_val, round(y_val, rounder)))
+                        axs.text(
+                            x_val,
+                            y_val,
+                            str(round(y_val, rounder)),
+                            ha="center",
+                            fontsize="xx-large",
+                        )
+                if stage in ["total", "response"]:
+                    stage_pretty = stage
+                else:
+                    stage_pretty = self.stage_dict[stage]["legend"].lower()
+                axs.set_ylabel("Time (seconds)")
+                axs.set_title(
+                    f"{stage_pretty.capitalize()} time per iteration {desc}"
+                )
+                axs.set_xticks(iterations)
+                axs.legend()
+                caption = (
+                    f"Compares the {stage_pretty} per iteration of targeting "
+                    "another running qube, normal disposables and preloaded "
+                    "disposables."
+                )
+                fig.supxlabel(
+                    caption,
+                    wrap=True,
+                    color=CAPTION_COLOR,
+                )
+                self.end(
+                    plt,
+                    "{:02d}_{:02d}_{}_{}".format(idx, num, stage, test_type),
+                )
+
+    def graph_08_template(self) -> None:
+        """Graph including all available templates."""
+
+        def filter_preload(value, cond):  # pylint: disable=unused-argument
+            return value in [0, self.default_preload_max]
+
+        tests = filter_data(
+            self.orig_data,
+            {
+                "admin_api": True,
+                "target_dispvm": True,
+                "extra_id": "",
+                "concurrent": False,
                 "preload_max": None,
+                "preload_delay": None,
             },
             {
                 "preload_max": filter_preload,
             },
         )
-        tests = dict(sorted(tests.items(), key=lambda x: x[1]["preload_max"]))
-        for num, stage in enumerate(["exec", "clean", "total"]):
-            fig, axs = plt.subplots(figsize=(WIDTH * 3, HEIGHT * 3))
-            points_seen = set()
-            for test in tests.values():
-                name = test["pretty_name"]
-                iteration_data = test.get("api_results", {}).get(
-                    "iteration", {}
-                )
-                iterations = range(1, test["iterations"] + 1)
-                stage_data = test.get("api_results", {}).get("stage", {})
-                mean = round(stage_data[stage]["mean"], 1)
-                times = [iteration_data[str(it)][stage] for it in iterations]
-                axs.plot(
-                    iterations,
-                    times,
-                    label=f"{name} \u03bc {mean}",
-                    linestyle="--",
-                    linewidth=3,
-                )
-                rounder = 1
-                for x_val, y_val in zip(iterations, times):
-                    if (x_val, round(y_val, rounder)) in points_seen:
-                        continue
-                    points_seen.add((x_val, round(y_val, rounder)))
-                    axs.text(
-                        x_val,
-                        y_val,
-                        str(round(y_val, rounder)),
-                        ha="center",
-                        fontsize="xx-large",
-                    )
-            if stage == "total":
-                stage_pretty = stage
-            else:
-                stage_pretty = self.stage_dict[stage]["legend"].lower()
-            axs.set_ylabel("Time (seconds)")
-            axs.set_title(f"{stage_pretty.capitalize()} time per iteration")
-            axs.set_xticks(iterations)
-            axs.legend()
-            caption = (
-                f"Compares the {stage_pretty} per iteration of normal "
-                + "disposables with preloaded disposables."
-            )
-            fig.supxlabel(
-                caption,
-                wrap=True,
-                color=CAPTION_COLOR,
-            )
-            self.end(plt, str(num) + "_" + stage)
 
-    def graph_08_template(self) -> None:
-        """Graph including all available templates."""
-        tests = filter_data(
-            self.orig_data,
-            {
-                "admin_api": True,
-                "non_dispvm": False,
-                "extra_id": "",
-                "concurrent": False,
-            },
-        )
         template_tests = []
         for template in self.templates:
             template_tests.append(filter_data(tests, {"template": template}))
@@ -909,12 +1175,31 @@ class Graph:  # pylint: disable=too-many-instance-attributes
 
     def graph_09_method(self) -> None:
         """Graph including different callers comparing GUI and concurrency."""
+
+        def filter_preload(value, cond):  # pylint: disable=unused-argument
+            return value in [0, self.default_preload_max]
+
         orig_tests = filter_data(
-            self.data, {"non_dispvm": False, "extra_id": ""}
+            self.data,
+            {
+                "target_dispvm": True,
+                "extra_id": "",
+                "preload_delay": None,
+                "preload_max": None,
+            },
+            {"preload_max": filter_preload},
         )
+
+        concurrent_tests = filter_data(orig_tests, {"concurrent": True})
+        gui_tests = filter_data(orig_tests, {"gui": True})
         for query in ["concurrent-gui", "gui", "concurrent", "gui-concurrent"]:
+            if ("concurrent" in query and not concurrent_tests) or (
+                "gui" in query and not gui_tests
+            ):
+                logging.warning("Skipped query without tests: %s", query)
+                continue
             if query == "concurrent-gui":
-                tests = filter_data(orig_tests, {"concurrent": True})
+                tests = concurrent_tests
                 query_name = "with concurrency (with and without GUI),"
                 query_file = "wconc_nogui_gui"
             elif query == "gui":
@@ -926,7 +1211,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 query_name = "with and without concurrency,"
                 query_file = "noconc_conc"
             elif query == "gui-concurrent":
-                tests = filter_data(orig_tests, {"gui": True})
+                tests = gui_tests
                 query_name = "with GUI (with and without concurrency),"
                 query_file = "wgui_noconc_conc"
             else:
@@ -941,7 +1226,7 @@ class Graph:  # pylint: disable=too-many-instance-attributes
             vm_qrexec = filter_data(
                 tests, {"from_dom0": False, "admin_api": False}
             )
-
+            method_tests = [t for t in [dom0_api, dom0_qvm, vm_qrexec] if t]
             for key in ["mean", "total"]:
                 preload_tests = filter_data(
                     tests, {"preload_max": 1}, {"preload_max": operator.ge}
@@ -949,11 +1234,11 @@ class Graph:  # pylint: disable=too-many-instance-attributes
                 assert_items_match(preload_tests, ["preload_max"])
                 preload_max = get_value(preload_tests, "preload_max")[0]
                 caption = (
-                    f"Compares workflows of normal disposables with "
-                    + "{preload_max} preloaded disposables."
+                    "Compares workflows of normal disposables with "
+                    + f"{preload_max} preloaded disposables."
                 )
                 self.bar_plot(
-                    [dom0_api, dom0_qvm, vm_qrexec],
+                    method_tests,
                     titles=["dom0 API", "dom0 qvm", "qube qrexec-client-vm"],
                     title_prefix=False,
                     keys=[key],
@@ -1057,6 +1342,7 @@ def main() -> None:
     logging.info("Loaded data")
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
+        logging.info("Output directory is %s", repr(args.output_dir))
     graph = Graph(
         data,
         default_template=args.template,

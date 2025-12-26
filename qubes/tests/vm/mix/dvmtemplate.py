@@ -33,7 +33,7 @@ import qubes.vm.mix.dvmtemplate
 
 class TestApp(qubes.tests.vm.TestApp):
     def __init__(self):
-        super(TestApp, self).__init__()
+        super().__init__()
         self.qid_counter = 0
 
     def add_new_vm(self, cls, **kwargs):
@@ -54,7 +54,7 @@ class TC_00_DVMTemplateMixin(
     qubes.tests.QubesTestCase,
 ):
     def setUp(self):
-        super(TC_00_DVMTemplateMixin, self).setUp()
+        super().setUp()
         self.app = TestApp()
         self.app.save = mock.Mock()
         self.app.pools["default"] = qubes.tests.vm.appvm.TestPool(
@@ -93,7 +93,7 @@ class TC_00_DVMTemplateMixin(
     def tearDown(self):
         self.app.default_dispvm = None
         del self.emitter
-        super(TC_00_DVMTemplateMixin, self).tearDown()
+        super().tearDown()
 
     def cleanup_adminvm(self):
         self.adminvm.close()
@@ -117,6 +117,29 @@ class TC_00_DVMTemplateMixin(
 
     async def mock_coro(self, *args, **kwargs):
         pass
+
+    def test_010_dvm_preload_get_delay(self):
+        cases = [
+            (None, 0),
+            (False, 0),
+            ("0", 0),
+            ("2", 2),
+            ("10000", 10000),
+            ("-1", -1),
+            ("-3.14", -3.14),
+        ]
+        self.assertEqual(self.appvm.get_feat_preload_max(), 0)
+        for value, expected_value in cases:
+            with self.subTest(value=value, expected_value=expected_value):
+                self.appvm.features["preload-dispvm-delay"] = value
+                self.assertEqual(
+                    self.appvm.get_feat_preload_delay(), expected_value
+                )
+        cases_invalid = ["a", ".2.", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.appvm.features["preload-dispvm-delay"] = value
 
     def test_010_dvm_preload_get_max(self):
         cases = [

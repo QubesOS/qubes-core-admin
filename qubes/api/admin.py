@@ -1320,13 +1320,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method("admin.vm.CreateDisposable", scope="global", write=True)
     async def create_disposable(self, untrusted_payload):
         """
-        Create a disposable. If the RPC argument is ``preload-autostart``,
+        Create a disposable. If the RPC argument is ``preload``,
         cleanse the preload list and start preloading fresh disposables.
         """
-        self.enforce(self.arg in [None, "", "preload-autostart"])
-        preload_autostart = False
-        if self.arg == "preload-autostart":
-            preload_autostart = True
+        self.enforce(self.arg in [None, "", "preload"])
+        preload = False
+        if self.arg == "preload":
+            preload = True
         if untrusted_payload not in (b"", b"uuid"):
             raise qubes.exc.QubesValueError(
                 "Invalid payload for admin.vm.CreateDisposable: "
@@ -1339,8 +1339,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             appvm = self.dest
 
         self.fire_event_for_permission(dispvm_template=appvm)
-        if preload_autostart:
-            await appvm.fire_event_async("domain-preload-dispvm-autostart")
+        if preload:
+            await appvm.fire_event_async(
+                "domain-preload-dispvm-start", reason="autostart was requested"
+            )
             return
         dispvm = await qubes.vm.dispvm.DispVM.from_appvm(appvm)
         # TODO: move this to extension (in race-free fashion, better than here)

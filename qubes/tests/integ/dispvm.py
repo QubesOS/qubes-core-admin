@@ -26,7 +26,7 @@ import subprocess
 import time
 import unittest
 from contextlib import suppress
-from distutils import spawn
+from shutil import which
 from unittest.mock import patch, mock_open
 import asyncio
 import sys
@@ -34,7 +34,6 @@ import logging
 
 import qubes.config
 import qubes.tests
-import qubesadmin.exc
 
 # nose will duplicate this logger.
 logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ logger.addHandler(handler)
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
     def setUp(self):
-        super(TC_04_DispVM, self).setUp()
+        super().setUp()
         self.init_default_template()
         self.disp_base = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -73,7 +72,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
 
     def tearDown(self):
         self.app.default_dispvm = None
-        super(TC_04_DispVM, self).tearDown()
+        super().tearDown()
 
     def wait_for_dispvm_destroy(self, dispvm_name: list):
         timeout = 20
@@ -138,6 +137,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertNotIn(dispvm_name, self.app.domains)
 
     def _count_dispvms(self, *args, **kwargs):
+        # pylint: disable=unused-argument
         self.startup_counter += 1
 
     def test_010_failed_start(self):
@@ -195,10 +195,10 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(self.startup_counter, 1)
 
 
-class TC_20_DispVMMixin(object):
+class TC_20_DispVMMixin:
     def setUp(self):  # pylint: disable=invalid-name
         logger.info("start")
-        super(TC_20_DispVMMixin, self).setUp()
+        super().setUp()
         if "whonix-g" in self.template:
             self.skipTest(
                 "whonix gateway is not supported as DisposableVM Template"
@@ -227,11 +227,11 @@ class TC_20_DispVMMixin(object):
             self.start_vm(self.disp_base),
             self.start_vm(self.disp_base_alt),
         ]
+        self.loop.run_until_complete(asyncio.gather(*start_tasks))
         shutdown_tasks = [
             self.disp_base.shutdown(wait=True),
             self.disp_base_alt.shutdown(wait=True),
         ]
-        self.loop.run_until_complete(asyncio.gather(*start_tasks))
         self.loop.run_until_complete(asyncio.gather(*shutdown_tasks))
         # Setting "default_dispvm" fires the preload event before patches of
         # each test function is applied.
@@ -259,8 +259,22 @@ class TC_20_DispVMMixin(object):
         if "_preload_" not in self._testMethodName:
             self.app.default_dispvm = None
         self.app.save()
-        super(TC_20_DispVMMixin, self).tearDown()
+        super().tearDown()
         logger.info("end")
+
+    def _run_cmd_and_log_output(self, qube, cmd, user="root", timeout=30):
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                asyncio.wait_for(
+                    qube.run_for_stdio(
+                        cmd, user=user, stderr=subprocess.STDOUT
+                    ),
+                    timeout=timeout,
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            stdout = getattr(e, "stdout", str(e))
+        logger.critical("{}: {}: {}".format(qube.name, cmd, stdout))
 
     def _test_event_handler(
         self, vm, event, *args, **kwargs
@@ -285,7 +299,6 @@ class TC_20_DispVMMixin(object):
     def _register_handlers(self, vm):  # pylint: disable=unused-argument
         events = [
             # appvm
-            "domain-preload-dispvm-autostart",
             "domain-preload-dispvm-start",
             "domain-preload-dispvm-used",
             # dispvm
@@ -304,11 +317,12 @@ class TC_20_DispVMMixin(object):
     def _on_domain_add(self, app, event, vm):  # pylint: disable=unused-argument
         self._register_handlers(vm)
 
-    async def cleanup_preload_run(self, qube):
+    async def cleanup_preload_run(self, qube, down_to=0):
         old_preload = qube.features.get("preload-dispvm", "")
         old_preload = old_preload.split(" ") if old_preload else []
         if not old_preload:
             return
+        old_preload = old_preload[:down_to]
         logger.info(
             "cleaning up preloaded disposables: %s:%s", qube.name, old_preload
         )
@@ -333,7 +347,9 @@ class TC_20_DispVMMixin(object):
                 self.disp_base_alt,
             ]:
                 continue
-            logger.info("removing preloaded disposables: '%s'", qube.name)
+            logger.info(
+                "removing preloaded disposables configured in: '%s'", qube.name
+            )
             target = qube
             if qube.klass == "AdminVM" and default_dispvm:
                 target = default_dispvm
@@ -455,7 +471,6 @@ class TC_20_DispVMMixin(object):
         stdout = await self.run_preload_proc()
         self.assertEqual(stdout, dispvm_name)
         test_cases = [
-            (False, appvm.name, "domain-preload-dispvm-autostart", True),
             (False, appvm.name, "domain-preload-dispvm-start", True),
             (True, appvm.name, "domain-preload-dispvm-used", True),
             (
@@ -499,6 +514,8 @@ class TC_20_DispVMMixin(object):
                         self.assertTrue(event_result)
                     else:
                         self.assertFalse(event_result)
+        delay = appvm.get_feat_preload_delay()
+        await asyncio.sleep(abs(delay))
         next_preload_list = appvm.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)
@@ -632,15 +649,12 @@ class TC_20_DispVMMixin(object):
         logger.info("end")
 
     def test_017_preload_autostart(self):
-        """The script triggers the API call
-        'admin.vm.CreateDisposable+preload-autostart' which fires the event
-        'domain-preload-dispvm-autostart', clearing the current preload list
-        and filling with new ones."""
+        """The script triggers the API call 'admin.vm.CreateDisposable+preload'
+        which is responsible for bootstrapping."""
         logger.info("start")
         self.app.default_dispvm = self.disp_base
 
-        preload_max = 1
-        logger.info("no refresh to be made")
+        logger.info("must not change as max is 0")
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
@@ -649,39 +663,70 @@ class TC_20_DispVMMixin(object):
         )
         self.assertEqual(self.disp_base.get_feat_preload(), [])
 
-        logger.info("refresh to be made")
+        preload_max = 1
+        logger.info("must not change existing preloaded disposables")
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
         old_preload = self.disp_base.get_feat_preload()
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=10))
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
-        self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        self.assertEqual(
+            old_preload,
+            preload_dispvm,
+            msg=f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
         )
 
-        logger.info("global refresh to be made")
         preload_max += 1
+        logger.info("global refill must work")
         self.adminvm.features["preload-dispvm-max"] = str(preload_max)
         self.loop.run_until_complete(self.wait_preload(preload_max))
-        del self.disp_base.features["preload-dispvm-max"]
+        old_old_preload = self.disp_base.get_feat_preload()
+        self.loop.run_until_complete(
+            self.cleanup_preload_run(self.disp_base, down_to=preload_max - 1)
+        )
         old_preload = self.disp_base.get_feat_preload()
+        self.assertEqual(len(old_preload), preload_max - 1)
+        self.assertIn(old_preload[0], old_old_preload)
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
         )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=40))
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(proc.wait(), timeout=40)
+            )
+        except asyncio.TimeoutError:
+            debug_preload = self.disp_base.get_feat_preload()
+            for qube in debug_preload:
+                qube = self.app.domains[qube]
+                if qube.is_paused():
+                    self.loop.run_until_complete(
+                        asyncio.wait_for(qube.unpause(), timeout=5)
+                    )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl --user is-system-running", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl is-system-running", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager --user blame", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager blame", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager --user", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager", user="root"
+                )
+            raise
         preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max)
+        self.assertIn(old_preload[0], preload_dispvm)
         self.assertEqual(len(preload_dispvm), preload_max)
-        self.assertTrue(
-            set(old_preload).isdisjoint(preload_dispvm),
-            f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
-        )
 
         self.app.default_dispvm = None
         logger.info("end")
@@ -787,9 +832,7 @@ class TC_20_DispVMMixin(object):
         self.log_preload()
         logger.info("end")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_020_gui_app(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
@@ -807,8 +850,8 @@ class TC_20_DispVMMixin(object):
             # wait for DispVM startup:
             p.stdin.write(b"echo test\n")
             self.loop.run_until_complete(p.stdin.drain())
-            l = self.loop.run_until_complete(p.stdout.readline())
-            self.assertEqual(l, b"test\n")
+            line = self.loop.run_until_complete(p.stdout.readline())
+            self.assertEqual(line, b"test\n")
 
             self.assertTrue(dispvm.is_running())
             try:
@@ -849,9 +892,10 @@ class TC_20_DispVMMixin(object):
         )
 
     def _handle_editor(self, winid, copy=False):
-        (window_title, _) = subprocess.Popen(
+        with subprocess.Popen(
             ["xdotool", "getwindowname", winid], stdout=subprocess.PIPE
-        ).communicate()
+        ) as proc:
+            (window_title, _) = proc.communicate()
         window_title = (
             window_title.decode()
             .strip()
@@ -861,7 +905,7 @@ class TC_20_DispVMMixin(object):
         time.sleep(1)
         if "LibreOffice" in window_title:
             # wait for actual editor (we've got splash screen)
-            search = subprocess.Popen(
+            with subprocess.Popen(
                 [
                     "xdotool",
                     "search",
@@ -873,11 +917,11 @@ class TC_20_DispVMMixin(object):
                     "disp*|Writer",
                 ],
                 stdout=subprocess.PIPE,
-                stderr=open(os.path.devnull, "w"),
-            )
-            retcode = search.wait()
-            if retcode == 0:
-                winid = search.stdout.read().strip()
+                stderr=subprocess.DEVNULL,
+            ) as search:
+                retcode = search.wait()
+                if retcode == 0:
+                    winid = search.stdout.read().strip()
             time.sleep(0.5)
             subprocess.check_call(
                 ["xdotool", "windowactivate", "--sync", winid]
@@ -929,24 +973,25 @@ class TC_20_DispVMMixin(object):
             )
             if copy:
                 raise NotImplementedError("copy not implemented for vim")
-            else:
-                subprocess.check_call(
-                    ["xdotool", "key", "i", "type", "Test test 2"]
-                )
-                subprocess.check_call(
-                    ["xdotool", "key", "--window", winid, "key", "Return"]
-                )
-                subprocess.check_call(
-                    ["xdotool", "key", "Escape", "colon", "w", "q", "Return"]
-                )
-        elif (
-            "gedit" in window_title
-            or "KWrite" in window_title
-            or "Mousepad" in window_title
-            or "Geany" in window_title
-            or "Text Editor" in window_title
-            # FeatherPad (default in Whonix 18), no app name in the title...
-            or "test.txt" in window_title
+            subprocess.check_call(
+                ["xdotool", "key", "i", "type", "Test test 2"]
+            )
+            subprocess.check_call(
+                ["xdotool", "key", "--window", winid, "key", "Return"]
+            )
+            subprocess.check_call(
+                ["xdotool", "key", "Escape", "colon", "w", "q", "Return"]
+            )
+        elif any(
+            e in window_title
+            for e in (
+                "gedit",
+                "KWrite",
+                "Mousepad",
+                "Geany",
+                "Text Editor",
+                "test.txt",
+            )
         ):
             subprocess.check_call(
                 ["xdotool", "windowactivate", "--sync", winid]
@@ -984,7 +1029,7 @@ class TC_20_DispVMMixin(object):
                 include_tray=False,
                 timeout=5,
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             return (
                 False,
                 "Failed to find qrexec confirmation window for "
@@ -1011,9 +1056,7 @@ class TC_20_DispVMMixin(object):
             )
         return (True, "")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_030_edit_file(self):
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -1052,18 +1095,17 @@ class TC_20_DispVMMixin(object):
                     include_tray=False,
                     timeout=60,
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 try:
                     self.loop.run_until_complete(asyncio.wait_for(p.wait(), 1))
                 except asyncio.TimeoutError:
                     raise e
-                else:
-                    stdout = self.loop.run_until_complete(p.stdout.read())
-                    self.fail(
-                        "qvm-open-in-dvm exited prematurely with {}: {}".format(
-                            p.returncode, stdout
-                        )
+                stdout = self.loop.run_until_complete(p.stdout.read())
+                self.fail(
+                    "qvm-open-in-dvm exited prematurely with {}: {}".format(
+                        p.returncode, stdout
                     )
+                )
             # let the application initialize
             self.loop.run_until_complete(asyncio.sleep(1))
             try:
@@ -1106,8 +1148,8 @@ class TC_20_DispVMMixin(object):
                 "/usr/share/qubes/tests-data/"
                 "dispvm-open-thunderbird-attachment",
                 "rb",
-            ) as f:
-                return f.read()
+            ) as file:
+                return file.read()
         assert False
 
     def _get_apps_list(self, template):
@@ -1130,9 +1172,7 @@ class TC_20_DispVMMixin(object):
             if l.endswith(".desktop")
         ]
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_100_open_in_dispvm(self):
         if "whonix-w" in self.template:
             self.skipTest(
@@ -1197,7 +1237,7 @@ class TC_20_DispVMMixin(object):
         self.loop.run_until_complete(asyncio.sleep(3))
 
         try:
-            click_to_open = self.loop.run_until_complete(
+            self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     "./open-file test.txt",
                     stdout=subprocess.PIPE,
@@ -1211,7 +1251,7 @@ class TC_20_DispVMMixin(object):
                 self.skipTest("{} not installed".format(app_id))
             self.fail(
                 "'./open-file test.txt' failed with {}: {}{}".format(
-                    err.cmd, err.returncode, err.stdout, err.stderr
+                    err.returncode, err.stdout, err.stderr
                 )
             )
 
@@ -1241,8 +1281,8 @@ class TC_20_DispVMMixin(object):
             self.wait_for_window_hide_coro("editor", winid)
         )
 
-        with open("/var/run/qubes/qubes-clipboard.bin", "rb") as f:
-            test_txt_content = f.read()
+        with open("/var/run/qubes/qubes-clipboard.bin", "rb") as file:
+            test_txt_content = file.read()
         self.assertEqual(test_txt_content.strip(), b"test1")
 
         # this doesn't really close the application, only the qrexec-client
@@ -1260,7 +1300,7 @@ def create_testcases_for_templates():
     )
 
 
-def load_tests(loader, tests, pattern):
+def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
     return tests
 
