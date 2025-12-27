@@ -257,7 +257,7 @@ class Backup:
     >>> }
     >>> backup_op = Backup(app, vms, exclude_vms, **options)
     >>> print(backup_op.get_backup_summary())
-    >>> asyncio.get_event_loop().run_until_complete(backup_op.backup_do())
+    >>> asyncio.run(backup_op.backup_do())
 
     See attributes of this object for all available options.
 

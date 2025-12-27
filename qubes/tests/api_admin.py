@@ -146,7 +146,8 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
             self.app, b"dom0", method, dest, arg
         )
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(
             mgmt_obj.execute(untrusted_payload=payload)
         )
@@ -159,7 +160,8 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         mgmt_obj = qubes.api.internal.QubesInternalAPI(
             self.app, b"dom0", method, dest, arg
         )
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         response = loop.run_until_complete(
             mgmt_obj.execute(untrusted_payload=payload)
         )
@@ -231,7 +233,8 @@ class TC_00_VMs(AdminAPITestCase):
                 mgmt_obj = qubes.api.admin.QubesAdminAPI(
                     self.app, b"test-vm1", b"admin.vm.List", b"dom0", b""
                 )
-                loop = asyncio.get_event_loop()
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
                 value = loop.run_until_complete(
                     mgmt_obj.execute(untrusted_payload=b"")
                 )
@@ -3808,7 +3811,8 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             def name(self):
                 return self._name
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         self.app.vmm.libvirt_conn.lookupByID.side_effect = lambda xid: {
             0: MockVM("Domain-0"),
             1: MockVM("test-template"),
@@ -3908,7 +3912,8 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             def name(self):
                 return self._name
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         self.app.vmm.libvirt_conn.lookupByID.side_effect = lambda xid: {
             0: MockVM("Domain-0"),
             1: MockVM("test-template"),
