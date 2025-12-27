@@ -422,6 +422,52 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=unused-argument
         assert self.template
 
+    async def wait_operational_preload(
+        self, rpc: str, service: str, timeout: int | float
+    ) -> None:
+        """
+        Await for preloaded disposable to become fully operational.
+
+        :param str rpc: Pretty RPC service name.
+        :param str service: Full command-line.
+        :param int|float timeout: Fail after timeout is reached.
+        """
+        try:
+            self.log.info(
+                "Preload startup waiting '%s' with '%d' seconds timeout",
+                rpc,
+                timeout,
+            )
+            await asyncio.wait_for(
+                self.run_for_stdio(
+                    service,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ),
+                timeout=timeout,
+            )
+            self.log.info("Preload startup completed '%s'", rpc)
+        except asyncio.TimeoutError:
+            if rpc == "qubes.WaitForSession":
+                debug_msg = "systemd-analyze --user blame"
+            else:
+                debug_msg = "systemd-analyze blame"
+            raise qubes.exc.QubesException(
+                "Timed out call to '%s' after '%d' seconds during preload "
+                "startup. To debug, run the following on a new disposable of "
+                "'%s': %s" % (rpc, timeout, self.template, debug_msg)
+            )
+        except (subprocess.CalledProcessError, qubes.exc.QubesException):
+            if rpc == "qubes.WaitForSession":
+                debug_msg = "systemctl --user --failed"
+            else:
+                debug_msg = "systemctl --failed"
+            raise qubes.exc.QubesException(
+                "Error on call to '%s' during preload startup. To debug, "
+                "run the following on a new disposable of '%s': %s"
+                % (rpc, self.template, debug_msg)
+            )
+
     @qubes.events.handler("domain-start")
     async def on_domain_started_dispvm(
         self,
@@ -440,35 +486,28 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         timeout = self.qrexec_timeout
         # https://github.com/QubesOS/qubes-issues/issues/9964
-        rpc = "qubes.WaitForRunningSystem"
         path = "/run/qubes-rpc:/usr/local/etc/qubes-rpc:/etc/qubes-rpc"
-        service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+        rpcs = ["qubes.WaitForRunningSystem"]
+        if self.features.check_with_template(
+            "supported-feature.late-gui-daemon", False
+        ):
+            rpcs.append("qubes.WaitForSession")
         try:
-            self.log.info(
-                "Preload startup waiting '%s' with '%d' seconds timeout",
-                rpc,
-                timeout,
-            )
-            await asyncio.wait_for(
-                self.run_for_stdio(
-                    service,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                ),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            raise qubes.exc.QubesException(
-                "Timed out call to '%s' after '%d' seconds during preload "
-                "startup" % (rpc, timeout)
-            )
-        except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, run "
-                "the following on a new disposable of '%s': systemctl "
-                "--failed" % (rpc, self.template)
-            )
-
+            async with asyncio.TaskGroup() as task_group:
+                for rpc in rpcs:
+                    service = '$(PATH="' + path + '" command -v ' + rpc + ")"
+                    task_group.create_task(
+                        self.wait_operational_preload(rpc, service, timeout)
+                    )
+        except ExceptionGroup as e:
+            # Show detailed exception in desktop notification.
+            wanted_ex_group, _ = e.split(qubes.exc.QubesException)
+            if wanted_ex_group:
+                messages = [
+                    "\n" + str(exc) for exc in wanted_ex_group.exceptions
+                ]
+                raise qubes.exc.QubesException("\n".join(messages))
+            raise
         if not self.preload_requested:
             await self.pause()
         self.log.info("Preloading finished")
