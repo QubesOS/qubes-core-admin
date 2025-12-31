@@ -378,6 +378,30 @@ class AdminVM(LocalVM):
                 "Invalid preload-dispvm-threshold value: not a digit"
             )
 
+    @qubes.events.handler("domain-feature-pre-set:preload-dispvm-delay")
+    def on_feature_pre_set_preload_dispvm_delay(
+        self, event, feature, value, oldvalue=None
+    ):
+        """
+        Before accepting the ``preload-dispvm-delay`` feature, validate it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param int value: New value of the feature.
+        :param int oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
+        if value == oldvalue:
+            return
+        if not value:
+            value = "0"
+        try:
+            float(value)
+        except ValueError:
+            raise qubes.exc.QubesValueError(
+                "Invalid preload-dispvm-delay value: not an integer or float"
+            )
+
     @qubes.events.handler("domain-feature-delete:preload-dispvm-max")
     def on_feature_delete_preload_dispvm_max(self, event, feature):
         """

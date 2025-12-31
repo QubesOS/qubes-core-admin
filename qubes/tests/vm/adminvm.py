@@ -23,10 +23,6 @@ import subprocess
 import unittest
 import unittest.mock
 
-import functools
-
-import asyncio
-
 import qubes
 import qubes.exc
 import qubes.vm
@@ -69,7 +65,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         del self.emitter
         try:
             os.unlink("/tmp/qubestest.xml")
-        except:
+        except:  # pylint: disable=bare-except
             pass
         super().tearDown()
 
@@ -121,8 +117,8 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def test_700_run_service(self, mock_subprocess):
         # if there is a user in 'qubes' group, it should be used by default
         try:
-            gr = grp.getgrnam("qubes")
-            default_user = gr.gr_mem[0]
+            group = grp.getgrnam("qubes")
+            default_user = group.gr_mem[0]
             command_prefix = ["runuser", "-u", default_user, "--"]
         except (KeyError, IndexError):
             command_prefix = []
@@ -290,3 +286,14 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         for value in cases_valid:
             with self.subTest(value=value):
                 self.vm.features["preload-dispvm-threshold"] = value
+
+    def test_803_preload_set_delay(self):
+        cases_valid = ["", "0", "1", "-1", "3.14"]
+        cases_invalid = ["a", ".2.", "1 1"]
+        for value in cases_invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(qubes.exc.QubesValueError):
+                    self.vm.features["preload-dispvm-delay"] = value
+        for value in cases_valid:
+            with self.subTest(value=value):
+                self.vm.features["preload-dispvm-delay"] = value

@@ -1195,7 +1195,7 @@ class Qubes(qubes.PropertyHolder):
     def __str__(self):
         return type(self).__name__
 
-    def save(self, lock=True):
+    def save(self, lock=True, log_level=logging.DEBUG):
         """Save all data to qubes.xml
 
         There are several problems with saving :file:`qubes.xml` which must be
@@ -1214,7 +1214,11 @@ class Qubes(qubes.PropertyHolder):
             self._acquire_lock(for_save=True)
 
         with qubes.utils.replace_file(
-            self._store, permissions=0o660, close_on_success=False
+            self._store,
+            permissions=0o660,
+            close_on_success=False,
+            logger=self.log,
+            log_level=log_level,
         ) as fh_new:
             lxml.etree.ElementTree(self.__xml__()).write(
                 fh_new, encoding="utf-8", pretty_print=True
