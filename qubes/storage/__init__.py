@@ -1134,7 +1134,7 @@ def driver_parameters(name):
         qubes.storage.STORAGE_ENTRY_POINT, name
     ).__init__
     signature = inspect.signature(init_function)
-    params = signature.parameters.keys()
+    params = signature.parameters
     ignored_params = ["self", "name", "kwargs"]
     return {
         p.name: p.default is inspect.Parameter.empty

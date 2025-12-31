@@ -21,7 +21,7 @@ import unittest.mock
 import qubes.log
 import qubes.storage
 from qubes.exc import QubesException
-from qubes.storage import pool_drivers
+from qubes.storage import pool_drivers, driver_parameters
 from qubes.storage.file import FilePool
 from qubes.storage.reflink import ReflinkPool
 from qubes.tests import SystemTestCase, QubesTestCase
@@ -210,3 +210,13 @@ class TC_00_Pool(QubesTestCase):
         )
 
         self.loop.run_until_complete(self.app.remove_pool(pool_name))
+
+    def test_008_driver_parameters(self):
+        params = driver_parameters("lvm_thin")
+        expected_params = {
+            "volume_group": True,
+            "thin_pool": True,
+            "revisions_to_keep": False,
+            "ephemeral_volatile": False,
+        }
+        self.assertEqual(params, expected_params)
