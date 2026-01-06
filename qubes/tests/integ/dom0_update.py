@@ -283,20 +283,7 @@ HiddenServiceVersion 3
         )
         self.repo_running = True
 
-    def test_000_update(self):
-        """Dom0 update tests
-
-        Check if package update is:
-         - detected
-         - installed
-         - "updates pending" flag is cleared
-        """
-        filename = self.create_pkg(self.tmpdir, self.pkg_name, "1.0")
-        subprocess.check_call(["rpm", "-i", filename])
-        filename = self.create_pkg(self.tmpdir, self.pkg_name, "2.0")
-        self.send_pkg(filename)
-        self.app.domains[0].features["updates-available"] = True
-
+    def update_func_direct(self):
         logpath = os.path.join(self.tmpdir, "dom0-update-output.txt")
         with open(logpath, "w") as f_log:
             proc = self.loop.run_until_complete(
@@ -314,6 +301,44 @@ HiddenServiceVersion 3
             with open(logpath) as f_log:
                 self.fail("qubes-dom0-update failed: " + f_log.read())
         del proc
+
+    def update_func_salt(self):
+        logpath = os.path.join(self.tmpdir, "dom0-update-output.txt")
+        with open(logpath, "w") as f_log:
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    "qubesctl",
+                    "state.single",
+                    "pkg.uptodate",
+                    "update",
+                    "refresh=true",
+                    "fromrepo=test",
+                    stdout=f_log,
+                    stderr=subprocess.STDOUT,
+                )
+            )
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("salt pkg.uptodate failed: " + f_log.read())
+        del proc
+
+    def _test_000_update(self, do_update_func):
+        """Dom0 update tests
+
+        Check if package update is:
+         - detected
+         - installed
+         - "updates pending" flag is cleared
+        """
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, "1.0")
+        subprocess.check_call(["rpm", "-i", filename])
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, "2.0")
+        self.send_pkg(filename)
+        self.app.domains[0].features["updates-available"] = True
+
+        do_update_func()
 
         retcode = subprocess.call(
             ["rpm", "-q", "{}-1.0".format(self.pkg_name)],
@@ -339,6 +364,12 @@ HiddenServiceVersion 3
             self.app.domains[0].features.get("updates-available", False),
             "'updates pending' flag not cleared",
         )
+
+    def test_000_update(self):
+        self._test_000_update(self.update_func_direct)
+
+    def test_000_update_salt(self):
+        self._test_000_update(self.update_func_salt)
 
     def test_001_update_check(self):
         """Check if dom0 updates check works"""
