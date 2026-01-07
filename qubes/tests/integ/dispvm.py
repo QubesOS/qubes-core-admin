@@ -832,8 +832,29 @@ class TC_20_DispVMMixin:
         self.log_preload()
         logger.info("end")
 
+    def test_020_preload_discard_outdated(self):
+        """Discard preload if properties differ from the disposable template."""
+        self.loop.run_until_complete(self._test_020_preload_discard_outdated())
+
+    async def _test_020_preload_discard_outdated(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.disp_base.netvm = None
+        try:
+            dispvm = await asyncio.wait_for(
+                qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
+            )
+            self.assertNotIn(dispvm.name, preload_dispvm)
+        finally:
+            await dispvm.cleanup()
+        logger.info("end")
+
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")
-    def test_020_gui_app(self):
+    def test_080_gui_app(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
         )
@@ -1057,7 +1078,7 @@ class TC_20_DispVMMixin:
         return (True, "")
 
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")
-    def test_030_edit_file(self):
+    def test_090_edit_file(self):
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("vm1"),
