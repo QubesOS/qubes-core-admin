@@ -31,6 +31,35 @@ import qubes.config
 import qubes.vm.appvm
 import qubes.vm.qubesvm
 
+PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
+    "autostart",
+    "backup_timestamp",
+    "default_dispvm",
+    "dispid",
+    "gateway",
+    "gateway6",
+    "icon",
+    "include_in_backups",
+    "installed_by_rpm",
+    "ip",
+    "ip6",
+    "klass",
+    "name",
+    "qid",
+    "start_time",
+    "stubdom_uuid",
+    "stubdom_xid",
+    "template",
+    "template_for_dispvms",
+    "updateable",
+    "uuid",
+    "visible_gateway",
+    "visible_gateway6",
+    "visible_ip",
+    "visible_ip6",
+    "xid",
+]
+
 
 def _setter_template(self, prop, value):
     if not getattr(value, "template_for_dispvms", False):
@@ -416,6 +445,43 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if self.name in preload_dispvm or self.preload_requested:
             return True
         return False
+
+    def is_preload_outdated(self) -> dict:
+        """
+        Show properties that differ on disposable compared to its template.
+
+        :rtype: dict
+        """
+        differed: dict[str, list] = {}
+        if not self.is_preload:
+            return differed
+
+        appvm = self.template
+        if (
+            self.volume_config["private"]["size"]
+            != appvm.volume_config["private"]["size"]
+        ):
+            differed["volumes"] = ["private"]
+            return differed
+
+        if any(vol for vol in self.volumes.values() if vol.is_outdated()):
+            # Volume name is irrelevant. We use any() to return fast.
+            differed["volumes"] = ["root"]
+            return differed
+
+        appvm_props = appvm.property_dict()
+        props = self.property_dict()
+        differed_props = [
+            k
+            for k in props.keys() & appvm_props.keys()
+            if k not in PRELOAD_OUTDATED_IGNORED_PROPERTIES
+            and getattr(self, k, None) != getattr(appvm, k, None)
+        ]
+        if not differed_props:
+            return differed
+        # Not using any() cause it is nice to know the property for debugging.
+        differed["properties"] = differed_props
+        return differed
 
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event) -> None:

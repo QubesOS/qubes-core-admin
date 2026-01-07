@@ -116,12 +116,11 @@ class TemplateVM(QubesVM):
         """
         appvms = [
             qube
-            for qube in self.app.domains
-            if getattr(qube, "template", None) == self
-            and getattr(qube, "template_for_dispvms", False)
+            for qube in self.appvms
+            if getattr(qube, "template_for_dispvms", False)
         ]
         for qube in appvms:
-            await qube.refresh_preload()
+            qube.refresh_outdated_preload()
 
     @qubes.events.handler("domain-feature-set:boot-mode.appvm-default")
     def on_feature_bootmode_appvm_set(

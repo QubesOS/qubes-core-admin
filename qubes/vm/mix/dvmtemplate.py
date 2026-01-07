@@ -148,7 +148,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         Refresh preloaded disposables on shutdown.
         """
-        await self.refresh_preload()
+        self.refresh_outdated_preload()
+
+    @qubes.events.handler("property-reset:*", "property-set:*")
+    def on_dvmtemplate_property_changed(self, _event, name, **_kwargs) -> None:
+        """
+        Refresh preloaded disposables if property affects the disposable.
+        """
+        if name not in qubes.vm.dispvm.PRELOAD_OUTDATED_IGNORED_PROPERTIES:
+            self.refresh_outdated_preload(delay=30)
 
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-delay")
     def on_feature_pre_set_preload_dispvm_delay(
@@ -641,21 +649,32 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return True
         return False
 
-    async def refresh_preload(self) -> None:
+    def refresh_outdated_preload(
+        self, skip_check: bool = False, delay: Union[int, float] = 4
+    ) -> None:
         """
-        Refresh disposables which have outdated volumes.
+        Refresh disposables which have outdated volumes or properties.
+
+        :param bool skip_check: Skip check of outdated preloads, refresh all.
         """
         assert isinstance(self, qubes.vm.BaseVM)
-        outdated = []
-        for qube in self.dispvms:
-            if not qube.is_preload or not any(
-                vol.is_outdated() for vol in qube.volumes.values()
-            ):
+        outdated: list | Iterator = []
+        dispvms: list | Iterator = []
+        if skip_check:
+            outdated = self.dispvms
+        else:
+            dispvms = self.dispvms
+        for qube in dispvms:
+            if not qube.is_preload:
                 continue
-            outdated.append(qube)
+            if qube.is_preload_outdated():
+                assert isinstance(outdated, list)
+                outdated.append(qube)
+
         if outdated:
             self.remove_preload_from_list(
-                [qube.name for qube in outdated], reason="of outdated volume(s)"
+                [qube.name for qube in outdated],
+                reason="of outdated volume(s) or property(ies)",
             )
             tasks = [self.app.domains[qube].cleanup() for qube in outdated]
             asyncio.ensure_future(asyncio.gather(*tasks))
@@ -664,7 +683,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 self.fire_event_async(
                     "domain-preload-dispvm-start",
                     reason="of outdated volume(s)",
-                    delay=4,
+                    delay=delay,
                 )
             )
 
@@ -682,16 +701,20 @@ class DVMTemplateMixin(qubes.events.Emitter):
         dispvm = None
         for item in preload_dispvm:
             qube = self.app.domains[item]
-            if any(vol.is_outdated() for vol in qube.volumes.values()):
+            if outdated_reason := qube.is_preload_outdated():
+                if "properties" in outdated_reason:
+                    discard_reason = "property(ies): " + ", ".join(
+                        map(str, outdated_reason["properties"])
+                    )
+                else:
+                    discard_reason = "volume(s)"
                 qube.log.warning(
-                    "Requested preloaded qube but it is outdated, trying "
-                    "another one if available"
+                    "Discarding preloaded disposable as it has has outdated %s",
+                    discard_reason,
                 )
-                # The gap is filled after the delay set by the
-                # 'domain-shutdown' of its ancestors. Not refilling now to
-                # deliver a disposable faster.
+                # Not refilling now to deliver a disposable faster.
                 self.remove_preload_from_list(
-                    [qube.name], reason="of outdated volume(s)"
+                    [qube.name], reason="of outdated " + discard_reason
                 )
                 # Delay to not  affect this run.
                 asyncio.ensure_future(
@@ -706,6 +729,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 "Found only outdated preloaded qube(s), falling back to "
                 "normal disposable"
             )
+            self.fill_preload_gap()
             return None
         dispvm.mark_preload_requested()
         return dispvm

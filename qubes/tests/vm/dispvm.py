@@ -181,6 +181,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_symlink,
         mock_start,
     ):
+        # pylint: disable=unused-argument
         mock_storage.return_value.create.side_effect = self.mock_coro
         mock_start.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
@@ -222,8 +223,10 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             mock_qube.features = dispvm.features
             mock_qube.unpause = self.mock_coro
             mock_qube.request_preload.return_value = dispvm
+            mock_qube.is_preload_outdated = dispvm.is_preload_outdated
             mock_qube.get_preload = mock.AsyncMock()
             mock_qube.volumes = {}
+            dispvm.volume_config = self.appvm.volume_config
             fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
@@ -656,3 +659,65 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.loop.run_until_complete(dispvm.create_on_disk())
         self.assertIs(dispvm.template, self.appvm)
         self.assertTrue(dispvm.volumes["volatile"].ephemeral)
+
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_024_is_preload_outdated(
+        self,
+        mock_storage,
+        mock_makedirs,
+        mock_symlink,
+        mock_start,
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_makedirs.return_value = self.mock_coro
+        mock_symlink.return_value = self.mock_coro
+        mock_start.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+
+        self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["preload-dispvm-max"] = "1"
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_qube = mock.Mock()
+            mock_qube.template = self.appvm
+            mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
+            mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
+            mock_qube.preload_complete.is_set.return_value = True
+            mock_qube.preload_complete.set = self.mock_coro
+            mock_qube.preload_complete.clear = self.mock_coro
+            mock_qube.preload_complete.wait = self.mock_coro
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__contains__.return_value": True,
+                    "__getitem__.side_effect": lambda key: (
+                        mock_qube if key == "disp42" else orig_getitem(key)
+                    ),
+                }
+            )
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            )
+            dispvm.volume_config = self.appvm.volume_config
+
+        self.assertFalse(dispvm.is_preload_outdated())
+        self.appvm.debug = not self.appvm.debug
+        self.assertEqual(
+            dispvm.is_preload_outdated(), {"properties": ["debug"]}
+        )
+        self.appvm.debug = not self.appvm.debug
+
+        self.assertFalse(dispvm.is_preload_outdated())
+        self.appvm_alt.provides_network = True
+        self.assertFalse(dispvm.is_preload_outdated())
+        self.appvm.netvm = self.appvm_alt
+        self.assertIn("properties", dispvm.is_preload_outdated().keys())
+        self.assertEqual(
+            sorted(dispvm.is_preload_outdated()["properties"]),
+            sorted(["netvm", "dns", "visible_netmask"]),
+        )
