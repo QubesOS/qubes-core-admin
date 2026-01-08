@@ -417,6 +417,52 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return True
         return False
 
+    def is_preload_outdated(self) -> dict:
+        """
+        Show properties that differ on disposable compared to its template.
+
+        :rtype: dict
+        """
+        if not self.is_preload:
+            return {}
+        appvm = self.template
+        appvm_props = appvm.property_dict()
+        props = self.property_dict()
+        exclude_props = [
+            "backup_timestamp",
+            "default_dispvm",
+            "dispid",
+            "gateway",
+            "gateway6",
+            "icon",
+            "include_in_backups",
+            "installed_by_rpm",
+            "ip",
+            "ip6",
+            "klass",
+            "name",
+            "qid",
+            "start_time",
+            "stubdom_uuid",
+            "stubdom_xid",
+            "template",
+            "template_for_dispvms",
+            "updateable",
+            "uuid",
+            "visible_gateway",
+            "visible_gateway6",
+            "visible_ip",
+            "visible_ip6",
+            "xid",
+        ]
+        differed_props = {
+            k: v
+            for k, v in props.items() & appvm_props.items()
+            if k not in exclude_props
+            and getattr(self, k, None) != getattr(appvm, k, None)
+        }
+        return differed_props
+
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event) -> None:
         """
