@@ -285,6 +285,19 @@ class NetVMMixin(qubes.events.Emitter):
 
         return None
 
+    @qubes.stateless_property
+    def dns6(self):
+        '''IPv6 DNS servers set up for this domain.'''
+        if self.features.check_with_netvm('ipv6', False) and \
+           self.features.check_with_template("supported-feature.ipv6dns", \
+           False) and (self.netvm is not None or self.provides_network):
+            return StrSerializableTuple((
+                'fd09:24ef:4179::a8b:1',
+                'fd09:24ef:4179::a8b:2',
+            ))
+
+        return None
+
     def __init__(self, *args, **kwargs):
         self._firewall = None
         super().__init__(*args, **kwargs)
@@ -667,7 +680,7 @@ class NetVMMixin(qubes.events.Emitter):
                 "property-reset:visible_gateway", name="visible_gateway"
             )
 
-    @qubes.events.handler("property-set:ip6", "property-reset:ipv6")
+    @qubes.events.handler("property-set:ip6", "property-reset:ip6")
     def on_property_set_ip6(self, _event, name, newvalue=None, oldvalue=None):
         # pylint: disable=unused-argument
         if newvalue == oldvalue:
