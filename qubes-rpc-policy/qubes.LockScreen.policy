@@ -1,0 +1,11 @@
+## Note that policy parsing stops at the first match,
+## so adding anything below "$anyvm $anyvm action" line will have no effect
+
+## Please use a single # to start your custom comments
+
+# WARNING: The qubes.ConnectTCP service is dangerous and allows any
+# qube to access any other qube TCP port. It should be restricted
+# only to restricted qubes. This is why the default policy is 'deny'
+
+# Example of policy: mytcp-client @default allow,target=mytcp-server
+sys-usb dom0 allow
