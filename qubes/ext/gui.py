@@ -35,18 +35,6 @@ class GUI(qubes.ext.Extension):
             if getattr(domain, "guivm", None) and domain.guivm == vm:
                 yield domain
 
-    @qubes.ext.handler("domain-pre-shutdown")
-    def on_domain_pre_shutdown(self, vm, event, **kwargs):
-        attached_vms = [
-            domain for domain in self.attached_vms(vm) if domain.is_running()
-        ]
-        if attached_vms and not kwargs.get("force", False):
-            raise qubes.exc.QubesVMError(
-                self,
-                "There are running VMs using this VM as GuiVM: "
-                "{}".format(", ".join(vm.name for vm in attached_vms)),
-            )
-
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service(
@@ -57,12 +45,6 @@ class GUI(qubes.ext.Extension):
                 else "FULLSCREEN"
             ),
         )
-
-    @qubes.ext.handler("domain-init", "domain-load")
-    def on_domain_init_load(self, vm, event):
-        if getattr(vm, "guivm", None):
-            if "guivm-" + vm.guivm.name not in vm.tags:
-                self.on_property_set(vm, event, name="guivm", newvalue=vm.guivm)
 
     @qubes.ext.handler("property-reset:guivm")
     def on_property_reset(self, subject, event, name, oldvalue=None):
@@ -81,6 +63,51 @@ class GUI(qubes.ext.Extension):
         if newvalue:
             guivm = "guivm-" + newvalue.name
             subject.tags.add(guivm)
+
+    @qubes.ext.handler("property-set:default_guivm", system=True)
+    def on_property_set_default_guivm(
+        self, app, event, name, newvalue, oldvalue=None
+    ):
+        for vm in app.domains:
+            if hasattr(vm, "guivm") and vm.property_is_default("guivm"):
+                vm.fire_event(
+                    "property-set:guivm",
+                    name="guivm",
+                    newvalue=newvalue,
+                    oldvalue=oldvalue,
+                )
+
+    @qubes.ext.handler("property-reset:keyboard_layout")
+    def on_keyboard_reset(self, vm, event, name, oldvalue=None):
+        if not vm.is_running():
+            return
+        kbd_layout = vm.keyboard_layout
+
+        vm.untrusted_qdb.write("/keyboard-layout", kbd_layout)
+
+    @qubes.ext.handler("property-set:keyboard_layout")
+    def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
+        if newvalue == oldvalue:
+            return
+
+        if vm.is_running():
+            vm.untrusted_qdb.write("/keyboard-layout", newvalue)
+
+        for domain in vm.app.domains:
+            if getattr(
+                domain, "guivm", None
+            ) == vm and domain.property_is_default("keyboard_layout"):
+                domain.fire_event(
+                    "property-reset:keyboard_layout",
+                    name="keyboard_layout",
+                    oldvalue=oldvalue,
+                )
+
+    @qubes.ext.handler("domain-init", "domain-load")
+    def on_domain_init_load(self, vm, event):
+        if getattr(vm, "guivm", None):
+            if "guivm-" + vm.guivm.name not in vm.tags:
+                self.on_property_set(vm, event, name="guivm", newvalue=vm.guivm)
 
     @qubes.ext.handler("domain-qdb-create")
     def on_domain_qdb_create(self, vm, event):
@@ -118,18 +145,16 @@ class GUI(qubes.ext.Extension):
                 "/guivm-windows-prefix", guivm_windows_prefix
             )
 
-    @qubes.ext.handler("property-set:default_guivm", system=True)
-    def on_property_set_default_guivm(
-        self, app, event, name, newvalue, oldvalue=None
-    ):
-        for vm in app.domains:
-            if hasattr(vm, "guivm") and vm.property_is_default("guivm"):
-                vm.fire_event(
-                    "property-set:guivm",
-                    name="guivm",
-                    newvalue=newvalue,
-                    oldvalue=oldvalue,
-                )
+    @qubes.ext.handler("domain-tag-add:created-by-*")
+    def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
+        """Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
+        features
+        """
+        # pylint: disable=unused-argument
+        created_by = vm.app.domains[tag.partition("created-by-")[2]]
+        if created_by.features.get("set-created-guivm", None):
+            guivm = vm.app.domains[created_by.features["set-created-guivm"]]
+            vm.guivm = guivm
 
     @qubes.ext.handler("domain-start")
     async def on_domain_start(self, vm, event, **kwargs):
@@ -149,39 +174,14 @@ class GUI(qubes.ext.Extension):
                 "/usr/bin/qubes-input-trigger", "--all", "--dom0"
             )
 
-    @qubes.ext.handler("property-reset:keyboard_layout")
-    def on_keyboard_reset(self, vm, event, name, oldvalue=None):
-        if not vm.is_running():
-            return
-        kbd_layout = vm.keyboard_layout
-
-        vm.untrusted_qdb.write("/keyboard-layout", kbd_layout)
-
-    @qubes.ext.handler("property-set:keyboard_layout")
-    def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
-        if newvalue == oldvalue:
-            return
-
-        if vm.is_running():
-            vm.untrusted_qdb.write("/keyboard-layout", newvalue)
-
-        for domain in vm.app.domains:
-            if getattr(
-                domain, "guivm", None
-            ) == vm and domain.property_is_default("keyboard_layout"):
-                domain.fire_event(
-                    "property-reset:keyboard_layout",
-                    name="keyboard_layout",
-                    oldvalue=oldvalue,
-                )
-
-    @qubes.ext.handler("domain-tag-add:created-by-*")
-    def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
-        """Set GuiVM based on 'tag-created-vm-with' and 'set-created-guivm'
-        features
-        """
-        # pylint: disable=unused-argument
-        created_by = vm.app.domains[tag.partition("created-by-")[2]]
-        if created_by.features.get("set-created-guivm", None):
-            guivm = vm.app.domains[created_by.features["set-created-guivm"]]
-            vm.guivm = guivm
+    @qubes.ext.handler("domain-pre-shutdown")
+    def on_domain_pre_shutdown(self, vm, event, **kwargs):
+        attached_vms = [
+            domain for domain in self.attached_vms(vm) if domain.is_running()
+        ]
+        if attached_vms and not kwargs.get("force", False):
+            raise qubes.exc.QubesVMError(
+                self,
+                "There are running VMs using this VM as GuiVM: "
+                "{}".format(", ".join(vm.name for vm in attached_vms)),
+            )
