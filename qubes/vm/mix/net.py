@@ -454,7 +454,7 @@ class NetVMMixin(qubes.events.Emitter):
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
-        deferred_from = self.features.get("deferred-netvm", None)
+        deferred_from = self.features.get("deferred-netvm-original", None)
         if self.netvm is None:
             if deferred_from is not None:
                 raise qubes.exc.QubesVMError(
