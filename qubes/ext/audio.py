@@ -95,6 +95,8 @@ class AUDIO(qubes.ext.Extension):
 
     @staticmethod
     async def set_stubdom_audiovm_domid(qube, audiovm):
+        if not qube.is_running():
+            return
         if audiovm:
             audiovm_xid = audiovm.xid
         else:
