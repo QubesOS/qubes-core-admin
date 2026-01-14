@@ -457,9 +457,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return differed
 
         appvm = self.template
-        if (
-            self.volume_config["private"]["size"]
-            != appvm.volume_config["private"]["size"]
+        if int(self.volume_config["private"]["size"]) != int(
+            appvm.volume_config["private"]["size"]
         ):
             differed["volumes"] = ["private"]
             return differed
