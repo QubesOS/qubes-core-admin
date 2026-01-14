@@ -510,3 +510,43 @@ def is_pci_path(device_id: str):
         r"(-[0-9a-f]{2}_[0-9a-f]{2}\.[0-9a-f])*\Z"
     )
     return bool(path_re.match(device_id))
+
+
+def validate_label(untrusted_label) -> None:
+    # don't confuse label name with label index
+    if str(untrusted_label).isdigit():
+        raise qubes.exc.QubesInvalidLabelError("Label must not be a digit")
+
+    allowed_chars = string.ascii_letters + string.digits + "-_."
+    if not all(c in allowed_chars for c in untrusted_label):
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label must be in safe set: " + allowed_chars
+        )
+
+
+def validate_label_value(untrusted_label_value) -> None:
+    try:
+        untrusted_value = untrusted_label_value.decode(
+            "ascii", "strict"
+        ).strip()
+    except UnicodeDecodeError:
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label value must be encoded in ASCII"
+        )
+
+    if len(untrusted_value) != 8:
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label value must have length of 8"
+        )
+
+    if not untrusted_value.startswith("0x"):
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label value must start with: 0x"
+        )
+
+    # besides prefix, only hex digits are allowed
+    if not all(x in string.hexdigits for x in untrusted_value[2:]):
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label value must only contain hexadecimal digits after prefix: "
+            + string.hexdigits
+        )
