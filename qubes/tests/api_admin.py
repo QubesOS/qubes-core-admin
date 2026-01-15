@@ -4252,6 +4252,10 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertEqual(actual, "")
         self.assertFalse(self.app.save.called)
 
+        self.vm.devices_denied = None
+        self.assertEqual(self.vm.devices_denied, "")
+        self.assertFalse(self.app.save.called)
+
     def test_661_vm_device_denied_list(self):
         self.vm.devices_denied = "b******p012345pff**2*"
         actual = self.call_mgmt_func(
