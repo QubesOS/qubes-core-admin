@@ -86,23 +86,26 @@ class DVMTemplateMixin(qubes.events.Emitter):
         # qube instead of "is_preload()" because it might not be in the
         # "preload-dispvm" list anymore if the following happened: "removed
         # from list -> scheduled cleanup -> stopped qubesd".
-        preload_in_progress = [
-            qube
-            for qube in self.dispvms
-            if (
-                not qube.is_running()
-                and qube.features.get("preload-dispvm-completed", False)
-            )
-            or qube.features.get("preload-dispvm-in-progress", False)
-        ]
-        if preload_in_progress:
-            changes = True
-            self.remove_preload_from_list(
-                [qube.name for qube in preload_in_progress],
-                reason="their progress was interrupted",
-            )
-            for dispvm in preload_in_progress:
-                asyncio.ensure_future(dispvm.cleanup(force=True))
+        if not self.app.vmm.offline_mode:
+            # Can't check if qube is running if in offline_mode, set by
+            # qubes.backup. Better to not attempt to manipulate qube.
+            preload_in_progress = [
+                qube
+                for qube in self.dispvms
+                if (
+                    not qube.is_running()
+                    and qube.features.get("preload-dispvm-completed", False)
+                )
+                or qube.features.get("preload-dispvm-in-progress", False)
+            ]
+            if preload_in_progress:
+                changes = True
+                self.remove_preload_from_list(
+                    [qube.name for qube in preload_in_progress],
+                    reason="their progress was interrupted",
+                )
+                for dispvm in preload_in_progress:
+                    asyncio.ensure_future(dispvm.cleanup(force=True))
 
         if changes:
             self.app.save()
