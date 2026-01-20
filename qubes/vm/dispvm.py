@@ -457,17 +457,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return differed
 
         appvm = self.template
-        if (
-            self.volume_config["private"]["size"]
-            != appvm.volume_config["private"]["size"]
-        ):
-            differed["volumes"] = ["private"]
+        if self.volumes["private"].size != appvm.volumes["private"].size:
+            differed["volumes_size"] = ["private"]
             return differed
 
-        if any(vol for vol in self.volumes.values() if vol.is_outdated()):
-            # Volume name is irrelevant. We use any() to return fast.
-            differed["volumes"] = ["root"]
-            return differed
+        for vol_name, vol in self.volumes.items():
+            if vol.is_outdated():
+                # Not needed to return all volumes
+                differed["volumes_outdated"] = [vol_name]
+                return differed
 
         appvm_props = appvm.property_dict()
         props = self.property_dict()
