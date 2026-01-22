@@ -435,9 +435,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
             if self.transport is None:
                 return
 
-        except (PermissionDenied, ProtocolError) as untrusted_exc:
-            exc_name = untrusted_exc.__class__.__name__
-            del untrusted_exc
+        except (PermissionDenied, ProtocolError) as exc:
             self.app.log.warning(
                 exc_fmt,
                 meth,
@@ -445,8 +443,11 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 src,
                 dest,
                 len(untrusted_payload),
-                exc_name,
+                exc,
             )
+            if self.transport is not None:
+                self.send_exception(exc)
+                self.transport.write_eof()
 
         except qubes.exc.QubesException as exc:
             if self.debug:
