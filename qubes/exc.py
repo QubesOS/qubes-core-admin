@@ -36,11 +36,8 @@ class ProtocolError(AssertionError):
     way that a correctly behaving client can get ProtocolError is qubesd is
     either buggy or too old. In HTTP, this would be 400 Bad Request.
 
-    This does not provide any useful information to the client making the
-    request. Therefore, it should only be raised if there is a client
-    *programming* error, such as passing an argument to a request that does not
-    take an argument. It should not be used to reject requests that are valid,
-    but which qubesd is refusing to process. Instead, raise a subclass of
+    It should not be used to reject requests that are valid, but which qubesd
+    is refusing to process. Instead, raise a subclass of
     :py:class:`QubesException` with a useful error message.
     """
 
@@ -49,15 +46,9 @@ class PermissionDenied(PermissionError):
     """Raised deliberately by handlers to inform the request is prohibited.
 
     The request is valid, but the client does not have permission to perform
-    the operation. Clients in dom0 should usually not get this error. In HTTP,
-    this would be 403 Forbidden.
-
-    This does not provide any useful information to the client making the
-    request. Therefore, it should only be raised if there is a client
-    *programming* error, such as passing an argument to a request that does not
-    take an argument. It should not be used to reject requests that are valid,
-    but which qubesd is refusing to process. Instead, raise a subclass of
-    :py:class:`QubesException` with a useful error message.
+    the operation. Clients in dom0 should usually not get this error. It must
+    only be raised by "admin-permission" events. In HTTP, this would be 403
+    Forbidden.
     """
 
 
