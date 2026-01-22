@@ -294,6 +294,8 @@ class NetVMMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         # make sure there are no netvm loops - which could cause qubesd
         # looping infinitely
+        if not self.netvm:
+            return
         if self is self.netvm:
             self.log.error(
                 "vm '%s' network-connected to itself, breaking the "
@@ -337,6 +339,9 @@ class NetVMMixin(qubes.events.Emitter):
 
         if self.netvm:
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
+
+        if not self.provides_network:
+            return
 
         for vm in self.connected_vms:
             if not vm.is_running() or vm.is_paused():
@@ -409,6 +414,8 @@ class NetVMMixin(qubes.events.Emitter):
         If `force` is `True` tries to detach network interfaces of connected
         vms
         """  # pylint: disable=unused-argument
+        if not self.provides_network:
+            return
 
         connected_vms = [
             vm
@@ -741,6 +748,8 @@ class NetVMMixin(qubes.events.Emitter):
     def on_domain_qdb_create(self, event):
         """Fills the QubesDB with firewall entries."""
         # pylint: disable=unused-argument
+        if not self.provides_network:
+            return
 
         # Keep the following in sync with on_firewall_changed.
         self.reload_connected_ips()

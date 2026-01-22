@@ -802,17 +802,23 @@ class TC_20_DispVMMixin:
         self.log_preload()
         logger.info("end")
 
-    def test_019_preload_refresh(self):
-        """Refresh preload on volume change."""
-        self.loop.run_until_complete(self._test_019_preload_refresh())
+    def test_019_preload_discard_outdated_volumes(self):
+        """Discard preload if volumes are outdated compared to its templates."""
+        self.loop.run_until_complete(
+            self._test_019_preload_discard_outdated_volumes()
+        )
 
-    async def _test_019_preload_refresh(self):
+    async def _test_019_preload_discard_outdated_volumes(self):
         logger.info("start")
         self.log_preload()
         preload_max = 1
 
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         for qube in [self.disp_base, self.disp_base.template]:
+            logger.info(
+                "discard because of outdated volume originating from %s",
+                qube.name,
+            )
             await self.wait_preload(preload_max)
             old_preload = self.disp_base.get_feat_preload()
             await qube.start()
@@ -832,11 +838,37 @@ class TC_20_DispVMMixin:
         self.log_preload()
         logger.info("end")
 
-    def test_020_preload_discard_outdated(self):
-        """Discard preload if properties differ from the disposable template."""
-        self.loop.run_until_complete(self._test_020_preload_discard_outdated())
+    def test_020_preload_discard_outdated_volume_size(self):
+        """Discard preload if private size differs with disposable template."""
+        self.loop.run_until_complete(
+            self._test_020_preload_discard_outdated_volume_size()
+        )
 
-    async def _test_020_preload_discard_outdated(self):
+    async def _test_020_preload_discard_outdated_volume_size(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        old_size = self.disp_base.volume_config["private"]["size"]
+        size = int(old_size) + 512
+        await self.disp_base.storage.resize("private", size)
+        self.app.save()
+        dispvm = await asyncio.wait_for(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
+        )
+        self.assertNotIn(dispvm.name, preload_dispvm)
+        await dispvm.cleanup()
+        logger.info("end")
+
+    def test_021_preload_discard_outdated_setting(self):
+        """Discard preload if properties differ with the disposable template."""
+        self.loop.run_until_complete(
+            self._test_021_preload_discard_outdated_setting()
+        )
+
+    async def _test_021_preload_discard_outdated_setting(self):
         logger.info("start")
         self.log_preload()
         preload_max = 1
@@ -844,13 +876,12 @@ class TC_20_DispVMMixin:
         await self.wait_preload(preload_max)
         preload_dispvm = self.disp_base.get_feat_preload()
         self.disp_base.netvm = None
-        try:
-            dispvm = await asyncio.wait_for(
-                qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
-            )
-            self.assertNotIn(dispvm.name, preload_dispvm)
-        finally:
-            await dispvm.cleanup()
+        dispvm = await asyncio.wait_for(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
+        )
+        self.assertNotIn(dispvm.name, preload_dispvm)
+        await dispvm.cleanup()
+        await self.wait_preload(preload_max)
         logger.info("end")
 
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")

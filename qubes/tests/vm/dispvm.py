@@ -150,7 +150,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_symlink.assert_not_called()
 
     @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload_reject_max(self, mock_storage):
+    def test_001_from_appvm_preload_reject_max(self, mock_storage):
         mock_storage.return_value.create.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
@@ -174,7 +174,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload_use(
+    def test_002_from_appvm_preload_use(
         self,
         mock_storage,
         mock_makedirs,
@@ -223,10 +223,8 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             mock_qube.features = dispvm.features
             mock_qube.unpause = self.mock_coro
             mock_qube.request_preload.return_value = dispvm
-            mock_qube.is_preload_outdated = dispvm.is_preload_outdated
+            mock_qube.is_preload_outdated.return_value = {}
             mock_qube.get_preload = mock.AsyncMock()
-            mock_qube.volumes = {}
-            dispvm.volume_config = self.appvm.volume_config
             fresh_dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
@@ -244,7 +242,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     @mock.patch("qubes.storage.Storage")
-    def test_000_from_appvm_preload_fill_gap(
+    def test_003_from_appvm_preload_fill_gap(
         self,
         mock_storage,
         mock_makedirs,
@@ -295,7 +293,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         mock_symlink.assert_not_called()
         mock_makedirs.assert_called_once()
 
-    def test_000_get_preload_max(self):
+    def test_004_get_preload_max(self):
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), None)
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         self.appvm.features["preload-dispvm-max"] = 1
@@ -306,7 +304,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.adminvm.features["preload-dispvm-max"] = 2
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.adminvm), 2)
 
-    def test_000_get_preload_templates(self):
+    def test_005_get_preload_templates(self):
         get_preload_templates = qubes.vm.dispvm.get_preload_templates
         self.assertEqual(get_preload_templates(self.app), [])
         self.appvm.template_for_dispvms = True
@@ -338,14 +336,14 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             get_preload_templates(self.app), [self.appvm, self.appvm_alt]
         )
 
-    def test_001_from_appvm_reject_not_allowed(self):
+    def test_006_from_appvm_reject_not_allowed(self):
         with self.assertRaises(qubes.exc.QubesException):
             self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
 
     @unittest.skip("test is broken")
-    def test_002_template_change(self):
+    def test_007_template_change(self):
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
@@ -372,7 +370,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.loop.run_until_complete(dispvm.kill())
             dispvm.template = self.appvm
 
-    def test_003_dvmtemplate_template_change(self):
+    def test_008_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
         orig_domains = self.app.domains
         with mock.patch.object(
@@ -394,7 +392,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.appvm.template = qubes.property.DEFAULT
 
-    def test_004_dvmtemplate_allowed_change(self):
+    def test_009_dvmtemplate_allowed_change(self):
         self.appvm.template_for_dispvms = True
         orig_domains = self.app.domains
         with mock.patch.object(
@@ -660,23 +658,17 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertIs(dispvm.template, self.appvm)
         self.assertTrue(dispvm.volumes["volatile"].ephemeral)
 
-    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
-    @mock.patch("qubes.storage.Storage")
-    def test_024_is_preload_outdated(
-        self,
-        mock_storage,
-        mock_makedirs,
-        mock_symlink,
-        mock_start,
-    ):
-        mock_storage.return_value.create.side_effect = self.mock_coro
-        mock_makedirs.return_value = self.mock_coro
-        mock_symlink.return_value = self.mock_coro
-        mock_start.side_effect = self.mock_coro
+    def test_024_is_preload_outdated(self, _mock_makedirs, _mock_symlink):
+        self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
+            name="alternative"
+        )
         self.appvm.template_for_dispvms = True
-
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(
+            self.appvm.create_on_disk(pool="alternative")
+        )
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
         self.appvm.features["preload-dispvm-max"] = "1"
         orig_getitem = self.app.domains.__getitem__
@@ -685,12 +677,6 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         ) as mock_domains:
             mock_qube = mock.Mock()
             mock_qube.template = self.appvm
-            mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
-            mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
-            mock_qube.preload_complete.is_set.return_value = True
-            mock_qube.preload_complete.set = self.mock_coro
-            mock_qube.preload_complete.clear = self.mock_coro
-            mock_qube.preload_complete.wait = self.mock_coro
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
@@ -700,24 +686,35 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     ),
                 }
             )
-            dispvm = self.loop.run_until_complete(
-                qubes.vm.dispvm.DispVM.from_appvm(self.appvm, preload=True)
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM, name="disp42", template=self.appvm
             )
-            dispvm.volume_config = self.appvm.volume_config
+            self.appvm.features["preload-dispvm"] = "disp42"
 
-        self.assertFalse(dispvm.is_preload_outdated())
-        self.appvm.debug = not self.appvm.debug
-        self.assertEqual(
-            dispvm.is_preload_outdated(), {"properties": ["debug"]}
-        )
-        self.appvm.debug = not self.appvm.debug
+            self.loop.run_until_complete(dispvm.create_on_disk())
 
-        self.assertFalse(dispvm.is_preload_outdated())
-        self.appvm_alt.provides_network = True
-        self.assertFalse(dispvm.is_preload_outdated())
-        self.appvm.netvm = self.appvm_alt
-        self.assertIn("properties", dispvm.is_preload_outdated().keys())
-        self.assertEqual(
-            sorted(dispvm.is_preload_outdated()["properties"]),
-            sorted(["netvm", "dns", "visible_netmask"]),
-        )
+        with mock.patch.object(
+            dispvm.volumes["root"], "is_outdated", return_value=False
+        ), mock.patch.object(
+            dispvm.volumes["private"], "is_outdated", return_value=False
+        ), mock.patch.object(
+            dispvm.volumes["volatile"], "is_outdated", return_value=False
+        ), mock.patch.object(
+            dispvm.volumes["kernel"], "is_outdated", return_value=False
+        ):
+            self.assertFalse(dispvm.is_preload_outdated())
+            self.appvm.debug = not self.appvm.debug
+            self.assertEqual(
+                dispvm.is_preload_outdated(), {"properties": ["debug"]}
+            )
+            self.appvm.debug = not self.appvm.debug
+
+            self.assertFalse(dispvm.is_preload_outdated())
+            self.appvm_alt.provides_network = True
+            self.assertFalse(dispvm.is_preload_outdated())
+            self.appvm.netvm = self.appvm_alt
+            self.assertIn("properties", dispvm.is_preload_outdated().keys())
+            self.assertEqual(
+                sorted(dispvm.is_preload_outdated()["properties"]),
+                sorted(["netvm", "dns", "visible_netmask"]),
+            )

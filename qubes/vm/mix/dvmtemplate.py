@@ -62,6 +62,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         # pylint: disable=unused-argument
         assert isinstance(self, qubes.vm.BaseVM)
+        if not getattr(self, "template_for_dispvms"):
+            return
         changes = False
         # Began preloading, host rebooted, autostart script didn't run yet.
         old_preload = self.get_feat_preload()
@@ -131,6 +133,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-remove-from-disk")
     async def on_dvmtemplate_remove_from_disk(self, event, **kwargs):
         # pylint: disable=unused-argument
+        if not getattr(self, "template_for_dispvms"):
+            return
         preloads = [disp for disp in self.dispvms if disp.is_preload]
         if not preloads:
             return
@@ -148,6 +152,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         Refresh preloaded disposables on shutdown.
         """
+        if not getattr(self, "template_for_dispvms"):
+            return
         self.refresh_outdated_preload()
 
     @qubes.events.handler("property-reset:*", "property-set:*")
@@ -155,6 +161,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         Refresh preloaded disposables if property affects the disposable.
         """
+        if not getattr(self, "template_for_dispvms"):
+            return
         if name not in qubes.vm.dispvm.PRELOAD_OUTDATED_IGNORED_PROPERTIES:
             self.refresh_outdated_preload(delay=30)
 
@@ -407,6 +415,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 property.
         """
         # pylint: disable=unused-argument
+        if not getattr(self, "template_for_dispvms"):
+            return
         if newvalue == oldvalue:
             return
         dependencies = [
@@ -702,19 +712,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
         for item in preload_dispvm:
             qube = self.app.domains[item]
             if outdated_reason := qube.is_preload_outdated():
-                if "properties" in outdated_reason:
-                    discard_reason = "property(ies): " + ", ".join(
-                        map(str, outdated_reason["properties"])
-                    )
-                else:
-                    discard_reason = "volume(s)"
+                discard_reason = []
+                for k, v in outdated_reason.items():
+                    discard_reason.append(k + ": " + ", ".join(map(str, v)))
+                discard_reason_str = "; ".join(discard_reason)
                 qube.log.warning(
-                    "Discarding preloaded disposable as it has has outdated %s",
-                    discard_reason,
+                    "Discarding preloaded disposable as it has %s",
+                    discard_reason_str,
                 )
                 # Not refilling now to deliver a disposable faster.
                 self.remove_preload_from_list(
-                    [qube.name], reason="of outdated " + discard_reason
+                    [qube.name], reason="of outdated " + discard_reason_str
                 )
                 # Delay to not  affect this run.
                 asyncio.ensure_future(
