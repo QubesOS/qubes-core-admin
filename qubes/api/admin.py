@@ -847,11 +847,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         unexpected_parameters = [
             key for key in untrusted_pool_config if key not in driver_parameters
         ]
-        # TODO: ben: dangerous logging any ASCII value?
         if unexpected_parameters:
-            raise qubes.exc.ProtocolError(
-                "Unexpected driver options: " + " ".join(unexpected_parameters)
-            )
+            raise qubes.exc.ProtocolError("Unexpected driver options found")
         required_parameters_unmet = [
             key
             for key in dp_names
