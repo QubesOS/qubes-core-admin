@@ -391,6 +391,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         exc_fmt = (
             "failed call %r+%r (%r → %r) with payload of %d bytes due to %r"
         )
+        success = False
         try:
             self.mgmt = self.handler(
                 self.app, src, meth, dest, arg, self.send_event
@@ -453,13 +454,12 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 self.transport.write_eof()
             except NotImplementedError:
                 pass
-            self.transport.close()
-            return
-
-        # this is reached if from except: blocks; do not put it in finally:,
-        # because this will prevent the good case from sending the reply
-        if self.transport:
-            self.transport.abort()
+            success = True
+        finally:
+            if success:
+                self.transport.close()
+            elif self.transport:
+                self.transport.abort()
 
     def send_header(self, *args):
         self.transport.write(self.header.pack(*args))
