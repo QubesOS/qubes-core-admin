@@ -61,24 +61,26 @@ if [ "$suspend_mode" = "s0ix" ]; then
     # assign thunderbolt root ports to pciback as workaround for suspend
     # issue without PCI hotplut enabled, see
     # https://github.com/QubesOS/qubes-linux-kernel/pull/903 for details
-    for dev in /sys/bus/pci/devices/0000:00:*; do
-        [ -h "$dev" ] || continue
-        sbdf=$(basename "$dev")
-        read -r dev_class < "$dev/class"
-        # PCIe bridge
-        if [ "$dev_class" = "0x060400" ]; then
-            # There seems to be no property saying it's thunderbolt other than product id...
-            lspci -s "$sbdf" | grep -q Thunderbolt || continue
+    if [ ! -d /sys/module/pci_hotplug ]; then
+        for dev in /sys/bus/pci/devices/0000:00:*; do
+            [ -h "$dev" ] || continue
+            sbdf=$(basename "$dev")
+            read -r dev_class < "$dev/class"
+            # PCIe bridge
+            if [ "$dev_class" = "0x060400" ]; then
+                # There seems to be no property saying it's thunderbolt other than product id...
+                lspci -s "$sbdf" | grep -q Thunderbolt || continue
 
-            bind_to_pciback "$sbdf"
-            echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend
-            echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend_force
-        elif [ "$dev_class" = "0x0c0340" ]; then
-            # Thunderbolt 4 NIH device
-            bind_to_pciback "$sbdf"
-            echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend
-        fi
-    done
+                bind_to_pciback "$sbdf"
+                echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend
+                echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend_force
+            elif [ "$dev_class" = "0x0c0340" ]; then
+                # Thunderbolt 4 NHI device
+                bind_to_pciback "$sbdf"
+                echo "$sbdf" > /sys/bus/pci/drivers/pciback/qubes_exp_pm_suspend
+            fi
+        done
+    fi
     echo s2idle > /sys/power/mem_sleep
 elif [ "$suspend_mode" = "s3" ]; then
     echo deep > /sys/power/mem_sleep
