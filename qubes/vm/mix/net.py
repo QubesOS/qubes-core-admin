@@ -455,11 +455,10 @@ class NetVMMixin(qubes.events.Emitter):
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
         deferred_from = self.features.get("deferred-netvm-original", None)
-        if self.netvm is None:
-            if deferred_from is not None:
-                raise qubes.exc.QubesVMError(
-                    self, "netvm should not be {}".format(self.netvm)
-                )
+        if self.netvm is None and deferred_from is None:
+            raise qubes.exc.QubesVMError(
+                self, "netvm should not be {}".format(self.netvm)
+            )
 
         # Properties extracted from libvirt_domain to support deferred netvm.
         root = lxml.etree.fromstring(self.libvirt_domain.XMLDesc())
