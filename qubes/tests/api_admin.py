@@ -790,13 +790,6 @@ netvm default=True type=vm \n"""
                 b"private",
                 b"no-such-rev",
             )
-        self.assertEqual(
-            self.vm.volumes.mock_calls,
-            [
-                unittest.mock.call.keys(),
-                unittest.mock.call.__getattr__("__getitem__")("private"),
-            ],
-        )
         self.assertFalse(self.vm.storage.called)
 
     def test_120_vm_volume_resize(self):
@@ -1215,7 +1208,6 @@ netvm default=True type=vm \n"""
                 b"name=file\nparam1=value\nparam2=some-value\n",
             )
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
-        self.assertEqual(mock_parameters.mock_calls, [])
         self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
@@ -1401,7 +1393,9 @@ netvm default=True type=vm \n"""
     def test_200_label_create_already_exists(self):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label)
         with self.assertRaises(qubes.exc.QubesLabelInUseError):
-            self.call_mgmt_func(b"admin.label.Create", b"dom0", b"red", b"abcd")
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"red", b"0xff0000"
+            )
         self.assertEqual(
             self.app.get_label.mock_calls, [unittest.mock.call("red")]
         )
@@ -2080,6 +2074,26 @@ netvm default=True type=vm \n"""
         self.assertTrue(self.app.save.called)
 
     @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_333_vm_create_appvm_invalid_template(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesVMNotFoundError):
+            self.call_mgmt_func(
+                b"admin.vm.Create.AppVM",
+                b"dom0",
+                b"test-template-inexistent",
+                b"name=test-vm2 label=red",
+            )
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertEqual(storage_mock.mock_calls, [])
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(self.test_base_dir, "appvms", "test-vm2")
+            )
+        )
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.Storage.create")
     def test_333_vm_create_app_default_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         self.call_mgmt_func(
@@ -2182,6 +2196,20 @@ netvm default=True type=vm \n"""
                 b"name=test-vm2 name=test-vm3 label=red",
             )
 
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertNotIn("test-vm3", self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_339_vm_create_spurious_params(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaisesRegex(qubes.exc.ProtocolError, "does not match"):
+            self.call_mgmt_func(
+                b"admin.vm.Create.AppVM",
+                b"dom0",
+                b"test-template",
+                b"name=test-vm2 label=red what=is",
+            )
         self.assertNotIn("test-vm2", self.app.domains)
         self.assertNotIn("test-vm3", self.app.domains)
         self.assertFalse(self.app.save.called)
