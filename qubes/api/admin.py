@@ -454,15 +454,22 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         )
         untrusted_revision = untrusted_payload.decode("ascii").strip()
         del untrusted_payload
+        allowed_chars = string.ascii_letters + string.digits + "-_."
+        self.enforce(
+            all(c in allowed_chars for c in untrusted_revision),
+            reason="Revision name must be in safe set: " + allowed_chars,
+        )
+        revision = untrusted_revision
+        del untrusted_revision
 
         volume = self.dest.volumes[self.arg]
-        snapshots = volume.revisions
-        # TODO: ben: info-leak: revision existence
-        if untrusted_revision not in snapshots:
-            raise qubes.exc.QubesVolumeRevisionNotFoundError()
-        revision = untrusted_revision
 
         self.fire_event_for_permission(volume=volume, revision=revision)
+
+        snapshots = volume.revisions
+        if revision not in snapshots:
+            raise qubes.exc.QubesVolumeRevisionNotFoundError()
+
         await qubes.utils.coro_maybe(volume.revert(revision))
         self.app.save()
 
@@ -519,10 +526,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         del self.app.api_admin_pending_clone[token]
 
         # make sure the volume still exists, but invalidate token anyway
-        # TODO: ben: info-leak: pool existence
         if str(src_volume.pool) not in self.app.pools:
             raise qubes.exc.QubesPoolNotFoundError()
-        # TODO: ben: info-leak: volume existence
         if src_volume not in self.app.pools[str(src_volume.pool)].volumes:
             raise qubes.exc.QubesVolumeNotFoundError()
 
@@ -796,9 +801,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method("admin.pool.Add", scope="global", write=True)
     async def pool_add(self, untrusted_payload):
         self.enforce_dest_dom0(wants=True)
-        # TODO: ben: info-leak: pool existence
+        # TODO: ben: info-leak: driver existence: can be done on the policy
         self.enforce_arg(
-            wants=qubes.storage.pool_drivers(), short_reason="available pools"
+            wants=qubes.storage.pool_drivers(), short_reason="available drivers"
         )
 
         try:
@@ -838,9 +843,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             reason="Pool name must be in safe set: " + allowed_chars,
         )
         pool_name = untrusted_pool_name
-        # TODO: ben: info-leak: pool existence
+        invalid_pool = False
         if pool_name in self.app.pools:
-            raise qubes.exc.QubesPoolInUseError(pool_name=pool_name)
+            invalid_pool = True
 
         driver_parameters = qubes.storage.driver_parameters(self.arg)
         dp_names = driver_parameters.keys()
@@ -863,6 +868,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         pool_config = untrusted_pool_config
 
         self.fire_event_for_permission(name=pool_name, pool_config=pool_config)
+
+        if invalid_pool:
+            raise qubes.exc.QubesPoolInUseError(pool_name=pool_name)
 
         await self.app.add_pool(name=pool_name, driver=self.arg, **pool_config)
         self.app.save()
@@ -955,7 +963,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0(wants=True)
         qubes.utils.validate_label(untrusted_label=self.arg)
 
-        # TODO: ben: info-leak: label existence
+        # TODO: ben: info-leak: label existence: can be solved via the policy
         label = self.app.get_label(self.arg)
 
         self.fire_event_for_permission(label=label)
@@ -969,7 +977,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0(wants=True)
         qubes.utils.validate_label(untrusted_label=self.arg)
 
-        # TODO: ben: info-leak: label existence
+        # TODO: ben: info-leak: label existence: can be solved via the policy
         label = self.app.get_label(self.arg)
 
         self.fire_event_for_permission(label=label)
@@ -981,15 +989,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0(wants=True)
         qubes.utils.validate_label(untrusted_label=self.arg)
 
-        # TODO: ben: info-leak: label existence
-        try:
-            self.app.get_label(self.arg)
-        except KeyError:
-            # ok, no such label yet
-            pass
-        else:
-            raise qubes.exc.QubesLabelInUseError(label=self.arg)
-
         qubes.utils.validate_label_value(
             untrusted_label_value=untrusted_payload
         )
@@ -999,6 +998,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         del untrusted_payload
 
         self.fire_event_for_permission(color=color)
+
+        try:
+            self.app.get_label(self.arg)
+        except KeyError:
+            # ok, no such label yet
+            pass
+        else:
+            raise qubes.exc.QubesLabelInUseError(label=self.arg)
 
         # allocate new index, but make sure it's outside of default labels set
         new_index = (
@@ -1016,14 +1023,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce_dest_dom0(wants=True)
         qubes.utils.validate_label(untrusted_label=self.arg)
 
-        # TODO: ben: info-leak: label existence
+        # TODO: ben: info-leak: label existence: can be solved via the policy
         label = self.app.get_label(self.arg)
+
+        self.fire_event_for_permission(label=label)
+
         self.enforce(
             label.index > qubes.config.max_default_label,
             reason="Can only remove custom labels",
         )
-
-        self.fire_event_for_permission(label=label)
 
         # FIXME: this should be in app.add_label()
         for vm in self.app.domains:
@@ -1315,17 +1323,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         # if argument is given, it needs to be a valid template, and only
         # when given VM class do need a template
+        invalid_template = False
         if self.arg:
-            if hasattr(vm_class, "template"):
-                # TODO: ben: info-leak: template existence
-                if self.arg not in self.app.domains:
-                    raise qubes.exc.QubesVMNotFoundError(self.arg)
-                kwargs["template"] = self.app.domains[self.arg]
-            else:
+            if not hasattr(vm_class, "template"):
                 raise qubes.exc.ProtocolError(
                     "{} cannot be based on template".format(vm_type)
                 )
+            if self.arg in self.app.domains:
+                kwargs["template"] = self.app.domains[self.arg]
+            else:
+                invalid_template = True
 
+        invalid_label = False
         for untrusted_param in untrusted_payload.decode(
             "ascii", errors="strict"
         ).split(" "):
@@ -1349,9 +1358,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                     all(c in allowed_chars for c in untrusted_value),
                     reason="Label must be in safe set: " + allowed_chars,
                 )
-                # TODO: ben: info-leak: label existence
                 qubes.utils.validate_label(untrusted_label=untrusted_value)
-                kwargs["label"] = self.app.get_label(untrusted_value)
+                try:
+                    kwargs["label"] = self.app.get_label(untrusted_value)
+                except qubes.exc.QubesLabelNotFoundError:
+                    invalid_label = True
 
             elif untrusted_key == "pool" and allow_pool:
                 self.enforce(
@@ -1400,13 +1411,27 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             reason="Conflicting options specified: 'pool=', 'pool:volume='",
         )
 
-        # TODO: ben: info-leak: qube existence
+        invalid_name = False
         if kwargs["name"] in self.app.domains:
+            invalid_name = True
+
+        self.fire_event_for_permission(pool=pool, pools=pools, **kwargs)
+
+        # Avoids leaking qube existence before admin-permission.
+        if invalid_name:
             raise qubes.exc.ProtocolError(
                 "Qube already exists: {}".format(kwargs["name"])
             )
 
-        self.fire_event_for_permission(pool=pool, pools=pools, **kwargs)
+        # Avoids leaking template existence before admin-permission.
+        if invalid_template:
+            raise qubes.exc.QubesVMNotFoundError(self.arg)
+
+        # Avoids leaking label existence before admin-permission.
+        if invalid_label:
+            # If label is invalid, it came from payload and should not be
+            # logged.
+            raise qubes.exc.QubesLabelNotFoundError(label="untrusted label")
 
         vm = self.app.add_new_vm(vm_class, **kwargs)
         # TODO: move this to extension (in race-free fashion)

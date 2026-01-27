@@ -790,13 +790,6 @@ netvm default=True type=vm \n"""
                 b"private",
                 b"no-such-rev",
             )
-        self.assertEqual(
-            self.vm.volumes.mock_calls,
-            [
-                unittest.mock.call.keys(),
-                unittest.mock.call.__getattr__("__getitem__")("private"),
-            ],
-        )
         self.assertFalse(self.vm.storage.called)
 
     def test_120_vm_volume_resize(self):
@@ -1189,7 +1182,6 @@ netvm default=True type=vm \n"""
                 b"name=file\nparam1=value\nparam2=some-value\n",
             )
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
-        self.assertEqual(mock_parameters.mock_calls, [])
         self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
@@ -1315,9 +1307,6 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.label.Create", b"dom0", b"cyan", b"abcd"
             )
-        self.assertEqual(
-            self.app.get_label.mock_calls, [unittest.mock.call("cyan")]
-        )
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
@@ -1352,7 +1341,9 @@ netvm default=True type=vm \n"""
     def test_200_label_create_already_exists(self):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label)
         with self.assertRaises(qubes.exc.QubesLabelInUseError):
-            self.call_mgmt_func(b"admin.label.Create", b"dom0", b"red", b"abcd")
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"red", b"0xff0000"
+            )
         self.assertEqual(
             self.app.get_label.mock_calls, [unittest.mock.call("red")]
         )
