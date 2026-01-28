@@ -165,8 +165,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method("internal.GetSystemInfo", no_payload=True)
     async def getsysteminfo(self):
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
+        self.enforce_dest_dom0(wants=True)
+        self.enforce_arg(wants=None)
 
         system_info = SystemInfoCache.get_system_info(self.app)
 
@@ -188,7 +188,10 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         payload) and response from that call will be actually send to the
         caller.
         """
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self.enforce_arg(
+            wants=self.dest.volumes.keys(),
+            short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
+        )
 
         if untrusted_payload:
             original_method = "admin.vm.volume.ImportWithSize"
@@ -205,12 +208,14 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         requested_size = (
-            self.validate_size(untrusted_payload) if untrusted_payload else None
+            self.validate_size(untrusted_payload, name="size of new data")
+            if untrusted_payload
+            else None
         )
         del untrusted_payload
 
         path = await self.dest.storage.import_data(self.arg, requested_size)
-        self.enforce(" " not in path)
+        self.enforce(" " not in path, reason="Path contains whitespace")
         if requested_size is None:
             size = self.dest.volumes[self.arg].size
         else:
@@ -233,7 +238,10 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         The payload is either 'ok', or 'fail\n<error message>'.
         """
-        self.enforce(self.arg in self.dest.volumes.keys())
+        self.enforce_arg(
+            wants=self.dest.volumes.keys(),
+            short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
+        )
         success = untrusted_payload == b"ok"
 
         try:

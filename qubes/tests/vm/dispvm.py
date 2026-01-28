@@ -467,7 +467,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                     "__getitem__.side_effect": orig_getitem,
                 }
             )
-            with self.assertRaises(qubes.exc.QubesException):
+            with self.assertRaises(qubes.exc.ProtocolError):
                 self.app.add_new_vm(
                     qubes.vm.dispvm.DispVM,
                     name="test-dispvm",
