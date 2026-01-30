@@ -695,6 +695,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.template.features["supported-rpc.qubes.WaitForRunningSystem"] = (
             True
         )
+        self.template.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm = self.app.add_new_vm(
             "AppVM",
             name="test-dvm",
