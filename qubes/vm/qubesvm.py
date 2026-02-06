@@ -137,10 +137,12 @@ def _setter_default_user(self, prop, value):
 
 def _setter_denied_list(self, prop, value):
     """Helper for setting denied list"""
-    value = str(value)
-    if len(value) == 0:
-        return value
+    # Although the property has type str, loading an empty value from XML leads
+    # to None.
+    if not value:
+        return ""
 
+    value = str(value)
     # remove duplicates
     value = "".join(
         sorted(map(repr, set(DeviceInterface.from_str_bulk(value))))
