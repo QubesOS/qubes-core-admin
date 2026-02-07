@@ -631,14 +631,14 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
                 with self.assertNotRaises(
                     (qubes.exc.QubesVMNotFoundError, KeyError)
                 ):
-                    restored_vm = self.app.domains[vm_name + "1"]
+                    restored_vm = self.app.domains[vm_name + "-1"]
                 if (
                     vms_info[vm_name]["properties"]["netvm"]
                     and not vms_info[vm_name]["default"]["netvm"]
                 ):
                     self.assertEqual(
                         restored_vm.netvm.name,
-                        vms_info[vm_name]["properties"]["netvm"] + "1",
+                        vms_info[vm_name]["properties"]["netvm"] + "-1",
                     )
         finally:
             del vms
