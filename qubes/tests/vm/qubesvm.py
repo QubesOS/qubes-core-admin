@@ -2457,8 +2457,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": iptables_header,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
-            "/connected-ips": "",
-            "/connected-ips6": "",
         }
 
         self.assertEqual(test_qubesdb.data, data)
@@ -2550,8 +2548,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-gui-enabled": "False",
             "/qubes-primary-dns": "10.139.1.1",
             "/qubes-secondary-dns": "10.139.1.2",
-            "/connected-ips": "",
-            "/connected-ips6": "",
         }
 
         with self.subTest("ipv4"):
@@ -2608,6 +2604,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected["/qubes-firewall/10.137.0.3/0000"] = "action=accept"
             expected["/qubes-firewall/10.137.0.3/policy"] = "drop"
             expected["/connected-ips"] = "10.137.0.3"
+            expected["/connected-ips6"] = ""
 
             with unittest.mock.patch(
                 "qubes.vm.qubesvm.QubesVM.is_running", lambda _: True
@@ -2691,8 +2688,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/qubes-iptables-header": unittest.mock.ANY,
                 "/qubes-service/qubes-update-check": "0",
                 "/qubes-service/meminfo-writer": "1",
-                "/connected-ips": "",
-                "/connected-ips6": "",
             },
         )
 
@@ -2750,8 +2745,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/qubes-iptables-header": unittest.mock.ANY,
                 "/qubes-service/qubes-update-check": "0",
                 "/qubes-service/meminfo-writer": "1",
-                "/connected-ips": "",
-                "/connected-ips6": "",
             },
         )
 
@@ -2820,8 +2813,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": unittest.mock.ANY,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
-            "/connected-ips": "",
-            "/connected-ips6": "",
         }
 
         with self.subTest("default"):
@@ -2926,8 +2917,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": unittest.mock.ANY,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
-            "/connected-ips": "",
-            "/connected-ips6": "",
         }
 
         with self.subTest("default"):
