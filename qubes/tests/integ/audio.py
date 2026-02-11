@@ -37,6 +37,29 @@ from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 @qubes.tests.skipIfTemplate("whonix-g")
 class TC_00_AudioMixin(TC_00_AppVMMixin):
+    def tearDown(self):
+        if not self.success():
+            for vm in (
+                self.testvm1,
+                getattr(self, "audiovm", None),
+            ):
+                if vm is None:
+                    continue
+                if not vm.is_running():
+                    return
+                for cmd in (
+                    "cat /home/user/.xsession-errors",
+                    "journalctl --user -b",
+                ):
+                    try:
+                        stdout, _ = self.loop.run_until_complete(
+                            vm.run_for_stdio(cmd, stderr=subprocess.STDOUT)
+                        )
+                    except subprocess.CalledProcessError as e:
+                        stdout = getattr(e, "stdout", str(e))
+                    self.log.critical("{}: {}: {}".format(vm.name, cmd, stdout))
+        super().tearDown()
+
     def wait_for_pulseaudio_startup(self, vm):
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         try:
@@ -272,7 +295,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         sudo = ["sudo", "-E", "-u", local_user]
         if audiovm.name != "dom0":
             stdout, _ = self.loop.run_until_complete(
-                audiovm.run_for_stdio(" ".join(command))
+                audiovm.run_for_stdio(" ".join(command), stderr=None)
             )
             return stdout
         else:
@@ -337,7 +360,9 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                 "set-default-source",
                 str(source_index),
             ]
-            self._call_in_audiovm(audiovm, cmd)
+            msg = self._call_in_audiovm(audiovm, cmd)
+            if msg.strip():
+                print(f"pactl set-default-source output: {msg}")
             return
 
         output_index = output_info["index"]
@@ -353,7 +378,11 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
                 str(output_index),
                 str(source_index),
             ]
-            self._call_in_audiovm(audiovm, cmd)
+            msg = self._call_in_audiovm(audiovm, cmd)
+            if msg.strip():
+                print(
+                    f"'pactl move-source-output {output_index} {source_index}' output: {msg}"
+                )
 
             source_outputs = json.loads(
                 self._call_in_audiovm(
