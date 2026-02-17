@@ -2091,7 +2091,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             mode = allowed_values[untrusted_payload]
         except KeyError:
-            raise qubes.exc.ProtocolError("Invalid assignment mode")
+            raise qubes.exc.QubesUnrecognizedDeviceAssignmentMode(
+                "Invalid assignment mode"
+            )
 
         dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
 
@@ -2412,7 +2414,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             await backup_task
         except asyncio.CancelledError:
-            raise qubes.exc.QubesException("Backup cancelled")
+            raise qubes.exc.BackupCancelledError()
         finally:
             del self.app.api_admin_running_backups[self.arg]
 

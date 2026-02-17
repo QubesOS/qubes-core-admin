@@ -244,6 +244,11 @@ class QubesNotImplementedError(QubesException, NotImplementedError):
 class QubesBackupProfileNotFoundError(QubesException):
     """Requested backup profile does not exist."""
 
+    def __init__(self, msg=None, profile=None):
+        super().__init__(
+            msg or "Backup profile {!r} does not exist".format(profile)
+        )
+
 
 class BackupCancelledError(QubesException):
     """Thrown at user when backup was manually cancelled"""
@@ -330,6 +335,12 @@ class DeviceAlreadyAttached(QubesException, KeyError):
 class DeviceAlreadyAssigned(QubesException, KeyError):
     """
     Trying to assign already assigned device.
+    """
+
+
+class QubesUnrecognizedDeviceAssignmentMode(ProtocolError):
+    """
+    Device assignment is not as expected.
     """
 
 
