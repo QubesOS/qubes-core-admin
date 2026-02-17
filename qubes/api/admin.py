@@ -2077,8 +2077,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         Update `required` flag of an already assigned device.
 
         Payload:
-            `False` -> device will be auto-attached to qube
-            `True` -> device is required to start qube
+            `required` -> device is required to start qube
+            `ask-to-attach` -> TODO
+            `auto-attack` -> device will be auto-attached to qube
         """
         devclass = endpoint
 
