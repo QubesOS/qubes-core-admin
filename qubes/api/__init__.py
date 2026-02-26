@@ -354,7 +354,9 @@ class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
     header = struct.Struct("Bx")
 
-    def __init__(self, handler, *args, app, debug=False, **kwargs):
+    def __init__(
+        self, handler, *args, app, debug=False, log_dom0_call=False, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.handler = handler
         self.app = app
@@ -362,6 +364,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.len_untrusted_buffer = 0
         self.transport = None
         self.debug = debug
+        self.log_dom0_call = log_dom0_call
         self.event_sent = False
         self.mgmt = None
 
@@ -420,6 +423,16 @@ class QubesDaemonProtocol(asyncio.Protocol):
         return True
 
     async def respond(self, src, meth, dest, arg, *, untrusted_payload):
+        if self.log_dom0_call:
+            call_fmt = "received call %r+%r (%r → %r) with payload of %d bytes"
+            self.app.log.debug(
+                call_fmt,
+                meth,
+                arg,
+                src,
+                dest,
+                len(untrusted_payload),
+            )
         exc_fmt = (
             "failed call %r+%r (%r → %r) with payload of %d bytes due to %r"
         )

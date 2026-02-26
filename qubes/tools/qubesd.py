@@ -38,6 +38,12 @@ parser.add_argument(
     help="Enable verbose error logging (all exceptions with full "
     "tracebacks) and also send tracebacks to Admin API clients",
 )
+parser.add_argument(
+    "--log-dom0-call",
+    action="store_true",
+    default=False,
+    help="Enable logging API calls made by dom0",
+)
 
 
 def main(args=None):
@@ -64,6 +70,8 @@ def main(args=None):
             qubes.api.misc.QubesMiscAPI,
             app=args.app,
             debug=args.debug,
+            log_dom0_call=args.log_dom0_call
+            or os.environ.get("QUBES_LOG_DOM0_CALL"),
         )
     )
 
