@@ -131,6 +131,7 @@ class SystemInfoCache:
                         else None
                     ),
                     "icon": str(domain.label.icon),
+                    "label": str(domain.label.color),
                     "guivm": (
                         domain.guivm.name
                         if getattr(domain, "guivm", None)
