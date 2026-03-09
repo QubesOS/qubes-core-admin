@@ -475,6 +475,15 @@ class QubesArgumentParser(argparse.ArgumentParser):
         This is done by configuring global logging.
         :param argparse.Namespace args: args as parsed by parser
         """
+        if namespace.debug:
+            qubes.log.enable(
+                log_level=logging.DEBUG,
+                enable_debug_libvirt=getattr(
+                    namespace, "enable_debug_libvirt", False
+                ),
+            )
+            return
+
         verbose = namespace.verbose - namespace.quiet
         levels = [logging.NOTSET, logging.INFO, logging.DEBUG]
         log_level = levels[min(verbose, 2)]
