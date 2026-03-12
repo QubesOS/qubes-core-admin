@@ -194,9 +194,11 @@ class Tags(set):
 
     @staticmethod
     def validate_tag(tag):
+        if not tag:
+            raise qubes.exc.QubesInvalidTagError("tag cannot be empty")
         safe_set = string.ascii_letters + string.digits + "-_"
         if not all((x in safe_set) for x in tag):
-            raise ValueError("disallowed characters")
+            raise qubes.exc.QubesInvalidTagError("disallowed characters")
 
 
 class BaseVM(qubes.PropertyHolder):

@@ -390,6 +390,10 @@ class QubesVolumeNotFoundError(KeyError):
     """Pool does not exist."""
 
 
+class QubesInvalidTagError(ProtocolError):
+    """Domain tag is invalid."""
+
+
 class QubesInvalidLabelError(ProtocolError):
     """Domain label is invalid."""
 

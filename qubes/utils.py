@@ -513,6 +513,9 @@ def is_pci_path(device_id: str):
 
 
 def validate_label_name(untrusted_label, creation: bool = False) -> None:
+    if not untrusted_label:
+        raise qubes.exc.QubesInvalidLabelError("Label name must be set")
+
     # don't confuse label name with label index
     if creation and str(untrusted_label).isdigit():
         raise qubes.exc.QubesInvalidLabelError("Label must not be a digit")
@@ -525,6 +528,9 @@ def validate_label_name(untrusted_label, creation: bool = False) -> None:
 
 
 def validate_label_value(untrusted_label_value) -> None:
+    if not untrusted_label_value:
+        raise qubes.exc.QubesInvalidLabelValueError("Label value must be set")
+
     try:
         untrusted_value = untrusted_label_value.decode(
             "ascii", "strict"

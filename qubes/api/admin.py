@@ -1502,7 +1502,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         write=True,
     )
     async def vm_feature_set(self, untrusted_payload):
-        untrusted_value = untrusted_payload.decode("ascii", errors="strict")
+        try:
+            untrusted_value = untrusted_payload.decode("ascii", errors="strict")
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Feature value contains non-ASCII characters"
+            )
+
         del untrusted_payload
         if re.match(r"\A[a-zA-Z0-9_.-]+\Z", self.arg) is None:
             raise qubes.exc.ProtocolError(

@@ -1293,6 +1293,11 @@ netvm default=True type=vm \n"""
         )
         self.assertFalse(self.app.save.called)
 
+    def test_191_label_get_invalid(self):
+        with self.assertRaises(qubes.exc.QubesInvalidLabelError):
+            self.call_mgmt_func(b"admin.label.Get", b"dom0", b" ")
+        self.assertFalse(self.app.save.called)
+
     def test_195_label_index(self):
         self.app.get_label = unittest.mock.Mock()
         self.app.get_label.configure_mock(**{"return_value.index": 1})
@@ -1922,13 +1927,25 @@ netvm default=True type=vm \n"""
         self.assertEqual(self.vm.features["test-feature"], "")
         self.assertTrue(self.app.save.called)
 
-    def test_322_feature_set_invalid(self):
-        with self.assertRaises(UnicodeDecodeError):
+    def test_322_feature_set_invalid_value(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.feature.Set",
                 b"test-vm1",
                 b"test-feature",
                 b"\x02\x03\xffsome-value",
+            )
+        self.assertNotIn("test-feature", self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Set",
+                b"test-vm1",
+                b"test-feature",
+                "\u00f6".encode(),
             )
         self.assertNotIn("test-feature", self.vm.features)
         self.assertFalse(self.app.save.called)
@@ -3605,9 +3622,20 @@ updatevm default=True type=vm \n"""
         self.assertTrue(self.app.save.called)
 
     def test_561_tag_set_invalid(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"+.some-tag")
         self.assertNotIn("+.some-tag", self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
+    def test_562_tag_set_invalid_empty(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"")
+        self.assertNotIn("", self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaises(qubes.exc.QubesInvalidTagError):
+            self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"+")
+        self.assertNotIn("", self.vm.tags)
         self.assertFalse(self.app.save.called)
 
     def test_570_firewall_get(self):
