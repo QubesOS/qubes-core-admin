@@ -67,15 +67,16 @@ class QubesMgmtEventsDispatcher:
 
     def vm_handler(self, subject, event, **kwargs):
         # do not send internal events
-        if event.startswith("admin-permission:"):
+        event_lower = event.lower()
+        if event_lower.startswith("admin-permission:"):
             return
-        if event.startswith("device-get:"):
+        if event_lower.startswith("device-get:"):
             return
-        if event.startswith("device-list:"):
+        if event_lower.startswith("device-list:"):
             return
-        if event.startswith("device-list-attached:"):
+        if event_lower.startswith("device-list-attached:"):
             return
-        if event in ("domain-is-fully-usable",):
+        if event_lower in ("domain-is-fully-usable",):
             return
 
         if not list(
