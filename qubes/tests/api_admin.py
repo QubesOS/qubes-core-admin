@@ -1333,11 +1333,11 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.label.Create", b"dom0", b"01", b"0xff0000"
             )
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.label.Create", b"dom0", b"../xxx", b"0xff0000"
             )
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.label.Create",
                 b"dom0",
@@ -1693,6 +1693,52 @@ netvm default=True type=vm \n"""
                 b"admin.vm.feature.Remove", b"test-vm1", b"test-feature"
             )
         self.assertFalse(self.app.save.called)
+
+    def test_302_feature_remove_invalid_name(self):
+        # service.* feature names with path traversal must raise ProtocolError
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Remove",
+                b"test-vm1",
+                b"service.../../../root/gotcha",
+                b"some-value",
+            )
+        self.assertFalse(self.app.save.called)
+
+    def test_302b_protocol_error_logging(self):
+        """
+        Verify that ProtocolError raised in __init__() is:
+        - logged server-side via log.warning()
+        - NOT sent to client (no send_exception())
+        See: QubesOS/qubes-issues#7186
+        """
+        self.app.log.warning = unittest.mock.Mock()
+        transport_mock = unittest.mock.Mock()
+
+        proto = qubes.api.QubesDaemonProtocol(
+            qubes.api.admin.QubesAdminAPI,
+            app=self.app,
+            debug=False,
+        )
+        proto.transport = transport_mock
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            proto.respond(
+                b"dom0",
+                b"admin.vm.feature.Remove",
+                b"test-vm1",
+                b"service.../../../root/gotcha",
+                untrusted_payload=b"",
+            )
+        )
+
+        # ProtocolError is logged server-side
+        self.assertTrue(self.app.log.warning.called)
+        # Nothing sent to client
+        transport_mock.write.assert_not_called()
+        # Connection aborted
+        transport_mock.abort.assert_called()
 
     def test_303_feature_prohibited(self):
         del self.app.domains[0].fire_event
