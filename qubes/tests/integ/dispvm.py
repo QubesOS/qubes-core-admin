@@ -195,7 +195,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(self.startup_counter, 1)
 
 
-class TC_20_DispVMMixin:
+class DispVMHelpersMixin:
     def setUp(self):  # pylint: disable=invalid-name
         logger.info("start")
         super().setUp()
@@ -521,6 +521,8 @@ class TC_20_DispVMMixin:
         self.assertNotIn(dispvm_name, next_preload_list)
         logger.info("end")
 
+
+class TC_20_DispVMMixin(DispVMHelpersMixin):
     def test_010_dvm_run_simple(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
@@ -535,55 +537,6 @@ class TC_20_DispVMMixin:
             self.assertEqual(stdout, b"test\n")
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
-
-    def test_011_preload_reject_max(self):
-        """Test preloading when max has been reached"""
-        self.loop.run_until_complete(
-            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
-        )
-        self.assertEqual(0, len(self.disp_base.get_feat_preload()))
-
-    def test_012_preload_low_mem(self):
-        """Test preloading with low memory"""
-        self.loop.run_until_complete(self._test_012_preload_low_mem())
-
-    async def _test_012_preload_low_mem(self):
-        # pylint: disable=unspecified-encoding
-        logger.info("start")
-        unpatched_open = open
-        memory = int(getattr(self.disp_base, "memory", 0) * 1024**2)
-
-        def mock_open_mem(file, *args, **kwargs):
-            if file == qubes.config.qmemman_avail_mem_file:
-                return mock_open(read_data=str(memory))()
-            return unpatched_open(file, *args, **kwargs)
-
-        def mock_open_mem_threshold(file, *args, **kwargs):
-            if file == qubes.config.qmemman_avail_mem_file:
-                return mock_open(read_data=str(memory * 2))()
-            return unpatched_open(file, *args, **kwargs)
-
-        preload_max = 2
-        with patch("builtins.open", side_effect=mock_open_mem):
-            logger.info("low mem standard")
-            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-            await self.wait_preload(
-                preload_max, fail_on_timeout=False, timeout=15
-            )
-            self.assertEqual(1, len(self.disp_base.get_feat_preload()))
-            # Nothing will be done here, just to prepare to the next test.
-            self.disp_base.features["preload-dispvm-max"] = str(preload_max - 1)
-
-        with patch("builtins.open", side_effect=mock_open_mem_threshold):
-            logger.info("low mem threshold")
-            self.adminvm.features["preload-dispvm-threshold"] = memory
-            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-            await self.wait_preload(
-                preload_max, fail_on_timeout=False, timeout=15
-            )
-            self.assertEqual(1, len(self.disp_base.get_feat_preload()))
-
-        logger.info("end")
 
     def test_013_preload_gui(self):
         """Test preloading with GUI feature enabled and use after
@@ -612,276 +565,6 @@ class TC_20_DispVMMixin:
         await self.wait_preload(preload_max, wait_completion=False)
         self.preload_cmd.insert(1, "--no-gui")
         await self.run_preload()
-        logger.info("end")
-
-    def test_015_preload_race_more(self):
-        """Test race requesting multiple preloaded qubes"""
-        self.loop.run_until_complete(self._test_015_preload_race_more())
-
-    async def _test_015_preload_race_more(self):
-        logger.info("start")
-        preload_max = 3
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-        old_preload = self.disp_base.get_feat_preload()
-        tasks = [self.run_preload_proc() for _ in range(preload_max)]
-        targets = await asyncio.gather(*tasks)
-        await self.wait_preload(preload_max)
-        preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
-        self.assertEqual(len(targets), preload_max)
-        self.assertEqual(len(targets), len(set(targets)))
-        logger.info("end")
-
-    def test_016_preload_race_less(self):
-        """Test race requesting preloaded qube while the maximum is zeroed."""
-        self.loop.run_until_complete(self._test_016_preload_race_less())
-
-    async def _test_016_preload_race_less(self):
-        logger.info("start")
-        preload_max = 1
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max, wait_completion=False)
-        tasks = [self.run_preload_proc(), self.no_preload()]
-        target = await asyncio.gather(*tasks)
-        target_dispvm = target[0]
-        self.assertTrue(target_dispvm.startswith("disp"))
-        logger.info("end")
-
-    def test_017_preload_autostart(self):
-        """The script triggers the API call 'admin.vm.CreateDisposable+preload'
-        which is responsible for bootstrapping."""
-        logger.info("start")
-        self.app.default_dispvm = self.disp_base
-
-        logger.info("must not change as max is 0")
-        proc = self.loop.run_until_complete(
-            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
-        )
-        self.loop.run_until_complete(
-            asyncio.wait_for(proc.communicate(), timeout=10)
-        )
-        self.assertEqual(self.disp_base.get_feat_preload(), [])
-
-        preload_max = 1
-        logger.info("must not change existing preloaded disposables")
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        self.loop.run_until_complete(self.wait_preload(preload_max))
-        old_preload = self.disp_base.get_feat_preload()
-        proc = self.loop.run_until_complete(
-            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
-        )
-        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=10))
-        preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertEqual(
-            old_preload,
-            preload_dispvm,
-            msg=f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
-        )
-
-        preload_max += 1
-        logger.info("global refill must work")
-        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
-        self.loop.run_until_complete(self.wait_preload(preload_max))
-        old_old_preload = self.disp_base.get_feat_preload()
-        self.loop.run_until_complete(
-            self.cleanup_preload_run(self.disp_base, down_to=preload_max - 1)
-        )
-        old_preload = self.disp_base.get_feat_preload()
-        self.assertEqual(len(old_preload), preload_max - 1)
-        self.assertIn(old_preload[0], old_old_preload)
-        proc = self.loop.run_until_complete(
-            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
-        )
-        try:
-            self.loop.run_until_complete(
-                asyncio.wait_for(proc.wait(), timeout=40)
-            )
-        except asyncio.TimeoutError:
-            debug_preload = self.disp_base.get_feat_preload()
-            for qube in debug_preload:
-                qube = self.app.domains[qube]
-                if qube.is_paused():
-                    self.loop.run_until_complete(
-                        asyncio.wait_for(qube.unpause(), timeout=5)
-                    )
-                self._run_cmd_and_log_output(
-                    qube, "systemtl --user is-system-running", user="user"
-                )
-                self._run_cmd_and_log_output(
-                    qube, "systemtl is-system-running", user="root"
-                )
-                self._run_cmd_and_log_output(
-                    qube, "systemd-analyze --no-pager --user blame", user="user"
-                )
-                self._run_cmd_and_log_output(
-                    qube, "systemd-analyze --no-pager blame", user="root"
-                )
-                self._run_cmd_and_log_output(
-                    qube, "journalctl --no-pager --user", user="user"
-                )
-                self._run_cmd_and_log_output(
-                    qube, "journalctl --no-pager", user="root"
-                )
-            raise
-        preload_dispvm = self.disp_base.get_feat_preload()
-        self.assertIn(old_preload[0], preload_dispvm)
-        self.assertEqual(len(preload_dispvm), preload_max)
-
-        self.app.default_dispvm = None
-        logger.info("end")
-
-    def test_018_preload_global(self):
-        """Tweak global preload setting and global dispvm."""
-        self.loop.run_until_complete(self._test_018_preload_global())
-
-    async def _test_018_preload_global(self):
-        logger.info("start")
-        self.log_preload()
-        preload_max = 1
-
-        logger.info("set global dispvm")
-        self.app.default_dispvm = self.disp_base
-        logger.info("set global feat, state must change")
-        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-
-        self.log_preload()
-        logger.info("set local feat, state must not change")
-        preload_max += 1
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max, fail_on_timeout=False, timeout=15)
-        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
-
-        self.log_preload()
-        logger.info("del local feat, state must not change")
-        del self.disp_base.features["preload-dispvm-max"]
-        await asyncio.sleep(5)
-        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
-
-        self.log_preload()
-        logger.info("set local feat and del global feat, state must change")
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        del self.adminvm.features["preload-dispvm-max"]
-        await self.wait_preload(preload_max)
-
-        self.log_preload()
-        logger.info("del local feat and set global feat, state must change")
-        preload_max -= 1
-        preload_remove = self.app.default_dispvm.get_feat_preload()
-        self.disp_base.features["preload-dispvm-max"] = ""
-        self.wait_for_dispvm_destroy(preload_remove)
-        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-        self.assertEqual(len(self.disp_base.get_feat_preload()), preload_max)
-
-        self.log_preload()
-        logger.info("switch global dispvm, state must change")
-        self.app.default_dispvm = self.disp_base_alt
-        await self.wait_preload(preload_max, appvm=self.disp_base_alt)
-
-        self.log_preload()
-        logger.info("set local feat, state must not change")
-        preload_max += 1
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-
-        self.log_preload()
-        logger.info("switch back global dispvm, state must change")
-        preload_remove = self.app.default_dispvm.get_feat_preload()
-        self.app.default_dispvm = self.disp_base
-        self.wait_for_dispvm_destroy(preload_remove)
-        await self.wait_preload(preload_max)
-
-        self.log_preload()
-        logger.info("unset global dispvm, state must change")
-        preload_remove = self.app.default_dispvm.get_feat_preload()
-        self.app.default_dispvm = None
-        self.wait_for_dispvm_destroy(preload_remove)
-
-        self.log_preload()
-        logger.info("end")
-
-    def test_019_preload_discard_outdated_volumes(self):
-        """Discard preload if volumes are outdated compared to its templates."""
-        self.loop.run_until_complete(
-            self._test_019_preload_discard_outdated_volumes()
-        )
-
-    async def _test_019_preload_discard_outdated_volumes(self):
-        logger.info("start")
-        self.log_preload()
-        preload_max = 1
-
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        for qube in [self.disp_base, self.disp_base.template]:
-            logger.info(
-                "discard because of outdated volume originating from %s",
-                qube.name,
-            )
-            await self.wait_preload(preload_max)
-            old_preload = self.disp_base.get_feat_preload()
-            await qube.start()
-            # If services are still starting, it may delay shutdown longer than
-            # the default timeout. Because we can't just kill default
-            # templates, wait gracefully for system services to have started.
-            await qube.run_service_for_stdio("qubes.WaitForRunningSystem")
-            logger.info("shutdown '%s'", qube.name)
-            await qube.shutdown(wait=True)
-            await self.wait_preload(preload_max)
-            preload_dispvm = self.disp_base.get_feat_preload()
-            self.assertTrue(
-                set(old_preload).isdisjoint(preload_dispvm),
-                f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
-            )
-
-        self.log_preload()
-        logger.info("end")
-
-    def test_020_preload_discard_outdated_volume_size(self):
-        """Discard preload if private size differs with disposable template."""
-        self.loop.run_until_complete(
-            self._test_020_preload_discard_outdated_volume_size()
-        )
-
-    async def _test_020_preload_discard_outdated_volume_size(self):
-        logger.info("start")
-        self.log_preload()
-        preload_max = 1
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-        preload_dispvm = self.disp_base.get_feat_preload()
-        old_size = self.disp_base.volume_config["private"]["size"]
-        size = int(old_size) + 512
-        await self.disp_base.storage.resize("private", size)
-        self.app.save()
-        dispvm = await asyncio.wait_for(
-            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
-        )
-        self.assertNotIn(dispvm.name, preload_dispvm)
-        await dispvm.cleanup()
-        logger.info("end")
-
-    def test_021_preload_discard_outdated_setting(self):
-        """Discard preload if properties differ with the disposable template."""
-        self.loop.run_until_complete(
-            self._test_021_preload_discard_outdated_setting()
-        )
-
-    async def _test_021_preload_discard_outdated_setting(self):
-        logger.info("start")
-        self.log_preload()
-        preload_max = 1
-        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
-        await self.wait_preload(preload_max)
-        preload_dispvm = self.disp_base.get_feat_preload()
-        self.disp_base.netvm = None
-        dispvm = await asyncio.wait_for(
-            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
-        )
-        self.assertNotIn(dispvm.name, preload_dispvm)
-        await dispvm.cleanup()
-        await self.wait_preload(preload_max)
         logger.info("end")
 
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")
@@ -1343,6 +1026,336 @@ class TC_20_DispVMMixin:
         self.loop.run_until_complete(app.wait())
 
 
+class TC_21_DispVM_PreloadMixin(DispVMHelpersMixin):
+    """
+    Template-independent DisposableVM preload tests.
+
+    These tests do not depend on the template OS and previously ran once
+    per template (Debian/Fedora/Whonix), unnecessarily slowing down the
+    integration test suite. They are executed only once using the
+    default template.
+    """
+
+    def test_011_preload_reject_max(self):
+        """Test preloading when max has been reached"""
+        self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base, preload=True)
+        )
+        self.assertEqual(0, len(self.disp_base.get_feat_preload()))
+
+    def test_012_preload_low_mem(self):
+        """Test preloading with low memory"""
+        self.loop.run_until_complete(self._test_012_preload_low_mem())
+
+    async def _test_012_preload_low_mem(self):
+        # pylint: disable=unspecified-encoding
+        logger.info("start")
+        unpatched_open = open
+        memory = int(getattr(self.disp_base, "memory", 0) * 1024**2)
+
+        def mock_open_mem(file, *args, **kwargs):
+            if file == qubes.config.qmemman_avail_mem_file:
+                return mock_open(read_data=str(memory))()
+            return unpatched_open(file, *args, **kwargs)
+
+        def mock_open_mem_threshold(file, *args, **kwargs):
+            if file == qubes.config.qmemman_avail_mem_file:
+                return mock_open(read_data=str(memory * 2))()
+            return unpatched_open(file, *args, **kwargs)
+
+        preload_max = 2
+        with patch("builtins.open", side_effect=mock_open_mem):
+            logger.info("low mem standard")
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+            await self.wait_preload(
+                preload_max, fail_on_timeout=False, timeout=15
+            )
+            self.assertEqual(1, len(self.disp_base.get_feat_preload()))
+            # Nothing will be done here, just to prepare to the next test.
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max - 1)
+
+        with patch("builtins.open", side_effect=mock_open_mem_threshold):
+            logger.info("low mem threshold")
+            self.adminvm.features["preload-dispvm-threshold"] = memory
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+            await self.wait_preload(
+                preload_max, fail_on_timeout=False, timeout=15
+            )
+            self.assertEqual(1, len(self.disp_base.get_feat_preload()))
+
+        logger.info("end")
+
+    def test_015_preload_race_more(self):
+        """Test race requesting multiple preloaded qubes"""
+        self.loop.run_until_complete(self._test_015_preload_race_more())
+
+    async def _test_015_preload_race_more(self):
+        logger.info("start")
+        preload_max = 3
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        old_preload = self.disp_base.get_feat_preload()
+        tasks = [self.run_preload_proc() for _ in range(preload_max)]
+        targets = await asyncio.gather(*tasks)
+        await self.wait_preload(preload_max)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertTrue(set(old_preload).isdisjoint(preload_dispvm))
+        self.assertEqual(len(targets), preload_max)
+        self.assertEqual(len(targets), len(set(targets)))
+        logger.info("end")
+
+    def test_016_preload_race_less(self):
+        """Test race requesting preloaded qube while the maximum is zeroed."""
+        self.loop.run_until_complete(self._test_016_preload_race_less())
+
+    async def _test_016_preload_race_less(self):
+        logger.info("start")
+        preload_max = 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max, wait_completion=False)
+        tasks = [self.run_preload_proc(), self.no_preload()]
+        target = await asyncio.gather(*tasks)
+        target_dispvm = target[0]
+        self.assertTrue(target_dispvm.startswith("disp"))
+        logger.info("end")
+
+    def test_017_preload_autostart(self):
+        """The script triggers the API call 'admin.vm.CreateDisposable+preload'
+        which is responsible for bootstrapping."""
+        logger.info("start")
+        self.app.default_dispvm = self.disp_base
+
+        logger.info("must not change as max is 0")
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        self.loop.run_until_complete(
+            asyncio.wait_for(proc.communicate(), timeout=10)
+        )
+        self.assertEqual(self.disp_base.get_feat_preload(), [])
+
+        preload_max = 1
+        logger.info("must not change existing preloaded disposables")
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        self.loop.run_until_complete(self.wait_preload(preload_max))
+        old_preload = self.disp_base.get_feat_preload()
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        self.loop.run_until_complete(asyncio.wait_for(proc.wait(), timeout=10))
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertEqual(
+            old_preload,
+            preload_dispvm,
+            msg=f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+        )
+
+        preload_max += 1
+        logger.info("global refill must work")
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
+        self.loop.run_until_complete(self.wait_preload(preload_max))
+        old_old_preload = self.disp_base.get_feat_preload()
+        self.loop.run_until_complete(
+            self.cleanup_preload_run(self.disp_base, down_to=preload_max - 1)
+        )
+        old_preload = self.disp_base.get_feat_preload()
+        self.assertEqual(len(old_preload), preload_max - 1)
+        self.assertIn(old_preload[0], old_old_preload)
+        proc = self.loop.run_until_complete(
+            asyncio.create_subprocess_exec("/usr/lib/qubes/preload-dispvm")
+        )
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(proc.wait(), timeout=40)
+            )
+        except asyncio.TimeoutError:
+            debug_preload = self.disp_base.get_feat_preload()
+            for qube in debug_preload:
+                qube = self.app.domains[qube]
+                if qube.is_paused():
+                    self.loop.run_until_complete(
+                        asyncio.wait_for(qube.unpause(), timeout=5)
+                    )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl --user is-system-running", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemtl is-system-running", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager --user blame", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "systemd-analyze --no-pager blame", user="root"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager --user", user="user"
+                )
+                self._run_cmd_and_log_output(
+                    qube, "journalctl --no-pager", user="root"
+                )
+            raise
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.assertIn(old_preload[0], preload_dispvm)
+        self.assertEqual(len(preload_dispvm), preload_max)
+
+        self.app.default_dispvm = None
+        logger.info("end")
+
+    def test_018_preload_global(self):
+        """Tweak global preload setting and global dispvm."""
+        self.loop.run_until_complete(self._test_018_preload_global())
+
+    async def _test_018_preload_global(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+
+        logger.info("set global dispvm")
+        self.app.default_dispvm = self.disp_base
+        logger.info("set global feat, state must change")
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("set local feat, state must not change")
+        preload_max += 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max, fail_on_timeout=False, timeout=15)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
+
+        self.log_preload()
+        logger.info("del local feat, state must not change")
+        del self.disp_base.features["preload-dispvm-max"]
+        await asyncio.sleep(5)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), 1)
+
+        self.log_preload()
+        logger.info("set local feat and del global feat, state must change")
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        del self.adminvm.features["preload-dispvm-max"]
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("del local feat and set global feat, state must change")
+        preload_max -= 1
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.disp_base.features["preload-dispvm-max"] = ""
+        self.wait_for_dispvm_destroy(preload_remove)
+        self.adminvm.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        self.assertEqual(len(self.disp_base.get_feat_preload()), preload_max)
+
+        self.log_preload()
+        logger.info("switch global dispvm, state must change")
+        self.app.default_dispvm = self.disp_base_alt
+        await self.wait_preload(preload_max, appvm=self.disp_base_alt)
+
+        self.log_preload()
+        logger.info("set local feat, state must not change")
+        preload_max += 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("switch back global dispvm, state must change")
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.app.default_dispvm = self.disp_base
+        self.wait_for_dispvm_destroy(preload_remove)
+        await self.wait_preload(preload_max)
+
+        self.log_preload()
+        logger.info("unset global dispvm, state must change")
+        preload_remove = self.app.default_dispvm.get_feat_preload()
+        self.app.default_dispvm = None
+        self.wait_for_dispvm_destroy(preload_remove)
+
+        self.log_preload()
+        logger.info("end")
+
+    def test_019_preload_discard_outdated_volumes(self):
+        """Discard preload if volumes are outdated compared to its templates."""
+        self.loop.run_until_complete(
+            self._test_019_preload_discard_outdated_volumes()
+        )
+
+    async def _test_019_preload_discard_outdated_volumes(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        for qube in [self.disp_base, self.disp_base.template]:
+            logger.info(
+                "discard because of outdated volume originating from %s",
+                qube.name,
+            )
+            await self.wait_preload(preload_max)
+            old_preload = self.disp_base.get_feat_preload()
+            await qube.start()
+            # If services are still starting, it may delay shutdown longer than
+            # the default timeout. Because we can't just kill default
+            # templates, wait gracefully for system services to have started.
+            await qube.run_service_for_stdio("qubes.WaitForRunningSystem")
+            logger.info("shutdown '%s'", qube.name)
+            await qube.shutdown(wait=True)
+            await self.wait_preload(preload_max)
+            preload_dispvm = self.disp_base.get_feat_preload()
+            self.assertTrue(
+                set(old_preload).isdisjoint(preload_dispvm),
+                f"old_preload={old_preload} preload_dispvm={preload_dispvm}",
+            )
+
+        self.log_preload()
+        logger.info("end")
+
+    def test_020_preload_discard_outdated_volume_size(self):
+        """Discard preload if private size differs with disposable template."""
+        self.loop.run_until_complete(
+            self._test_020_preload_discard_outdated_volume_size()
+        )
+
+    async def _test_020_preload_discard_outdated_volume_size(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        old_size = self.disp_base.volume_config["private"]["size"]
+        size = int(old_size) + 512
+        await self.disp_base.storage.resize("private", size)
+        self.app.save()
+        dispvm = await asyncio.wait_for(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
+        )
+        self.assertNotIn(dispvm.name, preload_dispvm)
+        await dispvm.cleanup()
+        logger.info("end")
+
+    def test_021_preload_discard_outdated_setting(self):
+        """Discard preload if properties differ with the disposable template."""
+        self.loop.run_until_complete(
+            self._test_021_preload_discard_outdated_setting()
+        )
+
+    async def _test_021_preload_discard_outdated_setting(self):
+        logger.info("start")
+        self.log_preload()
+        preload_max = 1
+        self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+        await self.wait_preload(preload_max)
+        preload_dispvm = self.disp_base.get_feat_preload()
+        self.disp_base.netvm = None
+        dispvm = await asyncio.wait_for(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base), 30
+        )
+        self.assertNotIn(dispvm.name, preload_dispvm)
+        await dispvm.cleanup()
+        await self.wait_preload(preload_max)
+        logger.info("end")
+
+
 def create_testcases_for_templates():
     return qubes.tests.create_testcases_for_templates(
         "TC_20_DispVM",
@@ -1352,9 +1365,27 @@ def create_testcases_for_templates():
     )
 
 
+def create_preload_testcases_for_default_template():
+    return qubes.tests.create_testcases_for_templates(
+        "TC_21_DispVM_Preload",
+        TC_21_DispVM_PreloadMixin,
+        qubes.tests.SystemTestCase,
+        module=sys.modules[__name__],
+        default_template_only=True,
+    )
+
+
 def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
+    tests.addTests(
+        loader.loadTestsFromNames(
+            create_preload_testcases_for_default_template()
+        )
+    )
     return tests
 
 
 qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
+qubes.tests.maybe_create_testcases_on_import(
+    create_preload_testcases_for_default_template
+)

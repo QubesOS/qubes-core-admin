@@ -1698,7 +1698,9 @@ def list_templates():
     return _templates
 
 
-def create_testcases_for_templates(name, *bases, module, **kwds):
+def create_testcases_for_templates(
+    name, *bases, module, default_template_only=False, **kwds
+):
     """Do-it-all helper for generating per-template tests via load_tests proto
 
     This does several things:
@@ -1731,7 +1733,13 @@ def create_testcases_for_templates(name, *bases, module, **kwds):
     # possible to correctly guess frame from stack. Explicit is better than
     # implicit!
 
-    for template in list_templates():
+    templates = list_templates()
+    if default_template_only and templates:
+        # Some tests are template-agnostic and should run only once
+        # to avoid slowing down the integration test suite.
+        templates = templates[:1]
+
+    for template in templates:
         clsname = name + "_" + template
         if hasattr(module, clsname):
             continue
