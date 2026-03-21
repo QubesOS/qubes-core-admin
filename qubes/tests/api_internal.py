@@ -221,6 +221,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.dom0.default_dispvm = None
         self.dom0.template_for_dispvms = False
         self.dom0.label.icon = "icon-dom0"
+        self.dom0.label.color = "0xffffff"
         self.dom0.get_power_state.return_value = "Running"
         self.dom0.uuid = uuid.UUID("00000000-0000-0000-0000-000000000000")
         del self.dom0.guivm
@@ -232,6 +233,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         vm.default_dispvm = vm
         vm.template_for_dispvms = True
         vm.label.icon = "icon-vm"
+        vm.label.color = "0xcc0000"
         vm.guivm = vm
         vm.get_power_state.return_value = "Halted"
         vm.uuid = TEST_UUID
@@ -246,6 +248,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "template_for_dispvms": False,
                     "icon": "icon-dom0",
                     "internal": None,
+                    "label": "0xffffff",
                     "guivm": None,
                     "power_state": "Running",
                     "relayvm": None,
@@ -259,6 +262,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                     "template_for_dispvms": True,
                     "icon": "icon-vm",
                     "internal": 1,
+                    "label": "0xcc0000",
                     "guivm": "vm",
                     "power_state": "Halted",
                     "relayvm": None,
