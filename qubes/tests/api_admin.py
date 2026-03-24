@@ -2513,7 +2513,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Attach",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::t000000",
+                b"test-vm1+1234+0000+0000++t000000",
             )
         self.assertIsNone(value)
         mock_action.assert_called_once_with(
@@ -2539,7 +2539,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
                 b"mode='auto-attach'",
             )
         self.assertIsNone(value)
@@ -2566,7 +2566,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
                 b"mode='required'",
             )
         self.assertIsNone(value)
@@ -2590,7 +2590,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Attach",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
             )
         self.assertFalse(mock_action.called)
         self.assertEqual(
@@ -2610,7 +2610,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
                 b"mode='auto-attach'",
             )
         mock_action.assert_called_once_with(
@@ -2636,7 +2636,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
                 b"mode='required'",
             )
         mock_action.assert_called_once_with(
@@ -2663,7 +2663,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Attach",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::t000000",
+                b"test-vm1+1234+0000+0000++t000000",
                 b"_option1='value2'",
             )
         self.assertIsNone(value)
@@ -2688,7 +2688,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:0000:0000::?******",
+                b"test-vm1+1234+0000+0000++_______",
                 b"mode='auto-attach' _option1='value2'",
             )
         self.assertIsNone(value)
@@ -2713,7 +2713,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:dead",
+                b"test-vm1+1234+dead",
                 b"mode='auto-attach'",
             )
             mock_action.assert_called_with(
@@ -2727,7 +2727,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:beef",
+                b"test-vm1+1234+beef",
                 b"mode='auto-attach'",
             )
             mock_action.assert_called_with(
@@ -2756,7 +2756,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:dead",
+                b"test-vm1+1234+dead",
                 b"mode='auto-attach'",
             )
             mock_action.assert_called_with(
@@ -2770,7 +2770,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+1234:*",
+                b"test-vm1+1234+_",
                 b"mode='auto-attach'",
             )
             mock_action.assert_called_with(
@@ -2784,7 +2784,7 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(
                 b"admin.vm.device.testclass.Assign",
                 b"test-vm1",
-                b"test-vm1+*:dead",
+                b"test-vm1+_+dead",
                 b"mode='auto-attach'",
             )
             mock_action.assert_called_with(
@@ -2822,7 +2822,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Unassign",
                 b"test-vm1",
-                b"test-vm1+1234:dead:beef:cafe",
+                b"test-vm1+1234+dead+beef+cafe",
             )
         self.assertIsNone(value)
         mock_action.assert_called_once_with(
@@ -2853,7 +2853,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Unassign",
                 b"test-vm1",
-                b"test-vm1+1234:dead:beef:cafe",
+                b"test-vm1+1234+dead+beef+cafe",
             )
         self.assertIsNone(value)
         mock_action.assert_called_once_with(
@@ -2881,7 +2881,7 @@ netvm default=True type=vm \n"""
         self.call_mgmt_func(
             b"admin.vm.device.testclass.Unassign",
             b"test-vm1",
-            b"test-vm1+1234:dead:beef:cafe",
+            b"test-vm1+1234+dead+beef+cafe",
         )
         mock_action.assert_called_once_with(
             self.vm,
@@ -2908,7 +2908,7 @@ netvm default=True type=vm \n"""
         self.call_mgmt_func(
             b"admin.vm.device.testclass.Unassign",
             b"test-vm1",
-            b"test-vm1+1234:dead:beef:cafe",
+            b"test-vm1+1234+dead+beef+cafe",
         )
         mock_action.assert_called_once_with(
             self.vm,
@@ -2940,7 +2940,7 @@ netvm default=True type=vm \n"""
         self.call_mgmt_func(
             b"admin.vm.device.testclass.Unassign",
             b"test-vm1",
-            b"test-vm1+1234:dead:beef:cafe",
+            b"test-vm1+1234+dead+beef+cafe",
         )
         mock_action.assert_called_once_with(
             self.vm,
@@ -2961,7 +2961,7 @@ netvm default=True type=vm \n"""
                 self.call_mgmt_func(
                     b"admin.vm.device.testclass.Detach",
                     b"test-vm1",
-                    b"test-vm1+1234:*",
+                    b"test-vm1+1234+_",
                 )
         self.assertFalse(mock_detach.called)
         self.assertFalse(self.app.save.called)
@@ -2982,7 +2982,7 @@ netvm default=True type=vm \n"""
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Detach",
                 b"test-vm1",
-                b"test-vm1+1234:*",
+                b"test-vm1+1234+_",
             )
         self.assertIsNone(value)
         mock_detach.assert_called_once_with(
