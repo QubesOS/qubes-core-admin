@@ -4069,7 +4069,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Set.assignment",
                 b"test-vm1",
-                b"test-vm1+1234:bee",
+                b"test-vm1+1234+bee",
                 b"required",
             )
 
@@ -4113,7 +4113,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Set.assignment",
                 b"test-vm1",
-                b"test-vm1+1234:bee",
+                b"test-vm1+1234+bee",
                 b"ask-to-attach",
             )
 
@@ -4156,7 +4156,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Set.assignment",
                 b"test-vm1",
-                b"test-vm1+1234:bee",
+                b"test-vm1+1234+bee",
                 b"auto-attach",
             )
 
@@ -4194,7 +4194,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             value = self.call_mgmt_func(
                 b"admin.vm.device.testclass.Set.assignment",
                 b"test-vm1",
-                b"test-vm1+1234:bee",
+                b"test-vm1+1234+bee",
                 b"required",
             )
         self.assertIsNone(value)

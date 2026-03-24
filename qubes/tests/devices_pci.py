@@ -281,7 +281,12 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             b"dom0",
             b"admin.vm.device.pci.Unassign",
             b"testvm",
-            ("dom0+" + missing_port_id + ":" + missing_device_id).encode(),
+            (
+                "dom0+"
+                + missing_port_id
+                + "+"
+                + missing_device_id.replace(":", "+")
+            ).encode(),
         )
 
         response = self.loop.run_until_complete(
