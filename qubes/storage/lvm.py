@@ -235,6 +235,7 @@ _init_cache_cmd = [
     _lvm,
     "lvs",
     "--quiet",
+    "--quiet",
     "--noheadings",
     "-o",
     "vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin,lv_metadata_size,"
