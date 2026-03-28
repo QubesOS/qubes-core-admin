@@ -196,19 +196,13 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
 
 
 class DispVMHelpersMixin:
-    def setUp(self):  # pylint: disable=invalid-name
-        logger.info("start")
-        super().setUp()
-        if "whonix-g" in self.template:
-            self.skipTest(
-                "whonix gateway is not supported as DisposableVM Template"
-            )
+    def setup_dispvm_nodes(self):
+        """Initialize disp_base and related attributes. Called by child setUp"""
         self.app.add_handler("domain-add", self._on_domain_add)
         self.addCleanup(
             self.app.remove_handler, "domain-add", self._on_domain_add
         )
         self.adminvm = self.app.domains["dom0"]
-        self.init_default_template(self.template)
         self.disp_base = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("dvm"),
@@ -523,6 +517,17 @@ class DispVMHelpersMixin:
 
 
 class TC_20_DispVMMixin(DispVMHelpersMixin):
+    def setUp(self):  # pylint: disable=invalid-name
+        logger.info("start")
+        super().setUp()
+        if "whonix-g" in self.template:
+            self.skipTest(
+                "whonix gateway is not supported as DisposableVM Template"
+            )
+        self.init_default_template(self.template)
+        self.setup_dispvm_nodes()
+        logger.info("end")
+
     def test_010_dvm_run_simple(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
@@ -1026,15 +1031,22 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         self.loop.run_until_complete(app.wait())
 
 
-class TC_21_DispVM_PreloadMixin(DispVMHelpersMixin):
+class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
     """
     Template-independent DisposableVM preload tests.
 
     These tests do not depend on the template OS and previously ran once
     per template (Debian/Fedora/Whonix), unnecessarily slowing down the
-    integration test suite. They are executed only once using the
-    default template.
+    integration test suite. They execute only once on the default template.
     """
+
+    def setUp(self):  # pylint: disable=invalid-name
+        logger.info("start")
+        super().setUp()
+        self.init_default_template()
+        self.template = self.app.default_template
+        self.setup_dispvm_nodes()
+        logger.info("end")
 
     def test_011_preload_reject_max(self):
         """Test preloading when max has been reached"""
@@ -1365,27 +1377,9 @@ def create_testcases_for_templates():
     )
 
 
-def create_preload_testcases_for_default_template():
-    return qubes.tests.create_testcases_for_templates(
-        "TC_21_DispVM_Preload",
-        TC_21_DispVM_PreloadMixin,
-        qubes.tests.SystemTestCase,
-        module=sys.modules[__name__],
-        default_template_only=True,
-    )
-
-
 def load_tests(loader, tests, _pattern):
     tests.addTests(loader.loadTestsFromNames(create_testcases_for_templates()))
-    tests.addTests(
-        loader.loadTestsFromNames(
-            create_preload_testcases_for_default_template()
-        )
-    )
     return tests
 
 
 qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
-qubes.tests.maybe_create_testcases_on_import(
-    create_preload_testcases_for_default_template
-)
