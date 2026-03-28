@@ -360,7 +360,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 info = _try_get_block_device_info(vm.app, disk)
                 if not info:
                     continue
-                _backend_domain, port_id = info
+                backend_domain, port_id = info
+                if backend_domain != vm_:
+                    continue
 
                 result[port_id] = vm
         return result
