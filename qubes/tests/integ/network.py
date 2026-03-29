@@ -807,6 +807,8 @@ class VmNetworkingMixin:
             )
         )
 
+        client1 = None
+        client2 = None
         try:
             self.assertEqual(
                 self.run_cmd(self.testvm1, self.ping_ip), 0, "Ping by IP failed"
@@ -871,10 +873,10 @@ class VmNetworkingMixin:
             if server2.returncode is None:
                 server2.terminate()
                 self.loop.run_until_complete(server2.wait())
-            if client1.returncode is None:
+            if client1 and client1.returncode is None:
                 client1.terminate()
                 self.loop.run_until_complete(client1.wait())
-            if client2.returncode is None:
+            if client2 and client2.returncode is None:
                 client2.terminate()
                 self.loop.run_until_complete(client2.wait())
 
