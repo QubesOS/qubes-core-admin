@@ -1677,6 +1677,47 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ],
         )
 
+    def test_060_anon_timezone_set(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "anon-timezone": "1",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                ("features.__setitem__", ("anon-timezone", True), {}),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
+    def test_061_anon_timezone_prevent_unset(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "anon-timezone": "0",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
     def test_100_servicevm_feature(self):
         self.vm.provides_network = True
         self.ext.set_servicevm_feature(self.vm)
