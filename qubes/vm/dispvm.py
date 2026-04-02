@@ -506,8 +506,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await asyncio.wait_for(
                 self.run_service_for_stdio(
                     service,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
                 ),
                 timeout=timeout,
             )
@@ -519,12 +518,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 "startup. To debug, run the following on a new disposable of "
                 "'%s': %s" % (service, timeout, self.template, debug_msg)
             )
-        except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            debug_msg = "systemctl --failed"
+        except subprocess.CalledProcessError as e:
             raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, "
-                "disable preloading from '%s' and run the following on a new "
-                "disposable: %s" % (service, self.template, debug_msg)
+                "Error on call to '%s' during preload startup: %s"
+                % (
+                    service,
+                    qubes.utils.sanitize_stderr_for_log(e.stdout),
+                )
             )
 
     @qubes.events.handler("domain-start")
