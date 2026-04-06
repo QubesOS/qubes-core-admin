@@ -78,8 +78,6 @@ class TC_00_List(qubes.tests.SystemTestCase):
             )
 
     def test_000_list_loop(self):
-        if self.template is None:
-            self.skipTest("loop devices excluded in dom0")
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
             "PATH=$PATH:/usr/sbin;"
@@ -105,8 +103,6 @@ class TC_00_List(qubes.tests.SystemTestCase):
             )
 
     def test_001_list_loop_mounted(self):
-        if self.template is None:
-            self.skipTest("loop devices excluded in dom0")
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
             "PATH=$PATH:/usr/sbin;"
@@ -232,10 +228,6 @@ class TC_00_List(qubes.tests.SystemTestCase):
             self.fail("Device {} not found in {!r}".format("test-dm", dev_list))
 
     def test_013_list_dm_removed(self):
-        if self.template is None:
-            self.skipTest(
-                "test not supported in dom0 - loop devices excluded " "in dom0"
-            )
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
             "PATH=$PATH:/usr/sbin;"
@@ -266,8 +258,6 @@ class TC_00_List(qubes.tests.SystemTestCase):
             )
 
     def test_020_list_loop_partition(self):
-        if self.template is None:
-            self.skipTest("loop devices excluded in dom0")
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
             "PATH=$PATH:/usr/sbin;"
@@ -297,8 +287,6 @@ class TC_00_List(qubes.tests.SystemTestCase):
             )
 
     def test_021_list_loop_partition_mounted(self):
-        if self.template is None:
-            self.skipTest("loop devices excluded in dom0")
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
             "PATH=$PATH:/usr/sbin;"
