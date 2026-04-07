@@ -235,6 +235,7 @@ endif
 		$(DESTDIR)/etc/qubes/policy.d/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
+	cp qubes-master-key.asc 3mdeb-master-key.asc "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
 	cp -r tests-data "$(DESTDIR)$(FILESDIR)/tests-data"
 	mkdir -p "$(DESTDIR)/usr/lib/qubes"

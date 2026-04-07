@@ -591,6 +591,8 @@ done
 %dir /usr/share/qubes/tests-data/dispvm_perf/
 /usr/share/qubes/tests-data/dispvm_perf/*
 /usr/share/qubes/tests-data/sysfs
+/usr/share/qubes/qubes-master-key.asc
+/usr/share/qubes/3mdeb-master-key.asc
 /usr/lib/tmpfiles.d/qubes.conf
 %attr(0755,root,root) /usr/lib/qubes/create-snapshot
 %attr(0755,root,root) /usr/lib/qubes/destroy-snapshot
