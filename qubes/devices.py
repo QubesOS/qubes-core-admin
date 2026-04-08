@@ -197,8 +197,13 @@ class DeviceCollection:
 
         try:
             device = assignment.device
+            if isinstance(device, UnknownDevice):
+                # assignment matches no devices
+                raise ProtocolError(
+                    f"Cannot attach unknown {assignment.devclass} device."
+                )
         except ProtocolError:
-            # assignment matches no or top many devices
+            # assignment matches too many devices
             raise ProtocolError(
                 f"Cannot attach ambiguous {assignment.devclass} device."
             )
