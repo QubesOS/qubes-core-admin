@@ -182,6 +182,11 @@ class DeviceCollection:
         Attach device to domain.
         """
 
+        if self._vm.name == "dom0" and not assignment.options.get("force"):
+            raise qubes.exc.QubesValueError(
+                "Attaching device to dom0 requires setting --force"
+            )
+
         if assignment.devclass != self._bus:
             raise ProtocolError(
                 f"Trying to attach {assignment.devclass} device "
