@@ -133,6 +133,22 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
                 self.collection.attach(self.assignment)
             )
 
+    def test_002a_attach_to_dom0_blocked(self):
+        self.emitter.name = "dom0"
+        self.emitter.running = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.loop.run_until_complete(
+                self.collection.attach(self.assignment)
+            )
+
+    def test_002b_attach_to_dom0_with_force(self):
+        self.emitter.name = "dom0"
+        self.emitter.running = True
+        self.assignment.options = {"force": "yes"}
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
+        self.assertEventFired(self.emitter, "device-pre-attach:testclass")
+        self.assertEventFired(self.emitter, "device-attach:testclass")
+
     def test_003_detach(self):
         self.attach()
         self.loop.run_until_complete(
