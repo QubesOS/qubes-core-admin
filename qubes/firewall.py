@@ -180,7 +180,7 @@ class DstPorts(RuleOption):
             self.range = [int(untrusted_value), int(untrusted_value)]
         else:
             raise ValueError(untrusted_value)
-        if any(port < 0 or port > 65536 for port in self.range):
+        if any(port < 0 or port >= 65536 for port in self.range):
             raise ValueError("Ports out of range")
         if self.range[0] > self.range[1]:
             raise ValueError("Invalid port range")
