@@ -76,6 +76,7 @@ defaults: Defaults = {
     "kernelopts_common": (
         "root=/dev/mapper/dmroot ro nomodeset console=hvc0 "
         "rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 "
+        "xen_privcmd.unrestricted "
     ),
     "private_img_size": 2 * 1024 * 1024 * 1024,
     "root_img_size": 10 * 1024 * 1024 * 1024,
