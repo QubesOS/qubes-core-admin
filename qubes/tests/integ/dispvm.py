@@ -451,7 +451,7 @@ class DispVMHelpersMixin:
         finally:
             logger.info("end")
 
-    async def run_preload(self):
+    async def run_preload(self, assert_stdout: bool = True):
         logger.info("start")
         appvm = self.disp_base
         dispvm = appvm.get_feat_preload()[0]
@@ -463,7 +463,8 @@ class DispVMHelpersMixin:
         self._test_event_handler_remove(dispvm, "domain-unpaused")
 
         stdout = await self.run_preload_proc()
-        self.assertEqual(stdout, dispvm_name)
+        if assert_stdout:
+            self.assertEqual(stdout, dispvm_name)
         test_cases = [
             (False, appvm.name, "domain-preload-dispvm-start", True),
             (True, appvm.name, "domain-preload-dispvm-used", True),
@@ -554,7 +555,9 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         self.disp_base.features["gui"] = True
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max)
-        await self.run_preload()
+        self.preload_cmd.insert(1, "--service")
+        self.preload_cmd[-1] = "qubes.WaitForSession"
+        await self.run_preload(assert_stdout=False)
         logger.info("end")
 
     def test_014_preload_nogui(self):
@@ -569,7 +572,9 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max, wait_completion=False)
         self.preload_cmd.insert(1, "--no-gui")
-        await self.run_preload()
+        self.preload_cmd.insert(1, "--service")
+        self.preload_cmd[-1] = "qubes.WaitForRunningSystem"
+        await self.run_preload(assert_stdout=False)
         logger.info("end")
 
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")
