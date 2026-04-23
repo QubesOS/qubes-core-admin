@@ -513,7 +513,8 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.addCleanup(self.cleanup_gc)
 
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel

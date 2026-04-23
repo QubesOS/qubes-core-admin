@@ -614,7 +614,7 @@ class LocalVM(BaseVM):
 
         self._qdb_connection_watch = qubesdb.QubesDB(self.name)
         if loop is None:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         loop.add_reader(
             self._qdb_connection_watch.watch_fd(), self._qdb_watch_reader, loop
         )
