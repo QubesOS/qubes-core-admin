@@ -126,6 +126,27 @@ class TC_00_List(qubes.tests.SystemTestCase):
                     )
                 )
 
+    def test_003_list_loop_detached(self):
+        self.run_script(
+            # add sbin in Debian/Whonix for mkfs.ext4
+            "PATH=$PATH:/usr/sbin;"
+            "set -e;"
+            "truncate -s 128M {path}; "
+            "loopdev=`losetup --show -f {path}`; "
+            "udevadm settle; "
+            "losetup -d $loopdev".format(path=self.img_path),
+            user="root",
+        )
+
+        dev_list = list(self.vm.devices["block"])
+        for dev in dev_list:
+            if dev.serial == self.img_path:
+                self.fail(
+                    "Device {} ({}) should not be listed after detaching".format(
+                        dev, self.img_path
+                    )
+                )
+
     def test_010_list_dm(self):
         self.run_script(
             # add sbin in Debian/Whonix for mkfs.ext4
