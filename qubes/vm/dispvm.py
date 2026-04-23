@@ -611,32 +611,45 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         if self.preload_requested:
             return
-        qmemman_client = None
         break_task = asyncio.create_task(self.preload_requested_event.wait())
-        qmemman_task = asyncio.get_event_loop().run_in_executor(
-            None, self.set_mem
+        qmemman_client = qubes.qmemman.client.QMemmanClient()
+        qmemman_task = asyncio.get_running_loop().run_in_executor(
+            None,
+            qmemman_client.set_mem,  # type: ignore[arg-type]
+            {self.xid: 0},
         )
-        tasks = [break_task, qmemman_task]
+        tasks: list = [break_task, qmemman_task]
+        result = None
+        cancelled = False
+        self.log.info("Setting qube memory to pref mem")
         try:
             # CI uses Python 3.12 and asynchronous iterator requires >=3.13
             # pylint: disable=not-an-iterable
             async for earliest_task in asyncio.as_completed(tasks):
                 await earliest_task
                 if earliest_task == break_task:
+                    self.log.info(
+                        "Canceling ballooning task, server might continue"
+                    )
+                    cancelled = True
                     qmemman_task.cancel()
                 else:
+                    result = qmemman_task.result()
                     break_task.cancel()
         except asyncio.CancelledError:
-            if qmemman_client:
-                qmemman_client.close()
+            pass
+        except IOError as e:
+            raise IOError("Failed to connect to qmemman: {!s}".format(e))
         except Exception as exc:
             self.log.warning(
                 "Preload memory request before pause failed: %s", str(exc)
             )
-            if qmemman_client:
-                qmemman_client.close()
             raise
         finally:
+            if qmemman_client.sock:
+                qmemman_client.close()
+            if not result or cancelled:
+                self.log.warning("Failed to set memory")
             if self.preload_requested:
                 raise qubes.exc.QubesVMCancelledPauseError(
                     self,
