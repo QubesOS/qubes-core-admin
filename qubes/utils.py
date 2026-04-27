@@ -23,8 +23,8 @@
 import asyncio
 import hashlib
 import logging
-import random
 import re
+import secrets
 import string
 import os
 import os.path
@@ -186,7 +186,7 @@ def get_entry_point_one(group, name):
 def random_string(length=5):
     """Return random string consisting of ascii_leters and digits"""
     return "".join(
-        random.choice(string.ascii_letters + string.digits)
+        secrets.choice(string.ascii_letters + string.digits)
         for _ in range(length)
     )
 

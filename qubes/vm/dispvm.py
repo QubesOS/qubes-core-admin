@@ -506,25 +506,28 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await asyncio.wait_for(
                 self.run_service_for_stdio(
                     service,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
                 ),
                 timeout=timeout,
             )
             self.log.info("Preload startup completed '%s'", service)
         except asyncio.TimeoutError:
-            debug_msg = "systemd-analyze blame"
+            if service == "qubes.WaitForSession":
+                debug_msg = "systemd-analyze --user blame"
+            else:
+                debug_msg = "systemd-analyze blame"
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
                 "startup. To debug, run the following on a new disposable of "
                 "'%s': %s" % (service, timeout, self.template, debug_msg)
             )
-        except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            debug_msg = "systemctl --failed"
+        except subprocess.CalledProcessError as e:
             raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, "
-                "disable preloading from '%s' and run the following on a new "
-                "disposable: %s" % (service, self.template, debug_msg)
+                "Error on call to '%s' during preload startup: %s"
+                % (
+                    service,
+                    qubes.utils.sanitize_stderr_for_log(e.stdout),
+                )
             )
 
     @qubes.events.handler("domain-start")
@@ -546,6 +549,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.preload_requested:
             timeout = self.qrexec_timeout
             services = ["qubes.WaitForRunningSystem"]
+            if (
+                self.guivm
+                and self.features.check_with_template("gui", False)
+                and self.features.check_with_template(
+                    "supported-feature.late-gui-daemon", False
+                )
+            ):
+                services.append("qubes.WaitForSession")
             start_tasks = []
             for service in services:
                 start_tasks.append(
@@ -611,32 +622,45 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         if self.preload_requested:
             return
-        qmemman_client = None
         break_task = asyncio.create_task(self.preload_requested_event.wait())
-        qmemman_task = asyncio.get_event_loop().run_in_executor(
-            None, self.set_mem
+        qmemman_client = qubes.qmemman.client.QMemmanClient()
+        qmemman_task = asyncio.get_running_loop().run_in_executor(
+            None,
+            qmemman_client.set_mem,  # type: ignore[arg-type]
+            {self.xid: 0},
         )
-        tasks = [break_task, qmemman_task]
+        tasks: list = [break_task, qmemman_task]
+        result = None
+        cancelled = False
+        self.log.info("Setting qube memory to pref mem")
         try:
             # CI uses Python 3.12 and asynchronous iterator requires >=3.13
             # pylint: disable=not-an-iterable
             async for earliest_task in asyncio.as_completed(tasks):
                 await earliest_task
                 if earliest_task == break_task:
+                    self.log.info(
+                        "Canceling ballooning task, server might continue"
+                    )
+                    cancelled = True
                     qmemman_task.cancel()
                 else:
+                    result = qmemman_task.result()
                     break_task.cancel()
         except asyncio.CancelledError:
-            if qmemman_client:
-                qmemman_client.close()
+            pass
+        except IOError as e:
+            raise IOError("Failed to connect to qmemman: {!s}".format(e))
         except Exception as exc:
             self.log.warning(
                 "Preload memory request before pause failed: %s", str(exc)
             )
-            if qmemman_client:
-                qmemman_client.close()
             raise
         finally:
+            if qmemman_client.sock:
+                qmemman_client.close()
+            if not result or cancelled:
+                self.log.warning("Failed to set memory")
             if self.preload_requested:
                 raise qubes.exc.QubesVMCancelledPauseError(
                     self,

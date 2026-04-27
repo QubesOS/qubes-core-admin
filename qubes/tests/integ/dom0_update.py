@@ -32,6 +32,25 @@ import qubes.tests
 
 VM_PREFIX = "test-"
 
+try:
+    dom0_releasever = (
+        subprocess.check_output(
+            [
+                "rpm",
+                "-q",
+                "--whatprovides",
+                "--qf",
+                "%{VERSION}",
+                "system-release",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+        .decode()
+        .strip()
+    )
+except subprocess.CalledProcessError:
+    dom0_releasever = "4.3"
+
 
 @unittest.skipUnless(
     os.path.exists("/usr/bin/rpmsign") and os.path.exists("/usr/bin/rpmbuild"),
@@ -694,7 +713,10 @@ class TC_10_QvmTemplateMixin(object):
 
 
 class TC_11_QvmTemplateMgmtVMMixin(TC_10_QvmTemplateMixin):
-    common_args = TC_10_QvmTemplateMixin.common_args + ["--updatevm="]
+    common_args = TC_10_QvmTemplateMixin.common_args + [
+        "--updatevm=",
+        f"--releasever={dom0_releasever}",
+    ]
 
     def run_qvm_template(self, *args):
         try:

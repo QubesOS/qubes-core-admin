@@ -7,7 +7,7 @@ import contextlib
 import dataclasses
 import logging
 import os
-import random
+import secrets
 import shlex
 import shutil
 import string
@@ -81,7 +81,7 @@ def get_random_string(
     length: int,
     character_set: str = string.ascii_lowercase,
 ) -> str:
-    return "".join(random.choice(character_set) for _ in range(length))
+    return "".join(secrets.choice(character_set) for _ in range(length))
 
 
 T = TypeVar("T")
