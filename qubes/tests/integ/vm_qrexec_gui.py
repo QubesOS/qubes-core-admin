@@ -32,6 +32,7 @@ import qubes.devices
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.templatevm
+import qubes.vm.standalonevm
 
 in_qemu = os.path.exists("/sys/firmware/qemu_fw_cfg")
 
@@ -929,6 +930,113 @@ int main(int argc, char **argv) {
                 await p.wait()
             except ProcessLookupError:  # already dead
                 pass
+
+    def test_500_gui_agent_env_sync(self):
+        # Create a StandaloneVM so changes made to it will survive a reboot
+        self.env_sync_vm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            label="red",
+            name=self.make_vm_name("envsync"),
+        )
+        self.env_sync_vm.clone_properties(self.app.domains[self.template])
+        self.env_sync_vm.features.update(
+            self.app.domains[self.template].features
+        )
+        self.loop.run_until_complete(
+            self.env_sync_vm.clone_disk_files(self.app.domains[self.template])
+        )
+        self.env_sync_vm.provides_network = True
+        self.app.save()
+
+        # Create a user environment generator and profile script that will
+        # both modify the same environment variable
+        self.loop.run_until_complete(self.env_sync_vm.start())
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.env_sync_vm))
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "printf '%s\\n' "
+                    + "'#!/bin/bash' "
+                    + "'echo QUBES_ENV_TEST=first' "
+                    + "| sudo tee "
+                    + "/usr/lib/systemd/user-environment-generators/90-test"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot create user environment generator")
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "printf '%s\\n' "
+                    + "'#!/bin/bash' "
+                    + "'QUBES_ENV_TEST=\"${QUBES_ENV_TEST}:second\"' "
+                    + "'export QUBES_ENV_TEST' "
+                    + "| sudo tee /etc/profile.d/ztest.sh"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot create profile.d script")
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "sudo chmod +x "
+                    + "/usr/lib/systemd/user-environment-generators/90-test "
+                    + "/etc/profile.d/ztest.sh"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot mark scripts executable")
+
+        self.loop.run_until_complete(self.env_sync_vm.shutdown(wait=True))
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Halted")
+
+        # Get the value of QUBES_ENV_TEST from a user session and ensure it is
+        # equal to 'first:second', indicating that the environment has been
+        # synced from systemd into the session
+        self.loop.run_until_complete(self.env_sync_vm.start())
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.env_sync_vm))
+
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio('printf "%s" "$QUBES_ENV_TEST"')
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                "could not get value of QUBES_ENV_TEST variable: {}".format(
+                    e.stderr
+                )
+            )
+        if stdout != b"first:second":
+            self.fail(
+                "unexpected QUBES_ENV_TEST value from session, "
+                + 'got "{}", expected "b\'first:second\'"'.format(stdout)
+            )
+
+        ## Make sure the systemd user manager has the variable set properly too
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "systemctl --user show-environment "
+                    + "| grep '^QUBES_ENV_TEST=' "
+                    + "| cut -d'=' -f2"
+                    + "| tr -d '\\n'"
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                "could not get value of QUBES_ENV_TEST from systemd user "
+                + "manager: {}".format(e.stderr)
+            )
+        if stdout != b"first:second":
+            self.fail(
+                "unexpected QUBES_ENV_TEST value from systemd user manager, "
+                + 'got "{}", expected "b\'first:second\'"'.format(stdout)
+            )
 
 
 class TC_10_Generic(qubes.tests.SystemTestCase):
