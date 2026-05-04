@@ -356,10 +356,10 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 len(untrusted_payload),
             )
 
-        except ProtocolError:
+        except ProtocolError as err:
             self.app.log.warning(
-                "protocol error for call %s+%s (%s → %s) "
-                "with payload of %d bytes",
+                "%s. In call %s+%s (%s → %s) with payload of %d bytes",
+                str(err),
                 meth,
                 arg,
                 src,

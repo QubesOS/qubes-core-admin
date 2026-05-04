@@ -197,16 +197,17 @@ class DeviceCollection:
 
         try:
             device = assignment.device
-        except ProtocolError:
-            # assignment matches no or top many devices
+        except ProtocolError as err:
+            # assignment matches zero or too many devices
+            # Add extra explanation to the user, but keep original error too.
             raise ProtocolError(
-                f"Cannot attach ambiguous {assignment.devclass} device."
+                f"cannot attach ambiguous {assignment.devclass} device. {err}"
             )
 
         if isinstance(device, UnknownDevice):
             raise ProtocolError(
                 f"{device.devclass} device not recognized "
-                f"in {device.port_id} port."
+                f"in {device.port_id} port"
             )
 
         if device in [ass.device for ass in self.get_attached_devices()]:
