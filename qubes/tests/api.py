@@ -201,3 +201,88 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
             response,
             b"0\0src: b'src', dest: b'dom0', arg: b'arg', payload: b'payload'",
         )
+
+
+class TC_10_QubesAPIValidation(qubes.tests.QubesTestCase):
+
+    def test_000_method_param__wants_arg(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg="test",
+            wants_payload=None,
+            dest_adminvm=None,
+        )
+        with self.assertRaisesRegex(ValueError, "wants_arg"):
+            func("rpc")
+
+    def test_000_method_param__wants_payload(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload="test",
+            dest_adminvm=None,
+        )
+        with self.assertRaisesRegex(ValueError, "wants_payload"):
+            func("rpc")
+
+    def test_000_method_param__dest_adminvm(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload=None,
+            dest_adminvm="test",
+        )
+        with self.assertRaisesRegex(ValueError, "dest_adminvm"):
+            func("rpc")
+
+    def test_000_method_param__read(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload=None,
+            dest_adminvm=None,
+            read="test",
+        )
+        with self.assertRaisesRegex(ValueError, "read"):
+            func("rpc")
+
+    def test_000_method_param__write(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload=None,
+            dest_adminvm=None,
+            write="test",
+        )
+        with self.assertRaisesRegex(ValueError, "write"):
+            func("rpc")
+
+    def test_000_method_param__execute(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload=None,
+            dest_adminvm=None,
+            execute="test",
+        )
+        with self.assertRaisesRegex(ValueError, "execute"):
+            func("rpc")
+
+    def test_000_method_param__scope(self):
+        func = qubes.api.method(
+            "rpc",
+            wants_arg=None,
+            wants_payload=None,
+            dest_adminvm=None,
+            scope="test",
+        )
+        with self.assertRaisesRegex(ValueError, "scope"):
+            func("rpc")
+
+    def test_030_validate_number(self):
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "of type bytes, got 'int'"
+        ):
+            qubes.api.AbstractQubesAPI.validate_number(
+                "", untrusted_number=30, name="size"
+            )

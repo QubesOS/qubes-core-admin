@@ -32,7 +32,12 @@ import qubes.vm.dispvm
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
     SOCKNAME = "/var/run/qubesd.misc.sock"
 
-    @qubes.api.method("qubes.FeaturesRequest", no_payload=True)
+    @qubes.api.method(
+        "qubes.FeaturesRequest",
+        wants_payload=False,
+        wants_arg=False,
+        dest_adminvm=True,
+    )
     async def qubes_features_request(self):
         """qubes.FeaturesRequest handler
 
@@ -45,9 +50,6 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         appropriate extensions. Requests not explicitly handled by some
         extension are ignored.
         """
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
-
         prefix = "/features-request/"
 
         keys = self.src.untrusted_qdb.list(prefix)
@@ -61,21 +63,26 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         safe_set = string.ascii_letters + string.digits + "-.,_= "
         for untrusted_key in untrusted_features:
             untrusted_value = untrusted_features[untrusted_key]
-            self.enforce(all((c in safe_set) for c in untrusted_value))
+            self.enforce(
+                all((c in safe_set) for c in untrusted_value),
+                reason="Value outside safe set: " + safe_set,
+            )
 
         await self.src.fire_event_async(
             "features-request", untrusted_features=untrusted_features
         )
         self.app.save()
 
-    @qubes.api.method("qubes.NotifyTools", no_payload=True)
+    @qubes.api.method(
+        "qubes.NotifyTools",
+        wants_payload=False,
+        wants_arg=False,
+        dest_adminvm=True,
+    )
     async def qubes_notify_tools(self):
         """
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
         """
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
-
         untrusted_features = {}
         safe_set = string.ascii_letters + string.digits
         expected_features = (
@@ -93,7 +100,10 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 untrusted_value = untrusted_value.decode(
                     "ascii", errors="strict"
                 )
-                self.enforce(all((c in safe_set) for c in untrusted_value))
+                self.enforce(
+                    all((c in safe_set) for c in untrusted_value),
+                    reason="Value outside safe set: " + safe_set,
+                )
                 untrusted_features[feature] = untrusted_value
             del untrusted_value
 
@@ -102,7 +112,12 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         )
         self.app.save()
 
-    @qubes.api.method("qubes.NotifyUpdates")
+    @qubes.api.method(
+        "qubes.NotifyUpdates",
+        wants_payload=True,
+        wants_arg=False,
+        dest_adminvm=True,
+    )
     async def qubes_notify_updates(self, untrusted_payload):
         """
         Receive VM notification about updates availability
@@ -112,7 +127,10 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         """
 
         untrusted_update_count = untrusted_payload.strip()
-        self.enforce(untrusted_update_count.isdigit())
+        self.enforce(
+            untrusted_update_count.isdigit(),
+            reason="Update count is not a digit",
+        )
         # now sanitized
         update_count = int(untrusted_update_count)
         del untrusted_update_count

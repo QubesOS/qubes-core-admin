@@ -38,6 +38,18 @@ parser.add_argument(
     help="Enable verbose error logging (all exceptions with full "
     "tracebacks) and also send tracebacks to Admin API clients",
 )
+parser.add_argument(
+    "--enable-debug-libvirt",
+    action="store_true",
+    default=False,
+    help="Enables verbose logging of libvirtaio virEventAsyncIOImpl handler",
+)
+parser.add_argument(
+    "--log-dom0-call",
+    action="store_true",
+    default=False,
+    help="Enable logging API calls made by dom0",
+)
 
 
 def main(args=None):
@@ -54,9 +66,6 @@ def main(args=None):
     # Stop storage for domains not currently running
     loop.run_until_complete(args.app.stop_storage())
 
-    if args.debug:
-        qubes.log.enable(log_level=10)
-
     servers = loop.run_until_complete(
         qubes.api.create_servers(
             qubes.api.admin.QubesAdminAPI,
@@ -64,6 +73,8 @@ def main(args=None):
             qubes.api.misc.QubesMiscAPI,
             app=args.app,
             debug=args.debug,
+            log_dom0_call=args.log_dom0_call
+            or os.environ.get("QUBES_LOG_DOM0_CALL"),
         )
     )
 

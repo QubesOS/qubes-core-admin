@@ -64,6 +64,15 @@ class TestApp(object):
         self.host = unittest.mock.Mock()
         self.host.memory_total = 4096 * 1024
 
+    def get_label(self, label):
+        # pylint: disable=unused-argument
+        if label in self.labels:
+            return self.labels[label]
+        for l in self.labels.values():
+            if l.name == label:
+                return l
+        raise qubes.exc.QubesLabelNotFoundError(label)
+
 
 class TestFeatures(dict):
     def __init__(self, vm, **kwargs) -> None:

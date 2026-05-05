@@ -100,8 +100,7 @@ def setter_label(self, prop, value):
     if isinstance(value, qubes.Label):
         return value
     if isinstance(value, str) and value.startswith("label-"):
-        return self.app.labels[int(value.split("-", 1)[1])]
-
+        value = int(value.split("-", 1)[1])
     return self.app.get_label(value)
 
 
@@ -195,9 +194,11 @@ class Tags(set):
 
     @staticmethod
     def validate_tag(tag):
+        if not tag:
+            raise qubes.exc.QubesInvalidTagError("tag cannot be empty")
         safe_set = string.ascii_letters + string.digits + "-_"
         if not all((x in safe_set) for x in tag):
-            raise ValueError("disallowed characters")
+            raise qubes.exc.QubesInvalidTagError("disallowed characters")
 
 
 class BaseVM(qubes.PropertyHolder):

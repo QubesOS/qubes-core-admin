@@ -166,17 +166,23 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
     SOCKNAME = "/var/run/qubesd.internal.sock"
 
-    @qubes.api.method("internal.GetSystemInfo", no_payload=True)
+    @qubes.api.method(
+        "internal.GetSystemInfo",
+        dest_adminvm=True,
+        wants_arg=False,
+        wants_payload=False,
+    )
     async def getsysteminfo(self):
-        self.enforce(self.dest.name == "dom0")
-        self.enforce(not self.arg)
-
         system_info = SystemInfoCache.get_system_info(self.app)
-
         return json.dumps(system_info)
 
     @qubes.api.method(
-        "internal.vm.volume.ImportBegin", scope="local", write=True
+        "internal.vm.volume.ImportBegin",
+        wants_arg=True,
+        wants_payload=None,
+        dest_adminvm=None,
+        scope="local",
+        write=True,
     )
     async def vm_volume_import(self, untrusted_payload):
         """Begin importing volume data. Payload is either size of new data
@@ -191,7 +197,10 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         payload) and response from that call will be actually send to the
         caller.
         """
-        self.enforce(self.arg in self.dest.volumes.keys())
+        if self.arg not in self.dest.volumes.keys():
+            raise qubes.exc.ProtocolError(
+                "Argument not in {}".format(self.EXC_ARG_NOT_IN_DEST_VOLUMES)
+            )
 
         if untrusted_payload:
             original_method = "admin.vm.volume.ImportWithSize"
@@ -208,12 +217,14 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         requested_size = (
-            self.validate_size(untrusted_payload) if untrusted_payload else None
+            self.validate_number(untrusted_payload, name="size of new data")
+            if untrusted_payload
+            else None
         )
         del untrusted_payload
 
         path = await self.dest.storage.import_data(self.arg, requested_size)
-        self.enforce(" " not in path)
+        self.enforce(" " not in path, reason="Path contains whitespace")
         if requested_size is None:
             size = self.dest.volumes[self.arg].size
         else:
@@ -227,7 +238,12 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         return "{} {}".format(size, path)
 
-    @qubes.api.method("internal.vm.volume.ImportEnd")
+    @qubes.api.method(
+        "internal.vm.volume.ImportEnd",
+        wants_arg=True,
+        wants_payload=True,
+        dest_adminvm=None,
+    )
     async def vm_volume_import_end(self, untrusted_payload):
         """
         This is second half of admin.vm.volume.Import handling. It is called
@@ -236,7 +252,10 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         The payload is either 'ok', or 'fail\n<error message>'.
         """
-        self.enforce(self.arg in self.dest.volumes.keys())
+        if self.arg not in self.dest.volumes.keys():
+            raise qubes.exc.ProtocolError(
+                "Argument not in {}".format(self.EXC_ARG_NOT_IN_DEST_VOLUMES)
+            )
         success = untrusted_payload == b"ok"
 
         try:
@@ -260,7 +279,12 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 "Data import failed: {}".format(error)
             )
 
-    @qubes.api.method("internal.SuspendPre", no_payload=True)
+    @qubes.api.method(
+        "internal.SuspendPre",
+        wants_payload=False,
+        wants_arg=False,
+        dest_adminvm=True,
+    )
     async def suspend_pre(self):
         """
         Method called before host system goes to sleep.
@@ -343,7 +367,12 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                     "Failed to suspend some qubes: {}".format(failed)
                 )
 
-    @qubes.api.method("internal.SuspendPost", no_payload=True)
+    @qubes.api.method(
+        "internal.SuspendPost",
+        wants_payload=False,
+        wants_arg=False,
+        dest_adminvm=True,
+    )
     async def suspend_post(self):
         """
         Method called after host system wake up from sleep.

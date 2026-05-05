@@ -39,6 +39,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.app = mock.NonCallableMock()
         self.dest = mock.NonCallableMock()
         self.dest.name = "dom0"
+        self.dest.klass = "AdminVM"
         self.app.configure_mock(
             domains={
                 "dom0": self.dest,
@@ -117,7 +118,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             "/features-request/feature1": b"test$chars",
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"qubes.FeaturesRequest")
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(
@@ -217,7 +218,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             "/qubes-tools/default-user": b"user",
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"qubes.NotifyTools")
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(
@@ -236,7 +237,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             "/qubes-tools/default-user": b"user",
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"qubes.NotifyTools")
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(
@@ -296,7 +297,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_022_notify_updates_invalid(self):
         del self.src.template
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"qubes.NotifyUpdates", payload=b"")
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, [])
@@ -304,7 +305,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_023_notify_updates_invalid2(self):
         del self.src.template
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"qubes.NotifyUpdates", payload=b"no updates")
         self.assertEqual(self.src.mock_calls, [])
         self.assertEqual(self.tpl.mock_calls, [])

@@ -43,19 +43,19 @@ parser.add_argument('--exclude', action='store', nargs='*',
 parser.add_argument('service', nargs='*', action='store',
     help='Generate policy for those services (default: all)')
 
-def write_default_policy(args, apiname, clasifiers, f):
+def write_default_policy(args, apiname, classifiers, f):
     ''' Write single default policy for given API call '''
-    assert 'scope' in clasifiers, \
+    assert 'scope' in classifiers, \
         'Method {} lack scope classifier'.format(apiname)
-    assert any(attr in clasifiers for attr in ('read', 'write', 'execute')), \
+    assert any(attr in classifiers for attr in ('read', 'write', 'execute')), \
         'Method {} lack read/write/execute classifier'.format(apiname)
-    assert clasifiers['scope'] in ('local', 'global'), \
-        'Method {} have invalid scope: {}'.format(apiname, clasifiers['scope'])
+    assert classifiers['scope'] in ('local', 'global'), \
+        'Method {} have invalid scope: {}'.format(apiname, classifiers['scope'])
 
     file_to_include = 'admin-{scope}-{rwx}'.format(
-        scope=clasifiers['scope'],
-        rwx=('rwx' if clasifiers.get('write', False) or
-                      clasifiers.get('execute', False)
+        scope=classifiers['scope'],
+        rwx=('rwx' if classifiers.get('write', False) or
+                      classifiers.get('execute', False)
         else 'ro'))
 
     if args.verbose:
