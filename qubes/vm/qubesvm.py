@@ -2453,22 +2453,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         try:
             if libvirt_domain.isActive():
-                # pylint: disable=line-too-long
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-                    return "Paused"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
-                    return "Crashed"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
-                    return "Halting"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
-                    return "Dying"
-                if (
-                    libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED
-                ):  # nopep8
-                    return "Suspended"
+                state_dict = {
+                    libvirt.VIR_DOMAIN_PAUSED: "Paused",  # 0x3
+                    libvirt.VIR_DOMAIN_SHUTDOWN: "Halting",  # 0x4
+                    libvirt.VIR_DOMAIN_SHUTOFF: "Dying",  # 0x5
+                    libvirt.VIR_DOMAIN_CRASHED: "Crashed",  # 0x6
+                    libvirt.VIR_DOMAIN_PMSUSPENDED: "Suspended",  # 0x7
+                }
+                state = libvirt_domain.state()[0]
+                if state in state_dict:
+                    return state_dict[state]
                 if not self.is_fully_usable():
                     return "Transient"
-                return "Running"
+                return "Running"  # 0x1
 
             return "Halted"
         except libvirt.libvirtError as e:
