@@ -1661,7 +1661,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if self.is_paused():
                 self.libvirt_domain.destroy()
             else:
-                self.libvirt_domain.shutdown()
+                try:
+                    self.libvirt_domain.shutdown()
+                except libvirt.libvirtError as e:
+                    if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                        raise qubes.exc.QubesVMShutdownTimeoutError(self)
+                    self.log.exception(
+                        "libvirt error code: {!r}".format(e.get_error_code())
+                    )
+                    raise
 
             if wait:
                 if timeout is None:
