@@ -418,3 +418,35 @@ class TC_00_NetVMMixin(
                     ipaddress.IPv4Address("1.1." + ip),
                     vmid_to_ipv4("1.1", vmid),
                 )
+
+    def test_300_mtu_property_propagation(self):
+        """Test propagation of MTU property."""
+        from unittest.mock import MagicMock, PropertyMock
+
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        mock_qdb = MagicMock()
+
+        with (
+            patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            patch("qubes.vm.mix.net.NetVMMixin.attach_network"),
+            patch("qubes.vm.mix.net.NetVMMixin.detach_network"),
+            patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+            patch(
+                "qubes.vm.qubesvm.QubesVM.untrusted_qdb",
+                new_callable=PropertyMock,
+                return_value=mock_qdb,
+            ),
+        ):
+            vm.netvm = self.netvm1
+
+            self.netvm1.mtu = 1492
+            vm.fire_event("domain-qdb-create")
+            mock_qdb.write.assert_any_call("/vm-config/net-mtu", "1492")
+            mock_qdb.write.reset_mock()
+
+            self.netvm1.mtu = 1300
+            mock_qdb.write.assert_any_call("/vm-config/net-mtu", "1300")
+
+            del self.netvm1.mtu
+            mock_qdb.rm.assert_any_call("/vm-config/net-mtu")
