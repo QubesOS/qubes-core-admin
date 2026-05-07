@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -1661,15 +1662,39 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if self.is_paused():
                 self.libvirt_domain.destroy()
             else:
+                # Some libvirt actions have a global lock on a domain, blocking
+                # a lot of libvirt operations and even qubesd. When possible to
+                # act without it, do so to avoid the whole qubesd hanging.
+                if self.app.vmm.is_xen:
+                    command = ["xl", "shutdown", "-F", self.name]
+                else:
+                    uri = self.app.vmm.libvirt_conn_uri
+                    command = ["virsh", "-c", uri, "shutdown", self.name]
                 try:
-                    self.libvirt_domain.shutdown()
-                except libvirt.libvirtError as e:
-                    if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
-                        raise qubes.exc.QubesVMShutdownTimeoutError(self)
-                    self.log.exception(
-                        "libvirt error code: {!r}".format(e.get_error_code())
+                    proc = await asyncio.create_subprocess_exec(
+                        *command,
+                        stdin=asyncio.subprocess.DEVNULL,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.STDOUT,
                     )
-                    raise
+                    stdout, _ = await proc.communicate()
+                    await proc.wait()
+                    if proc.returncode:
+                        raise subprocess.CalledProcessError(
+                            proc.returncode,
+                            command,
+                            output=stdout,
+                        )
+                except subprocess.CalledProcessError as e:
+                    self.log.error(
+                        "Attempted {!s} with subprocess but exited with "
+                        "error code: {!s}: {!r}".format(
+                            "shutdown",
+                            e.returncode,
+                            qubes.utils.sanitize_stderr_for_log(e.output),
+                        )
+                    )
+                    raise qubes.exc.QubesVMShutdownTimeoutError(self)
 
             if wait:
                 if timeout is None:
