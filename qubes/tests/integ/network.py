@@ -156,7 +156,7 @@ class VmNetworkingMixin:
                     vm, "systemctl --no-pager status xendriverdomain"
                 )
                 self._run_cmd_and_log_output(
-                    vm, "journalctl --no-pager --since '10 seconds ago'"
+                    vm, "journalctl --no-pager --since '30 seconds ago'"
                 )
                 self._run_cmd_and_log_output(
                     vm, "cat /var/log/xen/xen-hotplug.log"
