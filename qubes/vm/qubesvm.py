@@ -2812,25 +2812,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             for i, addr in zip(("primary", "secondary"), self.dns):
                 self.untrusted_qdb.write("/qubes-netvm-{}-dns".format(i), addr)
 
-        if self.netvm is not None:
-            self.untrusted_qdb.write("/qubes-mac", str(self.mac))
-            self.untrusted_qdb.write("/qubes-ip", str(self.visible_ip))
-            self.untrusted_qdb.write(
-                "/qubes-netmask", str(self.visible_netmask)
-            )
-            self.untrusted_qdb.write(
-                "/qubes-gateway", str(self.visible_gateway)
-            )
-
-            for i, addr in zip(("primary", "secondary"), self.dns):
-                self.untrusted_qdb.write("/qubes-{}-dns".format(i), str(addr))
-
-            if self.visible_ip6:  # pylint: disable=using-constant-test
-                self.untrusted_qdb.write("/qubes-ip6", str(self.visible_ip6))
-            if self.visible_gateway6:  # pylint: disable=using-constant-test
-                self.untrusted_qdb.write(
-                    "/qubes-gateway6", str(self.visible_gateway6)
-                )
+        self.update_qdb_netvm_entries()
 
         tzname = qubes.utils.get_timezone()
         if tzname and not self.features.check_with_template(
@@ -2859,6 +2841,41 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
 
         self.fire_event("domain-qdb-create")
+
+    def update_qdb_netvm_entries(self):
+        """Update only network-related QubesDB entries.
+        Called on NetVM changes to avoid resetting unrelated entries
+        such as keyboard layout. See QubesOS/qubes-issues#9892"""
+        if self.netvm is not None:
+            self.untrusted_qdb.write("/qubes-mac", str(self.mac))
+            self.untrusted_qdb.write("/qubes-ip", str(self.visible_ip))
+            self.untrusted_qdb.write(
+                "/qubes-netmask", str(self.visible_netmask)
+            )
+            self.untrusted_qdb.write(
+                "/qubes-gateway", str(self.visible_gateway)
+            )
+            for i, addr in zip(("primary", "secondary"), self.dns):
+                self.untrusted_qdb.write("/qubes-{}-dns".format(i), str(addr))
+            if self.visible_ip6:
+                self.untrusted_qdb.write("/qubes-ip6", str(self.visible_ip6))
+            if self.visible_gateway6:
+                self.untrusted_qdb.write(
+                    "/qubes-gateway6", str(self.visible_gateway6)
+                )
+        else:
+            # netvm set to None — remove network entries
+            for key in (
+                "/qubes-mac",
+                "/qubes-ip",
+                "/qubes-netmask",
+                "/qubes-gateway",
+                "/qubes-primary-dns",
+                "/qubes-secondary-dns",
+                "/qubes-ip6",
+                "/qubes-gateway6",
+            ):
+                self.untrusted_qdb.rm(key)
 
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):
