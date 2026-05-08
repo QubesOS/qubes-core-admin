@@ -647,8 +647,9 @@ class NetVMMixin(qubes.events.Emitter):
             newvalue.reload_connected_ips()
 
         if self.is_running():
-            # refresh IP, DNS etc
-            self.create_qdb_entries()
+            # refresh only network-related entries to avoid resetting
+            # unrelated QubesDB entries such as keyboard layout
+            self.update_qdb_netvm_entries()
             if not self.is_paused():
                 self.attach_network()
 

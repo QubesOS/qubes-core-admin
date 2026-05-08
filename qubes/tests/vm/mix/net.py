@@ -129,7 +129,7 @@ class TC_00_NetVMMixin(
             patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
             patch("qubes.vm.mix.net.NetVMMixin.attach_network") as mock_attach,
             patch("qubes.vm.mix.net.NetVMMixin.detach_network") as mock_detach,
-            patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+            patch("qubes.vm.qubesvm.QubesVM.update_qdb_netvm_entries"),
         ):
 
             with self.subTest("setting netvm to none"):
@@ -167,7 +167,7 @@ class TC_00_NetVMMixin(
             patch("qubes.vm.qubesvm.QubesVM.is_paused", lambda x: True),
             patch("qubes.vm.mix.net.NetVMMixin.attach_network") as mock_attach,
             patch("qubes.vm.mix.net.NetVMMixin.detach_network") as mock_detach,
-            patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+            patch("qubes.vm.qubesvm.QubesVM.update_qdb_netvm_entries"),
             patch("qubes.vm.qubesvm.QubesVM.run_service_for_stdio"),
         ):
 
