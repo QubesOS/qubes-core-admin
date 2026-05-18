@@ -2378,6 +2378,7 @@ netvm default=True type=vm \n"""
     def test_411_property_get_all(self):
         expected = """check_updates_vm default=True type=bool True
 clockvm default=True type=vm 
+default_allowed_reboots default=True type=int 0
 default_audiovm default=True type=vm dom0
 default_dispvm default=True type=vm 
 default_guivm default=True type=vm dom0

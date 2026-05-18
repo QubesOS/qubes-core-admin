@@ -86,6 +86,7 @@ class TestApp(qubes.tests.TestEmitter):
         4: qubes.Label(4, "0xcccccc", "black"),
     }
     check_updates_vm = False
+    default_allowed_reboots = False
 
     def get_label(self, label):
         # pylint: disable=unused-argument

@@ -1606,6 +1606,43 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.appvm.template_for_dispvms = True
         self.app.management_dispvm = self.appvm
 
+    def test_306_event_default_allowed_reboots(self):
+        with self.assertRaises(ValueError):
+            self.app.default_allowed_reboots = "str"
+
+        self.appvm._reboot_counter = 3
+        self.app.default_allowed_reboots = -1
+        self.assertEqual(self.appvm._reboot_counter, 0)
+
+        self.appvm._reboot_counter = 3
+        self.app.default_allowed_reboots = 0
+        self.assertEqual(self.appvm._reboot_counter, 0)
+
+        self.appvm._reboot_counter = 3
+        self.app.default_allowed_reboots = 4
+        self.assertEqual(self.appvm._reboot_counter, 3)
+
+        self.appvm._reboot_counter = 4
+        self.app.default_allowed_reboots = 3
+        self.assertEqual(self.appvm._reboot_counter, 3)
+
+        # Prefer template setting.
+        self.appvm.template.allowed_reboots = -1
+        self.app.default_allowed_reboots = 0
+        self.assertEqual(self.appvm.allowed_reboots, -1)
+        self.assertEqual(self.appvm._reboot_counter, 0)
+
+        # Prefer qube setting.
+        self.appvm._reboot_counter = 2
+        self.appvm.allowed_reboots = 3
+        self.assertEqual(self.appvm.allowed_reboots, 3)
+        self.assertEqual(self.appvm._reboot_counter, 2)
+
+        # Reset to template setting.
+        del self.appvm.allowed_reboots
+        self.assertEqual(self.appvm.allowed_reboots, -1)
+        self.assertEqual(self.appvm._reboot_counter, 0)
+
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         path = os.path.join(qubes.tests.in_git, "doc/example.xml")
