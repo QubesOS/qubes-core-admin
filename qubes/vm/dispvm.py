@@ -46,6 +46,7 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "klass",
     "name",
     "qid",
+    "allowed_reboots",
     "start_time",
     "stubdom_uuid",
     "stubdom_xid",
@@ -59,6 +60,18 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "visible_ip6",
     "xid",
 ]
+
+
+def setter_allowed_reboots(self, prop, value):
+    newvalue = qubes.vm.qubesvm.setter_allowed_reboots(self, prop, value)
+    if newvalue != 0 and getattr(self, "auto_cleanup", None):
+        raise qubes.exc.QubesPropertyValueError(
+            self,
+            prop,
+            value,
+            "allowed_reboots cannot be enabled when qube has auto_cleanup=True",
+        )
+    return newvalue
 
 
 def _setter_template(self, prop, value):
@@ -274,6 +287,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         type=bool,
         default=(lambda self: not self.auto_cleanup),
         doc="If this domain is to be included in default backup.",
+    )
+
+    allowed_reboots = qubes.property(
+        "allowed_reboots",
+        load_stage=4,
+        type=int,
+        setter=setter_allowed_reboots,
+        default=(
+            lambda self: not self.auto_cleanup
+            or qubes.vm.qubesvm.default_with_template(
+                "allowed_reboots", self.app.default_allowed_reboots
+            )
+        ),
+        doc="Number of reboot requests that can be acknowledged",
     )
 
     default_dispvm = qubes.VMProperty(
