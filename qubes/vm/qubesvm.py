@@ -100,6 +100,15 @@ def _setter_kernelopts(self, prop, value):
     return value
 
 
+def setter_allowed_reboots(self, prop, value):
+    value = int(value)
+    if value < -1:
+        raise qubes.exc.QubesPropertyValueError(
+            self, prop, value, "{!s} must be above -1:".format(prop)
+        )
+    return value
+
+
 def _setter_positive_int(self, prop, value):
     """Helper for setting a positive int. Checks that the int is > 0"""
     # pylint: disable=unused-argument
@@ -260,7 +269,7 @@ def _default_virt_mode(self):
         return "pvh"
 
 
-def _default_with_template(prop, default):
+def default_with_template(prop, default):
     """Return a callable for 'default' argument of a property. Use a value
     from a template (if any), otherwise *default*
     """
@@ -293,7 +302,7 @@ def _default_maxmem(self):
         default_maxmem, int(self.app.host.memory_total / 1024 / 2)
     )
 
-    return _default_with_template("maxmem", default_maxmem)(self)
+    return default_with_template("maxmem", default_maxmem)(self)
 
 
 def _default_kernelopts(self):
@@ -837,7 +846,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         type=int,
         setter=_setter_positive_int,
         # fmt: off
-        default=_default_with_template(
+        default=default_with_template(
             "memory",
             lambda self: qubes.config.defaults[
                 (
@@ -875,7 +884,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "vcpus",
         type=int,
         setter=_setter_positive_int,
-        default=_default_with_template("vcpus", 2),
+        default=default_with_template("vcpus", 2),
         doc="Number of virtual CPUs for a qube. TemplateBasedVMs use its "
         "template's value by default.",
     )
@@ -885,7 +894,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "kernel",
         type=str,
         setter=_setter_kernel,
-        default=_default_with_template(
+        default=default_with_template(
             "kernel", lambda self: self.app.default_kernel
         ),
         doc="Kernel used by this domain. TemplateBasedVMs use its "
@@ -919,7 +928,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "default_user",
         type=str,
         # pylint: disable=no-member
-        default=_default_with_template("default_user", "user"),
+        default=default_with_template("default_user", "user"),
         setter=_setter_default_user,
         doc="Default user to start applications as. TemplateBasedVMs use its "
         "template's value by default.",
@@ -928,7 +937,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     qrexec_timeout = qubes.property(
         "qrexec_timeout",
         type=int,
-        default=_default_with_template(
+        default=default_with_template(
             "qrexec_timeout", lambda self: self.app.default_qrexec_timeout
         ),
         setter=_setter_positive_int,
@@ -940,7 +949,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     shutdown_timeout = qubes.property(
         "shutdown_timeout",
         type=int,
-        default=_default_with_template(
+        default=default_with_template(
             "shutdown_timeout", lambda self: self.app.default_shutdown_timeout
         ),
         setter=_setter_positive_int,
@@ -956,6 +965,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         setter=qubes.property.bool,
         doc="""Setting this to `True` means that VM should be autostarted on
             dom0 boot.""",
+    )
+
+    allowed_reboots = qubes.property(
+        "allowed_reboots",
+        load_stage=4,
+        type=int,
+        setter=setter_allowed_reboots,
+        default=default_with_template(
+            "allowed_reboots", lambda self: self.app.default_allowed_reboots
+        ),
+        doc="Number of reboot requests that can be acknowledged",
+    )
+
+    allowed_reboots_counter = qubes.property(
+        "allowed_reboots_counter",
+        type=int,
+        clone=False,
+        default=0,
+        doc="""How many reboots happened since last shutdown""",
     )
 
     include_in_backups = qubes.property(
@@ -987,7 +1015,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "management_dispvm",
         load_stage=4,
         allow_none=True,
-        default=_default_with_template(
+        default=default_with_template(
             "management_dispvm", (lambda self: self.app.management_dispvm)
         ),
         setter=qubes.vm.setter_disposable_template,
@@ -1270,6 +1298,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._domain_stopped_lock = asyncio.Lock()
 
         self.skip_unpause_event = None
+        self._start_requested = False
 
         if xml is None:
             # we are creating new VM and attributes came through kwargs
@@ -1844,11 +1873,29 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             # ignore this event - already triggered by subsequent start()
             # or libvirt reconnect
             return
-
         self._domain_stopped_event_received = True
-        self._domain_stopped_future = asyncio.ensure_future(
-            self._domain_stopped_coro()
-        )
+
+        asyncio.ensure_future(self._domain_stopped_coro())
+
+    def _check_reboot_counter(self) -> None:
+        if not self.allowed_reboots:
+            return
+        if self.allowed_reboots == -1:
+            self.allowed_reboots_counter += 1
+            self._start_requested = True
+            return
+        if self.allowed_reboots_counter + 1 > self.allowed_reboots:
+            self.log.warning(
+                "Skipping reboot as 'allowed_reboots_counter' (%d) exceeded"
+                "limit of 'allowed_reboots' (%d)",
+                self.allowed_reboots_counter + 1,
+                self.allowed_reboots,
+            )
+            if not self.property_is_default("allowed_reboots_counter"):
+                del self.allowed_reboots_counter
+            return
+        self.allowed_reboots_counter += 1
+        self._start_requested = True
 
     async def _domain_stopped_coro(self):
         async with self._domain_stopped_lock:
@@ -1866,6 +1913,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             try:
                 await self.fire_event_async("domain-stopped")
                 await self.fire_event_async("domain-shutdown")
+                self._check_reboot_counter()
+                if self._start_requested:
+                    self._start_requested = False
+                    self.log.info("Starting domain after domain stop")
+                    asyncio.ensure_future(self.start())
+                else:
+                    del self.allowed_reboots_counter
                 self.end_lifecycle_waiter(event="STOPPED")
             except Exception as e:
                 self.end_lifecycle_waiter(event="STOPPED", exc=e)
