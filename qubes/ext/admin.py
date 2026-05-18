@@ -27,6 +27,8 @@ from qrexec.policy import utils, parser
 
 from qubes.device_protocol import DeviceInfo, DeviceInterface
 
+PROHIBITED_PROPERTIES = ["allowed_reboots_counter"]
+
 PROHIBITED_FEATURES = [
     "deferred-netvm-original",
     "preload-dispvm",
@@ -55,6 +57,20 @@ class AdminExtension(qubes.ext.Extension):
         if not hasattr(self, "policy_cache"):
             self.policy_cache = utils.PolicyCache(lazy_load=True)
             self.policy_cache.initialize_watcher()
+
+    @qubes.ext.handler(
+        "admin-permission:admin.vm.property.Set",
+        "admin-permission:admin.vm.property.Reset",
+    )
+    def on_property_set_or_reset(self, vm, event, arg, **kwargs):
+        """Forbid changing specific properties"""
+        # pylint: disable=unused-argument
+        if arg in PROHIBITED_PROPERTIES:
+            raise qubes.exc.PermissionDenied(
+                "changing this property is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
 
     @qubes.ext.handler(
         "admin-permission:admin.vm.feature.Set",
