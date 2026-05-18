@@ -735,6 +735,45 @@ def validate_kernel(obj, property_name: str, kernel: str) -> None:
             )
 
 
+def get_qube_prop_deps(
+    qube,
+    system_properties: list | None = None,
+    qube_properties: list | None = None,
+):
+    if not system_properties:
+        system_properties = []
+    if not qube_properties:
+        qube_properties = []
+    system_deps: list = []
+    qube_deps: list = []
+    for obj in itertools.chain(qube.app.domains, (qube.app,)):
+        if obj is qube:
+            continue
+        for prop in obj.property_list():
+            if not (
+                isinstance(prop, qubes.vm.VMProperty)
+                and getattr(obj, prop.__name__, None) == qube
+            ):
+                continue
+            if getattr(obj, "is_preload", False) and (
+                prop.__name__ == "template"
+                or (
+                    prop.__name__ in ["default_dispvm", "management_dispvm"]
+                    and getattr(obj, "template", None) == qube
+                )
+            ):
+                continue
+            if isinstance(obj, qubes.app.Qubes):
+                if system_properties and prop.__name__ not in system_properties:
+                    continue
+                system_deps.append(prop.__name__)
+            elif not obj.property_is_default(prop):
+                if qube_properties and prop.__name__ not in qube_properties:
+                    continue
+                qube_deps.append((obj.name, prop.__name__))
+    return system_deps, qube_deps
+
+
 class Qubes(qubes.PropertyHolder):
     """Main Qubes application
 
@@ -890,16 +929,20 @@ class Qubes(qubes.PropertyHolder):
         "default_dispvm",
         load_stage=3,
         default=None,
-        doc="Default DispVM base for service calls",
+        setter=qubes.vm.setter_disposable_template,
         allow_none=True,
+        doc="""Default disposable template to be used for spawning disposable
+            qubes for service calls in this system.""",
     )
 
     management_dispvm = qubes.VMProperty(
         "management_dispvm",
         load_stage=3,
         default=None,
-        doc="Default DispVM base for managing VMs",
         allow_none=True,
+        setter=qubes.vm.setter_disposable_template,
+        doc="""Default disposable template to be used for spawning disposable
+            qubes for managing a qube in this system.""",
     )
 
     default_pool = qubes.property(
@@ -1046,7 +1089,10 @@ class Qubes(qubes.PropertyHolder):
         return self._store
 
     def _migrate_global_properties(self):
-        """Migrate renamed/dropped properties"""
+        """Migrate renamed/dropped properties or properties that had weak or no
+        setter to a stricter setter, that would make current value invalid,
+        requiring setting it to None, to avoid failure to load XML and qubesd.
+        """
         if self.xml is None:
             return
 
@@ -1090,6 +1136,21 @@ class Qubes(qubes.PropertyHolder):
                 # drop it
                 pass
             node_default_fw_netvm.getparent().remove(node_default_fw_netvm)
+
+        # Drop invalid setting.
+        for prop in ["default_dispvm", "management_dispvm"]:
+            for obj in [self] + list(self.domains):
+                if obj.xml is None:
+                    continue
+                node_dispvm = obj.xml.find(
+                    f"./properties/property[@name='{prop}']"
+                )
+                if node_dispvm is None or node_dispvm.text is None:
+                    continue
+                dispvm = self.domains[node_dispvm.text]
+                if getattr(dispvm, "template_for_dispvms", None):
+                    continue
+                node_dispvm.text = ""
 
     def _migrate_labels(self):
         """Migrate changed labels"""
@@ -1649,28 +1710,11 @@ class Qubes(qubes.PropertyHolder):
         """
         # pylint: disable=unused-argument
         dependencies = []
-        for obj in itertools.chain(self.domains, (self,)):
-            if obj is vm:
-                # allow removed VM to reference itself
-                continue
-            for prop in obj.property_list():
-                with suppress(AttributeError):
-                    if (
-                        isinstance(prop, qubes.vm.VMProperty)
-                        and getattr(obj, prop.__name__) == vm
-                    ):
-                        if getattr(obj, "is_preload", False) and (
-                            prop.__name__ == "template"
-                            or (
-                                prop.__name__ == "default_dispvm"
-                                and getattr(obj, "template", None) == vm
-                            )
-                        ):
-                            continue
-                        if isinstance(obj, qubes.app.Qubes):
-                            dependencies.insert(0, ("@GLOBAL", prop.__name__))
-                        elif not obj.property_is_default(prop):
-                            dependencies.append((obj.name, prop.__name__))
+        system_deps, qube_deps = get_qube_prop_deps(qube=vm)
+        if system_deps:
+            dependencies = [("@GLOBAL", dep) for dep in system_deps]
+        if qube_deps:
+            dependencies.extend(qube_deps)
         if dependencies:
             self.log.error(
                 "Cannot remove %s as it is used by %s",
