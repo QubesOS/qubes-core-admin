@@ -54,6 +54,53 @@ class TC_06_AppVMMixin(object):
             self.assertEqual(tpl.features.get("os-distribution"), "kali")
             self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
+    def test_015_reboot(self):
+        self.testvm = self.app.add_new_vm(
+            "AppVM",
+            label="red",
+            name=self.make_vm_name("vm"),
+        )
+        self.loop.run_until_complete(self.testvm.create_on_disk())
+        timeout = 10
+
+        self.loop.run_until_complete(self.testvm.start())
+        self.assertTrue(self.testvm.is_running())
+        self.testvm.rebootable = False
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio("reboot now", user="root")
+            )
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 129:
+                raise
+        self.loop.run_until_complete(asyncio.sleep(timeout))
+        self.assertFalse(self.testvm.is_running())
+        self.loop.run_until_complete(asyncio.sleep(timeout))
+        self.assertFalse(
+            self.testvm.is_running(), "qube rebooted when it shouldn't"
+        )
+
+        self.loop.run_until_complete(self.testvm.start())
+        self.assertTrue(self.testvm.is_running())
+        self.testvm.rebootable = True
+        start_time = self.testvm.start_time
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_for_stdio("reboot now", user="root")
+            )
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 129:
+                raise
+        self.loop.run_until_complete(asyncio.sleep(timeout))
+        for _ in range(timeout):
+            if self.testvm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+        else:
+            self.fail("qube didn't reboot in time: {}".format(timeout))
+        new_start_time = self.testvm.start_time
+        self.assertNotEqual(start_time, new_start_time)
+
     def test_020_custom_persist(self):
         self.testvm = self.app.add_new_vm(
             "AppVM",

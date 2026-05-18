@@ -1613,7 +1613,10 @@ class Qubes(qubes.PropertyHolder):
             # ignore events for unknown domains
             return
 
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+        if event == libvirt.VIR_DOMAIN_EVENT_STARTED:
+            if not vm.is_paused() and not vm.start_requested:
+                vm.start_requested = True
+        elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             vm.on_libvirt_domain_stopped()
         elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
             try:
