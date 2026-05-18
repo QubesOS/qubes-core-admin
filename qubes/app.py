@@ -1295,6 +1295,16 @@ class Qubes(qubes.PropertyHolder):
         doc="""Default time in seconds for VM shutdown to complete""",
     )
 
+    default_allowed_reboots = qubes.property(
+        "default_allowed_reboots",
+        load_stage=3,
+        type=int,
+        setter=qubes.vm.qubesvm.setter_allowed_reboots,
+        default=0,
+        doc="Default setting for number of reboot requests that can be "
+        "acknowledged",
+    )
+
     stats_interval = qubes.property(
         "stats_interval",
         load_stage=3,
@@ -2084,6 +2094,24 @@ class Qubes(qubes.PropertyHolder):
                 # netvm to its default value
                 vm.fire_event(
                     "property-reset:netvm", name="netvm", oldvalue=oldvalue
+                )
+
+    @qubes.events.handler(
+        "property-set:default_allowed_reboots",
+        "property-reset:default_allowed_reboots",
+    )
+    def on_property_set_default_allowed_reboots(
+        self, event, name, newvalue=None, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        for vm in self.domains:
+            if hasattr(vm, "allowed_reboots") and vm.property_is_default(
+                "allowed_reboots"
+            ):
+                vm.fire_event(
+                    "property-reset:allowed_reboots",
+                    name="netvm",
+                    oldvalue=oldvalue,
                 )
 
     @qubes.events.handler(

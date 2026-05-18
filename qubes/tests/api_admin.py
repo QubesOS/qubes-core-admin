@@ -1817,6 +1817,25 @@ netvm default=True type=vm \n"""
                 str(feature).encode(),
             )
 
+    def test_304_property_prohibited(self):
+        del self.app.domains[0].fire_event
+        prop = qubes.ext.admin.PROHIBITED_PROPERTIES[0]
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.property.Set",
+                b"test-vm1",
+                str(prop).encode(),
+                b"5",
+            )
+
+        setattr(self.vm, prop, False)
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.property.Reset",
+                b"test-vm1",
+                str(prop).encode(),
+            )
+
     def test_310_feature_checkwithtemplate(self):
         self.vm.features["test-feature"] = "some-value"
         value = self.call_mgmt_func(
@@ -2378,6 +2397,7 @@ netvm default=True type=vm \n"""
     def test_411_property_get_all(self):
         expected = """check_updates_vm default=True type=bool True
 clockvm default=True type=vm 
+default_allowed_reboots default=True type=int 0
 default_audiovm default=True type=vm dom0
 default_dispvm default=True type=vm 
 default_guivm default=True type=vm dom0
