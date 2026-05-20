@@ -1415,8 +1415,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :param collections.abc.Callable notify_function: FIXME
         :param int mem_required: FIXME
         """
+        self.log.info(
+            "AAA start: {}: {}".format(
+                self.get_power_state(), self.libvirt_domain.state()
+            )
+        )
 
         async with self.startup_lock:
+            self.log.info(
+                "AAA start inside lock: {}: {}".format(
+                    self.get_power_state(), self.libvirt_domain.state()
+                )
+            )
             # check if domain wasn't removed in the meantime
             if self not in self.app.domains:
                 raise qubes.exc.QubesVMNotFoundError(self.name)
@@ -1426,6 +1436,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 return self
 
             await self._ensure_shutdown_handled()
+            self.log.info(
+                "AAA start after shutdown handled: {}: {}".format(
+                    self.get_power_state(), self.libvirt_domain.state()
+                )
+            )
 
             prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
@@ -1613,6 +1628,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
 
         state = self.get_power_state()
+        self.log.info(
+            "AAA on_libvirt_domain_stopped: {}: {}".format(
+                state, self.libvirt_domain.state()
+            )
+        )
         if (
             state not in ["Halted", "Crashed", "Dying"]
             and not self.start_requested
@@ -1650,7 +1670,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         asyncio.ensure_future(self._domain_stopped_coro(reboot=reboot))
 
     async def _domain_stopped_coro(self, reboot: bool = False):
+        self.log.info("AAA _domain_stopped_coro: reboot={}".format(reboot))
         async with self._domain_stopped_lock:
+            self.log.info("AAA _domain_stopped_coro: inside lock")
             assert not self._domain_stopped_event_handled
 
             # Set this immediately such that we don't generate events twice if
@@ -1658,8 +1680,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._domain_stopped_event_handled = True
 
             while self.get_power_state() == "Dying":
+                self.log.info(
+                    "AAA _domain_stopped_coro: looping: {}: {}".format(
+                        self.get_power_state(), self.libvirt_domain.state()
+                    )
+                )
                 await asyncio.sleep(0.25)
             try:
+                self.log.info(
+                    "AAA _domain_stopped_coro: {}: {}".format(
+                        self.get_power_state(), self.libvirt_domain.state()
+                    )
+                )
                 if reboot and (
                     (
                         self.virt_mode == "hvm"
