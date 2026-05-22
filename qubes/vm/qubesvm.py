@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -1661,7 +1662,39 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if self.is_paused():
                 self.libvirt_domain.destroy()
             else:
-                self.libvirt_domain.shutdown()
+                # Some libvirt actions have a global lock on a domain, blocking
+                # a lot of libvirt operations and even qubesd. When possible to
+                # act without it, do so to avoid the whole qubesd hanging.
+                if self.app.vmm.is_xen:
+                    command = ["xl", "shutdown", "-F", self.name]
+                else:
+                    uri = self.app.vmm.libvirt_conn_uri
+                    command = ["virsh", "-c", uri, "shutdown", self.name]
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        *command,
+                        stdin=asyncio.subprocess.DEVNULL,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.STDOUT,
+                    )
+                    stdout, _ = await proc.communicate()
+                    await proc.wait()
+                    if proc.returncode:
+                        raise subprocess.CalledProcessError(
+                            proc.returncode,
+                            command,
+                            output=stdout,
+                        )
+                except subprocess.CalledProcessError as e:
+                    self.log.error(
+                        "Attempted {!s} with subprocess but exited with "
+                        "error code: {!s}: {!r}".format(
+                            "shutdown",
+                            e.returncode,
+                            qubes.utils.sanitize_stderr_for_log(e.output),
+                        )
+                    )
+                    raise qubes.exc.QubesVMShutdownTimeoutError(self)
 
             if wait:
                 if timeout is None:
@@ -2453,22 +2486,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         try:
             if libvirt_domain.isActive():
-                # pylint: disable=line-too-long
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-                    return "Paused"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
-                    return "Crashed"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
-                    return "Halting"
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
-                    return "Dying"
-                if (
-                    libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED
-                ):  # nopep8
-                    return "Suspended"
+                state_dict = {
+                    libvirt.VIR_DOMAIN_PAUSED: "Paused",  # 0x3
+                    libvirt.VIR_DOMAIN_SHUTDOWN: "Halting",  # 0x4
+                    libvirt.VIR_DOMAIN_SHUTOFF: "Dying",  # 0x5
+                    libvirt.VIR_DOMAIN_CRASHED: "Crashed",  # 0x6
+                    libvirt.VIR_DOMAIN_PMSUSPENDED: "Suspended",  # 0x7
+                }
+                state = libvirt_domain.state()[0]
+                if state in state_dict:
+                    return state_dict[state]
                 if not self.is_fully_usable():
                     return "Transient"
-                return "Running"
+                return "Running"  # 0x1
 
             return "Halted"
         except libvirt.libvirtError as e:

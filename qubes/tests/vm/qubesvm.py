@@ -2951,6 +2951,74 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         return mock(*args, **kwargs)
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")
+    @unittest.mock.patch(
+        "qubes.vm.qubesvm.QubesVM.is_running", return_value=True
+    )
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch(
+        "qubes.vm.qubesvm.QubesVM.is_halted", return_value=False
+    )
+    def test_650_shutdown(
+        self, mock_halted, mock_shutdown, mock_running, mock_async_sub
+    ):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        mock_proc = unittest.mock.AsyncMock()
+        mock_proc.communicate.return_value = (b"", None)
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = mock_proc.returncode
+        mock_async_sub.return_value = mock_proc
+        with unittest.mock.patch.object(vm.app, "vmm") as mock_vmm:
+            with self.subTest("xen"):
+                mock_vmm.is_xen = True
+                self.loop.run_until_complete(vm.shutdown())
+                mock_async_sub.assert_called_once_with(
+                    "xl",
+                    "shutdown",
+                    "-F",
+                    vm.name,
+                    stdin=unittest.mock.ANY,
+                    stdout=unittest.mock.ANY,
+                    stderr=unittest.mock.ANY,
+                )
+
+            mock_async_sub.reset_mock()
+            with self.subTest("xen-fail"):
+                mock_proc.communicate.return_value = (b"Oh no (xen)", None)
+                mock_proc.returncode = 1
+                mock_vmm.is_xen = True
+                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                    self.loop.run_until_complete(vm.shutdown())
+
+            mock_async_sub.reset_mock()
+            with self.subTest("not-xen"):
+                mock_proc.returncode = 0
+                uri = "kvm:///"
+                mock_vmm.is_xen = False
+                mock_vmm.libvirt_conn_uri = uri
+                self.loop.run_until_complete(vm.shutdown())
+                mock_async_sub.assert_called_once_with(
+                    "virsh",
+                    "-c",
+                    uri,
+                    "shutdown",
+                    vm.name,
+                    stdin=unittest.mock.ANY,
+                    stdout=unittest.mock.ANY,
+                    stderr=unittest.mock.ANY,
+                )
+
+            mock_async_sub.reset_mock()
+            with self.subTest("not-xen-fail"):
+                mock_proc.communicate.return_value = (b"Oh no (not-xen)", None)
+                mock_proc.returncode = 1
+                uri = "kvm:///"
+                mock_vmm.is_xen = False
+                mock_vmm.libvirt_conn_uri = uri
+                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                    self.loop.run_until_complete(vm.shutdown())
+
+    @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
         start_mock = unittest.mock.AsyncMock()
 

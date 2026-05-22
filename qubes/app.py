@@ -181,6 +181,9 @@ class VMMConnection:
         self._libvirt_conn = None
         self._xs = None
         self._xc = None
+        self._libvirt_conn_type = None
+        self._libvirt_conn_uri = None
+        self._is_xen = False
 
     @property
     def offline_mode(self):
@@ -203,14 +206,18 @@ class VMMConnection:
                 "VMM operations disabled in offline mode"
             )
 
-        if "xen.lowlevel.xs" in sys.modules:
-            self._xs = xen.lowlevel.xs.xs()
-        if "xen.lowlevel.xc" in sys.modules:
-            self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = VirConnectWrapper(
             qubes.config.defaults["libvirt_uri"],
             reconnect_cb=self._libvirt_reconnect_cb,
         )
+        self._libvirt_conn_type = self._libvirt_conn.getType()
+        self._libvirt_conn_uri = self._libvirt_conn.getURI()
+        if self._libvirt_conn_type == "Xen":
+            self._is_xen = True
+            if "xen.lowlevel.xs" in sys.modules:
+                self._xs = xen.lowlevel.xs.xs()
+            if "xen.lowlevel.xc" in sys.modules:
+                self._xc = xen.lowlevel.xc.xc()
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
 
     @property
@@ -220,20 +227,32 @@ class VMMConnection:
         return self._libvirt_conn
 
     @property
+    def libvirt_conn_type(self):
+        """Connection type to libvirt"""
+        self.init_vmm_connection()
+        return self._libvirt_conn_type
+
+    @property
+    def libvirt_conn_uri(self):
+        """Connection URI to libvirt"""
+        self.init_vmm_connection()
+        return self._libvirt_conn_uri
+
+    @property
+    def is_xen(self):
+        self.init_vmm_connection()
+        return self._is_xen
+
+    @property
     def xs(self):
         """Connection to Xen Store
 
         This property is available only when running on Xen.
         """
-
-        # XXX what about the case when we run under KVM,
-        # but xen modules are importable?
-        if "xen.lowlevel.xs" not in sys.modules:
+        if not self.is_xen:
             raise AttributeError(
                 "xs object is available under Xen hypervisor only"
             )
-
-        self.init_vmm_connection()
         return self._xs
 
     @property
@@ -242,15 +261,10 @@ class VMMConnection:
 
         This property is available only when running on Xen.
         """
-
-        # XXX what about the case when we run under KVM,
-        # but xen modules are importable?
-        if "xen.lowlevel.xc" not in sys.modules:
+        if not self.is_xen:
             raise AttributeError(
                 "xc object is available under Xen hypervisor only"
             )
-
-        self.init_vmm_connection()
         return self._xc
 
     def close(self):
@@ -347,21 +361,19 @@ class QubesHost:
 
         :raises NotImplementedError: when not under Xen
         """
-        try:
-            self._physinfo = self.app.vmm.xc.physinfo()
-        except AttributeError:
+        if not self.app.vmm.is_xen:
             raise NotImplementedError("This function requires Xen hypervisor")
+        self._physinfo = self.app.vmm.xc.physinfo()
         return int(self._physinfo["free_memory"])
 
     def is_iommu_supported(self):
         """Check if IOMMU is supported on this platform"""
         if self._physinfo is None:
-            try:
-                self._physinfo = self.app.vmm.xc.physinfo()
-            except AttributeError:
+            if not self.app.vmm.is_xen:
                 raise NotImplementedError(
                     "This function requires Xen hypervisor"
                 )
+            self._physinfo = self.app.vmm.xc.physinfo()
         return "hvm_directio" in self._physinfo["virt_caps"]
 
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
@@ -401,18 +413,17 @@ class QubesHost:
 
         current_time = time.time()
         current = {}
-        try:
-            if only_vm:
-                xid = only_vm.xid
-                if xid < 0:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-                info = self.app.vmm.xc.domain_getinfo(xid, 1)
-                if info[0]["domid"] != xid:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-            else:
-                info = self.app.vmm.xc.domain_getinfo(0, 1024)
-        except AttributeError:
+        if not self.app.vmm.is_xen:
             raise NotImplementedError("This function requires Xen hypervisor")
+        if only_vm:
+            xid = only_vm.xid
+            if xid < 0:
+                raise qubes.exc.QubesVMNotRunningError(only_vm)
+            info = self.app.vmm.xc.domain_getinfo(xid, 1)
+            if info[0]["domid"] != xid:
+                raise qubes.exc.QubesVMNotRunningError(only_vm)
+        else:
+            info = self.app.vmm.xc.domain_getinfo(0, 1024)
         # TODO: add stubdomain stats to actual VMs
         for vm in info:
             domid = vm["domid"]

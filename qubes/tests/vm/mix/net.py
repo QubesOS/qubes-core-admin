@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import ipaddress
+from unittest import mock
 from unittest.mock import patch
 
 import qubes
@@ -395,7 +396,16 @@ class TC_00_NetVMMixin(
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 self.loop.run_until_complete(vm.netvm.shutdown())
             vm.is_preload = True
-            self.loop.run_until_complete(vm.netvm.shutdown())
+            mock_proc = mock.AsyncMock()
+            mock_proc.communicate.return_value = (b"", None)
+            mock_proc.wait.return_value = 0
+            mock_proc.returncode = 0
+            with (
+                patch.object(vm.app, "vmm") as mock_vmm,
+                patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            ):
+                mock_vmm.is_xen = True
+                self.loop.run_until_complete(vm.netvm.shutdown())
 
     def test_200_vmid_to_ipv4(self):
         testcases = (
