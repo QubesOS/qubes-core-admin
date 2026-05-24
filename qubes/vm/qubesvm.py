@@ -23,6 +23,7 @@
 
 import asyncio
 import base64
+import datetime
 import grp
 import pathlib
 import re
@@ -915,6 +916,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         doc="Allow qube to request its own reboot.",
     )
 
+    rebootable_threshold = qubes.property(
+        "rebootable_threshold",
+        load_stage=4,
+        type=int,
+        setter=_setter_positive_int,
+        default=5,
+        doc="Threshold in minutes that that a consecutive reboot is allowed.",
+    )
+
     include_in_backups = qubes.property(
         "include_in_backups",
         default=True,
@@ -1189,6 +1199,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.skip_unpause_event = None
         self.start_requested = False
+        self.last_reboot_time = None
 
         if xml is None:
             # we are creating new VM and attributes came through kwargs
@@ -1619,12 +1630,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return
 
         self._domain_stopped_event_received = True
-        asyncio.ensure_future(
-            self._domain_stopped_coro(
-                reboot=self.rebootable
-                and getattr(self, "start_requested", False)
-            )
-        )
+
+        if reboot := self.rebootable and getattr(
+            self, "start_requested", False
+        ):
+            now = datetime.datetime.now(datetime.UTC)
+            if self.last_reboot_time is None:
+                self.last_reboot_time = now
+            else:
+                delta = now - self.last_reboot_time
+                if delta < datetime.timedelta(
+                    minutes=self.rebootable_threshold
+                ):
+                    self.log.error(
+                        "Skipping reboot as time threshold was not met, allowed after %ds",
+                        int(delta.total_seconds()),
+                    )
+                    reboot = False
+        asyncio.ensure_future(self._domain_stopped_coro(reboot=reboot))
 
     async def _domain_stopped_coro(self, reboot: bool = False):
         async with self._domain_stopped_lock:
