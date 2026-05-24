@@ -23,6 +23,7 @@
 
 import asyncio
 import base64
+import datetime
 import grp
 import pathlib
 import re
@@ -218,6 +219,18 @@ def _setter_kbd_layout(self, prop, value):
         )
 
     return value
+
+
+def _setter_rebootable(self, prop, value):
+    newvalue = qubes.property.bool(self, prop, value)
+    if newvalue and getattr(self, "auto_cleanup", None):
+        raise qubes.exc.QubesPropertyValueError(
+            self,
+            prop,
+            value,
+            "rebootable cannot be True when qube has auto_cleanup=True",
+        )
+    return newvalue
 
 
 def _default_bootmode(self):
@@ -894,6 +907,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             dom0 boot.""",
     )
 
+    rebootable = qubes.property(
+        "rebootable",
+        load_stage=4,
+        type=bool,
+        setter=_setter_rebootable,
+        default=(lambda self: not getattr(self, "auto_cleanup", None)),
+        doc="Allow qube to request its own reboot.",
+    )
+
+    rebootable_threshold = qubes.property(
+        "rebootable_threshold",
+        load_stage=4,
+        type=int,
+        setter=_setter_positive_int,
+        default=5,
+        doc="Threshold in minutes that that a consecutive reboot is allowed.",
+    )
+
     include_in_backups = qubes.property(
         "include_in_backups",
         default=True,
@@ -1167,6 +1198,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._domain_stopped_lock = asyncio.Lock()
 
         self.skip_unpause_event = None
+        self.start_requested = False
+        self.last_reboot_time = None
 
         if xml is None:
             # we are creating new VM and attributes came through kwargs
@@ -1382,8 +1415,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :param collections.abc.Callable notify_function: FIXME
         :param int mem_required: FIXME
         """
+        self.log.info(
+            "AAA start: {}: {}".format(
+                self.get_power_state(), self.libvirt_domain.state()
+            )
+        )
 
         async with self.startup_lock:
+            self.log.info(
+                "AAA start inside lock: {}: {}".format(
+                    self.get_power_state(), self.libvirt_domain.state()
+                )
+            )
             # check if domain wasn't removed in the meantime
             if self not in self.app.domains:
                 raise qubes.exc.QubesVMNotFoundError(self.name)
@@ -1393,6 +1436,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 return self
 
             await self._ensure_shutdown_handled()
+            self.log.info(
+                "AAA start after shutdown handled: {}: {}".format(
+                    self.get_power_state(), self.libvirt_domain.state()
+                )
+            )
 
             prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
@@ -1580,7 +1628,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
 
         state = self.get_power_state()
-        if state not in ["Halted", "Crashed", "Dying"]:
+        self.log.info(
+            "AAA on_libvirt_domain_stopped: {}: {}".format(
+                state, self.libvirt_domain.state()
+            )
+        )
+        if (
+            state not in ["Halted", "Crashed", "Dying"]
+            and not self.start_requested
+        ):
             self.log.warning(
                 "Stopped event from libvirt received,"
                 " but domain is in state {}!".format(state)
@@ -1594,12 +1650,29 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return
 
         self._domain_stopped_event_received = True
-        self._domain_stopped_future = asyncio.ensure_future(
-            self._domain_stopped_coro()
-        )
 
-    async def _domain_stopped_coro(self):
+        if reboot := self.rebootable and getattr(
+            self, "start_requested", False
+        ):
+            now = datetime.datetime.now(datetime.UTC)
+            if self.last_reboot_time is None:
+                self.last_reboot_time = now
+            else:
+                delta = now - self.last_reboot_time
+                if delta < datetime.timedelta(
+                    minutes=self.rebootable_threshold
+                ):
+                    self.log.error(
+                        "Skipping reboot as time threshold was not met, allowed after %ds",
+                        int(delta.total_seconds()),
+                    )
+                    reboot = False
+        asyncio.ensure_future(self._domain_stopped_coro(reboot=reboot))
+
+    async def _domain_stopped_coro(self, reboot: bool = False):
+        self.log.info("AAA _domain_stopped_coro: reboot={}".format(reboot))
         async with self._domain_stopped_lock:
+            self.log.info("AAA _domain_stopped_coro: inside lock")
             assert not self._domain_stopped_event_handled
 
             # Set this immediately such that we don't generate events twice if
@@ -1607,14 +1680,37 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._domain_stopped_event_handled = True
 
             while self.get_power_state() == "Dying":
+                self.log.info(
+                    "AAA _domain_stopped_coro: looping: {}: {}".format(
+                        self.get_power_state(), self.libvirt_domain.state()
+                    )
+                )
                 await asyncio.sleep(0.25)
             try:
+                self.log.info(
+                    "AAA _domain_stopped_coro: {}: {}".format(
+                        self.get_power_state(), self.libvirt_domain.state()
+                    )
+                )
+                if reboot and (
+                    (
+                        self.virt_mode == "hvm"
+                        and self.features.check_with_template("os", None)
+                        != "Linux"
+                    )
+                    or self.klass in ["TemplateVM", "StandaloneVM"]
+                ):
+                    await asyncio.to_thread(self.libvirt_domain.destroy)
                 await self.fire_event_async("domain-stopped")
                 await self.fire_event_async("domain-shutdown")
 
                 if self.__waiter is not None:
                     self.__waiter.set_result(None)
                     self.__waiter = None
+
+                if reboot:
+                    asyncio.ensure_future(self.start())
+                self.start_requested = False
             except Exception as e:
                 if self.__waiter is not None:
                     self.__waiter.set_exception(e)
@@ -1725,6 +1821,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.__waiter = asyncio.get_running_loop().create_future()
         waiter = self.__waiter
 
+        if self.start_requested:
+            self.start_requested = False
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
