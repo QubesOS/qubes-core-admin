@@ -58,7 +58,9 @@ class AdminVM(LocalVM):
         load_stage=4,
         allow_none=True,
         default=(lambda self: self.app.default_dispvm),
-        doc="Default VM to be used as Disposable VM for service calls.",
+        setter=qubes.vm.setter_disposable_template,
+        doc="""Default disposable template to be used for spawning disposable
+            qubes for service calls.""",
     )
 
     include_in_backups = qubes.property(

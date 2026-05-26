@@ -794,7 +794,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     def test_290_management_dispvm(self):
         vm = self.get_vm()
-        vm2 = self.get_vm("test2", qid=2)
+        vm2 = self.get_vm(
+            "test2", qid=2, cls=qubes.vm.appvm.AppVM, template_for_dispvms=True
+        )
         self.app.management_dispvm = None
         self.assertPropertyDefaultValue(vm, "management_dispvm", None)
         self.app.management_dispvm = vm
@@ -809,7 +811,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     def test_291_management_dispvm_template_based(self):
         tpl = self.get_vm(name="tpl", cls=qubes.vm.templatevm.TemplateVM)
         vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=tpl, qid=2)
-        vm2 = self.get_vm("test2", qid=3)
+        vm2 = self.get_vm(
+            "test2", qid=3, cls=qubes.vm.appvm.AppVM, template_for_dispvms=True
+        )
         del vm.volumes
         self.app.management_dispvm = None
         try:
@@ -823,6 +827,22 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             )
         finally:
             self.app.management_dispvm = None
+
+    def test_292_management_dispvm_setter_without_template_for_dispvms(self):
+        vm = self.get_vm()
+        kwargs = {"name": "test2", "qid": 2, "management_dispvm": vm}
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.get_vm(**kwargs)
+        vm.template_for_dispvms = True
+        self.get_vm(**kwargs)
+
+    def test_293_default_dispvm_setter_without_template_for_dispvms(self):
+        vm = self.get_vm()
+        kwargs = {"name": "test2", "qid": 2, "default_dispvm": vm}
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.get_vm(**kwargs)
+        vm.template_for_dispvms = True
+        self.get_vm(**kwargs)
 
     @unittest.skip("TODO")
     def test_320_seamless_gui_mode(self):

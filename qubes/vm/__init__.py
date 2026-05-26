@@ -117,6 +117,36 @@ def _setter_qid(self, prop, value):
     return value
 
 
+def validate_disposable_template(obj, prop, value) -> None:
+    """Helper function to validate change of disposable template settings,
+    such as default_dispvm and management_dispvm."""
+    if not value:
+        return
+    assert isinstance(value, qubes.vm.qubesvm.QubesVM)
+    if not getattr(value, "template_for_dispvms", None):
+        if isinstance(obj, qubes.app.Qubes):
+            target = "system"
+        else:
+            target = "qube {!r}".format(obj.name)
+        msg = (
+            "Cannot set invalid property to {!s}, {!s} {!r} has "
+            "template_for_dispvms set to False".format(
+                target, str(prop), value.name
+            )
+        )
+        raise qubes.exc.QubesPropertyValueError(
+            obj,
+            obj.property_get_def(prop),
+            value,
+            msg,
+        )
+
+
+def setter_disposable_template(obj, prop, value):
+    validate_disposable_template(obj, prop, value)
+    return value
+
+
 class Tags(set):
     """Manager of the tags.
 

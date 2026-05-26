@@ -131,7 +131,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
                 "test.service",
                 "dom0",
                 "name",
-                "dom0"
+                "dom0",
             )
 
         mock_subprocess.reset_mock()
@@ -162,7 +162,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
                 "test.service",
                 self.appvm.name,
                 "name",
-                "dom0"
+                "dom0",
             )
 
     @unittest.mock.patch("qubes.vm.adminvm.AdminVM.run_service")
@@ -297,3 +297,13 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         for value in cases_valid:
             with self.subTest(value=value):
                 self.vm.features["preload-dispvm-delay"] = value
+
+    def test_901_prop_event_disposable_template(self):
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-1",
+            template=self.template,
+            label="red",
+        )
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.vm.default_dispvm = appvm

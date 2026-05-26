@@ -281,7 +281,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         load_stage=4,
         allow_none=True,
         default=(lambda self: self.template),
-        doc="Default disposable template to be used for service calls.",
+        setter=qubes.vm.setter_disposable_template,
+        doc="""Default disposable template to be used for spawning disposable
+            qubes for service calls.""",
     )
 
     default_volume_config = {

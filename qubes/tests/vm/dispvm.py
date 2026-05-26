@@ -404,6 +404,9 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
+            # pylint: disable=attribute-defined-outside-init
+            self.app.property_list = mock.Mock()
+            self.app.property_list.return_value = []
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
@@ -725,3 +728,29 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 sorted(dispvm.is_preload_outdated()["properties"]),
                 sorted(["netvm", "dns", "visible_netmask"]),
             )
+
+    def test_030_set_disposable_template(self):
+        self.appvm.template_for_dispvms = True
+        self.appvm_alt.template_for_dispvms = False
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM,
+                name="test-dispvm",
+                template=self.appvm,
+            )
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            dispvm.default_dispvm = self.appvm_alt
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            dispvm.management_dispvm = self.appvm_alt
+        self.appvm_alt.template_for_dispvms = True
+        dispvm.default_dispvm = self.appvm_alt
+        dispvm.management_dispvm = self.appvm_alt

@@ -343,13 +343,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 qube = self.app.domains[qube]
                 qube.fire_event("property-reset:is_preload", name="is_preload")
 
-    @qubes.events.handler("property-pre-set:template_for_dispvms")
+    @qubes.events.handler(
+        "property-pre-set:template_for_dispvms",
+        "property-pre-reset:template_for_dispvms",
+    )
     def __on_pre_set_dvmtemplate(
-        self, event, name, newvalue, oldvalue=None
+        self, event, name, newvalue=None, oldvalue=None
     ) -> None:
         """
         Forbid disabling ``template_for_dispvms`` while there are disposables
-        running.
+        running or it is set a system or per qube disposable template property,
+        normally ``default_dispvm`` or ``management_dispvm``.
 
         :param str event: Event which was fired.
         :param str name: Property name.
@@ -362,31 +366,34 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if not newvalue and not oldvalue:
             return
-        dependencies = [
-            disp.name for disp in self.dispvms if not disp.is_preload
-        ]
-        if dependencies:
+        system_props = ["default_dispvm", "management_dispvm"]
+        qube_props = ["default_dispvm", "management_dispvm", "template"]
+        system_deps, qube_deps = qubes.app.get_qube_prop_deps(
+            qube=self,
+            system_properties=system_props,
+            qube_properties=qube_props,
+        )
+        if system_deps:
             msg = (
-                "Cannot change template_for_dispvms to False while there are "
-                "some disposables based on this disposable template",
+                "Cannot change template_for_dispvms to False while it is in use"
+                " by the system by any of these properties: %s"
+                % (", ".join(system_props))
             )
-            self.log.error("%s: %s", msg, ", ".join(dependencies))
+            self.log.error("%s", msg)
+            raise qubes.exc.QubesVMInUseError(self, msg)
+        if qube_deps:
+            msg = (
+                "Cannot change template_for_dispvms to False while it is the "
+                "disposable template of a qube by any of these properties: %s"
+                % (", ".join(qube_props))
+            )
+            self.log.error(
+                "%s: %s", msg, ", ".join(":".join(i) for i in qube_deps)
+            )
             raise qubes.exc.QubesVMInUseError(self, msg)
         self.remove_preload_excess(
             0, reason="template_for_dispvms was set to False"
         )
-
-    @qubes.events.handler("property-pre-del:template_for_dispvms")
-    def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None) -> None:
-        """
-        Forbid disabling ``template_for_dispvms`` while there are disposables
-        running.
-
-        :param str event: Event which was fired.
-        :param str name: Property name.
-        :param bool oldvalue: Old value of the property.
-        """
-        self.__on_pre_set_dvmtemplate(event, name, False, oldvalue)
 
     @qubes.events.handler("property-set:template_for_dispvms")
     def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
