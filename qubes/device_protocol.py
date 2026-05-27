@@ -837,8 +837,8 @@ class DeviceInterface:
             return "Microphone"
         return repr(self)
 
-    @staticmethod
-    def _load_classes(bus: str):
+    @classmethod
+    def _load_classes(cls, bus: str):
         """
         List of known device classes, subclasses and programming interfaces.
         """
@@ -846,6 +846,9 @@ class DeviceInterface:
         # C class       class_name
         #       subclass        subclass_name           <-- single tab
         #               prog-if  prog-if_name   <-- two tabs
+        data = "_{}_known_classes".format(bus)
+        if hasattr(cls, data):
+            return getattr(cls, data)
         result = {}
         with open(
             f"/usr/share/hwdata/{bus}.ids", encoding="utf-8", errors="ignore"
@@ -872,6 +875,7 @@ class DeviceInterface:
                     result[class_id + "****"] = class_name
                     subclass_id = None
 
+        setattr(cls, data, result)
         return result
 
     def matches(self, other: "DeviceInterface") -> bool:
