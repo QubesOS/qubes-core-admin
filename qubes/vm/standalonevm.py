@@ -62,3 +62,15 @@ class StandaloneVM(
             },
         }
         super().__init__(*args, **kwargs)
+
+    @qubes.events.handler("domain-import-volume")
+    def on_domain_import_volume(self, event, name, source):
+        # pylint: disable=unused-argument
+        if name != "root":
+            return
+        if "boot-mode.standalone-default" in self.features:
+            bootmode_value = self.features["boot-mode.standalone-default"]
+            if bootmode_value == "default":
+                self.features["boot-mode.active"] = "default"
+            if f"boot-mode.kernelopts.{bootmode_value}" in self.features:
+                self.features["boot-mode.active"] = bootmode_value
