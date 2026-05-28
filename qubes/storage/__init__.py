@@ -929,9 +929,13 @@ class Storage:
                 f"data"
             )
 
-        return await qubes.utils.coro_maybe(
+        import_rslt = await qubes.utils.coro_maybe(
             dst_volume.import_volume(src_volume)
         )
+        await self.vm.fire_event_async(
+            "domain-import-volume", name=dst_volume.name, source=src_volume
+        )
+        return import_rslt
 
 
 class VolumesCollection:
