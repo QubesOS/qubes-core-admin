@@ -1677,6 +1677,85 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ],
         )
 
+    def test_058_bootmode_standalone_default_good(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "boot-mode.kernelopts.orig-mode": "test1",
+                    "boot-mode.kernelopts.new-mode": "test2",
+                    "boot-mode.standalone-default": "new-mode",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.orig-mode", "test1"),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.new-mode", "test2"),
+                    {},
+                ),
+                (
+                    "features.__contains__",
+                    ("boot-mode.kernelopts.new-mode",),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.standalone-default", "new-mode"),
+                    {},
+                ),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
+    def test_059_bootmode_standalone_default_bad(self):
+        del self.vm.template
+        self.loop.run_until_complete(
+            self.ext.qubes_features_request(
+                self.vm,
+                "features-request",
+                untrusted_features={
+                    "boot-mode.kernelopts.orig-mode": "test1",
+                    "boot-mode.kernelopts.new-mode": "test2",
+                    "boot-mode.standalone-default": "missing-mode",
+                },
+            )
+        )
+        self.assertListEqual(
+            self.vm.mock_calls,
+            [
+                ("features.items", (), {}),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.orig-mode", "test1"),
+                    {},
+                ),
+                (
+                    "features.__setitem__",
+                    ("boot-mode.kernelopts.new-mode", "test2"),
+                    {},
+                ),
+                (
+                    "features.__contains__",
+                    ("boot-mode.kernelopts.missing-mode",),
+                    {},
+                ),
+                ("features.get", ("qrexec", False), {}),
+                ("features.get", ("qrexec", False), {}),
+            ],
+        )
+
     def test_060_anon_timezone_set(self):
         del self.vm.template
         self.loop.run_until_complete(

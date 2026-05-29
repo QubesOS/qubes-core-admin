@@ -668,6 +668,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             :param event: Event name (``'domain-tag-delete:' tag``)
             :param tag: tag name
 
+        .. event:: domain-import-volume (subject, event, name, source)
+
+            A volume has been imported.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-import-volume'``)
+            :param name: Destination volume name
+            :param source: Source volume
+
         .. event:: features-request (subject, event, *, untrusted_features)
 
             The domain is performing a features request.
