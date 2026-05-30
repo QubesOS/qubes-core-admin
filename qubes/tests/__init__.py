@@ -594,6 +594,25 @@ class QubesTestCase(unittest.TestCase):
         self.loop.stop()
         self.loop.run_forever()
 
+        # and finally, cancel remaining tasks
+        to_cancel = asyncio.all_tasks(self.loop)
+        if to_cancel:
+            for task in to_cancel:
+                self.log.warning("Leftover task: %r", task)
+                task.cancel()
+
+        self.loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
+
+        for task in to_cancel:
+            if task.cancelled():
+                continue
+            if task.exception() is not None:
+                self.log.warning("Unhandled exception during test %r shutdown: %r",
+                    task,
+                    task.exception(),
+                )
+
+
         # Check there are no Tasks left.
         assert not self.loop._ready
         assert not self.loop._scheduled
