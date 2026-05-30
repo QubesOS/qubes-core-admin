@@ -69,6 +69,7 @@ if [ "$null" = true ]; then printf '\\0'; fi
     )
 
     def setUp(self):
+        super().setUp()
         self.tmpdir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmpdir)
         with open(
