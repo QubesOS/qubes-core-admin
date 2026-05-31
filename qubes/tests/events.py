@@ -151,8 +151,7 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
             def on_testevent_4(self, event):
                 return ("testvalue4",)
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = asyncio.get_event_loop()
         emitter = TestEmitter()
         emitter.events_enabled = True
 

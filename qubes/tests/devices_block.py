@@ -39,8 +39,7 @@ def async_test(f):
     def wrapper(*args, **kwargs):
         coro = asyncio.coroutine(f)
         future = coro(*args, **kwargs)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = asyncio.get_event_loop()
         loop.run_until_complete(future)
 
     return wrapper
@@ -1125,8 +1124,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         socket.return_value = "allow:nonsense"
 
+        loop = asyncio.get_event_loop()
         self.ext.attach_and_notify = AsyncMock()
-        asyncio.run(
+        loop.run_until_complete(
             qubes.ext.utils.resolve_conflicts_and_attach(
                 self.ext, {"sda": {front: assign, back: assign}}
             )
@@ -1149,8 +1149,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         socket.return_value = "allow:front-vm"
 
+        loop = asyncio.get_event_loop()
         self.ext.attach_and_notify = AsyncMock()
-        asyncio.run(
+        loop.run_until_complete(
             qubes.ext.utils.resolve_conflicts_and_attach(
                 self.ext, {"sda": {front: assign, back: assign}}
             )
@@ -1202,9 +1203,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
 
         self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
         with mock.patch("asyncio.wait"):
             with mock.patch("asyncio.ensure_future"):
-                asyncio.run(self.ext.on_domain_start(front, None))
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(
             self.ext.attach_and_notify.call_args[0][1].options, {"pid": "did"}
         )
@@ -1233,9 +1235,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
 
         self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
         with mock.patch("asyncio.wait"):
             with mock.patch("asyncio.ensure_future"):
-                asyncio.run(self.ext.on_domain_start(front, None))
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(
             self.ext.attach_and_notify.call_args[0][1].options, {"pid": "any"}
         )
@@ -1267,9 +1270,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
 
         self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
         with mock.patch("asyncio.wait"):
             with mock.patch("asyncio.ensure_future"):
-                asyncio.run(self.ext.on_domain_start(front, None))
+                loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.assertEqual(
             self.ext.attach_and_notify.call_args[0][1].options, {"any": "did"}
         )
@@ -1295,6 +1299,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.devices["block"]._exposed.append(exp_dev)
 
         self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
         with mock.patch("asyncio.ensure_future"):
-            asyncio.run(self.ext.on_domain_start(front, None))
+            loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.ext.attach_and_notify.assert_not_called()

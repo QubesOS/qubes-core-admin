@@ -79,8 +79,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.app, b"dom0", method, b"dom0", arg
         )
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = asyncio.get_event_loop()
         response = loop.run_until_complete(
             mgmt_obj.execute(untrusted_payload=payload)
         )
