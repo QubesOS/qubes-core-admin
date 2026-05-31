@@ -494,11 +494,6 @@ class QubesTestCase(unittest.TestCase):
 
         self._success = True
 
-        global libvirt_event_impl
-
-        if in_dom0 and not libvirt_event_impl:
-            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
-
     def set_result(self, success):
         self._success = success
 
@@ -513,7 +508,17 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.addCleanup(self.cleanup_gc)
 
-        self.loop = asyncio.get_event_loop()
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        global libvirt_event_impl
+
+        if in_dom0 and not libvirt_event_impl:
+            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel
@@ -592,6 +597,25 @@ class QubesTestCase(unittest.TestCase):
         self.loop.run_forever()
         self.loop.stop()
         self.loop.run_forever()
+
+        # and finally, cancel remaining tasks
+        to_cancel = asyncio.all_tasks(self.loop)
+        if to_cancel:
+            for task in to_cancel:
+                self.log.warning("Leftover task: %r", task)
+                task.cancel()
+
+        self.loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
+
+        for task in to_cancel:
+            if task.cancelled():
+                continue
+            if task.exception() is not None:
+                self.log.warning("Unhandled exception during test %r shutdown: %r",
+                    task,
+                    task.exception(),
+                )
+
 
         # Check there are no Tasks left.
         assert not self.loop._ready

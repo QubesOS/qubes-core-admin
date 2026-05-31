@@ -177,8 +177,7 @@ handler (a coroutine) for synchronous event (the one fired with
 
    o = MyClass()
    o.events_enabled = True
-   loop = asyncio.get_event_loop()
-   loop.run_until_complete(o.fire_event_async('event1'))
+   asyncio.run(o.fire_event_async('event1'))
 
 Asynchronous event handlers can also return value - but only a collection, not
 yield individual values (because of python limitation):
@@ -207,7 +206,8 @@ yield individual values (because of python limitation):
 
    o = MyClass()
    o.events_enabled = True
-   loop = asyncio.get_event_loop()
+   loop = asyncio.new_event_loop()
+   asyncio.set_event_loop(loop)
    # returns ['sync result', 'result1', 'result2', 'result3', 'result4'],
    # possibly not in order
    effects = loop.run_until_complete(o.fire_event_async('event1'))

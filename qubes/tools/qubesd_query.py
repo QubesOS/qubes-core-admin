@@ -112,7 +112,8 @@ async def qubesd_client(socket, payload, *args):
 # pylint: disable=too-many-return-statements
 def main(args=None):
     args = parser.parse_args(args)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     max_payload_size = 1024 if args.single_line else MAX_PAYLOAD_SIZE
 
     if args.max_bytes is not None:
