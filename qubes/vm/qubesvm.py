@@ -1235,6 +1235,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._id = -1
         self._stubdom_xid = -1
         self._stubdom_uuid = ""
+        self._is_running = None
+        self._power_state = None
 
         # We assume a fully halted VM here. The 'domain-init' handler will
         # check if the VM is already running.
@@ -1556,6 +1558,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED
                 )
+                self._is_running = True
+                self._power_state = "Paused"
                 self.create_xs_entries()
 
                 # the above allocates xid, lets announce that
@@ -1620,12 +1624,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.start_qdb_watch()
 
                 self.log.info("Activating qube")
-                await self.fire_event_async(
-                    "domain-pre-unpaused", pre_event=True
-                )
                 self.skip_unpause_event = True
                 self.libvirt_domain.resume()
-                await self.fire_event_async("domain-unpaused")
+                if self.is_fully_usable():
+                    self._power_state = "Running"
+                else:
+                    self._power_state = "Transient"
 
                 if (
                     self.virt_mode == "hvm"
@@ -1635,6 +1639,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 ):
                     await self.start_qrexec_daemon(stubdom=True)
                 await self.start_qrexec_daemon()
+                if self._power_state == "Transient" and self.is_fully_usable():
+                    self._power_state = "Running"
 
                 await self.fire_event_async(
                     "domain-start", start_guid=start_guid
@@ -1726,8 +1732,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._id = -1
         self._stubdom_xid = -1
         self._stubdom_uuid = ""
+        self._is_running = False
+        self._power_state = "Halted"
         state = self.get_power_state()
-        if state not in ["Halted", "Crashed", "Dying"]:
+        if state not in ["Halted", "Crashed", "Halting"]:
             self.log.warning(
                 "Stopped event from libvirt received,"
                 " but domain is in state {}!".format(state)
@@ -1753,7 +1761,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             # an exception gets thrown.
             self._domain_stopped_event_handled = True
 
-            while self.get_power_state() == "Dying":
+            while self.get_power_state() == "Halting":
                 await asyncio.sleep(0.25)
             try:
                 await self.fire_event_async("domain-stopped")
@@ -1794,6 +1802,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self.is_halted():
             raise qubes.exc.QubesVMNotStartedError(self)
 
+        old_power_state = self._power_state
         try:
             await self.fire_event_async(
                 "domain-pre-shutdown", pre_event=True, force=force
@@ -1807,8 +1816,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self._power_state_waiter = asyncio.get_running_loop().create_future()
 
             if self.is_paused():
-                self.libvirt_domain.destroy()
+                self._power_state = "Halting"
+                try:
+                    self.libvirt_domain.destroy()
+                except libvirt.libvirtError as e:
+                    if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                        self._is_running = False
+                        self._power_state = "Halted"
+                        raise qubes.exc.QubesVMNotStartedError(self)
+                    self._is_running = None
+                    self._power_state = None
+                    raise
             else:
+                self._power_state = "Halting"
                 # Some libvirt actions have a global lock on a domain, blocking
                 # a lot of libvirt operations and even qubesd. When possible to
                 # act without it, do so to avoid the whole qubesd hanging.
@@ -1850,7 +1870,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     await asyncio.wait_for(self._power_state_waiter, timeout=timeout)
                 except asyncio.TimeoutError:
                     raise qubes.exc.QubesVMShutdownTimeoutError(self)
+
+            self._is_running = False
+            self._power_state = "Halted"
         except Exception as ex:
+            self._power_state = old_power_state
             await self.fire_event_async(
                 "domain-shutdown-failed", reason=str(ex)
             )
@@ -1871,14 +1895,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self._power_state_waiter is None:
             self._power_state_waiter = asyncio.get_running_loop().create_future()
 
+        self._power_state = "Halting"
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                self._is_running = False
+                self._power_state = "Halted"
                 raise qubes.exc.QubesVMNotStartedError(self)
+            self._is_running = None
+            self._power_state = None
             raise
 
         await self._power_state_waiter
+        self._is_running = False
+        self._power_state = "Halted"
 
     async def suspend(self):
         """Suspend (pause) domain.
@@ -1913,11 +1944,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.libvirt_domain.pMSuspendForDuration(
                 libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0
             )
+            self._power_state = "Suspended"
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_UNSUPPORTED:
                 # OS inside doesn't support full suspend, just pause it
-                await self.fire_event_async("domain-pre-paused", pre_event=True)
-                self.libvirt_domain.suspend()
+                await self.pause()
             else:
                 self.log.warning("Failed to suspend qube")
                 raise
@@ -1932,6 +1963,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         await self.fire_event_async("domain-pre-paused", pre_event=True)
         self.libvirt_domain.suspend()
+        self._power_state = "Paused"
 
         return self
 
@@ -1944,6 +1976,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
+            self._power_state = "Running"
             if self.features.check_with_template("qrexec", False):
                 try:
                     await asyncio.wait_for(
@@ -1979,6 +2012,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         await self.fire_event_async("domain-pre-unpaused", pre_event=True)
         self.skip_unpause_event = True
         self.libvirt_domain.resume()
+        self._power_state = "Running"
         await self.fire_event_async("domain-unpaused")
 
         return self
@@ -2514,6 +2548,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return bootmode_default_user
 
     def get_power_state(self):
+        """
+        Get cached power state as a string.
+        """
+        self.set_power_state()
+        return self._power_state
+
+    def set_power_state(self):
         """Return power state description string.
 
         Return value may be one of those:
@@ -2528,7 +2569,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         ``'Paused'``    Machine is paused.
         ``'Suspended'`` Machine is S3-suspended.
         ``'Halting'``   Machine is in process of shutting down.
-        ``'Dying'``     Machine is still in process of shutting down.
         ``'Crashed'``   Machine crashed and is unusable, probably because of
                         bug in dom0.
         ``'NA'``        Machine is in unknown state (most likely libvirt domain
@@ -2614,12 +2654,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 Libvirt's enum describing precise state of a domain.
         """  # pylint: disable=too-many-return-statements
 
+        if self.app.vmm.offline_mode:
+            self._power_state = "Halted"
+            return
         # don't try to define libvirt domain, if it isn't there, VM surely
         # isn't running
         # reason for this "if": allow vm.is_running() in PCI (or other
         # device) extension while constructing libvirt XML
-        if self.app.vmm.offline_mode:
-            return "Halted"
         if self._libvirt_domain is None:
             try:
                 self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
@@ -2627,36 +2668,40 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    return "Halted"
+                    self._power_state = "Halted"
+                    return
                 raise
 
-        libvirt_domain = self.libvirt_domain
-        if libvirt_domain is None:
-            return "Halted"
+        if self.libvirt_domain is None:
+            self._power_state = "Halted"
+            return
+
+        if self._power_state not in [None, "NA"]:
+            return
 
         try:
-            if libvirt_domain.isActive():
-                state_dict = {
-                    libvirt.VIR_DOMAIN_PAUSED: "Paused",  # 0x3
-                    libvirt.VIR_DOMAIN_SHUTDOWN: "Halting",  # 0x4
-                    libvirt.VIR_DOMAIN_SHUTOFF: "Dying",  # 0x5
-                    libvirt.VIR_DOMAIN_CRASHED: "Crashed",  # 0x6
-                    libvirt.VIR_DOMAIN_PMSUSPENDED: "Suspended",  # 0x7
-                }
-                state = libvirt_domain.state()[0]
-                if state in state_dict:
-                    return state_dict[state]
-                if not self.is_fully_usable():
-                    return "Transient"
-                return "Running"  # 0x1
-
-            return "Halted"
+            if not self.is_running():
+                self._power_state = "Halted"
+                return
+            self._power_state = "Running"
+            state = self.libvirt_domain.state()[0]
+            state_dict = {
+                libvirt.VIR_DOMAIN_PAUSED: "Paused",  # 0x3
+                libvirt.VIR_DOMAIN_SHUTDOWN: "Halting",  # 0x4
+                libvirt.VIR_DOMAIN_SHUTOFF: "Halted",  # 0x5
+                libvirt.VIR_DOMAIN_CRASHED: "Crashed",  # 0x6
+                libvirt.VIR_DOMAIN_PMSUSPENDED: "Suspended",  # 0x7
+            }
+            if state in state_dict:
+                self._power_state = state_dict[state]
+            elif not self.is_fully_usable():
+                # libvirt.VIR_DOMAIN_RUNNING # 0x1
+                # libvirt.VIR_DOMAIN_BLOCKED # 0x2
+                self._power_state = "Transient"
         except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                return "Halted"
-            raise
-
-        assert False
+            if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+                raise
+            self._power_state = "NA"
 
     def is_halted(self):
         """ Check whether this domain's state is 'Halted'
@@ -2688,10 +2733,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    return False
+                    self._is_running = False
+                    return self._is_running
                 raise
 
-        return bool(self.libvirt_domain.isActive())
+        if self._is_running is None:
+            self._is_running = bool(self.libvirt_domain.isActive())
+        return self._is_running
 
     def is_paused(self):
         """Check whether this domain is paused.
@@ -2701,10 +2749,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :rtype: bool
         """
 
-        return (
-            self.libvirt_domain
-            and self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED
-        )
+        return self._power_state == "Paused"
 
     def is_qrexec_running(self, stubdom=False):
         """Check whether qrexec for this domain is available.
@@ -2779,11 +2824,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         if self.libvirt_domain is None:
             return 0
-        if not self.libvirt_domain.isActive():
+        if not self.is_running():
             return 0
 
         try:
-            if not self.libvirt_domain.isActive():
+            if not self.is_running():
                 return 0
 
             # this does not work, because libvirt
@@ -3035,6 +3080,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._libvirt_domain = self.app.vmm.libvirt_conn.defineXML(
                 domain_config
             )
+            self._is_running = False
+            self._power_state = "Halted"
         except libvirt.libvirtError as e:
             if (
                 e.get_error_code() == libvirt.VIR_ERR_OS_TYPE
