@@ -927,15 +927,19 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.app.save()
 
+        apps_list = self._get_apps_list(self.template)
         app_id = "mozilla-thunderbird"
         if "debian" in self.template or "whonix" in self.template:
             app_id = "thunderbird"
         # F40+ has org.mozilla.thunderbird
-        if "org.mozilla.thunderbird" in self._get_apps_list(self.template):
+        if "org.mozilla.thunderbird" in apps_list:
             app_id = "org.mozilla.thunderbird"
         # F41+ has net.thunderbird.Thunderbird
-        if "net.thunderbird.Thunderbird" in self._get_apps_list(self.template):
+        if "net.thunderbird.Thunderbird" in apps_list:
             app_id = "net.thunderbird.Thunderbird"
+
+        if not app_id in apps_list:
+            self.skipTest(f"{app_id} not installed in {self.template}")
 
         self.testvm1.features["service.app-dispvm." + app_id] = "1"
         self.loop.run_until_complete(self.testvm1.start())
