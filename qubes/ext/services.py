@@ -156,7 +156,7 @@ class ServicesExtension(qubes.ext.Extension):
             # balancing state anymore
             del vm.features["service.meminfo-writer"]
 
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         if not feature.startswith("service."):
             return
@@ -181,7 +181,7 @@ class ServicesExtension(qubes.ext.Extension):
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /qubes-service/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         if not feature.startswith("service."):
             return

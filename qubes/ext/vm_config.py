@@ -67,7 +67,7 @@ class VMConfig(qubes.ext.Extension):
                 "Config name must start with an ASCII letter"
             )
 
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
 
         vm.untrusted_qdb.write("/vm-config/" + config, str(value))
@@ -76,7 +76,7 @@ class VMConfig(qubes.ext.Extension):
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /vm-config/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         if not feature.startswith(PREFIX):
             return

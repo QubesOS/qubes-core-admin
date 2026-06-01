@@ -36,13 +36,13 @@ class AUDIO(qubes.ext.Extension):
     @staticmethod
     def set_qubesdb_audiovm(vm):
         # Ensure that qube is ready
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
 
         # Add AudioVM Xen ID for gui-agent
         audiovm = getattr(vm, "audiovm", None)
         if audiovm is not None:
-            if audiovm != vm and audiovm.is_running():
+            if audiovm != vm and getattr(audiovm, "untrusted_qdb"):
                 vm.untrusted_qdb.write(
                     "/qubes-audio-domain-xid", str(audiovm.xid)
                 )
@@ -62,7 +62,7 @@ class AUDIO(qubes.ext.Extension):
             subject.tags.add(audiovm)
 
         # It is needed to filter these events because
-        # vm.is_running() is not yet available.
+        # getattr(vm, "untrusted_qdb") is not yet available.
         if event not in ("domain-init", "domain-load"):
             self.set_qubesdb_audiovm(subject)
 
@@ -71,7 +71,7 @@ class AUDIO(qubes.ext.Extension):
         attached_vms = [
             domain
             for domain in self.attached_vms(vm)
-            if domain.is_running() and not getattr(domain, "is_preload", False)
+            if not getattr(domain, "is_preload", False) and domain.is_running()
         ]
         if attached_vms and not kwargs.get("force", False):
             raise qubes.exc.QubesVMInUseError(
@@ -95,7 +95,7 @@ class AUDIO(qubes.ext.Extension):
 
     @staticmethod
     async def set_stubdom_audiovm_domid(qube, audiovm):
-        if not qube.is_running():
+        if not getattr(qube, "untrusted_qdb"):
             return
         if audiovm:
             audiovm_xid = audiovm.xid

@@ -74,7 +74,7 @@ class R3Compatibility(qubes.ext.Extension):
     @qubes.ext.handler("firewall-changed")
     def on_firewall_changed(self, vm, event):
         # pylint: disable=unused-argument
-        if vm.is_running() and vm.netvm:
+        if getattr(vm, "untrusted_qdb") and vm.netvm:
             self.write_iptables_qubesdb_entry(vm.netvm)
 
     def write_iptables_qubesdb_entry(self, firewallvm):

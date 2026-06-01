@@ -84,7 +84,7 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler("property-reset:keyboard_layout")
     def on_keyboard_reset(self, vm, event, name, oldvalue=None):
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         kbd_layout = vm.keyboard_layout
         vm.untrusted_qdb.write("/keyboard-layout", kbd_layout)
@@ -93,7 +93,7 @@ class GUI(qubes.ext.Extension):
     def on_keyboard_set(self, vm, event, name, newvalue, oldvalue=None):
         if newvalue == oldvalue:
             return
-        if vm.is_running():
+        if getattr(vm, "untrusted_qdb"):
             vm.untrusted_qdb.write("/keyboard-layout", newvalue)
         attached_vms = [
             domain
@@ -133,7 +133,7 @@ class GUI(qubes.ext.Extension):
         if guivm:
             if vm != vm.guivm:
                 vm.untrusted_qdb.write("/keyboard-layout", vm.keyboard_layout)
-                if vm.guivm.is_running():
+                if getattr(vm.guivm, "untrusted_qdb"):
                     vm.untrusted_qdb.write(
                         "/qubes-gui-domain-xid", str(vm.guivm.xid)
                     )
@@ -160,7 +160,7 @@ class GUI(qubes.ext.Extension):
     @qubes.ext.handler("domain-start")
     async def on_domain_start(self, vm, event, **kwargs):
         attached_vms = [
-            domain for domain in self.attached_vms(vm) if domain.is_running()
+            domain for domain in self.attached_vms(vm) if getattr(domain, "untrusted_qdb")
         ]
         for attached_vm in attached_vms:
             gui = bool(attached_vm.features.get("gui", True))

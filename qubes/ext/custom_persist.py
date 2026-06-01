@@ -115,7 +115,7 @@ class CustomPersist(qubes.ext.Extension):
         self._check_key(self._extract_key_from_feature(feature))
         self._check_value(value)
 
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
 
         self._write_db_value(feature, value, vm)
@@ -124,7 +124,7 @@ class CustomPersist(qubes.ext.Extension):
     def on_domain_feature_delete(self, vm, event, feature):
         """Update /persist/ QubesDB tree in runtime"""
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         if not feature.startswith(FEATURE_PREFIX):
             return

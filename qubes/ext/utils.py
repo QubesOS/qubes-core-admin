@@ -82,7 +82,7 @@ def device_list_change(
 
     to_attach: Dict[str, Dict] = {}
     for front_vm in vm.app.domains:
-        if not front_vm.is_running():
+        if not getattr(front_vm, "untrusted_qdb"):
             continue
         for assignment in reversed(
             sorted(front_vm.devices[devclass].get_assigned_devices())

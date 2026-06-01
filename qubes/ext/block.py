@@ -92,7 +92,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         return self._serial
 
     def _load_lazily_name_and_serial(self):
-        if not self.backend_domain.is_running():
+        if not getattr(self.backend_domain, "untrusted_qdb"):
             return "unknown", "unknown"
         untrusted_desc = self.backend_domain.untrusted_qdb.read(
             f"/qubes-block-devices/{self.port_id}/desc"
@@ -124,7 +124,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     def mode(self):
         """Device mode, either 'w' for read-write, or 'r' for read-only"""
         if self._mode is None:
-            if not self.backend_domain.is_running():
+            if not getattr(self.backend_domain, "untrusted_qdb"):
                 return "w"
             untrusted_mode = self.backend_domain.untrusted_qdb.read(
                 "/qubes-block-devices/{}/mode".format(self.port_id)
@@ -144,7 +144,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     def size(self):
         """Device size in bytes"""
         if self._size is None:
-            if not self.backend_domain.is_running():
+            if not getattr(self.backend_domain, "untrusted_qdb"):
                 return None
             untrusted_size = self.backend_domain.untrusted_qdb.read(
                 "/qubes-block-devices/{}/size".format(self.port_id)
@@ -183,7 +183,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         partition of an usb stick), the parent device id should be here.
         """
         if self._parent is None:
-            if not self.backend_domain or not self.backend_domain.is_running():
+            if not self.backend_domain or not getattr(self.backend_domain, "untrusted_qdb"):
                 return None
             untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
                 f"/qubes-block-devices/{self.port_id}/parent"
@@ -216,10 +216,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         """
         Warning: this property is time-consuming, do not run in loop!
         """
-        if not self.backend_domain or not self.backend_domain.is_running():
+        if not self.backend_domain or not getattr(self.backend_domain, "untrusted_qdb"):
             return None
         for vm in self.backend_domain.app.domains:
-            if not vm.is_running():
+            if not getattr(vm, "untrusted_qdb"):
                 continue
             if self._is_attached_to(vm):
                 return vm
@@ -348,7 +348,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def get_device_attachments(vm_):
         result = {}
         for vm in vm_.app.domains:
-            if not vm.is_running() or isinstance(vm, RemoteVM):
+            if not getattr(vm, "untrusted_qdb") or isinstance(vm, RemoteVM):
                 continue
 
             if vm.app.vmm.offline_mode:
@@ -390,7 +390,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_device_list_block(self, vm, event):
         # pylint: disable=unused-argument
 
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         untrusted_qubes_devices = vm.untrusted_qdb.list("/qubes-block-devices/")
         untrusted_idents = set(
@@ -415,7 +415,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-get:block")
     def on_device_get_block(self, vm, event, port_id):
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
         if not vm.app.vmm.offline_mode:
             device_info = self.device_get(vm, port_id)
@@ -425,7 +425,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-list-attached:block")
     def on_device_list_attached(self, vm, event, **kwargs):
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
 
         system_disks = SYSTEM_DISKS
@@ -481,7 +481,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         """
         Find unused block frontend device node for <target dev=.../> parameter
         """
-        assert vm.is_running()
+        assert getattr(vm, "untrusted_qdb")
 
         xml = vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
@@ -549,7 +549,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 "This device can be attached only read-only"
             )
 
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             print(
                 f"Can not attach device, qube {vm.name} is not running.",
                 file=sys.stderr,
@@ -571,7 +571,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 )
             )
 
-        if not device.backend_domain.is_running():
+        if not getattr(device.backend_domain, "untrusted_qdb"):
             raise qubes.exc.QubesVMNotRunningError(
                 device.backend_domain,
                 f"Domain {device.backend_domain.name} needs to be running "
@@ -688,7 +688,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-pre-detach:block")
     def on_device_pre_detached_block(self, vm, event, port):
         # pylint: disable=unused-argument
-        if not vm.is_running():
+        if not getattr(vm, "untrusted_qdb"):
             return
 
         # need to enumerate attached devices to find frontend_dev option (at
