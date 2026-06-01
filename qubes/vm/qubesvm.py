@@ -1002,10 +1002,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.stateless_property
     def stubdom_xid(self) -> int:
-        if not self.is_running():
+        if self.app.vmm.xs is None:
             return -1
 
-        if self.app.vmm.xs is None:
+        if not self.is_running():
             return -1
 
         stubdom_xid_str = self.app.vmm.xs.read(
@@ -1084,11 +1084,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     @property
     def untrusted_qdb(self):
         """QubesDB handle for this domain."""
-        if self._qdb_connection is None:
-            if self.is_running():
-                import qubesdb  # pylint: disable=import-error
-
-                self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
     @property

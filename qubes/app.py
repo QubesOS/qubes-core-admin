@@ -1233,6 +1233,15 @@ class Qubes(qubes.PropertyHolder):
 
         for vm in self.domains:
             vm.events_enabled = True
+            if (
+                not self.vmm.offline_mode
+                and isinstance(vm, qubes.vm.qubesvm.QubesVM)
+                and not vm.untrusted_qdb
+                and vm.is_running()
+            ):
+                import qubesdb  # pylint: disable=import-error
+
+                vm._qdb_connection = qubesdb.QubesDB(vm.name)
             vm.fire_event("domain-load")
 
         # get a file timestamp (before closing it - still holding the lock!),
