@@ -962,7 +962,7 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         # disable donation message as it messes with editor detection
         self.loop.run_until_complete(
             self.testvm1.run_for_stdio(
-                "cat > /etc/thunderbird/pref/test.js",
+                "mkdir -p /etc/thunderbird/pref && cat > /etc/thunderbird/pref/test.js",
                 input=b'pref("app.donation.eoy.version.viewed", 100);\n',
                 user="root",
             )
