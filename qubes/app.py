@@ -1672,7 +1672,7 @@ class Qubes(qubes.PropertyHolder):
                 if not vm.is_running():
                     vm.on_libvirt_domain_stopped()
 
-    def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
+    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),
         translate libvirt event into qubes.events.
         """
@@ -1685,6 +1685,22 @@ class Qubes(qubes.PropertyHolder):
             # ignore events for unknown domains
             return
 
+        libvirt_event_dict = {
+            libvirt.VIR_DOMAIN_EVENT_DEFINED: "Defined",  # 0x0
+            libvirt.VIR_DOMAIN_EVENT_UNDEFINED: "Undefined",  # 0x1
+            libvirt.VIR_DOMAIN_EVENT_STARTED: "Started",  # 0x2
+            libvirt.VIR_DOMAIN_EVENT_SUSPENDED: "Paused",  # 0x3
+            libvirt.VIR_DOMAIN_EVENT_RESUMED: "Resumed",  # 0x4
+            libvirt.VIR_DOMAIN_EVENT_STOPPED: "Halted",  # 0x5
+            libvirt.VIR_DOMAIN_EVENT_SHUTDOWN: "Halting",  # 0x6
+            libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED: "Suspended",  # 0x7
+            libvirt.VIR_DOMAIN_EVENT_CRASHED: "Crashed",  # 0x8
+        }
+        vm.log.debug(
+            "Libvirt event with detail: %s (%s)",
+            libvirt_event_dict[event],
+            detail,
+        )
         if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             vm.on_libvirt_domain_stopped()
         elif event == libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
