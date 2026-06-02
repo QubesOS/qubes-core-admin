@@ -2044,11 +2044,7 @@ class ZFSVolume(qubes.storage.Volume):
                 self.log.debug("Source is a File volume")
                 # File volume export() does not actually return a coroutine.
                 # This isn't just a typing error.  The await() fails.
-                loop = asyncio.get_event_loop()
-                in_ = await loop.run_in_executor(
-                    None,
-                    source.export,
-                )  # type:ignore
+                in_ = await asyncio.to_thread(source.export)  # type:ignore
             else:
                 self.log.debug("Source is not a ZFS volume")
                 in_ = await source.export()  # type:ignore

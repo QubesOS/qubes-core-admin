@@ -1453,8 +1453,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                                 notify_function=notify_function,
                             )
 
-                qmemman_client = await asyncio.get_event_loop().run_in_executor(
-                    None, self.request_mem, mem_required
+                qmemman_client = await asyncio.to_thread(
+                    self.request_mem, mem_required
                 )
 
                 await self.storage.start()

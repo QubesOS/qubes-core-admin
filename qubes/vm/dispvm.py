@@ -626,9 +626,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         break_task = asyncio.create_task(self.preload_requested_event.wait())
         qmemman_client = qubes.qmemman.client.QMemmanClient()
-        qmemman_task = asyncio.get_running_loop().run_in_executor(
-            None,
-            qmemman_client.set_mem,  # type: ignore[arg-type]
+        qmemman_task = asyncio.to_thread(
+            qmemman_client.set_mem,
             {self.xid: 0},
         )
         tasks: list = [break_task, qmemman_task]
