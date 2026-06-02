@@ -761,7 +761,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             performing various post-installation setup.
 
             Handler for this event may be asynchronous.
-    """
+    """  # pylint: disable=too-many-instance-attributes
 
     #
     # per-class properties
@@ -1026,9 +1026,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         Or not Xen, but ID.
         """
 
+        if self._id != -1:
+            return self._id
         try:
             if self.is_running():
-                return self.libvirt_domain.ID()
+                self._id: int = int(self.libvirt_domain.ID())
+                return self._id
 
             return -1
         except libvirt.libvirtError as e:
@@ -1041,17 +1044,28 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.stateless_property
     def stubdom_uuid(self) -> str:
+        _stubdom_uuid = self._stubdom_uuid  # type: ignore[has-type]
+        assert isinstance(_stubdom_uuid, str)
+        if _stubdom_uuid != "":
+            return _stubdom_uuid
         stubdom_xid = self.stubdom_xid
         if stubdom_xid == -1:
             return ""
-        stubdom_uuid = self.app.vmm.xs.read(
+        stubdom_uuid_bytes = self.app.vmm.xs.read(
             "", "/local/domain/{}/vm".format(stubdom_xid)
         )
-        assert _vm_uuid_re.match(stubdom_uuid), "Invalid UUID in XenStore"
-        return stubdom_uuid[4:].decode("ascii", "strict")
+        assert _vm_uuid_re.match(stubdom_uuid_bytes), "Invalid UUID in XenStore"
+        stubdom_uuid = stubdom_uuid_bytes[4:].decode("ascii", "strict")
+        self._stubdom_uuid = stubdom_uuid
+        return self._stubdom_uuid
 
     @qubes.stateless_property
     def stubdom_xid(self) -> int:
+        _stubdom_xid = self._stubdom_xid  # type: ignore[has-type]
+        assert isinstance(_stubdom_xid, int)
+        if _stubdom_xid != -1:
+            return _stubdom_xid
+
         if self.virt_mode != "hvm":
             return -1
 
@@ -1067,7 +1081,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if stubdom_xid_str is None or not stubdom_xid_str.isdigit():
             return -1
 
-        return int(stubdom_xid_str)
+        stubdom_xid = int(stubdom_xid_str)
+        self._stubdom_xid = stubdom_xid
+        return self._stubdom_xid
 
     @property
     def attached_volumes(self):
@@ -1216,6 +1232,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self._libvirt_domain = None
         self._qdb_connection = None
+        self._id = -1
+        self._stubdom_xid = -1
+        self._stubdom_uuid = ""
 
         # We assume a fully halted VM here. The 'domain-init' handler will
         # check if the VM is already running.
@@ -1704,6 +1723,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         and synchronization with start() and then emits Qubes events.
         """
 
+        self._id = -1
+        self._stubdom_xid = -1
+        self._stubdom_uuid = ""
         state = self.get_power_state()
         if state not in ["Halted", "Crashed", "Dying"]:
             self.log.warning(
@@ -2720,11 +2742,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :returns: Memory assigned in KiB.
         :rtype: int
         """
-        if self.libvirt_domain is None:
+        if not self.is_running():
             return 0
         try:
-            if not self.libvirt_domain.isActive():
-                return 0
             return self.libvirt_domain.memoryStats()["actual"]
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
@@ -2745,24 +2765,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :returns: Memory limit in KiB.
         :rtype: int
         """
-        if self.libvirt_domain is None:
-            return 0
-        try:
-            if not self.libvirt_domain.isActive():
-                return 0
-            return self.maxmem * 1024
-        except libvirt.libvirtError as e:
-            if e.get_error_code() in (
-                # qube no longer exists
-                libvirt.VIR_ERR_NO_DOMAIN,
-                # libxl_domain_info failed (race condition from isActive)
-                libvirt.VIR_ERR_INTERNAL_ERROR,
-            ):
-                return 0
-            self.log.exception(
-                "libvirt error code: {!r}".format(e.get_error_code())
-            )
-            raise
+        return self.maxmem * 1024
 
     def get_cputime(self):
         """Get total CPU time burned by this domain since start.
