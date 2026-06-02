@@ -100,6 +100,7 @@ class AdminVM(LocalVM):
 
         self._qdb_connection = None
         self._libvirt_domain = None
+        self._mem_static_max = 0
 
         if not self.app.vmm.offline_mode:
             self.start_qdb_watch()
@@ -202,8 +203,11 @@ class AdminVM(LocalVM):
         if self.app.vmm.offline_mode:
             # default value passed on xen cmdline
             return 4096
+        if self._mem_static_max:
+            return self._mem_static_max
         try:
-            return self.app.vmm.libvirt_conn.getInfo()[1]
+            self._mem_static_max = self.app.vmm.libvirt_conn.getInfo()[1]
+            return self._mem_static_max
         except libvirt.libvirtError as e:
             self.log.warning("Failed to get memory limit for dom0: %s", e)
             return 4096
