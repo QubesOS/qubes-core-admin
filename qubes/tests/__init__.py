@@ -494,11 +494,6 @@ class QubesTestCase(unittest.TestCase):
 
         self._success = True
 
-        global libvirt_event_impl
-
-        if in_dom0 and not libvirt_event_impl:
-            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
-
     def set_result(self, success):
         self._success = success
 
@@ -513,7 +508,17 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.addCleanup(self.cleanup_gc)
 
-        self.loop = asyncio.get_event_loop()
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        global libvirt_event_impl
+
+        if in_dom0 and not libvirt_event_impl:
+            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel
