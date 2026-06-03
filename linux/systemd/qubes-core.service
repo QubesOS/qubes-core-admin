@@ -5,7 +5,6 @@ After=qubes-db-dom0.service libvirtd.service virtxend.socket xenconsoled.service
 
 [Service]
 Type=oneshot
-StandardOutput=syslog
 RemainAfterExit=yes
 # Needed to avoid rebooting before all VMs have shut down.
 TimeoutStopSec=180
