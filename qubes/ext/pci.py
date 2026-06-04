@@ -364,16 +364,11 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-list:pci")
     def on_device_list_pci(self, vm, event):
         # pylint: disable=unused-argument
-        # only dom0 expose PCI devices
+        # only dom0 exposes PCI devices
         if vm.qid != 0:
             return
 
-        for dev in vm.app.vmm.libvirt_conn.listAllDevices():
-            if "pci" not in dev.listCaps():
-                continue
-
-            xml_desc = lxml.etree.fromstring(dev.XMLDesc())
-            libvirt_name = xml_desc.findtext("name")
+        for libvirt_name in vm.app.vmm.libvirt_conn.listDevices("pci"):
             try:
                 yield PCIDevice(
                     Port(backend_domain=vm, port_id=None, devclass="pci"),

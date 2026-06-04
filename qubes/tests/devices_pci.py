@@ -52,8 +52,8 @@ class TestVM(object):
 
 
 PCI_XML = """<device>
-  <name>pci_{}_00_14_0</name>
-  <path>/sys/devices/pci{}:00/{}:00:14.0</path>
+  <name>pci_{address}_00_14_0</name>
+  <path>/sys/devices/pci{address}:00/{address}:00:14.0</path>
   <parent>computer</parent>
   <driver>
     <name>pciback</name>
@@ -196,25 +196,11 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             **{
                 "vmm.offline_mode": False,
                 "vmm.libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
-                    **{"XMLDesc.return_value": PCI_XML.format(*["0000"] * 3)}
+                    **{"XMLDesc.return_value": PCI_XML.format(address="0000")}
                 ),
-                "vmm.libvirt_conn.listAllDevices.return_value": [
-                    mock.Mock(
-                        **{
-                            "XMLDesc.return_value": PCI_XML.format(
-                                *["0000"] * 3
-                            ),
-                            "listCaps.return_value": ["pci"],
-                        }
-                    ),
-                    mock.Mock(
-                        **{
-                            "XMLDesc.return_value": PCI_XML.format(
-                                *["10000"] * 3
-                            ),
-                            "listCaps.return_value": ["pci"],
-                        }
-                    ),
+                "vmm.libvirt_conn.listDevices.return_value": [
+                    "pci_0000_00_14_0",
+                    "pci_10000_00_14_0",
                 ],
             }
         )
