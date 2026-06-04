@@ -17,12 +17,16 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
+
 import functools
 import os.path
-import unittest
 from unittest import mock
 
+from qubes.vm.adminvm import AdminVM
+from qubes.vm.appvm import AppVM
+
 import qubes.tests
+import qubes.tests.vm
 import qubes.ext.pci
 import qubes.devices
 from qubes.device_protocol import (
@@ -35,25 +39,31 @@ from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 orig_open = open
 
 
-class TestVM(object):
-    def __init__(self, running=True, name="dom0", qid=0, app=None):
-        self.name = name
-        self.qid = qid
-        self.is_running = lambda: running
-        self.log = mock.Mock()
-        self.app = app or mock.Mock()
+class TestApp(qubes.tests.vm.TestApp):
+    def __init__(self, offline_mode=True):
+        super().__init__()
+        self.qid_counter = 0
+        self.vmm.offline_mode = offline_mode
 
-    def __eq__(self, other):
-        if isinstance(other, TestVM):
-            return self.name == other.name
+    def save(self):
+        pass
 
-    def __hash__(self):
-        return hash(self.name)
+    def add_new_vm(self, cls, **kwargs):
+        qid = self.qid_counter
+        if self.qid_counter == 0:
+            vm = cls(self, None, **kwargs)
+        else:
+            vm = cls(self, None, qid=qid, **kwargs)
+        self.domains[vm.name] = vm
+        self.domains[vm] = vm
+        self.domains[qid] = vm
+        self.qid_counter += 1
+        return vm
 
 
 PCI_XML = """<device>
-  <name>pci_{}_00_14_0</name>
-  <path>/sys/devices/pci{}:00/{}:00:14.0</path>
+  <name>pci_{address}_00_14_0</name>
+  <path>/sys/devices/pci{address}:00/{address}:00:14.0</path>
   <parent>computer</parent>
   <driver>
     <name>pciback</name>
@@ -184,37 +194,36 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
 class TC_10_PCI(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        self.dom0 = TestVM(name="dom0", qid=0)
-        self.app = self.dom0.app
-        self.app.domains = {"dom0": self.dom0, self.dom0: self.dom0}
+        self.app = TestApp()
+        self.dom0 = self.app.add_new_vm(AdminVM)
+        self.appvm = self.app.add_new_vm(AppVM, name="test-appvm", label="red")
         self.ext = qubes.ext.pci.PCIDeviceExtension()
+
+    def tearDown(self):
+        super().tearDown()
+        del self.ext
+        self.appvm.close()
+        self.dom0.close()
+        del self.appvm
+        del self.dom0
+        self.app.close()
+        self.app.domains.clear()
+        self.app.pools.clear()
+        del self.app
 
     @mock.patch("builtins.open", new=mock_file_open)
     def test_000_unsupported_device(self):
-        vm = TestVM()
-        vm.app.configure_mock(
+        vm = self.dom0
+        vm.app.vmm = mock.Mock()
+        vm.app.vmm.configure_mock(
             **{
-                "vmm.offline_mode": False,
-                "vmm.libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
-                    **{"XMLDesc.return_value": PCI_XML.format(*["0000"] * 3)}
+                "offline_mode": False,
+                "libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
+                    **{"XMLDesc.return_value": PCI_XML.format(address="0000")}
                 ),
-                "vmm.libvirt_conn.listAllDevices.return_value": [
-                    mock.Mock(
-                        **{
-                            "XMLDesc.return_value": PCI_XML.format(
-                                *["0000"] * 3
-                            ),
-                            "listCaps.return_value": ["pci"],
-                        }
-                    ),
-                    mock.Mock(
-                        **{
-                            "XMLDesc.return_value": PCI_XML.format(
-                                *["10000"] * 3
-                            ),
-                            "listCaps.return_value": ["pci"],
-                        }
-                    ),
+                "libvirt_conn.listDevices.return_value": [
+                    "pci_0000_00_14_0",
+                    "pci_10000_00_14_0",
                 ],
             }
         )
@@ -235,6 +244,112 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         )
         self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")
 
+        not_dom0 = self.appvm
+        devices = list(self.ext.on_device_list_pci(not_dom0, "device-list:pci"))
+        self.assertEqual(devices, [])
+
+    @mock.patch("builtins.open", new=mock_file_open)
+    def test_001_list_attached(self):
+        dev0 = {"segment": "0000", "bus": "00", "device": "0d", "function": "0"}
+        dev1 = {"segment": "0000", "bus": "00", "device": "0d", "function": "2"}
+        dev2 = {"segment": "0000", "bus": "00", "device": "14", "function": "0"}
+        usbvm_xml = f"""
+<domain type='xen' id='27'>
+  <name>sys-usb</name>
+  <devices>
+    <emulator type='stubdom-linux' cmdline='-qubes-audio:audiovm_xid=0'/>
+    <disk type='block' device='disk'>
+      <driver name='phy' type='raw'/>
+      <source dev='/dev/mapper/qubes_dom0-vm--sys--usb--root--snap'/>
+      <script path='/etc/xen/scripts/qubes-block'/>
+      <target dev='xvda' bus='xen'/>
+    </disk>
+    <disk type='block' device='disk'>
+      <driver name='phy' type='raw'/>
+      <source dev='/dev/mapper/qubes_dom0-vm--sys--usb--private--snap'/>
+      <script path='/etc/xen/scripts/qubes-block'/>
+      <target dev='xvdb' bus='xen'/>
+    </disk>
+    <disk type='block' device='disk'>
+      <driver name='phy' type='raw'/>
+      <source dev='/dev/mapper/qubes_dom0-vm--sys--usb--volatile'/>
+      <script path='/etc/xen/scripts/qubes-block'/>
+      <target dev='xvdc' bus='xen'/>
+    </disk>
+    <disk type='block' device='disk'>
+      <driver name='phy' type='raw'/>
+      <source dev='/var/lib/qubes/vm-kernels/7.1.5-1.18.fc41/modules.img'/>
+      <script path='/etc/xen/scripts/qubes-block'/>
+      <target dev='xvdd' bus='xen'/>
+      <readonly/>
+    </disk>
+    <controller type='xenbus' index='0'/>
+    <console type='pty' tty='/dev/pts/7'>
+      <source path='/dev/pts/7'/>
+      <target type='xen' port='0'/>
+    </console>
+    <input type='tablet' bus='usb'/>
+    <input type='mouse' bus='ps2'/>
+    <input type='keyboard' bus='ps2'/>
+    <graphics type='qubes' log_level='0'/>
+    <video>
+      <model type='vga' vram='16384' heads='1' primary='yes'/>
+    </video>
+    <hostdev mode='subsystem' type='pci' managed='yes' nostrictreset='yes'>
+      <driver name='xen'/>
+      <source>
+        <address domain='0x{dev0["segment"]}' bus='0x{dev0["bus"]}' slot='0x{dev0["device"]}' function='0x{dev0["function"]}'/>
+      </source>
+    </hostdev>
+    <hostdev mode='subsystem' type='pci' managed='yes' nostrictreset='yes'>
+      <driver name='xen'/>
+      <source>
+        <address domain='0x{dev1["segment"]}' bus='0x{dev1["bus"]}' slot='0x{dev1["device"]}' function='0x{dev1["function"]}'/>
+      </source>
+    </hostdev>
+    <hostdev mode='subsystem' type='pci' managed='yes' nostrictreset='yes'>
+      <driver name='xen'/>
+      <source>
+        <address domain='0x{dev2["segment"]}' bus='0x{dev2["bus"]}' slot='0x{dev2["device"]}' function='0x{dev2["function"]}'/>
+      </source>
+    </hostdev>
+    <memballoon model='xen'/>
+  </devices>
+</domain>
+"""
+
+        with self.subTest(name="dom0"):
+            self.dom0._libvirt_domain = mock.Mock()
+            self.dom0._libvirt_domain.XMLDesc.return_value = usbvm_xml
+            devices = list(
+                self.ext.on_device_list_attached(
+                    self.dom0, "device-list-attached:pci"
+                )
+            )
+            self.assertEqual(devices, [])
+
+        with self.subTest(name="not-dom0"):
+            not_dom0 = self.appvm
+            not_dom0._libvirt_domain = mock.Mock()
+            not_dom0._libvirt_domain.XMLDesc.return_value = usbvm_xml
+            with mock.patch.object(not_dom0, "is_running", return_value=True):
+                devices = list(
+                    self.ext.on_device_list_attached(
+                        not_dom0, "device-list-attached:pci"
+                    )
+                )
+            self.assertEqual(len(devices), 3)
+            expected_devices = [dev0, dev1, dev2]
+            for device, expected in zip(devices, expected_devices):
+                dev = device[0]
+                port = f'{expected["bus"]}_{expected["device"]}.{expected["function"]}'
+                self.assertEqual(dev.port_id, port)
+                sbdf = f'{expected["segment"]}:{port}'.replace(
+                    ":", "_"
+                ).replace(".", "_")
+                self.assertEqual(dev.libvirt_name, "pci_" + sbdf)
+            del not_dom0
+
     def _mock_fire_event(self, vm, event, pre_event=False, **kwargs):
         if event == "device-get:pci":
             return list(self.ext.on_device_get_pci(vm, event, **kwargs))
@@ -244,8 +359,7 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             assert False
 
     def test_010_unassign_missing(self):
-        vm = TestVM(name="testvm", qid=1, app=self.app)
-        vm.app.vmm.offline_mode = False
+        vm = self.appvm
         vm.events_enabled = False
         vm.fire_event_async = mock.AsyncMock()
         vm.fire_event = functools.partial(self._mock_fire_event, vm)

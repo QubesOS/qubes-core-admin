@@ -25,7 +25,7 @@ import os
 import re
 import string
 import subprocess
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterator
 
 import libvirt
 import lxml
@@ -362,16 +362,11 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-list:pci")
     def on_device_list_pci(self, vm, event):
         # pylint: disable=unused-argument
-        # only dom0 expose PCI devices
+        # only dom0 exposes PCI devices
         if vm.qid != 0:
             return
 
-        for dev in vm.app.vmm.libvirt_conn.listAllDevices():
-            if "pci" not in dev.listCaps():
-                continue
-
-            xml_desc = lxml.etree.fromstring(dev.XMLDesc())
-            libvirt_name = xml_desc.findtext("name")
+        for libvirt_name in vm.app.vmm.libvirt_conn.listDevices("pci"):
             try:
                 yield PCIDevice(
                     Port(backend_domain=vm, port_id=None, devclass="pci"),
@@ -389,7 +384,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
             yield _cache_get(vm, port_id)
 
     @qubes.ext.handler("device-list-attached:pci")
-    def on_device_list_attached(self, vm, event, **kwargs):
+    def on_device_list_attached(
+        self, vm, event, **kwargs
+    ) -> Iterator[tuple[PCIDevice, dict]]:
         # pylint: disable=unused-argument
         if not vm.is_running() or isinstance(vm, qubes.vm.adminvm.AdminVM):
             return
