@@ -21,6 +21,7 @@
 #
 
 import asyncio
+import functools
 import hashlib
 import logging
 import re
@@ -177,6 +178,7 @@ def urandom(size):
     return hashlib.sha512(rand).digest()
 
 
+@functools.cache
 def get_entry_point_one(group, name):
     epoints = tuple(importlib.metadata.entry_points(group=group, name=name))
     if not epoints:
