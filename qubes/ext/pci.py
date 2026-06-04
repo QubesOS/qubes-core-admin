@@ -64,15 +64,24 @@ def load_pci_classes():
         subclass_id = None
         for line in pciids.readlines():
             line = line.rstrip()
-            if line.startswith("\t\t") and class_id and subclass_id:
+            if not line:
+                continue
+            first_char = line[0]
+            if (
+                first_char == "\t"
+                and len(line) >= 2
+                and line[1] == "\t"
+                and class_id is not None
+                and subclass_id is not None
+            ):
                 progif_id, _, class_name = line[2:].split(" ", 2)
                 result[class_id + subclass_id + progif_id] = class_name
-            elif line.startswith("\t") and class_id:
+            elif first_char == "\t" and class_id:
                 subclass_id, _, class_name = line[1:].split(" ", 2)
                 # store both prog-if specific entry and generic one
                 result[class_id + subclass_id + "00"] = class_name
                 result[class_id + subclass_id] = class_name
-            elif line.startswith("C "):
+            elif first_char == "C" and len(line) >= 2 and line[1] == " ":
                 _, class_id, _, class_name = line.split(" ", 3)
                 result[class_id + "0000"] = class_name
                 result[class_id + "00"] = class_name
