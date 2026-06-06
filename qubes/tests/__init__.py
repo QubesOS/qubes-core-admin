@@ -957,6 +957,12 @@ class SystemTestCase(QubesTestCase):
             obj_type = type(getattr(self, attr))
             if obj_type.__module__.startswith("qubes"):
                 delattr(self, attr)
+            elif issubclass(obj_type, list) and any(
+                type(obj).__module__.startswith("qubes")
+                for obj in getattr(self, attr)
+            ):
+                # remove also list of qubes objects
+                delattr(self, attr)
 
         # then trigger garbage collector to really destroy those objects
         gc.collect()
