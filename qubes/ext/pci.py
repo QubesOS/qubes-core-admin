@@ -392,14 +392,11 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for hostdev in xml_desc.findall("devices/hostdev"):
-            if hostdev.get("type") != "pci":
-                continue
-            address = hostdev.find("source/address")
-            segment = address.get("domain")[2:]
-            bus = address.get("bus")[2:]
-            device = address.get("slot")[2:]
-            function = address.get("function")[2:]
+        for hostdev in xml_desc.findall("devices/hostdev[@type='pci']/source/address"):
+            segment = hostdev.get("domain")[2:]
+            bus = hostdev.get("bus")[2:]
+            device = hostdev.get("slot")[2:]
+            function = hostdev.get("function")[2:]
 
             libvirt_name = "pci_{segment}_{bus}_{device}_{function}".format(
                 segment=segment,
