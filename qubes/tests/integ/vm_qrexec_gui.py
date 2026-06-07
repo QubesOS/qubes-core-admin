@@ -812,8 +812,7 @@ int main(int argc, char **argv) {
         winid = await self.wait_for_window_coro(
             self.testvm1.name + ":xterm", search_class=True
         )
-        xprop = await asyncio.get_event_loop().run_in_executor(
-            None,
+        xprop = await asyncio.to_thread(
             subprocess.check_output,
             ["xprop", "-notype", "-id", winid, "_QUBES_VMWINDOWID"],
         )
@@ -850,8 +849,7 @@ int main(int argc, char **argv) {
             "gm import -window {} rgba:-".format(vm_winid)
         )
 
-        dom0_image = await asyncio.get_event_loop().run_in_executor(
-            None,
+        dom0_image = await asyncio.to_thread(
             subprocess.check_output,
             ["gm", "import", "-window", winid, "rgba:-"],
         )

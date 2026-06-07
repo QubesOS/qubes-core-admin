@@ -250,14 +250,11 @@ class BackupTestsMixin(object):
         client_app = qubesadmin.Qubes()
         if appvm:
             appvm = self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None, client_app.domains.__getitem__, appvm.name
-                )
+                asyncio.to_thread(client_app.domains.__getitem__, appvm.name)
             )
         with self.assertNotRaises(qubesadmin.exc.QubesException):
             restore_op = self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None,
+                asyncio.to_thread(
                     qubesadmin.backup.restore.BackupRestore,
                     client_app,
                     backupfile,
@@ -269,7 +266,7 @@ class BackupTestsMixin(object):
                 for key, value in options.items():
                     setattr(restore_op.options, key, value)
             restore_info = self.loop.run_until_complete(
-                self.loop.run_in_executor(None, restore_op.get_restore_info)
+                asyncio.to_thread(restore_op.get_restore_info)
             )
         if callable(manipulate_restore_info):
             restore_info = manipulate_restore_info(restore_info)
@@ -277,9 +274,7 @@ class BackupTestsMixin(object):
 
         with self.assertNotRaises(qubesadmin.exc.QubesException):
             self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None, restore_op.restore_do, restore_info
-                )
+                asyncio.to_thread(restore_op.restore_do, restore_info)
             )
 
         errors = []

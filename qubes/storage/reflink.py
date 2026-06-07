@@ -60,9 +60,7 @@ def _coroutinized(function):
 
     @functools.wraps(function)
     async def wrapper(*args, **kwargs):
-        return await asyncio.get_event_loop().run_in_executor(
-            None, functools.partial(function, *args, **kwargs)
-        )
+        return await asyncio.to_thread(function, *args, **kwargs)
 
     return wrapper
 
