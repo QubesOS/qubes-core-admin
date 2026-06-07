@@ -421,6 +421,7 @@ class TC_00_NetVMMixin(
             (511, "2.3"),
             (512, "2.4"),
             (513, "2.5"),
+            (0xFE00, "255.254"),
         )
         for vmid, ip in testcases:
             with self.subTest(str(vmid)):
@@ -428,3 +429,12 @@ class TC_00_NetVMMixin(
                     ipaddress.IPv4Address("1.1." + ip),
                     vmid_to_ipv4("1.1", vmid),
                 )
+
+        error_cases = (
+            0,
+            0xFE01,
+        )
+        for vmid in error_cases:
+            with self.subTest(str(vmid)):
+                with self.assertRaisesRegex(ValueError, "vmid out of range"):
+                    vmid_to_ipv4("1.1", vmid)
