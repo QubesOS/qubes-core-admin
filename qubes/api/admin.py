@@ -1590,9 +1590,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 invalid_template = True
 
         invalid_label = False
-        for untrusted_param in untrusted_payload.decode(
-            "ascii", errors="strict"
-        ).split(" "):
+        untrusted_invalid_pool_exc = False
+        try:
+            payload = untrusted_payload.decode("ascii", errors="strict")
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Parameters contains non-ASCII characters"
+            )
+        for untrusted_param in payload.split(" "):
             untrusted_key, untrusted_value = untrusted_param.split("=", 1)
             self.enforce(
                 untrusted_key not in kwargs, reason="Options must be unique"
@@ -1615,7 +1620,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 self.enforce(
                     pool is None, reason="Option 'pool' must be unique"
                 )
-                pool = self.app.get_pool(untrusted_value)
+                try:
+                    pool = self.app.get_pool(untrusted_value)
+                except qubes.exc.QubesException as exc:
+                    untrusted_invalid_pool_exc = exc
 
             elif untrusted_key.startswith("pool:") and allow_pool:
                 untrusted_volume = untrusted_key.split(":", 1)[1]
@@ -1632,7 +1640,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                     volume not in pools,
                     reason="Option 'pool:{}' must be unique".format(volume),
                 )
-                pools[volume] = self.app.get_pool(untrusted_value)
+                try:
+                    pools[volume] = self.app.get_pool(untrusted_value)
+                except qubes.exc.QubesException as exc:
+                    untrusted_invalid_pool_exc = exc
 
             else:
                 if not allow_pool and (
@@ -1679,6 +1690,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             # If label is invalid, it came from payload and should not be
             # logged.
             raise qubes.exc.QubesLabelNotFoundError(label="untrusted label")
+
+        # Avoids leaking pool existence before admin-permission.
+        if untrusted_invalid_pool_exc:
+            raise untrusted_invalid_pool_exc
 
         vm = self.app.add_new_vm(vm_class, **kwargs)
         # TODO: move this to extension (in race-free fashion)
