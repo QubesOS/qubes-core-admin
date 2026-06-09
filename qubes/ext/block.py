@@ -25,6 +25,7 @@ import asyncio
 import re
 import string
 import sys
+import libvirt
 from typing import Optional, List
 
 import lxml.etree
@@ -478,24 +479,31 @@ class BlockDeviceExtension(qubes.ext.Extension):
             yield BlockDevice(Port(backend_domain, port_id, "block")), options
 
     @staticmethod
-    def find_unused_frontend(vm, devtype="disk"):
+    def _is_block(vm, block: str) -> bool:
+        try:
+            # TODO: ben: Marek mention that when backend is not dom0, this
+            # won't work.
+            # blockInfo() is not supported by libxl.
+            value = bool(vm.libvirt_domain.blockStats(block))
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                value = False
+            else:
+                raise
+        return value
+
+    def find_unused_frontend(self, vm, devtype="disk"):
         """
         Find unused block frontend device node for <target dev=.../> parameter
         """
         assert vm.is_running()
 
-        xml = vm.libvirt_domain.XMLDesc()
-        parsed_xml = lxml.etree.fromstring(xml)
-        used = [
-            target.get("dev", None)
-            for target in parsed_xml.xpath("//domain/devices/disk/target")
-        ]
-        if devtype == "cdrom" and "xvdd" not in used:
+        if devtype == "cdrom" and self._is_block(vm, "xvdd"):
             # prefer 'xvdd' for CDROM if available; only first 4 disks are
             # emulated in HVM, which means only those are bootable
             return "xvdd"
         for dev in Storage.AVAILABLE_FRONTENDS:
-            if dev not in used:
+            if not self._is_block(vm, dev):
                 return dev
         return None
 
