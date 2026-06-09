@@ -435,28 +435,19 @@ class BlockDeviceExtension(qubes.ext.Extension):
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
         for disk in xml_desc.findall("devices/disk"):
-            if disk.get("type") != "block":
+            info = _try_get_block_device_info(vm.app, disk)
+            if info is None:
                 continue
-            dev_path_node = disk.find("source")
-            if dev_path_node is None:
-                continue
-            dev_path = dev_path_node.get("dev")
+            backend_domain, port_id = info
 
             target_node = disk.find("target")
-            if target_node is not None:
-                frontend_dev = target_node.get("dev")
-                if not frontend_dev:
-                    continue
-                if frontend_dev in system_disks:
-                    continue
-            else:
+            if target_node is None:
                 continue
-
-            backend_domain_node = disk.find("backenddomain")
-            if backend_domain_node is not None:
-                backend_domain = vm.app.domains[backend_domain_node.get("name")]
-            else:
-                backend_domain = vm.app.domains[0]
+            frontend_dev = target_node.get("dev")
+            if not frontend_dev:
+                continue
+            if frontend_dev in system_disks:
+                continue
 
             options = {}
             read_only_node = disk.find("readonly")
@@ -467,13 +458,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
             options["frontend-dev"] = frontend_dev
             if disk.get("device") != "disk":
                 options["devtype"] = disk.get("device")
-
-            if dev_path.startswith("/dev/"):
-                port_id = dev_path[len("/dev/") :]
-            else:
-                port_id = dev_path
-
-            port_id = port_id.replace("/", "_")
 
             yield BlockDevice(Port(backend_domain, port_id, "block")), options
 
