@@ -357,12 +357,19 @@ class PCIDeviceExtension(qubes.ext.Extension):
         super().__init__()
         # lazy load this
         self.pci_classes = {}
+        # TODO: ben: https://github.com/QubesOS/qubes-core-admin/pull/819#discussion_r3537672500
+        self._all_devices = []
+        self._attached = {}
 
     @qubes.ext.handler("device-list:pci")
     def on_device_list_pci(self, vm, event):
         # pylint: disable=unused-argument
         # only dom0 expose PCI devices
         if vm.qid != 0:
+            return
+
+        if self._all_devices:
+            yield from self._all_devices
             return
 
         for dev in vm.app.vmm.libvirt_conn.listAllDevices():
@@ -372,10 +379,12 @@ class PCIDeviceExtension(qubes.ext.Extension):
             xml_desc = lxml.etree.fromstring(dev.XMLDesc())
             libvirt_name = xml_desc.findtext("name")
             try:
-                yield PCIDevice(
+                dev = PCIDevice(
                     Port(backend_domain=vm, port_id=None, devclass="pci"),
                     libvirt_name=libvirt_name,
                 )
+                yield dev
+                self._all_devices.append(dev)
             except UnsupportedDevice:
                 if libvirt_name not in unsupported_devices_warned:
                     vm.log.warning("Unsupported device: %s", libvirt_name)
@@ -387,11 +396,33 @@ class PCIDeviceExtension(qubes.ext.Extension):
         if not vm.app.vmm.offline_mode:
             yield _cache_get(vm, port_id)
 
+    @qubes.ext.handler("device-attach:pci")
+    def on_device_attach(self, vm, event, device, options):
+        # pylint: disable=unused-argument
+        self._attached.setdefault(vm, {}).append(device)
+
+    @qubes.ext.handler("device-detach:pci")
+    def on_device_detach(self, vm, event, port):
+        # pylint: disable=unused-argument
+        for dev in self._attached[vm]:
+            if dev.port_id == port:
+                self._attached[vm].remove(dev)
+
     @qubes.ext.handler("device-list-attached:pci")
     def on_device_list_attached(self, vm, event, **kwargs):
         # pylint: disable=unused-argument
-        if not vm.is_running() or isinstance(vm, qubes.vm.adminvm.AdminVM):
+        if (
+            vm.virt_mode == "pvh"
+            or not vm.is_running()
+            or isinstance(vm, qubes.vm.adminvm.AdminVM)
+        ):
             return
+
+        if vm in self._attached:
+            yield from self._attached[vm]
+            return
+
+        self._attached[vm] = []
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
         for hostdev in xml_desc.findall("devices/hostdev"):
@@ -409,14 +440,19 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield PCIDevice(
-                Port(
-                    backend_domain=vm.app.domains[0],
-                    port_id=None,
-                    devclass="pci",
+            dev = (
+                PCIDevice(
+                    Port(
+                        backend_domain=vm.app.domains[0],
+                        port_id=None,
+                        devclass="pci",
+                    ),
+                    libvirt_name=libvirt_name,
                 ),
-                libvirt_name=libvirt_name,
-            ), {}
+                {},
+            )
+            yield dev
+            self._attached[vm].append(dev)
 
     @qubes.ext.handler("device-pre-attach:pci")
     def on_device_pre_attached_pci(self, vm, event, device, options):
