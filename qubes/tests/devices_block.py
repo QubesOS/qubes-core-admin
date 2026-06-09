@@ -439,6 +439,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_030_list_attached_empty(self):
         vm = TestVM({}, domain_xml=domain_xml_template.format(""))
+        vm.app.domains[0] = vm.app.domains["dom0"] = TestVM({}, name="dom0")
         devices = sorted(list(self.ext.on_device_list_attached(vm, "")))
         self.assertEqual(len(devices), 0)
 
@@ -455,6 +456,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm = TestVM({}, domain_xml=domain_xml_template.format(disk))
         vm.app.domains["test-vm"] = vm
         vm.app.domains["sys-usb"] = TestVM({}, name="sys-usb")
+        vm.app.domains[0] = vm.app.domains["dom0"] = TestVM({}, name="dom0")
         devices = sorted(list(self.ext.on_device_list_attached(vm, "")))
         self.assertEqual(len(devices), 1)
         dev = devices[0][0]
@@ -500,6 +502,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm = TestVM({}, domain_xml=domain_xml_template.format(disk))
         vm.app.domains["test-vm"] = vm
         vm.app.domains["sys-usb"] = TestVM({}, name="sys-usb")
+        vm.app.domains[0] = vm.app.domains["dom0"] = TestVM({}, name="dom0")
         devices = sorted(list(self.ext.on_device_list_attached(vm, "")))
         self.assertEqual(len(devices), 1)
         dev = devices[0][0]
@@ -665,6 +668,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm = TestVM({}, domain_xml=domain_xml_template.format(device_xml))
         vm.app.domains["test-vm"] = vm
         vm.app.domains["sys-usb"] = TestVM({}, name="sys-usb")
+        vm.app.domains[0] = vm.app.domains["dom0"] = TestVM({}, name="dom0")
         dev = qubes.ext.block.BlockDevice(Port(back_vm, "sda", "block"))
         self.ext.on_device_pre_detached_block(vm, "", dev.port)
         vm.libvirt_domain.detachDevice.assert_called_once_with(device_xml)
@@ -674,6 +678,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         vm = TestVM({}, domain_xml=domain_xml_template.format(""))
         vm.app.domains["test-vm"] = vm
         vm.app.domains["sys-usb"] = TestVM({}, name="sys-usb")
+        vm.app.domains[0] = vm.app.domains["dom0"] = TestVM({}, name="dom0")
         dev = qubes.ext.block.BlockDevice(Port(back_vm, "sda", "block"))
         self.ext.on_device_pre_detached_block(vm, "", dev.port)
         self.assertFalse(vm.libvirt_domain.detachDevice.called)
