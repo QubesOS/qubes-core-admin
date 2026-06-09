@@ -2517,10 +2517,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             data = {
                 "memory_kb": int(vm_info["memory_kb"]),
+                "memory_assigned_total": int(vm_info["memory_assigned_total"]),
                 "memory_assigned_usable": int(
                     vm_info["memory_assigned_usable"]
                 ),
-                "memory_assigned__total": int(vm_info["memory_assigned_total"]),
                 "memory_with_swap_used": int(vm_info["memory_with_swap_used"]),
                 "cpu_time": int(vm_info["cpu_time"] / 1000000),
                 "cpu_usage": int(vm_info["cpu_usage"]),
@@ -2528,8 +2528,18 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 "online_vcpus": int(vm_info["online_vcpus"]),
             }
 
-            if "swap_used" in vm_info:
-                data["swap_used"] = int(vm_info["swap_used"])
+            optional = {
+                "swap_used": int,
+                "cpu_time_internal": lambda x: int(value / 1000000),
+                "cpu_usage_internal": lambda x: round(float(x), 1),
+                "online_vcpus_internal": int,
+            }
+
+            for key, func in optional.items():
+                if key not in vm_info:
+                    continue
+                value = vm_info[key]
+                data[key] = func(value)
 
             self.send_event(name, "vm-stats", **data)
 

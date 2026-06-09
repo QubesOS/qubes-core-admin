@@ -4231,6 +4231,9 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
                 "online_vcpus": 2,
+                "cpu_time_internal": 2849496569205,
+                "cpu_usage_internal": 0.0,
+                "online_vcpus_internal": 1,
             },
         }
         stats2 = copy.deepcopy(stats1)
@@ -4283,38 +4286,42 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 unittest.mock.call(0, stats1, only_vm=self.vm),
             ],
         )
-        self.assertEqual(
-            send_event.mock_calls,
-            [
-                unittest.mock.call(self.app, "connection-established"),
-                unittest.mock.call(
-                    "test-vm1",
-                    "vm-stats",
-                    memory_kb=stats1[2]["memory_kb"],
-                    memory_assigned_total=stats1[2]["memory_assigned_total"],
-                    memory_assigned_usable=stats1[2]["memory_assigned_usable"],
-                    memory_with_swap_used=stats1[2]["memory_with_swap_used"],
-                    swap_used=stats1[2]["swap_used"],
-                    cpu_time=stats1[2]["cpu_time"] // 1000000,
-                    cpu_usage=stats1[2]["cpu_usage"],
-                    cpu_usage_raw=stats1[2]["cpu_usage_raw"],
-                    online_vcpus=stats1[2]["online_vcpus"],
-                ),
-                unittest.mock.call(
-                    "test-vm1",
-                    "vm-stats",
-                    memory_kb=stats2[2]["memory_kb"],
-                    memory_assigned_total=stats2[2]["memory_assigned_total"],
-                    memory_assigned_usable=stats2[2]["memory_assigned_usable"],
-                    memory_with_swap_used=stats2[2]["memory_with_swap_used"],
-                    swap_used=stats2[2]["swap_used"],
-                    cpu_time=stats2[2]["cpu_time"] // 1000000,
-                    cpu_usage=stats2[2]["cpu_usage"],
-                    cpu_usage_raw=stats2[2]["cpu_usage_raw"],
-                    online_vcpus=stats2[2]["online_vcpus"],
-                ),
-            ],
-        )
+        expected = [
+            unittest.mock.call(self.app, "connection-established"),
+            unittest.mock.call(
+                "test-vm1",
+                "vm-stats",
+                memory_kb=stats1[2]["memory_kb"],
+                memory_assigned_total=stats1[2]["memory_assigned_total"],
+                memory_assigned_usable=stats1[2]["memory_assigned_usable"],
+                memory_with_swap_used=stats1[2]["memory_with_swap_used"],
+                swap_used=stats1[2]["swap_used"],
+                cpu_time=stats1[2]["cpu_time"] // 1000000,
+                cpu_usage=stats1[2]["cpu_usage"],
+                cpu_usage_raw=stats1[2]["cpu_usage_raw"],
+                online_vcpus=stats1[2]["online_vcpus"],
+                cpu_time_internal=stats1[2]["cpu_time_internal"] // 1000000,
+                cpu_usage_internal=stats1[2]["cpu_usage_internal"],
+                online_vcpus_internal=stats1[2]["online_vcpus_internal"],
+            ),
+            unittest.mock.call(
+                "test-vm1",
+                "vm-stats",
+                memory_kb=stats2[2]["memory_kb"],
+                memory_assigned_total=stats2[2]["memory_assigned_total"],
+                memory_assigned_usable=stats2[2]["memory_assigned_usable"],
+                memory_with_swap_used=stats2[2]["memory_with_swap_used"],
+                swap_used=stats2[2]["swap_used"],
+                cpu_time=stats2[2]["cpu_time"] // 1000000,
+                cpu_usage=stats2[2]["cpu_usage"],
+                cpu_usage_raw=stats2[2]["cpu_usage_raw"],
+                online_vcpus=stats2[2]["online_vcpus"],
+                cpu_time_internal=stats2[2]["cpu_time_internal"] // 1000000,
+                cpu_usage_internal=stats2[2]["cpu_usage_internal"],
+                online_vcpus_internal=stats2[2]["online_vcpus_internal"],
+            ),
+        ]
+        self.assertEqual(send_event.mock_calls, expected)
 
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_640_vm_create_disposable(self, mock_storage):
