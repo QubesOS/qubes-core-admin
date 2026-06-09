@@ -230,11 +230,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     def _is_attached_to(self, vm):
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for disk in xml_desc.findall("devices/disk"):
-            info = _try_get_block_device_info(vm.app, disk)
-            if not info:
-                continue
-            backend_domain, port_id = info
+        for disk in xml_desc.findall("devices/disk[source][@type='block']"):
+            backend_domain, port_id = _try_get_block_device_info(vm.app, disk)
 
             if backend_domain.name != self.backend_domain.name:
                 continue
@@ -288,18 +285,13 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
 
 
 def _try_get_block_device_info(app, disk):
-    if disk.get("type") != "block":
-        return None
-    dev_path_node = disk.find("source")
-    if dev_path_node is None:
-        return None
-
     backend_domain_node = disk.find("backenddomain")
     if backend_domain_node is not None:
         backend_domain = app.domains[backend_domain_node.get("name")]
     else:
         backend_domain = app.domains[0]
 
+    dev_path_node = disk.find("source")
     dev_path = dev_path_node.get("dev")
 
     if dev_path.startswith("/dev/"):
@@ -357,11 +349,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-            for disk in xml_desc.findall("devices/disk"):
-                info = _try_get_block_device_info(vm.app, disk)
-                if not info:
-                    continue
-                backend_domain, port_id = info
+            for disk in xml_desc.findall("devices/disk[source][@type='block']"):
+                backend_domain, port_id = _try_get_block_device_info(
+                    vm.app, disk
+                )
                 if backend_domain != vm_:
                     continue
 
@@ -434,15 +425,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
             system_disks = SYSTEM_DISKS_DOM0_KERNEL
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for disk in xml_desc.findall("devices/disk"):
-            info = _try_get_block_device_info(vm.app, disk)
-            if info is None:
-                continue
-            backend_domain, port_id = info
-
+        for disk in xml_desc.findall(
+            "devices/disk[source][target][@type='block']"
+        ):
+            backend_domain, port_id = _try_get_block_device_info(vm.app, disk)
             target_node = disk.find("target")
-            if target_node is None:
-                continue
             frontend_dev = target_node.get("dev")
             if not frontend_dev:
                 continue
@@ -456,8 +443,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
             else:
                 options["read-only"] = "no"
             options["frontend-dev"] = frontend_dev
-            if disk.get("device") != "disk":
-                options["devtype"] = disk.get("device")
+            devtype = disk.get("device")
+            if devtype != "disk":
+                options["devtype"] = devtype
 
             yield BlockDevice(Port(backend_domain, port_id, "block")), options
 
