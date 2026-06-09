@@ -76,11 +76,13 @@ class SystemInfoCache:
     def on_domain_add(cls, subject, event, vm):
         # pylint: disable=unused-argument
         cls.register_events_vm(vm)
+        cls.cache = None
 
     @classmethod
     def on_domain_delete(cls, subject, event, vm):
         # pylint: disable=unused-argument
         cls.unregister_events_vm(vm)
+        cls.cache = None
 
     @classmethod
     def register_events_vm(cls, vm):
