@@ -1687,6 +1687,15 @@ class Qubes(qubes.PropertyHolder):
 
         if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             vm.on_libvirt_domain_stopped()
+        elif event == libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
+            try:
+                vm.fire_event("domain-suspended")
+            except Exception:  # pylint: disable=broad-except
+                self.log.exception(
+                    "Uncaught exception from domain-suspended handler "
+                    "for domain %s",
+                    vm.name,
+                )
         elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
             try:
                 vm.fire_event("domain-paused")
