@@ -362,6 +362,13 @@ class AdminVM(LocalVM):
 
         return stdouterr
 
+    def is_memory_balancing_possible(self):
+        """Check if memory balancing can be enabled.
+        """
+        if not self.app.vmm.is_xen:
+            return False
+        return True
+
     @qubes.events.handler("domain-feature-pre-set:preload-dispvm-threshold")
     def on_feature_pre_set_preload_dispvm_threshold(
         self, event, feature, value, oldvalue=None
