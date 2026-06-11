@@ -2877,6 +2877,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.untrusted_qdb.write("/qubes-block-devices", "")
         self.untrusted_qdb.write("/qubes-usb-devices", "")
 
+        self.untrusted_qdb.write(
+            "/qubes-admin-authz-mode",
+            self.features.check_with_template("admin-authz-mode", ""),
+        )
+
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
         if qmemman_present and self.maxmem:
