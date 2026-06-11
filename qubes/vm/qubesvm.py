@@ -1093,11 +1093,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     @property
     def untrusted_qdb(self):
         """QubesDB handle for this domain."""
-        if self._qdb_connection is None:
-            if self.is_running():
-                import qubesdb  # pylint: disable=import-error
+        if self._qdb_connection is None and self.is_running():
+            import qubesdb  # pylint: disable=import-error
 
+            try:
                 self._qdb_connection = qubesdb.QubesDB(self.name)
+            except qubesdb.Error:
+                # Methods might try to access the qubesdb before it is ready.
+                return None
         return self._qdb_connection
 
     @property
@@ -2011,6 +2014,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         include the balloon driver) and lack of qrexec/meminfo-writer service
         support (no qubes tools installed).
         """
+        if not self.app.vmm.is_xen:
+            return False
         if list(self.devices["pci"].get_assigned_devices()):
             return False
         if self.virt_mode == "hvm":
@@ -2079,6 +2084,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         and reduces Xen's attack surface.
         This needs to be supported by the VM's kernel.
         """
+        if not self.app.vmm.is_xen:
+            return False
         feature = self.features.check_with_template("memory-hotplug", None)
         if feature is not None:
             return bool(feature)
