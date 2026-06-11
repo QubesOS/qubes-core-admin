@@ -159,22 +159,25 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
+                "memory_kb": 3733212,
                 "cpu_time": 243951379111104,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 3733212,
+                "online_vcpus": 8,
             },
             1: {
+                "memory_kb": 303916,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 303916,
+                "online_vcpus": 1,
             },
             11: {
+                "memory_kb": 3782668,
                 "cpu_time": 249658663079978,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 3782668,
+                "online_vcpus": 8,
             },
         }
         self.assertEqual(info, expected_info)
@@ -193,22 +196,25 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.assertIsNotNone(info_time)
         expected_info = {
             0: {
+                "memory_kb": 3733212,
                 "cpu_time": 243951379111104,
                 "cpu_usage": 10,
                 "cpu_usage_raw": 80,
-                "memory_kb": 3733212,
+                "online_vcpus": 8,
             },
             1: {
+                "memory_kb": 303916,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 100,
                 "cpu_usage_raw": 100,
-                "memory_kb": 303916,
+                "online_vcpus": 1,
             },
             11: {
+                "memory_kb": 3782668,
                 "cpu_time": 249658663079978,
                 "cpu_usage": 12,
                 "cpu_usage_raw": 100,
-                "memory_kb": 3782668,
+                "online_vcpus": 8,
             },
         }
         self.assertEqual(info, expected_info)

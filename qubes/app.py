@@ -384,10 +384,14 @@ class QubesHost:
 
         Return a tuple of (measurements_time, measurements),
         where measurements is a dictionary with key: domid, value: dict:
-         - cpu_time - absolute CPU usage (seconds since its startup)
-         - cpu_usage_raw - CPU usage in %
-         - cpu_usage - CPU usage in % (normalized to number of vcpus)
          - memory_kb - current memory assigned, in kb
+         - online_vcpus - amount of vcpus assigned
+         - cpu_time - absolute CPU usage (seconds since its startup)
+         - cpu_usage - CPU usage in % (normalized to number of vcpus)
+
+        Future key(s) deprecation:
+
+        - cpu_usage_raw - CPU usage in %
 
         This function requires Xen hypervisor.
 
@@ -429,8 +433,8 @@ class QubesHost:
             domid = vm["domid"]
             current[domid] = {}
             current[domid]["memory_kb"] = vm["mem_kb"]
+            current[domid]["online_vcpus"] = max(vm["online_vcpus"], 1)
             current[domid]["cpu_time"] = round(vm["cpu_time"])
-            vcpus = max(vm["online_vcpus"], 1)
             if domid in previous:
                 current[domid]["cpu_usage_raw"] = round(
                     (current[domid]["cpu_time"] - previous[domid]["cpu_time"])
@@ -444,7 +448,7 @@ class QubesHost:
             else:
                 current[domid]["cpu_usage_raw"] = 0
             current[domid]["cpu_usage"] = round(
-                current[domid]["cpu_usage_raw"] / vcpus
+                current[domid]["cpu_usage_raw"] / current[domid]["online_vcpus"]
             )
 
         return current_time, current
