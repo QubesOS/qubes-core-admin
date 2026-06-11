@@ -4077,16 +4077,18 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
         stats1 = {
             0: {
+                "memory_kb": 3733212,
                 "cpu_time": 243951379111104 // 8,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 3733212,
+                "online_vcpus": 16,
             },
             1: {
+                "memory_kb": 303916,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 303916,
+                "online_vcpus": 2,
             },
         }
         stats2 = copy.deepcopy(stats1)
@@ -4149,34 +4151,38 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 unittest.mock.call(
                     "dom0",
                     "vm-stats",
+                    memory_kb=stats1[0]["memory_kb"],
                     cpu_time=stats1[0]["cpu_time"] // 1000000,
                     cpu_usage=stats1[0]["cpu_usage"],
                     cpu_usage_raw=stats1[0]["cpu_usage_raw"],
-                    memory_kb=stats1[0]["memory_kb"],
+                    online_vcpus=stats1[0]["online_vcpus"],
                 ),
                 unittest.mock.call(
                     "test-template",
                     "vm-stats",
+                    memory_kb=stats1[1]["memory_kb"],
                     cpu_time=stats1[1]["cpu_time"] // 1000000,
                     cpu_usage=stats1[1]["cpu_usage"],
                     cpu_usage_raw=stats1[1]["cpu_usage_raw"],
-                    memory_kb=stats1[1]["memory_kb"],
+                    online_vcpus=stats1[1]["online_vcpus"],
                 ),
                 unittest.mock.call(
                     "dom0",
                     "vm-stats",
+                    memory_kb=stats2[0]["memory_kb"],
                     cpu_time=stats2[0]["cpu_time"] // 1000000,
                     cpu_usage=stats2[0]["cpu_usage"],
                     cpu_usage_raw=stats2[0]["cpu_usage_raw"],
-                    memory_kb=stats2[0]["memory_kb"],
+                    online_vcpus=stats2[0]["online_vcpus"],
                 ),
                 unittest.mock.call(
                     "test-template",
                     "vm-stats",
+                    memory_kb=stats2[1]["memory_kb"],
                     cpu_time=stats2[1]["cpu_time"] // 1000000,
                     cpu_usage=stats2[1]["cpu_usage"],
                     cpu_usage_raw=stats2[1]["cpu_usage_raw"],
-                    memory_kb=stats2[1]["memory_kb"],
+                    online_vcpus=stats2[1]["online_vcpus"],
                 ),
             ],
         )
@@ -4186,10 +4192,11 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
         stats1 = {
             2: {
+                "memory_kb": 303916,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
-                "memory_kb": 303916,
+                "online_vcpus": 2,
             },
         }
         stats2 = copy.deepcopy(stats1)
@@ -4249,18 +4256,20 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 unittest.mock.call(
                     "test-vm1",
                     "vm-stats",
+                    memory_kb=stats1[2]["memory_kb"],
                     cpu_time=stats1[2]["cpu_time"] // 1000000,
                     cpu_usage=stats1[2]["cpu_usage"],
                     cpu_usage_raw=stats1[2]["cpu_usage_raw"],
-                    memory_kb=stats1[2]["memory_kb"],
+                    online_vcpus=stats1[2]["online_vcpus"],
                 ),
                 unittest.mock.call(
                     "test-vm1",
                     "vm-stats",
+                    memory_kb=stats2[2]["memory_kb"],
                     cpu_time=stats2[2]["cpu_time"] // 1000000,
                     cpu_usage=stats2[2]["cpu_usage"],
                     cpu_usage_raw=stats2[2]["cpu_usage_raw"],
-                    memory_kb=stats2[2]["memory_kb"],
+                    online_vcpus=stats2[2]["online_vcpus"],
                 ),
             ],
         )

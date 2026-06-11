@@ -2539,6 +2539,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 cpu_time=int(vm_info["cpu_time"] / 1000000),
                 cpu_usage=int(vm_info["cpu_usage"]),
                 cpu_usage_raw=int(vm_info["cpu_usage_raw"]),
+                online_vcpus=int(vm_info["online_vcpus"]),
             )
 
         return info_time, info
