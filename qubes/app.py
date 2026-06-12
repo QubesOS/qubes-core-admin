@@ -1684,57 +1684,7 @@ class Qubes(qubes.PropertyHolder):
         except KeyError:
             # ignore events for unknown domains
             return
-
-        libvirt_event_dict = {
-            libvirt.VIR_DOMAIN_EVENT_DEFINED: "Defined",  # 0x0
-            libvirt.VIR_DOMAIN_EVENT_UNDEFINED: "Undefined",  # 0x1
-            libvirt.VIR_DOMAIN_EVENT_STARTED: "Started",  # 0x2
-            libvirt.VIR_DOMAIN_EVENT_SUSPENDED: "Paused",  # 0x3
-            libvirt.VIR_DOMAIN_EVENT_RESUMED: "Resumed",  # 0x4
-            libvirt.VIR_DOMAIN_EVENT_STOPPED: "Halted",  # 0x5
-            libvirt.VIR_DOMAIN_EVENT_SHUTDOWN: "Halting",  # 0x6
-            libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED: "Suspended",  # 0x7
-            libvirt.VIR_DOMAIN_EVENT_CRASHED: "Crashed",  # 0x8
-        }
-        vm.log.debug(
-            "Libvirt event with detail: %s (%s)",
-            libvirt_event_dict[event],
-            detail,
-        )
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.on_libvirt_domain_stopped()
-        elif event == libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
-            try:
-                vm.fire_event("domain-suspended")
-            except Exception:  # pylint: disable=broad-except
-                self.log.exception(
-                    "Uncaught exception from domain-suspended handler "
-                    "for domain %s",
-                    vm.name,
-                )
-        elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
-            try:
-                vm.fire_event("domain-paused")
-            except Exception:  # pylint: disable=broad-except
-                self.log.exception(
-                    "Uncaught exception from domain-paused handler "
-                    "for domain %s",
-                    vm.name,
-                )
-        elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
-            try:
-                if getattr(vm, "skip_unpause_event", False):
-                    vm.skip_unpause_event = False
-                else:
-                    asyncio.ensure_future(
-                        vm.fire_event_async("domain-unpaused")
-                    )
-            except Exception:  # pylint: disable=broad-except
-                self.log.exception(
-                    "Uncaught exception from domain-unpaused handler "
-                    "for domain %s",
-                    vm.name,
-                )
+        vm.on_libvirt_domain_lifecycle(event=event, detail=detail)
 
     @qubes.events.handler("domain-pre-delete")
     def on_domain_pre_deleted(self, event, vm):
