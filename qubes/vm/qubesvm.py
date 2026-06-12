@@ -1596,6 +1596,76 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         return self
 
+    def on_libvirt_domain_lifecycle(self, event: int, detail: int) -> None:
+        """Handle VIR_DOMAIN_EVENT_ID_LIFECYCLE events from libvirt.
+
+        This is not a Qubes event handler.
+        """
+        # TODO: ben: Marek asked to try to set power state depending on event
+        # received by awaiting self.__waiter.
+
+        libvirt_event_dict = {
+            libvirt.VIR_DOMAIN_EVENT_DEFINED: "Defined",  # 0x0
+            libvirt.VIR_DOMAIN_EVENT_UNDEFINED: "Undefined",  # 0x1
+            libvirt.VIR_DOMAIN_EVENT_STARTED: "Started",  # 0x2
+            libvirt.VIR_DOMAIN_EVENT_SUSPENDED: "Paused",  # 0x3
+            libvirt.VIR_DOMAIN_EVENT_RESUMED: "Resumed",  # 0x4
+            libvirt.VIR_DOMAIN_EVENT_STOPPED: "Halted",  # 0x5
+            libvirt.VIR_DOMAIN_EVENT_SHUTDOWN: "Halting",  # 0x6
+            libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED: "Suspended",  # 0x7
+            libvirt.VIR_DOMAIN_EVENT_CRASHED: "Crashed",  # 0x8
+        }
+        self.log.debug(
+            "Libvirt event with detail: %s (%s)",
+            libvirt_event_dict[event],
+            detail,
+        )
+        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+            self.on_libvirt_domain_stopped()
+        elif event == libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
+            self.on_libvirt_domain_pmsuspended()
+        elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
+            self.on_libvirt_domain_suspended()
+        elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
+            self.on_libvirt_domain_resumed()
+
+    def on_libvirt_domain_suspended(self):
+        """Handle VIR_DOMAIN_EVENT_SUSPENDED events from libvirt.
+
+        This is not a Qubes event handler.
+        """
+        event = "domain-paused"
+        try:
+            self.fire_event(event)
+        except Exception:  # pylint: disable=broad-except
+            self.log.exception("Uncaught exception from %s handler ", event)
+
+    def on_libvirt_domain_pmsuspended(self):
+        """Handle VIR_DOMAIN_EVENT_PMSUSPENDED events from libvirt.
+
+        This is not a Qubes event handler.
+        """
+        event = "domain-suspended"
+        try:
+            self.fire_event(event)
+        except Exception:  # pylint: disable=broad-except
+            self.log.exception("Uncaught exception from %s handler ", event)
+
+    def on_libvirt_domain_resumed(self):
+        """Handle VIR_DOMAIN_EVENT_RESUMED events from libvirt.
+
+        This is not a Qubes event handler.
+        """
+        # TODO: ben: what if it came from pmsuspend state? "domain-resumed"?
+        event = "domain-unpaused"
+        try:
+            if getattr(self, "skip_unpause_event", False):
+                self.skip_unpause_event = False
+            else:
+                asyncio.ensure_future(self.fire_event_async(event))
+        except Exception:  # pylint: disable=broad-except
+            self.log.exception("Uncaught exception from %s handler ", event)
+
     def on_libvirt_domain_stopped(self):
         """Handle VIR_DOMAIN_EVENT_STOPPED events from libvirt.
 
