@@ -1129,6 +1129,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         # pylint: disable=no-member
                         if value == "True":
                             value = True
+                        elif value == "False":
+                            value = False
                         try:
                             self.volume_config[name][key] = value
                         except KeyError:
