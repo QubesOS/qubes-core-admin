@@ -2900,6 +2900,33 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.fire_event("domain-qdb-create")
 
+    @qubes.events.handler("property-pre-set:maxmem")
+    def on_property_pre_set_maxmem(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue == oldvalue:
+            return
+        # Necessary for it to reflect the current state for clients to query.
+        if not self.is_halted() and not self.use_memory_hotplug:
+            raise qubes.exc.QubesVMNotHaltedError(
+                "Can't change maxmem of VM {!s}, because it isn't Halted and "
+                "memory hotplug is forbidden".format(self)
+            )
+
+    @qubes.events.handler("property-set:maxmem")
+    def on_property_set_maxmem(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if not newvalue or newvalue == oldvalue:
+            return
+        if not (
+            qmemman_present and self.use_memory_hotplug and self.is_running()
+        ):
+            return
+        self.app.vmm.xs.write(
+            "",
+            f"/local/domain/{self.xid}/memory/hotplug-max",
+            str(newvalue * 1024),
+        )
+
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):
         """Re-initialise :py:attr:`libvirt_domain`."""
