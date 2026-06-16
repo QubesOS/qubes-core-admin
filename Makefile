@@ -195,6 +195,8 @@ endif
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	install -m 0644 qubes-rpc-policy/90-default.policy \
 		$(DESTDIR)/etc/qubes/policy.d/90-default.policy
+	install -m 0644 qubes-rpc-policy/91-admin-default-deny.policy \
+		$(DESTDIR)/etc/qubes/policy.d/91-admin-default-deny.policy
 	install -m 0644 qubes-rpc-policy/85-admin-backup-restore.policy \
 		$(DESTDIR)/etc/qubes/policy.d/85-admin-backup-restore.policy
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
