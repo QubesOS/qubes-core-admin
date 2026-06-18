@@ -1039,6 +1039,11 @@ def get_qube_prop_deps(
     return system_deps, qube_deps
 
 
+def _default_maxmem(self) -> int:
+    """Get maximum memory available to the whole system in KiB."""
+    return self.host.memory_total
+
+
 class Qubes(qubes.PropertyHolder):
     """Main Qubes application
 
@@ -1283,6 +1288,15 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=True,
         doc="Check for updates inside qubes",
+    )
+
+    maxmem = qubes.property(
+        "maxmem",
+        type=int,
+        setter=qubes.property.forbidden,
+        load_stage=3,
+        default=_default_maxmem,
+        doc="Maximum system memory in KiB. Unit was chosen for precision.",
     )
 
     def __init__(

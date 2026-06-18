@@ -243,6 +243,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm), "hvm")
 
     def test_020_default_maxmem(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         default_maxmem = 2048
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
@@ -272,6 +275,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         )
 
     def test_021_default_maxmem_with_pcidevs(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
                 self.vm
@@ -281,6 +287,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
 
     def test_022_default_maxmem_linux(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
                 self.vm
