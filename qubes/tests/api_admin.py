@@ -2392,8 +2392,9 @@ default_qrexec_timeout default=True type=int 60
 default_shutdown_timeout default=True type=int 60
 default_template default=False type=vm test-template
 management_dispvm default=True type=vm 
+maxmem default=True type=int {maxmem}
 stats_interval default=True type=int 3
-updatevm default=True type=vm \n"""
+updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         value = self.call_mgmt_func(b"admin.property.GetAll", b"dom0", b"")
         self.maxDiff = None
         self.assertEqual(value, expected)
