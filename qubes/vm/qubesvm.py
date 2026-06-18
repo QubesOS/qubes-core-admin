@@ -2616,20 +2616,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # memory and disk
 
     def get_mem(self):
-        """Get current memory usage from VM.
+        """Get memory assigned to VM.
 
-        :returns: Memory usage [FIXME unit].
-        :rtype: FIXME
+        :returns: Memory assigned in KiB.
+        :rtype: int
         """
-
         if self.libvirt_domain is None:
             return 0
-
         try:
             if not self.libvirt_domain.isActive():
                 return 0
-            return self.libvirt_domain.info()[1]
-
+            return self.libvirt_domain.memoryStats()["actual"]
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
                 # qube no longer exists
@@ -2638,7 +2635,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 libvirt.VIR_ERR_INTERNAL_ERROR,
             ):
                 return 0
-
             self.log.exception(
                 "libvirt error code: {!r}".format(e.get_error_code())
             )
@@ -2647,16 +2643,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     def get_mem_static_max(self):
         """Get maximum memory available to VM.
 
-        :returns: Memory limit [FIXME unit].
-        :rtype: FIXME
+        :returns: Memory limit in KiB.
+        :rtype: int
         """
-
         if self.libvirt_domain is None:
             return 0
-
         try:
-            return self.libvirt_domain.maxMemory()
-
+            if not self.libvirt_domain.isActive():
+                return 0
+            return self.maxmem * 1024
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
                 # qube no longer exists
@@ -2665,7 +2660,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 libvirt.VIR_ERR_INTERNAL_ERROR,
             ):
                 return 0
-
             self.log.exception(
                 "libvirt error code: {!r}".format(e.get_error_code())
             )
