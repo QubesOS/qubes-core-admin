@@ -26,6 +26,8 @@ import asyncio
 import grp
 import subprocess
 import libvirt
+import lxml
+import lxml.etree
 import uuid
 
 import qubes
@@ -33,6 +35,32 @@ import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_denied_list, _setter_kbd_layout
 from qubes.vm import LocalVM, BaseVM
+
+
+def _default_maxmem(self):
+    if self.app.vmm.offline_mode:
+        # default value passed on xen cmdline
+        return 4096
+    try:
+        # Faster to use Xen than to query the fetch the full XML. If one could
+        # find a libvirt method instead of XMLDesc to get the same value as
+        # static-max, that would help.
+        if self.app.vmm.is_xen:
+            val = self.app.vmm.xs.read("", "/local/domain/0/memory/static-max")
+            if not isinstance(val, bytes):
+                raise TypeError("xenstore key static-max is not set")
+            val = val.decode()
+        else:
+            xml = lxml.etree.fromstring(self.libvirt_domain.XMLDesc())
+            val = xml.findtext("currentMemory")
+        if val is None:
+            raise TypeError("not set")
+        if not val.isdigit():
+            raise ValueError("not a digit")
+        return int(val) // 1024
+    except (TypeError, ValueError, libvirt.libvirtError) as e:
+        self.log.warning("Failed to get maxmem for dom0: %s", e)
+        return 4096
 
 
 class AdminVM(LocalVM):
@@ -96,6 +124,14 @@ class AdminVM(LocalVM):
         doc="Keyboard layout for this VM",
     )
 
+    maxmem = qubes.property(
+        "maxmem",
+        type=int,
+        setter=qubes.property.forbidden,
+        default=_default_maxmem,
+        doc="""Maximum amount of memory available for this VM""",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -146,8 +182,11 @@ class AdminVM(LocalVM):
         .. seealso:
            :py:attr:`qubes.vm.qubesvm.QubesVM.libvirt_domain`
         """
-        if self._libvirt_domain is None:
-            self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByID(0)
+        if self._libvirt_domain is not None:
+            return self._libvirt_domain
+        if self.app.vmm.offline_mode:
+            return None
+        self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByID(0)
         return self._libvirt_domain
 
     @staticmethod
@@ -177,22 +216,24 @@ class AdminVM(LocalVM):
         """
         return "Running"
 
-    @staticmethod
-    def get_mem():
-        """Get current memory usage of Dom0.
+    def get_mem(self):
+        """Get memory assigned to VM.
 
-        Unit is KiB.
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.get_mem`
+        :returns: Memory assigned in KiB.
         """
-
-        # return psutil.virtual_memory().total/1024
-        with open("/proc/meminfo", encoding="ascii") as file:
-            for line in file:
-                if line.startswith("MemTotal:"):
-                    return int(line.split(":")[1].strip().split()[0])
-        raise NotImplementedError()
+        if self.app.vmm.offline_mode:
+            return 4242
+        if self.libvirt_domain is None:
+            return 0
+        try:
+            if not self.libvirt_domain.isActive():
+                return 0
+            return self.libvirt_domain.memoryStats()["actual"]
+        except libvirt.libvirtError as e:
+            self.log.exception(
+                "libvirt error code: {!r}".format(e.get_error_code())
+            )
+            raise
 
     def get_mem_static_max(self):
         """Get maximum memory available to Dom0.
@@ -200,14 +241,7 @@ class AdminVM(LocalVM):
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_mem_static_max`
         """
-        if self.app.vmm.offline_mode:
-            # default value passed on xen cmdline
-            return 4096
-        try:
-            return self.app.vmm.libvirt_conn.getInfo()[1]
-        except libvirt.libvirtError as e:
-            self.log.warning("Failed to get memory limit for dom0: %s", e)
-            return 4096
+        return self.maxmem * 1024
 
     def get_cputime(self):
         """Get total CPU time burned by Dom0 since start.
@@ -363,8 +397,7 @@ class AdminVM(LocalVM):
         return stdouterr
 
     def is_memory_balancing_possible(self):
-        """Check if memory balancing can be enabled.
-        """
+        """Check if memory balancing can be enabled."""
         if not self.app.vmm.is_xen:
             return False
         return True
