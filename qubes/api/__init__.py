@@ -416,47 +416,43 @@ class QubesDaemonProtocol(asyncio.Protocol):
         if self.transport:
             self.transport.abort()
 
-    def send_header(self, *args):
-        self.transport.write(self.header.pack(*args))
+    def write(self, header: int, data: bytes):
+        self.transport.write(self.header.pack(header) + data)
 
     def send_response(self, content):
         assert not self.event_sent
-        self.send_header(0x30)
+        header = 0x30
+        data = b""
         if content is not None:
-            self.transport.write(content.encode("utf-8"))
+            data += content.encode("utf-8")
+        self.write(header=header, data=data)
 
     def send_event(self, subject, event, **kwargs):
         if self.transport is None:
             return
         self.event_sent = True
-        self.send_header(0x31)
-
+        header = 0x31
+        data = b""
         if subject is not self.app:
-            self.transport.write(str(subject).encode("ascii"))
-        self.transport.write(b"\0")
-
-        self.transport.write(event.encode("ascii") + b"\0")
-
-        for k, v in kwargs.items():
-            self.transport.write("{}\0{}\0".format(k, str(v)).encode("ascii"))
-        self.transport.write(b"\0")
+            data += str(subject).encode("ascii")
+        data += b"\0"
+        data += event.encode("ascii") + b"\0"
+        data += "".join(f"{k}\0{v}\0" for k, v in kwargs.items()).encode(
+            "ascii"
+        )
+        data += b"\0"
+        self.write(header=header, data=data)
 
     def send_exception(self, exc):
-        self.send_header(0x32)
-
-        self.transport.write(type(exc).__name__.encode() + b"\0")
-
+        header = 0x32
+        data = type(exc).__name__.encode() + b"\0"
         if self.debug:
-            self.transport.write(
-                "".join(
-                    traceback.format_exception(
-                        type(exc), exc, exc.__traceback__
-                    )
-                ).encode("utf-8")
-            )
-        self.transport.write(b"\0")
-
-        self.transport.write(str(exc).encode("utf-8") + b"\0")
+            data += "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            ).encode("utf-8")
+        data += b"\0"
+        data += str(exc).encode("utf-8") + b"\0"
+        self.write(header=header, data=data)
 
 
 def cleanup_socket(sockpath, force):
