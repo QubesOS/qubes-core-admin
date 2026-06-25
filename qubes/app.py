@@ -405,14 +405,24 @@ class QubesHost:
               reflect the total amount of memory allocated to all qubes.
          - ``memory_with_swap_used``:
             - Type: ``int``, unit: ``KiB``.
-            - Description: Amount of memory the qube alleges to use, can be a
-              lie. On memory balanced qubes, it might include swap and might
-              differ up to 30MiB of the actual usage. As this value includes
-              swap and the qube can lie, it might be bigger than
-              ``memory_assigned_usable``.
+            - Description: Amount of memory the qube alleges to use, including
+              swap, can be a lie. On memory balanced qubes, might differ up to
+              30MiB of the actual usage. As this value includes swap and the
+              qube can lie, it might be bigger than ``memory_assigned_usable``.
             - Usage: This value should be compared with
               ``memory_assigned_usable``, to reflect how much memory the
-              qube is using from what it can use.
+              qube is using from what it can use. Deduct this value with
+              ``swap_used`` to reflect how much memory the qube is
+              using internally.
+         - ``swap_used``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Amount of swap the qube alleges to use, can be a
+              lie. As this value can be lie, it might be bigger than
+              ``memory_assigned_usable``. This variable is not set if the
+              value of ``memory/swapinfo`` is not set or invalid,
+            - Usage: This value should be compared with
+              ``memory_with_swap_used`` to determine how much the qube is
+              swaping over what it is using of real memory.
          - ``online_vcpus``
            - Type: ``int``.
            - Description: Amount of VCPUs assigned.
@@ -436,6 +446,7 @@ class QubesHost:
           - Type: ``int``, percentage.
           - Description: CPU usage. Will be deprecated as it can be calculated
             on the client.
+
 
         This function requires Xen hypervisor.
 
@@ -522,10 +533,11 @@ class QubesHost:
             current[domid]["memory_assigned_total"] = vm["maxmem_kb"]
             current[domid]["memory_assigned_usable"] = vm["mem_kb"]
 
-            current[domid]["memory_with_swap_used"] = current[domid][
+            current[domid]["memory_kb"] = current[domid][
                 "memory_assigned_usable"
             ]
-            current[domid]["memory_kb"] = current[domid][
+
+            current[domid]["memory_with_swap_used"] = current[domid][
                 "memory_assigned_usable"
             ]
 
@@ -540,6 +552,20 @@ class QubesHost:
                     meminfo = int(untrusted_meminfo)
                     del untrusted_meminfo
                     current[domid]["memory_with_swap_used"] = meminfo
+                    # Only query swapinfo is meminfo is valid to avoid
+                    # extraneous calls.
+                    untrusted_swapinfo = self.app.vmm.xs.read(
+                        "", f"/local/domain/{domid}/memory/swapinfo"
+                    )
+                    if (
+                        untrusted_swapinfo is not None
+                        and untrusted_swapinfo.isdigit()
+                    ):
+                        swapinfo = int(untrusted_swapinfo)
+                        del untrusted_swapinfo
+                        current[domid]["swap_used"] = swapinfo
+                    else:
+                        del untrusted_swapinfo
                 else:
                     del untrusted_meminfo
 
