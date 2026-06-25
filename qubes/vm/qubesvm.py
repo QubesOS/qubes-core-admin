@@ -2883,10 +2883,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # xenstore for it until decided otherwise
         if qmemman_present and self.maxmem:
             xs_basedir = f"/local/domain/{self.xid}"
-            self.app.vmm.xs.write("", f"{xs_basedir}/memory/meminfo", "")
-            self.app.vmm.xs.set_permissions(
-                "", f"{xs_basedir}/memory/meminfo", [{"dom": self.xid}]
-            )
+            for key in ["meminfo", "swapinfo"]:
+                self.app.vmm.xs.write("", f"{xs_basedir}/memory/{key}", "")
+                self.app.vmm.xs.set_permissions(
+                    "", f"{xs_basedir}/memory/{key}", [{"dom": self.xid}]
+                )
             if self.use_memory_hotplug:
                 self.app.vmm.xs.write(
                     "",
