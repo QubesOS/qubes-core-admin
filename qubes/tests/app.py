@@ -830,6 +830,9 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             "/local/domain/0/memory/meminfo": b"849924",
             "/local/domain/1/memory/meminfo": b"849925",
             "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": None,
+            "/local/domain/1/memory/swapinfo": b"35",
+            "/local/domain/2/memory/swapinfo": b"4",
         }
 
         qdb = {"/qubes-service/meminfo-writer": "1"}
@@ -856,8 +859,11 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             [
                 ("xc.domain_getinfo", (0, 1024)),
                 ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
             ],
         )
         self.assertIsNotNone(info_time)
@@ -882,6 +888,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 303916,
                 "memory_kb": 303916,
                 "memory_with_swap_used": 849925,
+                "swap_used": 35,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
@@ -895,6 +902,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 3782668,
                 "memory_kb": 3782668,
                 "memory_with_swap_used": 849926,
+                "swap_used": 4,
                 "cpu_time": 249658663079978,
                 "cpu_usage": 0,
                 "cpu_usage_raw": 0,
@@ -917,6 +925,9 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             "/local/domain/0/memory/meminfo": b"849924",
             "/local/domain/1/memory/meminfo": b"849925",
             "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": b"0",
+            "/local/domain/1/memory/swapinfo": b"35",
+            "/local/domain/2/memory/swapinfo": b"4",
         }
         self.app.get_name_from_domid = lambda domid: names[domid]
         self.app.vmm = mock.Mock()
@@ -954,6 +965,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 3733212,
                 "memory_kb": 3733212,
                 "memory_with_swap_used": 849924,
+                "swap_used": 0,
                 "cpu_time": 243951379111104,
                 "cpu_usage": 10,
                 "cpu_usage_raw": 80,
@@ -967,6 +979,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 303916,
                 "memory_kb": 303916,
                 "memory_with_swap_used": 849925,
+                "swap_used": 35,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 100,
                 "cpu_usage_raw": 100,
@@ -980,6 +993,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 3782668,
                 "memory_kb": 3782668,
                 "memory_with_swap_used": 849926,
+                "swap_used": 4,
                 "cpu_time": 249658663079978,
                 "cpu_usage": 12,
                 "cpu_usage_raw": 100,
@@ -994,12 +1008,18 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             [
                 ("xc.domain_getinfo", (0, 1024), {}),
                 ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
                 ("xc.domain_getinfo", (0, 1024), {}),
                 ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
             ],
         )
 
