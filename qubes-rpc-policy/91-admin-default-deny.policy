@@ -1,0 +1,12 @@
+## Do not modify this file, create a new policy file with a lower number in the
+## filename instead. For example `30-user.policy`.
+
+## Default action is deny anyway, but add notify=no, as GetAll is expected to
+## be called if some properties are allowed but not all, so mute the spurious
+## notification
+
+admin.vm.property.GetAll * @anyvm @anyvm   deny notify=no
+admin.vm.property.GetAll * @anyvm @adminvm deny notify=no
+
+admin.property.GetAll    * @anyvm @anyvm   deny notify=no
+admin.property.GetAll    * @anyvm @adminvm deny notify=no
