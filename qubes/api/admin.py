@@ -1818,7 +1818,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_device_available(self, endpoint):
         devclass = endpoint
         try:
-            devices = self.dest.devices[devclass].get_exposed_devices()
+            if self.dest.klass == "RemoteVM":
+                devices = []
+            else:
+                devices = self.dest.devices[devclass].get_exposed_devices()
         except AttributeError as e:
             if e.name == "devices":
                 # shutdown in progress, return specific error
@@ -1854,9 +1857,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_device_list(self, endpoint):
         devclass = endpoint
         try:
-            device_assignments = list(
-                self.dest.devices[devclass].get_assigned_devices()
-            )
+            if self.dest.klass == "RemoteVM":
+                device_assignments = []
+            else:
+                device_assignments = list(
+                    self.dest.devices[devclass].get_assigned_devices()
+                )
         except AttributeError as e:
             if e.name == "devices":
                 # shutdown in progress, return specific error
