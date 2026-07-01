@@ -1115,6 +1115,8 @@ def _sanitize_config(config):
         if isinstance(value, bool):
             if value:
                 result[key] = "True"
+            else:
+                result[key] = "False"
         else:
             result[key] = str(value)
     return result
