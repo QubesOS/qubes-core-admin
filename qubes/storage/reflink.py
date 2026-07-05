@@ -50,10 +50,9 @@ FICLONE = {
 }[platform.machine()]
 
 
-def _coroutinized(function):
-    """Wrap a synchronous function in a coroutine that runs the
-    function via the event loop's ThreadPool-based default
-    executor.
+def _async_thread(function):
+    """Wrap a synchronous function in an async function that runs the
+    synchronous function in a thread.
     """
 
     @functools.wraps(function)
@@ -85,7 +84,7 @@ class ReflinkPool(qubes.storage.Pool):
         self._volumes = {}
         self.dir_path = os.path.abspath(dir_path)
 
-    @_coroutinized
+    @_async_thread
     def setup(self):  # pylint: disable=invalid-overridden-method
         created = _create_dir(self.dir_path)
         if self._setup_check and not is_supported(self.dir_path):
@@ -199,7 +198,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 LOGGER.warning("Removed stale file: %r", self._path_precache)
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def create(self):  # pylint: disable=invalid-overridden-method
         self._remove_all_images()
         if self.save_on_stop and not self.snap_on_start:
@@ -207,7 +206,7 @@ class ReflinkVolume(qubes.storage.Volume):
                 _create_sparse_file(self._path_clean, self._size)
         return self
 
-    @_coroutinized
+    @_async_thread
     def verify(self):  # pylint: disable=invalid-overridden-method
         if self.snap_on_start:
             img = self.source._path_clean  # pylint: disable=protected-access
@@ -223,7 +222,7 @@ class ReflinkVolume(qubes.storage.Volume):
         )
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def remove(self):  # pylint: disable=invalid-overridden-method
         # pylint: disable=protected-access
         self.pool._volumes.pop(self.vid, None)
@@ -257,7 +256,7 @@ class ReflinkVolume(qubes.storage.Volume):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def start(self):  # pylint: disable=invalid-overridden-method
         self._remove_incomplete_images()
         if self.snapshots_disabled:
@@ -282,7 +281,7 @@ class ReflinkVolume(qubes.storage.Volume):
         return self
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def stop(self):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
             if self.snapshots_disabled:
@@ -321,7 +320,7 @@ class ReflinkVolume(qubes.storage.Volume):
             _remove_file(self._path_revision(rev, timestamp))
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def revert(
         self, revision=None
     ):  # pylint: disable=invalid-overridden-method
@@ -336,7 +335,7 @@ class ReflinkVolume(qubes.storage.Volume):
         return self
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def resize(self, size):  # pylint: disable=invalid-overridden-method
         """Resize a read-write volume; notify any corresponding loop
         devices of the size change.
@@ -366,7 +365,7 @@ class ReflinkVolume(qubes.storage.Volume):
         return self._path_clean
 
     @qubes.storage.Volume.locked
-    @_coroutinized
+    @_async_thread
     def import_data(self, size):  # pylint: disable=invalid-overridden-method
         if not self.save_on_stop:
             raise NotImplementedError(
@@ -375,7 +374,7 @@ class ReflinkVolume(qubes.storage.Volume):
         _create_sparse_file(self._path_import, size)
         return self._path_import
 
-    @_coroutinized
+    @_async_thread
     def _import_data_end_unlocked(self, success):
         (self._commit if success else _remove_file)(self._path_import)
         return self
