@@ -93,9 +93,10 @@ class ReflinkPool(qubes.storage.Pool):
             if created:
                 _remove_empty_dir(self.dir_path)
             raise qubes.exc.StoragePoolException(
-                "The filesystem for {!r} does not support reflinks. If you"
-                " can live with VM startup delays and wasted disk space, pass"
-                ' the "setup_check=False" option.'.format(self.dir_path)
+                f"The filesystem for {self.dir_path!r} does not"
+                f" support reflinks. If you can live with delays"
+                f" on VM startup/shutdown/etc. and wasted disk space,"
+                f" pass the 'setup_check=False' option."
             )
         for dir_path_prefix in self._known_dir_path_prefixes:
             _create_dir(os.path.join(self.dir_path, dir_path_prefix))
@@ -106,7 +107,7 @@ class ReflinkPool(qubes.storage.Pool):
         # /usr/lib/udev/rules.d/00-qubes-ignore-devices.rules needs update
         assert (
             vm.dir_path_prefix in self._known_dir_path_prefixes
-        ), "Unknown dir_path_prefix {!r}".format(vm.dir_path_prefix)
+        ), f"Unknown dir_path_prefix {vm.dir_path_prefix!r}"
 
         if "revisions_to_keep" not in volume_config:
             volume_config["revisions_to_keep"] = self.revisions_to_keep
@@ -219,7 +220,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if img is None or os.path.exists(img):
             return True
         raise qubes.exc.StoragePoolException(
-            "Missing image file {!r} for volume {}".format(img, self.vid)
+            f"Missing image file {img!r} for volume {self.vid}"
         )
 
     @qubes.storage.Volume.locked
@@ -332,7 +333,7 @@ class ReflinkVolume(qubes.storage.Volume):
     ):  # pylint: disable=invalid-overridden-method
         if self.is_dirty():
             raise qubes.exc.StoragePoolException(
-                "Cannot revert: {} is not cleanly stopped".format(self.vid)
+                f"Cannot revert: {self.vid} is not cleanly stopped"
             )
         path_revision = self._path_revision(revision)
         self._add_revision()
@@ -348,7 +349,7 @@ class ReflinkVolume(qubes.storage.Volume):
         """
         if not self.rw:
             raise qubes.exc.StoragePoolException(
-                "Cannot resize: {} is read-only".format(self.vid)
+                f"Cannot resize: {self.vid} is read-only"
             )
         try:
             _resize_file(self._path_dirty, size)
@@ -366,7 +367,7 @@ class ReflinkVolume(qubes.storage.Volume):
     async def export(self):
         if not self.save_on_stop:
             raise NotImplementedError(
-                "Cannot export: {} is not save_on_stop".format(self.vid)
+                f"Cannot export: {self.vid} is not save_on_stop"
             )
         return self._path_clean
 
@@ -375,7 +376,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def import_data(self, size):  # pylint: disable=invalid-overridden-method
         if not self.save_on_stop:
             raise NotImplementedError(
-                "Cannot import_data: {} is not save_on_stop".format(self.vid)
+                f"Cannot import_data: {self.vid} is not save_on_stop"
             )
         _create_sparse_file(self._path_import, size)
         return self._path_import
