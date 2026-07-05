@@ -184,10 +184,8 @@ class ReflinkVolume(qubes.storage.Volume):
         _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
 
     def _remove_stale_precache(self):
-        """Defuse the following situation: We created a precache.
-        After that, the pool was used on an older Qubes version
-        without precache support - causing staleness. Now the
-        pool is here again on new Qubes.
+        """In case the user manually modified an image file but forgot
+        about its precache, remove the latter.
         """
         stat_clean = os.stat(self._path_clean)
         with suppress(FileNotFoundError):
