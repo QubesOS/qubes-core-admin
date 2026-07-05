@@ -38,7 +38,6 @@ import qubes.exc
 import qubes.storage
 import qubes.utils
 
-
 LOGGER = logging.getLogger("qubes.storage.reflink")
 
 # defined in <linux/loop.h>
@@ -75,7 +74,7 @@ class ReflinkPool(qubes.storage.Pool):
         revisions_to_keep=1,
         dir_path,
         setup_check=True,
-        ephemeral_volatile=False
+        ephemeral_volatile=False,
     ):
         super().__init__(
             name=name,
@@ -159,7 +158,8 @@ class ReflinkPool(qubes.storage.Pool):
 
     def included_in(self, app):
         """Check if there is pool containing this one - either as a
-        filesystem or its LVM volume"""
+        filesystem or its LVM volume
+        """
         return qubes.storage.search_pool_containing_dir(
             [pool for pool in app.pools.values() if pool is not self],
             self.dir_path,
@@ -180,9 +180,8 @@ class ReflinkVolume(qubes.storage.Volume):
     def _update_precache(self):
         _remove_file(self._path_precache)
         yield
-        if self.snapshots_disabled:
-            return
-        _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
+        if not self.snapshots_disabled:
+            _copy_file(self._path_clean, self._path_precache, copy_mtime=True)
 
     def _remove_stale_precache(self):
         """In case the user manually modified an image file but forgot
@@ -266,9 +265,7 @@ class ReflinkVolume(qubes.storage.Volume):
             _remove_file(self._path_precache)
             if not self.is_dirty():
                 _rename_file(self._path_clean, self._path_dirty)
-
-            return self
-        if not self.is_dirty():
+        elif not self.is_dirty():
             if self.snap_on_start:
                 _remove_file(self._path_clean)
                 # pylint: disable=protected-access
@@ -320,11 +317,8 @@ class ReflinkVolume(qubes.storage.Volume):
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
-        # pylint: disable=invalid-unary-operand-type
-        for revision, timestamp in list(self.revisions.items())[
-            : -keep or None
-        ]:
-            _remove_file(self._path_revision(revision, timestamp))
+        for rev, timestamp in list(self.revisions.items())[: -keep or None]:
+            _remove_file(self._path_revision(rev, timestamp))
 
     @qubes.storage.Volume.locked
     @_coroutinized
@@ -395,7 +389,9 @@ class ReflinkVolume(qubes.storage.Volume):
             try:
                 src_path = await qubes.utils.coro_maybe(src_volume.export())
                 try:
-                    await _coroutinized(_copy_file)(src_path, self._path_import)
+                    await asyncio.to_thread(
+                        _copy_file, src_path, self._path_import
+                    )
                 finally:
                     await qubes.utils.coro_maybe(
                         src_volume.export_end(src_path)
@@ -558,8 +554,7 @@ def _copy_file(src, dst, *, dst_size=None, copy_mtime=False):
                 LOGGER.info("Copying file: %r -> %r", src, tmp_io.name)
                 result = subprocess.run(
                     ["cp", "--sparse=always", "--", src, tmp_io.name],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     check=False,
                 )
                 if result.returncode != 0:
