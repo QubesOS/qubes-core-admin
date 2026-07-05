@@ -23,7 +23,6 @@ but not required.
 """
 
 import asyncio
-import collections
 import errno
 import fcntl
 import functools
@@ -425,9 +424,7 @@ class ReflinkVolume(qubes.storage.Volume):
         prefix = self._path_clean + "."
         paths = glob.iglob(glob.escape(prefix) + "*?@????-??-??T??:??:??Z")
         items = (path[len(prefix) : -1].split("@") for path in paths)
-        return collections.OrderedDict(
-            sorted(items, key=lambda item: int(item[0]))
-        )
+        return dict(sorted(items, key=lambda item: int(item[0])))
 
     @property
     def size(self):
