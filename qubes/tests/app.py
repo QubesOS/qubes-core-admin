@@ -39,7 +39,10 @@ from qubes.tests.vm.qubesvm import TestQubesDB
 
 
 class TestApp(qubes.tests.TestEmitter):
-    pass
+
+    def __init__(self):
+        super().__init__()
+        self.log = mock.Mock()
 
 
 class TC_20_QubesHost(qubes.tests.QubesTestCase):
@@ -50,62 +53,58 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.qubes_host = qubes.app.QubesHost(self.app)
         self.maxDiff = None
 
-    def test_010_iommu_supported(self):
+        self.libvirt_info = ["x86_64", 32404, 16, 2995, 1, 1, 16, 1]
+        self.xen_physinfo = {
+            "nr_nodes": 1,
+            "threads_per_core": 1,
+            "cores_per_socket": 16,
+            "nr_cpus": 16,
+            "total_memory": 33182508,
+            "free_memory": 23905768,
+            "scrub_memory": 0,
+            "cpu_khz": 2995195,
+            "hw_caps": "...",
+            "virt_caps": "hvm pv hvm_directio pv_directio",
+        }
         self.app.vmm.configure_mock(
             **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
+                "libvirt_conn.getInfo.return_value": self.libvirt_info,
+                "xc.physinfo.return_value": self.xen_physinfo,
             }
         )
+
+    def test_010_iommu_supported(self):
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_011_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio pv pv_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio pv pv_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_012_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm pv",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm pv"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), False)
+
+    def test_030_attrs(self):
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.xen_physinfo["total_memory"]
+        )
+        self.assertEqual(self.qubes_host.no_cpus, self.libvirt_info[2])
+
+        self.app.vmm.is_xen = False
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.libvirt_info[1] * 1024
+        )
 
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
