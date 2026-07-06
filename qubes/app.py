@@ -287,22 +287,41 @@ class QubesHost:
 
     def __init__(self, app):
         self.app = app
-        self._no_cpus = None
+
         self._total_mem = None
+        self._no_cpus = None
+
         self._physinfo = None
+        self._cpu_arch = None
         self._cpu_family = None
-        self._cpu_model = None
 
     def _fetch(self):
         if self._no_cpus is not None:
             return
 
-        # pylint: disable=unused-variable
-        model, memory, cpus, mhz, nodes, socket, cores, threads = (
-            self.app.vmm.libvirt_conn.getInfo()
-        )
-        self._total_mem = int(memory) * 1024
-        self._no_cpus = cpus
+        # ['x86_64', 32404, 16, 2995,  1, 1, 16, 1]
+        (
+            cpu_arch,
+            mem_mebibyte,
+            no_cpus,
+            _mhz,
+            _nodes,
+            _socket,
+            _cores,
+            _threads,
+        ) = self.app.vmm.libvirt_conn.getInfo()
+
+        self._cpu_arch = cpu_arch
+        self._no_cpus = no_cpus
+
+        if self.app.vmm.is_xen:
+            self._physinfo = self.app.vmm.xc.physinfo()
+
+        # Avoid rounding differences.
+        if self._physinfo:
+            self._total_mem = int(self._physinfo["total_memory"])
+        else:
+            self._total_mem = int(mem_mebibyte) * 1024
 
         self.app.log.debug(
             "QubesHost: no_cpus={} memory_total={}".format(
@@ -317,28 +336,25 @@ class QubesHost:
             )
 
     @property
-    def memory_total(self):
-        """Total memory, in kbytes"""
+    def no_cpus(self) -> int:
+        """Number of CPUs"""
+        if self.app.vmm.offline_mode:
+            return 42
+        self._fetch()
+        return self._no_cpus
 
+    @property
+    def memory_total(self) -> int:
+        """Total memory, in kbytes"""
         if self.app.vmm.offline_mode:
             return 2**64 - 1
         self._fetch()
         return self._total_mem
 
     @property
-    def no_cpus(self):
-        """Number of CPUs"""
-
-        if self.app.vmm.offline_mode:
-            return 42
-
-        self._fetch()
-        return self._no_cpus
-
-    @property
     def cpu_family_model(self):
         """Get CPU family and model"""
-        if self._cpu_family is None or self._cpu_model is None:
+        if self._cpu_family is None or self._cpu_arch is None:
             family = None
             model = None
             with open("/proc/cpuinfo", encoding="ascii") as cpuinfo:
@@ -353,8 +369,8 @@ class QubesHost:
                     elif field.strip() == "cpu family":
                         family = int(value.strip())
             self._cpu_family = family
-            self._cpu_model = model
-        return self._cpu_family, self._cpu_model
+            self._cpu_arch = model
+        return self._cpu_family, self._cpu_arch
 
     def get_free_xen_memory(self):
         """Get free memory from Xen's physinfo.
@@ -363,17 +379,14 @@ class QubesHost:
         """
         if not self.app.vmm.is_xen:
             raise NotImplementedError("This function requires Xen hypervisor")
-        self._physinfo = self.app.vmm.xc.physinfo()
+        self._fetch()
         return int(self._physinfo["free_memory"])
 
     def is_iommu_supported(self):
         """Check if IOMMU is supported on this platform"""
-        if self._physinfo is None:
-            if not self.app.vmm.is_xen:
-                raise NotImplementedError(
-                    "This function requires Xen hypervisor"
-                )
-            self._physinfo = self.app.vmm.xc.physinfo()
+        if not self.app.vmm.is_xen:
+            raise NotImplementedError("This function requires Xen hypervisor")
+        self._fetch()
         return "hvm_directio" in self._physinfo["virt_caps"]
 
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
@@ -1042,6 +1055,10 @@ def _default_maxmem(self) -> int:
     return self.host.memory_total
 
 
+def _default_no_cpus(self) -> int:
+    return self.host.no_cpus
+
+
 class Qubes(qubes.PropertyHolder):
     """Main Qubes application
 
@@ -1295,6 +1312,15 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=_default_maxmem,
         doc="Maximum system memory in KiB. Unit was chosen for precision.",
+    )
+
+    no_cpus = qubes.property(
+        "no_cpus",
+        type=int,
+        setter=qubes.property.forbidden,
+        load_stage=3,
+        default=_default_no_cpus,
+        doc="Quantity of CPUs",
     )
 
     def __init__(
