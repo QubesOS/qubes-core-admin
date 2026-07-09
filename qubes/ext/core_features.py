@@ -194,6 +194,16 @@ class CoreFeatures(qubes.ext.Extension):
             ) and hasattr(vm, "appvm_default_bootmode"):
                 bootmode_value = untrusted_feature_value
                 vm.features["boot-mode.appvm-default"] = bootmode_value
+        if "boot-mode.standalone-default" in untrusted_features:
+            untrusted_feature_value = untrusted_features[
+                "boot-mode.standalone-default"
+            ]
+            if (
+                f"boot-mode.kernelopts.{untrusted_feature_value}" in vm.features
+                or untrusted_feature_value == "default"
+            ):
+                bootmode_value = untrusted_feature_value
+                vm.features["boot-mode.standalone-default"] = bootmode_value
 
         # allow VMs to switch on anon-timezone, but do not permit dropping it
         if "anon-timezone" in untrusted_features:
