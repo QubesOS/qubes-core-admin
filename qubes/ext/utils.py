@@ -82,6 +82,8 @@ def device_list_change(
 
     to_attach: Dict[str, Dict] = {}
     for front_vm in vm.app.domains:
+        if front_vm.klass == "RemoteVM":
+            continue
         if not front_vm.is_running():
             continue
         for assignment in reversed(
