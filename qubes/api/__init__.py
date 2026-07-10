@@ -232,7 +232,7 @@ class AbstractQubesAPI:
             pre_event=True,
             dest=self.dest,
             arg=self.arg,
-            **kwargs
+            **kwargs,
         )
 
     def fire_event_for_filter(self, iterable, **kwargs):
