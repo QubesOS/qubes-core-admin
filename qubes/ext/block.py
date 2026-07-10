@@ -252,8 +252,9 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     @property
     def busy(self) -> bool:
         """
-        Is this device busy?  A device is considered busy if any of its children
-        are in use (e.g., a partition of a disk is attached).
+        Is this device busy?  A device is considered busy if it or any of
+        its children is in use: attached to a VM or used locally in the
+        backend VM (mounted, part of a device-mapper, enabled swap).
         """
         if self._busy is None:
             if not self.backend_domain or not self.backend_domain.is_running():
@@ -570,10 +571,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
             raise qubes.exc.UnrecognizedDevice()
 
-        if device.busy:
+        # DeviceAlreadyAttached is checked below
+        if device.busy and not device.attachment:
             raise qubes.exc.QubesValueError(
-                f"Device {device} is busy: "
-                "a child partition is currently passed through to a VM"
+                f"Device {device} is busy: it or one of its children is in use."
             )
 
         # validate options
@@ -656,6 +657,39 @@ class BlockDeviceExtension(qubes.ext.Extension):
             # best effort
             pass
 
+    async def _refresh_busy_after_detach(self, device):
+        """
+        Ask the backend VM to refresh `busy` for the detached device's subtree
+        by re-triggering udev change events.
+
+        The udev script rebuilds the state from what only the backend can
+        see (vbd attachments in sysfs and the local mount table), so this
+        never clears a marker owed to a local mount.
+        """
+        backend = device.backend_domain
+        if not backend.is_running():
+            return
+        # vbd teardown is asynchronous: refreshing while the vbd is still
+        # visible in the backend's sysfs would re-mark the device as busy
+        # with no later event to clear it.
+        # TODO: better idea?
+        await asyncio.sleep(1)
+
+        name = device.port_id.replace("_", "/")
+        try:
+            await backend.run_service_for_stdio(
+                "qubes.RefreshBlockDevices",
+                user="root",
+                input=name.encode() + b"\n",
+            )
+        except Exception:  # pylint: disable=broad-except
+            backend.log.warning(
+                "block refresh failed for %s, "
+                "freeing parents while ignoring local use.",
+                device.port_id,
+            )
+            self._unmark_parents_busy(device)
+
     def _unmark_parents_busy(self, device):
         """
         Clear busy for the parent chain in the backend VM's QDB.
@@ -663,6 +697,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         Ancestors shared with other still-attached devices (sibling
         partitions of the same disk, or sibling block devices of the same
         USB device) are kept busy.
+
+        Fallback: prefer `_refresh_busy_after_detach`, which take into account
+        local use.
         """
         backend = device.backend_domain
         if not backend.is_running():
@@ -801,9 +838,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
                         )
                     )
                     # the frontend is gone: clear the busy markers
-                    self.devices_cache[domain.name][dev_id] = None
-                    self._unmark_parents_busy(
-                        BlockDevice(Port(domain, dev_id, "block"))
+                    detached = BlockDevice(Port(domain, dev_id, "block"))
+                    detached.mark_busy(False)
+                    asyncio.ensure_future(
+                        self._refresh_busy_after_detach(detached)
                     )
                 else:
                     new_cache[domain.name][dev_id] = front_vm
@@ -846,5 +884,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                         device=attached_device, vm=vm, options=options
                     )
                 )
-                self._unmark_parents_busy(attached_device)
+                attached_device.mark_busy(False)
+                asyncio.ensure_future(
+                    self._refresh_busy_after_detach(attached_device)
+                )
                 break
