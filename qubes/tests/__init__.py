@@ -1785,9 +1785,10 @@ def maybe_create_testcases_on_import(create_testcases_gen):
     using load tests protocol.
 
     The conditions - any of:
-     - QUBES_TEST_TEMPLATES present in the environment (it's possible to
-     create test cases without opening qubes.xml)
-     - QUBES_TEST_LOAD_ALL present in the environment
+
+    - QUBES_TEST_TEMPLATES present in the environment (it's possible to
+      create test cases without opening qubes.xml)
+    - QUBES_TEST_LOAD_ALL present in the environment
     """
     if (
         "QUBES_TEST_TEMPLATES" in os.environ

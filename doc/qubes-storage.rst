@@ -39,6 +39,7 @@ filesystems, etc.)
 
 Most of the storage API is focused on storage volumes. Each volume has at least
 those properties:
+
 - :py:attr:`~qubes.storage.Volume.rw` - should the volume be available in
   read-only or read-write mode to the domain
 - :py:attr:`~qubes.storage.Volume.snap_on_start` - should the domain start

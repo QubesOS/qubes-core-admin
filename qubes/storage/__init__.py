@@ -379,7 +379,7 @@ class Volume:
 
     def is_outdated(self):
         """Returns `True` if this snapshot of a source volume (for
-        `snap_on_start`=True) is outdated.
+        `snap_on_start` = True) is outdated.
         """
         raise self._not_implemented("is_outdated")
 
@@ -728,7 +728,7 @@ class Storage:
 
         :param QubesVM src_vm: source VM
         :param str name: name of volume to clone ('root', 'private' etc)
-        :return cloned volume object
+        :return: cloned volume object
         """
         config = self.vm.volume_config[name]
         dst_pool = self.vm.app.get_pool(config["pool"])
@@ -1077,7 +1077,7 @@ class Pool:
         all the other drivers.
 
         :param app: Qubes() object to lookup other pools in
-        :returns pool or None
+        :return: pool or None
         """
 
     @property
