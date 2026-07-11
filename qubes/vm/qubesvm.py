@@ -764,7 +764,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=_default_virt_mode,
         doc="""Virtualisation mode: full virtualisation ("HVM"),
             or paravirtualisation ("PV"), or hybrid ("PVH").
-             TemplateBasedVMs use its template\'s value by default.""",
+            TemplateBasedVMs use its template\'s value by default.""",
     )
 
     installed_by_rpm = qubes.property(
@@ -1648,8 +1648,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         :param force: ignored
         :param wait: wait for shutdown to complete
-        :param timeout: shutdown wait timeout (for *wait*=True), defaults to
-        :py:attr:`shutdown_timeout`
+        :param timeout: shutdown wait timeout (for *wait* = True), defaults to
+            :py:attr:`shutdown_timeout`
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
@@ -1965,8 +1965,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     def is_memory_balancing_possible(self):
         """Check if memory balancing can be enabled.
         Reasons to not enable it:
-         - have PCI devices
-         - balloon driver not present
+        - have PCI devices
+        - balloon driver not present
 
         We don't have a reliable way to detect the second point, but good
         heuristic is HVM virt_mode (PV and PVH require OS support, and it does
