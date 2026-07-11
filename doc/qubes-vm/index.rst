@@ -86,6 +86,7 @@ Special VM types:
 
    dispvm
    adminvm
+   remotevm
 
 .. standalonevm
 
