@@ -106,6 +106,11 @@ pygments_style = 'sphinx'
 #modindex_common_prefix = []
 
 autodoc_member_order = 'groupwise'
+autodoc_mock_imports = [
+    'distutils',
+    'qrexec',
+    'xen',
+]
 
 # -- Options for HTML output ---------------------------------------------------
 
