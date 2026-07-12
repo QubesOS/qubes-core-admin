@@ -4961,12 +4961,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             b"admin.pool.Info",
             b"admin.pool.Add",
             b"admin.pool.Remove",
-            # b"admin.pool.volume.List",
-            # b"admin.pool.volume.Info",
-            # b"admin.pool.volume.ListSnapshots",
-            # b"admin.pool.volume.Snapshot",
-            # b"admin.pool.volume.Revert",
-            # b"admin.pool.volume.Resize",
             b"admin.backup.Execute",
             b"admin.backup.Info",
         ]
