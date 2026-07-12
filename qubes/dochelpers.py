@@ -123,7 +123,7 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
         rawtext,
         "#{} ({})".format(info.number, info.summary),
         refuri=info.uri,
-        **options
+        **options,
     )
 
     return [node], []
