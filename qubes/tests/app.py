@@ -678,6 +678,27 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             app.close()
             del app
 
+    def test_200_load_pools(self):
+        qubes_xml = """<?xml version="1.0" encoding="utf-8" ?>
+        <qubes version="3.0">
+            <labels>
+                <label id="label-1" color="{old_gray}">gray</label>
+            </labels>
+            <pools>
+              <pool driver="file" dir_path="/tmp/qubes-test" name="default" ephemeral_volatile="False"/>
+            </pools>
+            <domains>
+            </domains>
+        </qubes>
+        """
+        with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
+            xml_file.write(qubes_xml)
+        app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+        self.assertEqual(app.pools["default"].ephemeral_volatile, False)
+        self.assertEqual(app.pools["default"].dir_path, "/tmp/qubes-test")
+        app.close()
+        del app
+
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     def setUp(self):
