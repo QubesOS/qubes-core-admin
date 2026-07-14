@@ -643,28 +643,17 @@ class BlockDeviceExtension(qubes.ext.Extension):
         """
         # pylint: disable=unused-argument
 
-        new_cache = {}
-        for domain in vm.app.domains.values():
-            new_cache[domain.name] = {}
-            if domain == vm:
-                for dev_id, front_vm in self.devices_cache[domain.name].items():
-                    dev = BlockDevice(Port(vm, dev_id, "block"))
-                    vm.fire_event("device-removed:block", port=dev.port)
-                    if front_vm is None:
-                        continue
-                    await self.detach_and_notify(front_vm, dev.port)
-                continue
-            for dev_id, front_vm in self.devices_cache[domain.name].items():
-                if front_vm == vm:
-                    dev = BlockDevice(Port(vm, dev_id, "block"))
-                    asyncio.ensure_future(
-                        front_vm.fire_event_async(
-                            "device-detach:block", port=dev.port
-                        )
-                    )
-                else:
-                    new_cache[domain.name][dev_id] = front_vm
-        self.devices_cache = new_cache.copy()
+        # devices exposed by the shutting-down backend vm:
+        # notify that they are gone and detach them from frontend vms
+        for dev_id, front_vm in self.devices_cache[vm.name].items():
+            dev = BlockDevice(Port(vm, dev_id, "block"))
+            vm.fire_event("device-removed:block", port=dev.port)
+            if front_vm is not None:
+                await self.detach_and_notify(front_vm, dev.port)
+        self.devices_cache[vm.name] = {}
+
+        # devices attached to shutting-down frontend vm: notify detach
+        utils.detach_attached_devices_on_shutdown(self, vm, BlockDevice)
 
     def ensure_detach(self, vm, port):
         """
