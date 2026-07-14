@@ -140,6 +140,8 @@ class GrubBase(object):
             "StandaloneVM", name=self.make_vm_name("vm1"), label="red"
         )
         self.testvm1.virt_mode = self.virt_mode
+        if self.virt_mode == "hvm":
+            self.set_hvm(self.testvm1)
         self.testvm1.features.update(self.app.domains[self.template].features)
         self.testvm1.clone_properties(self.app.domains[self.template])
         self.loop.run_until_complete(
