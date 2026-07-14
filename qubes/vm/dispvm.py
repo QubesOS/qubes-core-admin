@@ -46,6 +46,7 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "klass",
     "name",
     "qid",
+    "rebootable",
     "start_time",
     "stubdom_uuid",
     "stubdom_xid",

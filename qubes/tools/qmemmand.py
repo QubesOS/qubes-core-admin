@@ -92,12 +92,10 @@ class XSWatcher:
             "domain_list_changed(only_refresh={!r})".format(refresh_only)
         )
 
-        got_lock = False
         if not refresh_only:
             self.log.debug("acquiring GLOBAL_LOCK")
             # pylint: disable=consider-using-with
             GLOBAL_LOCK.acquire()
-            got_lock = True
             self.log.debug("GLOBAL_LOCK acquired")
         try:
             curr = self.handle.ls("", "/local/domain")
@@ -137,7 +135,7 @@ class XSWatcher:
         except:  # pylint: disable=bare-except
             self.log.exception("Updating domain list failed")
         finally:
-            if got_lock:
+            if GLOBAL_LOCK.locked():
                 GLOBAL_LOCK.release()
                 self.log.debug("GLOBAL_LOCK released")
 
@@ -186,7 +184,6 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
     def handle(self):
         self.log = logging.getLogger("qmemman.daemon.reqhandler")
 
-        got_lock = False
         try:
             # self.request is the TCP socket connected to the client
             while True:
@@ -195,13 +192,13 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 self.log.debug("data=%r", self.data)
                 if len(self.data) == 0:
                     self.log.info("client disconnected, resuming membalance")
-                    if got_lock:
+                    if GLOBAL_LOCK.locked():
                         global force_refresh_domain_list
                         force_refresh_domain_list = True
                     return
 
                 # XXX something is wrong here: return without release?
-                if got_lock:
+                if GLOBAL_LOCK.locked():
                     self.log.warning("Second request over qmemman.sock?")
                     return
 
@@ -209,8 +206,6 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 # pylint: disable=consider-using-with
                 GLOBAL_LOCK.acquire()
                 self.log.debug("GLOBAL_LOCK acquired")
-
-                got_lock = True
 
                 resp = "INVALID_ARG"
                 if self.data.isdigit():
@@ -237,7 +232,7 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                 "exception while handling request: {!r}".format(e)
             )
         finally:
-            if got_lock:
+            if GLOBAL_LOCK.locked():
                 GLOBAL_LOCK.release()
                 self.log.debug("GLOBAL_LOCK released")
 
