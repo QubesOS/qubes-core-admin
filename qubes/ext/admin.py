@@ -25,7 +25,7 @@ import qubes.ext
 import qubes.vm.adminvm
 from qrexec.policy import utils, parser
 
-from qubes.device_protocol import DeviceInterface
+from qubes.device_protocol import DeviceInfo, DeviceInterface
 
 
 PROHIBITED_FEATURES = [
@@ -209,6 +209,16 @@ class AdminExtension(qubes.ext.Extension):
 
         # check if any presented interface is on denied list
         denied = set(DeviceInterface.from_str_bulk(dest.devices_denied))
+        if not denied:
+            return
+
+        if not isinstance(device, DeviceInfo):
+            # failed to load full device info, so we cannot verify its
+            # interfaces against the denied list -> reject.
+            raise qubes.exc.PermissionDenied(
+                "Could not load interfaces to verify against denied list"
+            )
+
         for pattern in denied:
             for devint in device.interfaces:
                 if pattern.matches(devint):
