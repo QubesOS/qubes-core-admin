@@ -1303,3 +1303,49 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         with mock.patch("asyncio.ensure_future"):
             loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.ext.attach_and_notify.assert_not_called()
+
+    def test_090_on_domain_shutdown_frontend(self):
+        # a frontend that has a device attached is shutting down;
+        # the detach event is expected
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        self.ext.devices_cache = {"sys-usb": {"sda": front}, "front-vm": {}}
+
+        loop = asyncio.get_event_loop()
+        with mock.patch("asyncio.ensure_future"):
+            loop.run_until_complete(self.ext.on_domain_shutdown(front, None))
+
+        front.fire_event_async.assert_called_with(
+            "device-detach:block", port=exp_dev.port
+        )
+        self.assertEqual(
+            front.fire_event_async.call_args.kwargs["port"].backend_domain,
+            back,
+        )
+        self.assertEqual(
+            self.ext.devices_cache,
+            {"sys-usb": {"sda": None}, "front-vm": {}},
+        )
+
+    def test_091_on_domain_shutdown_backend(self):
+        # a backend exposing an attached device is shutting down:
+        # the device is removed and detached from its frontend
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        self.ext.devices_cache = {"sys-usb": {"sda": front}}
+        self.ext.detach_and_notify = AsyncMock()
+
+        loop = asyncio.get_event_loop()
+        with mock.patch("asyncio.ensure_future"):
+            loop.run_until_complete(self.ext.on_domain_shutdown(back, None))
+
+        self.assertEqual(
+            back.fired_events[
+                ("device-removed:block", frozenset({("port", exp_dev.port)}))
+            ],
+            1,
+        )
+        self.ext.detach_and_notify.assert_called_once_with(front, exp_dev.port)
+        self.assertEqual(self.ext.devices_cache, {"sys-usb": {}})
