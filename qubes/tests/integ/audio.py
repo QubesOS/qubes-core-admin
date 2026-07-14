@@ -606,7 +606,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_223_audio_play_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         try:
@@ -625,7 +625,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_224_audio_rec_muted_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         try:
@@ -647,7 +647,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_225_audio_rec_unmuted_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         pa_info = self.loop.run_until_complete(
@@ -683,7 +683,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     def test_252_audio_playback_audiovm_switch_hvm(self):
         self.create_audio_vm("pulseaudio")
         self.testvm1.audiovm = self.audiovm
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.testvm1.features["stubdom-qrexec"] = "1"
         self.prepare_audio_test("pulseaudio")

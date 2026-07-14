@@ -921,6 +921,21 @@ class SystemTestCase(QubesTestCase):
             vm._qdb_connection_watch.close()
             vm._qdb_connection_watch = None
 
+    @staticmethod
+    def set_hvm(vm):
+        vm.virt_mode = "hvm"
+        # when running test in nested virt, set lower maxmem to workaround
+        # https://github.com/QubesOS/qubes-issues/issues/10723
+        qemu = False
+        try:
+            with open("/sys/firmware/dmi/entries/1-0/raw", "rb") as f:
+                if b"QEMU" in f.read():
+                    qemu = True
+        except OSError:
+            pass
+        if qemu:
+            vm.maxmem = 1024
+
     def cleanup_app(self):
         self.remove_test_vms()
 

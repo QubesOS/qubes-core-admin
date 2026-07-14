@@ -64,6 +64,8 @@ class VMWrapper(object):
     def __setattr__(self, key, value):
         if key.startswith("_"):
             return super(VMWrapper, self).__setattr__(key, value)
+        if key == "virt_mode" and value == "hvm":
+            qubes.tests.SystemTestCase.set_hvm(self._vm)
         return setattr(self._vm, key, value)
 
     def __str__(self):
