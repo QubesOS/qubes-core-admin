@@ -1226,7 +1226,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self._libvirt_domain = None
         self._qdb_connection = None
-        self._is_running = None
+        self._is_active = None
         self._power_state = None
         self._id = -1
         self._stubdom_xid: int = -1
@@ -1451,6 +1451,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         self.__waiter = None
                     raise
 
+    async def notify_failed_startup(self, exc: Exception):
+        self.log.error("Start failed: %s", str(exc))
+        self._power_state = "Halted"
+        # let anyone receiving domain-pre-start know that startup failed
+        await self.fire_event_async("domain-start-failed", reason=str(exc))
+
     async def start(
         self, start_guid=True, notify_function=None, mem_required=None
     ):
@@ -1484,6 +1490,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
 
             self.log.info("Starting qube {}".format(self.name))
+            self._power_state = "Starting"
 
             try:
                 await self.fire_event_async(
@@ -1493,10 +1500,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     mem_required=mem_required,
                 )
             except Exception as exc:
-                self.log.error("Start failed: %s", str(exc))
-                await self.fire_event_async(
-                    "domain-start-failed", reason=str(exc)
-                )
+                await self.notify_failed_startup(exc=exc)
                 raise
 
             qmemman_client = None
@@ -1534,11 +1538,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.storage.start()
 
             except Exception as exc:
-                self.log.error("Start failed: %s", str(exc))
-                # let anyone receiving domain-pre-start know that startup failed
-                await self.fire_event_async(
-                    "domain-start-failed", reason=str(exc)
-                )
+                await self.notify_failed_startup(exc=exc)
                 if qmemman_client:
                     qmemman_client.close()
                 raise
@@ -1553,8 +1553,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED
                 )
-                self._is_running = True
-                self._power_state = "Paused"
+                self._is_active = True
 
                 # the above allocates xid, lets announce that
                 self.fire_event("property-reset:xid", name="xid")
@@ -1577,18 +1576,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         "Failed to start an HVM qube with PCI devices assigned "
                         "- hardware does not support IOMMU/VT-d/AMD-Vi"
                     )
-                self.log.error("Start failed: %s", str(exc))
-                await self.fire_event_async(
-                    "domain-start-failed", reason=str(exc)
-                )
+                await self.notify_failed_startup(exc=exc)
                 await self.storage.stop()
                 raise exc
             except Exception as exc:
-                self.log.error("Start failed: %s", str(exc))
-                # let anyone receiving domain-pre-start know that startup failed
-                await self.fire_event_async(
-                    "domain-start-failed", reason=str(exc)
-                )
+                await self.notify_failed_startup(exc=exc)
                 await self.storage.stop()
                 raise
 
@@ -1620,10 +1612,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
                 self.skip_unpause_event = True
                 self.libvirt_domain.resume()
-                if self.is_fully_usable():
-                    self._power_state = "Running"
-                else:
-                    self._power_state = "Transient"
                 await self.fire_event_async("domain-unpaused")
 
                 if (
@@ -1634,19 +1622,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 ):
                     await self.start_qrexec_daemon(stubdom=True)
                 await self.start_qrexec_daemon()
-                if self._power_state == "Transient" and self.is_fully_usable():
-                    self._power_state = "Running"
 
+                self._power_state = "Running"
                 await self.fire_event_async(
                     "domain-start", start_guid=start_guid
                 )
 
             except Exception as exc:  # pylint: disable=bare-except
-                self.log.error("Start failed: %s", str(exc))
-                # let anyone receiving domain-pre-start know that startup failed
-                await self.fire_event_async(
-                    "domain-start-failed", reason=str(exc)
-                )
+                await self.notify_failed_startup(exc=exc)
                 # This avoids losing the exception if an exception is
                 # raised in self.kill(), because the vm is not
                 # running or paused
@@ -1727,7 +1710,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         and synchronization with start() and then emits Qubes events.
         """
 
-        self._is_running = False
+        self._is_active = False
         self._power_state = "Halted"
         self._id = -1
         self._stubdom_xid = -1
@@ -1820,10 +1803,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     self.libvirt_domain.destroy()
                 except libvirt.libvirtError as e:
                     if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
-                        self._is_running = False
+                        self._is_active = False
                         self._power_state = "Halted"
                         raise qubes.exc.QubesVMNotStartedError(self)
-                    self._is_running = None
+                    self._is_active = None
                     self._power_state = None
                     raise
             else:
@@ -1871,7 +1854,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     raise qubes.exc.QubesVMShutdownTimeoutError(self)
 
             # TODO: ben: https://github.com/QubesOS/qubes-core-admin/pull/819#discussion_r3537186522
-            self._is_running = False
+            self._is_active = False
             self._power_state = "Halted"
         except Exception as ex:
             self._power_state = old_power_state
@@ -1901,16 +1884,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
-                self._is_running = False
+                self._is_active = False
                 self._power_state = "Halted"
                 raise qubes.exc.QubesVMNotStartedError(self)
-            self._is_running = None
+            self._is_active = None
             self._power_state = None
             raise
 
         await waiter
         # TODO: ben: https://github.com/QubesOS/qubes-core-admin/pull/819#discussion_r3537186522
-        self._is_running = False
+        self._is_active = False
         self._power_state = "Halted"
 
     async def suspend(self):
@@ -2560,87 +2543,166 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         =============== ========================================================
         return value    meaning
         =============== ========================================================
-        ``'Halted'``    Machine is not active.
-        ``'Transient'`` Machine is running, but does not have :program:`guid`
-                        or :program:`qrexec` available.
-        ``'Running'``   Machine is ready and running.
-        ``'Paused'``    Machine is paused.
-        ``'Suspended'`` Machine is S3-suspended.
-        ``'Halting'``   Machine is in process of shutting down.
-        ``'Crashed'``   Machine crashed and is unusable, probably because of
+        ``"Halted"``    Machine is not active.
+        ``"Starting"``  Machine is in process of starting.
+        ``"Running"``   Machine is ready and running.
+        ``"Paused"``    Machine is paused.
+        ``"Suspended"`` Machine is S3-suspended.
+        ``"Halting"``   Machine is in process of shutting down.
+        ``"Crashed"``   Machine crashed and is unusable, probably because of
                         bug in dom0.
-        ``'NA'``        Machine is in unknown state (most likely libvirt domain
+        ``"NA"``        Machine is in unknown state (most likely libvirt domain
                         is undefined).
         =============== ========================================================
 
-        FIXME: graph below may be incomplete and wrong. Click on method name to
-        see its documentation.
+        Click on method name to see its documentation.
 
         .. graphviz::
 
             digraph {
-                node [fontname="sans-serif"];
-                edge [fontname="mono"];
+                rankdir=LR;
 
+                node [
+                    fontname="sans-serif",
+                    shape=box,
+                    style="rounded,filled",
+                    color="darkslategray",
+                    fillcolor="aliceblue",
+                ];
 
-                Halted;
-                NA;
-                Dying;
-                Crashed;
-                Transient;
-                Halting;
-                Running;
-                Paused [color=gray75 fontcolor=gray75];
-                Suspended;
+                edge [
+                    fontname="mono",
+                    color="lightslategray",
+                ];
 
+                NA        [fillcolor="lightgray", color="dimgray"];
+                Halted    [fillcolor="lightgray", color="black"];
+                Starting  [fillcolor="lightblue", color="blue"];
+                Running   [fillcolor="palegreen", color="forestgreen"];
+                Paused    [fillcolor="lightyellow", color="yellow"];
+                Suspended [fillcolor="lavenderblush", color="purple"];
+                Crashed   [fillcolor="mistyrose", color="red"];
+                Halting   [fillcolor="lightcoral", color="red"];
+
+                // From NA/Halted/Starting
                 NA -> Halted;
                 Halted -> NA [constraint=false];
+                Halted -> Starting -> Running [
+                    label="start()",
+                    URL="#qubes.vm.qubesvm.QubesVM.start",
+                    color="blue",
+                    constraint=true,
+                ];
+                Starting -> Halted [
+                    label="domain-start-failed",
+                    URL="#event-domain-start-failed",
+                    color="black",
+                    constraint=true,
+                ];
 
-                Halted -> Transient
-                    [xlabel="start()" URL="#qubes.vm.qubesvm.QubesVM.start"];
-                Transient -> Running;
+                // From Running
+                Running -> Halting [
+                    label="shutdown()",
+                    URL="#qubes.vm.qubesvm.QubesVM.shutdown",
+                    constraint=false,
+                    color="red",
+                ];
+                Running -> Halting [
+                    label="kill()",
+                    URL="#qubes.vm.qubesvm.QubesVM.kill",
+                    color="red",
+                    constraint=false,
+                ];
+                Running -> Paused [
+                    label="pause()",
+                    URL="#qubes.vm.qubesvm.QubesVM.pause",
+                    color="yellow",
+                    constraint=true,
+                ];
+                Running -> Suspended [
+                    label="suspend()",
+                    URL="#qubes.vm.qubesvm.QubesVM.suspend",
+                    color="purple",
+                    constraint=true,
+                ];
+                Running -> Crashed [
+                    color="black",
+                    constraint=false,
+                ];
+                Running -> Halted [
+                    label="shutdown without API",
+                    color="black",
+                    constraint=false,
+                ];
 
-                Running -> Halting
-                    [xlabel="shutdown()"
-                        URL="#qubes.vm.qubesvm.QubesVM.shutdown"
-                        constraint=false];
-                Halting -> Dying -> Halted [constraint=false];
+                // From Paused/Suspended
+                Paused -> Running [
+                    label="unpause()",
+                    URL="#qubes.vm.qubesvm.QubesVM.unpause",
+                    color="yellow",
+                    constraint=false,
+                ];
+                Paused -> Halting [
+                    label="kill()",
+                    URL="#qubes.vm.qubesvm.QubesVM.kill",
+                    color="red4",
+                    constraint=true,
+                ];
+                Suspended -> Running [
+                    label="resume()",
+                    URL="#qubes.vm.qubesvm.QubesVM.resume",
+                    color="purple",
+                    constraint=false,
+                ];
+                Suspended -> Halting [
+                    label="kill()",
+                    URL="#qubes.vm.qubesvm.QubesVM.kill",
+                    color="red4",
+                    constraint=true,
+                ];
 
-                /* cosmetic, invisible edges to put rank constraint */
-                Dying -> Halting [style="invis"];
-                Halting -> Transient [style="invis"];
+                // From Halting
+                Halting -> Halted [
+                    color="black",
+                    constraint=true,
+                ];
+                Halting -> Running [
+                    label="domain-shutdown-failed",
+                    URL="#event-domain-shutdown-failed",
+                    color="blue",
+                    constraint=true,
+                ];
 
-                Running -> Halted
-                    [label="kill()"
-                        URL="#qubes.vm.qubesvm.QubesVM.kill"
-                        constraint=false];
-
-                Running -> Crashed [constraint=false];
-                Crashed -> Halted [constraint=false];
-
-                Running -> Paused
-                    [label="pause()" URL="#qubes.vm.qubesvm.QubesVM.pause"
-                        color=gray75 fontcolor=gray75];
-                Running -> Suspended
-                    [label="suspend()" URL="#qubes.vm.qubesvm.QubesVM.suspend"
-                        color=gray50 fontcolor=gray50];
-                Paused -> Running
-                    [label="unpause()" URL="#qubes.vm.qubesvm.QubesVM.unpause"
-                        color=gray75 fontcolor=gray75];
-                Suspended -> Running
-                    [label="resume()" URL="#qubes.vm.qubesvm.QubesVM.resume"
-                        color=gray50 fontcolor=gray50];
-
-                Running -> Suspended
-                    [label="suspend()" URL="#qubes.vm.qubesvm.QubesVM.suspend"];
-                Suspended -> Running
-                    [label="resume()" URL="#qubes.vm.qubesvm.QubesVM.resume"];
+                // From Crashed
+                Crashed -> Halted [
+                    color="black",
+                    constraint=false,
+                ];
 
 
-                { rank=source; Halted NA };
-                { rank=same; Transient Halting };
-                { rank=same; Crashed Dying };
-                { rank=sink; Paused Suspended };
+                subgraph cluster_inactive {
+                    label="Inactive (no ID)"
+                    color="gray"
+                    { rank=""; Halted; NA; }
+                }
+
+                subgraph cluster_active {
+                    label="Active (has ID)"
+                    color="dodgerblue"
+                    { rank="same"; Running; }
+                    subgraph cluster_transition {
+                        label="Transition"
+                        style="dashed"
+                        color="lightskyblue"
+                        { rank="sink"; Starting; Halting; Crashed; }
+                    }
+                    subgraph cluster_suspended {
+                        label="Suspended"
+                        style="rounded"
+                        color="plum"
+                        { rank="sink"; Paused; Suspended; }
+                    }
+                }
             }
 
         .. seealso::
@@ -2692,10 +2754,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             }
             if state in state_dict:
                 self._power_state = state_dict[state]
-            elif not self.is_fully_usable():
-                # libvirt.VIR_DOMAIN_RUNNING # 0x1
-                # libvirt.VIR_DOMAIN_BLOCKED # 0x2
-                self._power_state = "Transient"
         except libvirt.libvirtError as e:
             if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
                 raise
@@ -2710,7 +2768,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self.get_power_state() == "Halted"
 
     def is_running(self):
-        """Check whether this domain is running.
+        """Check whether this domain is active. This is not the same as
+        ``Running`` power state, it only means the qube has a libvirt ID.
 
         :returns: :py:obj:`True` if this domain is started, \
             :py:obj:`False` otherwise.
@@ -2731,13 +2790,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    self._is_running = False
-                    return self._is_running
+                    self._is_active = False
+                    return self._is_active
                 raise
 
-        if self._is_running is None:
-            self._is_running = bool(self.libvirt_domain.isActive())
-        return self._is_running
+        if self._is_active is None:
+            self._is_active = bool(self.libvirt_domain.isActive())
+        return self._is_active
 
     def is_paused(self):
         """Check whether this domain is paused.
@@ -3075,8 +3134,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._libvirt_domain = self.app.vmm.libvirt_conn.defineXML(
                 domain_config
             )
-            self._is_running = False
-            self._power_state = "Halted"
+            if self._is_active is None:
+                self._is_active = False
+            if self._power_state is None:
+                self._power_state = "Halted"
         except libvirt.libvirtError as e:
             if (
                 e.get_error_code() == libvirt.VIR_ERR_OS_TYPE
