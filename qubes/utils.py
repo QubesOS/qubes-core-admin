@@ -159,6 +159,17 @@ def size_to_human(size):
     return str(round(size / (1024.0 * 1024 * 1024), 1)) + " GiB"
 
 
+def parse_bool(value):
+    """Deserialize bool property, handling usual encodings"""
+    if isinstance(value, bool):
+        return value
+    if value in ("True", "1", "on"):
+        return True
+    if value in ("False", "0", "off", ""):
+        return False
+    raise ValueError(f"invalid bool: {value}")
+
+
 def urandom(size):
     rand = os.urandom(size)
     if rand is None:

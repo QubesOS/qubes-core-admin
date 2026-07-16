@@ -1005,7 +1005,7 @@ class Pool:
         self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
-        self.ephemeral_volatile = ephemeral_volatile
+        self.ephemeral_volatile = qubes.utils.parse_bool(ephemeral_volatile)
 
     def __eq__(self, other):
         if isinstance(other, Pool):
