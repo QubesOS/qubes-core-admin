@@ -32,7 +32,7 @@ import shutil
 import string
 import subprocess
 
-from typing import Awaitable
+from typing import Awaitable, Any
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -332,6 +332,36 @@ def _default_kernelopts(self):
             if any_pci_assigned
             else qubes.config.defaults["kernelopts"]
         ) + extra_opts
+
+
+def _get_libvirt_event_dict() -> dict[int, dict[str, Any]]:
+    libvirt_event_dict = {
+        0: {"event": "DEFINED", "pretty": "Defined", "details": {}},
+        1: {"event": "UNDEFINED", "pretty": "Undefined", "details": {}},
+        2: {"event": "STARTED", "pretty": "Started", "details": {}},
+        3: {"event": "SUSPENDED", "pretty": "Paused", "details": {}},
+        4: {"event": "RESUMED", "pretty": "Resumed", "details": {}},
+        5: {"event": "STOPPED", "pretty": "Halted", "details": {}},
+        6: {"event": "SHUTDOWN", "pretty": "Halting", "details": {}},
+        7: {"event": "PMSUSPENDED", "pretty": "Suspended", "details": {}},
+        8: {"event": "CRASHED", "pretty": "Crashed", "details": {}},
+    }
+    libvirt_names = dir(libvirt)
+    event_prefix = "VIR_DOMAIN_EVENT_"
+    for event_number, event_dict in libvirt_event_dict.items():
+        curr_event = event_prefix + str(event_dict["event"])
+        assert event_number == getattr(libvirt, curr_event)
+        curr_event_prefix = curr_event + "_"
+        for name in libvirt_names:
+            if not name.startswith(curr_event_prefix):
+                continue
+            detail_id = int(getattr(libvirt, name))
+            detail_pretty = str(
+                name[len(curr_event_prefix) :].capitalize().replace("_", " ")
+            )
+            assert isinstance(event_dict["details"], dict)
+            event_dict["details"][detail_id] = detail_pretty
+    return libvirt_event_dict
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
@@ -736,6 +766,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     #
     # per-class properties
     #
+
+    libvirt_event_dict = _get_libvirt_event_dict()
 
     #: directory in which domains of this class will reside
     dir_path_prefix = qubes.config.system_path["qubes_appvms_dir"]
@@ -1604,21 +1636,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # TODO: ben: Marek asked to try to set power state depending on event
         # received by awaiting self.__waiter.
 
-        libvirt_event_dict = {
-            libvirt.VIR_DOMAIN_EVENT_DEFINED: "Defined",  # 0x0
-            libvirt.VIR_DOMAIN_EVENT_UNDEFINED: "Undefined",  # 0x1
-            libvirt.VIR_DOMAIN_EVENT_STARTED: "Started",  # 0x2
-            libvirt.VIR_DOMAIN_EVENT_SUSPENDED: "Paused",  # 0x3
-            libvirt.VIR_DOMAIN_EVENT_RESUMED: "Resumed",  # 0x4
-            libvirt.VIR_DOMAIN_EVENT_STOPPED: "Halted",  # 0x5
-            libvirt.VIR_DOMAIN_EVENT_SHUTDOWN: "Halting",  # 0x6
-            libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED: "Suspended",  # 0x7
-            libvirt.VIR_DOMAIN_EVENT_CRASHED: "Crashed",  # 0x8
-        }
+        pretty_event = self.libvirt_event_dict[event]["pretty"]
+        pretty_detail = self.libvirt_event_dict[event]["details"][detail]
+
         self.log.debug(
-            "Libvirt event with detail: %s (%s)",
-            libvirt_event_dict[event],
-            detail,
+            "Libvirt event received for domain: %s: %s",
+            pretty_event,
+            pretty_detail,
         )
         if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             self.on_libvirt_domain_stopped()
