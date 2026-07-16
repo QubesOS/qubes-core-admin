@@ -27,15 +27,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.Remove \
 	admin.pool.Set.ephemeral_volatile \
 	admin.pool.Set.revisions_to_keep \
-	admin.pool.volume.Info \
 	admin.pool.volume.List \
-	admin.pool.volume.ListSnapshots \
-	admin.pool.volume.Resize \
-	admin.pool.volume.Revert \
-	admin.pool.volume.Set.ephemeral \
-	admin.pool.volume.Set.revisions_to_keep \
-	admin.pool.volume.Set.rw \
-	admin.pool.volume.Snapshot \
 	admin.property.Get \
 	admin.property.GetAll \
 	admin.property.GetDefault \
