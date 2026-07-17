@@ -470,10 +470,6 @@ class QubesHost:
            - Description: Amount memory assigned that is usable in the qube.
              Will be deprecated in a future release due to its ambiguous name.
              Prefer the equivalent ``memory_assigned_usable``.
-        - ``cpu_usage_raw``:
-          - Type: ``int``, percentage.
-          - Description: CPU usage. Will be deprecated as it can be calculated
-            on the client.
 
         This function requires Xen hypervisor for detailed overview.
 
