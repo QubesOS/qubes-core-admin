@@ -489,16 +489,16 @@ def _remove_empty_dir(path):
 
 def _resize_file(path, size):
     """Resize an existing file."""
-    with open(path, "rb+") as file_io:
-        file_io.truncate(size)
-        os.fsync(file_io.fileno())
+    with open(path, "rb+") as path_fh:
+        path_fh.truncate(size)
+        os.fsync(path_fh.fileno())
 
 
 def _create_sparse_file(path, size):
     """Create an empty sparse file."""
-    with _replace_file(path) as tmp_io:
-        tmp_io.truncate(size)
-        LOGGER.info("Created sparse file: %r", tmp_io.name)
+    with _replace_file(path) as tmp_fh:
+        tmp_fh.truncate(size)
+        LOGGER.info("Created sparse file: %r", tmp_fh.name)
 
 
 def _eq_files(stat1, stat2, *, by_attrs=("st_ino", "st_dev")):
@@ -513,17 +513,17 @@ def _update_loopdev_sizes(img):
     needle = os.fsencode(os.path.realpath(img)) + b"\n"
     for sys_path in glob.iglob("/sys/block/loop[0-9]*/loop/backing_file"):
         found = False
-        with suppress(FileNotFoundError), open(sys_path, "rb") as sys_io:
-            found = sys_io.read() == needle
+        with suppress(FileNotFoundError), open(sys_path, "rb") as sys_fh:
+            found = sys_fh.read() == needle
         if found:
-            with open("/dev/" + sys_path.split("/")[3], "rb") as dev_io:
-                fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
+            with open("/dev/" + sys_path.split("/")[3], "rb") as dev_fh:
+                fcntl.ioctl(dev_fh.fileno(), LOOP_SET_CAPACITY)
 
 
-def _attempt_ficlone(src_io, dst_io):
+def _attempt_ficlone(src_fh, dst_fh):
     try:
         ficloned = False
-        fcntl.ioctl(dst_io.fileno(), FICLONE, src_io.fileno())
+        fcntl.ioctl(dst_fh.fileno(), FICLONE, src_fh.fileno())
         ficloned = True
     except OSError as ex:
         if ex.errno not in (
@@ -542,28 +542,28 @@ def _copy_file(src, dst, *, dst_size=None, copy_mtime=False):
     sparsifying copy if not. Optionally, the new dst will have
     been resized to dst_size bytes.
     """
-    with open(src, "rb") as src_io, _replace_file(dst) as tmp_io:
+    with open(src, "rb") as src_fh, _replace_file(dst) as tmp_fh:
         if dst_size == 0:
             reflinked = None
         else:
-            reflinked = _attempt_ficlone(src_io, tmp_io)
+            reflinked = _attempt_ficlone(src_fh, tmp_fh)
             if reflinked:
-                LOGGER.info("Reflinked file: %r -> %r", src, tmp_io.name)
+                LOGGER.info("Reflinked file: %r -> %r", src, tmp_fh.name)
             else:
-                LOGGER.info("Copying file: %r -> %r", src, tmp_io.name)
+                LOGGER.info("Copying file: %r -> %r", src, tmp_fh.name)
                 result = subprocess.run(
-                    ["cp", "--sparse=always", "--", src, tmp_io.name],
+                    ["cp", "--sparse=always", "--", src, tmp_fh.name],
                     capture_output=True,
                     check=False,
                 )
                 if result.returncode != 0:
                     raise qubes.exc.StoragePoolException(str(result))
             if dst_size is not None:
-                tmp_io.truncate(dst_size)
+                tmp_fh.truncate(dst_size)
         if copy_mtime:
-            mtime_ns = os.stat(src_io.fileno()).st_mtime_ns
+            mtime_ns = os.stat(src_fh.fileno()).st_mtime_ns
             atime_ns = mtime_ns  # Python doesn't support UTIME_OMIT
-            os.utime(tmp_io.fileno(), ns=(atime_ns, mtime_ns))
+            os.utime(tmp_fh.fileno(), ns=(atime_ns, mtime_ns))
     return reflinked
 
 
@@ -574,8 +574,8 @@ def is_supported(dst_dir, *, src_dir=None):
     """
     if src_dir is None:
         src_dir = dst_dir
-    with tempfile.TemporaryFile(dir=src_dir) as src_io, tempfile.TemporaryFile(
+    with tempfile.TemporaryFile(dir=src_dir) as src_fh, tempfile.TemporaryFile(
         dir=dst_dir
-    ) as dst_io:
-        src_io.write(b"foo")  # don't let any fs get clever with empty files
-        return _attempt_ficlone(src_io, dst_io)
+    ) as dst_fh:
+        src_fh.write(b"foo")  # don't let any fs get clever with empty files
+        return _attempt_ficlone(src_fh, dst_fh)
