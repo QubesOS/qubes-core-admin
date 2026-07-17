@@ -39,39 +39,40 @@ filesystems, etc.)
 
 Most of the storage API is focused on storage volumes. Each volume has at least
 those properties:
- - :py:attr:`~qubes.storage.Volume.rw` - should the volume be available in
-   read-only or read-write mode to the domain
- - :py:attr:`~qubes.storage.Volume.snap_on_start` - should the domain start
-   with its own state of the volume, or rather with a snapshot of its template volume
-   (pointed by a :py:attr:`~qubes.storage.Volume.source` property). This can be
-   set to `True` only if a domain has a `template` property (AppVM and DispVM).
-   If the domain's template is already running, the snapshot should be made out of
-   the template's before its startup.
- - :py:attr:`~qubes.storage.Volume.save_on_stop` - should the volume's state be
-   saved or discarded on domain's stop. In either case, while the domain is running,
-   volume's current state should not be committed immediately. This allows to
-   create snapshots of the volume's state from before domain's start (see
-   :py:attr:`~qubes.storage.Volume.snap_on_start`).
- - :py:attr:`~qubes.storage.Volume.revisions_to_keep` - the number of volume
-   revisions to keep. If greater than zero, at each domain stop (and if
-   :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`) a new revision is saved
-   and old ones exceeding the :py:attr:`~qubes.storage.Volume.revisions_to_keep`
-   limit are removed. This defaults to :py:attr:`~qubes.storage.Pool.revisions_to_keep`.
- - :py:attr:`~qubes.storage.Volume.source` - source volume for
-   :py:attr:`~qubes.storage.Volume.snap_on_start` volumes
- - :py:attr:`~qubes.storage.Volume.vid` - pool specific volume identifier, must
-   be unique inside a given pool
- - :py:attr:`~qubes.storage.Volume.pool` - storage pool object owning this volume
- - :py:attr:`~qubes.storage.Volume.name` - name of the volume inside owning
-   domain (like `root`, or `private`)
- - :py:attr:`~qubes.storage.Volume.size` - size of the volume, in bytes
- - :py:attr:`~qubes.storage.Volume.ephemeral` - whether the volume is automatically
-   encrypted with an ephemeral key. This can be set only on volumes which have
-   both :py:attr:`~qubes.storage.Volume.snap_on_start` and
-   :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False`, namely -
-   `volatile` volume. This property of DispVM's volatile volume is inherited
-   from the template (but not for other types of VMs). For `volatile` volumes,
-   this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
+
+- :py:attr:`~qubes.storage.Volume.rw` - should the volume be available in
+  read-only or read-write mode to the domain
+- :py:attr:`~qubes.storage.Volume.snap_on_start` - should the domain start
+  with its own state of the volume, or rather with a snapshot of its template volume
+  (pointed by a :py:attr:`~qubes.storage.Volume.source` property). This can be
+  set to `True` only if a domain has a `template` property (AppVM and DispVM).
+  If the domain's template is already running, the snapshot should be made out of
+  the template's before its startup.
+- :py:attr:`~qubes.storage.Volume.save_on_stop` - should the volume's state be
+  saved or discarded on domain's stop. In either case, while the domain is running,
+  volume's current state should not be committed immediately. This allows to
+  create snapshots of the volume's state from before domain's start (see
+  :py:attr:`~qubes.storage.Volume.snap_on_start`).
+- :py:attr:`~qubes.storage.Volume.revisions_to_keep` - the number of volume
+  revisions to keep. If greater than zero, at each domain stop (and if
+  :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`) a new revision is saved
+  and old ones exceeding the :py:attr:`~qubes.storage.Volume.revisions_to_keep`
+  limit are removed. This defaults to :py:attr:`~qubes.storage.Pool.revisions_to_keep`.
+- :py:attr:`~qubes.storage.Volume.source` - source volume for
+  :py:attr:`~qubes.storage.Volume.snap_on_start` volumes
+- :py:attr:`~qubes.storage.Volume.vid` - pool specific volume identifier, must
+  be unique inside a given pool
+- :py:attr:`~qubes.storage.Volume.pool` - storage pool object owning this volume
+- :py:attr:`~qubes.storage.Volume.name` - name of the volume inside owning
+  domain (like `root`, or `private`)
+- :py:attr:`~qubes.storage.Volume.size` - size of the volume, in bytes
+- :py:attr:`~qubes.storage.Volume.ephemeral` - whether the volume is automatically
+  encrypted with an ephemeral key. This can be set only on volumes which have
+  both :py:attr:`~qubes.storage.Volume.snap_on_start` and
+  :py:attr:`~qubes.storage.Volume.save_on_stop` set to `False`, namely -
+  `volatile` volume. This property of DispVM's volatile volume is inherited
+  from the template (but not for other types of VMs). For `volatile` volumes,
+  this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
 
 The storage pool driver may define additional properties.
 

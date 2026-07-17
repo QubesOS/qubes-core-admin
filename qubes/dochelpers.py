@@ -123,7 +123,7 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
         rawtext,
         "#{} ({})".format(info.number, info.summary),
         refuri=info.uri,
-        **options
+        **options,
     )
 
     return [node], []
@@ -373,7 +373,7 @@ class ManpageCheckVisitor(docutils.nodes.SparseNodeVisitor):
         try:
             parser = qubes.tools.get_parser_for_command(command)
         except ImportError:
-            msg = "cannot import module for command"
+            msg = f"cannot import module for command '{command}'"
             if log:
                 log.warning(msg)
             else:
@@ -436,7 +436,7 @@ def check_man_args(app, doctree, docname):
     options.
     """
     dirname, command = os.path.split(docname)
-    if os.path.basename(dirname) != "manpages":
+    if os.path.basename(dirname) != "manpages" or command == "index":
         return
 
     msg = "Checking arguments for {!r}".format(command)

@@ -26,6 +26,7 @@ manpages and API documentation. For primary user documentation, see
    qubes-tools/index
    qubes-tests
    qubes-dochelpers
+   qubes-api
 
 .. toctree::
    :maxdepth: 1
