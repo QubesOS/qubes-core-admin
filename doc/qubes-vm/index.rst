@@ -55,9 +55,9 @@ Main public classes
 Helper classes and functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: qubes.features.Features
-   :members:
-   :show-inheritance:
+.. admonition:: See also
+
+   :py:class:`qubes.features.Features`
 
 .. autoclass:: qubes.vm.mix.net.NetVMMixin
    :members:
