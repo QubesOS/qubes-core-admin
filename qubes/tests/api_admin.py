@@ -4088,7 +4088,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 "swap_used": 0,
                 "cpu_time": 243951379111104 // 8,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
                 "online_vcpus": 16,
             },
             1: {
@@ -4101,16 +4100,13 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 "swap_used": 0,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
                 "online_vcpus": 2,
             },
         }
         stats2 = copy.deepcopy(stats1)
         stats2[0]["cpu_time"] += 100000000
         stats2[0]["cpu_usage"] = 10
-        stats2[0]["cpu_usage_raw"] = 10
         stats2[1]["cpu_usage"] = 5
-        stats2[1]["cpu_usage_raw"] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1),
@@ -4171,7 +4167,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats1[0]["swap_used"],
                 cpu_time=stats1[0]["cpu_time"] // 1000000,
                 cpu_usage=stats1[0]["cpu_usage"],
-                cpu_usage_raw=stats1[0]["cpu_usage_raw"],
                 online_vcpus=stats1[0]["online_vcpus"],
             ),
             unittest.mock.call(
@@ -4184,7 +4179,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats1[1]["swap_used"],
                 cpu_time=stats1[1]["cpu_time"] // 1000000,
                 cpu_usage=stats1[1]["cpu_usage"],
-                cpu_usage_raw=stats1[1]["cpu_usage_raw"],
                 online_vcpus=stats1[1]["online_vcpus"],
             ),
             unittest.mock.call(
@@ -4197,7 +4191,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats2[0]["swap_used"],
                 cpu_time=stats2[0]["cpu_time"] // 1000000,
                 cpu_usage=stats2[0]["cpu_usage"],
-                cpu_usage_raw=stats2[0]["cpu_usage_raw"],
                 online_vcpus=stats2[0]["online_vcpus"],
             ),
             unittest.mock.call(
@@ -4210,7 +4203,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats2[1]["swap_used"],
                 cpu_time=stats2[1]["cpu_time"] // 1000000,
                 cpu_usage=stats2[1]["cpu_usage"],
-                cpu_usage_raw=stats2[1]["cpu_usage_raw"],
                 online_vcpus=stats2[1]["online_vcpus"],
             ),
         ]
@@ -4231,7 +4223,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 "swap_used": 0,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
                 "online_vcpus": 2,
                 "cpu_time_internal": 2849496569205,
                 "cpu_usage_internal": 0.0,
@@ -4240,7 +4231,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         }
         stats2 = copy.deepcopy(stats1)
         stats2[2]["cpu_usage"] = 5
-        stats2[2]["cpu_usage_raw"] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1),
@@ -4300,7 +4290,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats1[2]["swap_used"],
                 cpu_time=stats1[2]["cpu_time"] // 1000000,
                 cpu_usage=stats1[2]["cpu_usage"],
-                cpu_usage_raw=stats1[2]["cpu_usage_raw"],
                 online_vcpus=stats1[2]["online_vcpus"],
                 cpu_time_internal=stats1[2]["cpu_time_internal"] // 1000000,
                 cpu_usage_internal=stats1[2]["cpu_usage_internal"],
@@ -4316,7 +4305,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 swap_used=stats2[2]["swap_used"],
                 cpu_time=stats2[2]["cpu_time"] // 1000000,
                 cpu_usage=stats2[2]["cpu_usage"],
-                cpu_usage_raw=stats2[2]["cpu_usage_raw"],
                 online_vcpus=stats2[2]["online_vcpus"],
                 cpu_time_internal=stats2[2]["cpu_time_internal"] // 1000000,
                 cpu_usage_internal=stats2[2]["cpu_usage_internal"],
