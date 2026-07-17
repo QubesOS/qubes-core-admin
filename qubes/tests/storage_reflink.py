@@ -439,10 +439,11 @@ def get_blockdev_size(dev):
 
 def reflink_update_loopdev_sizes(img):
     env = [
+        # 'sudo -E' alone would drop some of these
         k + "=" + v
-        for k, v in os.environ.items()  # 'sudo -E' alone would
+        for k, v in os.environ.items()
         if k.startswith("PYTHON")
-    ]  # drop some of these
+    ]
     code = (
         "from qubes.storage import reflink\n"
         "reflink._update_loopdev_sizes(%r)" % img
