@@ -219,7 +219,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if not self.backend_domain or not self.backend_domain.is_running():
             return None
         for vm in self.backend_domain.app.domains:
-            if not vm.is_running():
+            if not vm.is_running() or not hasattr(vm, "libvirt_domain"):
                 continue
             if self._is_attached_to(vm):
                 return vm
