@@ -1912,9 +1912,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_device_attached(self, endpoint):
         devclass = endpoint
         try:
-            device_assignments = self.dest.devices[
-                devclass
-            ].get_attached_devices()
+            if self.dest.klass == "RemoteVM":
+                device_assignments = []
+            else:
+                device_assignments = self.dest.devices[
+                    devclass
+                ].get_attached_devices()
         except AttributeError as e:
             if e.name == "devices":
                 # shutdown in progress, return specific error
@@ -1984,6 +1987,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             options=assignment.options,
         )
 
+        if not hasattr(self.dest, "devices"):
+            raise qubes.exc.QubesException("This qube doesn't support devices")
+
         await self.dest.devices[devclass].assign(assignment)
         self.app.save()
 
@@ -2026,6 +2032,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(device=dev)
 
+        if not hasattr(self.dest, "devices"):
+            raise qubes.exc.QubesException("This qube doesn't support devices")
+
         await self.dest.devices[devclass].unassign(assignment)
         self.app.save()
 
@@ -2054,6 +2063,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             device=dev, mode=assignment.mode.value, options=assignment.options
         )
 
+        if not hasattr(self.dest, "devices"):
+            raise qubes.exc.QubesException("This qube doesn't support devices")
+
         await self.dest.devices[devclass].attach(assignment)
 
     # Attach/Detach action can modify only a volatile state of running VM.
@@ -2075,6 +2087,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dev = self.load_device_info(devclass)
 
         self.fire_event_for_permission(device=dev)
+
+        if not hasattr(self.dest, "devices"):
+            raise qubes.exc.QubesException("This qube doesn't support devices")
 
         assignment = qubes.device_protocol.DeviceAssignment(dev)
         await self.dest.devices[devclass].detach(assignment)
