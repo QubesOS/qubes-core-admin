@@ -1412,11 +1412,9 @@ class ZFSAccessor:
         log: logging.Logger,
     ) -> None:
         """
-        Enlarge a volume to the specified size.
+        Resize a volume to the specified size.
 
         The volume must exist.
-
-        An error will be raised if size is < current size.
         """
         assert dataset_in_root(volume, self.root)
         async with self._cache.locked():
@@ -2681,33 +2679,12 @@ class ZFSVolume(qubes.storage.Volume):
     @qubes.storage.Volume.locked  # type: ignore
     async def resize(self, size: int) -> None:
         """
-        Expands volume.
-
-        Throws
-        :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
-        given size is less than current_size.
+        Resizes volume.
         """
-        # FIXME: there does not seem to be a pathway to, but there
-        # should be a pathway to, reducing the storage size of a
-        # volume, whether it be by having to stop the VM first and
-        # then making a non-atomic clone / partial copy / rename
-        # of a zvol.  It is annoying that ZFS prevents volumes from
-        # being reduced in size.  It is further annoying that
-        # reduction of a volume requires the file system in it to
-        # be reduced first, which can only be done while the qube
-        # is running, but a Towers-of-Hanoi operation with datasets
-        # can only be performed with the qube off.  Perhaps in the
-        # future we can have a qvm feature exposed that allows dom0
-        # to coordinate shrinking the file system and defers the
-        # Towers-of-Hanoi operation to after the qube has powered off.
         self.log.debug("Resizing %s to %s", self.volume, size)
         mysize = self.size
         if size == mysize:
             return
-        if size < mysize:
-            raise qubes.exc.StoragePoolException(
-                "Shrinking of ZFS volume %s is not possible" % (self.volume,)
-            )
         if await self.pool.accessor.volume_exists_async(
             self.volume,
             log=self.log,
