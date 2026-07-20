@@ -507,7 +507,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
 
         avail_mem_file = qubes.config.qmemman_avail_mem_file
-        available_memory = None
         try:
             with open(avail_mem_file, "r", encoding="ascii") as file:
                 available_memory = max(
@@ -516,7 +515,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         except FileNotFoundError:
             can_preload = want_preload
             self.log.warning("File containing available memory was not found")
-        if available_memory is not None:
+        else:
             memory = getattr(self, "memory", 0) * 1024**2
             unrestricted_preload = int(available_memory / memory)
             can_preload = min(unrestricted_preload, want_preload)

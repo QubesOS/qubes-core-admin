@@ -410,6 +410,8 @@ class DispVMHelpersMixin:
         preload_unfinished = preload_dispvm
         for _ in range(timeout):
             for qube in preload_unfinished.copy():
+                if qube not in self.app.domains:
+                    break
                 if self.app.domains[qube].preload_complete.is_set():
                     logger.info("preload completed for '%s'", qube)
                     preload_unfinished.remove(qube)
@@ -1098,6 +1100,53 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
                 preload_max, fail_on_timeout=False, timeout=15
             )
             self.assertEqual(1, len(self.disp_base.get_feat_preload()))
+
+    def test_012_preload_low_mem_early_startup(self):
+        """Test preloading with low memory on early startup"""
+        self.loop.run_until_complete(
+            self._test_012_preload_low_mem_early_startup()
+        )
+
+    async def _test_012_preload_low_mem_early_startup(self):
+        # pylint: disable=unspecified-encoding
+        logger.info("start")
+        unpatched_open = open
+
+        def mock_open_mem_raise(file, *args, **kwargs):
+            if file == qubes.config.qmemman_avail_mem_file:
+                raise FileNotFoundError(2, "No such file or directory", file)
+            return unpatched_open(file, *args, **kwargs)
+
+        preload_max = 2
+        with patch("builtins.open", side_effect=mock_open_mem_raise):
+            logger.info("insufficient memory reserve (early startup failure)")
+            old_memory = self.disp_base.memory
+            old_dispvms = [
+                qube.name
+                for qube in self.app.domains
+                if getattr(qube, "is_preload", False)
+            ]
+            self.disp_base.memory = 999999999999999999999
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+            await self.wait_preload(
+                preload_max, fail_on_timeout=False, timeout=15
+            )
+            self.assertEqual(0, len(self.disp_base.get_feat_preload()))
+            new_dispvms = [
+                qube.name
+                for qube in self.app.domains
+                if getattr(qube, "is_preload", False)
+            ]
+            self.assertEqual(new_dispvms, old_dispvms)
+
+        # Nothing will be done here, just to prepare to the next test.
+        self.disp_base.features["preload-dispvm-max"] = "0"
+        with patch("builtins.open", side_effect=mock_open_mem_raise):
+            logger.info("enough memory reserve but no avail-mem file")
+            self.disp_base.memory = old_memory
+            self.disp_base.features["preload-dispvm-max"] = str(preload_max)
+            await self.wait_preload(preload_max)
+            self.assertEqual(2, len(self.disp_base.get_feat_preload()))
 
         logger.info("end")
 
