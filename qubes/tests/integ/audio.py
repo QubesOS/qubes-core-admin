@@ -35,7 +35,7 @@ import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 
-@qubes.tests.skipIfTemplate("whonix-g")
+@qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")
 class TC_00_AudioMixin(TC_00_AppVMMixin):
     def tearDown(self):
         if not self.success():

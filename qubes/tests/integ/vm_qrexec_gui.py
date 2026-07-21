@@ -83,11 +83,11 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
-        p = self.loop.run_until_complete(self.testvm1.run("xterm"))
+        title = "user@{}".format(self.testvm1.name)
+        p = self.loop.run_until_complete(
+            self.testvm1.run(f"xterm -title {title}")
+        )
         try:
-            title = "user@{}".format(self.testvm1.name)
-            if self.template.count("whonix"):
-                title = "user@host"
             self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
@@ -123,6 +123,8 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             self.skipTest("Xfce template doesn't have 'gnome-terminal'")
         if "archlinux" in self.template:
             self.skipTest("Arch template doesn't have 'gnome-terminal'")
+        if "guix" in self.template:
+            self.skipTest("Guix template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
@@ -373,9 +375,11 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
 
         with self.qrexec_policy("qubes.Filecopy", self.testvm1, self.testvm2):
             try:
+                service_ctl = "herd" if "guix" in self.template else "systemctl"
                 self.loop.run_until_complete(
                     self.testvm2.run_for_stdio(
-                        "systemctl stop qubes-qrexec-agent.service", user="root"
+                        f"{service_ctl} stop qubes-qrexec-agent.service",
+                        user="root",
                     )
                 )
             except subprocess.CalledProcessError:
