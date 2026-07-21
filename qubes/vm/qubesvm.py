@@ -1011,6 +1011,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.stateless_property
     def stubdom_xid(self) -> int:
+        if self.virt_mode != "hvm":
+            return -1
+
         if not self.is_running():
             return -1
 
