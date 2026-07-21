@@ -232,23 +232,29 @@ class AbstractQubesAPI:
 
     @classmethod
     @functools.cache
-    def list_methods(cls, select_method=None):
+    def list_all_methods(cls) -> list[tuple]:
         result = []
         for attr in dir(cls):
             func = getattr(cls, attr)
             if not callable(func):
                 continue
-
             try:
                 # pylint: disable=protected-access
                 rpcnames = func.rpcnames
             except AttributeError:
                 continue
-
             for mname, endpoint in rpcnames:
-                if select_method is None or mname == select_method:
-                    result.append((func, mname, endpoint))
+                result.append((func, mname, endpoint))
         return result
+
+    @classmethod
+    @functools.cache
+    def list_methods(cls, select_method=None) -> list[tuple]:
+        return [
+            (func, mname, endpoint)
+            for func, mname, endpoint in cls.list_all_methods()
+            if select_method is None or mname == select_method
+        ]
 
     def execute(self, *, untrusted_payload):
         """Execute management operation.
