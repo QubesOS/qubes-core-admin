@@ -231,7 +231,9 @@ class AbstractQubesAPI:
         self.EXC_ARG_NOT_IN_DEST_VOLUMES = "{} volumes".format(self.dest.name)
 
     @classmethod
+    @functools.cache
     def list_methods(cls, select_method=None):
+        result = []
         for attr in dir(cls):
             func = getattr(cls, attr)
             if not callable(func):
@@ -245,7 +247,8 @@ class AbstractQubesAPI:
 
             for mname, endpoint in rpcnames:
                 if select_method is None or mname == select_method:
-                    yield (func, mname, endpoint)
+                    result.append((func, mname, endpoint))
+        return result
 
     def execute(self, *, untrusted_payload):
         """Execute management operation.
