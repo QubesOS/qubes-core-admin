@@ -64,15 +64,19 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def create_mockvm(self, features=None):
         if features is None:
             features = {}
-        vm = mock.Mock()
+        vm = mock.Mock(spec=qubes.vm.LocalVM)
+        vm.configure_mock(
+            features=mock.Mock(),
+            run_service=mock.AsyncMock(),
+            suspend=mock.AsyncMock(),
+            resume=mock.AsyncMock(),
+            is_running=mock.Mock(),
+            get_power_state=mock.Mock(),
+            remove_preload_excess=mock.Mock(),
+        )
         vm.features.check_with_template.side_effect = features.get
         vm.features.get.side_effect = features.get
-        vm.run_service.return_value.wait = mock_coro(
-            vm.run_service.return_value.wait
-        )
-        vm.run_service = mock_coro(vm.run_service)
-        vm.suspend = mock_coro(vm.suspend)
-        vm.resume = mock_coro(vm.resume)
+        vm.run_service.return_value.wait = mock.AsyncMock()
         return vm
 
     def call_mgmt_func(self, method, arg=b"", payload=b""):
