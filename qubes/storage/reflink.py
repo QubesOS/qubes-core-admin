@@ -574,8 +574,9 @@ def is_supported(dst_dir, *, src_dir=None):
     """
     if src_dir is None:
         src_dir = dst_dir
-    with tempfile.TemporaryFile(dir=src_dir) as src_fh, tempfile.TemporaryFile(
-        dir=dst_dir
-    ) as dst_fh:
+    # fmt: off
+    with tempfile.TemporaryFile(dir=src_dir) as src_fh, \
+         tempfile.TemporaryFile(dir=dst_dir) as dst_fh:
+    # fmt: on
         src_fh.write(b"foo")  # don't let any fs get clever with empty files
         return _attempt_ficlone(src_fh, dst_fh)
