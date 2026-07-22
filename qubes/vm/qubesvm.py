@@ -1496,6 +1496,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED
                 )
+                self.create_xs_entries()
 
                 # the above allocates xid, lets announce that
                 self.fire_event("property-reset:xid", name="xid")
@@ -2811,6 +2812,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         return os.path.relpath(path, self.dir_path)
 
+    def create_xs_entries(self):
+        # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
+        # xenstore for it until decided otherwise
+        if qmemman_present and self.maxmem:
+            xs_basedir = f"/local/domain/{self.xid}"
+            for key in ["meminfo", "swapinfo"]:
+                self.app.vmm.xs.write("", f"{xs_basedir}/memory/{key}", "")
+                self.app.vmm.xs.set_permissions(
+                    "", f"{xs_basedir}/memory/{key}", [{"dom": self.xid}]
+                )
+            if self.use_memory_hotplug:
+                self.app.vmm.xs.write(
+                    "",
+                    f"{xs_basedir}/memory/hotplug-max",
+                    str(self.maxmem * 1024),
+                )
+
     def create_qdb_entries(self):
         """Create entries in Qubes DB."""
         # pylint: disable=no-member
@@ -2875,22 +2893,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.untrusted_qdb.write("/qubes-block-devices", "")
         self.untrusted_qdb.write("/qubes-usb-devices", "")
-
-        # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
-        # xenstore for it until decided otherwise
-        if qmemman_present and self.maxmem:
-            xs_basedir = f"/local/domain/{self.xid}"
-            for key in ["meminfo", "swapinfo"]:
-                self.app.vmm.xs.write("", f"{xs_basedir}/memory/{key}", "")
-                self.app.vmm.xs.set_permissions(
-                    "", f"{xs_basedir}/memory/{key}", [{"dom": self.xid}]
-                )
-            if self.use_memory_hotplug:
-                self.app.vmm.xs.write(
-                    "",
-                    f"{xs_basedir}/memory/hotplug-max",
-                    str(self.maxmem * 1024),
-                )
 
         self.fire_event("domain-qdb-create")
 
