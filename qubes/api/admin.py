@@ -766,9 +766,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(newvalue=newvalue)
 
-        if not self.dest.is_halted():
-            raise qubes.exc.QubesVMNotHaltedError(self.dest)
-
         self.dest.volumes[self.arg].ephemeral = newvalue
         self.app.save()
 
