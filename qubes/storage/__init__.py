@@ -857,16 +857,12 @@ class Storage:
                 pass
 
     async def stop(self):
-        """Execute the stop method on each volume"""
+        """Stop each volume"""
         await qubes.utils.void_coros_maybe(
-            # pylint: disable=line-too-long
-            (
-                vol.stop_encrypted(
-                    vol.encrypted_volume_path(self.vm.name, name)
-                )
-                if vol.ephemeral
-                else vol.stop()
-            )
+            # Always call stop_encrypted() - which can handle an unencrypted
+            # volume as well - to correctly clean up even if the ephemeral
+            # property became False while the volume was already started.
+            vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
             for name, vol in self.vm.volumes.items()
         )
         for vol in self.vm.volumes.values():
