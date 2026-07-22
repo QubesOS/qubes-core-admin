@@ -286,6 +286,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
+            if not isinstance(vm, qubes.vm.LocalVM):
+                continue
             if not vm.is_running():
                 continue
             if vm.name in previously_paused:
@@ -328,6 +330,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
+            if not isinstance(vm, qubes.vm.LocalVM):
+                continue
             if vm.name in previously_paused:
                 continue
             if vm.is_running():
@@ -366,6 +370,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
                 continue
+            if not isinstance(vm, qubes.vm.LocalVM):
+                continue
             if vm.name in previously_paused:
                 continue
             if vm.get_power_state() in ["Paused", "Suspended"]:
@@ -377,6 +383,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         processes = []
         for vm in self.app.domains:
             if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if not isinstance(vm, qubes.vm.LocalVM):
                 continue
             if not vm.is_running():
                 continue
