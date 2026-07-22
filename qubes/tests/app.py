@@ -879,6 +879,8 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "cpu_usage_raw": 0,
                 "online_vcpus": 8,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
             },
             1: {
                 "name": names[1],
@@ -893,6 +895,8 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "cpu_usage_raw": 0,
                 "online_vcpus": 1,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
             },
             2: {
                 "name": names[2],
@@ -907,6 +911,8 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "cpu_usage_raw": 0,
                 "online_vcpus": 8,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
             },
         }
         self.assertEqual(info, expected_info)
@@ -925,7 +931,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             "/local/domain/1/memory/meminfo": b"849925",
             "/local/domain/2/memory/meminfo": b"849926",
             "/local/domain/0/memory/swapinfo": b"0",
-            "/local/domain/1/memory/swapinfo": b"35",
+            "/local/domain/1/memory/swapinfo": None,
             "/local/domain/2/memory/swapinfo": b"4",
         }
         self.app.get_name_from_domid = lambda domid: names[domid]
@@ -970,6 +976,8 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "cpu_usage_raw": 80,
                 "online_vcpus": 8,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
             },
             1: {
                 "name": names[1],
@@ -978,12 +986,13 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "memory_assigned_usable": 303916,
                 "memory_kb": 303916,
                 "memory_with_swap_used": 849925,
-                "swap_used": 35,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 100,
                 "cpu_usage_raw": 100,
                 "online_vcpus": 1,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
             },
             2: {
                 "name": names[2],
@@ -998,6 +1007,8 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 "cpu_usage_raw": 100,
                 "online_vcpus": 8,
                 "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
             },
         }
         self.assertEqual(info, expected_info)
@@ -1016,7 +1027,6 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 ("xs.read", ("", "/local/domain/0/memory/meminfo")),
                 ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
-                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/2/memory/meminfo")),
                 ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
             ],

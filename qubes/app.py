@@ -584,6 +584,27 @@ class QubesHost:
                 return int(stubdom_xid_str)
             return -1
 
+        def query_xs_memory(domid, key) -> int | None:
+            if (
+                f"xs_{key}" in current[domid]
+                and current[domid][f"xs_{key}"] is False
+            ):
+                return None
+            untrusted_value = self.app.vmm.xs.read(
+                "", f"/local/domain/{domid}/memory/{key}"
+            )
+            if untrusted_value is None:
+                current[domid][f"xs_{key}"] = False
+                del untrusted_value
+                return None
+            current[domid][f"xs_{key}"] = True
+            if not untrusted_value.isdigit():
+                del untrusted_value
+                return None
+            value = int(untrusted_value)
+            del untrusted_value
+            return value
+
         info = sorted(info, key=lambda domain: domain["domid"])
         info = {v["domid"]: v for v in info}
         for domid in info.keys():
@@ -598,6 +619,12 @@ class QubesHost:
                 current[domid]["name"] = previous[domid]["name"]
                 current[domid]["is_stubdom"] = previous[domid]["is_stubdom"]
                 current[domid]["stubdom_xid"] = previous[domid]["stubdom_xid"]
+                current[domid]["xs_meminfo"] = previous[domid].get(
+                    "xs_meminfo", None
+                )
+                current[domid]["xs_swapinfo"] = previous[domid].get(
+                    "xs_swapinfo", None
+                )
                 stubdom_xid = current[domid]["stubdom_xid"]
             elif "name" not in current[domid]:
                 name = self.app.get_name_from_domid(domid)
@@ -637,32 +664,13 @@ class QubesHost:
             ]
 
             if self.app.vmm.is_xen and not current[domid]["is_stubdom"]:
-                untrusted_meminfo = self.app.vmm.xs.read(
-                    "", f"/local/domain/{domid}/memory/meminfo"
-                )
-                if (
-                    untrusted_meminfo is not None
-                    and untrusted_meminfo.isdigit()
-                ):
-                    meminfo = int(untrusted_meminfo)
-                    del untrusted_meminfo
+
+                meminfo = query_xs_memory(domid, "meminfo")
+                if meminfo is not None:
                     current[domid]["memory_with_swap_used"] = meminfo
-                    # Only query swapinfo is meminfo is valid to avoid
-                    # extraneous calls.
-                    untrusted_swapinfo = self.app.vmm.xs.read(
-                        "", f"/local/domain/{domid}/memory/swapinfo"
-                    )
-                    if (
-                        untrusted_swapinfo is not None
-                        and untrusted_swapinfo.isdigit()
-                    ):
-                        swapinfo = int(untrusted_swapinfo)
-                        del untrusted_swapinfo
+                    swapinfo = query_xs_memory(domid, "swapinfo")
+                    if swapinfo is not None:
                         current[domid]["swap_used"] = swapinfo
-                    else:
-                        del untrusted_swapinfo
-                else:
-                    del untrusted_meminfo
 
             current[domid]["online_vcpus"] = info[domid]["online_vcpus"]
             if stubdom_xid > 0:
