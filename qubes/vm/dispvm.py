@@ -1011,7 +1011,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await super().start(**kwargs)
         except:
             # Cleanup also on failed startup
-            await self.cleanup()
+            await self.cleanup(force=True)
             raise
 
     def create_qdb_entries(self) -> None:
