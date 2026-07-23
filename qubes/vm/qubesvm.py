@@ -1667,7 +1667,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 "domain-pre-shutdown", pre_event=True, force=force
             )
 
-            if self.is_paused() and not force:
+            is_preload = getattr(self, "is_preload", False)
+            if self.is_paused() and not force and not is_preload:
                 raise qubes.exc.QubesVMNotRunningError(self)
 
             if self.__waiter is None:
