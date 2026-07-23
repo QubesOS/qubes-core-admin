@@ -418,7 +418,7 @@ class TC_10_ZFSPool(ZFSBase):
         self.rc(volume.export_end(exported))
 
     def test_013_resize_saveonstop(self) -> None:
-        """Test that a volume can be enlarged, but cannot be shrunk."""
+        """Test that a volume can be enlarged and shrunk."""
         volume = self.get_vol(ONEMEG_SAVE_ON_STOP)
         self.rc(volume.create())
 
@@ -431,10 +431,13 @@ class TC_10_ZFSPool(ZFSBase):
             f"volume.size {volume.size} != newsize {newsize}",
         )
 
-        # Fail at shrinking.
-        self.assertRaises(
-            qubes.exc.StoragePoolException,
-            lambda: self.rc(volume.resize(1024 * 1024)),
+        # Shrink!
+        newsize = 1 * 1024 * 1024
+        self.rc(volume.resize(newsize))
+        self.assertEqual(
+            volume.size,
+            newsize,
+            f"volume.size {volume.size} != newsize {newsize}",
         )
 
     def test_014_snaponstart_forgets_data(self) -> None:
