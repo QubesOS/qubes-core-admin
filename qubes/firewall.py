@@ -620,8 +620,8 @@ class Firewall:
         try:
             with qubes.utils.replace_file(
                 firewall_conf, permissions=0o664
-            ) as tmp_io:
-                xml_tree.write(tmp_io, encoding="UTF-8", pretty_print=True)
+            ) as tmp_fh:
+                xml_tree.write(tmp_fh, encoding="UTF-8", pretty_print=True)
         except EnvironmentError as err:
             msg = "firewall save error: {}".format(err)
             self.vm.log.error(msg)

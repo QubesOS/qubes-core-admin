@@ -30,8 +30,6 @@ import tempfile
 import time
 import unittest
 
-import collections
-
 import shutil
 
 import sys
@@ -223,12 +221,11 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.vm.features["qrexec"] = False
         self.loop.run_until_complete(self.vm.create_on_disk())
         # another way to help the luck a little - make sure the private
-        # volume is first in (normally unordered) dict - this way if any
-        # volume action fails, it will be at or after private volume - not
-        # before (preventing private volume action)
+        # volume is first in dict - this way if any volume action fails,
+        # it will be at or after private volume - not before (preventing
+        # private volume action)
         old_volumes = self.vm.volumes
-        self.vm.volumes = collections.OrderedDict()
-        self.vm.volumes["private"] = old_volumes.pop("private")
+        self.vm.volumes = {"private": old_volumes.pop("private")}
         self.vm.volumes.update(old_volumes.items())
         del old_volumes
 

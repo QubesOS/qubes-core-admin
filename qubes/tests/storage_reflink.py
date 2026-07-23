@@ -70,8 +70,8 @@ class ReflinkMixin:
         dst_size = kwargs_for_func.get("dst_size", None)
         copy_mtime = kwargs_for_func.get("copy_mtime", None)
 
-        with open(src, "wb") as src_io:
-            src_io.write(src_content)
+        with open(src, "wb") as src_fh:
+            src_fh.write(src_content)
 
         ficlone_succeeded = reflink._copy_file(src, dst, **kwargs_for_func)
         if dst_size == 0:
@@ -89,18 +89,18 @@ class ReflinkMixin:
             src_stat.st_mtime_ns, dst_stat.st_mtime_ns
         )
 
-        with open(src, "rb") as src_io:
-            self.assertEqual(src_io.read(), src_content)
-        with open(dst, "rb") as dst_io:
+        with open(src, "rb") as src_fh:
+            self.assertEqual(src_fh.read(), src_content)
+        with open(dst, "rb") as dst_fh:
             if dst_size in (None, src_size):
-                self.assertEqual(dst_io.read(), src_content)
+                self.assertEqual(dst_fh.read(), src_content)
             elif dst_size == 0:
-                self.assertEqual(dst_io.read(), b"")
+                self.assertEqual(dst_fh.read(), b"")
             elif dst_size < src_size:
-                self.assertEqual(dst_io.read(), src_content[:dst_size])
+                self.assertEqual(dst_fh.read(), src_content[:dst_size])
             elif dst_size > src_size:
-                self.assertEqual(dst_io.read(src_size), src_content)
-                self.assertEqual(dst_io.read(), bytes(dst_size - src_size))
+                self.assertEqual(dst_fh.read(src_size), src_content)
+                self.assertEqual(dst_fh.read(), bytes(dst_size - src_size))
 
     def test_000_copy_file(self):
         self._test_copy_file(src_size=222222)
@@ -190,10 +190,10 @@ class ReflinkMixin:
         file1 = os.path.join(self.test_dir, "file1")
         file2 = os.path.join(self.test_dir, "file2")
 
-        with open(file1, "wb") as file1_io:
-            file1_io.write(b"foo")
-        with open(file2, "wb") as file2_io:
-            file2_io.write(b"bar")
+        with open(file1, "wb") as file1_fh:
+            file1_fh.write(b"foo")
+        with open(file2, "wb") as file2_fh:
+            file2_fh.write(b"bar")
 
         stat1 = os.stat(file1)
         os.utime(file2, ns=(0, 0))
@@ -302,10 +302,10 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         data1 = b"\x01"
 
         self.loop.run_until_complete(volume.create())
-        with open(volume._path_clean, "rb") as clean_io:
-            self.assertEqual(clean_io.read(), data0)
-        with open(volume._path_precache, "rb") as precache_io:
-            self.assertEqual(precache_io.read(), data0)
+        with open(volume._path_clean, "rb") as clean_fh:
+            self.assertEqual(clean_fh.read(), data0)
+        with open(volume._path_precache, "rb") as precache_fh:
+            self.assertEqual(precache_fh.read(), data0)
 
         if stale:
             # simulate an intermittent Qubes downgrade
@@ -314,13 +314,13 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
         import_path = self.loop.run_until_complete(
             volume.import_data(volume.size)
         )
-        with open(import_path, "wb") as import_io:
-            import_io.write(data1)
+        with open(import_path, "wb") as import_fh:
+            import_fh.write(data1)
         self.loop.run_until_complete(volume.import_data_end(True))
-        with open(volume._path_clean, "rb") as clean_io:
-            self.assertEqual(clean_io.read(), data1)
-        with open(volume._path_precache, "rb") as precache_io:
-            self.assertEqual(precache_io.read(), data0 if stale else data1)
+        with open(volume._path_clean, "rb") as clean_fh:
+            self.assertEqual(clean_fh.read(), data1)
+        with open(volume._path_precache, "rb") as precache_fh:
+            self.assertEqual(precache_fh.read(), data0 if stale else data1)
 
         if orphan:
             # simulate a broken volume whose _path_clean image is missing
@@ -406,8 +406,8 @@ def mkdir_fs(
 
     if get_fs_type(directory) != fs_type:
         img = os.path.join(directory, "img")
-        with open(img, "xb") as img_io:
-            img_io.truncate(max_size)
+        with open(img, "xb") as img_fh:
+            img_fh.truncate(max_size)
         cmd("mkfs." + fs_type, img)
         dev = setup_loopdev(img)
         os.remove(img)
@@ -439,10 +439,11 @@ def get_blockdev_size(dev):
 
 def reflink_update_loopdev_sizes(img):
     env = [
+        # 'sudo -E' alone would drop some of these
         k + "=" + v
-        for k, v in os.environ.items()  # 'sudo -E' alone would
+        for k, v in os.environ.items()
         if k.startswith("PYTHON")
-    ]  # drop some of these
+    ]
     code = (
         "from qubes.storage import reflink\n"
         "reflink._update_loopdev_sizes(%r)" % img
