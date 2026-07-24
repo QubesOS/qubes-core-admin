@@ -1672,7 +1672,7 @@ class Qubes(qubes.PropertyHolder):
                 if not vm.is_running():
                     vm.on_libvirt_domain_stopped()
 
-    def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
+    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),
         translate libvirt event into qubes.events.
         """
@@ -1684,32 +1684,7 @@ class Qubes(qubes.PropertyHolder):
         except KeyError:
             # ignore events for unknown domains
             return
-
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.on_libvirt_domain_stopped()
-        elif event == libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
-            try:
-                vm.fire_event("domain-paused")
-            except Exception:  # pylint: disable=broad-except
-                self.log.exception(
-                    "Uncaught exception from domain-paused handler "
-                    "for domain %s",
-                    vm.name,
-                )
-        elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
-            try:
-                if getattr(vm, "skip_unpause_event", False):
-                    vm.skip_unpause_event = False
-                else:
-                    asyncio.ensure_future(
-                        vm.fire_event_async("domain-unpaused")
-                    )
-            except Exception:  # pylint: disable=broad-except
-                self.log.exception(
-                    "Uncaught exception from domain-unpaused handler "
-                    "for domain %s",
-                    vm.name,
-                )
+        vm.on_libvirt_domain_lifecycle(event=event, detail=detail)
 
     @qubes.events.handler("domain-pre-delete")
     def on_domain_pre_deleted(self, event, vm):
