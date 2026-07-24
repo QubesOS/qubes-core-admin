@@ -44,15 +44,13 @@ class TC_00_Label(qubes.tests.QubesTestCase):
         self.assertEqual(label.icon_dispvm, "dispvm-red")
 
     def test_001_fromxml(self):
-        xml = lxml.etree.XML(
-            """
+        xml = lxml.etree.XML("""
 <qubes version="3">
     <labels>
         <label id="label-1" color="#cc0000">red</label>
     </labels>
 </qubes>
-        """
-        )
+        """)
 
         node = xml.xpath("//label")[0]
         label = qubes.Label.fromxml(node)
@@ -311,16 +309,14 @@ class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
 class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        xml = lxml.etree.XML(
-            """
+        xml = lxml.etree.XML("""
 <qubes version="3">
     <properties>
         <property name="testprop1">testvalue1</property>
         <property name="testprop2" ref="testref2" />
     </properties>
 </qubes>
-        """
-        )
+        """)
 
         self.holder = TestHolder(xml)
 

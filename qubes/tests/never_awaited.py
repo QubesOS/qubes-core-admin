@@ -21,7 +21,6 @@ import functools
 import gc
 import warnings
 
-
 # For unittest.TestResult._is_relevant_tb_level()
 __unittest = True
 

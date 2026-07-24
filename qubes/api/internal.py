@@ -30,7 +30,6 @@ import qubes.api.admin
 import qubes.vm.adminvm
 import qubes.vm.dispvm
 
-
 PREVIOUSLY_PAUSED = "/run/qubes/previously-paused.list"
 
 

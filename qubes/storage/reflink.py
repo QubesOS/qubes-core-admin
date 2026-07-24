@@ -39,7 +39,6 @@ import qubes.exc
 import qubes.storage
 import qubes.utils
 
-
 LOGGER = logging.getLogger("qubes.storage.reflink")
 
 # defined in <linux/loop.h>

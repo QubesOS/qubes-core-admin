@@ -108,9 +108,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             self.dev, attached=True, assigned=False, required=True
         )
 
-        (stdout, _) = self.loop.run_until_complete(
-            self.vm.run_for_stdio("lspci")
-        )
+        stdout, _ = self.loop.run_until_complete(self.vm.run_for_stdio("lspci"))
         self.assertIn(self.dev.description, stdout.decode())
 
     def test_011_attach_offline_temp_fail(self):
@@ -136,9 +134,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
 
         # give VM kernel some time to discover new device
         time.sleep(1)
-        (stdout, _) = self.loop.run_until_complete(
-            self.vm.run_for_stdio("lspci")
-        )
+        stdout, _ = self.loop.run_until_complete(self.vm.run_for_stdio("lspci"))
         self.assertIn(self.dev.description, stdout.decode())
 
     def test_021_persist_detach_online_fail(self):
@@ -186,9 +182,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
 
         # give VM kernel some time to discover new device
         time.sleep(1)
-        (stdout, _) = self.loop.run_until_complete(
-            self.vm.run_for_stdio("lspci")
-        )
+        stdout, _ = self.loop.run_until_complete(self.vm.run_for_stdio("lspci"))
 
         self.assertIn(self.dev.description, stdout.decode())
         self.loop.run_until_complete(dev_col.detach(self.assignment))
@@ -196,7 +190,5 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
             self.dev, attached=False, assigned=False, required=False
         )
 
-        (stdout, _) = self.loop.run_until_complete(
-            self.vm.run_for_stdio("lspci")
-        )
+        stdout, _ = self.loop.run_until_complete(self.vm.run_for_stdio("lspci"))
         self.assertNotIn(self.dev.description, stdout.decode())

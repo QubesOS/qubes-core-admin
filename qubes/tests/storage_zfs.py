@@ -144,7 +144,7 @@ def dump_zfs_filesystems(text: str = "", dataset: str = "") -> None:
 
 class AsyncLoopHolderMixin(qubes.tests.QubesTestCase):
     def rc(self, future: Coroutine[Any, Any, Any]) -> Any:
-        return self.loop.run_until_complete(future)  # type:ignore
+        return self.loop.run_until_complete(future)  # type: ignore
 
 
 class ZFSBase(AsyncLoopHolderMixin):
@@ -175,7 +175,7 @@ class ZFSBase(AsyncLoopHolderMixin):
         return volume_path
 
     def setUp(self) -> None:
-        super().setUp()  # type:ignore
+        super().setUp()  # type: ignore
         pool_conf = {
             "driver": "zfs",
             "container": self.container,
@@ -319,7 +319,7 @@ class TC_10_ZFSPool(ZFSBase):
 
     def get_vol(self, factory: Any, **kwargs: Any) -> zfs.ZFSVolume:
         volume = self.pool.init_volume(
-            ts.TestVM(self),  # type:ignore
+            ts.TestVM(self),  # type: ignore
             factory(self.pool.name, **kwargs),
         )
         assert isinstance(self.vols_created_during_test, list)
