@@ -1404,7 +1404,7 @@ class SystemTestCase(QubesTestCase):
                 stdout=subprocess.PIPE,
             )
             try:
-                (winid, _) = await asyncio.wait_for(p.communicate(), timeout)
+                winid, _ = await asyncio.wait_for(p.communicate(), timeout)
                 # don't check exit code, getting winid on stdout is enough
                 # indicator of success; specifically ignore xdotool failing
                 # with BadWindow or such - when some window appears only for a
@@ -1506,7 +1506,7 @@ class SystemTestCase(QubesTestCase):
             ["sudo", "losetup", "-f", "-P", "--show", vm.storage.root_img],
             stdout=subprocess.PIPE,
         )
-        (loopdev, _) = p.communicate()
+        loopdev, _ = p.communicate()
         loopdev = loopdev.strip()
         looppart = loopdev + "p1"
         assert p.returncode == 0, "losetup failed"
@@ -1543,7 +1543,7 @@ class SystemTestCase(QubesTestCase):
                     "}"
                 )
             p = subprocess.Popen(["uname", "-r"], stdout=subprocess.PIPE)
-            (kernel_version, _) = p.communicate()
+            kernel_version, _ = p.communicate()
             kernel_version = kernel_version.strip()
             kernel = "/boot/vmlinuz-{}".format(kernel_version)
             shutil.copy(kernel, os.path.join(mountpoint, "vmlinuz"))

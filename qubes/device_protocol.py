@@ -30,7 +30,6 @@ The same in `qubes-core-admin` and `qubes-core-admin-client`,
 should be moved to one place.
 """
 
-
 import string
 import sys
 from enum import Enum
@@ -864,14 +863,14 @@ class DeviceInterface:
                     and class_id is not None
                     and subclass_id is not None
                 ):
-                    (progif_id, _, progif_name) = line[2:].split(" ", 2)
+                    progif_id, _, progif_name = line[2:].split(" ", 2)
                     result[class_id + subclass_id + progif_id] = progif_name
                 elif line.startswith("\t") and class_id:
-                    (subclass_id, _, subclass_name) = line[1:].split(" ", 2)
+                    subclass_id, _, subclass_name = line[1:].split(" ", 2)
                     # store both prog-if specific entry and generic one
                     result[class_id + subclass_id + "**"] = subclass_name
                 elif line.startswith("C "):
-                    (_, class_id, _, class_name) = line.split(" ", 3)
+                    _, class_id, _, class_name = line.split(" ", 3)
                     result[class_id + "****"] = class_name
                     subclass_id = None
 

@@ -2040,7 +2040,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         the next iteration)
         """
 
-        (info_time, info) = self.app.host.get_vm_stats(
+        info_time, info = self.app.host.get_vm_stats(
             info_time, info, only_vm=only_vm
         )
         for vm_id, vm_info in info.items():

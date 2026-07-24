@@ -167,7 +167,7 @@ class TC_06_AppVMMixin(object):
                 stderr=subprocess.STDOUT,
             )
         )
-        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        stdout, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
