@@ -190,7 +190,7 @@ async def launch_proc_with_pty(
             termios_p[3] &= ~termios.ECHO
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
 
-    (pty_master, pty_slave) = os.openpty()
+    pty_master, pty_slave = os.openpty()
     p = await asyncio.create_subprocess_exec(
         *args,
         stdin=stdin,
@@ -216,7 +216,7 @@ async def launch_scrypt(action, input_name, output_name, passphrase):
     :return: subprocess.Popen object
     """
     command_line = ["scrypt", action, input_name, output_name]
-    (p, pty) = await launch_proc_with_pty(
+    p, pty = await launch_proc_with_pty(
         command_line,
         stdin=subprocess.PIPE if input_name == "-" else None,
         stdout=subprocess.PIPE if output_name == "-" else None,
@@ -301,7 +301,7 @@ class Backup:
                     + "/"
                 )
                 abs_file_dir = os.path.dirname(abs_file_path) + "/"
-                (nothing, directory, subdir) = abs_file_dir.partition(
+                nothing, directory, subdir = abs_file_dir.partition(
                     abs_base_dir
                 )
                 assert nothing == ""

@@ -130,8 +130,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         )
         self.loop.run_until_complete(self.audiovm.create_on_disk())
         with open("/etc/qubes/policy.d/10-test-audiovm.policy", "w") as f:
-            f.write(
-                """
+            f.write("""
 admin.Events          *   {vm}     {vm}               allow   target=dom0
 admin.Events          *   {vm}     @adminvm                allow   target=dom0
 admin.Events          *   {vm}     @tag:audiovm-{vm}  allow   target=dom0
@@ -148,10 +147,7 @@ admin.vm.property.Get               +virt_mode     {vm}     @tag:audiovm-{vm}  a
 admin.vm.property.Get               +is_preload     {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio   {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  allow   target=dom0
-""".format(
-                    vm=self.audiovm.name
-                )
-            )
+""".format(vm=self.audiovm.name))
         self.addCleanup(os.unlink, "/etc/qubes/policy.d/10-test-audiovm.policy")
         self.audiovm.features["service.audiovm"] = True
         if start:

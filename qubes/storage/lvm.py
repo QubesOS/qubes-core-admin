@@ -18,6 +18,7 @@
 #
 
 """Driver for storing vm images in a LVM thin pool"""
+
 import logging
 import os
 import subprocess

@@ -27,7 +27,6 @@ from qrexec.policy import utils, parser
 
 from qubes.device_protocol import DeviceInfo, DeviceInterface
 
-
 PROHIBITED_FEATURES = [
     "deferred-netvm-original",
     "preload-dispvm",

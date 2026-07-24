@@ -159,7 +159,7 @@ class GrubBase(object):
             # maxmem
             self.testvm1.memory = 450
         self.loop.run_until_complete(self.testvm1.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)
@@ -200,7 +200,7 @@ class GrubBase(object):
 
         # Check if TemplateBasedVM boots and has the right kernel
         self.loop.run_until_complete(self.testvm1.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)
@@ -209,7 +209,7 @@ class GrubBase(object):
 
         # And the same for the TemplateVM itself
         self.loop.run_until_complete(self.test_template.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.test_template.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)

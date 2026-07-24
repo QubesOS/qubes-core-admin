@@ -546,7 +546,7 @@ class ZFSPool(qubes.storage.Pool):
         self._cached_size = 0
         self.log = logging.getLogger("%s" % (self.name,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type:ignore
+            self.log.debug = self.log.warning  # type: ignore
         self.accessor: ZFSAccessor = ZFSAccessor(self.container)
 
     def __repr__(self) -> str:
@@ -582,7 +582,7 @@ class ZFSPool(qubes.storage.Pool):
                 vm_name = str(vm.name)
             else:
                 # for the future if we have volumes not belonging to a vm
-                vm_name = qubes.utils.random_string()  # type:ignore
+                vm_name = qubes.utils.random_string()  # type: ignore
 
             vid = Vid.make(self.container, vm_name, volume_config["name"])
         else:
@@ -1854,7 +1854,7 @@ class ZFSVolume(qubes.storage.Volume):
         self.vid = vid
         self.log = logging.getLogger("%s" % (self.vid,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type:ignore
+            self.log.debug = self.log.warning  # type: ignore
         if kwargs:
             raise qubes.exc.StoragePoolException(
                 "Unsupported arguments received: %s" % ", ".join(kwargs),
@@ -2042,15 +2042,15 @@ class ZFSVolume(qubes.storage.Volume):
                 self.log.debug("Source is a File volume")
                 # File volume export() does not actually return a coroutine.
                 # This isn't just a typing error.  The await() fails.
-                in_ = await asyncio.to_thread(source.export)  # type:ignore
+                in_ = await asyncio.to_thread(source.export)  # type: ignore
             else:
                 self.log.debug("Source is not a ZFS volume")
-                in_ = await source.export()  # type:ignore
+                in_ = await source.export()  # type: ignore
             try:
                 async with self._copy_into_volume_2phase(source.size) as out:
                     await duplicate_disk(in_, out, self.log)
             finally:
-                await source.export_end(in_)  # type:ignore
+                await source.export_end(in_)  # type: ignore
 
     async def _wipe_and_create_empty(
         self,

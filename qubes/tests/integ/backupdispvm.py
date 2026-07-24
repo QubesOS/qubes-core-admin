@@ -121,7 +121,7 @@ class TC_00_RestoreInDispVM(qubes.tests.integ.backup.BackupTestsMixin):
             self.remove_vms(reversed(vms))
         finally:
             del vms
-        (backup_path, _) = self.loop.run_until_complete(
+        backup_path, _ = self.loop.run_until_complete(
             self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*")
         )
         backup_path = backup_path.decode().strip()

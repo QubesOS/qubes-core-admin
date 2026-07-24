@@ -78,8 +78,7 @@ class TC_00_Dom0UpgradeMixin(object):
             stdin=subprocess.PIPE,
             stderr=open(os.devnull, "w"),
         )
-        p.stdin.write(
-            """
+        p.stdin.write("""
 Key-Type: RSA
 Key-Length: 4096
 Key-Usage: sign
@@ -87,10 +86,7 @@ Name-Real: Qubes test
 Expire-Date: 0
 %no-protection
 %commit
-        """.format(
-                keydir=keydir
-            ).encode()
-        )
+        """.format(keydir=keydir).encode())
         p.stdin.close()
         p.wait()
 
@@ -120,15 +116,13 @@ Expire-Date: 0
     @classmethod
     def write_repo_file(cls, hostname="localhost"):
         with open("/etc/yum.repos.d/test.repo", "w") as repo_file:
-            repo_file.write(
-                f"""
+            repo_file.write(f"""
 [test]
 name = Test
 baseurl = http://{hostname}:8080/
 gpgkey = file://{cls.pubkey_path}
 enabled = 1
-"""
-            )
+""")
 
     @classmethod
     def tearDownClass(cls):
@@ -181,8 +175,7 @@ enabled = 1
     def create_pkg(self, dir, name, version):
         spec_path = os.path.join(dir, name + ".spec")
         spec = open(spec_path, "w")
-        spec.write(
-            """
+        spec.write("""
 Name:       {name}
 Summary:    Test Package
 Version:    {version}
@@ -198,10 +191,7 @@ Test package
 %install
 
 %files
-            """.format(
-                name=name, version=version
-            )
-        )
+            """.format(name=name, version=version))
         spec.close()
         subprocess.check_call(
             [
@@ -744,8 +734,7 @@ class TC_11_QvmTemplateMgmtVMMixin(TC_10_QvmTemplateMixin):
                 )
             )
         with open(self.policy_path, "w") as policy:
-            policy.write(
-                """### Qrexec policy used by tests in {file}
+            policy.write("""### Qrexec policy used by tests in {file}
 admin.vm.Create.TemplateVM * {vm} @adminvm allow target=dom0
 admin.vm.feature.Get * {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.feature.Set * {vm} @tag:created-by-{vm} allow target=dom0
@@ -766,10 +755,7 @@ admin.vm.List + {vm} @tag:created-by-{vm} allow target=dom0
 admin.Events * {vm} @adminvm allow target=dom0
 admin.Events * {vm} @tag:created-by-{vm} allow target=dom0
 qubes.PostInstall + {vm} @tag:created-by-{vm} allow
-""".format(
-                    file=__file__, vm=self.updatevm.name
-                )
-            )
+""".format(file=__file__, vm=self.updatevm.name))
 
     def tearDown(self):
         os.unlink(self.policy_path)
