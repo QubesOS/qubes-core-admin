@@ -8,21 +8,27 @@ does nothing and raises the aforementioned exception. More functions can be
 added as needed.
 """
 
+
 class libvirtError(Exception):
     def get_error_code(self):
         return VIR_ERR_NO_DOMAIN
 
+
 class virConnect:
     pass
+
 
 class virDomain:
     pass
 
+
 def openReadOnly(*args, **kwargs):
-    raise libvirtError('mock module, always raises')
+    raise libvirtError("mock module, always raises")
+
 
 def registerErrorHandler(f, ctx):
     pass
+
 
 VIR_DOMAIN_START_PAUSED = 1
 VIR_DOMAIN_BLOCKED = 2

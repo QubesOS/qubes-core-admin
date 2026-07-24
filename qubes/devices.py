@@ -58,6 +58,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 """
+
 import itertools
 from typing import Iterable
 

@@ -212,7 +212,7 @@ class VmUpdatesMixin(object):
                 cmd, user="root", stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
         )
-        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        stdout, stderr = self.loop.run_until_complete(p.communicate())
         self.assertIn(
             self.loop.run_until_complete(p.wait()),
             expected_returncode,
@@ -320,9 +320,7 @@ class VmUpdatesMixin(object):
             mkdir -p /tmp/apt-repo \
             && cd /tmp/apt-repo \
             && base64 -d | zcat > {}
-            """.format(
-                    pkg_file_name
-                ),
+            """.format(pkg_file_name),
                 input=self.DEB_PACKAGE_GZIP_BASE64[version],
             )
         )
@@ -342,9 +340,7 @@ class VmUpdatesMixin(object):
                 >> {packages} \
             && sed -i -e "s,@SIZE@,$(stat -c %s {pkg})," {packages} \
             && gzip < {packages} > {packages}.gz
-            """.format(
-                    pkg=pkg_file_name, packages=packages_path
-                ),
+            """.format(pkg=pkg_file_name, packages=packages_path),
                 input="""\
 Package: test-pkg
 Version: 1.{version}-1
@@ -355,9 +351,7 @@ Filename: {pkg}
 Size: @SIZE@
 Section: unknown
 Priority: optional
-Description: Test package""".format(
-                    pkg=pkg_file_name, version=version
-                ).encode(
+Description: Test package""".format(pkg=pkg_file_name, version=version).encode(
                     "utf-8"
                 ),
             )
@@ -401,9 +395,7 @@ SHA256:
             mkdir -p /tmp/yum-repo \
             && cd /tmp/yum-repo \
             && base64 -d | zcat > {}
-            """.format(
-                    pkg_file_name
-                ),
+            """.format(pkg_file_name),
                 input=self.RPM_PACKAGE_GZIP_BASE64[version],
             )
         )
@@ -435,9 +427,7 @@ SHA256:
             && cd /tmp/arch-repo \
             && cp /tmp/pkg/{0} ./ \
             && repo-add ./testrepo.db.tar.zst {0}
-            """.format(
-                    pkg_file_name
-                ),
+            """.format(pkg_file_name),
             )
         )
 

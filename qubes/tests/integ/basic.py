@@ -109,7 +109,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
                 stderr=subprocess.STDOUT,
             )
         )
-        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        stdout, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
@@ -151,7 +151,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
                 stderr=subprocess.STDOUT,
             )
         )
-        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        stdout, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
@@ -818,7 +818,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         await p.wait()
 
         # And compare the result
-        (test_output, _) = await testvm2.run_for_stdio("cat /tmp/test.txt")
+        test_output, _ = await testvm2.run_for_stdio("cat /tmp/test.txt")
         self.assertEqual(test_string, test_output.strip().decode("ascii"))
 
         clipboard_content = (
@@ -931,7 +931,7 @@ class TC_05_StandaloneVMMixin(object):
         self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         self.loop.run_until_complete(self.testvm1.start())
         # new_size in 1k-blocks
-        (new_size, _) = self.loop.run_until_complete(
+        new_size, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
         )
         # some safety margin for FS metadata
@@ -964,7 +964,7 @@ class TC_05_StandaloneVMMixin(object):
             self.fail(str(e))
         self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         # new_size in 1k-blocks
-        (new_size, _) = self.loop.run_until_complete(
+        new_size, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
         )
         # some safety margin for FS metadata

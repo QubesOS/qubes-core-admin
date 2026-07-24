@@ -598,7 +598,7 @@ def print_table(table):
             cmd + ["-c", "80"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         ) as p:
             p.stdin.write(text_table.encode())
-            (out, _) = p.communicate()
+            out, _ = p.communicate()
         sys.stdout.write(out.decode())
     else:
         with subprocess.Popen(cmd, stdin=subprocess.PIPE) as p:

@@ -23,6 +23,7 @@
 Events are fired when something happens, like VM start or stop, property change
 etc.
 """
+
 import asyncio
 import collections
 import fnmatch

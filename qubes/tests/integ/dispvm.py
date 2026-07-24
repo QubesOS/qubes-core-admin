@@ -86,7 +86,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.testvm.start())
 
         try:
-            (stdout, _) = self.loop.run_until_complete(
+            stdout, _ = self.loop.run_until_complete(
                 self.testvm.run_for_stdio(
                     "qvm-run-vm --dispvm bash",
                     input=b"echo test; qubesdb-read /name; echo ERROR\n",
@@ -537,7 +537,7 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         )
         try:
             self.loop.run_until_complete(dispvm.start())
-            (stdout, _) = self.loop.run_until_complete(
+            stdout, _ = self.loop.run_until_complete(
                 dispvm.run_service_for_stdio(
                     "qubes.VMShell", input=b"echo test"
                 )
@@ -642,7 +642,7 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         with subprocess.Popen(
             ["xdotool", "getwindowname", winid], stdout=subprocess.PIPE
         ) as proc:
-            (window_title, _) = proc.communicate()
+            window_title, _ = proc.communicate()
         window_title = (
             window_title.decode()
             .strip()
@@ -864,7 +864,7 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
             self.fail("Timeout waiting for editor window")
 
         self.loop.run_until_complete(p.communicate())
-        (test_txt_content, _) = self.loop.run_until_complete(
+        test_txt_content, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("cat /home/user/test.txt")
         )
         # Drop BOM if added by editor

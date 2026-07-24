@@ -298,7 +298,7 @@ class QubesHost:
             return
 
         # pylint: disable=unused-variable
-        (model, memory, cpus, mhz, nodes, socket, cores, threads) = (
+        model, memory, cpus, mhz, nodes, socket, cores, threads = (
             self.app.vmm.libvirt_conn.getInfo()
         )
         self._total_mem = int(memory) * 1024
