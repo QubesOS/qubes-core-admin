@@ -25,6 +25,7 @@ import asyncio
 import re
 import string
 import sys
+import libvirt
 from typing import Optional, List
 
 import lxml.etree
@@ -235,10 +236,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             if not info:
                 continue
             backend_domain, port_id = info
-
             if backend_domain.name != self.backend_domain.name:
                 continue
-
             if self.port_id == port_id:
                 return True
         return False
@@ -314,6 +313,12 @@ def _try_get_block_device_info(app, disk):
 
 class BlockDeviceExtension(qubes.ext.Extension):
 
+    def __init__(self):
+        super().__init__()
+        # TODO: ben: https://github.com/QubesOS/qubes-core-admin/pull/819#discussion_r3537683559
+        self._attachments = {}
+        self._attachments_with_options = {}
+
     @qubes.ext.handler("domain-init", "domain-load")
     def on_domain_init_load(self, vm, event):
         """Initialize watching for changes"""
@@ -334,6 +339,24 @@ class BlockDeviceExtension(qubes.ext.Extension):
         else:
             self.devices_cache[vm.name] = {}
 
+    @qubes.ext.handler("device-attach:block")
+    def on_device_block_attach(self, vm, event, device, options):
+        # pylint: disable=unused-argument
+        self._attachments[device.port_id] = device.backend_domain
+
+    @qubes.ext.handler("device-detach:block")
+    def on_device_block_detach(self, vm, event, port):
+        # pylint: disable=unused-argument
+        if port in self._attachments:
+            self._attachments.pop(port)
+        if vm not in self._attachments_with_options:
+            return
+        if port not in self._attachments_with_options[vm]:
+            return
+        for device, _options in self._attachments_with_options[vm].items():
+            if device.port_id == port:
+                self._attachments_with_options[vm].pop(device)
+
     @qubes.ext.handler("domain-qdb-change:/qubes-block-devices")
     def on_qdb_change(self, vm, event, path):
         """A change in QubesDB means a change in a device list."""
@@ -345,8 +368,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         )
         utils.device_list_change(self, current_devices, vm, path, BlockDevice)
 
-    @staticmethod
-    def get_device_attachments(vm_):
+    def get_device_attachments(self, vm_):
         result = {}
         for vm in vm_.app.domains:
             if not vm.is_running() or isinstance(vm, RemoteVM):
@@ -354,6 +376,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             if vm.app.vmm.offline_mode:
                 return result
+
+            if vm in self._attachments:
+                result = self._attachments[vm]
+                continue
 
             xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
@@ -366,6 +392,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     continue
 
                 result[port_id] = vm
+            self._attachments[vm] = result
         return result
 
     @staticmethod
@@ -429,6 +456,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if not vm.is_running():
             return
 
+        if vm in self._attachments_with_options:
+            yield from self._attachments_with_options[vm]
+            return
+        self._attachments_with_options[vm] = []
+
         system_disks = SYSTEM_DISKS
         if getattr(vm, "kernel", None):
             system_disks = SYSTEM_DISKS_DOM0_KERNEL
@@ -475,27 +507,36 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             port_id = port_id.replace("/", "_")
 
-            yield BlockDevice(Port(backend_domain, port_id, "block")), options
+            dev = BlockDevice(Port(backend_domain, port_id, "block")), options
+            yield dev
+            self._attachments_with_options[vm].append(dev)
 
     @staticmethod
-    def find_unused_frontend(vm, devtype="disk"):
+    def _is_block(vm, block: str) -> bool:
+        try:
+            # TODO: ben: Marek mention that when backend is not dom0, this
+            # won't work.
+            # blockInfo() is not supported by libxl.
+            value = bool(vm.libvirt_domain.blockStats(block))
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                value = False
+            else:
+                raise
+        return value
+
+    def find_unused_frontend(self, vm, devtype="disk"):
         """
         Find unused block frontend device node for <target dev=.../> parameter
         """
         assert vm.is_running()
 
-        xml = vm.libvirt_domain.XMLDesc()
-        parsed_xml = lxml.etree.fromstring(xml)
-        used = [
-            target.get("dev", None)
-            for target in parsed_xml.xpath("//domain/devices/disk/target")
-        ]
-        if devtype == "cdrom" and "xvdd" not in used:
+        if devtype == "cdrom" and self._is_block(vm, "xvdd"):
             # prefer 'xvdd' for CDROM if available; only first 4 disks are
             # emulated in HVM, which means only those are bootable
             return "xvdd"
         for dev in Storage.AVAILABLE_FRONTENDS:
-            if dev not in used:
+            if not self._is_block(vm, dev):
                 return dev
         return None
 
