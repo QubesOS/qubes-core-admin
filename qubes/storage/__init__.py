@@ -657,24 +657,28 @@ class Storage:
 
     def _is_already_attached(self, volume):
         """Checks if the given volume is already attached"""
+        # TODO: ben: cache
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
-        disk_sources = parsed_xml.xpath("//domain/devices/disk/source")
-        for source in disk_sources:
-            if source.get("dev") == "/dev/%s" % volume.vid:
-                return True
+        disks = parsed_xml.xpath(
+            "//domain/devices/disk/source[@dev='/dev/$vid']", vid=volume.vid
+        )
+        if disks:
+            return True
         return False
 
     def detach(self, volume):
         """Detach a volume from domain"""
+        # TODO: ben: cache
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
-        disks = parsed_xml.xpath("//domain/devices/disk")
-        for disk in disks:
-            source = disk.xpath("source")[0]
-            if source.get("dev") == "/dev/%s" % volume.vid:
-                disk_xml = lxml.etree.tostring(disk, encoding="utf-8")
-                self.vm.libvirt_domain.detachDevice(disk_xml)
-                return
-        raise StoragePoolException("Volume {!r} is not attached".format(volume))
+        disks = parsed_xml.xpath(
+            "//domain/devices/disk/source[@dev='/dev/$vid']", vid=volume.vid
+        )
+        if not disks:
+            raise StoragePoolException(
+                "Volume {!r} is not attached".format(volume)
+            )
+        disk_xml = lxml.etree.tostring(disks[0], encoding="utf-8")
+        self.vm.libvirt_domain.detachDevice(disk_xml)
 
     @property
     def kernels_dir(self):
@@ -878,11 +882,12 @@ class Storage:
     @property
     def used_frontends(self):
         """Used device names"""
+        # TODO: ben: cache
         xml = self.vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
         return {
             target.get("dev", None)
-            for target in parsed_xml.xpath("//domain/devices/disk/target")
+            for target in parsed_xml.xpath("//domain/devices/disk/target[@dev]")
         }
 
     async def export(self, volume):

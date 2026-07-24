@@ -64,15 +64,24 @@ def load_pci_classes():
         subclass_id = None
         for line in pciids.readlines():
             line = line.rstrip()
-            if line.startswith("\t\t") and class_id and subclass_id:
+            if not line:
+                continue
+            first_char = line[0]
+            if (
+                first_char == "\t"
+                and len(line) >= 2
+                and line[1] == "\t"
+                and class_id is not None
+                and subclass_id is not None
+            ):
                 progif_id, _, class_name = line[2:].split(" ", 2)
                 result[class_id + subclass_id + progif_id] = class_name
-            elif line.startswith("\t") and class_id:
+            elif first_char == "\t" and class_id:
                 subclass_id, _, class_name = line[1:].split(" ", 2)
                 # store both prog-if specific entry and generic one
                 result[class_id + subclass_id + "00"] = class_name
                 result[class_id + subclass_id] = class_name
-            elif line.startswith("C "):
+            elif first_char == "C" and len(line) >= 2 and line[1] == " ":
                 _, class_id, _, class_name = line.split(" ", 3)
                 result[class_id + "0000"] = class_name
                 result[class_id + "00"] = class_name
@@ -355,16 +364,11 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-list:pci")
     def on_device_list_pci(self, vm, event):
         # pylint: disable=unused-argument
-        # only dom0 expose PCI devices
+        # only dom0 exposes PCI devices
         if vm.qid != 0:
             return
 
-        for dev in vm.app.vmm.libvirt_conn.listAllDevices():
-            if "pci" not in dev.listCaps():
-                continue
-
-            xml_desc = lxml.etree.fromstring(dev.XMLDesc())
-            libvirt_name = xml_desc.findtext("name")
+        for libvirt_name in vm.app.vmm.libvirt_conn.listDevices("pci"):
             try:
                 yield PCIDevice(
                     Port(backend_domain=vm, port_id=None, devclass="pci"),
@@ -388,14 +392,13 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for hostdev in xml_desc.findall("devices/hostdev"):
-            if hostdev.get("type") != "pci":
-                continue
-            address = hostdev.find("source/address")
-            segment = address.get("domain")[2:]
-            bus = address.get("bus")[2:]
-            device = address.get("slot")[2:]
-            function = address.get("function")[2:]
+        for hostdev in xml_desc.findall(
+            "devices/hostdev[@type='pci']/source/address"
+        ):
+            segment = hostdev.get("domain")[2:]
+            bus = hostdev.get("bus")[2:]
+            device = hostdev.get("slot")[2:]
+            function = hostdev.get("function")[2:]
 
             libvirt_name = "pci_{segment}_{bus}_{device}_{function}".format(
                 segment=segment,
