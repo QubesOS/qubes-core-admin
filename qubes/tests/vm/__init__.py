@@ -30,6 +30,7 @@ class TestVMM(object):
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
         self.xs = unittest.mock.Mock()
+        self.is_xen = unittest.mock.Mock(return_value=True)
         self.libvirt_mock = unittest.mock.Mock()
 
     @property

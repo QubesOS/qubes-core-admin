@@ -2494,16 +2494,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
         return backup.get_backup_summary()
 
-    def _send_stats_single(
-        self, info_time, info, only_vm, filters, id_to_name_map
-    ):
+    def _send_stats_single(self, info_time, info, only_vm, filters):
         """A single iteration of sending VM stats
 
         :param info_time: time of previous iteration
         :param info: information retrieved in previous iteration
         :param only_vm: send information only about this VM
         :param filters: filters to apply on stats before sending
-        :param id_to_name_map: ID->VM name map, may be modified
         :return: tuple(info_time, info) - new information (to be passed to
         the next iteration)
         """
@@ -2511,35 +2508,39 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         info_time, info = self.app.host.get_vm_stats(
             info_time, info, only_vm=only_vm
         )
-        for vm_id, vm_info in info.items():
-            if vm_id not in id_to_name_map:
-                try:
-                    name = self.app.vmm.libvirt_conn.lookupByID(vm_id).name()
-                except libvirt.libvirtError as err:
-                    if err.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                        # stubdomain or so
-                        name = None
-                    else:
-                        raise
-                id_to_name_map[vm_id] = name
-            else:
-                name = id_to_name_map[vm_id]
-
-            # skip VMs with unknown name
-            if name is None:
+        for vm_info in info.values():
+            if vm_info["is_stubdom"]:
                 continue
-
+            name = vm_info["name"]
             if not list(qubes.api.apply_filters([name], filters)):
                 continue
 
-            self.send_event(
-                name,
-                "vm-stats",
-                memory_kb=int(vm_info["memory_kb"]),
-                cpu_time=int(vm_info["cpu_time"] / 1000000),
-                cpu_usage=int(vm_info["cpu_usage"]),
-                cpu_usage_raw=int(vm_info["cpu_usage_raw"]),
-            )
+            data = {
+                "memory_kb": int(vm_info["memory_kb"]),
+                "memory_assigned_total": int(vm_info["memory_assigned_total"]),
+                "memory_assigned_usable": int(
+                    vm_info["memory_assigned_usable"]
+                ),
+                "memory_with_swap_used": int(vm_info["memory_with_swap_used"]),
+                "cpu_time": int(vm_info["cpu_time"] / 1000000),
+                "cpu_usage": int(vm_info["cpu_usage"]),
+                "online_vcpus": int(vm_info["online_vcpus"]),
+            }
+
+            optional = {
+                "swap_used": int,
+                "cpu_time_internal": lambda x: int(value / 1000000),
+                "cpu_usage_internal": lambda x: round(float(x), 1),
+                "online_vcpus_internal": int,
+            }
+
+            for key, func in optional.items():
+                if key not in vm_info:
+                    continue
+                value = vm_info[key]
+                data[key] = func(value)
+
+            self.send_event(name, "vm-stats", **data)
 
         return info_time, info
 
@@ -2566,11 +2567,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         info_time = None
         info = None
-        id_to_name_map = {0: "dom0"}
         try:
             while True:
                 info_time, info = self._send_stats_single(
-                    info_time, info, only_vm, stats_filters, id_to_name_map
+                    info_time, info, only_vm, stats_filters
                 )
                 await asyncio.sleep(self.app.stats_interval)
         except asyncio.CancelledError:

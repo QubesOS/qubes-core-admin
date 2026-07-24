@@ -287,22 +287,41 @@ class QubesHost:
 
     def __init__(self, app):
         self.app = app
-        self._no_cpus = None
+
         self._total_mem = None
+        self._no_cpus = None
+
         self._physinfo = None
+        self._cpu_arch = None
         self._cpu_family = None
-        self._cpu_model = None
 
     def _fetch(self):
         if self._no_cpus is not None:
             return
 
-        # pylint: disable=unused-variable
-        model, memory, cpus, mhz, nodes, socket, cores, threads = (
-            self.app.vmm.libvirt_conn.getInfo()
-        )
-        self._total_mem = int(memory) * 1024
-        self._no_cpus = cpus
+        # ['x86_64', 32404, 16, 2995,  1, 1, 16, 1]
+        (
+            cpu_arch,
+            mem_mebibyte,
+            no_cpus,
+            _mhz,
+            _nodes,
+            _socket,
+            _cores,
+            _threads,
+        ) = self.app.vmm.libvirt_conn.getInfo()
+
+        self._cpu_arch = cpu_arch
+        self._no_cpus = no_cpus
+
+        if self.app.vmm.is_xen:
+            self._physinfo = self.app.vmm.xc.physinfo()
+
+        # Avoid rounding differences.
+        if self._physinfo:
+            self._total_mem = int(self._physinfo["total_memory"])
+        else:
+            self._total_mem = int(mem_mebibyte) * 1024
 
         self.app.log.debug(
             "QubesHost: no_cpus={} memory_total={}".format(
@@ -317,28 +336,25 @@ class QubesHost:
             )
 
     @property
-    def memory_total(self):
-        """Total memory, in kbytes"""
+    def no_cpus(self) -> int:
+        """Number of CPUs"""
+        if self.app.vmm.offline_mode:
+            return 42
+        self._fetch()
+        return self._no_cpus
 
+    @property
+    def memory_total(self) -> int:
+        """Total memory, in kbytes"""
         if self.app.vmm.offline_mode:
             return 2**64 - 1
         self._fetch()
         return self._total_mem
 
     @property
-    def no_cpus(self):
-        """Number of CPUs"""
-
-        if self.app.vmm.offline_mode:
-            return 42
-
-        self._fetch()
-        return self._no_cpus
-
-    @property
     def cpu_family_model(self):
         """Get CPU family and model"""
-        if self._cpu_family is None or self._cpu_model is None:
+        if self._cpu_family is None or self._cpu_arch is None:
             family = None
             model = None
             with open("/proc/cpuinfo", encoding="ascii") as cpuinfo:
@@ -353,8 +369,8 @@ class QubesHost:
                     elif field.strip() == "cpu family":
                         family = int(value.strip())
             self._cpu_family = family
-            self._cpu_model = model
-        return self._cpu_family, self._cpu_model
+            self._cpu_arch = model
+        return self._cpu_family, self._cpu_arch
 
     def get_free_xen_memory(self):
         """Get free memory from Xen's physinfo.
@@ -363,17 +379,14 @@ class QubesHost:
         """
         if not self.app.vmm.is_xen:
             raise NotImplementedError("This function requires Xen hypervisor")
-        self._physinfo = self.app.vmm.xc.physinfo()
+        self._fetch()
         return int(self._physinfo["free_memory"])
 
     def is_iommu_supported(self):
         """Check if IOMMU is supported on this platform"""
-        if self._physinfo is None:
-            if not self.app.vmm.is_xen:
-                raise NotImplementedError(
-                    "This function requires Xen hypervisor"
-                )
-            self._physinfo = self.app.vmm.xc.physinfo()
+        if not self.app.vmm.is_xen:
+            raise NotImplementedError("This function requires Xen hypervisor")
+        self._fetch()
         return "hvm_directio" in self._physinfo["virt_caps"]
 
     def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
@@ -384,17 +397,86 @@ class QubesHost:
 
         Return a tuple of (measurements_time, measurements),
         where measurements is a dictionary with key: domid, value: dict:
-         - cpu_time - absolute CPU usage (seconds since its startup)
-         - cpu_usage_raw - CPU usage in %
-         - cpu_usage - CPU usage in % (normalized to number of vcpus)
-         - memory_kb - current memory assigned, in kb
 
-        This function requires Xen hypervisor.
+         - ``memory_assigned_usable``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Amount of memory assigned to a qube available to
+              use. A qube cannot use more memory than this this value. On
+              memory balanced qubes, this value is volatile and controlled by
+              qmemman.
+            - Usage: This value should only be considered per qube. This value
+              should be compared with ``memory_with_swap_used``, to reflect how
+              much memory the qube is using from what it has.
+         - ``memory_assigned_total``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Amount of memory assigned to a qube in total, this
+              includes ``memory_assigned_usable``, plus overhead of
+              videoram and whatever else the hypervisor considers, such as
+              memory assigned to device model stub domains.
+            - Usage: Summing the value of this key from all domains should
+              reflect the total amount of memory allocated to all qubes.
+         - ``memory_with_swap_used``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Amount of memory the qube alleges to use, including
+              swap, can be a lie. On memory balanced qubes, might differ up to
+              30MiB of the actual usage. As this value includes swap and the
+              qube can lie, it might be bigger than ``memory_assigned_usable``.
+            - Usage: This value should be compared with
+              ``memory_assigned_usable``, to reflect how much memory the
+              qube is using from what it can use. Deduct this value with
+              ``swap_used`` to reflect how much memory the qube is
+              using internally.
+         - ``swap_used``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Amount of swap the qube alleges to use, can be a
+              lie. As this value can be lie, it might be bigger than
+              ``memory_assigned_usable``. This variable is not set if the
+              value of ``memory/swapinfo`` is not set or invalid,
+            - Usage: This value should be compared with
+              ``memory_with_swap_used`` to determine how much the qube is
+              swaping over what it is using of real memory.
+         - ``online_vcpus``
+           - Type: ``int``.
+           - Description: Amount of VCPUs assigned.
+         - ``cpu_time``
+            - Type: ``int``, unit: ``nanosecond``, API broadcasts in
+              ``millisecond``.
+            - Description: Absolute CPU usage (since its startup).
+        - ``cpu_usage``
+          - Type: ``int``, percentage.
+          - Description: CPU usage in normalized to the number of VCPUs. Will
+            be deprecated as it can be calculated on the client.
+
+        Implementation specific (normally device model stub domains):
+
+         - ``online_vcpus_internal``:
+            - Type: ``int``
+            - Description: Same as description ``online_vcpus``, but only
+              consider internal usage.
+         - ``cpu_time_internal``:
+            - Type: ``int``, unit: ``nanosecond``, API broadcasts in
+              ``millisecond``.
+            - Description: Same description as ``cpu_time``, but only consider
+              internal usage.
+         - ``cpu_usage_internal``:
+            - Type: ``int``, percentage.
+            - Description: Same description as ``cpu_usage``, but only consider
+              internal usage.
+
+        Future key(s) deprecation:
+
+        - ``memory_kb``:
+           - Type: ``int``, Unit: ``KiB``
+           - Description: Amount memory assigned that is usable in the qube.
+             Will be deprecated in a future release due to its ambiguous name.
+             Prefer the equivalent ``memory_assigned_usable``.
+
+        This function requires Xen hypervisor for detailed overview.
 
         ..warning:
 
            This function may return info about implementation-specific VMs,
-           like stubdomains for HVM
+           like stubdomains for HVM, aggregated to the connected domain.
 
         :param previous: previous measurement
         :param previous_time: time of previous measurement
@@ -402,6 +484,7 @@ class QubesHost:
 
         :raises NotImplementedError: when not under Xen
         """
+        # pylint: disable=too-many-statements
 
         if (previous_time is None) != (previous is None):
             raise ValueError(
@@ -413,39 +496,225 @@ class QubesHost:
 
         current_time = time.time()
         current = {}
-        if not self.app.vmm.is_xen:
-            raise NotImplementedError("This function requires Xen hypervisor")
         if only_vm:
             xid = only_vm.xid
             if xid < 0:
                 raise qubes.exc.QubesVMNotRunningError(only_vm)
-            info = self.app.vmm.xc.domain_getinfo(xid, 1)
-            if info[0]["domid"] != xid:
-                raise qubes.exc.QubesVMNotRunningError(only_vm)
+            if self.app.vmm.is_xen:
+                if (
+                    only_vm_stubdom_xid := getattr(only_vm, "stubdom_xid", -1)
+                ) and only_vm_stubdom_xid > 0:
+                    if only_vm_stubdom_xid == xid + 1:
+                        # Avoid multiple domain_getinfo calls.
+                        info = self.app.vmm.xc.domain_getinfo(xid, 2)
+                    else:
+                        info = self.app.vmm.xc.domain_getinfo(xid, 1)
+                        stubdom_info = self.app.vmm.xc.domain_getinfo(
+                            only_vm_stubdom_xid, 1
+                        )[0]
+                        info.append(stubdom_info)
+                else:
+                    info = self.app.vmm.xc.domain_getinfo(xid, 1)
+                if info[0]["domid"] != xid:
+                    raise qubes.exc.QubesVMNotRunningError(only_vm)
+            else:
+                if not only_vm.libvirt_domain:
+                    raise qubes.exc.QubesVMNotRunningError(only_vm)
+                dom_info = only_vm.libvirt_domain.info()
+                info = [
+                    {
+                        "name": only_vm.name,
+                        "domid": only_vm.xid,
+                        "maxmem_kb": dom_info[1],
+                        "mem_kb": dom_info[2],
+                        "online_vcpus": dom_info[3],
+                        "cpu_time": dom_info[4],
+                        "is_stubdom": False,
+                        "hvm": 0,
+                    }
+                ]
         else:
-            info = self.app.vmm.xc.domain_getinfo(0, 1024)
-        # TODO: add stubdomain stats to actual VMs
-        for vm in info:
-            domid = vm["domid"]
-            current[domid] = {}
-            current[domid]["memory_kb"] = vm["mem_kb"]
-            current[domid]["cpu_time"] = round(vm["cpu_time"])
-            vcpus = max(vm["online_vcpus"], 1)
-            if domid in previous:
-                current[domid]["cpu_usage_raw"] = round(
-                    (current[domid]["cpu_time"] - previous[domid]["cpu_time"])
-                    / 1000**3
-                    * 100
-                    / (current_time - previous_time)
+            if self.app.vmm.is_xen:
+                info = self.app.vmm.xc.domain_getinfo(0, 1024)
+            else:
+                running = self.app.vmm.libvirt_conn.listAllDomains(
+                    libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_ACTIVE
                 )
-                if current[domid]["cpu_usage_raw"] < 0:
-                    # VM has been rebooted
-                    current[domid]["cpu_usage_raw"] = 0
+                info = []
+                for dom in running:
+                    dom_info = dom.info()
+                    dom_info_dict = {
+                        "domid": dom.ID(),
+                        "maxmem_kb": dom_info[1],
+                        "mem_kb": dom_info[2],
+                        "online_vcpus": dom_info[3],
+                        "cpu_time": dom_info[4],
+                        "is_stubdom": False,
+                        "hvm": 0,
+                    }
+                    if dom_info_dict["domid"] not in previous:
+                        dom_name = dom.name()
+                        if dom_name == "Domain-0":
+                            dom_name = "dom0"
+                        dom_info_dict["name"] = dom_name
+                    info.append(dom_info_dict)
+
+        cpu_usage_raw_denominator = None
+        if previous_time:
+            time_diff = current_time - previous_time
+            cpu_usage_raw_denominator = 100 / time_diff / 1_000_000_000
+
+        def calculate_cpu_usage_raw(current_cpu_time, previous_cpu_time):
+            assert cpu_usage_raw_denominator
+            cpu_usage_raw = round(
+                (current_cpu_time - previous_cpu_time)
+                * cpu_usage_raw_denominator
+            )
+            if cpu_usage_raw < 0:
+                # VM has been rebooted
+                return 0
+            return cpu_usage_raw
+
+        def query_stubdom_xid(domid) -> int:
+            stubdom_xid_str = self.app.vmm.xs.read(
+                "",
+                f"/local/domain/{domid}/image/device-model-domid",
+            )
+            if stubdom_xid_str is not None and stubdom_xid_str.isdigit():
+                return int(stubdom_xid_str)
+            return -1
+
+        def query_xs_memory(domid, key) -> int | None:
+            if (
+                f"xs_{key}" in current[domid]
+                and current[domid][f"xs_{key}"] is False
+            ):
+                return None
+            untrusted_value = self.app.vmm.xs.read(
+                "", f"/local/domain/{domid}/memory/{key}"
+            )
+            if untrusted_value is None:
+                current[domid][f"xs_{key}"] = False
+                del untrusted_value
+                return None
+            current[domid][f"xs_{key}"] = True
+            if not untrusted_value.isdigit():
+                del untrusted_value
+                return None
+            value = int(untrusted_value)
+            del untrusted_value
+            return value
+
+        info = sorted(info, key=lambda domain: domain["domid"])
+        info = {v["domid"]: v for v in info}
+        for domid in info.keys():
+            stubdom_xid = -1
+            current[domid] = {}
+
+            for key in ["name", "is_stubdom"]:
+                if key in info[domid]:
+                    current[domid][key] = info[domid][key]
+
+            if domid in previous:
+                current[domid]["name"] = previous[domid]["name"]
+                current[domid]["is_stubdom"] = previous[domid]["is_stubdom"]
+                current[domid]["stubdom_xid"] = previous[domid]["stubdom_xid"]
+                current[domid]["xs_meminfo"] = previous[domid].get(
+                    "xs_meminfo", None
+                )
+                current[domid]["xs_swapinfo"] = previous[domid].get(
+                    "xs_swapinfo", None
+                )
+                stubdom_xid = current[domid]["stubdom_xid"]
+            elif "name" not in current[domid]:
+                name = self.app.get_name_from_domid(domid)
+                if name == "Domain-0":
+                    name = "dom0"
+                current[domid]["name"] = name
+                if self.app.vmm.is_xen and name.endswith("-dm"):
+                    # or check for any value on: /local/domain/ID/device-model
+                    current[domid]["is_stubdom"] = True
+                else:
+                    current[domid]["is_stubdom"] = False
+                    if self.app.vmm.is_xen and info[domid]["hvm"]:
+                        stubdom_xid = query_stubdom_xid(domid)
+
+            current[domid]["stubdom_xid"] = stubdom_xid
+            assert "name" in current[domid]
+            assert "is_stubdom" in current[domid]
+
+            if current[domid]["is_stubdom"]:
+                current[domid]["cpu_time"] = info[domid]["cpu_time"]
+                continue
+
+            current[domid]["memory_assigned_total"] = info[domid]["maxmem_kb"]
+            current[domid]["memory_assigned_usable"] = info[domid]["mem_kb"]
+
+            current[domid]["memory_kb"] = current[domid][
+                "memory_assigned_usable"
+            ]
+
+            if stubdom_xid > 0:
+                current[domid]["memory_assigned_total"] += info[stubdom_xid][
+                    "maxmem_kb"
+                ]
+
+            current[domid]["memory_with_swap_used"] = current[domid][
+                "memory_assigned_usable"
+            ]
+
+            if self.app.vmm.is_xen and not current[domid]["is_stubdom"]:
+
+                meminfo = query_xs_memory(domid, "meminfo")
+                if meminfo is not None:
+                    current[domid]["memory_with_swap_used"] = meminfo
+                    swapinfo = query_xs_memory(domid, "swapinfo")
+                    if swapinfo is not None:
+                        current[domid]["swap_used"] = swapinfo
+
+            current[domid]["online_vcpus"] = info[domid]["online_vcpus"]
+            if stubdom_xid > 0:
+                current[domid]["online_vcpus_internal"] = info[stubdom_xid][
+                    "online_vcpus"
+                ]
+
+            current[domid]["cpu_time"] = info[domid]["cpu_time"]
+            if stubdom_xid > 0:
+                current[domid]["cpu_time_internal"] = info[stubdom_xid][
+                    "cpu_time"
+                ]
+
+            if domid in previous:
+                current[domid]["cpu_usage_raw"] = calculate_cpu_usage_raw(
+                    current[domid]["cpu_time"], previous[domid]["cpu_time"]
+                )
+                if stubdom_xid > 0:
+                    current[domid]["cpu_usage_raw_internal"] = (
+                        calculate_cpu_usage_raw(
+                            current[domid]["cpu_time_internal"],
+                            previous[domid]["cpu_time_internal"],
+                        )
+                    )
             else:
                 current[domid]["cpu_usage_raw"] = 0
-            current[domid]["cpu_usage"] = round(
-                current[domid]["cpu_usage_raw"] / vcpus
-            )
+                if stubdom_xid > 0:
+                    current[domid]["cpu_usage_raw_internal"] = 0
+
+            if current[domid]["online_vcpus"] > 0:
+                current[domid]["cpu_usage"] = (
+                    current[domid]["cpu_usage_raw"]
+                    // current[domid]["online_vcpus"]
+                )
+            else:
+                current[domid]["cpu_usage"] = 0
+            if stubdom_xid > 0:
+                if current[domid]["online_vcpus_internal"] > 0:
+                    current[domid]["cpu_usage_internal"] = (
+                        current[domid]["cpu_usage_raw_internal"]
+                        // current[domid]["online_vcpus_internal"]
+                    )
+                else:
+                    current[domid]["cpu_usage_internal"] = 0
 
         return current_time, current
 
@@ -785,6 +1054,15 @@ def get_qube_prop_deps(
     return system_deps, qube_deps
 
 
+def _default_maxmem(self) -> int:
+    """Get maximum memory available to the whole system in KiB."""
+    return self.host.memory_total
+
+
+def _default_no_cpus(self) -> int:
+    return self.host.no_cpus
+
+
 class Qubes(qubes.PropertyHolder):
     """Main Qubes application
 
@@ -1029,6 +1307,24 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=True,
         doc="Check for updates inside qubes",
+    )
+
+    maxmem = qubes.property(
+        "maxmem",
+        type=int,
+        setter=qubes.property.forbidden,
+        load_stage=3,
+        default=_default_maxmem,
+        doc="Maximum system memory in KiB. Unit was chosen for precision.",
+    )
+
+    no_cpus = qubes.property(
+        "no_cpus",
+        type=int,
+        setter=qubes.property.forbidden,
+        load_stage=3,
+        default=_default_no_cpus,
+        doc="Quantity of CPUs",
     )
 
     def __init__(
@@ -1886,3 +2182,24 @@ class Qubes(qubes.PropertyHolder):
     ):
         # pylint: disable=unused-argument
         validate_kernel(self, "default_kernel", newvalue)
+
+    def get_name_from_domid(self, domid) -> str:
+        """
+        Get qube that has a domid controlled by the VMM.
+
+        The ``domid`` is not the same as ``QubesVM.qid``, it is the same as
+        ``QubesVM.xid``, which is ``QubesVM.libvirt_domain.ID()``.
+
+        Implementation specific methods are used so internal domains can be
+        shown, in case of Xen, it is able to query device model stub domains.
+
+        Returns the domain name.
+        """
+        if self.vmm.is_xen:
+            name = self.vmm.xs.read("", "/local/domain/{}/name".format(domid))
+            if name is None:
+                raise ValueError
+            name = name.decode()
+        else:
+            name = self.vmm.libvirt_conn.lookupByID(domid).name()
+        return name

@@ -1011,6 +1011,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.stateless_property
     def stubdom_xid(self) -> int:
+        if self.virt_mode != "hvm":
+            return -1
+
         if not self.is_running():
             return -1
 
@@ -1093,11 +1096,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     @property
     def untrusted_qdb(self):
         """QubesDB handle for this domain."""
-        if self._qdb_connection is None:
-            if self.is_running():
-                import qubesdb  # pylint: disable=import-error
+        if self._qdb_connection is None and self.is_running():
+            import qubesdb  # pylint: disable=import-error
 
+            try:
                 self._qdb_connection = qubesdb.QubesDB(self.name)
+            except qubesdb.Error:
+                # Methods might try to access the qubesdb before it is ready.
+                return None
         return self._qdb_connection
 
     @property
@@ -1490,6 +1496,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED
                 )
+                self.create_xs_entries()
 
                 # the above allocates xid, lets announce that
                 self.fire_event("property-reset:xid", name="xid")
@@ -2011,6 +2018,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         include the balloon driver) and lack of qrexec/meminfo-writer service
         support (no qubes tools installed).
         """
+        if not self.app.vmm.is_xen:
+            return False
         if list(self.devices["pci"].get_assigned_devices()):
             return False
         if self.virt_mode == "hvm":
@@ -2079,6 +2088,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         and reduces Xen's attack surface.
         This needs to be supported by the VM's kernel.
         """
+        if not self.app.vmm.is_xen:
+            return False
         feature = self.features.check_with_template("memory-hotplug", None)
         if feature is not None:
             return bool(feature)
@@ -2603,20 +2614,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # memory and disk
 
     def get_mem(self):
-        """Get current memory usage from VM.
+        """Get memory assigned to VM.
 
-        :returns: Memory usage [FIXME unit].
-        :rtype: FIXME
+        :returns: Memory assigned in KiB.
+        :rtype: int
         """
-
         if self.libvirt_domain is None:
             return 0
-
         try:
             if not self.libvirt_domain.isActive():
                 return 0
-            return self.libvirt_domain.info()[1]
-
+            return self.libvirt_domain.memoryStats()["actual"]
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
                 # qube no longer exists
@@ -2625,7 +2633,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 libvirt.VIR_ERR_INTERNAL_ERROR,
             ):
                 return 0
-
             self.log.exception(
                 "libvirt error code: {!r}".format(e.get_error_code())
             )
@@ -2634,16 +2641,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     def get_mem_static_max(self):
         """Get maximum memory available to VM.
 
-        :returns: Memory limit [FIXME unit].
-        :rtype: FIXME
+        :returns: Memory limit in KiB.
+        :rtype: int
         """
-
         if self.libvirt_domain is None:
             return 0
-
         try:
-            return self.libvirt_domain.maxMemory()
-
+            if not self.libvirt_domain.isActive():
+                return 0
+            return self.maxmem * 1024
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
                 # qube no longer exists
@@ -2652,7 +2658,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 libvirt.VIR_ERR_INTERNAL_ERROR,
             ):
                 return 0
-
             self.log.exception(
                 "libvirt error code: {!r}".format(e.get_error_code())
             )
@@ -2807,6 +2812,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         return os.path.relpath(path, self.dir_path)
 
+    def create_xs_entries(self):
+        # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
+        # xenstore for it until decided otherwise
+        if qmemman_present and self.maxmem:
+            xs_basedir = f"/local/domain/{self.xid}"
+            for key in ["meminfo", "swapinfo"]:
+                self.app.vmm.xs.write("", f"{xs_basedir}/memory/{key}", "")
+                self.app.vmm.xs.set_permissions(
+                    "", f"{xs_basedir}/memory/{key}", [{"dom": self.xid}]
+                )
+            if self.use_memory_hotplug:
+                self.app.vmm.xs.write(
+                    "",
+                    f"{xs_basedir}/memory/hotplug-max",
+                    str(self.maxmem * 1024),
+                )
+
     def create_qdb_entries(self):
         """Create entries in Qubes DB."""
         # pylint: disable=no-member
@@ -2872,22 +2894,34 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.untrusted_qdb.write("/qubes-block-devices", "")
         self.untrusted_qdb.write("/qubes-usb-devices", "")
 
-        # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
-        # xenstore for it until decided otherwise
-        if qmemman_present and self.maxmem:
-            xs_basedir = f"/local/domain/{self.xid}"
-            self.app.vmm.xs.write("", f"{xs_basedir}/memory/meminfo", "")
-            self.app.vmm.xs.set_permissions(
-                "", f"{xs_basedir}/memory/meminfo", [{"dom": self.xid}]
-            )
-            if self.use_memory_hotplug:
-                self.app.vmm.xs.write(
-                    "",
-                    f"{xs_basedir}/memory/hotplug-max",
-                    str(self.maxmem * 1024),
-                )
-
         self.fire_event("domain-qdb-create")
+
+    @qubes.events.handler("property-pre-set:maxmem")
+    def on_property_pre_set_maxmem(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue == oldvalue:
+            return
+        # Necessary for it to reflect the current state for clients to query.
+        if not self.is_halted() and not self.use_memory_hotplug:
+            raise qubes.exc.QubesVMNotHaltedError(
+                "Can't change maxmem of VM {!s}, because it isn't Halted and "
+                "memory hotplug is forbidden".format(self)
+            )
+
+    @qubes.events.handler("property-set:maxmem")
+    def on_property_set_maxmem(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if not newvalue or newvalue == oldvalue:
+            return
+        if not (
+            qmemman_present and self.use_memory_hotplug and self.is_running()
+        ):
+            return
+        self.app.vmm.xs.write(
+            "",
+            f"/local/domain/{self.xid}/memory/hotplug-max",
+            str(newvalue * 1024),
+        )
 
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):
