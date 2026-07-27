@@ -579,6 +579,52 @@ class TC_02_DeviceInfo(qubes.tests.QubesTestCase):
         self.assertEqual(deserialized.interfaces[0], device.interfaces[0])
         self.assertEqual(deserialized.interfaces[1], device.interfaces[1])
 
+    def test_040_serialize_busy(self):
+        device = DeviceInfo(
+            Port(backend_domain=self.vm, port_id="1-1.1.1", devclass="bus"),
+            device_id="0000:0000::?******",
+            busy=True,
+        )
+        self.assertIn(b"busy='True'", device.serialize())
+
+    def test_041_serialize_not_busy(self):
+        device = DeviceInfo(
+            Port(backend_domain=self.vm, port_id="1-1.1.1", devclass="bus"),
+            device_id="0000:0000::?******",
+            busy=False,
+        )
+        self.assertNotIn(b"busy=", device.serialize())
+
+    def test_042_deserialize_busy(self):
+        serialized = (
+            b"1-1.1.1 device_id='0000:0000::?******' port_id='1-1.1.1' "
+            b"devclass='bus' backend_domain='vm' interfaces='?******' "
+            b"busy='True'"
+        )
+        actual = DeviceInfo.deserialize(serialized, self.vm)
+        self.assertNotIsInstance(actual, UnknownDevice)
+        self.assertTrue(actual.busy)
+
+    def test_043_deserialize_not_busy(self):
+        serialized = (
+            b"1-1.1.1 device_id='0000:0000::?******' port_id='1-1.1.1' "
+            b"devclass='bus' backend_domain='vm' interfaces='?******'"
+        )
+        actual = DeviceInfo.deserialize(serialized, self.vm)
+        self.assertNotIsInstance(actual, UnknownDevice)
+        self.assertFalse(actual.busy)
+
+    def test_044_deserialize_invalid_busy(self):
+        # strict on the protocol layer: an invalid value makes the whole
+        # device unrecognized rather than silently guessing
+        serialized = (
+            b"1-1.1.1 device_id='0000:0000::?******' port_id='1-1.1.1' "
+            b"devclass='bus' backend_domain='vm' interfaces='?******' "
+            b"busy='garbage'"
+        )
+        actual = DeviceInfo.deserialize(serialized, self.vm)
+        self.assertIsInstance(actual, UnknownDevice)
+
 
 class TC_03_DeviceAssignment(qubes.tests.QubesTestCase):
     def setUp(self):
