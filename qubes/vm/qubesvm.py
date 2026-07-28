@@ -2671,20 +2671,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self.app.vmm.offline_mode:
             self._power_state = "Halted"
             return
-        # don't try to define libvirt domain, if it isn't there, VM surely
-        # isn't running
-        # reason for this "if": allow vm.is_running() in PCI (or other
-        # device) extension while constructing libvirt XML
-        if self._libvirt_domain is None:
-            try:
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                    self.uuid.bytes
-                )
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    self._power_state = "Halted"
-                    return
-                raise
 
         if self.libvirt_domain is None:
             self._power_state = "Halted"
@@ -2736,20 +2722,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self.app.vmm.offline_mode:
             return False
 
-        # don't try to define libvirt domain, if it isn't there, VM surely
-        # isn't running
-        # reason for this "if": allow vm.is_running() in PCI (or other
-        # device) extension while constructing libvirt XML
-        if self._libvirt_domain is None:
-            try:
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                    self.uuid.bytes
-                )
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    self._is_running = False
-                    return self._is_running
-                raise
+        if self.libvirt_domain is None:
+            self._is_running = False
+            return self._is_running
 
         if self._is_running is None:
             self._is_running = bool(self.libvirt_domain.isActive())
