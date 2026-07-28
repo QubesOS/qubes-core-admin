@@ -1138,7 +1138,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 node_hvm.getparent().remove(node_hvm)
 
         super().__init__(app, xml, **kwargs)
-        self.__waiter = None
+        self._power_state_waiter = None
 
         if volume_config is None:
             volume_config = {}
@@ -1388,13 +1388,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     await self.fire_event_async("domain-stopped")
                     await self.fire_event_async("domain-shutdown")
 
-                    if self.__waiter is not None:
-                        self.__waiter.set_result(None)
-                        self.__waiter = None
+                    if self._power_state_waiter is not None:
+                        self._power_state_waiter.set_result(None)
+                        self._power_state_waiter = None
                 except Exception as e:
-                    if self.__waiter is not None:
-                        self.__waiter.set_exception(e)
-                        self.__waiter = None
+                    if self._power_state_waiter is not None:
+                        self._power_state_waiter.set_exception(e)
+                        self._power_state_waiter = None
                     raise
 
     async def start(
@@ -1703,13 +1703,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.fire_event_async("domain-stopped")
                 await self.fire_event_async("domain-shutdown")
 
-                if self.__waiter is not None:
-                    self.__waiter.set_result(None)
-                    self.__waiter = None
+                if self._power_state_waiter is not None:
+                    self._power_state_waiter.set_result(None)
+                    self._power_state_waiter = None
             except Exception as e:
-                if self.__waiter is not None:
-                    self.__waiter.set_exception(e)
-                    self.__waiter = None
+                if self._power_state_waiter is not None:
+                    self._power_state_waiter.set_exception(e)
+                    self._power_state_waiter = None
                 raise
 
     @qubes.events.handler("domain-stopped")
@@ -1747,9 +1747,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if self.is_paused() and not force and not is_preload:
                 raise qubes.exc.QubesVMNotRunningError(self)
 
-            if self.__waiter is None:
-                self.__waiter = asyncio.get_running_loop().create_future()
-            waiter = self.__waiter
+            if self._power_state_waiter is None:
+                self._power_state_waiter = asyncio.get_running_loop().create_future()
 
             if self.is_paused():
                 self.libvirt_domain.destroy()
@@ -1792,7 +1791,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 if timeout is None:
                     timeout = self.shutdown_timeout
                 try:
-                    await asyncio.wait_for(waiter, timeout=timeout)
+                    await asyncio.wait_for(self._power_state_waiter, timeout=timeout)
                 except asyncio.TimeoutError:
                     raise qubes.exc.QubesVMShutdownTimeoutError(self)
         except Exception as ex:
@@ -1813,9 +1812,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        if self.__waiter is None:
-            self.__waiter = asyncio.get_running_loop().create_future()
-        waiter = self.__waiter
+        if self._power_state_waiter is None:
+            self._power_state_waiter = asyncio.get_running_loop().create_future()
 
         try:
             self.libvirt_domain.destroy()
@@ -1824,7 +1822,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 raise qubes.exc.QubesVMNotStartedError(self)
             raise
 
-        await waiter
+        await self._power_state_waiter
 
     async def suspend(self):
         """Suspend (pause) domain.
