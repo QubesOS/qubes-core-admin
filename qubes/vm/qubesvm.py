@@ -1613,7 +1613,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED: "Suspended",  # 0x7
             libvirt.VIR_DOMAIN_EVENT_CRASHED: "Crashed",  # 0x8
         }
-        self.log.debug(
+        self.log.info(
             "Libvirt event with detail: %s (%s)",
             libvirt_event_dict[event],
             detail,
