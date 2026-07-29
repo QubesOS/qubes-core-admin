@@ -34,7 +34,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.device_protocol import Port, UnknownDevice
+from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
@@ -147,6 +147,8 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         r"\Apci_(?P<segment>[0-9a-f]{4})_(?P<bus>[0-9a-f]{2})_"
         r"(?P<device>[0-9a-f]{2})_(?P<function>[0-9a-f])\Z"
     )
+
+    SUPPORTED_ASSIGNMENT_MODES = frozenset({AssignmentMode.REQUIRED})
 
     def __init__(self, port: Port, libvirt_name=None):
         if libvirt_name:

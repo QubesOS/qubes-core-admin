@@ -178,6 +178,13 @@ class DeviceCollection:
             "qubes.devices", self._bus
         )
 
+    @property
+    def supported_assignment_modes(self):
+        """
+        Assignment modes allowed for this device class.
+        """
+        return self.devclass.SUPPORTED_ASSIGNMENT_MODES
+
     async def attach(self, assignment: DeviceAssignment):
         """
         Attach device to domain.
@@ -235,6 +242,17 @@ class DeviceCollection:
             options=assignment.options,
         )
 
+    def _validate_mode_supported(self, mode: AssignmentMode):
+        if mode in self.supported_assignment_modes:
+            return
+        allowed = ", ".join(
+            sorted(m.value for m in self.supported_assignment_modes)
+        )
+        raise qubes.exc.QubesValueError(
+            f"{self._bus} devices cannot be assigned in "
+            f"'{mode.value}' mode; allowed modes: {allowed}."
+        )
+
     async def assign(self, assignment: DeviceAssignment):
         """
         Assign device to domain.
@@ -252,9 +270,11 @@ class DeviceCollection:
                 f"already assigned to {self._vm!s}"
             )
 
+        # avoid putting MANUAL assigment to qubes.xml
         if not assignment.attach_automatically:
             raise ValueError("Only auto-attachable devices can be assigned.")
 
+        self._validate_mode_supported(assignment.mode)
         self._set.add(assignment)
 
         await self._vm.fire_event_async(
@@ -293,6 +313,7 @@ class DeviceCollection:
             raise qubes.exc.QubesValueError(
                 "Cannot change assignment mode to 'manual'"
             )
+        self._validate_mode_supported(mode)
         assignments = [
             a for a in self.get_assigned_devices() if a.virtual_device == device
         ]

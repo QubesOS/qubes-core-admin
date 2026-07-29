@@ -38,7 +38,13 @@ import qubes.tests
 
 class TestDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
-    pass
+    SUPPORTED_ASSIGNMENT_MODES = frozenset(
+        {
+            AssignmentMode.ASK,
+            AssignmentMode.AUTO,
+            AssignmentMode.REQUIRED,
+        }
+    )
 
 
 class TestVMCollection(dict):
@@ -290,6 +296,37 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEqual(
             {self.assignment}, set(self.collection.get_assigned_devices())
         )
+
+    def test_023_assign_unsupported_mode(self):
+        original = TestDevice.SUPPORTED_ASSIGNMENT_MODES
+        TestDevice.SUPPORTED_ASSIGNMENT_MODES = frozenset(
+            {AssignmentMode.ASK, AssignmentMode.AUTO}
+        )
+        self.addCleanup(
+            setattr, TestDevice, "SUPPORTED_ASSIGNMENT_MODES", original
+        )
+        self.assignment = self.assignment.clone(mode="required")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.loop.run_until_complete(
+                self.collection.assign(self.assignment)
+            )
+
+    def test_024_update_assignment_unsupported_mode(self):
+        self.assignment = self.assignment.clone(mode="auto-attach")
+        self.loop.run_until_complete(self.collection.assign(self.assignment))
+        original = TestDevice.SUPPORTED_ASSIGNMENT_MODES
+        TestDevice.SUPPORTED_ASSIGNMENT_MODES = frozenset(
+            {AssignmentMode.ASK, AssignmentMode.AUTO}
+        )
+        self.addCleanup(
+            setattr, TestDevice, "SUPPORTED_ASSIGNMENT_MODES", original
+        )
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.loop.run_until_complete(
+                self.collection.update_assignment(
+                    self.device, AssignmentMode.REQUIRED
+                )
+            )
 
     def test_030_assign(self):
         self.emitter.running = True
