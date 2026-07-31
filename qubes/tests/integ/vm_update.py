@@ -755,6 +755,13 @@ SHA256:
                 self.testvm1, "pkcon install -y test-pkg", self.ret_code_ok
             )
 
+            # verify if it was really installed
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.install_test_cmd.format("test-pkg"),
+                self.ret_code_ok,
+            )
+
     def upgrade_status_notify(self):
         """
         Run upgrades-status-notify at test vm.
