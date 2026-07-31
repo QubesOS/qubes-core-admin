@@ -915,7 +915,7 @@ class DeviceInfo(VirtualDevice):
 
     # Subclasses should override this.
     SUPPORTED_ASSIGNMENT_MODES: "frozenset[AssignmentMode]" = frozenset(
-        {AssignmentMode.ASK, AssignmentMode.AUTO}
+        {AssignmentMode.MANUAL, AssignmentMode.ASK, AssignmentMode.AUTO}
     )
 
     def __init__(

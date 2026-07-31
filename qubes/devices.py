@@ -196,6 +196,11 @@ class DeviceCollection:
                 f"when {self._bus} device expected."
             )
 
+        if AssignmentMode.MANUAL not in self.supported_assignment_modes:
+            raise qubes.exc.QubesValueError(
+                f"{self._bus} devices cannot be attached manually."
+            )
+
         if self._vm.is_halted():
             raise qubes.exc.QubesVMNotRunningError(
                 self._vm,

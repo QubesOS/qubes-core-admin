@@ -40,6 +40,7 @@ class TestDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
     SUPPORTED_ASSIGNMENT_MODES = frozenset(
         {
+            AssignmentMode.MANUAL,
             AssignmentMode.ASK,
             AssignmentMode.AUTO,
             AssignmentMode.REQUIRED,
@@ -326,6 +327,20 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
                 self.collection.update_assignment(
                     self.device, AssignmentMode.REQUIRED
                 )
+            )
+
+    def test_026_attach_manual_not_supported(self):
+        original = TestDevice.SUPPORTED_ASSIGNMENT_MODES
+        TestDevice.SUPPORTED_ASSIGNMENT_MODES = frozenset(
+            {AssignmentMode.REQUIRED}
+        )
+        self.addCleanup(
+            setattr, TestDevice, "SUPPORTED_ASSIGNMENT_MODES", original
+        )
+        self.emitter.running = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.loop.run_until_complete(
+                self.collection.attach(self.assignment)
             )
 
     def test_030_assign(self):
