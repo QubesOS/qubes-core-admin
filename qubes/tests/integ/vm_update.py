@@ -729,6 +729,39 @@ SHA256:
         """
         self.update_via_proxy_qubes_vm_update_impl()
 
+    def test_011_pkcon_via_proxy(self):
+        """
+        Test that packagekit works via proxy
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        """
+
+        self.start_vm_with_proxy_repo()
+
+        with self.qrexec_policy(
+            "qubes.UpdatesProxy",
+            self.testvm1,
+            "@default",
+            action="allow target=" + self.netvm_repo.name,
+        ):
+
+            # update repository metadata
+            self.assertRunCommandReturnCode(
+                self.testvm1, "pkcon refresh", self.ret_code_ok
+            )
+
+            # install test package
+            self.assertRunCommandReturnCode(
+                self.testvm1, "pkcon install -y test-pkg", self.ret_code_ok
+            )
+
+            # verify if it was really installed
+            self.assertRunCommandReturnCode(
+                self.testvm1,
+                self.install_test_cmd.format("test-pkg"),
+                self.ret_code_ok,
+            )
+
     def upgrade_status_notify(self):
         """
         Run upgrades-status-notify at test vm.
