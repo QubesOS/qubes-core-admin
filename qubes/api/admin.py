@@ -1786,19 +1786,60 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
     @qubes.api.method(
         "admin.deviceclass.List",
-        wants_arg=False,
+        wants_arg=None,
         wants_payload=False,
         dest_adminvm=True,
         scope="global",
         read=True,
     )
     async def deviceclass_list(self):
-        """List all DEVICES classes"""
+        """List all DEVICE classes.
+
+        Returns one `deviceclass` name per line.
+
+        ``admin.deviceclass.List+details`` returns the same list, but
+        each line additionally carries space-separated ``key=value`` metadata.
+        Currently, it's: <class> assignment_modes=<mode>[,<mode>...]
+        The ``key=value`` format allows further properties to be added.
+        """
+        self.enforce_arg(
+            wants=["", "details"],
+            short_reason="'', 'details'",
+        )
+        details: bool = self.arg == "details"
+
         entrypoints = self.fire_event_for_filter(
             importlib.metadata.entry_points(group="qubes.devices")
         )
 
-        return "".join("{}\n".format(ep.name) for ep in entrypoints)
+        if not details:
+            return "".join("{}\n".format(ep.name) for ep in entrypoints)
+
+        lines = []
+        for entry_point in entrypoints:
+            modes = ""
+            try:
+                device_info = entry_point.load()
+                modes = ",".join(
+                    sorted(
+                        mode.value
+                        for mode in device_info.SUPPORTED_ASSIGNMENT_MODES
+                    )
+                )
+            # pylint: disable=broad-exception-caught
+            except Exception:
+                # a class that fails to load or does not expose the metadata
+                # is still listed, just without the extra properties
+                self.app.log.warning(
+                    "Cannot get assignment modes for device class %s",
+                    entry_point.name,
+                    exc_info=True,
+                )
+            if modes:
+                lines.append(f"{entry_point.name} assignment_modes={modes}\n")
+            else:
+                lines.append(f"{entry_point.name}\n")
+        return "".join(lines)
 
     @qubes.api.method(
         "admin.vm.device.{endpoint}.Available",
