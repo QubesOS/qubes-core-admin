@@ -231,21 +231,38 @@ class AbstractQubesAPI:
         self.EXC_ARG_NOT_IN_DEST_VOLUMES = "{} volumes".format(self.dest.name)
 
     @classmethod
-    def list_methods(cls, select_method=None):
+    @functools.cache
+    def list_all_methods(cls) -> dict[str, list[tuple]]:
+        result: dict[str, list[tuple]] = {}
         for attr in dir(cls):
             func = getattr(cls, attr)
             if not callable(func):
                 continue
-
             try:
                 # pylint: disable=protected-access
                 rpcnames = func.rpcnames
             except AttributeError:
                 continue
-
             for mname, endpoint in rpcnames:
-                if select_method is None or mname == select_method:
-                    yield (func, mname, endpoint)
+                result.setdefault(mname, []).append((func, endpoint))
+        return result
+
+    @classmethod
+    @functools.cache
+    def list_methods(cls, select_method=None) -> list[tuple]:
+        all_methods = cls.list_all_methods()
+        if select_method is None:
+            return [
+                (func, mname, endpoint)
+                for mname, value in all_methods.items()
+                for func, endpoint in value
+            ]
+        if select_method not in all_methods:
+            return []
+        return [
+            (func, select_method, endpoint)
+            for func, endpoint in all_methods[select_method]
+        ]
 
     def execute(self, *, untrusted_payload):
         """Execute management operation.
