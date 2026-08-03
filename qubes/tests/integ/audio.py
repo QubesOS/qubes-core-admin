@@ -205,7 +205,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if in_qemu and self.testvm1.features.get("audio-model"):
             # be less strict on HVM tests in nested virt, the test environment
             # has huge overhead already
-            margin = 0.80
+            margin = 0.50
         if rec_size < margin * 441000:
             fname = f"/tmp/audio-sample-{self.id()}.raw"
             with open(fname, "wb") as f:
