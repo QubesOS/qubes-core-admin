@@ -171,6 +171,8 @@ class GrubBase(object):
             "TemplateVM", name=self.make_vm_name("template"), label="red"
         )
         self.test_template.virt_mode = self.virt_mode
+        if self.virt_mode == "hvm":
+            self.set_hvm(self.test_template)
         self.test_template.features.update(
             self.app.domains[self.template].features
         )
