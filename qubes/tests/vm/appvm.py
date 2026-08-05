@@ -77,6 +77,76 @@ class TestPool(qubes.storage.Pool):
         return self._volumes[vid]
 
 
+def defer_tpl(self, qube, template_alt):
+    assert not qube.template == template_alt
+    template_orig = qube.template
+    self.assertTrue(qube.property_is_default("active_template"))
+
+    if getattr(qube, "auto_cleanup", False):
+        with mock.patch.object(qube, "get_power_state") as mock_power:
+            mock_power.return_value = "Running"
+            # Change active template while qube is running.
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                qube.template = template_alt
+            return
+
+    with mock.patch.object(qube, "get_power_state") as mock_power:
+        mock_power.return_value = "Running"
+        # Change active template while qube is running.
+        qube.template = template_alt
+        self.assertNotEqual(qube.template, qube.active_template)
+        self.assertEqual(qube.template, template_alt)
+        self.assertEqual(qube.active_template, template_orig)
+        self.assertFalse(qube.property_is_default("active_template"))
+
+        # Get back to original template while qube is running.
+        qube.template = template_orig
+        self.assertEqual(qube.template, template_orig)
+        self.assertEqual(qube.template, qube.active_template)
+        self.assertTrue(qube.property_is_default("active_template"))
+
+        # Change active template again.
+        qube.template = template_alt
+        self.assertNotEqual(qube.template, qube.active_template)
+        self.assertEqual(qube.template, template_alt)
+        self.assertEqual(qube.active_template, template_orig)
+        self.assertFalse(qube.property_is_default("active_template"))
+
+    with mock.patch.object(qube, "get_power_state") as mock_power:
+        mock_power.return_value = "Halted"
+        qubes.vm.appvm.apply_deferred_template(qube)
+        self.assertEqual(qube.template, template_alt)
+        self.assertEqual(qube.template, qube.active_template)
+        self.assertTrue(qube.property_is_default("active_template"))
+
+    with mock.patch.object(
+        qubes.vm.appvm, "template_changed_update_storage"
+    ) as mock_storage:
+        with mock.patch.object(qube, "is_halted", return_value=False):
+            qubes.vm.appvm.apply_deferred_template(qube)
+            mock_storage.assert_not_called()
+        with mock.patch.object(qube, "is_halted", return_value=True):
+            self.assertEqual(qube.template, qube.active_template)
+            qubes.vm.appvm.apply_deferred_template(qube)
+            mock_storage.assert_not_called()
+
+    with mock.patch.object(qube, "get_power_state") as mock_power:
+        mock_power.return_value = "Running"
+        # Change active template while qube is running.
+        qube.template = template_orig
+        self.assertNotEqual(qube.template, qube.active_template)
+        self.assertEqual(qube.template, template_orig)
+        self.assertEqual(qube.active_template, template_alt)
+        self.assertFalse(qube.property_is_default("active_template"))
+
+        with mock.patch.object(
+            qubes.vm.appvm, "apply_deferred_template"
+        ) as mock_apply:
+            qube.fire_event("domain-load")
+            mock_apply.assert_called_once_with(qube)
+            mock_apply.reset_mock()
+
+
 class TC_90_AppVM(
     qubes.tests.vm.qubesvm.QubesVMTestsMixin, qubes.tests.QubesTestCase
 ):
@@ -89,13 +159,20 @@ class TC_90_AppVM(
         self.template = qubes.vm.templatevm.TemplateVM(
             self.app, None, qid=1, name=qubes.tests.VMPREFIX + "template"
         )
-        self.app.domains[self.template.name] = self.template
-        self.app.domains[self.template] = self.template
+        self.template_alt = qubes.vm.templatevm.TemplateVM(
+            self.app, None, qid=20, name=qubes.tests.VMPREFIX + "template-alt"
+        )
+
+        for template in [self.template, self.template_alt]:
+            self.app.domains[template.name] = template
+            self.app.domains[template] = template
         self.addCleanup(self.cleanup_appvm)
 
     def cleanup_appvm(self):
         self.template.close()
+        self.template_alt.close()
         del self.template
+        del self.template_alt
         self.app.domains.clear()
         self.app.pools.clear()
 
@@ -161,10 +238,9 @@ class TC_90_AppVM(
 
     def test_003_template_change_running(self):
         vm = self.get_vm()
-        with mock.patch.object(vm, "get_power_state") as mock_power:
-            mock_power.return_value = "Running"
-            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                vm.template = self.template
+        self.assertEqual(vm.template, self.template)
+        self.assertEqual(vm.template, vm.active_template)
+        defer_tpl(self=self, qube=vm, template_alt=self.template_alt)
 
     def test_004_template_reset(self):
         vm = self.get_vm()
