@@ -372,40 +372,32 @@ class TC_00_DVMTemplateMixin(
             label="red",
             dispid=43,
         )
-        # Can't switch templates if disposable is running.
-        mock_remove.reset_mock()
-        mock_events.reset_mock()
-        with mock.patch.object(self.dispvm, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
 
-        # Can't switch templates if not all running disposable are preloads.
+        # Can switch templates even if not all running disposable are preloads.
         mock_remove.reset_mock()
         self.appvm.features["preload-dispvm-max"] = "1"
         self.appvm.features["preload-dispvm"] = self.dispvm.name
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
-
-        # Can switch templates if all running disposable are preloads.
-        self.appvm.features["preload-dispvm-max"] = "2"
-        self.appvm.features["preload-dispvm"] = (
-            self.dispvm.name + " " + self.dispvm_alt.name
-        )
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
+        with (
+            mock.patch.object(self.dispvm, "is_running", return_value=True),
+            mock.patch.object(self.dispvm_alt, "is_running", return_value=True),
+            mock.patch.object(self.appvm, "is_running", return_value=False),
+        ):
             self.appvm.template = self.template_alt
         mock_remove.assert_called_once_with(0, reason=mock.ANY)
         mock_events.assert_called_once_with(
             "domain-preload-dispvm-start", reason=mock.ANY
         )
+
+        # TODO: ben: fix broken test
+        # Preloaded disposables are refreshed if disposable template is halted.
+        with (
+            mock.patch.object(self.dispvm, "is_running", return_value=True),
+            mock.patch.object(self.dispvm_alt, "is_running", return_value=True),
+            mock.patch.object(self.appvm, "is_running", return_value=True),
+        ):
+            self.appvm.template = self.template
+        mock_remove.assert_not_called()
+        mock_events.assert_not_called()
 
     @mock.patch("qubes.events.Emitter.fire_event_async")
     @mock.patch(
