@@ -430,19 +430,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if newvalue == oldvalue:
             return
-        dependencies = [
-            disp.name
-            for disp in self.dispvms
-            if disp.is_running() and not disp.is_preload
-        ]
-        if dependencies:
-            msg = (
-                "Cannot change template while there are running disposables"
-                " based on this disposable template",
-            )
-            self.log.error("%s: %s", msg, ", ".join(dependencies))
-            raise qubes.exc.QubesVMInUseError(self, msg)
-        self.remove_preload_excess(0, reason="template will change")
+        self.remove_preload_excess(0, reason="template has changed")
 
     @qubes.events.handler("property-set:template")
     def __on_property_set_template(
