@@ -864,7 +864,9 @@ class VMCollection:
         return set(
             vm
             for vm in self
-            if hasattr(vm, "template") and vm.template == template
+            if hasattr(vm, "template")
+            and getattr(vm, "active_template", getattr(vm, "template"))
+            == template
         )
 
     def get_vms_connected_to(self, netvm):

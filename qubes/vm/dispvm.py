@@ -32,6 +32,7 @@ import qubes.vm.appvm
 import qubes.vm.qubesvm
 
 PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
+    "active_template",
     "autostart",
     "backup_timestamp",
     "default_dispvm",
@@ -251,7 +252,16 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "template",
         load_stage=4,
         setter=_setter_template,
-        doc="AppVM, on which this disposable is based.",
+        doc="Template, on which this AppVM is based or will be based after"
+        "restart",
+    )
+
+    active_template = qubes.VMProperty(
+        "active_template",
+        load_stage=4,
+        setter=_setter_template,
+        default=(lambda self: self.template),
+        doc="Template in use.",
     )
 
     dispid = qubes.property(
@@ -488,7 +498,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         When qube is loaded, assert that this qube has a template.
         """
         # pylint: disable=unused-argument
-        assert self.template
+        qubes.vm.appvm.domain_loaded(self)
 
     async def wait_operational_preload(
         self, service: str, timeout: int | float
@@ -699,9 +709,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(self, _event, **_kwargs) -> None:
         """
-        Do auto cleanup if enabled.
+        Do auto cleanup if enabled. Apply deferred template.
         """
         await self._auto_cleanup()
+        if not self.auto_cleanup:
+            qubes.vm.appvm.apply_deferred_template(self)
 
     @qubes.events.handler("domain-remove-from-disk")
     def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
@@ -734,7 +746,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self, event, name, newvalue, oldvalue=None
     ):
         """
-        Forbid changing template of running qube.
+        Forbid changing template of running disposable with ``auto_cleanup``
+        enabled.
 
         :param str event: Event which was fired.
         :param str name: Property name.
@@ -744,7 +757,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             of the property.
         """
         # pylint: disable=unused-argument
-        if not self.is_halted():
+        if self.auto_cleanup and not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, "Cannot change template while qube is running"
             )
@@ -765,7 +778,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             of the property.
         """
         # pylint: disable=unused-argument
-        qubes.vm.appvm.template_changed_update_storage(self)
+        if not self.auto_cleanup:
+            qubes.vm.appvm.template_changed(
+                self, oldvalue=oldvalue, newvalue=newvalue
+            )
 
     @classmethod
     async def from_appvm(
