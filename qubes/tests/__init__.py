@@ -1900,6 +1900,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.integ.vm_qrexec_gui",
         "qubes.tests.integ.audio",
         "qubes.tests.integ.mime",
+        "qubes.tests.integ.misc",
         "qubes.tests.integ.salt",
         "qubes.tests.integ.backup",
         "qubes.tests.integ.backupcompatibility",
