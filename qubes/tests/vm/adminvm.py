@@ -22,6 +22,7 @@ import os
 import subprocess
 import unittest
 import unittest.mock
+import libvirt
 
 import qubes
 import qubes.exc
@@ -82,7 +83,9 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.xid, 0)
 
     def test_101_libvirt_domain(self):
+        self.assertIsNone(self.vm.libvirt_domain)
         with unittest.mock.patch.object(self.app, "vmm") as mock_vmm:
+            mock_vmm.offline_mode = False
             self.assertIsNotNone(self.vm.libvirt_domain)
             self.assertEqual(
                 mock_vmm.mock_calls,
@@ -91,6 +94,26 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
                 ],
             )
 
+    def test_102_maxmem(self):
+        # When offline
+        self.assertEqual(self.vm.maxmem, 4096)
+
+        # Fallback
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode = False
+        self.assertEqual(self.vm.maxmem, 4096)
+
+        # From xenstore
+        val = 1024 * 8
+        xenstore = {"/local/domain/0/memory/static-max": str(val).encode()}
+        self.app.vmm.configure_mock(
+            **{
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+        self.assertEqual(self.vm.maxmem, val // 1024)
+
     def test_300_is_running(self):
         self.assertTrue(self.vm.is_running())
 
@@ -98,11 +121,21 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.get_power_state(), "Running")
 
     def test_302_get_mem(self):
-        self.assertGreater(self.vm.get_mem(), 0)
+        self.assertEqual(self.vm.get_mem(), 4242)
+
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode = False
+        self.vm.libvirt_domain.memoryStats = unittest.mock.Mock()
+        self.vm.libvirt_domain.memoryStats.return_value = {"actual": 4241}
+        self.assertEqual(self.vm.get_mem(), 4241)
+
+        self.vm.libvirt_domain.memoryStats.side_effect = libvirt.libvirtError
+        with self.assertRaises(libvirt.libvirtError):
+            self.vm.get_mem()
 
     @unittest.skip("mock object does not support this")
     def test_303_get_mem_static_max(self):
-        self.assertGreater(self.vm.get_mem_static_max(), 0)
+        self.assertEqual(self.vm.get_mem_static_max(), self.vm.maxmem * 1024)
 
     def test_310_start(self):
         with self.assertRaises(qubes.exc.QubesException):

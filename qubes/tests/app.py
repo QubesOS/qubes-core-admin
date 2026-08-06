@@ -39,104 +39,13 @@ from qubes.tests.vm.qubesvm import TestQubesDB
 
 
 class TestApp(qubes.tests.TestEmitter):
-    pass
+
+    def __init__(self):
+        super().__init__()
+        self.log = mock.Mock()
 
 
 class TC_20_QubesHost(qubes.tests.QubesTestCase):
-    sample_xc_domain_getinfo = [
-        {
-            "paused": 0,
-            "cpu_time": 243951379111104,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 3733212,
-            "domid": 0,
-            "max_vcpu_id": 7,
-            "crashed": 0,
-            "running": 1,
-            "maxmem_kb": 3734236,
-            "shutdown": 0,
-            "online_vcpus": 8,
-            "handle": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "cpupool": 0,
-            "blocked": 0,
-        },
-        {
-            "paused": 0,
-            "cpu_time": 2849496569205,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 303916,
-            "domid": 1,
-            "max_vcpu_id": 0,
-            "crashed": 0,
-            "running": 0,
-            "maxmem_kb": 308224,
-            "shutdown": 0,
-            "online_vcpus": 1,
-            "handle": [
-                116,
-                174,
-                229,
-                207,
-                17,
-                1,
-                79,
-                39,
-                191,
-                37,
-                41,
-                186,
-                205,
-                158,
-                219,
-                8,
-            ],
-            "cpupool": 0,
-            "blocked": 1,
-        },
-        {
-            "paused": 0,
-            "cpu_time": 249658663079978,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 3782668,
-            "domid": 11,
-            "max_vcpu_id": 7,
-            "crashed": 0,
-            "running": 0,
-            "maxmem_kb": 3783692,
-            "shutdown": 0,
-            "online_vcpus": 8,
-            "handle": [
-                169,
-                95,
-                55,
-                127,
-                140,
-                94,
-                79,
-                220,
-                186,
-                210,
-                117,
-                5,
-                148,
-                11,
-                185,
-                206,
-            ],
-            "cpupool": 0,
-            "blocked": 1,
-        },
-    ]
-
     def setUp(self):
         super().setUp()
         self.app = TestApp()
@@ -144,160 +53,58 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.qubes_host = qubes.app.QubesHost(self.app)
         self.maxDiff = None
 
-    def test_000_get_vm_stats_single(self):
-        self.app.vmm.configure_mock(
-            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
-        )
-
-        info_time, info = self.qubes_host.get_vm_stats()
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (0, 1024), {}),
-            ],
-        )
-        self.assertIsNotNone(info_time)
-        expected_info = {
-            0: {
-                "cpu_time": 243951379111104,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 3733212,
-            },
-            1: {
-                "cpu_time": 2849496569205,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 303916,
-            },
-            11: {
-                "cpu_time": 249658663079978,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 3782668,
-            },
+        self.libvirt_info = ["x86_64", 32404, 16, 2995, 1, 1, 16, 1]
+        self.xen_physinfo = {
+            "nr_nodes": 1,
+            "threads_per_core": 1,
+            "cores_per_socket": 16,
+            "nr_cpus": 16,
+            "total_memory": 33182508,
+            "free_memory": 23905768,
+            "scrub_memory": 0,
+            "cpu_khz": 2995195,
+            "hw_caps": "...",
+            "virt_caps": "hvm pv hvm_directio pv_directio",
         }
-        self.assertEqual(info, expected_info)
-
-    def test_001_get_vm_stats_twice(self):
-        self.app.vmm.configure_mock(
-            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
-        )
-
-        prev_time, prev_info = self.qubes_host.get_vm_stats()
-        prev_time -= 1
-        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
-        prev_info[1]["cpu_time"] -= 10**9  # 1s
-        prev_info[11]["cpu_time"] -= 10**9  # 1s
-        info_time, info = self.qubes_host.get_vm_stats(prev_time, prev_info)
-        self.assertIsNotNone(info_time)
-        expected_info = {
-            0: {
-                "cpu_time": 243951379111104,
-                "cpu_usage": 10,
-                "cpu_usage_raw": 80,
-                "memory_kb": 3733212,
-            },
-            1: {
-                "cpu_time": 2849496569205,
-                "cpu_usage": 100,
-                "cpu_usage_raw": 100,
-                "memory_kb": 303916,
-            },
-            11: {
-                "cpu_time": 249658663079978,
-                "cpu_usage": 12,
-                "cpu_usage_raw": 100,
-                "memory_kb": 3782668,
-            },
-        }
-        self.assertEqual(info, expected_info)
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (0, 1024), {}),
-                ("xc.domain_getinfo", (0, 1024), {}),
-            ],
-        )
-
-    def test_002_get_vm_stats_one_vm(self):
         self.app.vmm.configure_mock(
             **{
-                "xc.domain_getinfo.return_value": [
-                    self.sample_xc_domain_getinfo[1]
-                ]
+                "libvirt_conn.getInfo.return_value": self.libvirt_info,
+                "xc.physinfo.return_value": self.xen_physinfo,
             }
-        )
-
-        vm = mock.Mock
-        vm.xid = 1
-        vm.name = "somevm"
-
-        info_time, _info = self.qubes_host.get_vm_stats(only_vm=vm)
-        self.assertIsNotNone(info_time)
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (1, 1), {}),
-            ],
         )
 
     def test_010_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_011_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio pv pv_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio pv pv_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_012_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm pv",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm pv"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), False)
+
+    def test_030_attrs(self):
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.xen_physinfo["total_memory"]
+        )
+        self.assertEqual(self.qubes_host.no_cpus, self.libvirt_info[2])
+
+        self.app.vmm.is_xen = False
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.libvirt_info[1] * 1024
+        )
 
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
@@ -863,6 +670,100 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
+    sample_xc_domain_getinfo = [
+        {
+            "paused": 0,
+            "cpu_time": 243951379111104,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3733212,
+            "domid": 0,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 1,
+            "maxmem_kb": 3734236,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "cpupool": 0,
+            "blocked": 0,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 2849496569205,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 303916,
+            "domid": 1,
+            "max_vcpu_id": 0,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 308224,
+            "shutdown": 0,
+            "online_vcpus": 1,
+            "handle": [
+                116,
+                174,
+                229,
+                207,
+                17,
+                1,
+                79,
+                39,
+                191,
+                37,
+                41,
+                186,
+                205,
+                158,
+                219,
+                8,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 249658663079978,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3782668,
+            "domid": 2,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 3783692,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [
+                169,
+                95,
+                55,
+                127,
+                140,
+                94,
+                79,
+                220,
+                186,
+                210,
+                117,
+                5,
+                148,
+                11,
+                185,
+                206,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+    ]
+
     def setUp(self):
         super().setUp()
         self.app = qubes.Qubes(
@@ -896,6 +797,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             qube.template_for_dispvms = True
         self.app.save()
         self.emitter = qubes.tests.TestEmitter()
+        self.maxDiff = None
 
     def tearDown(self):
         try:
@@ -914,6 +816,251 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             del self.appvm_alt
         except AttributeError:
             pass
+
+    @mock.patch("qubes.vm.adminvm.AdminVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    def test_000_get_vm_stats_single(self, mock_qubesdb, mock_adminvm_qubesdb):
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+        xenstore = {
+            "/local/domain/0/memory/meminfo": b"849924",
+            "/local/domain/1/memory/meminfo": b"849925",
+            "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": None,
+            "/local/domain/1/memory/swapinfo": b"35",
+            "/local/domain/2/memory/swapinfo": b"4",
+        }
+
+        qdb = {"/qubes-service/meminfo-writer": "1"}
+        test_qubesdb = TestQubesDB(data=qdb)
+        for obj in [mock_qubesdb, mock_adminvm_qubesdb]:
+            obj.write.side_effect = test_qubesdb.write
+            obj.rm.side_effect = test_qubesdb.rm
+            obj.read.side_effect = test_qubesdb.read
+
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+
+        info_time, info = self.app.host.get_vm_stats()
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024)),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+            ],
+        )
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                "name": "dom0",
+                "is_stubdom": False,
+                "memory_assigned_total": 3734236,
+                "memory_assigned_usable": 3733212,
+                "memory_kb": 3733212,
+                "memory_with_swap_used": 849924,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
+            },
+            1: {
+                "name": names[1],
+                "is_stubdom": False,
+                "memory_assigned_total": 308224,
+                "memory_assigned_usable": 303916,
+                "memory_kb": 303916,
+                "memory_with_swap_used": 849925,
+                "swap_used": 35,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 1,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+            2: {
+                "name": names[2],
+                "is_stubdom": False,
+                "memory_assigned_total": 3783692,
+                "memory_assigned_usable": 3782668,
+                "memory_kb": 3782668,
+                "memory_with_swap_used": 849926,
+                "swap_used": 4,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+        }
+        self.assertEqual(info, expected_info)
+
+    @mock.patch("qubes.vm.adminvm.AdminVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    def test_001_get_vm_stats_twice(self, mock_qubesdb, mock_adminvm_qubesdb):
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+
+        xenstore = {
+            "/local/domain/0/memory/meminfo": b"849924",
+            "/local/domain/1/memory/meminfo": b"849925",
+            "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": b"0",
+            "/local/domain/1/memory/swapinfo": None,
+            "/local/domain/2/memory/swapinfo": b"4",
+        }
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+        self.maxDiff = None
+
+        qdb = {"/qubes-service/meminfo-writer": "1"}
+        test_qubesdb = TestQubesDB(data=qdb)
+        for obj in [mock_qubesdb, mock_adminvm_qubesdb]:
+            obj.write.side_effect = test_qubesdb.write
+            obj.rm.side_effect = test_qubesdb.rm
+            obj.read.side_effect = test_qubesdb.read
+
+        prev_time, prev_info = self.app.host.get_vm_stats()
+
+        prev_time -= 1
+        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
+        prev_info[1]["cpu_time"] -= 10**9  # 1s
+        prev_info[2]["cpu_time"] -= 10**9  # 1s
+
+        info_time, info = self.app.host.get_vm_stats(prev_time, prev_info)
+
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                "name": "dom0",
+                "is_stubdom": False,
+                "memory_assigned_total": 3734236,
+                "memory_assigned_usable": 3733212,
+                "memory_kb": 3733212,
+                "memory_with_swap_used": 849924,
+                "swap_used": 0,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 10,
+                "cpu_usage_raw": 80,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+            1: {
+                "name": names[1],
+                "is_stubdom": False,
+                "memory_assigned_total": 308224,
+                "memory_assigned_usable": 303916,
+                "memory_kb": 303916,
+                "memory_with_swap_used": 849925,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 100,
+                "cpu_usage_raw": 100,
+                "online_vcpus": 1,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
+            },
+            2: {
+                "name": names[2],
+                "is_stubdom": False,
+                "memory_assigned_total": 3783692,
+                "memory_assigned_usable": 3782668,
+                "memory_kb": 3782668,
+                "memory_with_swap_used": 849926,
+                "swap_used": 4,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 12,
+                "cpu_usage_raw": 100,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+        }
+        self.assertEqual(info, expected_info)
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+            ],
+        )
+
+    def test_002_get_vm_stats_one_vm(self):
+        vm = mock.Mock
+        vm.xid = 1
+        vm.name = "somevm"
+
+        names = {1: vm.name}
+        xenstore = {"/local/domain/1/memory/meminfo": None}
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": [
+                    self.sample_xc_domain_getinfo[1]
+                ],
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+
+        info_time, _info = self.app.host.get_vm_stats(only_vm=vm)
+        self.assertIsNotNone(info_time)
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (1, 1)),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+            ],
+        )
 
     def test_100_clockvm(self):
         appvm = self.app.add_new_vm(
