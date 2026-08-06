@@ -235,7 +235,7 @@ class TC_00_DVMTemplateMixin(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
