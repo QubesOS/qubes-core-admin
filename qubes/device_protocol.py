@@ -858,18 +858,23 @@ class DeviceInterface:
             subclass_id = None
             for line in pciids.readlines():
                 line = line.rstrip()
+                if not line:
+                    continue
+                first_char = line[0]
                 if (
-                    line.startswith("\t\t")
+                    first_char == "\t"
+                    and len(line) >= 2
+                    and line[1] == "\t"
                     and class_id is not None
                     and subclass_id is not None
                 ):
                     progif_id, _, progif_name = line[2:].split(" ", 2)
                     result[class_id + subclass_id + progif_id] = progif_name
-                elif line.startswith("\t") and class_id:
+                elif first_char == "\t" and class_id:
                     subclass_id, _, subclass_name = line[1:].split(" ", 2)
                     # store both prog-if specific entry and generic one
                     result[class_id + subclass_id + "**"] = subclass_name
-                elif line.startswith("C "):
+                elif first_char == "C" and len(line) >= 2 and line[1] == " ":
                     _, class_id, _, class_name = line.split(" ", 3)
                     result[class_id + "****"] = class_name
                     subclass_id = None

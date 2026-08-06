@@ -160,7 +160,7 @@ class Emitter(metaclass=EmitterMeta):
                 h_func
                 for h_name, h_func_set in handlers_dict.items()
                 for h_func in h_func_set
-                if fnmatch.fnmatch(event, h_name)
+                if fnmatch.fnmatchcase(event, h_name)
             ]
             for func in sorted(
                 handlers,
