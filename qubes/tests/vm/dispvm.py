@@ -195,7 +195,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
             mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
             mock_qube.preload_complete.is_set.return_value = True
@@ -266,7 +266,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         ) as mock_events:
             mock_events.assert_not_called()
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
             mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
             mock_qube.preload_complete.is_set.return_value = True
@@ -696,7 +696,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),

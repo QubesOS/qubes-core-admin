@@ -255,7 +255,8 @@ def _default_virt_mode(self):
     if list(self.devices["pci"].get_assigned_devices()):
         return "hvm"
     try:
-        return self.template.virt_mode
+        template = get_active_template(self)
+        return template.virt_mode
     except AttributeError:
         return "pvh"
 
@@ -267,7 +268,7 @@ def _default_with_template(prop, default):
 
     def _func(self):
         try:
-            return getattr(self.template, prop)
+            return getattr(get_active_template(self), prop)
         except AttributeError:
             if callable(default):
                 return default(self)
@@ -376,6 +377,10 @@ def _get_libvirt_event_dict() -> dict[int, dict[str, Any]]:
             assert isinstance(event_dict["details"], dict)
             event_dict["details"][detail_id] = detail_pretty
     return libvirt_event_dict
+
+
+def get_active_template(self):
+    return getattr(self, "active_template", getattr(self, "template", None))
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
@@ -3083,7 +3088,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         )
         self.untrusted_qdb.write("/qubes-debug-mode", str(int(self.debug)))
         try:
-            self.untrusted_qdb.write("/qubes-base-template", self.template.name)
+            self.untrusted_qdb.write(
+                "/qubes-base-template", get_active_template(self).name
+            )
         except AttributeError:
             self.untrusted_qdb.write("/qubes-base-template", "")
 

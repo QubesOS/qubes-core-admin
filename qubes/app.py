@@ -864,9 +864,7 @@ class VMCollection:
         return set(
             vm
             for vm in self
-            if hasattr(vm, "template")
-            and getattr(vm, "active_template", getattr(vm, "template"))
-            == template
+            if qubes.vm.qubesvm.get_active_template(vm) == template
         )
 
     def get_vms_connected_to(self, netvm):
