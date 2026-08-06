@@ -50,7 +50,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         assert isinstance(self, qubes.vm.BaseVM)
         for vm in self.app.domains:
-            if getattr(vm, "template", None) == self:
+            if qubes.vm.qubesvm.get_active_template(vm) == self:
                 yield vm
 
     @qubes.events.handler("domain-load")
@@ -313,7 +313,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         nonderived = [
             qube
             for qube in new_list_diff
-            if getattr(self.app.domains[qube], "template") != self
+            if qubes.vm.qubesvm.get_active_template(self.app.domains[qube])
+            != self
         ]
         if nonderived:
             raise qubes.exc.QubesValueError(
