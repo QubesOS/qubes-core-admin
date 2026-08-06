@@ -24,6 +24,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from distutils import spawn
 
@@ -201,7 +202,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if in_qemu and self.testvm1.features.get("audio-model"):
             # be less strict on HVM tests in nested virt, the test environment
             # has huge overhead already
-            margin = 0.80
+            margin = 0.50
         if rec_size < margin * 441000:
             fname = f"/tmp/audio-sample-{self.id()}.raw"
             with open(fname, "wb") as f:
@@ -390,8 +391,13 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             output_index = output_info["index"]
             current_source = output_info["source"]
             attempts_left -= 1
+            self.loop.run_until_complete(asyncio.sleep(1))
 
-        self.assertGreater(attempts_left, 0, "Failed to move-source-output")
+        self.assertGreater(
+            attempts_left,
+            0,
+            f"Failed to move-source-output (output: {output_index}, source: {source_index})",
+        )
 
     async def retrieve_audio_input(self, vm, status):
         try:
@@ -742,6 +748,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -755,6 +762,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)

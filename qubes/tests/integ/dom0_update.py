@@ -333,6 +333,26 @@ HiddenServiceVersion 3
                 self.fail("salt pkg.uptodate failed: " + f_log.read())
         del proc
 
+    def update_func_qubes_vm_update(self):
+        logpath = os.path.join(self.tmpdir, "dom0-update-output.txt")
+        with open(logpath, "w") as f_log:
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    "qubes-vm-update",
+                    "--targets=dom0",
+                    "--force-update",
+                    "--show-output",
+                    stdout=f_log,
+                    stderr=subprocess.STDOUT,
+                )
+            )
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-vm-update failed: " + f_log.read())
+        del proc
+
     def _test_000_update(self, do_update_func):
         """Dom0 update tests
 
@@ -379,6 +399,9 @@ HiddenServiceVersion 3
 
     def test_000_update_salt(self):
         self._test_000_update(self.update_func_salt)
+
+    def test_000_update_qubes_vm_update(self):
+        self._test_000_update(self.update_func_qubes_vm_update)
 
     def test_001_update_check(self):
         """Check if dom0 updates check works"""
