@@ -436,7 +436,7 @@ class DispVMHelpersMixin:
                 self.fail("didn't destroy dispvm(s) in time")
         logger.info("end")
 
-    async def run_preload_proc(self):
+    async def run_preload_proc(self, timeout=60):
         logger.info("start")
         proc = await asyncio.create_subprocess_exec(
             *self.preload_cmd,
@@ -444,7 +444,9 @@ class DispVMHelpersMixin:
             stdin=asyncio.subprocess.DEVNULL,
         )
         try:
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
+            stdout, _ = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout
+            )
             return stdout.decode()
         except asyncio.TimeoutError:
             proc.terminate()
@@ -464,7 +466,7 @@ class DispVMHelpersMixin:
         self._test_event_handler_remove(appvm, "domain-preload-dispvm-start")
         self._test_event_handler_remove(dispvm, "domain-unpaused")
 
-        stdout = await self.run_preload_proc()
+        stdout = await self.run_preload_proc(timeout=appvm.qrexec_timeout)
         if assert_stdout:
             self.assertEqual(stdout, dispvm_name)
         test_cases = [
@@ -1165,7 +1167,10 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max)
         old_preload = self.disp_base.get_feat_preload()
-        tasks = [self.run_preload_proc() for _ in range(preload_max)]
+        tasks = [
+            self.run_preload_proc(timeout=self.disp_base.qrexec_timeout)
+            for _ in range(preload_max)
+        ]
         targets = await asyncio.gather(*tasks)
         await self.wait_preload(preload_max)
         preload_dispvm = self.disp_base.get_feat_preload()
@@ -1183,7 +1188,10 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
         preload_max = 1
         self.disp_base.features["preload-dispvm-max"] = str(preload_max)
         await self.wait_preload(preload_max, wait_completion=False)
-        tasks = [self.run_preload_proc(), self.no_preload()]
+        tasks = [
+            self.run_preload_proc(timeout=self.disp_base.qrexec_timeout),
+            self.no_preload(),
+        ]
         target = await asyncio.gather(*tasks)
         target_dispvm = target[0]
         self.assertTrue(target_dispvm.startswith("disp"))
