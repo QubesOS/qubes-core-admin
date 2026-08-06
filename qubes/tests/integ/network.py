@@ -1017,11 +1017,15 @@ class VmNetworkingMixin:
         """
         # Simulater late xl devd startup
         cmd = "systemctl stop xendriverdomain"
+        if "guix" in self.template:
+            cmd = "herd stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
         self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         cmd = "systemctl start xendriverdomain"
+        if "guix" in self.template:
+            cmd = "herd start xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
 
