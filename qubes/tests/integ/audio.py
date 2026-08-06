@@ -748,6 +748,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -761,6 +762,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
