@@ -609,6 +609,7 @@ done
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
 /etc/qubes-rpc/qubes.ConnectTCP
+/etc/qubes-rpc/qubes.AuthorizeAdminAccess
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 

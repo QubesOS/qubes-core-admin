@@ -197,6 +197,7 @@ endif
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.ConnectTCP $(DESTDIR)/etc/qubes-rpc/
+	cp qubes-rpc/qubes.AuthorizeAdminAccess $(DESTDIR)/etc/qubes-rpc/
 	install -m 0755 qvm-tools/qubes-bug-report $(DESTDIR)/usr/bin/qubes-bug-report
 	install -m 0755 qvm-tools/qubes-hcl-report $(DESTDIR)/usr/bin/qubes-hcl-report
 	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
