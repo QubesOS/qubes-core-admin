@@ -173,7 +173,12 @@ class Features(dict):
             except KeyError:
                 if attr is None:
                     break
-                subject = getattr(subject, attr, None)
+                if attr == "active_template":
+                    subject = getattr(
+                        subject, "active_template", getattr(subject, attr, None)
+                    )
+                else:
+                    subject = getattr(subject, attr, None)
 
         if check_adminvm:
             adminvm = self.subject.app.domains["dom0"]
@@ -190,12 +195,14 @@ class Features(dict):
 
         raise KeyError(feature)
 
-    def check_with_template(self, feature, default=_NO_DEFAULT):
+    def check_with_template(self, feature, default=_NO_DEFAULT, active=True):
         """Check for the specified feature; if this VM does not have it,
         it checks with its template."""
-        return self._recursive_check(
-            "template", feature=feature, default=default
-        )
+        if active:
+            prop = "active_template"
+        else:
+            prop = "template"
+        return self._recursive_check(prop, feature=feature, default=default)
 
     def check_with_netvm(self, feature, default=_NO_DEFAULT):
         """Check for the specified feature; if this VM does not have it,
@@ -209,10 +216,16 @@ class Features(dict):
             check_adminvm=True, feature=feature, default=default
         )
 
-    def check_with_template_and_adminvm(self, feature, default=_NO_DEFAULT):
+    def check_with_template_and_adminvm(
+        self, feature, default=_NO_DEFAULT, active=True
+    ):
         """Check for the specified feature; if this VM does not have it,
         it checks with its template. If the template does not have it, it
         checks with the AdminVM."""
+        if active:
+            prop = "active_template"
+        else:
+            prop = "template"
         return self._recursive_check(
-            "template", check_adminvm=True, feature=feature, default=default
+            prop, check_adminvm=True, feature=feature, default=default
         )
