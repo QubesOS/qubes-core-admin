@@ -27,6 +27,7 @@ from datetime import datetime
 import qubes.api
 import qubes.api.admin
 import qubes.vm.dispvm
+import qubes.vm.qubesvm
 
 
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
@@ -136,12 +137,14 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         del untrusted_update_count
 
         # look for the nearest updateable VM up in the template chain
-        updateable_template = getattr(self.src, "template", None)
+        updateable_template = qubes.vm.qubesvm.get_active_template(self.src)
         while (
             updateable_template is not None
             and not updateable_template.updateable
         ):
-            updateable_template = getattr(updateable_template, "template", None)
+            updateable_template = qubes.vm.qubesvm.get_active_template(
+                updateable_template
+            )
 
         if self.src.updateable:
             # Just trust information from VM itself

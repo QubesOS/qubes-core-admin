@@ -229,7 +229,6 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
         self.assertEqual(
             self.vm.mock_calls,
             [
-                ("template.__bool__", (), {}),
                 (
                     "log.warning",
                     ("Ignoring qubes.NotifyTools for template-based VM",),

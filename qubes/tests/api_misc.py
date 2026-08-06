@@ -269,6 +269,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_020_notify_updates_standalone(self):
         del self.src.template
+        del self.src.active_template
         self.src.features.get.return_value = False
         expected = self.notify_update(new_updates=True)
         self.assertEqual(
@@ -283,6 +284,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_021_notify_updates_standalone2(self):
         del self.src.template
+        del self.src.active_template
         self.src.features.get.return_value = False
         expected = self.notify_update(new_updates=False)
         self.assertEqual(
@@ -313,6 +315,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_024_notify_updates_template_based_no_updates(self):
         """No updates on template-based VM, should not reset state"""
+        del self.src.active_template
         self.src.updateable = False
         self.src.template.is_running.return_value = False
         response = self.call_mgmt_func(b"qubes.NotifyUpdates", payload=b"0\n")
@@ -328,6 +331,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def test_025_notify_updates_template_based(self):
         """Some updates on template-based VM, should save flag"""
+        del self.src.active_template
         self.src.updateable = False
         self.tpl.is_running.return_value = False
         self.src.features.get.return_value = False
@@ -360,6 +364,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_026_notify_updates_template_based_outdated(self):
+        del self.src.active_template
         self.src.updateable = False
         self.src.template.is_running.return_value = False
         self.src.storage.outdated_volumes = ["root"]
@@ -377,6 +382,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.app.mock_calls, [])
 
     def test_027_notify_updates_template_based_template_running(self):
+        del self.src.active_template
         self.src.updateable = False
         self.src.template.is_running.return_value = True
         self.src.storage.outdated_volumes = []
@@ -393,10 +399,30 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
+    def test_027_notify_updates_deferred_template_based_template_running(self):
+        alt_tpl = mock.NonCallableMagicMock(name="template")
+        self.src.active_template = alt_tpl
+        self.src.updateable = False
+        self.src.active_template.is_running.return_value = True
+        self.src.storage.outdated_volumes = []
+        response = self.call_mgmt_func(b"qubes.NotifyUpdates", payload=b"1\n")
+        self.assertIsNone(response)
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(
+            alt_tpl.mock_calls,
+            [
+                mock.call.updateable.__bool__(),
+                mock.call.is_running(),
+            ],
+        )
+        self.assertIsInstance(self.src.updates_available, mock.Mock)
+        self.assertEqual(self.app.mock_calls, [])
+
     def test_028_notify_updates_template_based_dispvm(self):
         dvm = self.src
         dvm.updateable = False
         _srv = mock.NonCallableMagicMock(template=dvm)
+        del self.src.active_template
         self.src.updateable = False
         self.src.features.get.return_value = False
         self.src.template.is_running.return_value = False
@@ -429,8 +455,47 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
+    def test_028_notify_updates_deferred_template_based_dispvm(self):
+        alt_tpl = mock.NonCallableMagicMock(name="template")
+        dvm = self.src
+        dvm.updateable = False
+        self.src.active_template = alt_tpl
+        _srv = mock.NonCallableMagicMock(template=dvm)
+        self.src.updateable = False
+        self.src.features.get.return_value = False
+        self.src.active_template.is_running.return_value = False
+        self.src.storage.outdated_volumes = []
+        with DatetimeMock() as mock_date:
+            response = self.call_mgmt_func(
+                b"qubes.NotifyUpdates", payload=b"1\n"
+            )
+            self.assertIsNone(response)
+            expected = [
+                mock.call.updateable.__bool__(),
+                mock.call.is_running(),
+                mock.call.features.get("updates-available", False),
+                mock.call.features.get().__bool__(),
+                mock.call.features.__setitem__("updates-available", True),
+                mock.call.features.__setitem__(
+                    "last-updates-check", mock_date.str
+                ),
+            ]
+        self.assertEqual(self.src.mock_calls, [])
+        self.assertEqual(
+            alt_tpl.mock_calls,
+            expected,
+            "\nActual:\n"
+            + str(alt_tpl.mock_calls)
+            + "\nExpected:\n"
+            + str(expected).replace(",", ",\n"),
+        )
+        self.assertEqual(dvm.mock_calls, [])
+        self.assertIsInstance(self.src.updates_available, mock.Mock)
+        self.assertEqual(self.app.mock_calls, [mock.call.save()])
+
     def test_030_notify_updates_standalone(self):
         del self.src.template
+        del self.src.active_template
 
         self.src.features.get.return_value = False
         expected = self.notify_update(timestamp=1, new_updates=False)
