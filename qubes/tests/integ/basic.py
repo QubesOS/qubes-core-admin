@@ -586,6 +586,19 @@ qvm-features-request boot-mode.active="defuser"
         self.app.save()
         self.loop.run_until_complete(self._test_bootmode_default_user(self.vm))
 
+    def test_300_deferred_template(self) -> None:
+        self.loop.run_until_complete(self._test_300_deferred_template())
+
+    async def _test_300_deferred_template(self) -> None:
+        appvm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("appvm"),
+            template=self.app.default_template,
+            label="red",
+        )
+        await appvm.create_on_disk()
+        await self.defer_tpl(appvm)
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
