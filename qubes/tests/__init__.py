@@ -64,6 +64,8 @@ import qubes.events
 import qubes.exc
 import qubes.ext.pci
 import qubes.tests.never_awaited
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
