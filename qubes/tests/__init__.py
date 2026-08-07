@@ -64,6 +64,8 @@ import qubes.events
 import qubes.exc
 import qubes.ext.pci
 import qubes.tests.never_awaited
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
@@ -1722,6 +1724,96 @@ class SystemTestCase(QubesTestCase):
         """Start a VM and wait for it to be fully up"""
         await vm.start()
         await self.wait_for_session(vm)
+
+    async def defer_tpl(
+        self, qube: qubes.vm.appvm.AppVM | qubes.vm.dispvm.DispVM
+    ) -> None:
+        template = qube.template
+        if qube.klass == "AppVM":
+            template_alt = self.app.add_new_vm(
+                qubes.vm.templatevm.TemplateVM,
+                name=self.make_vm_name("defer-tpl-alt"),
+                label="red",
+            )
+        elif qube.klass == "DispVM":
+            template_alt = self.app.add_new_vm(
+                qubes.vm.appvm.AppVM,
+                name=self.make_vm_name("defer-tpl-alt"),
+                label="red",
+                template_for_dispvms=True,
+            )
+        else:
+            raise TypeError("Received invalid qube class")
+
+        await template_alt.create_on_disk()
+        template.features["template-name"] = template.name
+        template_alt.features["template-name"] = template_alt.name
+
+        def get_tpl_vol_vid(qube):
+            if qube.klass == "DispVM":
+                volume = "private"
+            else:
+                volume = "root"
+            vid = qube.volumes[volume].source.vid
+            return vid
+
+        def get_tpl_vol_path(qube):
+            if getattr(qube, "template_for_dispvms", False):
+                volume = "private"
+            else:
+                volume = "root"
+            vid = qube.volumes[volume].vid
+            return vid
+
+        def check_deferred(qube, active, deferred):
+            self.assertEqual(qube.template, deferred)
+            self.assertEqual(qube.active_template, active)
+            self.assertEqual(get_tpl_vol_vid(qube), get_tpl_vol_path(active))
+            self.assertEqual(
+                qube.features.check_with_template("template-name"), active.name
+            )
+            self.assertEqual(
+                qube.features.check_with_template(
+                    "template-name", active=False
+                ),
+                deferred.name,
+            )
+            self.assertEqual(
+                qube.features.check_with_template_and_adminvm("template-name"),
+                active.name,
+            )
+            self.assertEqual(
+                qube.features.check_with_template_and_adminvm(
+                    "template-name", active=False
+                ),
+                deferred.name,
+            )
+            self.assertTrue(
+                qube in qube.app.domains.get_vms_based_on(qube.active_template)
+            )
+            if active != deferred:
+                self.assertTrue(
+                    qube not in qube.app.domains.get_vms_based_on(qube.template)
+                )
+                self.assertFalse(qube.property_is_default("active_template"))
+            else:
+                self.assertTrue(qube.property_is_default("active_template"))
+
+        self.log.warning("Testing prop is sane")
+        check_deferred(qube, active=template, deferred=template)
+
+        self.log.warning("Testing changing template when halted")
+        qube.template = template_alt
+        check_deferred(qube, active=template_alt, deferred=template_alt)
+
+        self.log.warning("Test changing template when running is deferred")
+        await qube.start()
+        qube.template = template
+        check_deferred(qube, active=template_alt, deferred=template)
+
+        self.log.warning("Test deferred template is applied on shutdown")
+        await qube.shutdown(wait=True)
+        check_deferred(qube, active=template, deferred=template)
 
 
 _templates = None
