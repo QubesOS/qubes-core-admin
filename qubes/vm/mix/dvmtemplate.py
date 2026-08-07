@@ -431,17 +431,20 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if newvalue == oldvalue:
             return
-        self.remove_preload_excess(0, reason="template has changed")
 
     @qubes.events.handler("property-set:template")
     def __on_property_set_template(
         self, event, name, newvalue, oldvalue=None
     ) -> None:
         # pylint: disable=unused-argument
+        assert isinstance(self, qubes.vm.qubesvm.QubesVM)
         if newvalue == oldvalue:
             return
         if not getattr(self, "template_for_dispvms"):
             return
+        if self.is_running():
+            return
+        self.remove_preload_excess(0, reason="template has changed")
         if not self.can_preload():
             return
         asyncio.ensure_future(
