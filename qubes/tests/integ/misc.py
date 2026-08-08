@@ -101,7 +101,9 @@ class TC_06_AppVMMixin(object):
                     "mkdir -p /usr/local/bin &&"
                     "ln -s /bin/true /usr/local/bin/true-copy &&"
                     "mkdir -p /usr/local/lib/subdir &&"
-                    "echo touch /etc/test5.flag >> /rw/config/rc.local",
+                    "echo touch /etc/test5.flag >> /rw/config/rc.local &&"
+                    "echo touch /etc/test6.flag >> /rw/config/rc.local-early &&"
+                    "chmod +x /rw/config/rc.local-early",
                     user="root",
                 )
             )
@@ -123,7 +125,8 @@ class TC_06_AppVMMixin(object):
                     "grep test5 /home/user/new_file &&"
                     "! ls -l /usr/local/bin/true-copy &&"
                     "ls -dl /usr/local/lib/subdir &&"
-                    "! ls -dl /etc/test5.flag",
+                    "! ls -dl /etc/test5.flag &&"
+                    "! ls -dl /etc/test6.flag",
                     user="root",
                 )
             )
