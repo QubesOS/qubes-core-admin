@@ -26,11 +26,8 @@ particularly our custom Sphinx extension.
 
 import argparse
 import io
-import json
 import os
 import re
-import urllib.error
-import urllib.request
 
 import docutils
 import docutils.nodes
@@ -52,81 +49,6 @@ try:
     log = logging.getLogger(__name__)
 except AttributeError:
     log = None  # type: ignore
-
-
-class GithubTicket:
-    # pylint: disable=too-few-public-methods
-    def __init__(self, data):
-        self.number = data["number"]
-        self.summary = data["title"]
-        self.uri = data["html_url"]
-
-
-def fetch_ticket_info(app, number):
-    """Fetch info about particular trac ticket given
-
-    :param app: Sphinx app object
-    :param str number: number of the ticket, without #
-    :rtype: mapping
-    :raises: urllib.error.HTTPError
-    """
-
-    with urllib.request.urlopen(
-        urllib.request.Request(
-            app.config.ticket_base_uri.format(number=number),
-            headers={
-                "Accept": "application/vnd.github.v3+json",
-                "User-agent": __name__,
-            },
-        )
-    ) as response:
-        return GithubTicket(json.load(response))
-
-
-def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
-    """Link to qubes ticket
-
-    :param str name: The role name used in the document
-    :param str rawtext: The entire markup snippet, with role
-    :param str text: The text marked with the role
-    :param int lineno: The line number where rawtext appears in the input
-    :param docutils.parsers.rst.states.Inliner inliner: The inliner instance \
-        that called this function
-    :param options: Directive options for customisation
-    :param content: The directive content for customisation
-    """
-    # pylint: disable=unused-argument,too-many-positional-arguments
-
-    if options is None:
-        options = {}
-
-    ticketno = text.lstrip("#")
-    if not ticketno.isdigit():
-        msg = inliner.reporter.error(
-            "Invalid ticket identificator: {!r}".format(text), line=lineno
-        )
-        prb = inliner.problematic(rawtext, rawtext, msg)
-        return [prb], [msg]
-
-    try:
-        info = fetch_ticket_info(inliner.document.settings.env.app, ticketno)
-    except urllib.error.HTTPError as e:
-        msg = inliner.reporter.error(
-            "Error while fetching ticket info: {!s}".format(e), line=lineno
-        )
-        prb = inliner.problematic(rawtext, rawtext, msg)
-        return [prb], [msg]
-
-    docutils.parsers.rst.roles.set_classes(options)
-
-    node = docutils.nodes.reference(
-        rawtext,
-        "#{} ({})".format(info.number, info.summary),
-        refuri=info.uri,
-        **options,
-    )
-
-    return [node], []
 
 
 class versioncheck(docutils.nodes.warning):
@@ -479,12 +401,6 @@ def break_to_pdb(app, *_dummy):
 
 
 def setup(app):
-    app.add_role("ticket", ticket)
-    app.add_config_value(
-        "ticket_base_uri",
-        "https://api.github.com/repos/QubesOS/qubes-issues/issues/{number}",
-        "env",
-    )
     app.add_config_value("break_to_pdb", False, "env")
     app.add_node(versioncheck, html=(visit, depart), man=(visit, depart))
     app.add_directive("versioncheck", VersionCheck)
