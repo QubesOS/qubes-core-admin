@@ -1861,6 +1861,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.vm.appvm",
         "qubes.tests.vm.dispvm",
         "qubes.tests.app",
+        "qubes.tests.backup",
         "qubes.tests.tarwriter",
         "qubes.tests.api",
         "qubes.tests.api_admin",
