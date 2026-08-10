@@ -2304,7 +2304,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         # make sure shutdown is handled before removing anything, but only if
         # handling is pending; if not, we may be called from within
-        # domain-shutdown event (DispVM._auto_cleanup), which would deadlock
+        # domain-shutdown event of a DispVM, which would deadlock
         if not self._domain_stopped_event_handled:
             await self._ensure_shutdown_handled()
 
