@@ -196,7 +196,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
 
 
 class DispVMHelpersMixin:
-    def setup_dispvm_nodes(self):
+    def setup_dispvm_nodes(self, skip_start: bool = False):
         """Initialize disp_base and related attributes. Called by child setUp"""
         self.app.add_handler("domain-add", self._on_domain_add)
         self.addCleanup(
@@ -217,16 +217,17 @@ class DispVMHelpersMixin:
             template_for_dispvms=True,
         )
         self.loop.run_until_complete(self.disp_base_alt.create_on_disk())
-        start_tasks = [
-            self.start_vm(self.disp_base),
-            self.start_vm(self.disp_base_alt),
-        ]
-        self.loop.run_until_complete(asyncio.gather(*start_tasks))
-        shutdown_tasks = [
-            self.disp_base.shutdown(wait=True),
-            self.disp_base_alt.shutdown(wait=True),
-        ]
-        self.loop.run_until_complete(asyncio.gather(*shutdown_tasks))
+        if not skip_start:
+            start_tasks = [
+                self.start_vm(self.disp_base),
+                self.start_vm(self.disp_base_alt),
+            ]
+            self.loop.run_until_complete(asyncio.gather(*start_tasks))
+            shutdown_tasks = [
+                self.disp_base.shutdown(wait=True),
+                self.disp_base_alt.shutdown(wait=True),
+            ]
+            self.loop.run_until_complete(asyncio.gather(*shutdown_tasks))
         # Setting "default_dispvm" fires the preload event before patches of
         # each test function is applied.
         if "_preload_" not in self._testMethodName:
@@ -521,6 +522,149 @@ class DispVMHelpersMixin:
         next_preload_list = appvm.get_feat_preload()
         self.assertTrue(next_preload_list)
         self.assertNotIn(dispvm_name, next_preload_list)
+        logger.info("end")
+
+
+class TC_10_DispVM_Misc(DispVMHelpersMixin, qubes.tests.SystemTestCase):
+    """
+    Tests that are not preloaded disposable specific, or template specific.
+    """
+
+    def setUp(self):  # pylint: disable=invalid-name
+        logger.info("start")
+        super().setUp()
+        self.init_default_template()
+        self.template = self.app.default_template
+        self.setup_dispvm_nodes(skip_start=True)
+        logger.info("end")
+
+    async def gen_named(self):
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp"),
+        )
+        await dispvm.create_on_disk()
+        return dispvm
+
+    async def gen_unnamed(self):
+        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        return dispvm
+
+    async def gen_disp(self, named: bool):
+        if named:
+            return await self.gen_named()
+        return await self.gen_unnamed()
+
+    @contextlib.asynccontextmanager
+    async def _test_cleanup(
+        self,
+        dispvm: qubes.vm.dispvm.DispVM,
+        removed: bool,
+        early_cleanup: bool,
+        skip_cleanup: bool = False,
+    ):
+        name = dispvm.name
+        try:
+            yield
+        finally:
+            if not skip_cleanup and early_cleanup:
+                await dispvm.cleanup()
+            if removed:
+                self._test_event_was_handled(dispvm, "domain-shutdown")
+                self.assertTrue(name not in self.app.domains)
+            else:
+                self.assertTrue(name in self.app.domains)
+            if not skip_cleanup and not early_cleanup:
+                await dispvm.cleanup()
+
+    async def _test_cleanup_not_running(self, named: bool):
+        logger.info("cleanup while not running")
+        dispvm = await self.gen_disp(named=named)
+        async with self._test_cleanup(
+            dispvm=dispvm,
+            removed=True,
+            early_cleanup=True,
+        ):
+            pass
+
+    async def _test_cleanup_running(self, named: bool):
+        logger.info("cleanup while running")
+        dispvm = await self.gen_disp(named=named)
+        async with self._test_cleanup(
+            dispvm=dispvm, removed=True, early_cleanup=True
+        ):
+            await dispvm.start()
+
+    async def _test_cleanup_on_shutdown(self, named: bool):
+        logger.info("cleanup while running triggered by shutdown")
+        dispvm = await self.gen_disp(named=named)
+        async with self._test_cleanup(
+            dispvm=dispvm,
+            removed=dispvm.auto_cleanup,
+            early_cleanup=False,
+            skip_cleanup=dispvm.auto_cleanup,
+        ):
+            await dispvm.start()
+            await dispvm.kill()
+
+    async def _test_cleanup_failed_start(self, named: bool):
+        logger.info("insufficient memory reserve (early startup failure)")
+        dispvm = await self.gen_disp(named=named)
+        unpatched_open = open
+
+        def mock_open_mem_raise(file, *args, **kwargs):
+            if file == qubes.config.qmemman_avail_mem_file:
+                raise FileNotFoundError(2, "No such file or directory", file)
+            return unpatched_open(file, *args, **kwargs)
+
+        dispvm.memory = self.app.host.memory_total * 2
+        with patch("builtins.open", side_effect=mock_open_mem_raise):
+            async with self._test_cleanup(
+                dispvm=dispvm,
+                removed=dispvm.auto_cleanup,
+                early_cleanup=False,
+                skip_cleanup=dispvm.auto_cleanup,
+            ):
+                with contextlib.suppress(qubes.exc.QubesMemoryError):
+                    await dispvm.start()
+                logger.info("post start")
+
+    def test_000_named_disp_shutdown(self):
+        """Test shutdown of named disposable."""
+        self.loop.run_until_complete(self._test_000_named_disp_shutdown())
+
+    async def _test_000_named_disp_shutdown(self):
+        # pylint: disable=unspecified-encoding
+        logger.info("start")
+        named = True
+        with self.subTest(msg="Cleanup if not running"):
+            await self._test_cleanup_not_running(named=named)
+        with self.subTest(msg="Cleanup if running"):
+            await self._test_cleanup_running(named=named)
+        with self.subTest(msg="Do not cleanup on failed startup"):
+            await self._test_cleanup_failed_start(named=named)
+        with self.subTest(msg="Do not cleanup if shutting down"):
+            await self._test_cleanup_on_shutdown(named=named)
+        logger.info("end")
+
+    def test_001_unnamed_disp_shutdown(self):
+        """Test shutdown of unnamed disposable."""
+        self.loop.run_until_complete(self._test_001_unnamed_disp_shutdown())
+
+    async def _test_001_unnamed_disp_shutdown(self):
+        # pylint: disable=unspecified-encoding
+        logger.info("start")
+        named = False
+        with self.subTest(msg="Cleanup if not running"):
+            await self._test_cleanup_not_running(named=named)
+        with self.subTest(msg="Cleanup if running"):
+            await self._test_cleanup_running(named=named)
+        with self.subTest(msg="Cleanup on failed startup"):
+            await self._test_cleanup_failed_start(named=named)
+        with self.subTest(msg="Cleanup if shutting down"):
+            await self._test_cleanup_on_shutdown(named=named)
         logger.info("end")
 
 
@@ -1136,7 +1280,7 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
                 for qube in self.app.domains
                 if getattr(qube, "is_preload", False)
             ]
-            self.disp_base.memory = 999999999999999999999
+            self.disp_base.memory = self.app.host.memory_total * 2
             self.disp_base.features["preload-dispvm-max"] = str(preload_max)
             await self.wait_preload(
                 preload_max, fail_on_timeout=False, timeout=15
