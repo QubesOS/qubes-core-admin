@@ -701,7 +701,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Do auto cleanup if enabled.
         """
-        await self._auto_cleanup()
+        await self._delete_domain()
 
     @qubes.events.handler("domain-remove-from-disk")
     def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
@@ -955,9 +955,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.template.remove_preload_from_list([self.name])
 
-    async def _auto_cleanup(self, force: bool = False) -> None:
+    async def _delete_domain(self, force: bool = False) -> None:
         """
-        Do auto cleanup if enabled.
+        Delete domain if auto cleanup is enabled.
 
         :param bool force: Auto clean up even if property is disabled
         """
@@ -994,7 +994,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.auto_cleanup or (
             force and not running and self.auto_cleanup
         ):
-            await self._auto_cleanup(force=force)
+            await self._delete_domain(force=force)
 
     async def start(self, **kwargs):
         """
