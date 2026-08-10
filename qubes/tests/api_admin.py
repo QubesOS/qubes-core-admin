@@ -5149,6 +5149,34 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             "mem=512 mem_static_max=1024 cputime=100 power_state=Running",
         )
 
+    def test_910_deviceclass_list(self):
+        value = self.call_mgmt_func(b"admin.deviceclass.List", b"dom0")
+        classes = value.splitlines()
+        for line in classes:
+            self.assertNotIn("=", line)
+        self.assertIn("pci", classes)
+        self.assertIn("block", classes)
+
+    def test_911_deviceclass_list_details(self):
+        value = self.call_mgmt_func(
+            b"admin.deviceclass.List", b"dom0", b"details"
+        )
+        parsed = {}
+        for line in value.splitlines():
+            name, _, rest = line.partition(" ")
+            parsed[name] = rest
+        self.assertIn("pci", parsed)
+        self.assertIn("block", parsed)
+        self.assertEqual(parsed["pci"], "assignment_modes=required")
+        self.assertEqual(
+            parsed["block"],
+            "assignment_modes=ask-to-attach,auto-attach,required",
+        )
+
+    def test_912_deviceclass_list_bad_argument(self):
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(b"admin.deviceclass.List", b"dom0", b"badarg")
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b"admin.vm.List",
@@ -5224,7 +5252,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             b"admin.vm.firewall.Get",
             b"admin.vm.firewall.Set",
             b"admin.vm.firewall.Reload",
-            b"admin.deviceclass.List",
             b"admin.vm.device.denied.List",
             b"admin.vm.volume.List",
             b"admin.vm.Start",
@@ -5304,7 +5331,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
     def test_993_dom0_unexpected_argument(self):
         methods_with_no_argument = [
-            b"admin.deviceclass.List",
             b"admin.vmclass.List",
             b"admin.vm.List",
             b"admin.label.List",
