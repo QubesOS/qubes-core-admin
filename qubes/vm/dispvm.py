@@ -699,8 +699,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(self, _event, **_kwargs) -> None:
         """
-        Do auto cleanup if enabled.
+        Remove domain if appropriate.
         """
+        if not self.auto_cleanup:
+            return
         await self._delete_domain()
 
     @qubes.events.handler("domain-remove-from-disk")
@@ -955,46 +957,41 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             )
             self.template.remove_preload_from_list([self.name])
 
-    async def _delete_domain(self, force: bool = False) -> None:
+    async def _delete_domain(self) -> None:
         """
-        Delete domain if auto cleanup is enabled.
-
-        :param bool force: Auto clean up even if property is disabled
+        Delete the disposable qube.
         """
-        if not self.auto_cleanup and not force:
-            return
         self._preload_cleanup()
+        if not hasattr(self, "app"):
+            return
         if self not in self.app.domains:
             return
         del self.app.domains[self]
         await self.remove_from_disk()
         self.app.save()
 
-    async def cleanup(self, force: bool = False) -> None:
+    async def cleanup(self, include_non_auto: bool = True) -> None:
         """
         Clean up after the disposable.
 
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
 
-        :param bool force: Auto clean up if property is enabled and domain \
-                is not running, should be used in special circumstances only \
-                as the sole purpose of this option is because using it may not \
-                be reliable.
+        :param bool include_non_auto: For domains with ``auto_cleanup`` \
+                disabled, allow disabling the removal of the domain if this \
+                parameter is set to ``False``.
         """
         if self not in self.app.domains:
             return
-        running = True
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            running = False
-        # Full cleanup will be done automatically if event 'domain-shutdown' is
-        # triggered and "auto_cleanup=True".
-        if not self.auto_cleanup or (
-            force and not running and self.auto_cleanup
-        ):
-            await self._delete_domain(force=force)
+            # Removal will be done automatically on event 'domain-shutdown'.
+            if self.auto_cleanup:
+                await self._delete_domain()
+        finally:
+            if not self.auto_cleanup and include_non_auto:
+                await self._delete_domain()
 
     async def start(self, **kwargs):
         """
@@ -1010,8 +1007,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 )
             await super().start(**kwargs)
         except:
-            # Cleanup also on failed startup
-            await self.cleanup(force=True)
+            await self.cleanup(include_non_auto=False)
             raise
 
     def create_qdb_entries(self) -> None:
