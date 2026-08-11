@@ -27,8 +27,9 @@ etc.
 import asyncio
 import collections
 import fnmatch
-
 import itertools
+
+from typing import Callable
 
 
 def handler(*events):
@@ -136,10 +137,39 @@ class Emitter(metaclass=EmitterMeta):
         # pylint: disable=no-member
         self.__handlers__[event].remove(func)
 
-    def _fire_event(self, event, kwargs, pre_event=False):
-        """Fire event for classes in given order.
+    def _get_sync_effects(
+        self, funcs: list[Callable], event: str, kwargs
+    ) -> list:
+        effects = []
+        for func in funcs:
+            effect = func(self, event, **kwargs)
+            if effect is not None:
+                effects.extend(effect)
+        return effects
 
-        Do not use this method. Use :py:meth:`fire_event`.
+    async def _get_async_effects(
+        self, funcs: list[Callable], event: str, kwargs
+    ) -> list:
+        if not funcs:
+            return []
+        coros = []
+        for func in funcs:
+            coros.append(func(self, event, **kwargs))
+        async_tasks, _ = await asyncio.wait(map(asyncio.create_task, coros))
+        effects = []
+        for task in async_tasks:
+            effect = task.result()
+            if effect is not None:
+                effects.extend(effect)
+        return effects
+
+    def _get_event_funcs(
+        self, event: str, pre_event: bool = False
+    ) -> tuple[list, list]:
+        """Get all functions for a give event.
+
+        Do not use this method. Use :py:meth:`fire_event` or
+        :py:meth:`fire_event_async`.
         """
 
         if not self.events_enabled:
@@ -149,8 +179,8 @@ class Emitter(metaclass=EmitterMeta):
         if not pre_event:
             order = reversed(list(order))
 
-        effects = []
-        async_effects = []
+        sync_funcs = []
+        async_funcs = []
         for i in order:
             try:
                 handlers_dict = i.__handlers__
@@ -167,12 +197,11 @@ class Emitter(metaclass=EmitterMeta):
                 key=(lambda handler: hasattr(handler, "ha_bound")),
                 reverse=True,
             ):
-                effect = func(self, event, **kwargs)
                 if asyncio.iscoroutinefunction(func):
-                    async_effects.append(effect)
-                elif effect is not None:
-                    effects.extend(effect)
-        return effects, async_effects
+                    async_funcs.append(func)
+                else:
+                    sync_funcs.append(func)
+        return sync_funcs, async_funcs
 
     def fire_event(self, event, pre_event=False, **kwargs):
         """Call all handlers for an event.
@@ -198,15 +227,18 @@ class Emitter(metaclass=EmitterMeta):
         events.
         """
 
-        sync_effects, async_effects = self._fire_event(
-            event, kwargs, pre_event=pre_event
+        sync_funcs, async_funcs = self._get_event_funcs(
+            event, pre_event=pre_event
         )
-        if async_effects:
+        if async_funcs:
             raise RuntimeError(
                 "unexpected async-handler(s) {!r} for sync event {!s}".format(
-                    async_effects, event
+                    async_funcs, event
                 )
             )
+        sync_effects = self._get_sync_effects(
+            funcs=sync_funcs, event=event, kwargs=kwargs
+        )
         return sync_effects
 
     async def fire_event_async(self, event, pre_event=False, **kwargs):
@@ -232,16 +264,13 @@ class Emitter(metaclass=EmitterMeta):
         events.
         """
 
-        sync_effects, async_effects = self._fire_event(
-            event, kwargs, pre_event=pre_event
+        sync_funcs, async_funcs = self._get_event_funcs(
+            event=event, pre_event=pre_event
         )
-        effects = sync_effects
-        if async_effects:
-            async_tasks, _ = await asyncio.wait(
-                map(asyncio.create_task, async_effects)
-            )
-            for task in async_tasks:
-                effect = task.result()
-                if effect is not None:
-                    effects.extend(effect)
-        return effects
+        sync_effects = self._get_sync_effects(
+            funcs=sync_funcs, event=event, kwargs=kwargs
+        )
+        async_effects = await self._get_async_effects(
+            funcs=async_funcs, event=event, kwargs=kwargs
+        )
+        return sync_effects + async_effects
