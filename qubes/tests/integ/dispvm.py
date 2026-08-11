@@ -304,6 +304,9 @@ class DispVMHelpersMixin:
             "domain-feature-delete:internal",
             # debug
             "domain-shutdown",
+            "domain-remove-from-disk",
+            "domain-pre-delete",
+            "domain-delete",
         ]
         for event in events:
             vm.add_handler(event, self._test_event_handler)
