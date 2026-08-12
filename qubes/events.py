@@ -27,6 +27,7 @@ etc.
 import asyncio
 import collections
 import fnmatch
+import functools
 import itertools
 
 from typing import Callable
@@ -109,6 +110,7 @@ class Emitter(metaclass=EmitterMeta):
 
     def close(self):
         self.events_enabled = False
+        self._get_handler_funcs.cache_clear()
 
     def add_handler(self, event, func):
         """Add event handler to subject's class.
@@ -163,6 +165,23 @@ class Emitter(metaclass=EmitterMeta):
                 effects.extend(effect)
         return effects
 
+    @staticmethod
+    @functools.cache
+    def _get_handler_funcs(handlers) -> tuple[list, list]:
+        sync_funcs = []
+        async_funcs = []
+        sorted_handlers = sorted(
+            handlers,
+            key=(lambda handler: hasattr(handler, "ha_bound")),
+            reverse=True,
+        )
+        for func in sorted_handlers:
+            if asyncio.iscoroutinefunction(func):
+                async_funcs.append(func)
+            else:
+                sync_funcs.append(func)
+        return sync_funcs, async_funcs
+
     def _get_event_funcs(
         self, event: str, pre_event: bool = False
     ) -> tuple[list, list]:
@@ -183,24 +202,24 @@ class Emitter(metaclass=EmitterMeta):
         async_funcs = []
         for i in order:
             try:
-                handlers_dict = i.__handlers__
+                handlers_tuple = tuple(i.__handlers__.items())
             except AttributeError:
                 continue
-            handlers = [
+            if not handlers_tuple:
+                continue
+            handlers = tuple(
                 h_func
-                for h_name, h_func_set in handlers_dict.items()
+                for h_name, h_func_set in handlers_tuple
                 for h_func in h_func_set
                 if fnmatch.fnmatch(event, h_name)
-            ]
-            for func in sorted(
-                handlers,
-                key=(lambda handler: hasattr(handler, "ha_bound")),
-                reverse=True,
-            ):
-                if asyncio.iscoroutinefunction(func):
-                    async_funcs.append(func)
-                else:
-                    sync_funcs.append(func)
+            )
+            curr_sync_funcs, curr_async_funcs = self._get_handler_funcs(
+                handlers
+            )
+            if curr_sync_funcs:
+                sync_funcs.extend(curr_sync_funcs)
+            if curr_async_funcs:
+                async_funcs.extend(curr_async_funcs)
         return sync_funcs, async_funcs
 
     def fire_event(self, event, pre_event=False, **kwargs):
