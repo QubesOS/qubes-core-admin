@@ -31,6 +31,9 @@ install_apt_deps(){
 }
 
 install_deps(){
+    if [ -n "${QUBES_TEST_SKIP_DEP-}" ]; then
+        return
+    fi
     if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
     if { command -pv dpkg && command -pv apt; }>/dev/null; then install_apt_deps; fi
 }
@@ -57,6 +60,9 @@ cleanup_lvm(){
 }
 
 setup_egg(){
+    if [ -n "${QUBES_TEST_SKIP_EGG-}" ]; then
+        return
+    fi
     "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
 }
 
