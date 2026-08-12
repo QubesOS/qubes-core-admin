@@ -28,7 +28,6 @@ import asyncio
 import collections
 import fnmatch
 import functools
-import itertools
 
 from typing import Callable
 
@@ -110,6 +109,7 @@ class Emitter(metaclass=EmitterMeta):
 
     def close(self):
         self.events_enabled = False
+        self._get_ordered_mro.cache_clear()
         self._match_event_handlers.cache_clear()
         self._get_handler_funcs.cache_clear()
 
@@ -168,6 +168,14 @@ class Emitter(metaclass=EmitterMeta):
 
     @staticmethod
     @functools.cache
+    def _get_ordered_mro(mro, pre_event: bool) -> tuple:
+        order = tuple(klass for klass in mro if hasattr(klass, "__handlers__"))
+        if not pre_event:
+            order = tuple(reversed(order))
+        return order
+
+    @staticmethod
+    @functools.cache
     def _match_event_handlers(handlers_tuple: tuple, event: str) -> tuple:
         handlers = tuple(
             h_func
@@ -206,20 +214,19 @@ class Emitter(metaclass=EmitterMeta):
         if not self.events_enabled:
             return [], []
 
-        order = itertools.chain((self,), self.__class__.__mro__)
-        if not pre_event:
-            order = reversed(list(order))
-
+        mro = self.__class__.__mro__
+        order = self._get_ordered_mro(mro=mro, pre_event=pre_event)
+        if pre_event:
+            order = (self,) + order
+        else:
+            order = order + (self,)
         sync_funcs = []
         async_funcs = []
         for i in order:
-            try:
-                handlers_tuple = tuple(
-                    (h_name, tuple(h_func_set))
-                    for h_name, h_func_set in i.__handlers__.items()
-                )
-            except AttributeError:
-                continue
+            handlers_tuple = tuple(
+                (h_name, tuple(h_func_set))
+                for h_name, h_func_set in i.__handlers__.items()
+            )
             if not handlers_tuple:
                 continue
             handlers = self._match_event_handlers(
