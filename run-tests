@@ -1,9 +1,13 @@
 #!/bin/bash --
 
 set -eu
-unset CLEANUP_LVM name DEFAULT_LVM_POOL retcode
 case $0 in (/*) cd "${0%/*}/";; (*/*) cd "./${0%/*}";; esac
-install_rpm_deps () {
+CLEANUP_LVM=
+DEFAULT_LVM_POOL=
+name=
+retcode=
+
+install_rpm_deps(){
     local applications
     applications=(lvm2 python3-docutils python3-pyyaml python3-jinja2
         python3-lxml btrfs-progs vim-common python3-coverage python3-inotify cryptsetup)
@@ -16,6 +20,7 @@ install_rpm_deps () {
     sudo dnf install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }
+
 install_apt_deps(){
     local applications
     applications=(lvm2 python3-docutils python3-yaml python3-jinja2
@@ -24,33 +29,56 @@ install_apt_deps(){
     sudo apt --no-install-recommends -- install "${applications[@]}" ||
     : # we don’t actually care if this succeeds
 }
-if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
-if { command -pv dpkg && command -pv apt; }>/dev/null; then install_apt_deps; fi
-CLEANUP_LVM=
-name=$(dirname "$0")
-if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then
-    export DEFAULT_LVM_POOL=vg$$/pool
-    CLEANUP_LVM=yes
-fi
 
-: "${PYTHON:=python3}"
-: "${TESTPYTHONPATH:=test-packages}"
+install_deps(){
+    if { command -pv rpm && command -pv dnf; }>/dev/null; then install_rpm_deps; fi
+    if { command -pv dpkg && command -pv apt; }>/dev/null; then install_apt_deps; fi
+}
 
-for dir in ../core-qrexec/qrexec ../qubes-core-qrexec/qrexec; do
-    if [ -d "$dir" ]; then
-        PYTHONPATH="${PYTHONPATH+"$PYTHONPATH:"}:$dir"
+setup_lvm(){
+    name=$(dirname "$0")
+    if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then
+        export DEFAULT_LVM_POOL=vg$$/pool CLEANUP_LVM=yes
     fi
-done
-unset dir
+}
 
-PYTHONPATH=${TESTPYTHONPATH}${PYTHONPATH+":${PYTHONPATH}"}
-export PYTHONPATH
-export QUBES_TEST=1
-
-"${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
-"${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
-retcode=$?
-if [ -n "$CLEANUP_LVM" ]; then
+cleanup_lvm(){
+    if [ -z "$CLEANUP_LVM" ]; then
+        return
+    fi
     sudo --non-interactive "$(dirname "$0")/ci/lvm-manage" cleanup-lvm "$DEFAULT_LVM_POOL"
-fi
-exit $retcode
+}
+
+setup_egg(){
+    "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
+}
+
+run_tests(){
+    "${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
+}
+
+setup_env(){
+    : "${PYTHON:=python3}"
+    : "${TESTPYTHONPATH:=test-packages}"
+    for dir in ../core-qrexec/qrexec ../qubes-core-qrexec/qrexec; do
+        if [ -d "$dir" ]; then
+            PYTHONPATH="${PYTHONPATH+"$PYTHONPATH:"}:$dir"
+        fi
+    done
+    unset dir
+    PYTHONPATH=${TESTPYTHONPATH}${PYTHONPATH+":${PYTHONPATH}"}
+    export PYTHON PYTHONPATH TESTPYTHONPATH QUBES_TEST=1
+}
+
+main(){
+    install_deps
+    setup_lvm
+    setup_env
+    setup_egg
+    run_tests "$@"
+    retcode=$?
+    cleanup_lvm
+    return $retcode
+}
+
+main "$@"
