@@ -110,6 +110,7 @@ class Emitter(metaclass=EmitterMeta):
 
     def close(self):
         self.events_enabled = False
+        self._match_event_handlers.cache_clear()
         self._sort_handlers.cache_clear()
         self._get_handler_funcs.cache_clear()
 
@@ -168,6 +169,17 @@ class Emitter(metaclass=EmitterMeta):
 
     @staticmethod
     @functools.cache
+    def _match_event_handlers(handlers_tuple: tuple, event: str) -> tuple:
+        handlers = tuple(
+            h_func
+            for h_name, h_func_set in handlers_tuple
+            for h_func in h_func_set
+            if fnmatch.fnmatch(event, h_name)
+        )
+        return handlers
+
+    @staticmethod
+    @functools.cache
     def _sort_handlers(handlers):
         handlers = tuple(
             sorted(
@@ -210,16 +222,16 @@ class Emitter(metaclass=EmitterMeta):
         async_funcs = []
         for i in order:
             try:
-                handlers_tuple = tuple(i.__handlers__.items())
+                handlers_tuple = tuple(
+                    (h_name, tuple(h_func_set))
+                    for h_name, h_func_set in i.__handlers__.items()
+                )
             except AttributeError:
                 continue
             if not handlers_tuple:
                 continue
-            handlers = tuple(
-                h_func
-                for h_name, h_func_set in handlers_tuple
-                for h_func in h_func_set
-                if fnmatch.fnmatch(event, h_name)
+            handlers = self._match_event_handlers(
+                handlers_tuple=handlers_tuple, event=event
             )
             sorted_handlers = self._sort_handlers(handlers)
             curr_sync_funcs, curr_async_funcs = self._get_handler_funcs(
