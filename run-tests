@@ -35,10 +35,17 @@ install_deps(){
     if { command -pv dpkg && command -pv apt; }>/dev/null; then install_apt_deps; fi
 }
 
+exit_trap(){
+    rc=$?
+    cleanup_lvm
+    exit $rc
+}
+
 setup_lvm(){
     name=$(dirname "$0")
     if sudo --non-interactive "$name/ci/lvm-manage" setup-lvm vg$$/pool; then
         export DEFAULT_LVM_POOL=vg$$/pool CLEANUP_LVM=yes
+        trap exit_trap EXIT
     fi
 }
 
@@ -76,9 +83,6 @@ main(){
     setup_env
     setup_egg
     run_tests "$@"
-    retcode=$?
-    cleanup_lvm
-    return $retcode
 }
 
 main "$@"
