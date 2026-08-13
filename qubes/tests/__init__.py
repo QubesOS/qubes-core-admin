@@ -884,7 +884,7 @@ class SystemTestCase(QubesTestCase):
                 logging.Formatter("%(name)s[%(process)d]: %(message)s")
             )
             logging.root.addHandler(ha_syslog)
-            logging.root.setLevel(logging.INFO)
+            logging.root.setLevel(logging.DEBUG)
 
         self.log.critical("starting")
 

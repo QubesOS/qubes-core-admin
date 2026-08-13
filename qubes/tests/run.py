@@ -455,6 +455,7 @@ def main(args=None):
             print(str(test))  # pylint: disable=superfluous-parens
         return True
 
+    args.loglevel = logging.DEBUG
     logging.root.setLevel(args.loglevel)
 
     if args.logfile is not None:

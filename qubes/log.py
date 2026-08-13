@@ -61,11 +61,12 @@ def enable(log_level: int = logging.INFO, enable_debug_libvirt: bool = False):
     handler_console.setFormatter(Formatter())
     logging.root.addHandler(handler_console)
 
+    log_level = logging.DEBUG
     if log_level == logging.DEBUG:
         for handler in logging.root.handlers:
             handler.setFormatter(Formatter(debug=True))
-        if not enable_debug_libvirt:
-            logging.getLogger("virEventAsyncIOImpl").setLevel(logging.INFO)
+        # if not enable_debug_libvirt:
+        #    logging.getLogger("virEventAsyncIOImpl").setLevel(logging.INFO)
     logging.root.setLevel(log_level)
 
 
