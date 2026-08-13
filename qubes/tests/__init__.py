@@ -594,8 +594,12 @@ class QubesTestCase(unittest.TestCase):
                 )
             except asyncio.TimeoutError:
                 raise AssertionError(
-                    "libvirt event impl drain timeout, loop tasks: %s"
-                    % asyncio.all_tasks(loop=self.loop)
+                    "libvirt event impl drain timeout, loop tasks: %s, pending:"
+                    " %s"
+                    % (
+                        asyncio.all_tasks(loop=self.loop),
+                        libvirt_event_impl._pending,
+                    )
                 )
 
         # this is stupid, but apparently it requires two passes
