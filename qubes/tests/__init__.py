@@ -593,7 +593,10 @@ class QubesTestCase(unittest.TestCase):
                     asyncio.wait_for(libvirt_event_impl.drain(), timeout=30)
                 )
             except asyncio.TimeoutError:
-                raise AssertionError("libvirt event impl drain timeout")
+                raise AssertionError(
+                    "libvirt event impl drain timeout, loop tasks: %s"
+                    % asyncio.all_tasks(loop=self.loop)
+                )
 
         # this is stupid, but apparently it requires two passes
         # to cleanup SIGCHLD handlers
