@@ -2492,7 +2492,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
-        return backup.get_backup_summary()
+        domains = self.fire_event_for_filter(self.app.domains)
+        summary = backup.get_backup_summary(filtered_domains=domains)
+        return summary
 
     def _send_stats_single(self, info_time, info, only_vm, filters):
         """A single iteration of sending VM stats
