@@ -2013,7 +2013,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.enforce(self.arg)
         self.enforce("/" not in self.arg)
 
-        self.fire_event_for_permission()
+        domains = self.fire_event_for_filter(self.app.domains)
 
         profile_path = os.path.join(
             qubes.config.backup_profile_dir, self.arg + ".conf"
@@ -2024,7 +2024,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             )
 
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
-        return backup.get_backup_summary()
+        summary = backup.get_backup_summary(filtered_domains=domains)
+        return summary
 
     def _send_stats_single(
         self, info_time, info, only_vm, filters, id_to_name_map
