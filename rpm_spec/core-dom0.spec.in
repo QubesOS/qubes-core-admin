@@ -501,6 +501,7 @@ done
 %{python3_sitelib}/qubes/tests/storage_lvm.py
 %{python3_sitelib}/qubes/tests/storage_zfs.py
 %{python3_sitelib}/qubes/tests/storage_callback.py
+%{python3_sitelib}/qubes/tests/storage_encrypt.py
 %{python3_sitelib}/qubes/tests/tarwriter.py
 
 %dir %{python3_sitelib}/qubes/tests/vm

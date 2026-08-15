@@ -73,6 +73,18 @@ those properties:
   `volatile` volume. This property of DispVM's volatile volume is inherited
   from the template (but not for other types of VMs). For `volatile` volumes,
   this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
+- :py:attr:`~qubes.storage.Volume.encrypted` - whether the volume is encrypted
+  with persistent LUKS2. This can be set only on writable, ``save_on_stop``,
+  non-snapshot, dom0-backed volumes (typically `private` on AppVM/StandaloneVM
+  and `root` on TemplateVM/StandaloneVM). It is mutually exclusive with
+  :py:attr:`~qubes.storage.Volume.ephemeral`. The LUKS passphrase is kept in
+  qubesd memory only (via ``admin.vm.volume.SetPassphrase``) and is never
+  written to disk or serialized into :file:`qubes.xml`. Enabling encryption
+  on a volume that already contains data encrypts it in place; existing
+  contents are preserved. Dirty volumes and volumes with revisions are
+  refused. Disabling encryption is not implemented. The volume is unlocked
+  on domain start (``cryptsetup open``) and closed on stop; start never
+  formats an encrypted volume that is missing a LUKS header.
 
 The storage pool driver may define additional properties.
 
@@ -150,12 +162,3 @@ stopping a domain - so, if volume have
 state.
 
 See specific methods documentation for details.
-
-Module contents
----------------
-
-.. automodule:: qubes.storage
-   :members:
-   :show-inheritance:
-
-.. vim: ts=3 sw=3 et
