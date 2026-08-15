@@ -64,6 +64,7 @@ volume_properties = [
     "snap_on_start",
     "revisions_to_keep",
     "ephemeral",
+    "encrypted",
 ]
 
 _uuid_regex = re.compile(
