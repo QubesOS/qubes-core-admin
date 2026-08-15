@@ -337,20 +337,84 @@ async def void_coros_maybe(values):
             task.result()  # re-raises exception if task failed
 
 
-def cryptsetup(*args):
+def _passphrase_bytes(passphrase):
+    """Normalize a LUKS passphrase to bytes.
+
+    ``cryptsetup --key-file=-`` reads stdin as-is and does **not** strip a
+    trailing newline.  Do not append one: interactive cryptsetup *does*
+    strip the newline, so an extra byte would make the volume unopenable
+    with the user's actual passphrase.
+    """
+    if isinstance(passphrase, bytearray):
+        return bytes(passphrase)
+    if isinstance(passphrase, str):
+        return passphrase.encode("utf-8")
+    return passphrase
+
+
+def cryptsetup(*args, passphrase=None):
     """
     Run cryptsetup with the given arguments.  This method returns a future.
+
+    If *passphrase* is given, it is passed on stdin via ``--key-file=-``
+    semantics of the caller (the caller must include that option).  The
+    passphrase is never written to the filesystem.
     """
     prog = ("/usr/sbin/cryptsetup", *args)
-    return run_program(
-        *prog,
+    kwargs = {
         # otherwise cryptsetup tries to mlock() the entire locale archive :(
-        env={"LC_ALL": "C", **os.environ},
-        cwd="/",
-        stdin=subprocess.DEVNULL,
-        check=True,
-        sudo=True,
-    )
+        "env": {"LC_ALL": "C", **os.environ},
+        "cwd": "/",
+        "check": True,
+        "sudo": True,
+    }
+    if passphrase is None:
+        kwargs["stdin"] = subprocess.DEVNULL
+    else:
+        kwargs["stdin"] = subprocess.PIPE
+        kwargs["input"] = _passphrase_bytes(passphrase)
+    return run_program(*prog, **kwargs)
+
+
+async def cryptsetup_change_key(device, old_passphrase, new_passphrase):
+    """
+    Change a LUKS passphrase.  The old passphrase is passed on stdin
+    (``--key-file=-``); the new one is passed via an anonymous pipe
+    (``--new-keyfile=/dev/fd/N``).  Neither is written to the filesystem.
+    """
+    old = _passphrase_bytes(old_passphrase)
+    new = _passphrase_bytes(new_passphrase)
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, new)
+        os.close(write_fd)
+        write_fd = None
+        args = [
+            "/usr/sbin/cryptsetup",
+            "--batch-mode",
+            "--key-file=-",
+            "--new-keyfile=/dev/fd/%d" % read_fd,
+            "--",
+            "luksChangeKey",
+            device,
+        ]
+        if not _am_root:
+            # Keep the pipe open across sudo so cryptsetup can read it.
+            args = ["sudo", "--preserve-fds=%d" % read_fd] + args
+        await run_program(
+            *args,
+            env={"LC_ALL": "C", **os.environ},
+            cwd="/",
+            stdin=subprocess.PIPE,
+            input=old,
+            check=True,
+            sudo=False,
+            pass_fds=(read_fd,),
+        )
+    finally:
+        os.close(read_fd)
+        if write_fd is not None:
+            os.close(write_fd)
 
 
 def sanitize_stderr_for_log(untrusted_stderr: bytes) -> str:
