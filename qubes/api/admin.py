@@ -2480,7 +2480,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         wants_arg=True,
         wants_payload=False,
         dest_adminvm=True,
-        scope="local",
+        scope="global",
         read=True,
     )
     async def backup_info(self):
