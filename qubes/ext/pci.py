@@ -153,7 +153,10 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
             dev_match = self._libvirt_regex.match(libvirt_name)
             if not dev_match:
                 raise UnsupportedDevice(libvirt_name)
-            port_id = sbdf_to_path(libvirt_name)
+            try:
+                port_id = sbdf_to_path(libvirt_name)
+            except (AssertionError, ValueError, KeyError):
+                raise UnsupportedDevice(libvirt_name)
             port = Port(
                 backend_domain=port.backend_domain,
                 port_id=port_id,
