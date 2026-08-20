@@ -858,14 +858,29 @@ class Storage:
 
     async def stop(self):
         """Stop each volume"""
-        await qubes.utils.void_coros_maybe(
-            # Always call stop_encrypted() - which can handle an unencrypted
-            # volume as well - to correctly clean up even if the ephemeral
-            # property became False while the volume was already started.
-            vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
-            for name, vol in self.vm.volumes.items()
-        )
+        self.log.warning("AAA Storage.stop() stopping storage")
+        try:
+            await qubes.utils.void_coros_maybe(
+                # Always call stop_encrypted() - which can handle an unencrypted
+                # volume as well - to correctly clean up even if the ephemeral
+                # property became False while the volume was already started.
+                vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
+                for name, vol in self.vm.volumes.items()
+            )
+        except Exception as e:
+            self.log.warning("AAA Storage.stop() raised exception %s", e)
+            xl = subprocess.run(["xl", "list"], capture_output=True, text=True, check=False)
+            xll = subprocess.run(["xl", "list", "-l"], capture_output=True, text=True, check=False)
+            lsl = subprocess.run(["sh", "-c", "ls -l /dev/qubes_dom0/*"], capture_output=True, text=True, check=False)
+            fuser = subprocess.run(["sh", "-c", "fuser -v /dev/qubes_dom0/*"], capture_output=True, text=True, check=False)
+            self.log.warning("AAA Storage.stop() xl list: %s, %s", xl.stdout, xl.stderr)
+            self.log.warning("AAA Storage.stop() xl list -l: %s, %s", xll.stdout, xll.stderr)
+            self.log.warning("AAA Storage.stop() ls -l /dev/qubes_dom0: %s, %s", lsl.stdout, lsl.stderr)
+            self.log.warning("AAA Storage.stop() fuser -v /dev/qubes_dom0/*: %s, %s", fuser.stdout, fuser.stderr)
+
+        self.log.warning("AAA Storage.stop() stopped storage")
         for vol in self.vm.volumes.values():
+            self.log.warning("AAA Storage.stop() removing volume state file %r", vol.state_file)
             qubes.utils.remove_file(vol.state_file)
 
     def unused_frontend(self):

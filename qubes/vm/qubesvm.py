@@ -1603,6 +1603,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         This is not a Qubes event handler. Instead we do some sanity checks
         and synchronization with start() and then emits Qubes events.
         """
+        self.log.warning("AAA QubesVM.on_libvirt_domain_stopped() start")
 
         state = self.get_power_state()
         if state not in ["Halted", "Crashed", "Dying"]:
@@ -1616,14 +1617,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self._domain_stopped_event_received:
             # ignore this event - already triggered by subsequent start()
             # or libvirt reconnect
+            self.log.warning("AAA QubesVM.on_libvirt_domain_stopped() early return due to stopped event already received")
             return
 
         self._domain_stopped_event_received = True
+        self.log.warning("AAA QubesVM.on_libvirt_domain_stopped() scheduling _domain_stopped_coro()")
         self._domain_stopped_future = asyncio.ensure_future(
             self._domain_stopped_coro()
         )
 
     async def _domain_stopped_coro(self):
+        self.log.warning("AAA QubesVM._domain_stopped_coro() start, getting _domain_stopped_lock")
         async with self._domain_stopped_lock:
             assert not self._domain_stopped_event_handled
 
@@ -1632,10 +1636,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._domain_stopped_event_handled = True
 
             while self.get_power_state() == "Dying":
+                self.log.warning("AAA QubesVM._domain_stopped_coro() sleeping as power state is 'Dying'")
                 await asyncio.sleep(0.25)
             try:
+                self.log.warning("AAA QubesVM._domain_stopped_coro() awaiting async event 'domain-stopped'")
                 await self.fire_event_async("domain-stopped")
+                self.log.warning("AAA QubesVM._domain_stopped_coro() awaited async event 'domain-stopped'")
+                self.log.warning("AAA QubesVM._domain_stopped_coro() awaiting async event 'domain-shutdown'")
                 await self.fire_event_async("domain-shutdown")
+                self.log.warning("AAA QubesVM._domain_stopped_coro() awaited async event 'domain-shutdown'")
 
                 if self.__waiter is not None:
                     self.__waiter.set_result(None)
@@ -1649,8 +1658,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     @qubes.events.handler("domain-stopped")
     async def on_domain_stopped(self, _event, **_kwargs):
         """Cleanup after domain was stopped"""
+        self.log.warning("AAA QubesVM.on_domain_stopped() start")
         try:
+            self.log.warning("AAA QubesVM.on_domain_stopped() waiting for storage to stop")
             await self.storage.stop()
+            self.log.warning("AAA QubesVM.on_domain_stopped() storage stopped")
         except qubes.exc.StoragePoolException:
             self.log.exception("Failed to stop storage")
         self._qdb_connection = None
@@ -1668,25 +1680,32 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.warning("AAA QubesVM.shutdown(force=%s, wait=%s, timeout=%s)", force, wait, timeout)
 
         if self.is_halted():
+            self.log.warning("AAA QubesVM.shutdown() early return as domain is not running")
             raise qubes.exc.QubesVMNotStartedError(self)
 
         try:
+            self.log.warning("AAA QubesVM.shutdown() firing async event 'domain-pre-shutdown'")
             await self.fire_event_async(
                 "domain-pre-shutdown", pre_event=True, force=force
             )
 
             is_preload = getattr(self, "is_preload", False)
             if self.is_paused() and not force and not is_preload:
+                self.log.warning("AAA QubesVM.shutdown() early return as domain is paused but force=False and not preload")
                 raise qubes.exc.QubesVMNotRunningError(self)
 
             if self.__waiter is None:
+                self.log.warning("AAA QubesVM.shutdown() getting waiter")
                 self.__waiter = asyncio.get_running_loop().create_future()
             waiter = self.__waiter
 
             if self.is_paused():
+                self.log.warning("AAA QubesVM.shutdown() destroying domain")
                 self.libvirt_domain.destroy()
+                self.log.warning("AAA QubesVM.shutdown() destroyed domain")
             else:
                 # Some libvirt actions have a global lock on a domain, blocking
                 # a lot of libvirt operations and even qubesd. When possible to
@@ -1697,14 +1716,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     uri = self.app.vmm.libvirt_conn_uri
                     command = ["virsh", "-c", uri, "shutdown", self.name]
                 try:
+                    self.log.warning("AAA QubesVM.shutdown() calling %s", " ".join(command))
                     proc = await asyncio.create_subprocess_exec(
                         *command,
                         stdin=asyncio.subprocess.DEVNULL,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.STDOUT,
                     )
+                    self.log.warning("AAA QubesVM.shutdown() waiting proc communication")
                     stdout, _ = await proc.communicate()
+                    self.log.warning("AAA QubesVM.shutdown() waiting proc completion")
                     await proc.wait()
+                    self.log.warning("AAA QubesVM.shutdown() proc completed")
                     if proc.returncode:
                         raise subprocess.CalledProcessError(
                             proc.returncode,
@@ -1726,15 +1749,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 if timeout is None:
                     timeout = self.shutdown_timeout
                 try:
+                    self.log.warning("AAA QubesVM.shutdown() waiting for shutdown with timeout")
                     await asyncio.wait_for(waiter, timeout=timeout)
+                    self.log.warning("AAA QubesVM.shutdown() waiter for shutdown")
                 except asyncio.TimeoutError:
                     raise qubes.exc.QubesVMShutdownTimeoutError(self)
         except Exception as ex:
+            self.log.warning("AAA QubesVM.shutdown() firing async event 'domain-shutdown-failed'")
             await self.fire_event_async(
                 "domain-shutdown-failed", reason=str(ex)
             )
             raise
 
+        self.log.warning("AAA QubesVM.shutdown() finished")
         return self
 
     async def kill(self):
@@ -1743,22 +1770,29 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.warning("AAA QubesVM.kill() start")
 
         if not self.is_running() and not self.is_paused():
+            self.log.warning("AAA QubesVM.kill() return early as domain is not running")
             raise qubes.exc.QubesVMNotStartedError(self)
 
         if self.__waiter is None:
+            self.log.warning("AAA QubesVM.kill() getting waiter")
             self.__waiter = asyncio.get_running_loop().create_future()
         waiter = self.__waiter
 
+        self.log.warning("AAA QubesVM.kill() destroying domain")
         try:
             self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                self.log.warning("AAA QubesVM.kill() can't destroy domain that isn't running")
                 raise qubes.exc.QubesVMNotStartedError(self)
             raise
 
+        self.log.warning("AAA QubesVM.kill() awaiting kill")
         await waiter
+        self.log.warning("AAA QubesVM.kill() completed kill")
 
     async def suspend(self):
         """Suspend (pause) domain.
@@ -2278,10 +2312,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.storage = qubes.storage.Storage(self)
 
         try:
+            self.log.warning("AAA QubesVM.create_on_disk() creating storage")
             await self.storage.create()
+            self.log.warning("AAA QubesVM.create_on_disk() created storage")
         except:
             try:
+                self.log.warning("AAA QubesVM.create_on_disk() removing storage due to exception")
                 await self.storage.remove()
+                self.log.warning("AAA QubesVM.create_on_disk() removed storage")
                 os.rmdir(self.dir_path)
             except:  # pylint: disable=bare-except
                 self.log.exception(
@@ -2295,7 +2333,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     async def remove_from_disk(self):
         """Remove domain remnants from disk."""
+        self.log.warning("AAA QubesVM.remove_from_disk() start")
         if not self.is_halted():
+            self.log.warning("AAA QubesVM.remove_from_disk() domain is running")
             raise qubes.exc.QubesVMNotHaltedError(
                 "Can't remove VM {!s}, because it's in state {!r}.".format(
                     self, self.get_power_state()
@@ -2306,14 +2346,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # handling is pending; if not, we may be called from within
         # domain-shutdown event of a DispVM, which would deadlock
         if not self._domain_stopped_event_handled:
+            self.log.warning("AAA QubesVM.remove_from_disk() ensure shutdown was handled")
             await self._ensure_shutdown_handled()
 
+        self.log.warning("AAA QubesVM.remove_from_disk() firing async event 'domain-remove-from-disk'")
         await self.fire_event_async("domain-remove-from-disk")
         try:
+            self.log.warning("AAA QubesVM.remove_from_disk() removing volumes")
             await self.storage.remove()
+            self.log.warning("AAA QubesVM.remove_from_disk() removed volumes")
         finally:
             try:
                 # TODO: make it async?
+                self.log.warning("AAA QubesVM.remove_from_disk() removing directory")
                 shutil.rmtree(self.dir_path)
             except FileNotFoundError:
                 pass

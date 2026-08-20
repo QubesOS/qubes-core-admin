@@ -946,11 +946,13 @@ def _process_lvm_output(returncode, stdout, stderr, log):
 async def qubes_lvm_coro(cmd, log=logging.getLogger("qubes.storage.lvm")):
     """Call :program:`lvm` to execute an LVM operation"""
     environ = {"LC_ALL": "C.UTF-8", **os.environ}
+    log.warning("AAA storage.lvm.qubes.lvm_coro(cmd=%r)", cmd)
     if cmd[0] == "remove":
         if not os.path.exists("/dev/" + cmd[1]):
             # ignore errors if the file does not exist
             return
         pre_cmd = ["blkdiscard", "-p", "1G", "/dev/" + cmd[1]]
+        log.warning("AAA storage.lvm.qubes.lvm_coro() awaiting discarding block with subprocess")
         p = await asyncio.create_subprocess_exec(
             *pre_cmd,
             stdout=subprocess.DEVNULL,
@@ -958,9 +960,12 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger("qubes.storage.lvm")):
             close_fds=True,
             env=environ
         )
+        log.warning("AAA storage.lvm.qubes.lvm_coro() awaiting proc communication")
         _, _ = await p.communicate()
+        log.warning("AAA storage.lvm.qubes.lvm_coro() awaited prod communication")
     cmd = _get_lvm_cmdline(cmd)
     log.debug("Invoked with arguments %r", cmd)
+    log.warning("AAA storage.lvm.qubes.lvm_coro() awaiting command with async subprocess")
     p = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=subprocess.PIPE,
@@ -968,7 +973,9 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger("qubes.storage.lvm")):
         close_fds=True,
         env=environ
     )
+    log.warning("AAA storage.lvm.qubes.lvm_coro() awaiting proc communication")
     out, err = await p.communicate()
+    log.warning("AAA storage.lvm.qubes.lvm_coro() awaited proc communication")
     return _process_lvm_output(p.returncode, out, err, log)
 
 

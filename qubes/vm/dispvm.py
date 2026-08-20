@@ -792,6 +792,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         This method modifies :file:`qubes.xml` file.
         """
+        appvm.log.warning("AAA from_appvm(appvm=%s, preload=%s, kwargs=%s)", appvm, preload, kwargs)
         if not cls.can_gen_disposable(appvm, preload=preload):
             return None
 
@@ -800,9 +801,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             and (dispvm := appvm.request_preload())
             and await dispvm.get_preload()
         ):
+            dispvm.log.warning("AAA from_appvm() finished by getting a preloaded disposable")
             return dispvm
 
+        appvm.log.warning("AAA from_appvm() awainting gen_disposable()")
         dispvm = await cls.gen_disposable(appvm, preload=preload, **kwargs)
+        dispvm.log.warning("AAA from_appvm() finished")
         return dispvm
 
     @classmethod
@@ -845,12 +849,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         )
         if preload:
             dispvm.mark_preload()
+        dispvm.log.warning("AAA gen_disposable() awaiting QubesVM.create_on_disk()")
         await dispvm.create_on_disk()
+        dispvm.log.warning("AAA gen_disposable() awaited QubesVM.create_on_disk()")
         if preload:
+            dispvm.log.warning("AAA gen_disposable() awaiting start()")
             await dispvm.start()
+            dispvm.log.warning("AAA gen_disposable() awaited start()")
         else:
             # Start method saves the qubes.xml.
             app.save()
+        dispvm.log.warning("AAA gen_disposable() finished")
         return dispvm
 
     def mark_preload(self) -> None:
@@ -893,6 +902,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 int(timeout),
             )
             # Delay to not affect this run.
+            self.log.warning("AAA get_preload() scheduling cleanup() with a delay of 2s as preload was too slow to retrieve")
             asyncio.ensure_future(self.delay(delay=2, coros=[self.cleanup()]))
             return False
 
@@ -912,6 +922,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         when appropriate, making GUI applications show the qube as any other
         disposable. Start the preload cycle to fill gaps.
         """
+        self.log.warning("AAA use_preload() start")
         if not self.is_preload:
             raise qubes.exc.QubesException("Disposable is not preloaded")
         appvm = self.template
@@ -920,7 +931,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             if not appvm.features.get("internal", None):
                 del self.features["internal"]
             self.preload_requested = False
+            self.log.warning("AAA use_preload() waiting apply of deferred netvm")
             await self.apply_deferred_netvm()
+            self.log.warning("AAA use_preload() waited apply of deferred netvm")
             del self.features["preload-dispvm-in-progress"]
         else:
             # Happens when unpause/resume occurs without qube being requested.
@@ -930,12 +943,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             appvm.remove_preload_from_list(
                 [self.name], reason="qube was used without being requested"
             )
+            self.log.warning("AAA use_preload() waiting apply of deferred netvm")
             await self.apply_deferred_netvm()
+            self.log.warning("AAA use_preload() waited apply of deferred netvm")
             self.features["preload-dispvm-in-progress"] = False
         self.app.save()
         delay = appvm.get_feat_preload_delay()
         if delay < 0 and appvm.get_feat_preload():
             return
+        self.log.warning("AAA use_preload() scheduling async event 'domain-preload-dispvm-used' with delay=%s", delay)
         asyncio.ensure_future(
             appvm.fire_event_async(
                 "domain-preload-dispvm-used", dispvm=self, delay=delay
@@ -961,13 +977,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Delete the disposable qube.
         """
+        self.log.warning("AAA _delete_domain() start")
         self._preload_cleanup()
         if not hasattr(self, "app"):
+            self.log.warning("AAA _delete_domain() early return, no store")
             return
         if self not in self.app.domains:
+            self.log.warning("AAA _delete_domain() early return, domain not in collection")
             return
+        self.log.warning("AAA _delete_domain() removing domain from store")
         del self.app.domains[self]
+        self.log.warning("AAA _delete_domain() removing domain from disk")
         await self.remove_from_disk()
+        self.log.warning("AAA _delete_domain() removed domain from disk")
         self.app.save()
 
     async def cleanup(self, include_non_auto: bool = True) -> None:
@@ -981,17 +1003,24 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 disabled, allow disabling the removal of the domain if this \
                 parameter is set to ``False``.
         """
+        self.log.warning("AAA cleanup(include_non_auto=%s), auto_cleanup=%s", include_non_auto, self.auto_cleanup)
         if self not in self.app.domains:
+            self.log.warning("AAA cleanup domain not in collection")
             return
         try:
+            self.log.warning("AAA cleanup() calling QubesVM.kill()")
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
             # Removal will be done automatically on event 'domain-shutdown'.
             if self.auto_cleanup:
+                self.log.warning("AAA cleanup() NotStarted calling _delete_domain()")
                 await self._delete_domain()
+                self.log.warning("AAA cleanup() NotStarted deleted domain")
         finally:
             if not self.auto_cleanup and include_non_auto:
+                self.log.warning("AAA cleanup() finally calling _delete_domain()")
                 await self._delete_domain()
+                self.log.warning("AAA cleanup() finally deleted domain")
 
     async def start(self, **kwargs):
         """
@@ -1005,9 +1034,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     "template for disposable ({}) needs to have "
                     "template_for_dispvms=True".format(self.template.name)
                 )
+            self.log.warning("AAA start() calling start()")
             await super().start(**kwargs)
+            self.log.warning("AAA start() called start()")
         except:
+            self.log.warning("AAA start() calling cleanup(include_non_auto=False) as startup failed")
             await self.cleanup(include_non_auto=False)
+            self.log.warning("AAA start() called cleanup()")
             raise
 
     def create_qdb_entries(self) -> None:

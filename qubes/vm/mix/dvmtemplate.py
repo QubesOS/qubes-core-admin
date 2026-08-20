@@ -107,6 +107,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     reason="their progress was interrupted",
                 )
                 for dispvm in preload_in_progress:
+                    self.log.warning("AAA DVMTemplateMixin.on_domain_loaded() scheduling DispVM.cleanup() of %s", str(dispvm))
                     asyncio.ensure_future(dispvm.cleanup())
 
         if changes:
@@ -249,6 +250,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param int oldvalue: Old value of the feature.
         """
         # pylint: disable=unused-argument
+        self.log.warning("AAA DVMTemplateMixin.on_feature_set_preload_dispvm_max(event=%s, feature=%s, value=%s, oldvalue=%s", event, feature, value, oldvalue)
         if value == oldvalue:
             return
         if not getattr(self, "template_for_dispvms"):
@@ -256,6 +258,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if self.is_global_preload_set():
             return
         reason = "local feature was set to " + repr(value)
+        self.log.warning("AAA DVMTemplateMixin.on_feature_set_preload_dispvm_max() scheduling async event 'domain-preload-dispvm-start' due to %s", reason)
         asyncio.ensure_future(
             self.fire_event_async("domain-preload-dispvm-start", reason=reason)
         )
@@ -398,16 +401,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("property-set:template_for_dispvms")
     def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
+        self.log.warning("AAA DVMTemplateMixin.__on_set_dvmtemplate(event=%s, name=%s, newvalue=%s, oldvalue=%s)", event, name, newvalue, oldvalue)
         if not newvalue:
             return
         if newvalue == oldvalue:
             return
         if not self.can_preload():
             return
+        reason = "template_for_dispvms was set to True"
+        self.log.warning("AAA DVMTemplateMixin.__on_set_dvmtemplate() scheduling async event 'domain-preload-dispvm-start' due to %s", reason)
         asyncio.ensure_future(
             self.fire_event_async(
                 "domain-preload-dispvm-start",
-                reason="template_for_dispvms was set to True",
+                reason=reason,
             )
         )
 
@@ -449,16 +455,19 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self, event, name, newvalue, oldvalue=None
     ) -> None:
         # pylint: disable=unused-argument
+        self.log.warning("AAA DVMTemplateMixin.__on_property_set_template(event=%s, name=%s, newvalue=%s, oldvalue=%s)", event, name, newvalue, oldvalue)
         if newvalue == oldvalue:
             return
         if not getattr(self, "template_for_dispvms"):
             return
         if not self.can_preload():
             return
+        reason = "template has changed"
+        self.log.warning("AAA DVMTemplateMixin.__on_property_set_template() scheduling async event 'domain-preload-dispvm-start' due to %s", reason)
         asyncio.ensure_future(
             self.fire_event_async(
                 "domain-preload-dispvm-start",
-                reason="template has changed",
+                reason=reason,
             )
         )
 
@@ -556,6 +565,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay < 0 and self.get_feat_preload():
             pass
         else:
+            self.log.warning("AAA DVMTemplateMixin.fill_preload_gap() scheduling async event 'domain-preload-dispvm-start' due to gap")
             asyncio.ensure_future(
                 self.fire_event_async(
                     "domain-preload-dispvm-start",
@@ -698,8 +708,10 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 reason="of outdated volume(s) or property(ies)",
             )
             tasks = [self.app.domains[qube].cleanup() for qube in outdated]
+            self.log.warning("AAA DVMTemplateMixin.refresh_outdated_preload() scheduling cleanup of %s", outdated)
             asyncio.ensure_future(asyncio.gather(*tasks))
             # Delay to not overload the system with cleanup+preload.
+            self.log.warning("AAA DVMTemplateMixin.refresh_outdated_preload() scheduling async event 'domain-preload-dispvm-start' due to outdated volume(s)")
             asyncio.ensure_future(
                 self.fire_event_async(
                     "domain-preload-dispvm-start",
@@ -736,6 +748,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     [qube.name], reason="of outdated " + discard_reason_str
                 )
                 # Delay to not  affect this run.
+                self.log.warning("AAA DVMTemplateMixin.request_preload() scheduling DispVM.cleanup() with delay of 2s of %s", qube.name)
                 asyncio.ensure_future(
                     qube.delay(delay=2, coros=[qube.cleanup()])
                 )
@@ -785,6 +798,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 should exist.
         :param Optional[str] reason: Explanation of why it is being done.
         """
+        self.log.warning("AAA DVMTemplateMixin.remove_preload_excess(max_preload=%s, reason=%s)", max_preload, reason)
         assert isinstance(self, qubes.vm.BaseVM)
         if max_preload is None:
             max_preload = self.get_feat_preload_max()
@@ -802,6 +816,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
             for unwanted_disp in excess:
                 if unwanted_disp in self.app.domains:
                     dispvm = self.app.domains[unwanted_disp]
+                    self.log.warning("AAA DVMTemplateMixin.remove_preload_excess() scheduling DispVM.cleanup() with delay of 2s of %s", dispvm.name)
                     asyncio.ensure_future(dispvm.cleanup())
 
     def supports_preload(self) -> Tuple[bool, list]:
