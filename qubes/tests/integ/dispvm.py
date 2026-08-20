@@ -253,6 +253,8 @@ class DispVMHelpersMixin:
         # See comment in setUp().
         if "_preload_" not in self._testMethodName:
             self.app.default_dispvm = None
+        # Allow futures, triggered by feature deletion, to run.
+        self.loop.run_until_complete(asyncio.sleep(0))
         self.app.save()
         super().tearDown()
         logger.info("end")
@@ -360,8 +362,6 @@ class DispVMHelpersMixin:
             self.loop.run_until_complete(self.cleanup_preload_run(target))
             logger.info("deleting max preload feature")
             del qube.features["preload-dispvm-max"]
-            # Allow futures, triggered by feature deletion, to run.
-            self.loop.run_until_complete(asyncio.sleep(0))
         logger.info("end")
 
     async def no_preload(self):

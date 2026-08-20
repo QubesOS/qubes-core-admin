@@ -1230,6 +1230,7 @@ class SystemTestCase(QubesTestCase):
             app.default_audiovm = None
         if app.default_guivm in vms:
             app.default_guivm = None
+        self.loop.run_until_complete(asyncio.sleep(0))
         del app
         # then remove in reverse topological order (wrt template), using naive
         # algorithm
