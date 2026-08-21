@@ -1394,19 +1394,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         self.__waiter = None
                     raise
 
-    async def cancel_start(self):
+    async def cancel_start(self) -> bool:
         if not self.startup_lock.locked():
-            return
+            return False
         if self.startup_task is None:
-            return
+            return False
         if self.startup_task.done():
-            return
+            return False
         self.log.info("Cancelling domain startup")
         self.startup_task.cancel()
         try:
             await self.startup_task
         except asyncio.CancelledError:
             pass
+        return True
 
     async def start(
         self, start_guid=True, notify_function=None, mem_required=None
@@ -1688,9 +1689,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             when domain is already shut down.
         """
 
-        await self.cancel_start()
+        cancelled_start = await self.cancel_start()
 
         if self.is_halted():
+            if cancelled_start:
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         try:
@@ -1765,9 +1768,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             when domain is already shut down.
         """
 
-        await self.cancel_start()
+        cancelled_start = await self.cancel_start()
 
         if not self.is_running() and not self.is_paused():
+            if cancelled_start:
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         if self.__waiter is None:
