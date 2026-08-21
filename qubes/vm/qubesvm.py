@@ -1890,11 +1890,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin shutting down")
 
         cancelled_start = await self.cancel_start()
 
         if self.is_halted():
             if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
                 return
             raise qubes.exc.QubesVMNotStartedError(self)
 
@@ -1960,6 +1965,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
             raise
 
+        self.log.info("Completed shutdown")
         return self
 
     async def kill(self):
@@ -1968,11 +1974,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin kill")
 
         cancelled_start = await self.cancel_start()
 
         if not self.is_running() and not self.is_paused():
             if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
                 return
             raise qubes.exc.QubesVMNotStartedError(self)
 
@@ -1988,6 +1999,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._is_running = None
             self._power_state = None
             raise
+        self.log.info("Complete kill")
 
     async def suspend(self):
         """Suspend (pause) domain.

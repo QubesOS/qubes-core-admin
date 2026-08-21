@@ -977,15 +977,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
         """
+        self.log.info("Begin cleanup")
         if self not in self.app.domains:
+            self.log.debug("Skipped cleanup as domain is not in collection")
             return
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
             if self.auto_cleanup:
+                self.log.info(
+                    "Cleanup of of disposable with auto_cleanup=True that isn't"
+                    " running, will delete the domain"
+                )
                 await self._delete_domain()
         finally:
             if not self.auto_cleanup:
+                self.log.info(
+                    "Cleanup of disposable with auto_cleanup=False, will delete"
+                    " the domain"
+                )
                 await self._delete_domain()
 
     async def start(self, **kwargs):
@@ -1003,11 +1013,20 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await super().start(**kwargs)
         except:
             if self not in self.app.domains:
+                self.log.debug(
+                    "Skipped startup failure handling as domain is not in "
+                    "collection"
+                )
                 return
             try:
+                self.log.info("Failed start, will kill the disposable")
                 await self.kill()
             except qubes.exc.QubesVMNotStartedError:
                 if self.auto_cleanup:
+                    self.log.info(
+                        "Failed startup of disposable with auto_cleanup=True "
+                        "will delete the domain"
+                    )
                     await self._delete_domain()
             raise
 
