@@ -631,6 +631,26 @@ class TC_10_DispVM_Misc(DispVMHelpersMixin, qubes.tests.SystemTestCase):
                     await dispvm.start()
                 logger.info("post start")
 
+    async def _test_cleanup_cancel_start(self, named: bool):
+        logger.info("cancel startup by killing domain before domain is started")
+        dispvm = await self.gen_disp(named=named)
+
+        async def _kill_on_pre_spawn(*_args, **_kwargs):
+            dispvm.log.info("domain-pre-spawn awaiting kill()")
+            await dispvm.kill()
+            dispvm.log.info("domain-pre-spawn completed kill()")
+
+        dispvm.add_handler("domain-pre-spawn", _kill_on_pre_spawn)
+        async with self._test_cleanup(
+            dispvm=dispvm,
+            removed=dispvm.auto_cleanup,
+            early_cleanup=False,
+            skip_cleanup=dispvm.auto_cleanup,
+        ):
+            with contextlib.suppress(asyncio.CancelledError):
+                await dispvm.start()
+            logger.info("post start")
+
     def test_000_named_disp_shutdown(self):
         """Test shutdown of named disposable."""
         self.loop.run_until_complete(self._test_000_named_disp_shutdown())
@@ -643,8 +663,10 @@ class TC_10_DispVM_Misc(DispVMHelpersMixin, qubes.tests.SystemTestCase):
             await self._test_cleanup_not_running(named=named)
         with self.subTest(msg="Cleanup if running"):
             await self._test_cleanup_running(named=named)
-        with self.subTest(msg="Do not cleanup on failed startup"):
+        with self.subTest(msg="Do not cleanup if exception raised on startup"):
             await self._test_cleanup_failed_start(named=named)
+        with self.subTest(msg="Do not cleanup if killing on startup"):
+            await self._test_cleanup_cancel_start(named=named)
         with self.subTest(msg="Do not cleanup if shutting down"):
             await self._test_cleanup_on_shutdown(named=named)
         logger.info("end")
@@ -661,8 +683,10 @@ class TC_10_DispVM_Misc(DispVMHelpersMixin, qubes.tests.SystemTestCase):
             await self._test_cleanup_not_running(named=named)
         with self.subTest(msg="Cleanup if running"):
             await self._test_cleanup_running(named=named)
-        with self.subTest(msg="Cleanup on failed startup"):
+        with self.subTest(msg="Cleanup failed startup: exception raise"):
             await self._test_cleanup_failed_start(named=named)
+        with self.subTest(msg="Cleanup failed startup: kill requested"):
+            await self._test_cleanup_cancel_start(named=named)
         with self.subTest(msg="Cleanup if shutting down"):
             await self._test_cleanup_on_shutdown(named=named)
         logger.info("end")
