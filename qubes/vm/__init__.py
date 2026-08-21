@@ -360,7 +360,9 @@ class BaseVM(qubes.PropertyHolder):
 
     def init_log(self):
         """Initialise logger for this domain."""
-        self.log = qubes.log.get_vm_logger(self.name)
+        self.log = qubes.log.get_vm_logger(
+            "{}.{}".format(self.__class__.__qualname__, self.name)
+        )
 
     def __xml__(self):
         element = lxml.etree.Element("domain")
