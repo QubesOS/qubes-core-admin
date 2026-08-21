@@ -303,6 +303,7 @@ class BaseVM(qubes.PropertyHolder):
         #: operations which shouldn't happen simultaneously with qube startup
         #  (including another startup of the same qube)
         self.startup_lock = asyncio.Lock()
+        self.startup_task = None
 
     def __str__(self):
         return self.name
