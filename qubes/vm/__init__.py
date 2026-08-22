@@ -303,6 +303,7 @@ class BaseVM(qubes.PropertyHolder):
         #: operations which shouldn't happen simultaneously with qube startup
         #  (including another startup of the same qube)
         self.startup_lock = asyncio.Lock()
+        self.startup_task = None
 
     def __str__(self):
         return self.name
@@ -359,7 +360,9 @@ class BaseVM(qubes.PropertyHolder):
 
     def init_log(self):
         """Initialise logger for this domain."""
-        self.log = qubes.log.get_vm_logger(self.name)
+        self.log = qubes.log.get_vm_logger(
+            "{}.{}".format(self.__class__.__qualname__, self.name)
+        )
 
     def __xml__(self):
         element = lxml.etree.Element("domain")

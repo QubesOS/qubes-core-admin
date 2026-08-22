@@ -1394,6 +1394,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         self.__waiter = None
                     raise
 
+    async def cancel_start(self) -> bool:
+        if not self.startup_lock.locked():
+            return False
+        if self.startup_task is None:
+            return False
+        if self.startup_task.done():
+            return False
+        self.log.info("Cancelling domain startup")
+        self.startup_task.cancel()
+        try:
+            await self.startup_task
+        except asyncio.CancelledError:
+            pass
+        return True
+
     async def start(
         self, start_guid=True, notify_function=None, mem_required=None
     ):
@@ -1405,6 +1420,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
 
         async with self.startup_lock:
+            self.startup_task = asyncio.current_task()
             # check if domain wasn't removed in the meantime
             if self not in self.app.domains:
                 raise qubes.exc.QubesVMNotFoundError(self.name)
@@ -1595,6 +1611,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     pass
                 raise
 
+        self.startup_task = None
         return self
 
     def on_libvirt_domain_stopped(self):
@@ -1626,6 +1643,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def _domain_stopped_coro(self):
         async with self._domain_stopped_lock:
             assert not self._domain_stopped_event_handled
+
+            # In case domain stop was triggered outside of qubesd.
+            await self.cancel_start()
 
             # Set this immediately such that we don't generate events twice if
             # an exception gets thrown.
@@ -1668,8 +1688,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin shutting down")
+
+        cancelled_start = await self.cancel_start()
 
         if self.is_halted():
+            if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         try:
@@ -1735,6 +1764,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
             raise
 
+        self.log.info("Completed shutdown")
         return self
 
     async def kill(self):
@@ -1743,8 +1773,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin kill")
+
+        cancelled_start = await self.cancel_start()
 
         if not self.is_running() and not self.is_paused():
+            if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         if self.__waiter is None:
@@ -1759,6 +1798,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise
 
         await waiter
+        self.log.info("Complete kill")
 
     async def suspend(self):
         """Suspend (pause) domain.
@@ -2304,7 +2344,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         # make sure shutdown is handled before removing anything, but only if
         # handling is pending; if not, we may be called from within
-        # domain-shutdown event (DispVM._auto_cleanup), which would deadlock
+        # domain-shutdown event of a DispVM, which would deadlock
         if not self._domain_stopped_event_handled:
             await self._ensure_shutdown_handled()
 
