@@ -479,6 +479,51 @@ class TC_02_LuksMethods(_EncryptTestCase):
         self.assertTrue(vol.encrypted)
         self.assertTrue(vol._luks_device_mutated)
 
+    def test_014_header_size_constant(self):
+        self.assertEqual(qubes.storage.LUKS2_HEADER_SIZE, 32 << 20)
+        self.assertEqual(
+            "--reduce-device-size={}M".format(
+                qubes.storage.LUKS2_HEADER_SIZE >> 20
+            ),
+            "--reduce-device-size=32M",
+        )
+
+    def test_015_start_luks_warns_on_stale_mapper(self):
+        vol = self._created_volume()
+        vol.set_passphrase(b"s3cret")
+        vol.start = unittest.mock.AsyncMock()
+        vol.block_device = unittest.mock.Mock(
+            return_value=qubes.storage.BlockDevice(
+                vol.path, vol.name, None, True, None, "disk"
+            )
+        )
+        mapper = vol.encrypted_volume_path("test-vm", "private")
+        seen = {"first": True}
+        real_exists = os.path.exists
+
+        def exists(path):
+            if path == mapper and seen["first"]:
+                seen["first"] = False
+                return True
+            return real_exists(path)
+
+        async def cryptsetup_side(*args, **kwargs):
+            if "isLuks" in args:
+                return None
+            return None
+
+        self.mock_cryptsetup.side_effect = cryptsetup_side
+        with unittest.mock.patch("os.path.exists", side_effect=exists):
+            with self.assertLogs("qubes.storage", level="WARNING") as log:
+                self.loop.run_until_complete(vol.start_luks(mapper))
+        self.assertTrue(
+            any("leftover LUKS mapping" in line for line in log.output)
+        )
+        closed = [
+            c for c in self.mock_cryptsetup.call_args_list if "close" in c[0]
+        ]
+        self.assertTrue(closed)
+
 
 class TC_03_StorageStartStop(_EncryptTestCase):
     """Storage.start / stop / create / block_devices for encrypted volumes."""

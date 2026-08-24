@@ -24,6 +24,7 @@
 
 import functools
 import inspect
+import logging
 import os
 import os.path
 import string
@@ -291,8 +292,10 @@ class Volume:
         """Persistent LUKS2 encryption of this volume.
 
         Allowed only on writable, save_on_stop, non-snapshot, dom0-backed
-        volumes (private on AppVM/StandaloneVM, root on TemplateVM /
-        StandaloneVM).  Mutually exclusive with :py:attr:`ephemeral`.
+        volumes.  The practical target is ``private`` on AppVM/StandaloneVM
+        (and ``root`` on StandaloneVM).  TemplateVM ``root`` meets the
+        mechanical checks but is not useful: AppVMs cannot snapshot an
+        encrypted source.  Mutually exclusive with :py:attr:`ephemeral`.
         The passphrase is never stored on disk; see
         :py:meth:`set_passphrase`.
         """
@@ -307,16 +310,7 @@ class Volume:
                 )
             self._encrypted = False
             return
-        if self.ephemeral:
-            raise qubes.exc.QubesValueError(
-                "Cannot enable encryption on ephemeral volume"
-            )
-        if (
-            self.snap_on_start
-            or not self.save_on_stop
-            or self.domain is not None
-            or not self.rw
-        ):
+        if not self.is_encryptable():
             raise qubes.exc.QubesValueError(
                 "Cannot enable encryption on snap_on_start or "
                 "non-save_on_stop or non-dom0 or not writable volume"
@@ -454,11 +448,14 @@ class Volume:
     async def setup_luks(self, device=None, *, existing=None):
         """Create a LUKS2 header on this volume.
 
-        If the volume already has a LUKS header, this is a no-op.  If it
-        already contains data, the volume is grown by
-        :py:data:`LUKS2_HEADER_SIZE` and encrypted in place with
-        ``cryptsetup reencrypt --encrypt`` so existing contents are kept.
-        Otherwise ``luksFormat`` is used.
+        If the volume already has a LUKS header, this is a no-op (used
+        when retrying setup on a volume that is already marked
+        encrypted).  Enabling encryption on a volume that is not yet
+        marked encrypted must refuse a pre-existing header first; see
+        ``admin.vm.volume.Set.encrypted``.  If the volume already
+        contains data, it is grown by :py:data:`LUKS2_HEADER_SIZE` and
+        encrypted in place with ``cryptsetup reencrypt --encrypt`` so
+        existing contents are kept.  Otherwise ``luksFormat`` is used.
 
         Dirty volumes and volumes with revisions are refused.  Once the
         backing device has been mutated, :py:attr:`_luks_device_mutated`
@@ -520,7 +517,7 @@ class Volume:
             "--batch-mode",
             "--type=luks2",
             "--encrypt",
-            "--reduce-device-size=32M",
+            "--reduce-device-size={}M".format(LUKS2_HEADER_SIZE >> 20),
             "--key-file=-",
             "--",
             "reencrypt",
@@ -549,6 +546,11 @@ class Volume:
                 )
             )
         if os.path.exists(name):
+            logging.getLogger("qubes.storage").warning(
+                "Closing leftover LUKS mapping %s before unlocking %s",
+                name,
+                self.vid,
+            )
             await qubes.utils.cryptsetup("--", "close", mapper_name)
         origin = self._luks_backend_path()
         if not await self.is_luks(origin):

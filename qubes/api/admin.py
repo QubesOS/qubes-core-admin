@@ -482,6 +482,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "revisions_to_keep",
             "ephemeral",
             "encrypted",
+            "has_passphrase",
         ]
 
         def _serialize(value):
@@ -816,17 +817,20 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesException(
                 "Passphrase must be set before enabling encryption"
             )
-        volume.encrypted = True
-        try:
-            await volume.setup_luks()
-        except Exception:
-            # Once the backing device has been mutated, keep the flag
-            # so start will not attach ciphertext as a normal disk.
-            if not getattr(volume, "_luks_device_mutated", False):
-                volume._encrypted = False  # pylint: disable=protected-access
-            else:
-                self.app.save()
-            raise
+        # Persist the flag *before* mutating the device so a crash
+        # cannot leave qubes.xml saying the volume is plaintext.
+        # Refuse a guest-written LUKS header (including cipher=none).
+        if not volume.encrypted:
+            if await volume.is_luks():
+                raise qubes.exc.QubesValueError(
+                    "Volume already has a LUKS header; refuse to mark it "
+                    "encrypted without formatting it with the requested "
+                    "passphrase"
+                )
+            volume._assert_safe_to_encrypt()  # pylint: disable=protected-access
+            volume.encrypted = True
+            self.app.save()
+        await volume.setup_luks()
         self.app.save()
 
     @qubes.api.method(

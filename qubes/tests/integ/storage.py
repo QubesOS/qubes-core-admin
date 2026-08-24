@@ -519,6 +519,67 @@ class StorageTestMixin(object):
             self.standalone_vm1.features["boot-mode.active"], "new-mode"
         )
 
+    def test_010_persistent_luks(self):
+        """Enable LUKS2, persist data across stop/start, encrypt existing data."""
+        return self.loop.run_until_complete(self._test_010_persistent_luks())
+
+    async def _test_010_persistent_luks(self):
+        size = 128 * 1024 * 1024
+        passphrase = b"integ-test-pass"
+        volume_config = {
+            "pool": self.pool.name,
+            "size": size,
+            "save_on_stop": True,
+            "rw": True,
+        }
+        testvol = self.vm1.storage.init_volume("testvol", volume_config)
+        await qubes.utils.coro_maybe(testvol.create())
+        if not getattr(testvol, "path", None):
+            self.skipTest("pool does not expose a LUKS-capable path")
+        self.app.save()
+
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        await self.vm1.run_for_stdio(
+            "echo test123 > /dev/xvde && sync", user="root"
+        )
+        await self.vm1.shutdown(wait=True)
+
+        testvol = self.vm1.volumes["testvol"]
+        if await testvol.is_luks():
+            self.fail("volume already had a LUKS header before enabling")
+        testvol.set_passphrase(passphrase)
+        testvol.encrypted = True
+        self.app.save()
+        await testvol.setup_luks()
+        self.assertTrue(await testvol.is_luks())
+        self.assertEqual(
+            testvol.size, size + qubes.storage.LUKS2_HEADER_SIZE
+        )
+
+        testvol.set_passphrase(passphrase)
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        await self.vm1.run_for_stdio(
+            "echo test123 | cat - /dev/zero |"
+            " head -c {} | diff -q /dev/xvde - 2>&1".format(size),
+            user="root",
+        )
+        await self.vm1.run_for_stdio(
+            "echo test456 > /dev/xvde && sync", user="root"
+        )
+        await self.vm1.shutdown(wait=True)
+
+        testvol.set_passphrase(passphrase)
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        await self.vm1.run_for_stdio(
+            "echo test456 | cat - /dev/zero |"
+            " head -c {} | diff -q /dev/xvde - 2>&1".format(size),
+            user="root",
+        )
+        await self.vm1.shutdown(wait=True)
+
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
