@@ -1668,14 +1668,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
-
-        if self.is_halted():
+        pending = self.is_halted() and not self.__waiter is None
+        if self.is_halted() and not pending:
             raise qubes.exc.QubesVMNotStartedError(self)
 
         try:
-            await self.fire_event_async(
-                "domain-pre-shutdown", pre_event=True, force=force
-            )
+            if not pending:
+                await self.fire_event_async(
+                    "domain-pre-shutdown", pre_event=True, force=force
+                )
 
             is_preload = getattr(self, "is_preload", False)
             if self.is_paused() and not force and not is_preload:
@@ -1685,9 +1686,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.__waiter = asyncio.get_running_loop().create_future()
             waiter = self.__waiter
 
-            if self.is_paused():
+            if self.is_paused() and not pending:
                 self.libvirt_domain.destroy()
-            else:
+            elif not pending:
                 # Some libvirt actions have a global lock on a domain, blocking
                 # a lot of libvirt operations and even qubesd. When possible to
                 # act without it, do so to avoid the whole qubesd hanging.
