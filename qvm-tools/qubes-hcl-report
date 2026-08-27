@@ -115,7 +115,7 @@ if [[ "$YAML_ONLY" = 1 ]]
     fi
 fi
 
-BOOT_ID=$(cat "$BOOT_ID_FILE" 2>/dev/null)
+BOOT_ID=$(cat "$BOOT_ID_FILE")
 
 # Everything in the yaml output is fixed for the lifetime of a boot: the
 # hardware, the firmware version (a flash needs a reboot to take effect), the
@@ -126,8 +126,10 @@ BOOT_ID=$(cat "$BOOT_ID_FILE" 2>/dev/null)
 # pciback.
 if [[ "$YAML_ONLY" = 1 && "$USE_CACHE" = 1 && -n "$BOOT_ID" ]]
   then
-    if [[ "$(cat "$CACHE_BOOT_ID_FILE" 2>/dev/null)" = "$BOOT_ID" ]] &&
-       [[ -s "$CACHE_FILE" ]]
+    # tested before reading, so that having no cache yet does not report an
+    # error for a missing file
+    if [[ -s "$CACHE_FILE" && -s "$CACHE_BOOT_ID_FILE" ]] &&
+       [[ "$(cat "$CACHE_BOOT_ID_FILE")" = "$BOOT_ID" ]]
       then
         # fall through rather than exiting successfully with no output
         if cat "$CACHE_FILE"
@@ -459,21 +461,19 @@ if [[ "$YAML_ONLY" == 1 ]]
     # Do not cache a report with missing data: an incomplete "xl dmesg" ring
     # buffer empties the virtualization fields, and that would then be served
     # for the rest of the boot.
-    # a cache write failure must not disturb the output, so errors here are
-    # discarded rather than reported
     if [[ "$USE_CACHE" = 1 && -n "$BOOT_ID" && "$XL_DMESG_INCOMPLETE" = no ]] &&
-       mkdir -p "$CACHE_DIR" 2>/dev/null
+       mkdir -p "$CACHE_DIR"
       then
         # write via a temporary file so that concurrent runs cannot leave a
         # partially written cache behind
-        if CACHE_TEMP=$(mktemp "$CACHE_DIR/report.XXXXXXXXXX" 2>/dev/null)
+        if CACHE_TEMP=$(mktemp "$CACHE_DIR/report.XXXXXXXXXX")
           then
             # the boot id is written last: should this be interrupted, the
             # mismatch makes the next run collect the data again
-            if echo -e "$YAML_OUTPUT" > "$CACHE_TEMP" 2>/dev/null &&
-               mv "$CACHE_TEMP" "$CACHE_FILE" 2>/dev/null
+            if echo -e "$YAML_OUTPUT" > "$CACHE_TEMP" &&
+               mv "$CACHE_TEMP" "$CACHE_FILE"
               then
-                echo "$BOOT_ID" > "$CACHE_BOOT_ID_FILE" 2>/dev/null
+                echo "$BOOT_ID" > "$CACHE_BOOT_ID_FILE"
               else
                 rm -f "$CACHE_TEMP"
             fi
