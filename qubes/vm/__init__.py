@@ -85,8 +85,10 @@ def validate_name(holder, prop, value):
                 "{} value contains illegal characters".format(prop.__name__),
             )
         raise qubes.exc.QubesValueError("VM name contains illegal characters")
-    if value == "Domain-0":
-        raise qubes.exc.QubesValueError("VM name cannot be 'Domain-0'")
+    if value in ("Domain-0", "Dom0"):
+        raise qubes.exc.QubesValueError(
+            "VM name cannot be 'Domain-0' or 'Dom0'"
+        )
     if value in ("none", "default"):
         raise qubes.exc.QubesValueError(
             "VM name cannot be 'none' nor 'default'"
