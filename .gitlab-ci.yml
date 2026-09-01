@@ -48,8 +48,8 @@ mypy:
   tags:
     - docker
   before_script:
-    - sudo dnf install -y python3-mypy python3-pip
-    - sudo python3 -m pip install lxml-stubs types-docutils types-pywin32
+    - sudo dnf install -y python3-mypy python3-pip python3-types-docutils python3-types-pyyaml
+    - python3 -m pip install lxml-stubs types-pywin32
   script:
     - mypy --install-types --non-interactive --ignore-missing-imports --exclude tests/ --junit-xml mypy.xml qubes
   artifacts:
