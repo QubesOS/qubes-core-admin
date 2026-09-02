@@ -838,6 +838,23 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.app.save()
 
     @qubes.api.method(
+        "admin.pool.Set.snap_on_start_forensics", scope="global", write=True
+    )
+    async def pool_set_snap_on_start_forensics(self, untrusted_payload):
+        self.enforce(self.dest.name == "dom0")
+        self.enforce(self.arg in self.app.pools.keys())
+        pool = self.app.pools[self.arg]
+        if not hasattr(pool, 'snap_on_start_forensics'):
+            raise qubes.exc.QubesNotImplementedError()
+
+        newvalue = self.validate_bool(untrusted_payload)
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        pool.snap_on_start_forensics = newvalue
+        self.app.save()
+
+    @qubes.api.method(
         "admin.pool.Set.ephemeral_volatile", scope="global", write=True
     )
     async def pool_set_ephemeral(self, untrusted_payload):
