@@ -439,6 +439,9 @@ def sbdf_to_path(device_id: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
@@ -494,6 +497,9 @@ def path_to_sbdf(path: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
