@@ -163,9 +163,9 @@ def parse_bool(value):
     """Deserialize bool property, handling usual encodings"""
     if isinstance(value, bool):
         return value
-    if value in ("True", "1", "on"):
+    if value in ("True", "true", "1", "on"):
         return True
-    if value in ("False", "0", "off", ""):
+    if value in ("False", "false", "0", "off", ""):
         return False
     raise ValueError(f"invalid bool: {value}")
 
