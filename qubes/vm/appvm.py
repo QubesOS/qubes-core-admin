@@ -40,6 +40,36 @@ def template_changed_update_storage(self):
             self.storage.init_volume(volume_name, config)
 
 
+def template_changed(self, oldvalue=None, newvalue=None):
+    if oldvalue == newvalue:
+        return
+    if not self.is_halted():
+        if self.property_is_default("active_template"):
+            self.active_template = oldvalue
+        elif newvalue == self.active_template:
+            del self.active_template
+        return
+    template_changed_update_storage(self)
+    if not getattr(self, "template_for_dispvms", False):
+        return
+    for qube in self.app.domains.get_vms_based_on(self):
+        template_changed_update_storage(qube)
+
+
+def apply_deferred_template(self):
+    if not self.is_halted():
+        return
+    if self.active_template == self.template:
+        return
+    del self.active_template
+    template_changed_update_storage(self)
+
+
+def domain_loaded(self):
+    assert self.template
+    apply_deferred_template(self)
+
+
 class AppVM(
     qubes.vm.mix.dvmtemplate.DVMTemplateMixin, qubes.vm.qubesvm.QubesVM
 ):
@@ -49,7 +79,16 @@ class AppVM(
         "template",
         load_stage=4,
         vmclass=qubes.vm.templatevm.TemplateVM,
-        doc="Template, on which this AppVM is based.",
+        doc="Template, on which this AppVM is based or will be based after"
+        "restart",
+    )
+
+    active_template = qubes.VMProperty(
+        "active_template",
+        load_stage=4,
+        vmclass=qubes.vm.templatevm.TemplateVM,
+        default=(lambda self: self.template),
+        doc="Template in use.",
     )
 
     default_volume_config = {
@@ -123,7 +162,14 @@ class AppVM(
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
         """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
-        assert self.template
+        domain_loaded(self)
+
+    @qubes.events.handler("domain-shutdown")
+    async def on_domain_shutdown(self, _event, **_kwargs) -> None:
+        """
+        Apply deferred template.
+        """
+        apply_deferred_template(self)
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(self, event, name, oldvalue=None):
@@ -137,21 +183,9 @@ class AppVM(
             )
         raise qubes.exc.QubesValueError("Cannot unset template")
 
-    @qubes.events.handler("property-pre-set:template")
-    def on_property_pre_set_template(
-        self, event, name, newvalue, oldvalue=None
-    ):
-        """Forbid changing template of running VM"""  # pylint: disable=unused-argument
-        if not self.is_halted():
-            raise qubes.exc.QubesVMNotHaltedError(
-                self, "Cannot change template while qube is running"
-            )
-
     @qubes.events.handler("property-set:template")
     def on_property_set_template(self, event, name, newvalue, oldvalue=None):
         """Adjust root (and possibly other snap_on_start=True) volume
         on template change.
         """  # pylint: disable=unused-argument
-        template_changed_update_storage(self)
-        for vm in self.dispvms:
-            vm.on_property_set_template(event, name, newvalue, oldvalue)
+        template_changed(self, oldvalue=oldvalue, newvalue=newvalue)

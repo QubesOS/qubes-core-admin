@@ -1401,6 +1401,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
 
+    def _get_template_feature_options(self):
+        active = True
+        if "+" in self.arg:
+            untrusted_feature, untrusted_options = self.arg.split("+", 1)
+            if untrusted_options == "deferred":
+                active = False
+        else:
+            untrusted_feature = self.arg
+        return untrusted_feature, active
+
     @qubes.api.method(
         "admin.vm.feature.CheckWithTemplate",
         wants_arg=True,
@@ -1413,10 +1423,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
+        untrusted_feature, active = self._get_template_feature_options()
         try:
-            value = self.dest.features.check_with_template(self.arg)
+            value = self.dest.features.check_with_template(
+                untrusted_feature, active=active
+            )
         except KeyError:
-            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+            raise qubes.exc.QubesFeatureNotFoundError(
+                self.dest, untrusted_feature
+            )
         return value
 
     @qubes.api.method(
@@ -1467,10 +1482,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
+        untrusted_feature, active = self._get_template_feature_options()
         try:
-            value = self.dest.features.check_with_template_and_adminvm(self.arg)
+            value = self.dest.features.check_with_template_and_adminvm(
+                untrusted_feature, active=active
+            )
         except KeyError:
-            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+            raise qubes.exc.QubesFeatureNotFoundError(
+                self.dest, untrusted_feature
+            )
         return value
 
     @qubes.api.method(
