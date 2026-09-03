@@ -32,6 +32,7 @@ import socket
 import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
+from typing import Any
 
 import importlib.metadata
 
@@ -567,3 +568,21 @@ def validate_label_value(untrusted_label_value) -> None:
             "Label value must only contain hexadecimal digits after prefix: "
             + string.hexdigits
         )
+
+
+async def async_shield(awaitable) -> Any:
+    """
+    Protect awaitable from being cancelled, skip raising
+    ``asyncio.CancelledError`` and still retrieve any exception if it was
+    raised, by awaiting for the cancellation to complete.
+    """
+    if not isinstance(awaitable, asyncio.Task):
+        awaitable = asyncio.create_task(awaitable)
+    with suppress(asyncio.CancelledError):
+        await asyncio.shield(awaitable)
+    try:
+        return awaitable.result()
+    except asyncio.InvalidStateError:
+        # The task completion was already waited above, if it has no result,
+        # waiting for it would block indefinitely.
+        return None

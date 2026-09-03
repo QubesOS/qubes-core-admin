@@ -67,6 +67,8 @@ import qubes.tests.never_awaited
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
+from qubes.log import Formatter
+
 XMLPATH = "/var/lib/qubes/qubes-test.xml"
 CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
 TEMPLATE = "fedora-23"
@@ -593,7 +595,14 @@ class QubesTestCase(unittest.TestCase):
                     asyncio.wait_for(libvirt_event_impl.drain(), timeout=30)
                 )
             except asyncio.TimeoutError:
-                raise AssertionError("libvirt event impl drain timeout")
+                raise AssertionError(
+                    "libvirt event impl drain timeout, loop tasks: %s, pending:"
+                    " %s"
+                    % (
+                        asyncio.all_tasks(loop=self.loop),
+                        libvirt_event_impl._pending,
+                    )
+                )
 
         # this is stupid, but apparently it requires two passes
         # to cleanup SIGCHLD handlers
@@ -873,11 +882,11 @@ class SystemTestCase(QubesTestCase):
         global ha_syslog
         if ha_syslog is None:
             ha_syslog = logging.handlers.SysLogHandler("/dev/log")
-            ha_syslog.setFormatter(
-                logging.Formatter("%(name)s[%(process)d]: %(message)s")
-            )
+            loglevel = logging.INFO
+            debug = bool(loglevel == logging.DEBUG)
+            ha_syslog.setFormatter(Formatter(debug=debug))
             logging.root.addHandler(ha_syslog)
-            logging.root.setLevel(logging.INFO)
+            logging.root.setLevel(loglevel)
 
         self.log.critical("starting")
 
