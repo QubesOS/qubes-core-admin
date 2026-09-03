@@ -1470,18 +1470,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     self.end_lifecycle_waiter(event="STOPPED", exc=e)
                     raise
 
-    @staticmethod
-    async def async_shield(awaitable) -> Any:
-        """
-        Protect awaitable from being cancelled, skip raising
-        ``asyncio.CancelledError`` and still retrieve any exception if it was
-        raised, by awaiting for the cancellation to complete.
-        """
-        try:
-            return await asyncio.shield(awaitable)
-        except asyncio.CancelledError:
-            return await awaitable
-
     async def cancel_start(self):
         if self.startup_task is None:
             return
@@ -1493,7 +1481,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.startup_task.cancel()
         try:
             await self.startup_task
-        except asyncio.CancelledError:
+        except (qubes.exc.QubesVMError, asyncio.CancelledError):
             pass
 
     async def notify_failed_startup(self, exc: Exception):
@@ -1525,7 +1513,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed",
                         reason="Qube start is prohibited. "
@@ -1547,7 +1535,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     mem_required=mem_required,
                 )
             except Exception as exc:
-                await self.async_shield(self.notify_failed_startup(exc=exc))
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
                 raise
 
@@ -1586,7 +1576,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.storage.start()
 
             except Exception as exc:
-                await self.async_shield(self.notify_failed_startup(exc=exc))
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
                 if qmemman_client:
                     qmemman_client.close()
@@ -1629,14 +1621,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         "Failed to start an HVM qube with PCI devices assigned "
                         "- hardware does not support IOMMU/VT-d/AMD-Vi"
                     )
-                await self.async_shield(self.notify_failed_startup(exc=exc))
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
-                await self.async_shield(self.storage.stop())
+                await qubes.utils.async_shield(self.storage.stop())
                 raise exc
             except Exception as exc:
-                await self.async_shield(self.notify_failed_startup(exc=exc))
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
-                await self.async_shield(self.storage.stop())
+                await qubes.utils.async_shield(self.storage.stop())
                 raise
 
             finally:
@@ -1681,12 +1677,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
 
             except Exception as exc:  # pylint: disable=bare-except
-                await self.async_shield(self.notify_failed_startup(exc=exc))
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 # This avoids losing the exception if an exception is
                 # raised in self.kill(), because the vm is not
                 # running or paused
                 try:
-                    await self.async_shield(self.kill())
+                    await qubes.utils.async_shield(self.kill())
                 except qubes.exc.QubesVMNotStartedError:
                     pass
                 raise
