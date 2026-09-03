@@ -32,7 +32,7 @@ import shutil
 import string
 import subprocess
 
-from typing import Awaitable, Any
+from typing import Awaitable
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -1394,18 +1394,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         self.__waiter = None
                     raise
 
-    @staticmethod
-    async def async_shield(awaitable) -> Any:
-        """
-        Protect awaitable from being cancelled, skip raising
-        ``asyncio.CancelledError`` and still retrieve any exception if it was
-        raised, by awaiting for the cancellation to complete.
-        """
-        try:
-            return await asyncio.shield(awaitable)
-        except asyncio.CancelledError:
-            return await awaitable
-
     async def cancel_start(self):
         if self.startup_task is None:
             return
@@ -1417,7 +1405,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.startup_task.cancel()
         try:
             await self.startup_task
-        except asyncio.CancelledError:
+        except (qubes.exc.QubesVMError, asyncio.CancelledError):
             pass
 
     async def start(
@@ -1444,7 +1432,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed",
                         reason="Qube start is prohibited. "
@@ -1466,7 +1454,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
             except Exception as exc:
                 self.log.error("Start failed: %s", str(exc))
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed", reason=str(exc)
                     )
@@ -1510,7 +1498,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             except Exception as exc:
                 self.log.error("Start failed: %s", str(exc))
                 # let anyone receiving domain-pre-start know that startup failed
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed", reason=str(exc)
                     )
@@ -1556,22 +1544,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         "- hardware does not support IOMMU/VT-d/AMD-Vi"
                     )
                 self.log.error("Start failed: %s", str(exc))
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed", reason=str(exc)
                     )
                 )
-                await self.async_shield(self.storage.stop())
+                await qubes.utils.async_shield(self.storage.stop())
                 raise exc
             except Exception as exc:
                 self.log.error("Start failed: %s", str(exc))
                 # let anyone receiving domain-pre-start know that startup failed
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed", reason=str(exc)
                     )
                 )
-                await self.async_shield(self.storage.stop())
+                await qubes.utils.async_shield(self.storage.stop())
                 raise
 
             finally:
@@ -1620,7 +1608,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             except Exception as exc:  # pylint: disable=bare-except
                 self.log.error("Start failed: %s", str(exc))
                 # let anyone receiving domain-pre-start know that startup failed
-                await self.async_shield(
+                await qubes.utils.async_shield(
                     self.fire_event_async(
                         "domain-start-failed", reason=str(exc)
                     )
@@ -1629,7 +1617,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 # raised in self.kill(), because the vm is not
                 # running or paused
                 try:
-                    await self.async_shield(self.kill())
+                    await qubes.utils.async_shield(self.kill())
                 except qubes.exc.QubesVMNotStartedError:
                     pass
                 raise
