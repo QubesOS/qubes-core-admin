@@ -1895,6 +1895,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.integ.storage_perf",
         "qubes.tests.integ.dom0_update",
         "qubes.tests.integ.vm_update",
+        "qubes.tests.integ.vm_template_upgrade",
         "qubes.tests.integ.network",
         "qubes.tests.integ.network_ipv6",
         "qubes.tests.integ.dispvm",
