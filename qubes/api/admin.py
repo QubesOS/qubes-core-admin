@@ -2480,7 +2480,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         wants_arg=True,
         wants_payload=False,
         dest_adminvm=True,
-        scope="local",
+        scope="global",
         read=True,
     )
     async def backup_info(self):
@@ -2488,11 +2488,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "/" not in self.arg,
             reason="Backup profile ID must not contain forward slash character",
         )
-
-        self.fire_event_for_permission()
-
+        domains = self.fire_event_for_filter(self.app.domains)
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
-        return backup.get_backup_summary()
+        summary = backup.get_backup_summary(filtered_domains=domains)
+        return summary
 
     def _send_stats_single(self, info_time, info, only_vm, filters):
         """A single iteration of sending VM stats

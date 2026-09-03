@@ -88,7 +88,10 @@ class AdminExtension(qubes.ext.Extension):
 
     # TODO create that tag here (need to figure out how to pass mgmtvm name)
 
-    @qubes.ext.handler("admin-permission:admin.vm.List")
+    @qubes.ext.handler(
+        "admin-permission:admin.vm.List",
+        "admin-permission:admin.backup.Info",
+    )
     def admin_vm_list(self, vm, event, arg, **kwargs):
         """When called with target 'dom0' (aka "get full list"), exclude domains
         that the caller don't have permission to list
