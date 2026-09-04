@@ -559,6 +559,18 @@ class CallbackVolume(qubes.storage.Volume):
         await self._callback("post_volume_stop")
         return ret
 
+    async def start_luks(self, name):
+        # Bind to this wrapper so start() runs the callback hooks.
+        return await qubes.storage.Volume.start_luks(self, name)
+
+    async def stop_luks(self, name):
+        return await qubes.storage.Volume.stop_luks(self, name)
+
+    async def setup_luks(self, device=None, *, existing=None):
+        return await qubes.storage.Volume.setup_luks(
+            self, device, existing=existing
+        )
+
     async def import_data(self, size):
         await self._assert_initialized()
         await self._callback("pre_volume_import_data", cb_args=[size])
@@ -684,3 +696,6 @@ class CallbackVolume(qubes.storage.Volume):
 
     def encrypted_volume_path(self, qube_name, device_name):
         return self._cb_impl.encrypted_volume_path(qube_name, device_name)
+
+    def is_encryptable(self):
+        return self._cb_impl.is_encryptable()

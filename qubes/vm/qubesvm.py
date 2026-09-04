@@ -365,6 +365,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             *other arguments are as in :py:meth:`start`*
 
+        .. event:: domain-passphrase-required (subject, event, volumes)
+
+            Fired from :py:meth:`qubes.storage.Storage.start` when one or
+            more persistent LUKS2 volumes have no in-memory passphrase.
+            Only in-process handlers can supply the passphrase in time
+            (``admin.Events`` clients cannot pause start).  Tools should
+            read ``encrypted`` from ``admin.vm.volume.Info`` and call
+            ``admin.vm.volume.SetPassphrase`` *before* ``admin.vm.Start``.
+            If the passphrase is still missing afterwards, start fails.
+
+            Handler for this event may be asynchronous.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-passphrase-required'``)
+            :param volumes: list of volume names that need a passphrase
+
         .. event:: domain-pre-spawn (subject, event, start_guid)
 
             Fired just before creating libvirt domain.
@@ -2995,6 +3011,7 @@ def _clean_volume_config(config):
         "snap_on_start",
         "save_on_stop",
         "source",
+        "encrypted",
     ]
     return {k: v for k, v in config.items() if k in common_attributes}
 

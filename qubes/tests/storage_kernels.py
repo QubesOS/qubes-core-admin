@@ -124,6 +124,7 @@ class TC_01_KernelVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.rw)
         self.assertFalse(volume.ephemeral)
+        self.assertFalse(volume.encrypted)
         self.assertEqual(volume.usage, 0)
         expected_path = "/tmp/test-pool/dummy/modules.img"
         self.assertEqual(volume.path, expected_path)
