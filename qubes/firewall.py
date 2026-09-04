@@ -99,6 +99,8 @@ class DstHost(RuleOption):
     """Represent host/network address: either IPv4, IPv6, or DNS name"""
 
     def __init__(self, untrusted_value, prefixlen=None):
+        if untrusted_value is None:
+            raise ValueError("Destination address cannot be empty")
         if untrusted_value.count("/") > 1:
             raise ValueError("Too many /: " + untrusted_value)
         if not untrusted_value.count("/"):
