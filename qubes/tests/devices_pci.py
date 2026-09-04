@@ -70,6 +70,25 @@ PCI_XML = """<device>
 </device>
 """
 
+PCI_BROKEN_XML = """<device>
+  <name>pci_0000_c1_00_0</name>
+  <path>/sys/devices/pci0000:c0/0000:c0:03.1/0000:c1:00.0</path>
+  <parent>computer</parent>
+  <driver>
+    <name>pciback</name>
+  </driver>
+  <capability type='pci'>
+    <class>0x0c0330</class>
+    <domain>0</domain>
+    <bus>0</bus>
+    <slot>20</slot>
+    <function>0</function>
+    <product id='0x8cb1'>9 Series Chipset Family USB xHCI Controller</product>
+    <vendor id='0x8086'>Intel Corporation</vendor>
+  </capability>
+</device>
+"""
+
 
 def mock_file_open(filename: str, *_args, **_kwargs):
     if filename == "/usr/share/hwdata/pci.ids":
@@ -158,6 +177,10 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
         path = sbdf_to_path("0000:00:18.4")
         self.assertEqual(path, "00_18.4")
 
+    def test_004_sbdf_to_path_read_error(self):
+        path = sbdf_to_path("0000:c1:00.0")
+        self.assertEqual(path, None)
+
     def test_010_path_to_sbdf1(self):
         path = path_to_sbdf("0000_c0_03.5-00_00.0-00_00.0")
         self.assertEqual(path, "0000:c6:00.0")
@@ -212,6 +235,50 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
                             "XMLDesc.return_value": PCI_XML.format(
                                 *["10000"] * 3
                             ),
+                            "listCaps.return_value": ["pci"],
+                        }
+                    ),
+                ],
+            }
+        )
+        devices = list(self.ext.on_device_list_pci(vm, "device-list:pci"))
+        self.assertEqual(len(devices), 1)
+        self.assertEqual(devices[0].port_id, "00_14.0")
+        self.assertEqual(devices[0].vendor, "Intel Corporation")
+        self.assertEqual(
+            devices[0].product, "9 Series Chipset Family USB xHCI Controller"
+        )
+        self.assertEqual(devices[0].interfaces, [DeviceInterface("p0c0330")])
+        self.assertEqual(devices[0].parent_device, None)
+        self.assertEqual(devices[0].libvirt_name, "pci_0000_00_14_0")
+        self.assertEqual(
+            devices[0].description,
+            "USB controller: Intel Corporation 9 Series "
+            "Chipset Family USB xHCI Controller",
+        )
+        self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")
+
+    @mock.patch("builtins.open", new=mock_file_open)
+    def test_001_unsupported_path(self):
+        vm = TestVM()
+        vm.app.configure_mock(
+            **{
+                "vmm.offline_mode": False,
+                "vmm.libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
+                    **{"XMLDesc.return_value": PCI_XML.format(*["0000"] * 3)}
+                ),
+                "vmm.libvirt_conn.listAllDevices.return_value": [
+                    mock.Mock(
+                        **{
+                            "XMLDesc.return_value": PCI_XML.format(
+                                *["0000"] * 3
+                            ),
+                            "listCaps.return_value": ["pci"],
+                        }
+                    ),
+                    mock.Mock(
+                        **{
+                            "XMLDesc.return_value": PCI_BROKEN_XML,
                             "listCaps.return_value": ["pci"],
                         }
                     ),
