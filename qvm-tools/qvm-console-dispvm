@@ -44,6 +44,9 @@ DISPVM="$(qvm-prefs -- "$QREXEC_REQUESTED_TARGET" management_dispvm)"
 
 GUIVM="$(qvm-prefs -- "$DISPVM" guivm)"
 
-[[ -z "$GUIVM" ]] && { echo "Error: management DispVM '$DISPVM' does not have a GUI domain">&2; exit 1; }
+if [[ -z "$GUIVM" ]]; then
+    echo "Error: management DispVM '$DISPVM' does not have a GUI domain" >&2
+    exit 1
+fi
 
 sudo qvm-run -p --localcmd="QREXEC_REQUESTED_TARGET=$QREXEC_REQUESTED_TARGET QREXEC_REMOTE_DOMAIN=dom0 /etc/qubes-rpc/admin.vm.Console" --service --dispvm="$DISPVM" -- qubes.ShowInTerminal
