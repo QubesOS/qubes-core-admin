@@ -1669,7 +1669,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             when domain is already shut down.
         """
 
-        if self.is_halted():
+        # This flags an already started shutdown operation.
+        # An halted VM or having a waiter lock are indicators of ongoing shutdown operation.
+        pending = not self.__waiter is None
+        is_running = not pending or not self.is_halted()
+
+        if self.is_halted() and not pending:
             raise qubes.exc.QubesVMNotStartedError(self)
 
         try:
@@ -1685,9 +1690,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self.__waiter = asyncio.get_running_loop().create_future()
             waiter = self.__waiter
 
-            if self.is_paused():
+            if self.is_paused() and is_running:
                 self.libvirt_domain.destroy()
-            else:
+            elif is_running:
                 # Some libvirt actions have a global lock on a domain, blocking
                 # a lot of libvirt operations and even qubesd. When possible to
                 # act without it, do so to avoid the whole qubesd hanging.
@@ -1744,7 +1749,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             when domain is already shut down.
         """
 
-        if not self.is_running() and not self.is_paused():
+        # This flags already started shutdown operation.
+        pending = not self.__waiter is None
+
+        if not self.is_running() and not self.is_paused() and (not pending or not self.is_halted):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         if self.__waiter is None:
