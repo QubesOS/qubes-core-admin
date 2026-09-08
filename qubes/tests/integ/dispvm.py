@@ -312,7 +312,7 @@ class DispVMHelpersMixin:
         old_preload = old_preload.split(" ") if old_preload else []
         if not old_preload:
             return
-        old_preload = old_preload[:down_to]
+        old_preload = old_preload[down_to:]
         self.log.info(
             "cleaning up preloaded disposables: %s:%s", qube.name, old_preload
         )
