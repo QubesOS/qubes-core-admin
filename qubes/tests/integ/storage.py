@@ -531,6 +531,8 @@ class StorageTestMixin(object):
             "size": size,
             "save_on_stop": True,
             "rw": True,
+            # A revision after the first stop would be leftover plaintext.
+            "revisions_to_keep": 0,
         }
         testvol = self.vm1.storage.init_volume("testvol", volume_config)
         await qubes.utils.coro_maybe(testvol.create())
@@ -553,9 +555,7 @@ class StorageTestMixin(object):
         self.app.save()
         await testvol.setup_luks()
         self.assertTrue(await testvol.is_luks())
-        self.assertEqual(
-            testvol.size, size + qubes.storage.LUKS2_HEADER_SIZE
-        )
+        self.assertEqual(testvol.size, size + qubes.storage.LUKS2_HEADER_SIZE)
 
         testvol.set_passphrase(passphrase)
         await self.vm1.start()

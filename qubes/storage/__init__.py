@@ -354,16 +354,28 @@ class Volume:
         """Path of the LUKS container (the offline origin, not the mapper).
 
         Drivers that expose a real container (file, LVM) set :py:attr:`path`.
-        Others (ZFS) only have a block device; fall back to that.
+        Reflink keeps the committed image in ``_path_clean`` and points
+        :py:attr:`path` at the dirty file, which is gone after stop.
+        Prefer a path that actually exists.  Others (ZFS) fall back to
+        the block device.
         """
+        candidates = []
         if self.path:
-            return self.path
+            candidates.append(self.path)
+        clean = getattr(self, "_path_clean", None)
+        if clean and clean not in candidates:
+            candidates.append(clean)
+        for path in candidates:
+            if path and os.path.exists(path):
+                return path
         try:
             bdev = self.block_device()
         except Exception:  # pylint: disable=broad-except
             bdev = None
         if bdev is not None and getattr(bdev, "path", None):
             return bdev.path
+        if candidates:
+            return candidates[0]
         raise StoragePoolException(
             "Volume {!s} has no path for LUKS setup".format(self.vid)
         )
@@ -512,7 +524,7 @@ class Volume:
         self._luks_device_mutated = True
         self._encrypted = True
         await qubes.utils.coro_maybe(self.resize(self.size + LUKS2_HEADER_SIZE))
-        device = self.path or device
+        device = self._luks_backend_path()
         await qubes.utils.cryptsetup(
             "--batch-mode",
             "--type=luks2",
