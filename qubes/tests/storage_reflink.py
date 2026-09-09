@@ -288,6 +288,31 @@ class TC_10_ReflinkPool(qubes.tests.QubesTestCase):
             volume_data = volume_file.read().strip("\0")
         self.assertNotEqual(volume_data, "test data")
 
+    def test_020_luks_backend_path_clean_then_dirty(self):
+        config = {
+            "name": "private",
+            "pool": self.pool.name,
+            "save_on_stop": True,
+            "rw": True,
+            "size": 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.pool.init_volume(vm, config)
+        self.loop.run_until_complete(volume.create())
+        self.assertEqual(volume.path, volume._path_dirty)
+        self.assertFalse(os.path.exists(volume._path_dirty))
+        self.assertTrue(os.path.exists(volume._path_clean))
+        self.assertEqual(volume.luks_backend_path(), volume._path_clean)
+
+        self.loop.run_until_complete(volume.start())
+        self.assertTrue(os.path.exists(volume._path_dirty))
+        self.assertEqual(volume.luks_backend_path(), volume._path_dirty)
+
+        self.loop.run_until_complete(volume.stop())
+        self.assertFalse(os.path.exists(volume._path_dirty))
+        self.assertTrue(os.path.exists(volume._path_clean))
+        self.assertEqual(volume.luks_backend_path(), volume._path_clean)
+
     def _test_remove_stale_precache(self, *, stale, orphan):
         config = {
             "name": "root",

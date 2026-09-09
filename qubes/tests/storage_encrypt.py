@@ -524,20 +524,10 @@ class TC_02_LuksMethods(_EncryptTestCase):
         ]
         self.assertTrue(closed)
 
-    def test_016_luks_backend_uses_existing_clean_image(self):
-        vol = self._private_volume()
-        clean = os.path.join(self.tmpdir, "vol-clean.img")
-        dirty = os.path.join(self.tmpdir, "vol-dirty.img")
-        with open(clean, "wb") as fh:
-            fh.write(b"committed-data")
-        vol._path_clean = clean
-        with unittest.mock.patch.object(
-            type(vol),
-            "path",
-            new_callable=unittest.mock.PropertyMock,
-            return_value=dirty,
-        ):
-            self.assertEqual(vol._luks_backend_path(), clean)
+    def test_016_luks_backend_uses_volume_path(self):
+        vol = self._created_volume()
+        self.assertTrue(os.path.exists(vol.path))
+        self.assertEqual(vol.luks_backend_path(), vol.path)
 
 
 class TC_03_StorageStartStop(_EncryptTestCase):
@@ -797,4 +787,4 @@ class TC_06_ImportAndCreate(_EncryptTestCase):
             save_on_stop=True,
             size=1024,
         )
-        self.assertEqual(vol._luks_backend_path(), "/dev/zvol/tank/vm-private")
+        self.assertEqual(vol.luks_backend_path(), "/dev/zvol/tank/vm-private")

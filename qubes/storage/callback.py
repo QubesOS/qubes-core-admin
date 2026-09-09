@@ -699,3 +699,6 @@ class CallbackVolume(qubes.storage.Volume):
 
     def is_encryptable(self):
         return self._cb_impl.is_encryptable()
+
+    def luks_backend_path(self):
+        return self._cb_impl.luks_backend_path()

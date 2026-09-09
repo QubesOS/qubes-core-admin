@@ -350,32 +350,23 @@ class Volume:
             self._passphrase[:] = b"\0" * len(self._passphrase)
         self._passphrase = None
 
-    def _luks_backend_path(self):
+    def luks_backend_path(self):
         """Path of the LUKS container (the offline origin, not the mapper).
 
         Drivers that expose a real container (file, LVM) set :py:attr:`path`.
-        Reflink keeps the committed image in ``_path_clean`` and points
-        :py:attr:`path` at the dirty file, which is gone after stop.
-        Prefer a path that actually exists.  Others (ZFS) fall back to
-        the block device.
+        Others (ZFS) fall back to the block device.  A driver whose
+        :py:attr:`path` is not the committed image must override this.
         """
-        candidates = []
-        if self.path:
-            candidates.append(self.path)
-        clean = getattr(self, "_path_clean", None)
-        if clean and clean not in candidates:
-            candidates.append(clean)
-        for path in candidates:
-            if path and os.path.exists(path):
-                return path
+        if self.path and os.path.exists(self.path):
+            return self.path
         try:
             bdev = self.block_device()
         except Exception:  # pylint: disable=broad-except
             bdev = None
         if bdev is not None and getattr(bdev, "path", None):
             return bdev.path
-        if candidates:
-            return candidates[0]
+        if self.path:
+            return self.path
         raise StoragePoolException(
             "Volume {!s} has no path for LUKS setup".format(self.vid)
         )
@@ -392,7 +383,7 @@ class Volume:
             return True
         path = None
         try:
-            path = self._luks_backend_path()
+            path = self.luks_backend_path()
         except StoragePoolException:
             path = self.path
         if path and os.path.exists(path):
@@ -446,7 +437,7 @@ class Volume:
         """Return True if *device* (default: this volume's origin) is LUKS."""
         if device is None:
             try:
-                device = self._luks_backend_path()
+                device = self.luks_backend_path()
             except StoragePoolException:
                 return False
         if not device or not os.path.exists(device):
@@ -483,7 +474,7 @@ class Volume:
                 )
             )
         if device is None:
-            device = self._luks_backend_path()
+            device = self.luks_backend_path()
         if not device or not os.path.exists(device):
             raise StoragePoolException(
                 "Cannot set up LUKS: device {!r} does not exist".format(device)
@@ -524,7 +515,7 @@ class Volume:
         self._luks_device_mutated = True
         self._encrypted = True
         await qubes.utils.coro_maybe(self.resize(self.size + LUKS2_HEADER_SIZE))
-        device = self._luks_backend_path()
+        device = self.luks_backend_path()
         await qubes.utils.cryptsetup(
             "--batch-mode",
             "--type=luks2",
@@ -564,7 +555,7 @@ class Volume:
                 self.vid,
             )
             await qubes.utils.cryptsetup("--", "close", mapper_name)
-        origin = self._luks_backend_path()
+        origin = self.luks_backend_path()
         if not await self.is_luks(origin):
             raise StoragePoolException(
                 "Encrypted volume {!s} is not LUKS formatted".format(self.vid)
@@ -620,7 +611,7 @@ class Volume:
 
     async def change_passphrase(self, old, new):
         """Replace the LUKS passphrase.  Neither value is written to disk."""
-        device = self._luks_backend_path()
+        device = self.luks_backend_path()
         if not await self.is_luks(device):
             raise StoragePoolException(
                 "Volume {!s} is not LUKS formatted".format(self.vid)
