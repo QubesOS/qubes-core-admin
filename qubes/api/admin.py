@@ -1170,12 +1170,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def label_create(self, untrusted_payload):
         qubes.utils.validate_label_name(untrusted_label=self.arg, creation=True)
 
-        qubes.utils.validate_label_value(
+        color = qubes.utils.validate_label_value(
             untrusted_label_value=untrusted_payload
         )
-
-        # TODO: avoid creating too-similar qube labels: #2732
-        color = untrusted_payload
         del untrusted_payload
 
         self.fire_event_for_permission(color=color)
