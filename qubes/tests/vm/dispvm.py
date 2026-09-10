@@ -195,7 +195,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
             mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
             mock_qube.preload_complete.is_set.return_value = True
@@ -266,7 +266,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         ) as mock_events:
             mock_events.assert_not_called()
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_qube.qrexec_timeout = self.appvm.qrexec_timeout
             mock_qube.preload_complete = mock.Mock(spec=asyncio.Event)
             mock_qube.preload_complete.is_set.return_value = True
@@ -348,9 +348,21 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
             )
 
-    @unittest.skip("test is broken")
-    def test_007_template_change(self):
+    @mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_007_template_change(
+        self,
+        mock_storage,
+        _mock_makedirs,
+        _mock_symlink,
+        mock_start,
+    ):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        mock_start.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = True
+        self.appvm_alt.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(
             self.app, "domains", wraps=self.app.domains
@@ -364,17 +376,15 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.app.add_new_vm(
                 qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
             )
-
-            dispvm.template = self.appvm
-            self.loop.run_until_complete(dispvm.start())
-            if not self.app.vmm.offline_mode:
-                assert not dispvm.is_halted()
-                with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-                    dispvm.template = self.appvm
-            with self.assertRaises(qubes.exc.QubesValueError):
-                dispvm.template = qubes.property.DEFAULT
-            self.loop.run_until_complete(dispvm.kill())
-            dispvm.template = self.appvm
+            qubes.tests.vm.appvm.defer_tpl(
+                self=self, qube=dispvm, template_alt=self.appvm_alt
+            )
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
+            )
+            qubes.tests.vm.appvm.defer_tpl(
+                self=self, qube=dispvm, template_alt=self.appvm_alt
+            )
 
     def test_008_dvmtemplate_template_change(self):
         self.appvm.template_for_dispvms = True
@@ -686,7 +696,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),

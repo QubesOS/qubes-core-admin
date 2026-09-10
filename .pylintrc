@@ -59,10 +59,10 @@ const-rgx=(([A-Za-z_][A-Za-z0-9_]*)|(__.*__))$
 class-rgx=([A-Z_][a-zA-Z0-9]+|TC_\d\d_[a-zA-Z0-9_]+)$
 
 # Regular expression which should only match correct function names
-function-rgx=(test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,50})$
+function-rgx=(test_[0-9]{3}_[a-z0-9_]{2,60}|[a-z_][a-z0-9_]{2,60})$
 
 # Regular expression which should only match correct method names
-method-rgx=(setUp|setUpClass|tearDown|tearDownClass|test_[0-9]{3}_[a-z0-9_]{2,50}|[a-z_][a-z0-9_]{2,50})$
+method-rgx=(setUp|setUpClass|tearDown|tearDownClass|test_[0-9]{3}_[a-z0-9_]{2,60}|[a-z_][a-z0-9_]{2,60})$
 
 # Regular expression which should only match correct instance attribute names
 attr-rgx=(maxDiff|[a-z_][a-z0-9_]{2,40})$

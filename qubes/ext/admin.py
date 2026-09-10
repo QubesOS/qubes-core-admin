@@ -34,6 +34,10 @@ PROHIBITED_FEATURES = [
     "preload-dispvm-in-progress",
 ]
 
+PROHIBITED_PROPERTIES = [
+    "active_template",
+]
+
 
 class JustEvaluateAskResolution(parser.AskResolution):
     async def execute(self):
@@ -66,6 +70,21 @@ class AdminExtension(qubes.ext.Extension):
         if arg in PROHIBITED_FEATURES:
             raise qubes.exc.PermissionDenied(
                 "changing this feature is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
+
+    @qubes.ext.handler(
+        "admin-permission:admin.vm.property.Set",
+        "admin-permission:admin.vm.property.Reset",
+        "admin-permission:admin.vm.property.Remove",
+    )
+    def on_property_set_or_remove(self, vm, event, arg, **kwargs):
+        """Forbid changing specific properties"""
+        # pylint: disable=unused-argument
+        if arg in PROHIBITED_PROPERTIES:
+            raise qubes.exc.PermissionDenied(
+                "changing this property is prohibited by {}.{}".format(
                     __name__, type(self).__name__
                 )
             )
