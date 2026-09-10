@@ -120,37 +120,36 @@ class SystemState:
     def refresh_mem_actual(self, domid_list: Optional[list] = None) -> None:
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
-            if domid in self.dom_dict:
-                if domid_list and domid not in domid_list:
-                    continue
-                dom = self.dom_dict[domid]
-                # Real memory usage
-                dom.mem_current = domain["mem_kb"] * 1024
-                # What VM is using or can use
-                dom.mem_actual = max(
-                    dom.mem_current,
-                    dom.last_target,
-                )
-                hotplug_max = self.xs.read(
-                    "", self.get_xs_path(domid, "hotplug-max")
-                )
-                static_max = self.xs.read(
-                    "", self.get_xs_path(domid, "static-max")
-                )
-                if hotplug_max:
-                    dom.mem_max = int(hotplug_max) * 1024
-                    dom.use_hotplug = True
-                elif static_max:
-                    dom.mem_max = int(static_max) * 1024
-                    dom.use_hotplug = False
-                else:
-                    dom.mem_max = self.all_phys_mem
-                    # the previous line used to be
-                    #   dom.mem_max = domain['maxmem_kb']*1024
-                    # but domain['maxmem_kb'] changes in self.mem_set as well,
-                    # and this results in the memory never increasing in fact,
-                    # the only possible case of nonexisting memory/static-max
-                    # is dom0, see #307
+            if domid not in self.dom_dict:
+                continue
+            if domid_list and domid not in domid_list:
+                continue
+            dom = self.dom_dict[domid]
+            # Real memory usage
+            dom.mem_current = domain["mem_kb"] * 1024
+            # What VM is using or can use
+            dom.mem_actual = max(
+                dom.mem_current,
+                dom.last_target,
+            )
+            hotplug_max = self.xs.read(
+                "", self.get_xs_path(domid, "hotplug-max")
+            )
+            static_max = self.xs.read("", self.get_xs_path(domid, "static-max"))
+            if hotplug_max:
+                dom.mem_max = int(hotplug_max) * 1024
+                dom.use_hotplug = True
+            elif static_max:
+                dom.mem_max = int(static_max) * 1024
+                dom.use_hotplug = False
+            else:
+                dom.mem_max = self.all_phys_mem
+                # the previous line used to be
+                #   dom.mem_max = domain['maxmem_kb']*1024
+                # but domain['maxmem_kb'] changes in self.mem_set as well,
+                # and this results in the memory never increasing in fact,
+                # the only possible case of nonexisting memory/static-max
+                # is dom0, see #307
 
     def clear_outdated_error_markers(self) -> None:
         # Clear outdated errors.
