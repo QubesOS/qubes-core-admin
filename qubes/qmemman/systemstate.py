@@ -120,11 +120,13 @@ class SystemState:
     def refresh_mem_actual(self, domid_list: Optional[list] = None) -> None:
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
+            paused = bool(domain["paused"])
             if domid not in self.dom_dict:
                 continue
             if domid_list and domid not in domid_list:
                 continue
             dom = self.dom_dict[domid]
+            dom.paused = paused
             # Real memory usage
             dom.mem_current = domain["mem_kb"] * 1024
             # What VM is using or can use
