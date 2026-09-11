@@ -846,11 +846,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if preload:
             dispvm.mark_preload()
         await dispvm.create_on_disk()
+        # Save before a possible unclean shutdown.
+        app.save()
         if preload:
             await dispvm.start()
-        else:
             # Start method saves the qubes.xml.
-            app.save()
         return dispvm
 
     def mark_preload(self) -> None:
