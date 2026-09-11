@@ -24,6 +24,7 @@ import unittest
 import uuid
 
 import lxml.etree
+import lxml.builder
 
 import qubes
 import qubes.app
@@ -62,6 +63,125 @@ class TC_00_Label(qubes.tests.QubesTestCase):
         self.assertEqual(label.name, "red")
         self.assertEqual(label.icon, "appvm-red")
         self.assertEqual(label.icon_dispvm, "dispvm-red")
+
+    def _generate_xml(self, labels: list[tuple[str, str, str]]):
+        labels_xml = "".join(
+            '<label id="{}" color="{}">{}</label>'.format(
+                label_id, color, text
+            )
+            for label_id, text, color in labels)
+        return lxml.etree.XML("""
+<qubes version="3">
+    <labels>
+        {}
+    </labels>
+</qubes>
+""".format(labels_xml))
+
+    def test_002_migration_correct(self):
+        old_labels = [
+            ("label-1", "red", "0xcc0000"),
+            ("label-2", "orange", "0xf57900"),
+            ("label-3", "yellow", "0xedd400"),
+            ("label-4", "green", "0x73d216"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x3465a4"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x75507b"),
+        ]
+
+        new_labels = [
+            ("label-1", "red", "0xef4444"),
+            ("label-2", "orange", "0xfb923c"),
+            ("label-3", "yellow", "0xfde047"),
+            ("label-4", "green", "0x4ade80"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x60a5fa"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x7e22ce"),
+            ("label-9", "pink", "0xf472b6"),
+            ("label-10", "indigo", "0x4338ca"),
+            ("label-11", "cyan", "0x2dd4bf"),
+            ("label-12", "lime", "0xbef264"),
+            ("label-13", "brown", "0x5e483c"),
+            ("label-14", "white", "0xffffff"),
+        ]
+        old_xml = self._generate_xml(old_labels)
+        new_xml = self._generate_xml(new_labels)
+        self.assertXMLEqual(qubes.Qubes._migrate_labels(old_xml), new_xml)
+
+
+    def test_003_migration_custom(self):
+        old_labels = [
+            ("label-1", "red", "0xcc0000"),
+            ("label-2", "orange", "0xf57900"),
+            ("label-3", "yellow", "0xedd400"),
+            ("label-4", "green", "0x73d216"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x3465a4"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x75507b"),
+            ("label-9", "custom-color", "0x123456"),
+            ("label-11", "mauve", "0x987654"),
+        ]
+
+        new_labels = [
+            ("label-1", "red", "0xef4444"),
+            ("label-2", "orange", "0xfb923c"),
+            ("label-3", "yellow", "0xfde047"),
+            ("label-4", "green", "0x4ade80"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x60a5fa"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x7e22ce"),
+            ("label-9", "pink", "0xf472b6"),
+            ("label-10", "indigo", "0x4338ca"),
+            ("label-11", "cyan", "0x2dd4bf"),
+            ("label-12", "lime", "0xbef264"),
+            ("label-13", "brown", "0x5e483c"),
+            ("label-14", "white", "0xffffff"),
+            ("label-15", "custom-color", "0x123456"),
+            ("label-16", "mauve", "0x987654"),
+        ]
+        old_xml = self._generate_xml(old_labels)
+        new_xml = self._generate_xml(new_labels)
+        self.assertXMLEqual(qubes.Qubes._migrate_labels(old_xml), new_xml)
+
+
+    def test_003_migration_duplicate(self):
+        old_labels = [
+            ("label-1", "red", "0xcc0000"),
+            ("label-2", "orange", "0xf57900"),
+            ("label-3", "yellow", "0xedd400"),
+            ("label-4", "green", "0x73d216"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x3465a4"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x75507b"),
+            ("label-9", "brown", "0x123456"),
+            ("label-11", "mauve", "0x987654"),
+        ]
+
+        new_labels = [
+            ("label-1", "red", "0xef4444"),
+            ("label-2", "orange", "0xfb923c"),
+            ("label-3", "yellow", "0xfde047"),
+            ("label-4", "green", "0x4ade80"),
+            ("label-5", "gray", "0x555555"),
+            ("label-6", "blue", "0x60a5fa"),
+            ("label-7", "black", "0x000000"),
+            ("label-8", "purple", "0x7e22ce"),
+            ("label-9", "pink", "0xf472b6"),
+            ("label-10", "indigo", "0x4338ca"),
+            ("label-11", "cyan", "0x2dd4bf"),
+            ("label-12", "lime", "0xbef264"),
+            ("label-13", "brown", "0x5e483c"),
+            ("label-14", "white", "0xffffff"),
+            ("label-15", "mauve", "0x987654"),
+        ]
+        old_xml = self._generate_xml(old_labels)
+        new_xml = self._generate_xml(new_labels)
+        self.assertXMLEqual(qubes.Qubes._migrate_labels(old_xml), new_xml)
 
 
 class TC_10_property(qubes.tests.QubesTestCase):

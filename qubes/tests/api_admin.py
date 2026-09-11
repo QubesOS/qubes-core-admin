@@ -1305,22 +1305,22 @@ netvm default=True type=vm \n"""
         self.app.get_label.side_effect = KeyError
         self.app.labels = unittest.mock.MagicMock()
         labels_config = {
-            "keys.return_value": range(1, 9),
+            "keys.return_value": range(1, 15),
         }
         self.app.labels.configure_mock(**labels_config)
         value = self.call_mgmt_func(
-            b"admin.label.Create", b"dom0", b"cyan", b"0x00ffff"
+            b"admin.label.Create", b"dom0", b"salmon", b"0xFA8072"
         )
         self.assertIsNone(value)
         self.assertEqual(
-            self.app.get_label.mock_calls, [unittest.mock.call("cyan")]
+            self.app.get_label.mock_calls, [unittest.mock.call("salmon")]
         )
         self.assertEqual(
             self.app.labels.mock_calls,
             [
                 unittest.mock.call.keys(),
                 unittest.mock.call.__getattr__("__setitem__")(
-                    9, qubes.Label(9, "0x00ffff", "cyan")
+                    15, qubes.Label(15, "0xFA8072", "salmon")
                 ),
             ],
         )
@@ -1331,33 +1331,33 @@ netvm default=True type=vm \n"""
         self.app.get_label.side_effect = KeyError
         self.app.labels = unittest.mock.MagicMock()
         labels_config = {
-            "keys.return_value": range(1, 9),
+            "keys.return_value": range(1, 15),
         }
         self.app.labels.configure_mock(**labels_config)
         with self.assertRaisesRegex(
             qubes.exc.QubesInvalidLabelValueError, "encoded in ASCII"
         ):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"cyan", "\u00f6".encode()
+                b"admin.label.Create", b"dom0", b"salmon", "\u00f6".encode()
             )
         with self.assertRaisesRegex(
             qubes.exc.QubesInvalidLabelValueError, "length of 8"
         ):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"cyan", b"0x00fffff"
+                b"admin.label.Create", b"dom0", b"salmon", b"0x00fffff"
             )
         with self.assertRaisesRegex(
             qubes.exc.QubesInvalidLabelValueError, "must start with: 0x"
         ):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"cyan", b"0X00ffff"
+                b"admin.label.Create", b"dom0", b"salmon", b"0X00ffff"
             )
         with self.assertRaisesRegex(
             qubes.exc.QubesInvalidLabelValueError,
             "hexadecimal digits after prefix",
         ):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"cyan", b"0x00fffg"
+                b"admin.label.Create", b"dom0", b"salmon", b"0x00fffg"
             )
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
@@ -1367,7 +1367,7 @@ netvm default=True type=vm \n"""
         self.app.get_label.side_effect = KeyError
         self.app.labels = unittest.mock.MagicMock()
         labels_config = {
-            "keys.return_value": range(1, 9),
+            "keys.return_value": range(1, 15),
         }
         self.app.labels.configure_mock(**labels_config)
         with self.assertRaises(qubes.exc.ProtocolError):
@@ -1402,28 +1402,28 @@ netvm default=True type=vm \n"""
         self.assertFalse(self.app.save.called)
 
     def test_210_label_remove(self):
-        label = qubes.Label(9, "0x00ffff", "cyan")
-        self.app.labels[9] = label
-        self.app.get_label = unittest.mock.Mock(**{"return_value.index": 9})
+        label = qubes.Label(15, "0xFA8072", "salmon")
+        self.app.labels[15] = label
+        self.app.get_label = unittest.mock.Mock(**{"return_value.index": 15})
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
-        value = self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"cyan")
+        value = self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"salmon")
         self.assertIsNone(value)
         self.assertEqual(
-            self.app.get_label.mock_calls, [unittest.mock.call("cyan")]
+            self.app.get_label.mock_calls, [unittest.mock.call("salmon")]
         )
         self.assertEqual(
-            self.app.labels.mock_calls, [unittest.mock.call.__delitem__(9)]
+            self.app.labels.mock_calls, [unittest.mock.call.__delitem__(15)]
         )
         self.assertTrue(self.app.save.called)
 
     def test_211_label_remove_in_use(self):
-        label = qubes.Label(9, "0x00ffff", "cyan")
-        self.app.labels[9] = label
-        self.app.get_label = unittest.mock.Mock(**{"return_value.index": 9})
+        label = qubes.Label(15, "0xFA8072", "salmon")
+        self.app.labels[15] = label
+        self.app.get_label = unittest.mock.Mock(**{"return_value.index": 15})
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
-        self.vm.label = "cyan"
+        self.vm.label = "salmon"
         with self.assertRaises(qubes.exc.QubesLabelInUseError):
-            self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"cyan")
+            self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"salmon")
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
