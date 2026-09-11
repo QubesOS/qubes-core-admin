@@ -4,11 +4,11 @@
 
 /usr/lib/qubes/fix-dir-perms.sh
 DOM0_MAXMEM=$(/usr/sbin/xl list 0 | tail -1 | awk '{ print $3 }')
-xenstore-write /local/domain/0/memory/static-max $[ $DOM0_MAXMEM * 1024 ]
+xenstore-write /local/domain/0/memory/static-max $((DOM0_MAXMEM * 1024))
 
 credit="$(xl info xen_scheduler)"
 xl sched-"$credit" -d 0 -w 2000
-cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
+cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-"$(date +%F-%T)".xml
 
 /usr/lib/qubes/cleanup-dispvms
 
@@ -20,7 +20,7 @@ fi
 udevadm trigger --action=change --subsystem-match=block
 
 bind_to_pciback() {
-    local sbdf="$1"
+    sbdf="$1"
 
     if [ -e "/sys/bus/pci/devices/$sbdf/driver" ]; then
         echo "$sbdf" > "/sys/bus/pci/devices/$sbdf/driver/unbind"
