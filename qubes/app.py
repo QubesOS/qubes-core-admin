@@ -38,6 +38,7 @@ from contextlib import suppress
 import jinja2
 import libvirt
 import lxml.etree
+import lxml.builder
 
 try:
     import xen.lowlevel.xs  # pylint: disable=wrong-import-order
@@ -1163,15 +1164,70 @@ class Qubes(qubes.PropertyHolder):
                     continue
                 node_dispvm.text = ""
 
-    def _migrate_labels(self):
+    @staticmethod
+    def _migrate_labels(xml):
         """Migrate changed labels"""
-        if self.xml is None:
-            return
+        if xml is None:
+            return xml
 
         # fix grey being green
-        grey_label = self.xml.find("./labels/label[@color='0x555753']")
+        grey_label = xml.find("./labels/label[@color='0x555753']")
         if grey_label is not None:
             grey_label.set("color", "0x555555")
+
+        # new colors 2026
+        # check if new colors are loaded
+        red_label = xml.find("./labels/label[@id='label-1']")
+        if red_label is None or red_label.get("color") == "0xef4444":
+            return xml
+
+        labels = list(xml.xpath("./labels/label"))
+        # sort them according to label number
+        labels.sort(key = lambda x: int(x.get("id").split("-")[1]))
+
+        # update colors
+        duplicate_labels = []
+        for node in labels:
+            match node.text:
+                case "red":
+                    node.set("color", "0xef4444")
+                case "orange":
+                    node.set("color", "0xfb923c")
+                case "yellow":
+                    node.set("color", "0xfde047")
+                case "green":
+                    node.set("color", "0x4ade80")
+                case "blue":
+                    node.set("color", "0x60a5fa")
+                case "purple":
+                    node.set("color", "0x7e22ce")
+                case "pink" | "indigo" | "cyan" | "lime" | "brown" | "white":
+                    # remove labels that would be duplicated
+                    duplicate_labels.append(node)
+
+        for node in duplicate_labels:
+            labels.remove(node)
+            node.getparent().remove(node)
+
+        # insert new colors
+        new_colors = [
+            lxml.builder.E.label("pink", id="label-9", color="0xf472b6"),
+            lxml.builder.E.label("indigo", id="label-10", color="0x4338ca"),
+            lxml.builder.E.label("cyan", id="label-11", color="0x2dd4bf"),
+            lxml.builder.E.label("lime", id="label-12", color="0xbef264"),
+            lxml.builder.E.label("brown", id="label-13", color="0x5e483c"),
+            lxml.builder.E.label("white", id="label-14", color="0xffffff"),
+        ]
+
+        for label in reversed(new_colors):
+            labels.insert(8, label)
+
+        # re-enumerate all labels so that their IDs make sense
+        for num, label in enumerate(labels):
+            label.set("id", f"label-{num+1}")
+            red_label.getparent().append(label) # appending an existing label moves
+            # it to the end, so this will re-order all labels in the right order
+        return xml
 
     def load(self, lock=False):
         """Open qubes.xml
@@ -1184,7 +1240,7 @@ class Qubes(qubes.PropertyHolder):
         fh = self._acquire_lock()
         self.xml = lxml.etree.parse(fh)
 
-        self._migrate_labels()
+        self.xml = self._migrate_labels(self.xml)
 
         # stage 1: load labels and pools
         for node in self.xml.xpath("./labels/label"):
@@ -1411,14 +1467,20 @@ class Qubes(qubes.PropertyHolder):
 
     def load_initial_values(self):
         self.labels = {
-            1: qubes.Label(1, "0xcc0000", "red"),
-            2: qubes.Label(2, "0xf57900", "orange"),
-            3: qubes.Label(3, "0xedd400", "yellow"),
-            4: qubes.Label(4, "0x73d216", "green"),
+            1: qubes.Label(1, "0xef4444", "red"),
+            2: qubes.Label(2, "0xfb923c", "orange"),
+            3: qubes.Label(3, "0xfde047", "yellow"),
+            4: qubes.Label(4, "0x4ade80", "green"),
             5: qubes.Label(5, "0x555555", "gray"),
-            6: qubes.Label(6, "0x3465a4", "blue"),
-            7: qubes.Label(7, "0x75507b", "purple"),
+            6: qubes.Label(6, "0x60a5fa", "blue"),
+            7: qubes.Label(7, "0x7e22ce", "purple"),
             8: qubes.Label(8, "0x000000", "black"),
+            9: qubes.Label(9, "0xf472b6", "pink"),
+            10: qubes.Label(10, "0x4338ca", "indigo"),
+            11: qubes.Label(11, "0x2dd4bf", "cyan"),
+            12: qubes.Label(12, "0xbef264", "lime"),
+            13: qubes.Label(13, "0x5e483c", "brown"),
+            14: qubes.Label(14, "0xffffff", "white"),
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
