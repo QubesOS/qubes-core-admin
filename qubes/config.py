@@ -98,7 +98,7 @@ max_dispid = 10000
 
 #: built-in standard labels, if creating new one, allocate them above this
 # number, at least until label index is removed from API
-max_default_label = 8
+max_default_label = 14
 
 #: profiles for admin.backup.* calls
 backup_profile_dir = "/etc/qubes/backup"
