@@ -297,6 +297,8 @@ class TC_02_LuksMethods(_EncryptTestCase):
             c for c in self.mock_cryptsetup.call_args_list if "resize" in c[0]
         ]
         self.assertTrue(resized, "start_luks must cryptsetup resize after open")
+        self.assertIn("--key-file=-", resized[0][0])
+        self.assertTrue(resized[0][1].get("passphrase"))
         self.assertFalse(vol.has_passphrase())
 
     def test_005_start_luks_requires_passphrase(self):

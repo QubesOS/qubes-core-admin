@@ -534,8 +534,8 @@ class Volume:
 
         The mapper *name* is the path returned by
         :py:meth:`encrypted_volume_path`.  The in-memory passphrase is
-        wiped after a successful open.  This method never formats the
-        origin; a missing LUKS header is an error.
+        wiped after a successful open and resize.  This method never
+        formats the origin; a missing LUKS header is an error.
         """
         assert name.startswith("/dev/mapper/"), (
             "Invalid path %r passed to cryptsetup" % name
@@ -579,9 +579,17 @@ class Volume:
                 raise StoragePoolException(
                     "Failed to unlock encrypted volume {!s}".format(self.vid)
                 ) from exc
-            # Apply any offline backing-store grow to the LUKS payload.
+            # LUKS2 resize updates metadata and needs the volume key.
+            # Without --key-file, cryptsetup cannot prompt (stdin is
+            # /dev/null) and exits 1 on every backend.
             try:
-                await qubes.utils.cryptsetup("--", "resize", mapper_name)
+                await qubes.utils.cryptsetup(
+                    "--key-file=-",
+                    "--",
+                    "resize",
+                    mapper_name,
+                    passphrase=self._passphrase,
+                )
             except subprocess.CalledProcessError as exc:
                 raise StoragePoolException(
                     "Failed to resize unlocked volume {!s}".format(self.vid)
