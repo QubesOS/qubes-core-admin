@@ -486,6 +486,31 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
+    @mock.patch("qubes.storage.Storage")
+    def test_012_rebootable(self, mock_storage, _mock_makedirs, _mock_symlink):
+        mock_storage.return_value.create.side_effect = self.mock_coro
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            dispvm = self.loop.run_until_complete(
+                qubes.vm.dispvm.DispVM.from_appvm(self.appvm)
+            )
+        self.assertEqual(dispvm.auto_cleanup, True)
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            dispvm.rebootable = True
+        dispvm.auto_cleanup = False
+        dispvm.rebootable = True
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
     def test_020_copy_storage_pool(self, _mock_makedirs, _mock_symlink):
         self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
             name="alternative"
