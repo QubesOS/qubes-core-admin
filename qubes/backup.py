@@ -482,7 +482,7 @@ class Backup:
         )
         return files_to_backup
 
-    def get_backup_summary(self):
+    def get_backup_summary(self, filtered_domains):
         summary = ""
 
         fields_to_display = [
@@ -568,14 +568,13 @@ class Backup:
         summary += "\n"
 
         vms_not_for_backup = [
-            vm.name for vm in self.app.domains if vm not in self.vms_for_backup
+            vm.name for vm in filtered_domains if vm not in self.vms_for_backup
         ]
         summary += (
             "VMs not selected for backup:\n - "
             + "\n - ".join(sorted(vms_not_for_backup))
             + "\n"
         )
-
         return summary
 
     async def _prepare_backup_header(self):
