@@ -146,6 +146,8 @@ def balance_when_enough_mem(
         new_acceptors_count = acceptors_count
         for domid, target in target_mem.items():
             dom = dom_dict[domid]
+            if dom.paused:
+                continue
             if target < dom.mem_max:
                 mem_bonus = int(0.999 * (mem_left / acceptors_count))
                 if target + mem_bonus >= dom.mem_max:
@@ -163,6 +165,8 @@ def balance_when_enough_mem(
     acceptors_rq = []
     for domid, target in target_mem.items():
         dom = dom_dict[domid]
+        if dom.paused:
+            continue
         if target < dom.mem_actual:
             donors_rq.append((domid, target))
         else:

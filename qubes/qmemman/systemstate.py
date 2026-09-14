@@ -120,42 +120,45 @@ class SystemState:
     def refresh_mem_actual(self, domid_list: Optional[list] = None) -> None:
         for domain in self.xc.domain_getinfo():
             domid = str(domain["domid"])
-            if domid in self.dom_dict:
-                if domid_list and domid not in domid_list:
-                    continue
-                dom = self.dom_dict[domid]
-                # Real memory usage
-                dom.mem_current = domain["mem_kb"] * 1024
-                # What VM is using or can use
-                dom.mem_actual = max(
-                    dom.mem_current,
-                    dom.last_target,
-                )
-                hotplug_max = self.xs.read(
-                    "", self.get_xs_path(domid, "hotplug-max")
-                )
-                static_max = self.xs.read(
-                    "", self.get_xs_path(domid, "static-max")
-                )
-                if hotplug_max:
-                    dom.mem_max = int(hotplug_max) * 1024
-                    dom.use_hotplug = True
-                elif static_max:
-                    dom.mem_max = int(static_max) * 1024
-                    dom.use_hotplug = False
-                else:
-                    dom.mem_max = self.all_phys_mem
-                    # the previous line used to be
-                    #   dom.mem_max = domain['maxmem_kb']*1024
-                    # but domain['maxmem_kb'] changes in self.mem_set as well,
-                    # and this results in the memory never increasing in fact,
-                    # the only possible case of nonexisting memory/static-max
-                    # is dom0, see #307
+            paused = bool(domain["paused"])
+            if domid not in self.dom_dict:
+                continue
+            if domid_list and domid not in domid_list:
+                continue
+            dom = self.dom_dict[domid]
+            dom.paused = paused
+            if dom.paused:
+                dom.no_progress = True
+            # Real memory usage
+            dom.mem_current = domain["mem_kb"] * 1024
+            # What VM is using or can use
+            dom.mem_actual = max(
+                dom.mem_current,
+                dom.last_target,
+            )
+            hotplug_max = self.xs.read(
+                "", self.get_xs_path(domid, "hotplug-max")
+            )
+            static_max = self.xs.read("", self.get_xs_path(domid, "static-max"))
+            if hotplug_max:
+                dom.mem_max = int(hotplug_max) * 1024
+                dom.use_hotplug = True
+            elif static_max:
+                dom.mem_max = int(static_max) * 1024
+                dom.use_hotplug = False
+            else:
+                dom.mem_max = self.all_phys_mem
+                # the previous line used to be
+                #   dom.mem_max = domain['maxmem_kb']*1024
+                # but domain['maxmem_kb'] changes in self.mem_set as well,
+                # and this results in the memory never increasing in fact,
+                # the only possible case of nonexisting memory/static-max
+                # is dom0, see #307
 
     def clear_outdated_error_markers(self) -> None:
         # Clear outdated errors.
         for dom in self.dom_dict.values():
-            if dom.mem_used is None:
+            if dom.mem_used is None or dom.paused:
                 continue
             # Clear markers excluding VM from memory balance, if:
             #  - VM have responded to previous request (with some safety margin)
@@ -175,6 +178,7 @@ class SystemState:
     def mem_set(self, domid, val) -> None:
         self.log.info("mem-set domain {} to {}".format(domid, val))
         dom = self.dom_dict[domid]
+        assert not dom.paused
         dom.last_target = val
         # Can happen in the middle of domain shutdown apparently xc.lowlevel
         # throws exceptions too.
@@ -206,7 +210,8 @@ class SystemState:
         self.log.debug("inhibit_balloon_up()")
         for domid, dom in self.dom_dict.items():
             if (
-                dom.mem_actual is not None
+                not dom.paused
+                and dom.mem_actual is not None
                 and dom.mem_actual + 200 * 1024 < dom.last_target
             ):
                 self.log.info(
@@ -222,7 +227,8 @@ class SystemState:
         prev_mem_actual: dict[str, Optional[int]] = {}
 
         for dom in self.dom_dict.values():
-            dom.no_progress = False
+            if not dom.paused:
+                dom.no_progress = False
 
         #: helper array for holding free memory size, CHECK_PERIOD_S seconds
         #: ago, at every loop iteration
@@ -282,7 +288,8 @@ class SystemState:
         }
 
         for _, dom in dom_dict.items():
-            dom.no_progress = False
+            if not dom.paused:
+                dom.no_progress = False
 
         mem_set_threshold = 1.1
         succeeded = []
@@ -336,7 +343,9 @@ class SystemState:
                         memset_reqs[domid] = mem_pref
                         self.log.info("adjusted pref to '%s'", mem_pref)
                 diff = round(dom.mem_actual / memset_reqs[domid], 2)
-                if domid not in succeeded and diff <= mem_set_threshold:
+                if domid not in succeeded and (
+                    diff <= mem_set_threshold or dom.paused
+                ):
                     succeeded.append(domid)
                 self.log.debug(
                     "round '%d' dom '%s' has actual mem of %s (%sx)",
@@ -429,11 +438,12 @@ class SystemState:
             if dom.mem_used is not None:
                 self.log.info(
                     "stat: dom {!r} act={} pref={} last_target={}"
-                    "{}{}".format(
+                    "{}{}{}".format(
                         domid,
                         dom.mem_actual,
                         qubes.qmemman.algo.pref_mem(dom),
                         dom.last_target,
+                        " paused" if dom.paused else "",
                         " no_progress" if dom.no_progress else "",
                         (" slow_memset_react" if dom.slow_memset_react else ""),
                     )
