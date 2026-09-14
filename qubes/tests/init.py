@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
 import unittest
 import uuid
 
@@ -29,6 +30,7 @@ import qubes
 import qubes.app
 import qubes.events
 import qubes.vm
+import qubes.utils
 
 import qubes.tests
 
@@ -542,3 +544,132 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 #   def test_201_get_vms_connected_to(self):
 #       pass
+
+
+class TC_40_Utils_AsyncShield(qubes.tests.QubesTestCase):
+
+    async def first_coro(self):
+        print("start first")
+        await asyncio.sleep(2)
+        print("end first")
+        return "one"
+
+    async def second_coro(self):
+        print("start second")
+        await asyncio.sleep(2)
+        print("end second")
+        return "two"
+
+    async def all_coros(self):
+        tasks = [
+            asyncio.create_task(self.first_coro()),
+            asyncio.create_task(self.second_coro()),
+        ]
+        await asyncio.gather(*tasks)
+
+    def fail_sync(self):
+        print("start fail")
+        3 / 0
+        print("end fail")
+
+    async def fail_coro(self):
+        print("start fail")
+        self.fail_sync()
+        await asyncio.sleep(0)
+        print("end fail")
+
+    async def cancel(self):
+        await asyncio.sleep(0)
+        print("cancelling task")
+        self.task.cancel()
+        try:
+            await self.task
+        except asyncio.CancelledError:
+            pass
+        print("canceled task")
+
+    def gen_tasks(self, coro):
+        tasks = [
+            asyncio.create_task(coro()),
+            asyncio.create_task(self.cancel()),
+        ]
+        return tasks
+
+    async def run_cancel(self):
+        # pylint: disable=attribute-defined-outside-init
+        self.task = asyncio.current_task()
+        with self.assertRaises(asyncio.CancelledError):
+            await self.first_coro()
+
+    async def call_cancel(self):
+        tasks = self.gen_tasks(coro=self.run_cancel)
+        await asyncio.gather(*tasks)
+
+    async def run_shield_aw(self):
+        # pylint: disable=attribute-defined-outside-init
+        self.task = asyncio.current_task()
+        await qubes.utils.async_shield(self.first_coro())
+        await qubes.utils.async_shield(self.second_coro())
+        await qubes.utils.async_shield(self.all_coros())
+        return 42
+
+    async def call_shield_aw(self):
+        tasks = self.gen_tasks(coro=self.run_shield_aw)
+        results = await asyncio.gather(*tasks)
+        self.assertEqual(results[0], 42)
+
+    async def run_raise_exc(self):
+        # pylint: disable=attribute-defined-outside-init
+        self.task = asyncio.current_task()
+        with self.assertRaises(ZeroDivisionError):
+            await qubes.utils.async_shield(self.fail_coro())
+
+    async def call_raise_exc(self):
+        tasks = self.gen_tasks(coro=self.run_raise_exc)
+        await asyncio.gather(*tasks)
+
+    async def run_shield_on_exc_of_aw(self):
+        # pylint: disable=attribute-defined-outside-init
+        self.task = asyncio.current_task()
+        try:
+            await self.first_coro()
+        except asyncio.CancelledError:
+            await qubes.utils.async_shield(self.first_coro())
+            return 42
+
+    async def call_shield_on_exc_of_aw(self):
+        tasks = self.gen_tasks(coro=self.run_shield_on_exc_of_aw)
+        results = await asyncio.gather(*tasks)
+        self.assertEqual(results[0], 42)
+
+    async def run_shield_on_exc_of_sync(self):
+        # pylint: disable=attribute-defined-outside-init
+        self.task = asyncio.current_task()
+        task = asyncio.create_task(self.first_coro())
+        try:
+            self.fail_sync()
+        except ZeroDivisionError:
+            await qubes.utils.async_shield(task)
+            return 42
+        finally:
+            await task
+
+    async def call_shield_on_exc_of_sync(self):
+        tasks = self.gen_tasks(coro=self.run_shield_on_exc_of_sync)
+        results = await asyncio.gather(*tasks)
+        self.assertEqual(results[0], 42)
+
+    def test_000_cancel(self):
+        self.loop.run_until_complete(self.call_cancel())
+
+    def test_001_shield_aw(self):
+        self.loop.run_until_complete(self.call_shield_aw())
+
+    def test_002_shield_raise_exc(self):
+        self.loop.run_until_complete(self.call_raise_exc())
+
+    def test_003_shield_on_exc_of_aw(self):
+        self.loop.run_until_complete(self.call_shield_on_exc_of_aw())
+
+    def test_004_shield_on_exc_of_sync(self):
+        self.loop.run_until_complete(self.call_shield_on_exc_of_sync())

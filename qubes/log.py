@@ -28,19 +28,19 @@ import sys
 
 
 class Formatter(logging.Formatter):
-    def __init__(self, *args, debug=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.debug = debug
 
-    def formatMessage(self, record):
-        fmt = "%(levelname)s: "
-        if self.debug:
-            fmt += "[%(processName)s %(module)s.%(funcName)s:%(lineno)d] "
-        if self.debug or record.name.startswith("vm."):
-            fmt += "%(name)s: "
+    def __init__(self, *args, debug=False, time=False, **kwargs):
+        kwargs.pop("fmt", None)
+        fmt = ""
+        if time:
+            fmt += "%(asctime)s "
+        fmt += "%(levelname)s "
+        if debug:
+            fmt += "%(name)s[%(process)d %(module)s.%(funcName)s:%(lineno)d]: "
+        else:
+            fmt += "%(name)s[%(process)d]: "
         fmt += "%(message)s"
-
-        return fmt % record.__dict__
+        super().__init__(fmt=fmt, *args, **kwargs)
 
 
 def enable(log_level: int = logging.INFO, enable_debug_libvirt: bool = False):
@@ -57,15 +57,16 @@ def enable(log_level: int = logging.INFO, enable_debug_libvirt: bool = False):
     if logging.root.handlers:
         return
 
+    debug = bool(log_level == logging.DEBUG)
+
     handler_console = logging.StreamHandler(sys.stderr)
-    handler_console.setFormatter(Formatter())
+    handler_console.setFormatter(Formatter(debug=debug))
     logging.root.addHandler(handler_console)
 
-    if log_level == logging.DEBUG:
-        for handler in logging.root.handlers:
-            handler.setFormatter(Formatter(debug=True))
-        if not enable_debug_libvirt:
-            logging.getLogger("virEventAsyncIOImpl").setLevel(logging.INFO)
+    for handler in logging.root.handlers:
+        handler.setFormatter(Formatter(debug=debug))
+    if debug and not enable_debug_libvirt:
+        logging.getLogger("virEventAsyncIOImpl").setLevel(logging.INFO)
     logging.root.setLevel(log_level)
 
 

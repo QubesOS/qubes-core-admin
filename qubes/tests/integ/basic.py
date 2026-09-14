@@ -238,7 +238,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
         self.vm.add_handler("domain-start", self._test_200_on_domain_start)
-        self.loop.run_until_complete(self.vm.start())
+        try:
+            self.loop.run_until_complete(self.vm.start())
+        except asyncio.CancelledError:
+            pass
 
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(1))
@@ -299,7 +302,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
         self.vm.add_handler("domain-start", self._test_200_on_domain_start)
-        self.loop.run_until_complete(self.vm.start())
+        try:
+            self.loop.run_until_complete(self.vm.start())
+        except asyncio.CancelledError:
+            pass
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
@@ -479,6 +485,42 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             )
             self.loop.run_until_complete(self.vm.start())
         self.assertFalse(self.vm.is_running())
+
+    def test_208_domain_start_cancellation(self):
+        """Cancel the startup procedure when a termination power state, such as
+        kill or shutdown, is requested."""
+        self.loop.run_until_complete(self._domain_start_cancellation())
+
+    async def _domain_start_cancellation(self):
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("pre-spawn-fail"),
+            template=self.app.default_template,
+            label="red",
+        )
+        await self.vm.create_on_disk()
+
+        async def _kill_on_pre_spawn(*_args, **_kwargs):
+            self.vm.log.info("domain-pre-spawn awaiting kill()")
+            await self.vm.kill()
+            self.vm.log.info("domain-pre-spawn completed kill()")
+
+        def _fail_on_property_reset_start_time(*_args, **_kwargs):
+            self.fail("Should not have reached this event")
+
+        self.vm.add_handler("domain-pre-spawn", _kill_on_pre_spawn)
+        self.vm.add_handler(
+            "property-reset:start_time", _fail_on_property_reset_start_time
+        )
+        try:
+            await self.vm.start()
+        except asyncio.CancelledError:
+            pass
+        else:
+            self.fail("didn't cancel start")
+        self.assertFalse(self.vm.startup_lock.locked())
+        self.assertTrue(self.vm.is_halted())
+        self.assertTrue(self.vm in self.app.domains)
 
     async def _test_bootmode(self, tpl, vm):
         await tpl.start()
