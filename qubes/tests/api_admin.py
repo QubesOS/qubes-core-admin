@@ -5133,9 +5133,11 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             self.assertEventFired(self.emitter, "domain-volume-import-end")
 
     def test_900_current_state_default(self):
-        value = self.call_mgmt_func(b"admin.vm.CurrentState", b"test-vm1")
+        vm = self.app.domains["test-vm1"]
+        value = self.call_mgmt_func(b"admin.vm.CurrentState", vm.name.encode())
+        maxmem = vm.maxmem * 1024
         self.assertEqual(
-            value, "mem=0 mem_static_max=0 cputime=0 power_state=Halted"
+            value, f"mem=0 mem_static_max={maxmem} cputime=0 power_state=Halted"
         )
 
     def test_901_current_state_changed(self):
