@@ -899,8 +899,24 @@ class DeviceInterface:
         return True
 
 
+class AssignmentMode(Enum):
+    """
+    Device assignment modes
+    """
+
+    MANUAL = "manual"
+    ASK = "ask-to-attach"
+    AUTO = "auto-attach"
+    REQUIRED = "required"
+
+
 class DeviceInfo(VirtualDevice):
     """Holds all information about a device"""
+
+    # Subclasses should override this.
+    SUPPORTED_ASSIGNMENT_MODES: "frozenset[AssignmentMode]" = frozenset(
+        {AssignmentMode.MANUAL, AssignmentMode.ASK, AssignmentMode.AUTO}
+    )
 
     def __init__(
         self,
@@ -1225,17 +1241,6 @@ class UnknownDevice(DeviceInfo):
         Return `UnknownDevice` based on any virtual device.
         """
         return UnknownDevice(device.port, device_id=device.device_id)
-
-
-class AssignmentMode(Enum):
-    """
-    Device assignment modes
-    """
-
-    MANUAL = "manual"
-    ASK = "ask-to-attach"
-    AUTO = "auto-attach"
-    REQUIRED = "required"
 
 
 class DeviceAssignment:
