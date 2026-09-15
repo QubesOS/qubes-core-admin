@@ -175,6 +175,14 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_import = self._path_vid + "-import.img"
         self.path = self._path_dirty
 
+    def luks_backend_path(self):
+        """Live dirty image if present, otherwise the committed clean image."""
+        if os.path.exists(self._path_dirty):
+            return self._path_dirty
+        if os.path.exists(self._path_clean):
+            return self._path_clean
+        return self.path
+
     @contextmanager
     def _update_precache(self):
         _remove_file(self._path_precache)
