@@ -122,10 +122,10 @@ class TestRun:
         results_file = os.environ.get("QUBES_TEST_PERF_FILE")
         if results_file:
             try:
-                name_prefix = f"{self.vm.template!s}_"
+                name_prefix = f"{self.vm.template!s}:"
             except AttributeError:
-                name_prefix = f"{self.vm!s}_"
-            name_prefix += f"{self.volume}_"
+                name_prefix = f"{self.vm!s}:"
+            name_prefix += f"{self.volume}:"
             add_header = False
             if not os.path.exists(results_file):
                 add_header = True
