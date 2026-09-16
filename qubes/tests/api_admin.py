@@ -5122,7 +5122,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertEqual(parsed["pci"], "assignment_modes=required")
         self.assertEqual(
             parsed["block"],
-            "assignment_modes=ask-to-attach,auto-attach,required",
+            "assignment_modes=ask-to-attach,auto-attach,manual,required",
         )
 
     def test_912_deviceclass_list_bad_argument(self):
