@@ -158,26 +158,26 @@ class TestRun:
         self.prepare()
         try:
             assert self.testpath, f"Test path not set: {self.testpath}"
+            fio_cmd = [
+                "fio",
+                "--minimal",
+                f"--filename={self.testpath}",
+                f"--section={test_config.name}",
+            ]
+
             if self.vm.klass == "AdminVM":
                 with tempfile.NamedTemporaryFile() as f:
                     f.write(fio_config.encode())
                     f.flush()
                     result = subprocess.check_output(
-                        [
-                            "fio",
-                            "--minimal",
-                            f"--filename={self.testpath}",
-                            f"--section={test_config.name}",
-                            f.name,
-                        ],
+                        fio_cmd + [f.name]
                     )
             else:
                 self.vm.run_with_args(
                     "tee", "/tmp/test.fio", input=fio_config.encode()
                 )
                 result = self.vm.run(
-                    f"fio --minimal --filename={self.testpath}"
-                    f" --section={test_config.name} /tmp/test.fio",
+                    " ".join(fio_cmd + ["/tmp/test.fio"]),
                     user="root",
                     stdout=subprocess.PIPE,
                 )[0]
