@@ -106,8 +106,14 @@ all_tests = [
 class TestRun:
     def __init__(self, vm, volume):
         self.vm = vm
-        self.volume = volume
         self.testpath = None
+        self.name_prefix = None
+
+    def prepare(self):
+        return
+
+    def finalize(self):
+        return
 
     def report_result(self, test_name, result):
         # for short results takes average
@@ -125,7 +131,7 @@ class TestRun:
                 name_prefix = f"{self.vm.template!s}:"
             except AttributeError:
                 name_prefix = f"{self.vm!s}:"
-            name_prefix += f"{self.volume}:"
+            name_prefix += f"{self.name_prefix}:"
             add_header = False
             if not os.path.exists(results_file):
                 add_header = True
@@ -135,8 +141,46 @@ class TestRun:
                 for line in result.splitlines():
                     f.write(name_prefix + test_name + " " + line + "\n")
 
-    def prepare_volume(self):
-        dirpath = None
+    def run_test(self, test_config: TestConfig):
+        self.prepare()
+        try:
+            assert self.testpath, f"Test path not set: {self.testpath}"
+            if self.vm.klass == "AdminVM":
+                with tempfile.NamedTemporaryFile() as f:
+                    f.write(fio_config.encode())
+                    f.flush()
+                    result = subprocess.check_output(
+                        [
+                            "fio",
+                            "--minimal",
+                            f"--filename={self.testpath}",
+                            f"--section={test_config.name}",
+                            f.name,
+                        ],
+                    )
+            else:
+                self.vm.run_with_args(
+                    "tee", "/tmp/test.fio", input=fio_config.encode()
+                )
+                result = self.vm.run(
+                    f"fio --minimal --filename={self.testpath}"
+                    f" --section={test_config.name} /tmp/test.fio",
+                    user="root",
+                    stdout=subprocess.PIPE,
+                )[0]
+
+            self.report_result(test_config.name, result.strip().decode())
+        finally:
+            self.finalize()
+
+
+class TestRunVolume(TestRun):
+    def __init__(self, vm, volume):
+        super().__init__(vm)
+        self.volume = volume
+        self.name_prefix = volume
+
+    def prepare(self):
         if self.vm.klass == "AdminVM":
             if self.volume == "root":
                 dirpath = "/root"
@@ -159,33 +203,6 @@ class TestRun:
             raise ValueError(f"Unsupported volume {self.volume} for VM")
 
         self.testpath = os.path.join(dirpath, "fio-test-file")
-
-    def run_test(self, test_config: TestConfig):
-        self.prepare_volume()
-        if self.vm.klass == "AdminVM":
-            with tempfile.NamedTemporaryFile() as f:
-                f.write(fio_config.encode())
-                f.flush()
-                result = subprocess.check_output(
-                    [
-                        "fio",
-                        "--minimal",
-                        f"--filename={self.testpath}",
-                        f"--section={test_config.name}",
-                        f.name,
-                    ],
-                )
-        else:
-            self.vm.run_with_args(
-                "tee", "/tmp/test.fio", input=fio_config.encode()
-            )
-            result = self.vm.run(
-                f"fio --minimal --filename={self.testpath}"
-                f" --section={test_config.name} /tmp/test.fio",
-                user="root",
-                stdout=subprocess.PIPE,
-            )[0]
-        self.report_result(test_config.name, result.strip().decode())
 
 
 parser = argparse.ArgumentParser()
@@ -211,7 +228,7 @@ def main():
 
     app = qubesadmin.Qubes()
 
-    run = TestRun(app.domains[args.vm], args.volume)
+    run = TestRunVolume(app.domains[args.vm], args.volume)
 
     for test in tests:
         run.run_test(test)
