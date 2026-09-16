@@ -66,32 +66,6 @@ def qbool(value):
     return bool(value)
 
 
-def qbool_untrusted_busy(untrusted_busy, log=None) -> bool:
-    """
-    Parse the untrusted ``busy`` marker read from a backend VM's QubesDB.
-
-    A missing value (:py:obj:`None`) or a boolean-false literal
-    (``False``/``0``/``no``/``off``) means the device is free.  A
-    boolean-true literal (``True``/``1``/``yes``/``on``) means it is busy.
-
-    Any other, unparsable value is treated as **busy**: it's safer to avoid
-    attachment of such device. Such a case is logged as a warning.
-    """
-    if untrusted_busy is None:
-        return False
-    if isinstance(untrusted_busy, bytes):
-        untrusted_busy = untrusted_busy.decode("ascii", errors="replace")
-    try:
-        return qbool(untrusted_busy.strip())
-    except QubesValueError:
-        if log is not None:
-            log.warning(
-                "Invalid 'busy' marker %r, assuming device is busy",
-                untrusted_busy,
-            )
-        return True
-
-
 class DeviceSerializer:
     """
     Group of method for serialization of device properties.
@@ -1099,7 +1073,8 @@ class DeviceInfo(VirtualDevice):
             dev
             for devclass in self.backend_domain.devices.keys()
             for dev in self.backend_domain.devices[devclass]
-            if dev.parent_device.port.port_id == self.port_id
+            if dev.parent_device is not None
+            and dev.parent_device.port.port_id == self.port_id
         ]
 
     @property

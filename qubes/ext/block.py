@@ -50,13 +50,13 @@ SYSTEM_DISKS = ("xvda", "xvdb", "xvdc")
 SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 
 
-def get_busy_qdb_key(port_id):
-    return f"/qubes-block-devices/{port_id}/busy"
-
-
 class BlockDevice(qubes.device_protocol.DeviceInfo):
 
-    def __init__(self, port: qubes.device_protocol.Port):
+    def __init__(
+            self,
+            port: qubes.device_protocol.Port,
+            exported: Optional[bool] = None
+    ):
         if port.devclass != "block":
             raise qubes.exc.QubesValueError(
                 f"Incompatible device class for input port: {port.devclass}"
@@ -69,6 +69,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         self._mode: Optional[str] = None
         self._size: Optional[int] = None
         self._interface_num: Optional[str] = None
+        # optimization: when listing, we calculate it once and pass it here to
+        #  avoid lazy evaluation later for each device.
+        #  bus = exported OR used
+        self._exported = exported
 
     @property
     def name(self):
@@ -255,18 +259,38 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         """
         Is this device busy?  A device is considered busy if it or any of
         its children is in use: attached to a VM or used locally in the
-        backend VM (mounted, part of a device-mapper, enabled swap).
+        backend VM (mounted or part of a device-mapper).
         """
         if self._busy is None:
             if not self.backend_domain or not self.backend_domain.is_running():
                 # don't cache this value
                 return False
-            untrusted_busy = self.backend_domain.untrusted_qdb.read(
-                get_busy_qdb_key(self.port_id)
+
+            exported = self._exported
+            if exported is None:
+                # expensive
+                busy_ports = self.backend_domain.devices.busy_ports()
+                exported = self.port_id in busy_ports.get("block", ())
+            if exported:
+                self._busy = True
+                return self._busy
+
+            untrusted_used = self.backend_domain.untrusted_qdb.read(
+                f"/qubes-block-devices/{self.port_id}/used"
             )
-            self._busy = qubes.device_protocol.qbool_untrusted_busy(
-                untrusted_busy, self.backend_domain.log
-            )
+            if (
+                untrusted_used is None
+                and self.backend_domain.devices.usage_tracking
+            ):
+                # The backend says it maintains the markers, yet this device
+                # is listed without one. Something fails => refuse.
+                self.backend_domain.log.warning(
+                    "Unknown status of device %s", self.port_id)
+                self._busy = True
+            else:
+                self._busy = qubes.devices.qbool_untrusted_used(
+                    untrusted_used, self.backend_domain.log
+                )
         return self._busy
 
     @property  # type: ignore[misc]
@@ -311,18 +335,6 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         return "".join(
             c if c in set(safe_chars) else "_" for c in untrusted_device_desc
         )
-
-    def mark_busy(self, busy: bool) -> None:
-        """Set or clear the busy marker in the backend VM's QDB."""
-        key = get_busy_qdb_key(self.port_id)
-        if not busy:
-            try:
-                self.backend_domain.untrusted_qdb.rm(key)
-            except Exception:  # pylint: disable=broad-except
-                pass
-        else:
-            self.backend_domain.untrusted_qdb.write(key, b"True")
-        self._busy = busy
 
 
 def _try_get_block_device_info(app, disk):
@@ -369,19 +381,6 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 for dev in self.on_device_list_block(vm, None)
             )
             self.devices_cache[vm.name] = current_devices
-            # Re-establish busy markers for partitions already attached
-            # before this qubesd instance started (e.g. after qubesd restart).
-            for port_id, front_vm in device_attachments.items():
-                if front_vm is not None:
-                    self._mark_parents_busy(
-                        BlockDevice(
-                            Port(
-                                backend_domain=vm,
-                                port_id=port_id,
-                                devclass="block",
-                            )
-                        )
-                    )
         else:
             self.devices_cache[vm.name] = {}
 
@@ -420,12 +419,14 @@ class BlockDeviceExtension(qubes.ext.Extension):
         return result
 
     @staticmethod
-    def device_get(vm, port_id):
+    def device_get(vm, port_id, exported=None):
         """
         Read information about a device from QubesDB
 
         :param vm: backend VM object
         :param port_id: port identifier
+        :param exported: is this port, or anything below it, attached to a VM;
+            left unset, the device works it out itself
         :returns BlockDevice
         """
 
@@ -436,6 +437,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             return None
         return BlockDevice(
             Port(backend_domain=vm, port_id=port_id, devclass="block"),
+            exported=exported,
         )
 
     @qubes.ext.handler("device-list:block")
@@ -449,6 +451,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             untrusted_path.split("/", 3)[2]
             for untrusted_path in untrusted_qubes_devices
         )
+        # optimization: one call for the whole listing
+        busy_ports = vm.devices.busy_ports().get("block", ())
         for untrusted_ident in untrusted_idents:
             if not name_re.match(untrusted_ident):
                 msg = (
@@ -460,7 +464,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             port_id = untrusted_ident
 
-            device_info = self.device_get(vm, port_id)
+            device_info = self.device_get(
+                vm, port_id, exported=port_id in busy_ports
+            )
             if device_info:
                 yield device_info
 
@@ -572,11 +578,41 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
             raise qubes.exc.UnrecognizedDevice()
 
-        # DeviceAlreadyAttached is checked below
-        if device.busy and not device.attachment:
-            raise qubes.exc.QubesValueError(
-                f"Device {device} is busy: it or one of its children is in use."
-            )
+        # Consumed here, it is not a property of the attachment.
+        force = qubes.property.bool(None, None, options.pop("force", "no"))
+
+        attachments = device.backend_domain.devices.attachments()
+        current_attachment = attachments.frontend(device.port)
+
+        if current_attachment is None:
+            # Check if any related device is already attached.
+            rel_attach = attachments.attached_relative(device)
+            if rel_attach is not None:
+                relative, frontend = rel_attach
+                raise qubes.exc.QubesValueError(
+                    f"Device {device} cannot be attached: it shares sectors "
+                    f"with {relative}, which is attached to {frontend}."
+                )
+
+            # Guardian for local usage, DeviceAlreadyAttached is checked below.
+            if device.busy:
+                raise qubes.exc.QubesValueError(
+                    f"Device {device} is busy: it or one of its children is "
+                    "used by backend VM."
+                )
+
+        if not force and not device.backend_domain.devices.usage_tracking:
+            # The backend does not report local device usage, so there is
+            # nothing to protect us from filesystem corruption.
+            subdevices = device.subdevices
+            if subdevices:
+                names = ", ".join(str(sub) for sub in subdevices)
+                raise qubes.exc.QubesValueError(
+                    f"VM {device.backend_domain.name} doesn't have sufficiently"
+                    f" up-to-date version of qubes-utils. {device} contains "
+                    f"subdevices ({names}) and attaching may corrupt its "
+                    f"filesystem. Repeat with --force to attach regardless."
+                )
 
         # validate options
         for option, value in options.items():
@@ -622,10 +658,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
             return
 
-        if device.attachment and device.attachment != expected_attachment:
+        if current_attachment and current_attachment != expected_attachment:
             raise qubes.exc.DeviceAlreadyAttached(
                 "Device {!s} already attached to {!s}".format(
-                    device, device.attachment
+                    device, current_attachment
                 )
             )
 
@@ -643,39 +679,16 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm, options.get("devtype", "disk")
             )
 
-        self._mark_parents_busy(device)
+        asyncio.ensure_future(self._refresh_device_list(device))
 
-    def _mark_parents_busy(self, device):
-        """Set busy for the parent chain in the backend VM's QDB."""
-        try:
-            if not device.parent_device:
-                return
-            if not device.backend_domain.is_running():
-                # something change in meantime, ignore it
-                return
-            self._mark_parent_chain(device, busy=True)
-        except Exception:  # pylint: disable=broad-except
-            # best effort
-            pass
-
-    async def _refresh_busy_after_detach(self, device):
+    async def _refresh_device_list(self, device):
         """
-        Ask the backend VM to refresh `busy` for the detached device's subtree
-        by re-triggering udev change events.
-
-        The udev script rebuilds the state from what only the backend can
-        see (vbd attachments in sysfs and the local mount table), so this
-        never clears a marker owed to a local mount.
+        Ask the backend VM to refresh which devices it exports, by
+        re-triggering udev change events for this device's subtree.
         """
         backend = device.backend_domain
         if not backend.is_running():
             return
-        # vbd teardown is asynchronous: refreshing while the vbd is still
-        # visible in the backend's sysfs would re-mark the device as busy
-        # with no later event to clear it.
-        # TODO: better idea?
-        await asyncio.sleep(1)
-
         name = device.port_id.replace("_", "/")
         try:
             await backend.run_service_for_stdio(
@@ -685,79 +698,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
         except Exception:  # pylint: disable=broad-except
             backend.log.warning(
-                "block refresh failed for %s, "
-                "freeing parents while ignoring local use.",
-                device.port_id,
+                "failed to refresh block device list for %s", device.port_id
             )
-            self._unmark_parents_busy(device)
-
-    def _unmark_parents_busy(self, device):
-        """
-        Clear busy for the parent chain in the backend VM's QDB.
-
-        Ancestors shared with other still-attached devices (sibling
-        partitions of the same disk, or sibling block devices of the same
-        USB device) are kept busy.
-
-        Fallback: prefer `_refresh_busy_after_detach`, which take into account
-        local use.
-        """
-        backend = device.backend_domain
-        if not backend.is_running():
-            # something change in meantime, ignore it
-            return
-
-        try:
-            keep_busy = set()
-            for dev_id, front_vm in self.devices_cache[backend.name].items():
-                if front_vm is None or dev_id == device.port_id:
-                    continue
-                other = BlockDevice(
-                    Port(backend_domain=backend, port_id=dev_id,
-                         devclass="block")
-                )
-                for ancestor in self._parent_chain(other):
-                    keep_busy.add((ancestor.devclass, ancestor.port_id))
-            self._mark_parent_chain(device, busy=False, skip=keep_busy)
-        except Exception:  # pylint: disable=broad-except
-            # best effort
-            pass
-
-    @staticmethod
-    def _parent_chain(device):
-        """Yield ancestors of the device."""
-        current = device
-        # limit the depth: better to leave some ancestors unmarked than to
-        # loop forever on a corrupted or malicious parent chain
-        for _ in range(8):
-            parent = current.parent_device
-            if parent is None or isinstance(
-                parent, qubes.device_protocol.UnknownDevice
-            ):
-                break
-            yield parent
-            if parent.devclass == "usb":
-                break  # USB is the top of the hierarchy
-            current = parent
-
-    def _mark_parent_chain(self, device, busy, skip=frozenset()):
-        """
-        Walk the parent_device chain and set busy for each ancestor.
-
-        Ancestors listed in `skip` (as (devclass, port_id) pairs) are left
-        untouched.  Trigger writes are deferred until all busy keys have
-        been written so that watch callbacks see a consistent QDB state.
-        """
-        pending_triggers = set()
-
-        for parent in self._parent_chain(device):
-            if (parent.devclass, parent.port_id) in skip:
-                continue
-            parent.mark_busy(busy)
-            pending_triggers.add(f"/qubes-{parent.devclass}-devices")
-
-        for trigger in pending_triggers:
-            device.backend_domain.untrusted_qdb.write(trigger, b"")
 
     @qubes.ext.handler("domain-start")
     async def on_domain_start(self, vm, _event, **_kwargs):
@@ -867,9 +809,5 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     vm.app.env.get_template("libvirt/devices/block.xml").render(
                         device=attached_device, vm=vm, options=options
                     )
-                )
-                attached_device.mark_busy(False)
-                asyncio.ensure_future(
-                    self._refresh_busy_after_detach(attached_device)
                 )
                 break
