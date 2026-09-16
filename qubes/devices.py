@@ -125,9 +125,9 @@ def _children_by_parent(backend_domain) -> Dict[Tuple[str, str], List]:
     return index
 
 
-def _relatives(device) -> Iterable:
+def _all_subdevices(device) -> Iterable:
     """
-    Ancestors and descendants of *device*, as reported by the backend.
+    Descendants of *device*, as reported by the backend.
 
     A "links" are untrusted input, so a backend could describe a cycle;
     ``seen`` is what keeps that from looping forever here.
@@ -137,16 +137,6 @@ def _relatives(device) -> Iterable:
         return dev.port.devclass, dev.port.port_id
 
     seen = {key(device)}
-
-    ancestor = device.parent_device
-    depth = 0
-    while ancestor is not None and key(ancestor) not in seen:
-        depth += 1
-        if depth > MAX_TREE_DEPTH:
-            break
-        seen.add(key(ancestor))
-        yield ancestor
-        ancestor = getattr(ancestor, "parent_device", None)
 
     children = _children_by_parent(device.backend_domain)
     stack = [(child, 1) for child in children.get(key(device), ())]
@@ -197,6 +187,17 @@ class DeviceCollection:
             Handler for this event may be asynchronous.
 
             :param device: :py:class:`DeviceInfo` object to be attached
+
+        .. event:: device-check-available:<class> (device, options)
+
+            Asks whether a device is free to be attached.
+
+            Fired for `required` assignment while the qube is starting.
+
+            Handler for this event may be asynchronous.
+
+            :param device: :py:class:`DeviceInfo` object about to be taken
+            :param options: :py:class:`dict` of assignment options
 
         .. event:: device-detach:<class> (port)
 
@@ -580,7 +581,8 @@ class DeviceManager(dict):
         if untrusted_value is None:
             return False
         if isinstance(untrusted_value, bytes):
-            untrusted_value = untrusted_value.decode("ascii", errors="strict")
+            # do not rise on decoding errors
+            untrusted_value = untrusted_value.decode("ascii", errors="replace")
         try:
             return qbool(untrusted_value.strip())
         except QubesValueError:
@@ -631,7 +633,7 @@ class DeviceManager(dict):
                     result.setdefault(devclass, set()).add(port_id)
                     continue
 
-                seen = set()
+                seen: Set[Tuple[str, str]] = set()
                 while node is not None and len(seen) <= MAX_TREE_DEPTH:
                     key = (node.port.devclass, node.port.port_id)
                     if key in seen:
@@ -668,14 +670,16 @@ class Attachments:
         """
         return self._bus(port.devclass).get(port.port_id)
 
-    def attached_relative(self, device) -> Optional[Tuple[Any, Any]]:
+    def attached_subdevice(self, device) -> Optional[Tuple[Any, Any]]:
         """
-        An ancestor or descendant of *device* attached to a VM, and that VM.
+        A subdevice of *device* that is attached to a VM, and that VM.
+
+        Stops at the first one found; the caller has to free it itself.
         """
-        for relative in _relatives(device):
-            frontend = self.frontend(relative.port)
+        for subdevice in _all_subdevices(device):
+            frontend = self.frontend(subdevice.port)
             if frontend is not None:
-                return relative, frontend
+                return subdevice, frontend
         return None
 
 

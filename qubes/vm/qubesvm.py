@@ -1528,15 +1528,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     for ass in self.devices[devclass].get_assigned_devices(
                         required_only=True
                     ):
-                        for device in ass.devices:
+                        known = [
+                            device
+                            for device in ass.devices
                             if not isinstance(
                                 device, qubes.device_protocol.UnknownDevice
-                            ):
-                                break
-                        else:
+                            )
+                        ]
+                        if not known:
                             raise qubes.exc.QubesException(
                                 f"{devclass.capitalize()} device {ass} "
                                 f"not available"
+                            )
+
+                        # check if devcie can be attached
+                        for device in known:
+                            await self.fire_event_async(
+                                "device-check-available:" + devclass,
+                                device=device,
+                                options=ass.options,
                             )
 
                 await self.storage.verify()

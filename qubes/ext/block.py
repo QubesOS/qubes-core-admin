@@ -567,12 +567,108 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
         )
 
-    def pre_attachment_internal(
-        self, vm, device, options, expected_attachment=None
+    def refuse_unavailable(
+        self,
+        device,
+        attachments,
+        current_attachment,
+        force,
+        check_local_usage=True,
     ):
+        """
+        Refuse to hand out a device that is not available for reasons other than
+        being attached: a subdevice is attached, use inside the backend qube,
+        or a backend does not report usage at all.
+
+        `check_local_usage=False` ignores the last one for backward
+        compatibility.
+        """
+        if current_attachment is None:
+            sub_attach = attachments.attached_subdevice(device)
+            if sub_attach is not None:
+                subdevice, frontend = sub_attach
+                raise qubes.exc.DeviceUsed(
+                    f"Device {device} cannot be attached: it's subdevice "
+                    f"{subdevice} is attached to {frontend}."
+                )
+
+            # Guardian for local usage, DeviceAlreadyAttached is checked below.
+            if device.busy:
+                if not force:
+                    raise qubes.exc.DeviceUsed(
+                        f"Device {device} is busy: it or one of its children "
+                        "is used by backend VM."
+                    )
+                device.backend_domain.log.warning(
+                    "%s is busy, force-attaching anyway",
+                    device,
+                )
+
+        if (
+            check_local_usage
+            and not force
+            and not device.backend_domain.devices.usage_tracking
+        ):
+            # The backend does not report local device usage.
+            subdevices = device.subdevices
+            if subdevices:
+                names = ", ".join(str(sub) for sub in subdevices)
+                raise qubes.exc.DeviceUsed(
+                    f"VM {device.backend_domain.name} doesn't have sufficiently"
+                    f" up-to-date version of qubes-utils. {device} contains "
+                    f"subdevices ({names}) and attaching may corrupt its "
+                    f"filesystem. Repeat with --force to attach regardless."
+                )
+
+    @staticmethod
+    def refuse_already_attached(vm, device, current_attachment):
+        """
+        Refuse to hand out a device another qube is holding right now.
+        """
+        if not current_attachment:
+            return
+
+        if current_attachment == vm:
+            raise qubes.exc.DeviceAlreadyAttached(
+                f"Device {device} is already attached to this VM ({vm})."
+            )
+
+        raise qubes.exc.DeviceAlreadyAttached(
+            f"Device {device} already attached to {current_attachment}."
+        )
+
+    @qubes.ext.handler("device-check-available:block")
+    def on_device_check_available_block(self, vm, event, device, options):
+        """
+        Checks if device can be attached.
+
+        Used in `QubesVM.start()` while nothing has been allocated yet,
+        so raising here aborts the start. Prevents forcible stealing of 
+        a device from another qube.
+        """
+        # pylint: disable=unused-argument
+        if isinstance(device, qubes.device_protocol.UnknownDevice):
+            return
+
+        attachments = device.backend_domain.devices.attachments()
+        current_attachment = attachments.frontend(device.port)
+
+        # With `check_local_usage=False`, even if the backend VM does not have a
+        # device watcher, the block device will be taken and attached, which may
+        # disrupt local usage.
+        self.refuse_unavailable(
+            device,
+            attachments,
+            current_attachment,
+            force=False,
+            check_local_usage=False,
+        )
+        self.refuse_already_attached(vm, device, current_attachment)
+
+    def pre_attachment_internal(self, vm, device, options):
         if isinstance(device, qubes.device_protocol.UnknownDevice):
             print(
-                f"{device.devclass.capitalize()} device {device} "
+                f"{str(device.devclass).capitalize()} device {device} "
                 "not available, skipping.",
                 file=sys.stderr,
             )
@@ -584,35 +680,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         attachments = device.backend_domain.devices.attachments()
         current_attachment = attachments.frontend(device.port)
 
-        if current_attachment is None:
-            # Check if any related device is already attached.
-            rel_attach = attachments.attached_relative(device)
-            if rel_attach is not None:
-                relative, frontend = rel_attach
-                raise qubes.exc.QubesValueError(
-                    f"Device {device} cannot be attached: it shares sectors "
-                    f"with {relative}, which is attached to {frontend}."
-                )
-
-            # Guardian for local usage, DeviceAlreadyAttached is checked below.
-            if device.busy:
-                raise qubes.exc.QubesValueError(
-                    f"Device {device} is busy: it or one of its children is "
-                    "used by backend VM."
-                )
-
-        if not force and not device.backend_domain.devices.usage_tracking:
-            # The backend does not report local device usage, so there is
-            # nothing to protect us from filesystem corruption.
-            subdevices = device.subdevices
-            if subdevices:
-                names = ", ".join(str(sub) for sub in subdevices)
-                raise qubes.exc.QubesValueError(
-                    f"VM {device.backend_domain.name} doesn't have sufficiently"
-                    f" up-to-date version of qubes-utils. {device} contains "
-                    f"subdevices ({names}) and attaching may corrupt its "
-                    f"filesystem. Repeat with --force to attach regardless."
-                )
+        self.refuse_unavailable(
+            device, attachments, current_attachment, force
+        )
 
         # validate options
         for option, value in options.items():
@@ -658,12 +728,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
             return
 
-        if current_attachment and current_attachment != expected_attachment:
-            raise qubes.exc.DeviceAlreadyAttached(
-                "Device {!s} already attached to {!s}".format(
-                    device, current_attachment
-                )
-            )
+        self.refuse_already_attached(vm, device, current_attachment)
 
         if not device.backend_domain.is_running():
             raise qubes.exc.QubesVMNotRunningError(
@@ -747,9 +812,17 @@ class BlockDeviceExtension(qubes.ext.Extension):
             allowed = allowed.strip()
             if vm.name != allowed:
                 return
-        self.on_device_pre_attached_block(
-            vm, "device-pre-attach:block", device, assignment.options
-        )
+        try:
+            self.on_device_pre_attached_block(
+                vm, "device-pre-attach:block", device, assignment.options
+            )
+        except qubes.exc.QubesException as e:
+            # Do not interrupt attachments of other devices if this one fails,
+            # unless it is required.
+            if assignment.required:
+                raise
+            vm.log.warning("not attaching %s: %s", device, e)
+            return
         await vm.fire_event_async(
             "device-attach:block", device=device, options=assignment.options
         )

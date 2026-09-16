@@ -44,7 +44,7 @@ else:
     QubesVM = "qubes.vm.qubesvm.QubesVM"
 
 
-def qbool(value):
+def qbool(value: object) -> bool:
     """
     Property setter for boolean properties.
 
@@ -1074,7 +1074,8 @@ class DeviceInfo(VirtualDevice):
             for devclass in self.backend_domain.devices.keys()
             for dev in self.backend_domain.devices[devclass]
             if dev.parent_device is not None
-            and dev.parent_device.port.port_id == self.port_id
+            and dev.parent_device.port_id == self.port_id
+            and dev.parent_device.devclass == self.devclass
         ]
 
     @property
