@@ -1551,6 +1551,33 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             "device-attach:block", device=exp_dev, options=assignment.options
         )
 
+    def test_102_detach_clears_own_busy_marker(self):
+        qdb = get_qdb(mode="r")
+        qdb["/qubes-block-devices/sda/busy"] = b"True"
+        back_vm = TestVM(name="sys-usb", qdb=qdb)
+        device_xml = (
+            '<disk type="block" device="disk">\n'
+            '    <driver name="phy" />\n'
+            '    <source dev="/dev/sda" />\n'
+            '    <target dev="xvdi" />\n'
+            "    <readonly />\n"
+            '    <backenddomain name="sys-usb" />\n'
+            '    <script path="/etc/xen/scripts/qubes-block" />\n'
+            "</disk>"
+        )
+        vm = TestVM({}, domain_xml=domain_xml_template.format(device_xml))
+        vm.app.domains["test-vm"] = vm
+        vm.app.domains["sys-usb"] = back_vm
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, "sda", "block"))
+        with mock.patch(
+            "asyncio.ensure_future", new=lambda coro: coro.close()
+        ):
+            self.ext.on_device_pre_detached_block(vm, "", dev.port)
+        self.assertTrue(vm.libvirt_domain.detachDevice.called)
+        self.assertIsNone(
+            back_vm.untrusted_qdb.read("/qubes-block-devices/sda/busy")
+        )
+
     def test_083_on_startup_already_attached(self):
         disk = """
                 <disk type="block" device="disk">
