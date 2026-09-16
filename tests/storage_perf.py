@@ -43,7 +43,6 @@ refill_buffers
 end_fsync=1
 direct=1
 rwmixread=70
-filename=fio-test-file
 size=1024m
 zero_buffers=0
 runtime=5
@@ -108,6 +107,7 @@ class TestRun:
     def __init__(self, vm, volume):
         self.vm = vm
         self.volume = volume
+        self.testpath = None
 
     def report_result(self, test_name, result):
         # for short results takes average
@@ -135,28 +135,33 @@ class TestRun:
                 for line in result.splitlines():
                     f.write(name_prefix + test_name + " " + line + "\n")
 
-    def prepare_volume(self) -> str:
+    def prepare_volume(self):
+        dirpath = None
         if self.vm.klass == "AdminVM":
             if self.volume == "root":
-                return "/root"
-            if self.volume == "varlibqubes":
-                return "/var/lib/qubes"
-            raise ValueError(f"Unsupported volume {self.volume} for dom0")
-        if self.volume == "private":
-            return "/home/user"
-        if self.volume == "root":
-            return "/root"
-        if self.volume == "volatile":
+                dirpath = "/root"
+            elif self.volume == "varlibqubes":
+                dirpath = "/var/lib/qubes"
+            else:
+                raise ValueError(f"Unsupported volume {self.volume} for dom0")
+        elif self.volume == "private":
+            dirpath = "/home/user"
+        elif self.volume == "root":
+            dirpath = "/root"
+        elif self.volume == "volatile":
             self.vm.run(
                 "mkfs.ext4 -F /dev/xvdc3 && mkdir -p /mnt/volatile && mount "
                 "/dev/xvdc3 /mnt/volatile",
                 user="root",
             )
-            return "/mnt/volatile"
-        raise ValueError(f"Unsupported volume {self.volume} for VM")
+            dirpath = "/mnt/volatile"
+        else:
+            raise ValueError(f"Unsupported volume {self.volume} for VM")
+
+        self.testpath = os.path.join(dirpath, "fio-test-file")
 
     def run_test(self, test_config: TestConfig):
-        path = self.prepare_volume()
+        self.prepare_volume()
         if self.vm.klass == "AdminVM":
             with tempfile.NamedTemporaryFile() as f:
                 f.write(fio_config.encode())
@@ -165,17 +170,18 @@ class TestRun:
                     [
                         "fio",
                         "--minimal",
+                        f"--filename={self.testpath}",
                         f"--section={test_config.name}",
                         f.name,
                     ],
-                    cwd=path,
                 )
         else:
             self.vm.run_with_args(
                 "tee", "/tmp/test.fio", input=fio_config.encode()
             )
             result = self.vm.run(
-                f"cd {path} && fio --minimal --section={test_config.name} /tmp/test.fio",
+                f"fio --minimal --filename={self.testpath}"
+                f" --section={test_config.name} /tmp/test.fio",
                 user="root",
                 stdout=subprocess.PIPE,
             )[0]
