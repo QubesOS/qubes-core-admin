@@ -20,11 +20,12 @@
 import argparse
 import dataclasses
 import os
+import sys
 import subprocess
 import tempfile
 
 import qubesadmin
-
+from qubesadmin.tools import qvm_device
 
 @dataclasses.dataclass
 class TestConfig:
@@ -102,9 +103,21 @@ all_tests = [
     TestConfig("rnd4k_q1t1_write"),
 ]
 
+def qvm_block_run(args, app):
+    devclass='block'
+    parser = qvm_device.get_parser(devclass)
+    args = parser.parse_args(args, app=app)
+
+    try:
+        args.func(args)
+    except qubesadmin.exc.QubesException as e:
+        parser.print_error(str(e))
+        raise
+
 
 class TestRun:
-    def __init__(self, vm, volume):
+    def __init__(self, vm, app=None):
+        self.app = app or qubesadmin.Qubes()
         self.vm = vm
         self.testpath = None
         self.name_prefix = None
@@ -175,8 +188,8 @@ class TestRun:
 
 
 class TestRunVolume(TestRun):
-    def __init__(self, vm, volume):
-        super().__init__(vm)
+    def __init__(self, vm, volume, app=None):
+        super().__init__(vm, app=app)
         self.volume = volume
         self.name_prefix = volume
 
@@ -205,30 +218,131 @@ class TestRunVolume(TestRun):
         self.testpath = os.path.join(dirpath, "fio-test-file")
 
 
+class TestRunDevice(TestRun):
+    dom0_mountdir = "/run/media/perftest"
+    vm_mountdir = "/media/perftest"
+
+    def __init__(self, vm, device, mount=False, app=None):
+        super().__init__(vm, app=app)
+        self.device = device
+        self.mount = mount
+        if mount:
+           self.name_prefix = "custom"
+        else:
+           self.name_prefix = "disk_raw"
+
+    def prepare(self):
+        if not os.path.exists(self.device):
+            raise ValueError(f"Not a valid device: {self.device}")
+        self.testpath = self.device
+
+        # Only attach the block device if not dom0. Its not needed
+        # anyway because it already has access to the block device.
+        if self.vm.klass != "AdminVM":
+            # TODO: First test to see if frontend device node is already
+            # taken.
+            frontend_dev_name = 'xvdp'
+            dev = os.path.realpath(self.device, strict=True)
+            qvm_block_run(['attach',
+                           '-o', f'frontend-dev={frontend_dev_name}',
+                           self.vm.name, f'dom0:{os.path.basename(dev)}'],
+                          self.app)
+
+            self.testpath = os.path.join("/dev", frontend_dev_name)
+
+        if self.mount:
+            if self.vm.klass == "AdminVM":
+                result = subprocess.check_output(
+                    [
+                        "mount", "-m",
+                        self.device,
+                        self.dom0_mountdir,
+                    ],
+                )
+                self.testpath = os.path.join(self.dom0_mountdir, "fio-test-file")
+            else:
+                self.vm.run_with_args(
+                    "mount", "-m", self.testpath, self.vm_mountdir,
+                    user="root",
+                )
+                self.testpath = os.path.join(self.vm_mountdir, "fio-test-file")
+
+    def finalize(self):
+        if self.mount:
+            # Unmount previous mounts
+            if self.vm.klass == "AdminVM":
+                result = subprocess.check_output(
+                    [
+                        "umount",
+                        self.dom0_mountdir,
+                    ],
+                )
+            else:
+                self.vm.run_with_args(
+                    "umount", self.vm_mountdir,
+                    user="root",
+                )
+
+        if self.vm.klass != "AdminVM":
+            dev = os.path.realpath(self.device, strict=True)
+            qvm_block_run(['detach', self.vm.name,
+                           f'dom0:{os.path.basename(dev)}'],
+                          self.app)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--vm", required=True, help="VM to run test in, can be dom0"
 )
-parser.add_argument(
+
+group_ex = parser.add_mutually_exclusive_group()
+
+group_ex.add_argument(
     "--volume",
-    default="root",
     help="Which volume to test, possible values for VM: private, root, volatile; "
     "possible values for dom0: root, varlibqubes",
 )
+
+group_ex.add_argument(
+    "--device",
+    default="",
+    help="Which block device to test, must be a path in /dev",
+)
+
+dev_group = parser.add_argument_group("Extra arguments for --device")
+dev_group.add_argument(
+    "-m", "--mount",
+    default=False,
+    action="store_true",
+    help="Mount block device",
+)
+
 parser.add_argument("test", choices=[t.name for t in all_tests] + ["all"])
 
 
 def main():
     args = parser.parse_args()
+    if args.volume and args.device:
+        parser.error("--volume and --device are mutually exclusive")
+    elif not (args.volume or args.device):
+        # If neither --volume nor --device was specified, default to
+        # --volume root
+        args.volume = "root"
+    if args.volume and args.mount:
+        parser.error("--volume cannot use --mount option")
+
+    app = qubesadmin.Qubes()
 
     if args.test == "all":
         tests = all_tests
     else:
         tests = [t for t in all_tests if t.name == args.test]
 
-    app = qubesadmin.Qubes()
-
-    run = TestRunVolume(app.domains[args.vm], args.volume)
+    if args.volume:
+        run = TestRunVolume(app.domains[args.vm], args.volume, app=app)
+    else:
+        run = TestRunDevice(app.domains[args.vm], args.device,
+                            mount=args.mount, app=app)
 
     for test in tests:
         run.run_test(test)
