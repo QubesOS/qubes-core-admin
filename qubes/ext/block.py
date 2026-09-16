@@ -53,9 +53,7 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 class BlockDevice(qubes.device_protocol.DeviceInfo):
 
     def __init__(
-            self,
-            port: qubes.device_protocol.Port,
-            exported: Optional[bool] = None
+        self, port: qubes.device_protocol.Port, exported: Optional[bool] = None
     ):
         if port.devclass != "block":
             raise qubes.exc.QubesValueError(
@@ -285,7 +283,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
                 # The backend says it maintains the markers, yet this device
                 # is listed without one. Something fails => refuse.
                 self.backend_domain.log.warning(
-                    "Unknown status of device %s", self.port_id)
+                    "Unknown status of device %s", self.port_id
+                )
                 self._busy = True
             else:
                 self._busy = qubes.devices.qbool_untrusted_used(
@@ -643,7 +642,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         Checks if device can be attached.
 
         Used in `QubesVM.start()` while nothing has been allocated yet,
-        so raising here aborts the start. Prevents forcible stealing of 
+        so raising here aborts the start. Prevents forcible stealing of
         a device from another qube.
         """
         # pylint: disable=unused-argument
@@ -680,9 +679,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         attachments = device.backend_domain.devices.attachments()
         current_attachment = attachments.frontend(device.port)
 
-        self.refuse_unavailable(
-            device, attachments, current_attachment, force
-        )
+        self.refuse_unavailable(device, attachments, current_attachment, force)
 
         # validate options
         for option, value in options.items():

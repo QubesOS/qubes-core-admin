@@ -595,7 +595,7 @@ class DeviceManager(dict):
         return Attachments(self)
 
     def busy_ports(
-            self, devclasses: Tuple[str, ...] = ("block",)
+        self, devclasses: Tuple[str, ...] = ("block",)
     ) -> Dict[str, Set[str]]:
         """
         Ports unusable because they (or something below them) are attached.
@@ -611,7 +611,7 @@ class DeviceManager(dict):
         extension lists a class by asking `busy_ports`: that creates a loops
         here, it will re-enter `busy_ports` while it runs. So we need a guard.
         The guard turns the nested call into an empty {}, which is ok since
-        a nested caller only needs `port_id`s, never their busy state.
+        a nested caller only needs port ids, never their busy state.
         """
         if self._computing_busy_ports:
             return {}

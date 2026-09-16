@@ -1120,9 +1120,7 @@ class DeviceInfo(VirtualDevice):
             )
 
         if self.busy:
-            properties += b" " + DeviceSerializer.pack_property(
-                "busy", "True"
-            )
+            properties += b" " + DeviceSerializer.pack_property("busy", "True")
 
         properties += b" " + DeviceSerializer.pack_property(
             "interfaces", "".join(repr(ifc) for ifc in self.interfaces)

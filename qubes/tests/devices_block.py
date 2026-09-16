@@ -1374,6 +1374,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
         self.ext.detach_and_notify.assert_called_once_with(front, exp_dev.port)
         self.assertEqual(self.ext.devices_cache, {"sys-usb": {}})
+
     def test_090_device_get_busy(self):
         # boolean-true literals mean busy
         for value in (b"True", b"true", b"1", b"yes", b"on"):
@@ -1486,8 +1487,8 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         # no marker if tracking => busy
         # garbage marker if tracking => busy
         for untrusted_flag, tracking, busy in (
-                (b"True", True, True),
-                (b"\xff", False, False),
+            (b"True", True, True),
+            (b"\xff", False, False),
         ):
             with self.subTest(flag=untrusted_flag):
                 vm = TestVM(
@@ -1497,9 +1498,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                 vm.untrusted_qdb.write(
                     qubes.devices.USAGE_TRACKING_QDB_KEY, untrusted_flag
                 )
-                device = qubes.ext.block.BlockDevice(
-                    Port(vm, "sda", "block")
-                )
+                device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
 
                 self.assertEqual(vm.devices.usage_tracking, tracking)
                 self.assertEqual(device.busy, busy)
@@ -1519,9 +1518,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             get_qdb(mode="w"),
             domain_xml=domain_xml_template.format(""),
         )
-        vm.untrusted_qdb.write(
-            qubes.devices.USAGE_TRACKING_QDB_KEY, b"True"
-        )
+        vm.untrusted_qdb.write(qubes.devices.USAGE_TRACKING_QDB_KEY, b"True")
         vm.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
         device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
 
@@ -1542,9 +1539,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                 qubes.devices.USAGE_TRACKING_QDB_KEY, b"True"
             )
             back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
-            back.untrusted_qdb.write(
-                "/qubes-block-devices/sda1/used", b"False"
-            )
+            back.untrusted_qdb.write("/qubes-block-devices/sda1/used", b"False")
 
         disk = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
         part = qubes.ext.block.BlockDevice(Port(back, "sda1", "block"))
@@ -1659,7 +1654,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         self.assertFalse(listed["sda"].busy)
         self.assertFalse(listed["sda1"].busy)
-
 
     def test_130_attached_are_not_available(self):
         back, front, disk, _part = self._partitioned_backend(tracking=True)
