@@ -1164,7 +1164,7 @@ class Qubes(qubes.PropertyHolder):
 
 
     Methods and attributes:
-    """
+    """  # pylint: disable=too-many-instance-attributes
 
     default_guivm = qubes.VMProperty(
         "default_guivm",
@@ -1386,7 +1386,21 @@ class Qubes(qubes.PropertyHolder):
 
         self.__load_timestamp = None
         self.__locked_fh = None
-        self._domain_event_callback_id = None
+        self._domain_event_callback_handlers = (
+            (
+                None,  # any domain
+                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+                self._domain_event_callback,
+                None,
+            ),
+            (
+                None,  # any domain
+                libvirt.VIR_DOMAIN_EVENT_ID_REBOOT,
+                self._domain_event_generic_callback,
+                libvirt.VIR_DOMAIN_EVENT_ID_REBOOT,
+            ),
+        )
+        self._domain_event_callback_ids = []
 
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
@@ -1634,11 +1648,10 @@ class Qubes(qubes.PropertyHolder):
 
         super().close()
 
-        if self._domain_event_callback_id is not None:
-            self.vmm.libvirt_conn.domainEventDeregisterAny(
-                self._domain_event_callback_id
-            )
-            self._domain_event_callback_id = None
+        if self._domain_event_callback_ids:
+            for cb_id in self._domain_event_callback_ids:
+                self.vmm.libvirt_conn.domainEventDeregisterAny(cb_id)
+            self._domain_event_callback_ids = []
 
         # Only our Lord, The God Almighty, knows what references
         # are kept in extensions.
@@ -1958,22 +1971,15 @@ class Qubes(qubes.PropertyHolder):
         'qubesd' process and only when mainloop has been already set.
         """
         if old_connection:
-            try:
-                old_connection.domainEventDeregisterAny(
-                    self._domain_event_callback_id
-                )
-            except libvirt.libvirtError:
-                # the connection is probably in a bad state; but call the above
-                # anyway to cleanup the client structures
-                pass
-        self._domain_event_callback_id = (
-            self.vmm.libvirt_conn.domainEventRegisterAny(
-                None,  # any domain
-                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                self._domain_event_callback,
-                None,
+            for cb_id in self._domain_event_callback_ids:
+                with suppress(libvirt.libvirtError):
+                    # the connection is probably in a bad state; but call the
+                    # above anyway to cleanup the client structures
+                    old_connection.domainEventDeregisterAny(cb_id)
+        for handler in self._domain_event_callback_handlers:
+            self._domain_event_callback_ids.append(
+                self.vmm.libvirt_conn.domainEventRegisterAny(*handler)
             )
-        )
         if old_connection:
             # If this is libvirt restart, check if ensure no shutdown events
             # were missed. on_libvirt_domain_stopped() can deal with duplicated
@@ -1982,19 +1988,34 @@ class Qubes(qubes.PropertyHolder):
                 if not vm.is_running():
                     vm.on_libvirt_domain_stopped()
 
-    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
-        """Generic libvirt event handler (virConnectDomainEventCallback),
-        translate libvirt event into qubes.events.
-        """
+    def _validate_libvirt_callback(self, domain):
         if not self.events_enabled:
-            return
-
+            return None
         try:
             vm = self.domains[domain.name()]
         except KeyError:
             # ignore events for unknown domains
+            return None
+        return vm
+
+    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
+        """Generic libvirt event handler (virConnectDomainEventCallback),
+        translate libvirt event into qubes.events.
+        """
+        vm = self._validate_libvirt_callback(domain=domain)
+        if not vm:
             return
         vm.on_libvirt_domain_lifecycle(event=event, detail=detail)
+
+    def _domain_event_generic_callback(self, _conn, domain, opaque: int):
+        """Generic libvirt event handler (virConnectDomainEventGenericCallback),
+        translate libvirt event into qubes.events. Opaque must contain the
+        event ID.
+        """
+        vm = self._validate_libvirt_callback(domain=domain)
+        if not vm:
+            return
+        vm.on_libvirt_domain_generic(event=opaque)
 
     @qubes.events.handler("domain-pre-delete")
     def on_domain_pre_deleted(self, event, vm):

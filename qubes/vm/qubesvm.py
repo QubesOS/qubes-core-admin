@@ -357,21 +357,28 @@ LibvirtEvents = Literal[
 ]
 
 
-def _get_libvirt_event_dict() -> dict[int, dict[str, Any]]:
+def _get_libvirt_event_dict() -> dict[int, dict[int, dict[str, Any]]]:
     libvirt_event_dict = {
-        0: {"event": "DEFINED", "pretty": "Defined", "details": {}},
-        1: {"event": "UNDEFINED", "pretty": "Undefined", "details": {}},
-        2: {"event": "STARTED", "pretty": "Started", "details": {}},
-        3: {"event": "SUSPENDED", "pretty": "Paused", "details": {}},
-        4: {"event": "RESUMED", "pretty": "Resumed", "details": {}},
-        5: {"event": "STOPPED", "pretty": "Halted", "details": {}},
-        6: {"event": "SHUTDOWN", "pretty": "Halting", "details": {}},
-        7: {"event": "PMSUSPENDED", "pretty": "Suspended", "details": {}},
-        8: {"event": "CRASHED", "pretty": "Crashed", "details": {}},
+        libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE: {
+            0: {"event": "DEFINED", "pretty": "Defined", "details": {}},
+            1: {"event": "UNDEFINED", "pretty": "Undefined", "details": {}},
+            2: {"event": "STARTED", "pretty": "Started", "details": {}},
+            3: {"event": "SUSPENDED", "pretty": "Paused", "details": {}},
+            4: {"event": "RESUMED", "pretty": "Resumed", "details": {}},
+            5: {"event": "STOPPED", "pretty": "Halted", "details": {}},
+            6: {"event": "SHUTDOWN", "pretty": "Halting", "details": {}},
+            7: {"event": "PMSUSPENDED", "pretty": "Suspended", "details": {}},
+            8: {"event": "CRASHED", "pretty": "Crashed", "details": {}},
+        },
+        libvirt.VIR_DOMAIN_EVENT_ID_REBOOT: {
+            0: {"event": "REBOOT", "pretty": "Reboot", "details": {}}
+        },
     }
     libvirt_names = dir(libvirt)
     event_prefix = "VIR_DOMAIN_EVENT_"
-    for event_number, event_dict in libvirt_event_dict.items():
+    for event_number, event_dict in libvirt_event_dict[
+        libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE
+    ].items():
         curr_event = event_prefix + str(event_dict["event"])
         assert event_number == getattr(libvirt, curr_event)
         curr_event_prefix = curr_event + "_"
@@ -1228,7 +1235,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         super().__init__(app, xml, **kwargs)
         self._lifecycle_waiter = {}
         libvirt_events = [
-            event["event"] for event in self.libvirt_event_dict.values()
+            event["event"]
+            for event in self.libvirt_event_dict[
+                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE
+            ].values()
         ]
         for power_event in libvirt_events:
             self._lifecycle_waiter[power_event] = None
@@ -1769,20 +1779,37 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self._lifecycle_waiter[event].set_result(None)
             self._lifecycle_waiter[event] = None
 
+    def on_libvirt_domain_generic(self, event: int) -> None:
+        """Handle VIR_DOMAIN_EVENT_ID_* events from libvirt when they are a
+        generic callback.
+
+        This is not a Qubes event handler.
+        """
+        libvirt_event = self.libvirt_event_dict[event][0]
+        pretty_event = libvirt_event["pretty"]
+        self.log.info("Libvirt event received for domain: %s", pretty_event)
+
+        if event == libvirt.VIR_DOMAIN_EVENT_ID_REBOOT:
+            self.on_libvirt_domain_reboot()
+        else:
+            self.log.error("Unhandled generic libvirt event: %d", event)
+
     def on_libvirt_domain_lifecycle(self, event: int, detail: int) -> None:
         """Handle VIR_DOMAIN_EVENT_ID_LIFECYCLE events from libvirt.
 
         This is not a Qubes event handler.
         """
-
-        pretty_event = self.libvirt_event_dict[event]["pretty"]
-        pretty_detail = self.libvirt_event_dict[event]["details"][detail]
-
+        libvirt_event = self.libvirt_event_dict[
+            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE
+        ][event]
+        pretty_event = libvirt_event["pretty"]
+        pretty_detail = libvirt_event["details"][detail]
         self.log.info(
             "Libvirt event received for domain: %s: %s",
             pretty_event,
             pretty_detail,
         )
+
         if event == libvirt.VIR_DOMAIN_EVENT_DEFINED:
             self.on_libvirt_domain_defined()
         elif event == libvirt.VIR_DOMAIN_EVENT_STARTED:
@@ -1795,6 +1822,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.on_libvirt_domain_resumed()
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             self.on_libvirt_domain_stopped()
+
+    def on_libvirt_domain_reboot(self):
+        """Handle VIR_DOMAIN_EVENT_ID_REBOOT event from libvirt.
+
+        This is not a Qubes event handler.
+        """
+        if self.allowed_reboots:
+            self._start_requested = True
 
     def on_libvirt_domain_defined(self):
         """Handle VIR_DOMAIN_EVENT_DEFINED event from libvirt.
