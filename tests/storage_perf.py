@@ -200,7 +200,7 @@ class TestRunVolume(TestRun):
             elif self.volume == "varlibqubes":
                 dirpath = "/var/lib/qubes"
             else:
-                raise ValueError(f"Unsupported volume {self.volume} for dom0")
+                raise ValueError(f"Unsupported volume {self.volume} for dom0; must be one of (root, varlibqubes)")
         elif self.volume == "private":
             dirpath = "/home/user"
         elif self.volume == "root":
@@ -213,7 +213,7 @@ class TestRunVolume(TestRun):
             )
             dirpath = "/mnt/volatile"
         else:
-            raise ValueError(f"Unsupported volume {self.volume} for VM")
+            raise ValueError(f"Unsupported volume {self.volume} for VM; must be one of (root, private, volatile)")
 
         self.testpath = os.path.join(dirpath, "fio-test-file")
 
