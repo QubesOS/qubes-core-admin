@@ -160,10 +160,10 @@ class AdminVM(LocalVM):
         return []
 
     @qubes.stateless_property
-    def start_time(self) -> float:
+    def start_time(self) -> int:
         """Tell when machine was started.
 
-        :rtype: float
+        :rtype: int
         """
         if self._start_time is not None:
             return self._start_time
@@ -172,7 +172,7 @@ class AdminVM(LocalVM):
         now = datetime.datetime.now(datetime.timezone.utc)
         uptime = float(uptime_str.split()[0])
         start_time = now - datetime.timedelta(seconds=uptime)
-        self._start_time = start_time.timestamp()
+        self._start_time = int(start_time.timestamp())
         return self._start_time
 
     @property

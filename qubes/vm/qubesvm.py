@@ -2948,22 +2948,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # miscellanous
 
     @qubes.stateless_property
-    def start_time(self) -> float | None:
+    def start_time(self) -> int:
         """Tell when machine was started.
 
-        :rtype: float or None
+        :rtype: int
         """
         if self._start_time is not None:
             return self._start_time
         if not self.is_running():
-            return None
+            return 0
         # TODO shouldn't this be qubesdb?
         start_time = self.app.vmm.xs.read(
             "", "/vm/{}/start_time".format(self.uuid)
         )
         if not start_time:
-            return None
-        self._start_time = float(start_time)
+            return 0
+        self._start_time = int(float(start_time))
         return self._start_time
 
     @property
