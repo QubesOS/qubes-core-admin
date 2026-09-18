@@ -1256,6 +1256,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._stubdom_uuid = ""
         self._is_running = None
         self._power_state = None
+        self._start_time = None
 
         # We assume a fully halted VM here. The 'domain-init' handler will
         # check if the VM is already running.
@@ -1807,6 +1808,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._stubdom_uuid = ""
         self._is_running = False
         self._power_state = "Halted"
+        self._start_time = None
 
         if self._domain_stopped_event_received:
             # ignore this event - already triggered by subsequent start()
@@ -2946,22 +2948,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # miscellanous
 
     @qubes.stateless_property
-    def start_time(self):
+    def start_time(self) -> float | None:
         """Tell when machine was started.
 
         :rtype: float or None
         """
+        if self._start_time is not None:
+            return self._start_time
         if not self.is_running():
             return None
-
         # TODO shouldn't this be qubesdb?
         start_time = self.app.vmm.xs.read(
             "", "/vm/{}/start_time".format(self.uuid)
         )
-        if start_time != "":
-            return float(start_time)
-
-        return None
+        if not start_time:
+            return None
+        self._start_time = float(start_time)
+        return self._start_time
 
     @property
     def kernelopts_common(self):
