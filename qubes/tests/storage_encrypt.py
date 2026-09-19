@@ -210,6 +210,16 @@ class TC_02_LuksMethods(_EncryptTestCase):
     def test_000_setup_luks_formats_empty(self):
         vol = self._created_volume()
         vol.set_passphrase(b"s3cret")
+        orig_size = vol.size
+        resized = []
+
+        def fake_resize(size):
+            resized.append(size)
+            vol._size = size
+            with open(vol.path, "r+b") as fh:
+                fh.truncate(size)
+
+        vol.resize = fake_resize
         self.mock_cryptsetup.side_effect = [
             subprocess.CalledProcessError(1, "isLuks"),
             None,
@@ -220,6 +230,15 @@ class TC_02_LuksMethods(_EncryptTestCase):
         self.assertIn("luksFormat", args)
         self.assertIn("--type=luks2", args)
         self.assertIn("--key-file=-", args)
+        self.assertIn(
+            "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS),
+            args,
+        )
+        self.assertNotIn("reencrypt", args)
+        self.assertEqual(
+            resized, [orig_size + qubes.storage.LUKS2_HEADER_SIZE]
+        )
+        self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
         self.assertEqual(
             self.mock_cryptsetup.call_args_list[-1][1]["passphrase"],
             vol._passphrase,
@@ -248,8 +267,10 @@ class TC_02_LuksMethods(_EncryptTestCase):
             fh.write(b"filesystem-superblock")
         vol.set_passphrase(b"s3cret")
         orig_size = vol.size
+        resized = []
 
         def fake_resize(size):
+            resized.append(size)
             vol._size = size
             with open(vol.path, "r+b") as fh:
                 fh.truncate(size)
@@ -266,7 +287,23 @@ class TC_02_LuksMethods(_EncryptTestCase):
         called = [c[0] for c in self.mock_cryptsetup.call_args_list]
         self.assertTrue(any("reencrypt" in c for c in called))
         self.assertTrue(any("--encrypt" in c for c in called))
-        self.assertTrue(any("--reduce-device-size=32M" in c for c in called))
+        self.assertTrue(any("--reduce-device-size=64M" in c for c in called))
+        self.assertTrue(
+            any(
+                "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS)
+                in c
+                for c in called
+            )
+        )
+        self.assertTrue(any("--force-offline-reencrypt" in c for c in called))
+        self.assertFalse(any("--reduce-device-size=32M" in c for c in called))
+        self.assertEqual(
+            resized,
+            [
+                orig_size + qubes.storage.LUKS2_REENCRYPT_WORKSPACE,
+                orig_size + qubes.storage.LUKS2_HEADER_SIZE,
+            ],
+        )
         self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
 
     def test_004_start_luks_opens_and_wipes_passphrase(self):
@@ -482,13 +519,59 @@ class TC_02_LuksMethods(_EncryptTestCase):
         self.assertTrue(vol.encrypted)
         self.assertTrue(vol._luks_device_mutated)
 
+    def test_013b_failed_reencrypt_retry_does_not_stack_grow(self):
+        vol = self._created_volume()
+        with open(vol.path, "r+b") as fh:
+            fh.write(b"filesystem-superblock")
+        vol.set_passphrase(b"s3cret")
+        orig_size = vol.size
+        resized = []
+
+        def fake_resize(size):
+            resized.append(size)
+            vol._size = size
+            with open(vol.path, "r+b") as fh:
+                fh.truncate(size)
+
+        vol.resize = fake_resize
+        fail_reencrypt = {"n": True}
+
+        async def cryptsetup_side(*args, **kwargs):
+            if "isLuks" in args:
+                if vol.size == orig_size + qubes.storage.LUKS2_HEADER_SIZE:
+                    return None
+                raise subprocess.CalledProcessError(1, "isLuks")
+            if "reencrypt" in args and fail_reencrypt["n"]:
+                fail_reencrypt["n"] = False
+                raise subprocess.CalledProcessError(1, "reencrypt")
+            return None
+
+        self.mock_cryptsetup.side_effect = cryptsetup_side
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.loop.run_until_complete(vol.setup_luks())
+        self.loop.run_until_complete(vol.setup_luks())
+        self.assertEqual(
+            resized,
+            [
+                orig_size + qubes.storage.LUKS2_REENCRYPT_WORKSPACE,
+                orig_size + qubes.storage.LUKS2_HEADER_SIZE,
+            ],
+        )
+        self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
+
     def test_014_header_size_constant(self):
         self.assertEqual(qubes.storage.LUKS2_HEADER_SIZE, 32 << 20)
+        self.assertEqual(qubes.storage.LUKS2_REENCRYPT_WORKSPACE, 64 << 20)
+        self.assertEqual(qubes.storage.LUKS2_DATA_OFFSET_SECTORS, 65536)
         self.assertEqual(
             "--reduce-device-size={}M".format(
-                qubes.storage.LUKS2_HEADER_SIZE >> 20
+                qubes.storage.LUKS2_REENCRYPT_WORKSPACE >> 20
             ),
-            "--reduce-device-size=32M",
+            "--reduce-device-size=64M",
+        )
+        self.assertEqual(
+            "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS),
+            "--offset=65536",
         )
 
     def test_015_start_luks_warns_on_stale_mapper(self):
@@ -757,7 +840,7 @@ class TC_06_ImportAndCreate(_EncryptTestCase):
         vol.setup_luks = unittest.mock.AsyncMock()
         storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
         self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vol.setup_luks.assert_called_once_with()
+        vol.setup_luks.assert_called_once_with(guest_size=vol.size)
 
     def test_005_import_data_end_requires_passphrase(self):
         vol = self._private_volume(encrypted=True)

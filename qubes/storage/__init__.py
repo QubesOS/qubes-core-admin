@@ -49,12 +49,11 @@ _am_root = os.getuid() == 0
 BYTES_TO_ZERO = 1 << 16
 _big_buffer = b"\0" * BYTES_TO_ZERO
 
-# LUKS2 header / data-offset reservation used when encrypting an existing
-# volume in place.  cryptsetup reencrypt --reduce-device-size takes this
-# much from the end of the device so the guest-visible size stays the same
-# after the header is written.  32 MiB matches cryptsetup's recommended
-# default for LUKS2.
+# Guest-transparent LUKS2 payload offset (32 MiB).  cryptsetup in-place
+# encrypt needs twice that as --reduce-device-size (header + datashift).
 LUKS2_HEADER_SIZE = 32 << 20
+LUKS2_REENCRYPT_WORKSPACE = LUKS2_HEADER_SIZE * 2
+LUKS2_DATA_OFFSET_SECTORS = LUKS2_HEADER_SIZE // 512
 LUKS_PASSPHRASE_MAX = 512
 
 
@@ -206,6 +205,8 @@ class Volume:
         #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
+        #: Size from XML/config, before a LUKS grow that is not yet saved
+        self._configured_size = int(size)
         #: Should the volume be encrypted with an ephemeral key;
         #  None means the default value
         self._ephemeral = ephemeral
@@ -448,7 +449,7 @@ class Volume:
         except subprocess.CalledProcessError:
             return False
 
-    async def setup_luks(self, device=None, *, existing=None):
+    async def setup_luks(self, device=None, *, existing=None, guest_size=None):
         """Create a LUKS2 header on this volume.
 
         If the volume already has a LUKS header, this is a no-op (used
@@ -456,9 +457,12 @@ class Volume:
         encrypted).  Enabling encryption on a volume that is not yet
         marked encrypted must refuse a pre-existing header first; see
         ``admin.vm.volume.Set.encrypted``.  If the volume already
-        contains data, it is grown by :py:data:`LUKS2_HEADER_SIZE` and
-        encrypted in place with ``cryptsetup reencrypt --encrypt`` so
-        existing contents are kept.  Otherwise ``luksFormat`` is used.
+        contains data, it is grown by :py:data:`LUKS2_REENCRYPT_WORKSPACE`
+        and encrypted in place; the unused datashift tail is then
+        dropped so backing is original plus :py:data:`LUKS2_HEADER_SIZE`.
+        Empty volumes are grown by :py:data:`LUKS2_HEADER_SIZE` and
+        formatted with ``--offset`` at that size.  The guest mapper stays
+        the original size.
 
         Dirty volumes and volumes with revisions are refused.  Once the
         backing device has been mutated, :py:attr:`_luks_device_mutated`
@@ -479,54 +483,92 @@ class Volume:
             raise StoragePoolException(
                 "Cannot set up LUKS: device {!r} does not exist".format(device)
             )
+        guest_size = self._luks_guest_size(guest_size)
+        self._luks_setup_guest_size = guest_size
         if await self.is_luks(device):
+            await self._drop_reencrypt_tail(guest_size)
             return
         self._assert_safe_to_encrypt()
         if existing is None:
             existing = self._volume_has_data()
         if existing:
-            await self._encrypt_existing(device)
+            await self._encrypt_existing(device, guest_size)
         else:
-            await self._luks_format(device)
+            await self._luks_format(device, guest_size)
 
-    async def _luks_format(self, device):
+    def _luks_guest_size(self, guest_size=None):
+        """Original guest size, even if the backend was already grown."""
+        if guest_size is not None:
+            return guest_size
+        cached = getattr(self, "_luks_setup_guest_size", None)
+        if cached is not None:
+            return cached
+        live = self.size
+        cfg = getattr(self, "_configured_size", None)
+        if cfg and live > cfg:
+            return cfg
+        return live
+
+    async def _drop_reencrypt_tail(self, guest_size):
+        """If reencrypt finished but shrink failed, drop the workspace tail."""
+        target = guest_size + LUKS2_HEADER_SIZE
+        if self.size > target:
+            await self._ensure_backing_size(target)
+
+    async def _ensure_backing_size(self, size):
+        """Grow or shrink the backend to *size* (no-op if already there)."""
+        if self.size == size:
+            return
+        await qubes.utils.coro_maybe(self.resize(size))
+
+    async def _luks_format(self, device, guest_size):
         self._luks_device_mutated = True
         self._encrypted = True
+        await self._ensure_backing_size(guest_size + LUKS2_HEADER_SIZE)
+        device = self.luks_backend_path()
         await qubes.utils.cryptsetup(
             "--batch-mode",
             "--type=luks2",
             "--cipher=aes-xts-plain64",
+            "--offset={}".format(LUKS2_DATA_OFFSET_SECTORS),
             "--key-file=-",
             "--",
             "luksFormat",
             device,
             passphrase=self._passphrase,
         )
+        self._discard_unused_cow()
 
-    async def _encrypt_existing(self, device):
+    async def _encrypt_existing(self, device, guest_size):
         """Encrypt an existing volume in place, preserving its data.
 
-        The backing store is grown first so that after
-        ``--reduce-device-size`` the guest-visible size is unchanged.
+        cryptsetup requires ``--reduce-device-size`` to be twice the
+        payload offset (header plus first-segment workspace).  After
+        reencrypt the unused tail is dropped so backing is original
+        plus :py:data:`LUKS2_HEADER_SIZE` and ``open`` maps the original
+        guest size.
         """
         # Mark *before* resize/reencrypt so a mid-flight failure cannot
         # be mistaken for "not encrypted" (which would attach ciphertext
         # as a normal disk).
         self._luks_device_mutated = True
         self._encrypted = True
-        await qubes.utils.coro_maybe(self.resize(self.size + LUKS2_HEADER_SIZE))
+        await self._ensure_backing_size(guest_size + LUKS2_REENCRYPT_WORKSPACE)
         device = self.luks_backend_path()
         await qubes.utils.cryptsetup(
             "--batch-mode",
             "--type=luks2",
             "--encrypt",
-            "--reduce-device-size={}M".format(LUKS2_HEADER_SIZE >> 20),
+            "--reduce-device-size={}M".format(LUKS2_REENCRYPT_WORKSPACE >> 20),
+            "--offset={}".format(LUKS2_DATA_OFFSET_SECTORS),
+            "--force-offline-reencrypt",
             "--key-file=-",
             "--",
             "reencrypt",
             device,
             passphrase=self._passphrase,
         )
+        await self._ensure_backing_size(guest_size + LUKS2_HEADER_SIZE)
         self._discard_unused_cow()
 
     async def start_luks(self, name):
@@ -579,11 +621,9 @@ class Volume:
                 raise StoragePoolException(
                     "Failed to unlock encrypted volume {!s}".format(self.vid)
                 ) from exc
-            # Do not cryptsetup-resize here.  In-place encrypt grows the
-            # backing store by 32M and uses --reduce-device-size 32M
-            # (half header, half shift).  Open already maps the original
-            # payload.  A bare resize grows to (device - 16M header) and
-            # adds 16M of slack, so the guest disk no longer matches.
+            # Do not cryptsetup-resize here.  Payload offset is
+            # LUKS2_HEADER_SIZE; backing is guest plus that, so open
+            # already maps the original guest size.
             self.clear_passphrase()
         except Exception:
             if started:
@@ -1118,6 +1158,7 @@ class Storage:
         """Resizes volume a read-writable volume"""
         volume = self.get_volume(volume)
         await qubes.utils.coro_maybe(volume.resize(size))
+        volume._configured_size = size
         if volume.encrypted:
             mapper = volume.encrypted_volume_path(self.vm.name, volume.name)
             if os.path.exists(mapper):
@@ -1383,7 +1424,7 @@ class Storage:
                     "Passphrase required to re-format encrypted volume "
                     "{!s} after import".format(volume.vid)
                 )
-            await volume.setup_luks()
+            await volume.setup_luks(guest_size=volume._luks_guest_size())
         return result
 
     async def import_volume(self, dst_volume: Volume, src_volume: Volume):

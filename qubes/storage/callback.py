@@ -566,9 +566,9 @@ class CallbackVolume(qubes.storage.Volume):
     async def stop_luks(self, name):
         return await qubes.storage.Volume.stop_luks(self, name)
 
-    async def setup_luks(self, device=None, *, existing=None):
+    async def setup_luks(self, device=None, *, existing=None, guest_size=None):
         return await qubes.storage.Volume.setup_luks(
-            self, device, existing=existing
+            self, device, existing=existing, guest_size=guest_size
         )
 
     async def import_data(self, size):
