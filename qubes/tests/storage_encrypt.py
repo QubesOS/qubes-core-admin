@@ -235,9 +235,7 @@ class TC_02_LuksMethods(_EncryptTestCase):
             args,
         )
         self.assertNotIn("reencrypt", args)
-        self.assertEqual(
-            resized, [orig_size + qubes.storage.LUKS2_HEADER_SIZE]
-        )
+        self.assertEqual(resized, [orig_size + qubes.storage.LUKS2_HEADER_SIZE])
         self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
         self.assertEqual(
             self.mock_cryptsetup.call_args_list[-1][1]["passphrase"],
@@ -840,7 +838,7 @@ class TC_06_ImportAndCreate(_EncryptTestCase):
         vol.setup_luks = unittest.mock.AsyncMock()
         storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
         self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vol.setup_luks.assert_called_once_with(guest_size=vol.size)
+        vol.setup_luks.assert_called_once_with()
 
     def test_005_import_data_end_requires_passphrase(self):
         vol = self._private_volume(encrypted=True)

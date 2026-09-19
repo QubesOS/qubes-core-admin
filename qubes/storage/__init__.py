@@ -115,7 +115,7 @@ class BlockDevice:
         self.devtype = devtype
 
 
-class Volume:
+class Volume:  # pylint: disable=too-many-instance-attributes
     """Encapsulates all data about a volume for serialization to qubes.xml and
     libvirt config.
 
@@ -216,6 +216,8 @@ class Volume:
         self._passphrase = None
         #: True once setup_luks has started mutating the backing device
         self._luks_device_mutated = False
+        #: Guest size pinned for the in-progress LUKS setup (retry-safe)
+        self._luks_setup_guest_size = None
         #: Should the volume state be initialized with a snapshot of
         #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
@@ -492,9 +494,9 @@ class Volume:
         if existing is None:
             existing = self._volume_has_data()
         if existing:
-            await self._encrypt_existing(device, guest_size)
+            await self._encrypt_existing(guest_size)
         else:
-            await self._luks_format(device, guest_size)
+            await self._luks_format(guest_size)
 
     def _luks_guest_size(self, guest_size=None):
         """Original guest size, even if the backend was already grown."""
@@ -521,7 +523,7 @@ class Volume:
             return
         await qubes.utils.coro_maybe(self.resize(size))
 
-    async def _luks_format(self, device, guest_size):
+    async def _luks_format(self, guest_size):
         self._luks_device_mutated = True
         self._encrypted = True
         await self._ensure_backing_size(guest_size + LUKS2_HEADER_SIZE)
@@ -539,7 +541,7 @@ class Volume:
         )
         self._discard_unused_cow()
 
-    async def _encrypt_existing(self, device, guest_size):
+    async def _encrypt_existing(self, guest_size):
         """Encrypt an existing volume in place, preserving its data.
 
         cryptsetup requires ``--reduce-device-size`` to be twice the
@@ -897,6 +899,10 @@ class Volume:
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
 
+    def set_configured_size(self, size):
+        """Record the configured size used to infer LUKS guest size."""
+        self._configured_size = int(size)
+
     @property
     def size(self):
         """Volume size in bytes"""
@@ -1158,7 +1164,7 @@ class Storage:
         """Resizes volume a read-writable volume"""
         volume = self.get_volume(volume)
         await qubes.utils.coro_maybe(volume.resize(size))
-        volume._configured_size = size
+        volume.set_configured_size(size)
         if volume.encrypted:
             mapper = volume.encrypted_volume_path(self.vm.name, volume.name)
             if os.path.exists(mapper):
@@ -1424,7 +1430,7 @@ class Storage:
                     "Passphrase required to re-format encrypted volume "
                     "{!s} after import".format(volume.vid)
                 )
-            await volume.setup_luks(guest_size=volume._luks_guest_size())
+            await volume.setup_luks()
         return result
 
     async def import_volume(self, dst_volume: Volume, src_volume: Volume):
