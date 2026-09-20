@@ -663,7 +663,7 @@ class TC_10_QvmTemplateMixin(object):
                 self.whonix_gw_setup_async(self.updatevm)
             )
         else:
-            self.loop.run_until_complete(self.updatevm.start())
+            self.loop.run_until_complete(self.start_vm(self.updatevm))
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
