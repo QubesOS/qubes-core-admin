@@ -34,6 +34,7 @@ import uuid
 
 import qubes.exc
 from qubes.exc import ProtocolError, PermissionDenied
+import qubes
 
 
 def method(name, *, no_payload=False, endpoints=None, **classifiers):
@@ -260,6 +261,17 @@ class AbstractQubesAPI:
         if untrusted_size[0] == 48 and untrusted_size != b"0":
             raise qubes.exc.ProtocolError("Spurious leading zeros not allowed")
         return int(untrusted_size) * coefficient
+
+    def validate_bool(
+        self, untrusted_bytes: bytes
+    ) -> bool:
+        self.enforce(isinstance(untrusted_bytes, bytes))
+
+        if len(untrusted_bytes) > 10:
+            raise qubes.exc.QubesValueError(
+                "Invalid literal for boolean value: {!r}".format(untrusted_bytes[:7].decode() + '...')
+            )
+        return qubes.property.bool(None, None, untrusted_bytes.decode())
 
 
 class QubesDaemonProtocol(asyncio.Protocol):
