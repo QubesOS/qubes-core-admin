@@ -1061,6 +1061,84 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
         self.setup_dispvm_nodes()
         logger.info("end")
 
+    def test_000_defer_tpl_of_disp_tpl(self):
+        """Test deferred template of disposable template."""
+        self.loop.run_until_complete(self._test_000_defer_tpl_of_disp_tpl())
+
+    async def _test_000_defer_tpl_of_disp_tpl(self):
+        await self.defer_tpl(self.disp_base)
+
+    def test_001_defer_tpl_of_disp_tpl_with_running_disp(self):
+        """Test deferred template of disposable template while there are
+        disposables running."""
+        self.loop.run_until_complete(
+            self._test_001_defer_tpl_of_disp_tpl_with_running_disp()
+        )
+
+    async def _test_001_defer_tpl_of_disp_tpl_with_running_disp(self):
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp"),
+        )
+        assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+        await dispvm.create_on_disk()
+        await dispvm.start()
+        await self.defer_tpl(self.disp_base)
+
+    def test_002_defer_tpl_of_unnamed_disp(self):
+        """Test deferred template of unnamed disposable."""
+        self.loop.run_until_complete(self._test_002_defer_tpl_of_unnamed_disp())
+
+    async def _test_002_defer_tpl_of_unnamed_disp(self):
+        dispvm = await qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+        self.assertTrue(dispvm.auto_cleanup)
+        dispvm.template = self.disp_base_alt
+        await dispvm.start()
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+            dispvm.template = self.disp_base
+
+    def test_002_defer_tpl_of_disp(self):
+        """Test deferred template of disposable."""
+        self.loop.run_until_complete(self._test_002_defer_tpl_of_disp())
+
+    async def _test_002_defer_tpl_of_disp(self):
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp"),
+        )
+        assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+        await dispvm.create_on_disk()
+        await self.defer_tpl(dispvm)
+
+    def test_003_defer_tpl_of_disp_with_standalone_template(self):
+        """Test deferred template of disposable with standalone as template."""
+        self.loop.run_until_complete(
+            self._test_003_defer_tpl_of_disp_with_standalone_template()
+        )
+
+    async def _test_003_defer_tpl_of_disp_with_standalone_template(self):
+        standalone_disposable_template = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("std-dvm"),
+            label="red",
+            template_for_dispvms=True,
+        )
+        await standalone_disposable_template.create_on_disk()
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp"),
+        )
+        assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+        await dispvm.create_on_disk()
+        await self.defer_tpl(dispvm)
+
     def test_011_preload_reject_max(self):
         """Test preloading when max has been reached"""
         self.loop.run_until_complete(
