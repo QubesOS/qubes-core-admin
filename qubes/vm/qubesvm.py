@@ -344,6 +344,15 @@ def _default_kernelopts(self):
         ) + extra_opts
 
 
+QmemmanComands = Literal[
+    "request_mem",
+    "set_mem",
+    "save_mem",
+    "claim_mem",
+    "release_mem",
+    "close",
+]
+
 LibvirtEvents = Literal[
     "DEFINED",
     "UNDEFINED",
@@ -1295,6 +1304,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._is_running = None
         self._power_state = None
         self._start_time = None
+        self._old_xid_for_qmemman = -1
 
         # We assume a fully halted VM here. The 'domain-init' handler will
         # check if the VM is already running.
@@ -1734,6 +1744,54 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.log.info("Started qube")
         return self
 
+    async def send_qmemman(self, rpc: QmemmanComands, *args) -> None:
+        """
+        Send commands to qmemman socket.
+        """
+        if not qmemman_present:
+            return
+
+        qmemman_client = None
+        result = None
+        try:
+            qmemman_client = qubes.qmemman.client.QMemmanClient()
+            async with self.startup_memory_lock:
+                result = await asyncio.to_thread(
+                    getattr(qmemman_client, rpc), *args
+                )
+        except IOError as e:
+            raise IOError("Failed to connect to qmemman: {!s}".format(e))
+        finally:
+            if qmemman_client:
+                qmemman_client.close()
+        if not result:
+            raise qubes.exc.QubesMemoryError(
+                self,
+                msg="Couldn't send {!s} qmemman request for domain {!r}".format(
+                    rpc, self.name
+                ),
+            )
+
+    async def save_mem(self) -> None:
+        """
+        Inform qmemman it should reserve the domain memory to be used later.
+        """
+        if not qmemman_present:
+            return
+
+        old_xid = self.xid
+        if old_xid == -1:
+            return
+        if self._old_xid_for_qmemman == old_xid:
+            return
+        mem_boot = int(self.get_boot_mem())
+        # If request takes too long to be acknowledged due to qmemman being
+        # busy, and the domain is already starting, guarantee that it will
+        # claim the reserved memory instead of requesting to free even more.
+        async with self.startup_memory_lock:
+            self._old_xid_for_qmemman = old_xid
+            await self.send_qmemman("save_mem", old_xid, mem_boot)
+
     @asynccontextmanager
     async def change_libvirt_state(
         self,
@@ -1818,6 +1876,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         This is not a Qubes event handler.
         """
         self._check_reboot_counter()
+        if self._start_requested and self.xid != -1:
+            self._old_xid_for_qmemman = self.xid
 
     def on_libvirt_domain_defined(self):
         """Handle VIR_DOMAIN_EVENT_DEFINED event from libvirt.
@@ -1896,6 +1956,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         and synchronization with start() and then emits Qubes events.
         """
 
+        if detail == libvirt.VIR_DOMAIN_EVENT_STOPPED_REBOOT:
+            self.on_libvirt_domain_reboot()
+            if not self._start_requested:
+                asyncio.ensure_future(
+                    self.send_qmemman("release_mem", self.xid)
+                )
+
         self._id = -1
         self._stubdom_xid = -1
         self._stubdom_uuid = ""
@@ -1908,9 +1975,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             # or libvirt reconnect
             return
         self._domain_stopped_event_received = True
-
-        if detail == libvirt.VIR_DOMAIN_EVENT_STOPPED_REBOOT:
-            self._check_reboot_counter()
 
         asyncio.ensure_future(self._domain_stopped_coro())
 
@@ -2455,7 +2519,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return bool(feature)
         return False
 
-    def request_mem(self, mem_required=None):
+    def get_boot_mem(self, mem_required=None):
         if not qmemman_present:
             return None
 
@@ -2475,21 +2539,34 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             initial_memory = self.memory
             mem_required = int(initial_memory + stubdom_mem) * 1024 * 1024
 
+        mem_required_with_overhead = (
+            mem_required
+            + MEM_OVERHEAD_BASE
+            + self.vcpus * MEM_OVERHEAD_PER_VCPU
+        )
+        maxmem = self.maxmem if self.maxmem else self.memory
+        if self.virt_mode != "pv":
+            # extra overhead to account (possibly future hotplug) memory
+            # 2 pages per 1MB of RAM, see
+            # libxl__get_required_paging_memory()
+            mem_required_with_overhead += maxmem * 8192
+
+        return mem_required_with_overhead
+
+    def request_mem(self, mem_required=None):
+        if not qmemman_present:
+            return None
+
+        mem_boot = self.get_boot_mem(mem_required=mem_required)
         qmemman_client = qubes.qmemman.client.QMemmanClient()
         try:
-            mem_required_with_overhead = (
-                mem_required
-                + MEM_OVERHEAD_BASE
-                + self.vcpus * MEM_OVERHEAD_PER_VCPU
-            )
-            maxmem = self.maxmem if self.maxmem else self.memory
-            if self.virt_mode != "pv":
-                # extra overhead to account (possibly future hotplug) memory
-                # 2 pages per 1MB of RAM, see
-                # libxl__get_required_paging_memory()
-                mem_required_with_overhead += maxmem * 8192
-            got_memory = qmemman_client.request_mem(mem_required_with_overhead)
-
+            if self._old_xid_for_qmemman > 0:
+                got_memory = qmemman_client.claim_mem(
+                    self._old_xid_for_qmemman, mem_boot
+                )
+                self._old_xid_for_qmemman = -1
+            else:
+                got_memory = qmemman_client.request_mem(mem_boot)
         except IOError as e:
             raise IOError("Failed to connect to qmemman: {!s}".format(e))
 
