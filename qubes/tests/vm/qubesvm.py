@@ -1091,7 +1091,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <timer name="tsc" mode="native"/>
         </clock>
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
@@ -1169,7 +1169,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -1227,7 +1227,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -1295,7 +1295,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -1359,7 +1359,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -1428,7 +1428,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -1498,7 +1498,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <timer name="tsc" mode="native"/>
         </clock>
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
@@ -1572,7 +1572,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <timer name="tsc" mode="native"/>
         </clock>
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
@@ -1646,7 +1646,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <timer name="tsc" mode="native"/>
         </clock>
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
@@ -1728,7 +1728,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <hostdev type="pci" managed="yes">
@@ -1843,7 +1843,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <hostdev type="pci" managed="yes">
@@ -1956,7 +1956,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="cdrom">
@@ -2049,7 +2049,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
@@ -2165,7 +2165,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <interface type="ethernet">
@@ -2253,7 +2253,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <interface type="ethernet">
@@ -2325,7 +2325,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </features>
         <clock offset="variable" adjustment="0" basis="utc" />
         <on_poweroff>destroy</on_poweroff>
-        <on_reboot>destroy</on_reboot>
+        <on_reboot>preserve</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
             <disk type="block" device="disk">
