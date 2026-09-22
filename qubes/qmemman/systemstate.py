@@ -46,6 +46,7 @@ CHECK_PERIOD = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
 #: seconds
 CHECK_DELTA = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
 LAST_SECOND = max(1, int(1 / BALLOON_DELAY))
+UNCLAIMED_EXPIRATION_S = 15
 
 
 class SystemState:
@@ -83,7 +84,55 @@ class SystemState:
 
     def del_domain(self, domid) -> None:
         self.log.debug("del_domain(domid={!r})".format(domid))
+        dom = self.dom_dict[domid]
+        if dom.reserved:
+            self.log.info(
+                "skipping domain {!r} deletion as it will reboot".format(domid)
+            )
+            return
         self.dom_dict.pop(domid)
+
+    def save_mem(self, domid) -> bool:
+        self.log.debug("save_mem(domid={!r}".format(domid))
+        info = self.xc.domain_getinfo(int(domid), 1)[0]
+        mem_size = info["mem_kb"]
+        dom = self.dom_dict[domid]
+        dom.reserved = time.time()
+        dom.paused = True
+        dom.no_progress = True
+        dom.mem_current = 0
+        dom.mem_actual = mem_size
+        dom.mem_max = mem_size
+        dom.mem_used = mem_size
+        dom.last_target = mem_size
+        return True
+
+    def claim_mem(self, old_domid, mem_size) -> bool:
+        self.log.debug(
+            "claim_mem(old_domid={!r}, mem_size={!r})".format(
+                old_domid, mem_size
+            )
+        )
+        # Not in dictionary means the domain never existed or doesn't exist
+        # anymore, due to it being previously reserved, and stayed
+        # unclaimed for too long, until it was released.
+        if old_domid in self.dom_dict:
+            self.dom_dict[old_domid].reserved = 0.0
+            self.del_domain(old_domid)
+        # Borrowing memory can happen in case domain stopped with very few
+        # memory, due to already existent memory pressure.
+        return self.do_balloon(mem_size=mem_size)
+
+    def release_unclaimed_mem(self) -> None:
+        self.log.debug("release_unclaimed_mem()")
+        now = time.time()
+        for dom in list(self.dom_dict.values()):
+            if not dom.reserved:
+                continue
+            if now - dom.reserved >= UNCLAIMED_EXPIRATION_S:
+                self.log.debug("releasing reserved domain %d", dom.domid)
+                dom.reserved = 0.0
+                self.del_domain(dom.domid)
 
     def get_free_xen_mem(self) -> int:
         xen_free = int(
@@ -126,6 +175,8 @@ class SystemState:
             if domid_list and domid not in domid_list:
                 continue
             dom = self.dom_dict[domid]
+            if dom.reserved:
+                continue
             dom.paused = paused
             if dom.paused:
                 dom.no_progress = True
@@ -226,6 +277,7 @@ class SystemState:
         niter = 0
         prev_mem_actual: dict[str, Optional[int]] = {}
 
+        self.release_unclaimed_mem()
         for dom in self.dom_dict.values():
             if not dom.paused:
                 dom.no_progress = False
@@ -280,6 +332,7 @@ class SystemState:
         if not dom_memset:
             return False
 
+        self.release_unclaimed_mem()
         domid_list = list(dom_memset.keys())
         dom_dict = {
             domid: state
@@ -438,11 +491,12 @@ class SystemState:
             if dom.mem_used is not None:
                 self.log.info(
                     "stat: dom {!r} act={} pref={} last_target={}"
-                    "{}{}{}".format(
+                    "{}{}{}{}".format(
                         domid,
                         dom.mem_actual,
                         qubes.qmemman.algo.pref_mem(dom),
                         dom.last_target,
+                        " reserved" if dom.reserved else "",
                         " paused" if dom.paused else "",
                         " no_progress" if dom.no_progress else "",
                         (" slow_memset_react" if dom.slow_memset_react else ""),
@@ -493,6 +547,7 @@ class SystemState:
             self.log.debug("do-not-membalance file present, returning")
             return
 
+        self.release_unclaimed_mem()
         self.refresh_mem_actual()
         self.clear_outdated_error_markers()
         xenfree = self.get_free_xen_mem()
