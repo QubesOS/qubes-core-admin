@@ -1470,6 +1470,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     self.end_lifecycle_waiter(event="STOPPED", exc=e)
                     raise
 
+    async def cancel_start(self) -> bool:
+        if self.startup_task is None:
+            return False
+        if not self.startup_lock.locked():
+            return False
+        if self.startup_task.done():
+            return False
+        self.log.info("Cancelling domain startup")
+        self.startup_task.cancel()
+        try:
+            await self.startup_task
+        except (qubes.exc.QubesVMError, asyncio.CancelledError):
+            pass
+        return True
+
     async def notify_failed_startup(self, exc: Exception):
         self.log.error("Start failed: %s", str(exc))
         # let anyone receiving domain-pre-start know that startup failed
@@ -1486,6 +1501,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
 
         async with self.startup_lock:
+            self.startup_task = asyncio.current_task()
             # check if domain wasn't removed in the meantime
             if self not in self.app.domains:
                 raise qubes.exc.QubesVMNotFoundError(self.name)
@@ -1498,10 +1514,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             prohibit_rationale = self.features.get("prohibit-start", False)
             if prohibit_rationale:
-                await self.fire_event_async(
-                    "domain-start-failed",
-                    reason="Qube start is prohibited. "
-                    f"Rationale: {prohibit_rationale}",
+                await qubes.utils.async_shield(
+                    self.fire_event_async(
+                        "domain-start-failed",
+                        reason="Qube start is prohibited. "
+                        f"Rationale: {prohibit_rationale}",
+                    )
                 )
                 raise qubes.exc.QubesException(
                     f"Qube start is prohibited. Rationale: {prohibit_rationale}"
@@ -1518,7 +1536,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     mem_required=mem_required,
                 )
             except Exception as exc:
-                await self.notify_failed_startup(exc=exc)
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
                 raise
 
@@ -1557,7 +1577,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.storage.start()
 
             except Exception as exc:
-                await self.notify_failed_startup(exc=exc)
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
                 if qmemman_client:
                     qmemman_client.close()
@@ -1600,14 +1622,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         "Failed to start an HVM qube with PCI devices assigned "
                         "- hardware does not support IOMMU/VT-d/AMD-Vi"
                     )
-                await self.notify_failed_startup(exc=exc)
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
-                await self.storage.stop()
+                await qubes.utils.async_shield(self.storage.stop())
                 raise exc
             except Exception as exc:
-                await self.notify_failed_startup(exc=exc)
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 self._power_state = "Halted"
-                await self.storage.stop()
+                await qubes.utils.async_shield(self.storage.stop())
                 raise
 
             finally:
@@ -1652,16 +1678,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 )
 
             except Exception as exc:  # pylint: disable=bare-except
-                await self.notify_failed_startup(exc=exc)
+                await qubes.utils.async_shield(
+                    self.notify_failed_startup(exc=exc)
+                )
                 # This avoids losing the exception if an exception is
                 # raised in self.kill(), because the vm is not
                 # running or paused
                 try:
-                    await self.kill()
+                    await qubes.utils.async_shield(self.kill())
                 except qubes.exc.QubesVMNotStartedError:
                     pass
                 raise
 
+        self.startup_task = None
         return self
 
     @asynccontextmanager
@@ -1822,6 +1851,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         async with self._domain_stopped_lock:
             assert not self._domain_stopped_event_handled
 
+            # In case domain stop was triggered outside of qubesd.
+            await self.cancel_start()
+
             # Set this immediately such that we don't generate events twice if
             # an exception gets thrown.
             self._domain_stopped_event_handled = True
@@ -1858,8 +1890,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin shutting down")
+
+        cancelled_start = await self.cancel_start()
 
         if self.is_halted():
+            if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         old_power_state = self._power_state
@@ -1924,6 +1965,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
             raise
 
+        self.log.info("Completed shutdown")
         return self
 
     async def kill(self):
@@ -1932,8 +1974,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
         """
+        self.log.info("Begin kill")
+
+        cancelled_start = await self.cancel_start()
 
         if not self.is_running() and not self.is_paused():
+            if cancelled_start:
+                self.log.debug(
+                    "Qube is halted and canceled startup, skipping "
+                    "QubesVMNotStarted exception"
+                )
+                return
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self._power_state = "Halting"
@@ -1948,6 +1999,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._is_running = None
             self._power_state = None
             raise
+        self.log.info("Complete kill")
 
     async def suspend(self):
         """Suspend (pause) domain.
@@ -2498,7 +2550,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         # make sure shutdown is handled before removing anything, but only if
         # handling is pending; if not, we may be called from within
-        # domain-shutdown event (DispVM._auto_cleanup), which would deadlock
+        # domain-shutdown event of a DispVM, which would deadlock
         if not self._domain_stopped_event_handled:
             await self._ensure_shutdown_handled()
 
