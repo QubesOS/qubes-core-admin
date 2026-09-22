@@ -306,6 +306,7 @@ class BaseVM(qubes.PropertyHolder):
         #  (including another startup of the same qube)
         self.startup_lock = asyncio.Lock()
         self.startup_task = None
+        self.startup_memory_lock = asyncio.Lock()
 
     def __str__(self):
         return self.name
