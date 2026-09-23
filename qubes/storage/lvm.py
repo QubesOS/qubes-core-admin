@@ -904,7 +904,18 @@ def _get_lvm_cmdline(cmd):
         ]
     elif action == "resize":
         assert len(cmd) == 3, "wrong number of arguments for resize"
-        lvm_cmd = ["lvresize", "--size=" + cmd[2] + "B", "--", cmd[1]]
+        # --yes/--force/--fs ignore: LUKS in-place encrypt shrinks the
+        # unused datashift tail; non-interactive lvresize otherwise
+        # refuses to reduce a crypto_LUKS thin LV.
+        lvm_cmd = [
+            "lvresize",
+            "--yes",
+            "--force",
+            "--fs=ignore",
+            "--size=" + cmd[2] + "B",
+            "--",
+            cmd[1],
+        ]
     elif action == "activate":
         assert len(cmd) == 2, "wrong number of arguments for activate"
         lvm_cmd = ["lvchange", "--activate=y", "--", cmd[1]]

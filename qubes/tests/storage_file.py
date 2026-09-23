@@ -295,6 +295,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        self.assertFalse(volume.encrypted)
         base = self.POOL_DIR + "/appvms/" + vm.name + "/root"
         os.mkdir(os.path.dirname(base))
         with open(base + ".img", "wb"), open(base + "-cow.img", "wb"):
