@@ -51,6 +51,14 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 
 
 class BlockDevice(qubes.device_protocol.DeviceInfo):
+    SUPPORTED_ASSIGNMENT_MODES = frozenset(
+        {
+            qubes.device_protocol.AssignmentMode.MANUAL,
+            qubes.device_protocol.AssignmentMode.ASK,
+            qubes.device_protocol.AssignmentMode.AUTO,
+            qubes.device_protocol.AssignmentMode.REQUIRED,
+        }
+    )
 
     def __init__(self, port: qubes.device_protocol.Port):
         if port.devclass != "block":
