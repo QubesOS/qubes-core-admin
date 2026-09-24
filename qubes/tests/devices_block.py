@@ -1483,9 +1483,18 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             "device-attach:block", device=exp_dev, options=assignment.options
         )
 
-    def test_110_busy_marker_missing_while_tracking(self):
-        # no marker if tracking => busy
-        # garbage marker if tracking => busy
+    def test_102_tracking_flag_is_per_device_class(self):
+        vm = TestVM(
+            get_qdb(mode="w"),
+            domain_xml=domain_xml_template.format(""),
+        )
+        vm.untrusted_qdb.write(
+            qubes.devices.USAGE_TRACKING_QDB_PREFIX + "/usb", b"True"
+        )
+
+        self.assertFalse(vm.devices["block"].usage_tracking)
+
+    def test_110_tracking_flag_decides_a_missing_marker(self):
         for untrusted_flag, tracking, busy in (
             (b"True", True, True),
             (b"\xff", False, False),
@@ -1496,15 +1505,16 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                     domain_xml=domain_xml_template.format(""),
                 )
                 vm.untrusted_qdb.write(
-                    qubes.devices.USAGE_TRACKING_QDB_KEY, untrusted_flag
+                    qubes.devices.USAGE_TRACKING_QDB_PREFIX + "/block",
+                    untrusted_flag,
                 )
                 device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
 
-                self.assertEqual(vm.devices.usage_tracking, tracking)
+                self.assertEqual(vm.devices["block"].usage_tracking, tracking)
                 self.assertEqual(device.busy, busy)
 
     def test_111_busy_marker_missing_without_tracking(self):
-        # no marker if tracking => free (backward compatibility)
+        # no marker without tracking => free (backward compatibility)
         vm = TestVM(
             get_qdb(mode="w"),
             domain_xml=domain_xml_template.format(""),
@@ -1518,7 +1528,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             get_qdb(mode="w"),
             domain_xml=domain_xml_template.format(""),
         )
-        vm.untrusted_qdb.write(qubes.devices.USAGE_TRACKING_QDB_KEY, b"True")
+        vm.untrusted_qdb.write(
+            qubes.devices.USAGE_TRACKING_QDB_PREFIX + "/block", b"True"
+        )
         vm.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
         device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
 
@@ -1536,7 +1548,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.untrusted_qdb.write("/qubes-block-devices/sda1/parent", b"sda")
         if tracking:
             back.untrusted_qdb.write(
-                qubes.devices.USAGE_TRACKING_QDB_KEY, b"True"
+                qubes.devices.USAGE_TRACKING_QDB_PREFIX + "/block", b"True"
             )
             back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
             back.untrusted_qdb.write("/qubes-block-devices/sda1/used", b"False")
@@ -1557,7 +1569,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             self.ext.pre_attachment_internal(front, disk, {})
 
         self.assertIn("sda1", str(context.exception))
-        self.assertIn("front-vm", str(context.exception))
 
     def test_114_untracked_backend_requires_force(self):
         back, front, disk, _part = self._partitioned_backend(tracking=False)
@@ -1615,8 +1626,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
         with self.assertRaises(qubes.exc.DeviceAlreadyAttached) as context:
             self.ext.pre_attachment_internal(other, device, {})
-
-        self.assertIn("front-vm", str(context.exception))
 
     def test_120_device_get_single_device(self):
         back, front = self.added_assign_setup()

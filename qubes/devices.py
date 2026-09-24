@@ -81,8 +81,9 @@ from qubes.exc import (
     DeviceAlreadyAssigned,
 )
 
-# QubesDB key a backend writes while it support ``used`` markers.
-USAGE_TRACKING_QDB_KEY = "/qubes-device-usage-tracking"
+# QubesDB path a backend writes under, per device class, while it supports
+# ``used`` markers for that class.
+USAGE_TRACKING_QDB_PREFIX = "/qubes-device-usage-tracking"
 # A malicious backend could block qubesd by infinite searching.
 MAX_TREE_DEPTH = 8
 
@@ -261,6 +262,29 @@ class DeviceCollection:
         self.devclass = qubes.utils.get_entry_point_one(
             "qubes.devices", self._bus
         )
+
+    @property
+    def usage_tracking(self) -> bool:
+        """
+        Does this backend maintain the ``used`` markers for this class?
+
+        The backend manifests it by writing `USAGE_TRACKING_QDB_PREFIX` +
+        the class name.
+        """
+        if not self._vm or not self._vm.is_running():
+            return False
+        untrusted_value = self._vm.untrusted_qdb.read(
+            f"{USAGE_TRACKING_QDB_PREFIX}/{self._bus}"
+        )
+        if untrusted_value is None:
+            return False
+        if isinstance(untrusted_value, bytes):
+            # do not raise on decoding errors
+            untrusted_value = untrusted_value.decode("ascii", errors="replace")
+        try:
+            return qbool(untrusted_value.strip())
+        except QubesValueError:
+            return False
 
     async def attach(self, assignment: DeviceAssignment):
         """
@@ -567,26 +591,6 @@ class DeviceManager(dict):
     def __missing__(self, key):
         self[key] = DeviceCollection(self._vm, key)
         return self[key]
-
-    @property
-    def usage_tracking(self) -> bool:
-        """
-        Does this backend maintain the per-device ``used`` markers?
-
-        The backend manifests it by writing `USAGE_TRACKING_QDB_KEY`.
-        """
-        if not self._vm or not self._vm.is_running():
-            return False
-        untrusted_value = self._vm.untrusted_qdb.read(USAGE_TRACKING_QDB_KEY)
-        if untrusted_value is None:
-            return False
-        if isinstance(untrusted_value, bytes):
-            # do not rise on decoding errors
-            untrusted_value = untrusted_value.decode("ascii", errors="replace")
-        try:
-            return qbool(untrusted_value.strip())
-        except QubesValueError:
-            return False
 
     def attachments(self) -> "Attachments":
         """

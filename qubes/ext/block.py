@@ -278,7 +278,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             )
             if (
                 untrusted_used is None
-                and self.backend_domain.devices.usage_tracking
+                and self.backend_domain.devices["block"].usage_tracking
             ):
                 # The backend says it maintains the markers, yet this device
                 # is listed without one. Something fails => refuse.
@@ -585,10 +585,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if current_attachment is None:
             sub_attach = attachments.attached_subdevice(device)
             if sub_attach is not None:
-                subdevice, frontend = sub_attach
+                subdevice, _frontend = sub_attach
                 raise qubes.exc.DeviceUsed(
-                    f"Device {device} cannot be attached: it's subdevice "
-                    f"{subdevice} is attached to {frontend}."
+                    f"Device {device} cannot be attached: its subdevice "
+                    f"{subdevice} is attached to another VM."
                 )
 
             # Guardian for local usage, DeviceAlreadyAttached is checked below.
@@ -606,7 +606,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if (
             check_local_usage
             and not force
-            and not device.backend_domain.devices.usage_tracking
+            and not device.backend_domain.devices["block"].usage_tracking
         ):
             # The backend does not report local device usage.
             subdevices = device.subdevices
@@ -633,7 +633,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
             )
 
         raise qubes.exc.DeviceAlreadyAttached(
-            f"Device {device} already attached to {current_attachment}."
+            f"Device {device} is already attached to another VM."
         )
 
     @qubes.ext.handler("device-check-available:block")
