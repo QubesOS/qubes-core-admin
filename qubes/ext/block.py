@@ -69,7 +69,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         self._interface_num: Optional[str] = None
         # optimization: when listing, we calculate it once and pass it here to
         #  avoid lazy evaluation later for each device.
-        #  bus = exported OR used
+        #  busy = exported OR used
         self._exported = exported
 
     @property
