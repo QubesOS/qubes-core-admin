@@ -2739,6 +2739,36 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         )
         self.assertFalse(self.app.save.called)
 
+    def test_480_vm_device_attach_plus_identity(self):
+        device = DeviceInfo(
+            Port(self.vm, "1234", "testclass"),
+            device_id="03eb:2403:v1.2.2+dev:u030000",
+        )
+
+        def get_device(*_args, **_kwargs):
+            yield device
+
+        self.vm.add_handler("device-list:testclass", get_device)
+        self.vm.add_handler("device-get:testclass", get_device)
+        mock_action = unittest.mock.Mock(return_value=None)
+        del mock_action._is_coroutine
+        self.vm.add_handler("device-attach:testclass", mock_action)
+        assignment = DeviceAssignment(device, frontend_domain=self.vm)
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            value = self.call_mgmt_func(
+                b"admin.vm.device.testclass.Attach",
+                b"test-vm1",
+                assignment.repr_for_qarg.encode("ascii"),
+                assignment.serialize(),
+            )
+        self.assertIsNone(value)
+        mock_action.assert_called_once_with(
+            self.vm, "device-attach:testclass", device=device, options={}
+        )
+        self.assertFalse(self.app.save.called)
+
     def test_481_vm_device_assign(self):
         self.vm.add_handler("device-list:testclass", self.device_list_testclass)
         mock_action = unittest.mock.Mock()
