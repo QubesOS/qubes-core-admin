@@ -25,6 +25,7 @@ from unittest.mock import Mock, AsyncMock
 import jinja2
 
 import qubes.tests
+import qubes.devices
 import qubes.ext.block
 from qubes.device_protocol import (
     DeviceInterface,
@@ -117,6 +118,12 @@ class TestQubesDB(object):
     def read(self, key):
         return self._data.get(key, None)
 
+    def write(self, key, value):
+        self._data[key] = value
+
+    def rm(self, key):
+        self._data.pop(key, None)
+
     def list(self, prefix):
         return [key for key in self._data if key.startswith(prefix)]
 
@@ -146,15 +153,23 @@ class TestApp(object):
         self.vmm = mock.Mock()
 
 
-class TestDeviceCollection(object):
+class TestDeviceCollection(qubes.devices.DeviceCollection):
     def __init__(self, backend_vm, devclass):
+        # pylint: disable=super-init-not-called
+        self._vm = backend_vm
+        self._bus = devclass
+        self._set = qubes.devices.AssignedCollection()
         self._exposed = []
         self._assigned = []
+        self._attached = []
         self.backend_vm = backend_vm
         self.devclass = devclass
 
     def get_assigned_devices(self):
         return self._assigned
+
+    def get_attached_devices(self):
+        return self._attached
 
     def get_exposed_devices(self):
         yield from self._exposed
@@ -165,6 +180,12 @@ class TestDeviceCollection(object):
         for dev in self._exposed:
             if dev.port_id == port_id:
                 return dev
+
+
+class TestDeviceManager(qubes.devices.DeviceManager):
+    def __missing__(self, key):
+        self[key] = TestDeviceCollection(self._vm, key)
+        return self[key]
 
 
 class TestVM(qubes.tests.TestEmitter):
@@ -188,13 +209,14 @@ class TestVM(qubes.tests.TestEmitter):
             "4.2" if name == "qubes-agent-version" else None
         )
         self.is_running = lambda: running
+        self.is_halted = lambda: not running
         self.log = mock.Mock()
         self.app = TestApp()
         if domain_xml:
             self.libvirt_domain.configure_mock(
                 **{"XMLDesc.return_value": domain_xml}
             )
-        self.devices = {"testclass": TestDeviceCollection(self, "testclass")}
+        self.devices = TestDeviceManager(self)
 
     def __hash__(self):
         return hash(self.name)
@@ -222,6 +244,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.ext = qubes.ext.block.BlockDeviceExtension()
+        # Extension is a singleton: restore methods that other tests
+        # replaced with mocks directly on the shared instance
+        self.ext.__dict__.pop("attach_and_notify", None)
 
     def test_000_device_get(self):
         vm = TestVM(
@@ -1304,7 +1329,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             loop.run_until_complete(self.ext.on_domain_start(front, None))
         self.ext.attach_and_notify.assert_not_called()
 
-    def test_090_on_domain_shutdown_frontend(self):
+    def test_084_on_domain_shutdown_frontend(self):
         # a frontend that has a device attached is shutting down;
         # the detach event is expected
         back, front = self.added_assign_setup()
@@ -1328,7 +1353,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             {"sys-usb": {"sda": None}, "front-vm": {}},
         )
 
-    def test_091_on_domain_shutdown_backend(self):
+    def test_085_on_domain_shutdown_backend(self):
         # a backend exposing an attached device is shutting down:
         # the device is removed and detached from its frontend
         back, front = self.added_assign_setup()
@@ -1349,3 +1374,328 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
         self.ext.detach_and_notify.assert_called_once_with(front, exp_dev.port)
         self.assertEqual(self.ext.devices_cache, {"sys-usb": {}})
+
+    def test_090_device_get_busy(self):
+        # boolean-true literals mean busy
+        for value in (b"True", b"true", b"1", b"yes", b"on"):
+            qdb = get_qdb(mode="w")
+            qdb["/qubes-block-devices/sda/used"] = value
+            vm = TestVM(qdb)
+            device_info = self.ext.device_get(vm, "sda")
+            self.assertTrue(device_info.busy, value)
+
+    def test_091_device_get_not_busy(self):
+        # no key at all means free
+        vm = TestVM(get_qdb(mode="w"))
+        device_info = self.ext.device_get(vm, "sda")
+        self.assertFalse(device_info.busy)
+        # boolean-false literals also mean free
+        for value in (b"False", b"false", b"0", b"no", b"off"):
+            qdb = get_qdb(mode="w")
+            qdb["/qubes-block-devices/sda/used"] = value
+            vm = TestVM(qdb)
+            device_info = self.ext.device_get(vm, "sda")
+            self.assertFalse(device_info.busy, value)
+
+    def test_092_device_get_invalid_busy_fails_closed(self):
+        # an unparsable value is treated as busy (fail-closed) and logged
+        qdb = get_qdb(mode="w")
+        qdb["/qubes-block-devices/sda/used"] = b"garbage"
+        vm = TestVM(qdb)
+        device_info = self.ext.device_get(vm, "sda")
+        self.assertTrue(device_info.busy)
+        vm.log.warning.assert_called_once()
+
+    def test_093_attach_busy_device_refused(self):
+        qdb = get_qdb(mode="w")
+        qdb["/qubes-block-devices/sda/used"] = b"True"
+        back_vm = TestVM(name="sys-usb", qdb=qdb)
+        vm = TestVM({}, domain_xml=domain_xml_template.format(""))
+        dev = qubes.ext.block.BlockDevice(Port(back_vm, "sda", "block"))
+        with self.assertRaises(qubes.exc.DeviceUsed):
+            self.ext.on_device_pre_attached_block(vm, "", dev, {})
+        self.assertFalse(vm.libvirt_domain.attachDevice.called)
+
+    def test_094_on_startup_busy_not_auto_attached(self):
+        back, front = self.added_assign_setup()
+        back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"True")
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        assign = DeviceAssignment(
+            VirtualDevice(exp_dev.port, exp_dev.device_id), mode="auto-attach"
+        )
+
+        front.devices["block"]._assigned.append(assign)
+        back.devices["block"]._exposed.append(exp_dev)
+
+        self.ext.attach_and_notify = Mock()
+        loop = asyncio.get_event_loop()
+        with mock.patch("asyncio.ensure_future"):
+            loop.run_until_complete(self.ext.on_domain_start(front, None))
+        self.ext.attach_and_notify.assert_not_called()
+
+    def test_095_refused_auto_attach_does_not_stop_whole_batch(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=False)
+        assignment = DeviceAssignment(disk, mode="auto-attach")
+        front.fire_event_async = AsyncMock()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.ext.attach_and_notify(front, assignment))
+
+        front.fire_event_async.assert_not_called()
+        self.assertTrue(front.log.warning.called)
+
+    def test_100_attach_required_busy_refused(self):
+        # 'required' mode is possible for block devices (unlike usb);
+        # attaching a required device must still be refused when it is busy
+        back, front = self.added_assign_setup()
+        back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"True")
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        assignment = DeviceAssignment(exp_dev, mode="required")
+        front.devices["block"]._assigned.append(assignment)
+        back.devices["block"]._exposed.append(exp_dev)
+        front.fire_event_async = AsyncMock()
+
+        loop = asyncio.get_event_loop()
+        with self.assertRaises(qubes.exc.DeviceUsed):
+            loop.run_until_complete(
+                self.ext.attach_and_notify(front, assignment)
+            )
+        self.assertFalse(front.libvirt_domain.attachDevice.called)
+        front.fire_event_async.assert_not_called()
+
+    def test_101_attach_required_not_busy(self):
+        # sanity counterpart of test_100: the same required assignment
+        # attaches once the device is no longer busy
+        back, front = self.added_assign_setup()
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        assignment = DeviceAssignment(exp_dev, mode="required")
+        front.devices["block"]._assigned.append(assignment)
+        back.devices["block"]._exposed.append(exp_dev)
+        front.fire_event_async = AsyncMock()
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.ext.attach_and_notify(front, assignment))
+        self.assertTrue(front.libvirt_domain.attachDevice.called)
+        front.fire_event_async.assert_called_once_with(
+            "device-attach:block", device=exp_dev, options=assignment.options
+        )
+
+    def test_110_busy_marker_missing_while_tracking(self):
+        # no marker if tracking => busy
+        # garbage marker if tracking => busy
+        for untrusted_flag, tracking, busy in (
+            (b"True", True, True),
+            (b"\xff", False, False),
+        ):
+            with self.subTest(flag=untrusted_flag):
+                vm = TestVM(
+                    get_qdb(mode="w"),
+                    domain_xml=domain_xml_template.format(""),
+                )
+                vm.untrusted_qdb.write(
+                    qubes.devices.USAGE_TRACKING_QDB_KEY, untrusted_flag
+                )
+                device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
+
+                self.assertEqual(vm.devices.usage_tracking, tracking)
+                self.assertEqual(device.busy, busy)
+
+    def test_111_busy_marker_missing_without_tracking(self):
+        # no marker if tracking => free (backward compatibility)
+        vm = TestVM(
+            get_qdb(mode="w"),
+            domain_xml=domain_xml_template.format(""),
+        )
+        device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
+
+        self.assertFalse(device.busy)
+
+    def test_112_busy_marker_false_while_tracking(self):
+        vm = TestVM(
+            get_qdb(mode="w"),
+            domain_xml=domain_xml_template.format(""),
+        )
+        vm.untrusted_qdb.write(qubes.devices.USAGE_TRACKING_QDB_KEY, b"True")
+        vm.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
+        device = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
+
+        self.assertFalse(device.busy)
+
+    def _partitioned_backend(self, tracking):
+        """sda with one partition sda1"""
+        back, front = self.added_assign_setup()
+        back.untrusted_qdb.write("/qubes-block-devices/sda1", b"")
+        back.untrusted_qdb.write(
+            "/qubes-block-devices/sda1/desc", b"Test partition"
+        )
+        back.untrusted_qdb.write("/qubes-block-devices/sda1/size", b"512000")
+        back.untrusted_qdb.write("/qubes-block-devices/sda1/mode", b"w")
+        back.untrusted_qdb.write("/qubes-block-devices/sda1/parent", b"sda")
+        if tracking:
+            back.untrusted_qdb.write(
+                qubes.devices.USAGE_TRACKING_QDB_KEY, b"True"
+            )
+            back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"False")
+            back.untrusted_qdb.write("/qubes-block-devices/sda1/used", b"False")
+
+        disk = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        part = qubes.ext.block.BlockDevice(Port(back, "sda1", "block"))
+        back.devices["block"]._exposed.extend([disk, part])
+        return back, front, disk, part
+
+    def test_113_attach_refused_when_subdevice_is_attached(self):
+        # qubesd knows all attachments without asking backend
+        back, front, disk, part = self._partitioned_backend(tracking=False)
+        front.devices["block"]._attached.append(
+            DeviceAssignment(part, mode="manual")
+        )
+
+        with self.assertRaises(qubes.exc.DeviceUsed) as context:
+            self.ext.pre_attachment_internal(front, disk, {})
+
+        self.assertIn("sda1", str(context.exception))
+        self.assertIn("front-vm", str(context.exception))
+
+    def test_114_untracked_backend_requires_force(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=False)
+
+        with self.assertRaises(qubes.exc.DeviceUsed) as context:
+            self.ext.pre_attachment_internal(front, disk, {})
+
+        self.assertIn("--force", str(context.exception))
+
+    def test_115_untracked_backend_force_allows_attach(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=False)
+
+        options = {"force": "yes"}
+        self.ext.pre_attachment_internal(front, disk, options)
+
+        # flag is consumed
+        self.assertNotIn("force", options)
+
+    def test_116_tracked_backend_needs_no_force(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=True)
+
+        self.ext.pre_attachment_internal(front, disk, {})
+
+    def test_117_leaf_device_needs_no_force(self):
+        back, front = self.added_assign_setup()
+        device = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        back.devices["block"]._exposed.append(device)
+
+        self.ext.pre_attachment_internal(front, device, {})
+
+    def test_118_parent_cycle_does_not_hang(self):
+        # the parent links come from the backend, so they may be a cycle
+        back, front = self.added_assign_setup()
+        back.untrusted_qdb.write("/qubes-block-devices/sda/parent", b"sdb")
+        back.untrusted_qdb.write("/qubes-block-devices/sdb", b"")
+        back.untrusted_qdb.write("/qubes-block-devices/sdb/desc", b"Test dev")
+        back.untrusted_qdb.write("/qubes-block-devices/sdb/size", b"1024000")
+        back.untrusted_qdb.write("/qubes-block-devices/sdb/mode", b"w")
+        back.untrusted_qdb.write("/qubes-block-devices/sdb/parent", b"sda")
+
+        first = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        second = qubes.ext.block.BlockDevice(Port(back, "sdb", "block"))
+        back.devices["block"]._exposed.extend([first, second])
+
+        self.assertIsNone(back.devices.attachments().attached_subdevice(first))
+
+    def test_119_already_attached_from_shared_info(self):
+        back, front = self.added_assign_setup()
+        device = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        back.devices["block"]._exposed.append(device)
+        front.devices["block"]._attached.append(
+            DeviceAssignment(device, mode="manual")
+        )
+        other = back.app.domains["dom0"]
+
+        with self.assertRaises(qubes.exc.DeviceAlreadyAttached) as context:
+            self.ext.pre_attachment_internal(other, device, {})
+
+        self.assertIn("front-vm", str(context.exception))
+
+    def test_120_device_get_single_device(self):
+        back, front = self.added_assign_setup()
+        back.app.vmm.configure_mock(**{"offline_mode": False})
+
+        devices = list(
+            self.ext.on_device_get_block(back, "device-get:block", "sda")
+        )
+
+        self.assertEqual(len(devices), 1)
+        self.assertEqual(devices[0].port_id, "sda")
+        self.assertFalse(devices[0].busy)
+
+    def test_121_exported_partition_makes_ancestors_busy(self):
+        back, front, disk, part = self._partitioned_backend(tracking=True)
+        front.devices["block"]._attached.append(
+            DeviceAssignment(part, mode="manual")
+        )
+
+        listed = {
+            dev.port_id: dev
+            for dev in self.ext.on_device_list_block(back, "device-list:block")
+        }
+
+        self.assertTrue(listed["sda"].busy)
+        self.assertTrue(listed["sda1"].busy)
+
+    def test_122_nothing_exported_leaves_devices_free(self):
+        back, front, disk, part = self._partitioned_backend(tracking=True)
+
+        listed = {
+            dev.port_id: dev
+            for dev in self.ext.on_device_list_block(back, "device-list:block")
+        }
+
+        self.assertFalse(listed["sda"].busy)
+        self.assertFalse(listed["sda1"].busy)
+
+    def test_130_attached_are_not_available(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=True)
+        other = TestVM({}, name="other-vm")
+        back.app.domains["other-vm"] = other
+        other.app = back.app
+        front.devices["block"]._attached.append(
+            DeviceAssignment(disk, mode="manual")
+        )
+
+        with self.assertRaises(qubes.exc.DeviceAlreadyAttached) as context:
+            self.ext.on_device_check_available_block(
+                other, "device-check-available:block", disk, {}
+            )
+
+    def test_131_busy_are_not_available(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=True)
+        back.untrusted_qdb.write("/qubes-block-devices/sda/used", b"True")
+
+        with self.assertRaises(qubes.exc.DeviceUsed) as context:
+            self.ext.on_device_check_available_block(
+                front, "device-check-available:block", disk, {}
+            )
+
+    def test_132_used_are_not_available(self):
+        back, front, disk, part = self._partitioned_backend(tracking=True)
+        other = TestVM({}, name="other-vm")
+        back.app.domains["other-vm"] = other
+        other.app = back.app
+        front.devices["block"]._attached.append(
+            DeviceAssignment(part, mode="manual")
+        )
+
+        with self.assertRaises(qubes.exc.DeviceUsed) as context:
+            self.ext.on_device_check_available_block(
+                other, "device-check-available:block", disk, {}
+            )
+
+    def test_133_not_reported_are_available(self):
+        back, front, disk, _part = self._partitioned_backend(tracking=False)
+
+        # no exception
+        self.ext.on_device_check_available_block(
+            front, "device-check-available:block", disk, {}
+        )
