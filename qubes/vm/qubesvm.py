@@ -1863,7 +1863,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         This is not a Qubes event handler.
         """
-        if self.allowed_reboots:
+        if not self.allowed_reboots:
+            return
+        reboot = True
+        if self.allowed_reboots != -1:
+            self._reboot_counter += 1
+            if self._reboot_counter > self.allowed_reboots:
+                self.log.warning(
+                    "Skipping reboot as it exceeded 'allowed_reboots' counter"
+                )
+                self._reboot_counter = 0
+                reboot = False
+        if reboot:
             self._start_requested = True
             asyncio.ensure_future(self.save_mem())
 
@@ -1957,25 +1968,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self._domain_stopped_event_received = True
 
-        if (reboot := self.allowed_reboots != 0) and getattr(
-            self, "_start_requested", False
-        ):
-            if (
-                self.allowed_reboots != -1
-                and self._reboot_counter == self.allowed_reboots
-            ):
-                self.log.warning(
-                    "Skipping reboot as it exceeded 'allowed_reboots' counter"
-                )
-                reboot = False
-                self._reboot_counter = 0
-            else:
-                self._reboot_counter += 1
-        else:
-            self._reboot_counter = 0
-        asyncio.ensure_future(self._domain_stopped_coro(reboot=reboot))
+        asyncio.ensure_future(self._domain_stopped_coro())
 
-    async def _domain_stopped_coro(self, reboot: bool = False):
+    async def _domain_stopped_coro(self):
         async with self._domain_stopped_lock:
             assert not self._domain_stopped_event_handled
 
@@ -1992,9 +1987,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.fire_event_async("domain-stopped")
                 await self.fire_event_async("domain-shutdown")
                 self.end_lifecycle_waiter(event="STOPPED")
-                if reboot:
+                if getattr(self, "_start_requested", False):
+                    self._start_requested = False
                     asyncio.ensure_future(self.start())
-                self._start_requested = False
+                else:
+                    self._reboot_counter = 0
             except Exception as e:
                 self.end_lifecycle_waiter(event="STOPPED", exc=e)
                 raise
