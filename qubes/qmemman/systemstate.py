@@ -46,6 +46,7 @@ CHECK_PERIOD = max(1, int((CHECK_PERIOD_S + 0.0) / BALLOON_DELAY))
 #: seconds
 CHECK_DELTA = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
 LAST_SECOND = max(1, int(1 / BALLOON_DELAY))
+UNCLAIMED_EXPIRATION_S = 45
 
 
 class SystemState:
@@ -73,9 +74,11 @@ class SystemState:
     def get_xs_path(self, domid, key) -> str:
         return "/local/domain/" + str(domid) + "/memory/" + key
 
-    def add_domain(self, domid) -> None:
+    def add_domain(self, domid, reserved=False) -> None:
         self.log.debug("add_domain(domid={!r})".format(domid))
         self.dom_dict[domid] = DomainState(domid)
+        if reserved:
+            return
         # TODO: move to DomainState.__init__
         target_str = self.xs.read("", self.get_xs_path(domid, "target"))
         if target_str:
@@ -83,7 +86,43 @@ class SystemState:
 
     def del_domain(self, domid) -> None:
         self.log.debug("del_domain(domid={!r})".format(domid))
+        if self.dom_dict[domid].reserved:
+            self.log.info("skipping domain deletion because it is reserved")
+            return
         self.dom_dict.pop(domid)
+
+    def save_mem(self, domid, mem_size) -> bool:
+        self.log.debug("save_mem(domid={!r})".format(domid))
+        if domid not in self.dom_dict:
+            self.log.debug("domain already released, adding dummy one")
+            self.add_domain(domid, reserved=True)
+            self.do_balloon(mem_size=mem_size)
+        dom = self.dom_dict[domid]
+        dom.reserved = time.time()
+        dom.paused = True
+        dom.no_progress = True
+        dom.mem_current = mem_size
+        dom.mem_actual = mem_size
+        dom.mem_max = mem_size
+        dom.mem_used = mem_size
+        dom.last_target = mem_size
+        return True
+
+    def claim_mem(self, old_domid) -> bool:
+        self.log.debug("claim_mem(old_domid={!r})".format(old_domid))
+        self.dom_dict[old_domid].reserved = 0.0
+        self.del_domain(old_domid)
+        self.inhibit_balloon_up()
+        return True
+
+    def release_unclaimed_mem(self) -> None:
+        now = time.time()
+        for dom in self.dom_dict.values():
+            if not dom.reserved:
+                continue
+            if now - dom.reserved >= UNCLAIMED_EXPIRATION_S:
+                self.dom_dict[dom.domid].reserved = 0.0
+                self.del_domain(dom.domid)
 
     def get_free_xen_mem(self) -> int:
         xen_free = int(
@@ -226,6 +265,7 @@ class SystemState:
         niter = 0
         prev_mem_actual: dict[str, Optional[int]] = {}
 
+        self.release_unclaimed_mem()
         for dom in self.dom_dict.values():
             if not dom.paused:
                 dom.no_progress = False
@@ -280,6 +320,7 @@ class SystemState:
         if not dom_memset:
             return False
 
+        self.release_unclaimed_mem()
         domid_list = list(dom_memset.keys())
         dom_dict = {
             domid: state
@@ -493,6 +534,7 @@ class SystemState:
             self.log.debug("do-not-membalance file present, returning")
             return
 
+        self.release_unclaimed_mem()
         self.refresh_mem_actual()
         self.clear_outdated_error_markers()
         xenfree = self.get_free_xen_mem()
