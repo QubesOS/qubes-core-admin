@@ -154,10 +154,6 @@ class AdminVM(LocalVM):
         return False
 
     @property
-    def attached_volumes(self):
-        return []
-
-    @property
     def xid(self) -> int:
         """Always ``0``.
 
