@@ -284,8 +284,18 @@ class TC_00_Dom0(SaltTestMixin, qubes.tests.SystemTestCase):
         # this should not be included in pillar
         vm.features["internal"] = "1"
 
+        try:
+            salt_version = (
+                subprocess.check_output(["salt-call", "--version"])
+                .decode()
+                .split()[1]
+            )
+        except subprocess.CalledProcessError:
+            salt_version = "3007.0"
+
         cmd_output = self.dom0_salt_call_json(
             ["pillar.items", "--id=" + vmname]
+            + (["unmask=True"] if salt_version >= "3008.0" else [])
         )
         self.assertIn("local", cmd_output)
         self.assertIn("qubes", cmd_output["local"])
