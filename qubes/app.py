@@ -295,6 +295,9 @@ class QubesHost:
         self._cpu_arch = None
         self._cpu_family = None
 
+        self.stats_cache_time = None
+        self.stats_cache_data = None
+
     def _fetch(self):
         if self._no_cpus is not None:
             return
@@ -479,89 +482,69 @@ class QubesHost:
            like stubdomains for HVM, aggregated to the connected domain.
 
         :param previous: previous measurement
-        :param previous_time: time of previous measurement
-        :param only_vm: get measurements only for this VM
+
+        Future param(s) deprecation:
+
+        :param previous_time: time of previous measurement. The current time \
+            also won't be returned, therefore the return type won't be a tuple \
+            anymore
+        :param only_vm: get measurements only for this VM. The API is \
+            responsible for filtering the response, but it is better to get \
+            information from all domains as we can generate cache uniformly.
 
         :raises NotImplementedError: when not under Xen
         """
         # pylint: disable=too-many-statements
 
-        if (previous_time is None) != (previous is None):
-            raise ValueError(
-                "previous and previous_time must be given together (or none)"
-            )
+        current_time = time.time()
+        if not self.stats_cache_time:
+            if only_vm:
+                self.app.log.warning(
+                    "QubesHost.get_vm_stats is deprecating 'only_vm' soon"
+                )
+                del only_vm
+            if previous_time:
+                self.app.log.warning(
+                    "QubesHost.get_vm_stats is deprecating 'previous_time' soon"
+                )
+                del previous_time
+        else:
+            time_diff = current_time - self.stats_cache_time
+            if time_diff < self.app.stats_interval:
+                return self.stats_cache_time, self.stats_cache_data
 
         if previous is None:
             previous = {}
 
-        current_time = time.time()
         current = {}
-        if only_vm:
-            xid = only_vm.xid
-            if xid < 0:
-                raise qubes.exc.QubesVMNotRunningError(only_vm)
-            if self.app.vmm.is_xen:
-                if (
-                    only_vm_stubdom_xid := getattr(only_vm, "stubdom_xid", -1)
-                ) and only_vm_stubdom_xid > 0:
-                    if only_vm_stubdom_xid == xid + 1:
-                        # Avoid multiple domain_getinfo calls.
-                        info = self.app.vmm.xc.domain_getinfo(xid, 2)
-                    else:
-                        info = self.app.vmm.xc.domain_getinfo(xid, 1)
-                        stubdom_info = self.app.vmm.xc.domain_getinfo(
-                            only_vm_stubdom_xid, 1
-                        )[0]
-                        info.append(stubdom_info)
-                else:
-                    info = self.app.vmm.xc.domain_getinfo(xid, 1)
-                if info[0]["domid"] != xid:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-            else:
-                if not only_vm.libvirt_domain:
-                    raise qubes.exc.QubesVMNotRunningError(only_vm)
-                dom_info = only_vm.libvirt_domain.info()
-                info = [
-                    {
-                        "name": only_vm.name,
-                        "domid": only_vm.xid,
-                        "maxmem_kb": dom_info[1],
-                        "mem_kb": dom_info[2],
-                        "online_vcpus": dom_info[3],
-                        "cpu_time": dom_info[4],
-                        "is_stubdom": False,
-                        "hvm": 0,
-                    }
-                ]
+        if self.app.vmm.is_xen:
+            info = self.app.vmm.xc.domain_getinfo(0, 1024)
         else:
-            if self.app.vmm.is_xen:
-                info = self.app.vmm.xc.domain_getinfo(0, 1024)
-            else:
-                running = self.app.vmm.libvirt_conn.listAllDomains(
-                    libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_ACTIVE
-                )
-                info = []
-                for dom in running:
-                    dom_info = dom.info()
-                    dom_info_dict = {
-                        "domid": dom.ID(),
-                        "maxmem_kb": dom_info[1],
-                        "mem_kb": dom_info[2],
-                        "online_vcpus": dom_info[3],
-                        "cpu_time": dom_info[4],
-                        "is_stubdom": False,
-                        "hvm": 0,
-                    }
-                    if dom_info_dict["domid"] not in previous:
-                        dom_name = dom.name()
-                        if dom_name == "Domain-0":
-                            dom_name = "dom0"
-                        dom_info_dict["name"] = dom_name
-                    info.append(dom_info_dict)
+            running = self.app.vmm.libvirt_conn.listAllDomains(
+                libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_ACTIVE
+            )
+            info = []
+            for dom in running:
+                dom_info = dom.info()
+                dom_info_dict = {
+                    "domid": dom.ID(),
+                    "maxmem_kb": dom_info[1],
+                    "mem_kb": dom_info[2],
+                    "online_vcpus": dom_info[3],
+                    "cpu_time": dom_info[4],
+                    "is_stubdom": False,
+                    "hvm": 0,
+                }
+                if dom_info_dict["domid"] not in previous:
+                    dom_name = dom.name()
+                    if dom_name == "Domain-0":
+                        dom_name = "dom0"
+                    dom_info_dict["name"] = dom_name
+                info.append(dom_info_dict)
 
         cpu_usage_raw_denominator = None
-        if previous_time:
-            time_diff = current_time - previous_time
+        if self.stats_cache_time:
+            time_diff = current_time - self.stats_cache_time
             cpu_usage_raw_denominator = 100 / time_diff / 1_000_000_000
 
         def calculate_cpu_usage_raw(current_cpu_time, previous_cpu_time):
@@ -720,7 +703,9 @@ class QubesHost:
                 else:
                     current[domid]["cpu_usage_internal"] = 0
 
-        return current_time, current
+        self.stats_cache_time = current_time
+        self.stats_cache_data = current
+        return self.stats_cache_time, self.stats_cache_data
 
 
 class VMCollection:
