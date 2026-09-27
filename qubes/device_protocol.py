@@ -538,6 +538,11 @@ class VirtualDevice:
     @property
     def repr_for_qarg(self):
         """Object representation for qrexec argument"""
+        if "+" in self.device_id:
+            # A leading '+' cannot be a legacy backend name. Keep literal
+            # '+' distinct from ':' without adding qrexec argument characters.
+            port = repr(self.port).replace("*", "_")
+            return f"+hex+{port}+{self.device_id.encode('ascii').hex()}"
         res = repr(self).replace(":", "+")
         # replace '?' in category
         unknown_dev = repr(DeviceInterface.unknown())
@@ -601,6 +606,29 @@ class VirtualDevice:
         """
         Parse string representation and return instance of VirtualDevice.
         """
+        if sep == "+" and representation.startswith("+hex+"):
+            port_repr, _, encoded = representation[5:].rpartition("+")
+            if (
+                port_repr.count("+") != int(backend is None)
+                or not encoded
+                or len(encoded) % 2
+                or set(encoded) - set(string.hexdigits)
+            ):
+                raise ProtocolError("Invalid hex device argument")
+            try:
+                devid = bytes.fromhex(encoded).decode("ascii")
+            except UnicodeDecodeError as exc:
+                raise ProtocolError("Non-ASCII device identity") from exc
+            DeviceSerializer.sanitize_str(
+                devid,
+                DeviceSerializer.ALLOWED_CHARS_PARAM,
+                error_message="Invalid chars in device identity: ",
+            )
+            port = cls._parse(
+                port_repr, devclass, get_domain, backend, sep
+            ).port
+            return cls(port, device_id=devid)
+
         if backend is None:
             backend_name, identity = representation.split(sep, 1)
             if backend_name == "_":
@@ -610,7 +638,11 @@ class VirtualDevice:
         else:
             identity = representation
 
-        port_id, _, devid = identity.replace(sep, ":").partition(":")
+        # List replies and older arguments already contain ':' separators.
+        # In that representation '+' is data, not an encoded ':'.
+        if ":" not in identity:
+            identity = identity.replace(sep, ":")
+        port_id, _, devid = identity.partition(":")
         if port_id == "_":
             port_id = "*"
         if devid == "_":
