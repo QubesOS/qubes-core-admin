@@ -29,6 +29,7 @@ import libvirt
 import lxml
 import lxml.etree
 import uuid
+import datetime
 
 import qubes
 import qubes.exc
@@ -137,6 +138,7 @@ class AdminVM(LocalVM):
 
         self._qdb_connection = None
         self._libvirt_domain = None
+        self._start_time = None
 
         if not self.app.vmm.offline_mode:
             self.start_qdb_watch()
@@ -156,6 +158,22 @@ class AdminVM(LocalVM):
     @property
     def attached_volumes(self):
         return []
+
+    @qubes.stateless_property
+    def start_time(self) -> int:
+        """Tell when machine was started.
+
+        :rtype: int
+        """
+        if self._start_time is not None:
+            return self._start_time
+        with open("/proc/uptime", encoding="ascii") as file:
+            uptime_str = file.readline()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        uptime = float(uptime_str.split()[0])
+        start_time = now - datetime.timedelta(seconds=uptime)
+        self._start_time = int(start_time.timestamp())
+        return self._start_time
 
     @property
     def xid(self) -> int:
