@@ -140,6 +140,12 @@ class VmNetworkingMixin:
                     continue
                 self._run_cmd_and_log_output(vm, "ip a")
                 self._run_cmd_and_log_output(vm, "ip r")
+                self._run_cmd_and_log_output(
+                    vm, "xenstore-ls -fp device/vif/0"
+                )
+                self._run_cmd_and_log_output(
+                    vm, "xenstore-ls -fp backend/vif"
+                )
                 self._run_cmd_and_log_output(vm, "iptables -vnL")
                 self._run_cmd_and_log_output(vm, "iptables -vnL -t nat")
                 self._run_cmd_and_log_output(
