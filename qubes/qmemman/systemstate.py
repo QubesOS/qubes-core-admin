@@ -88,6 +88,7 @@ class SystemState:
         self.log.debug("del_domain(domid={!r})".format(domid))
         if self.dom_dict[domid].reserved:
             self.log.info("skipping domain deletion because it is reserved")
+            self.dom_dict[domid].delete_requested = True
             return
         self.dom_dict.pop(domid)
 
@@ -124,6 +125,19 @@ class SystemState:
             if now - dom.reserved >= UNCLAIMED_EXPIRATION_S:
                 self.log.debug("releasing reserved domain %d", dom.domid)
                 dom.reserved = 0.0
+                if not dom.delete_requested:
+                    # If deletion was not requested, client asked to reserve
+                    # memory, but didn't manage to stop the VM, this could be a
+                    # guest not acknowledging shutdown and timing out. If
+                    # the guest unfreezes/resumes operations, it still might
+                    # not shutdown thus, might not restart, then still discard
+                    # the domain from the reserve.
+                    dom.paused = False
+                    self.log.debug(
+                        "domain wasn't released from the hypervisor, just "
+                        "marking it as not paused"
+                    )
+                    continue
                 self.del_domain(dom.domid)
 
     def get_free_xen_mem(self) -> int:

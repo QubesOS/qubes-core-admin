@@ -1531,6 +1531,89 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(b"admin.vm.Shutdown", b"test-vm1", b"forcewait")
         func_mock.assert_not_called()
 
+    def test_235_restart(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=False, start=False)
+
+    def test_236_restart_kill(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"kill")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=True, start=False)
+
+    def test_237_restart_force(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"force")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, kill=False, start=False)
+
+    def test_237_restart_start(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"start")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=False, start=True)
+
+    def test_238_restart_start_force(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(
+            b"admin.vm.Restart", b"test-vm1", b"start+force"
+        )
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, kill=False, start=True)
+
+    def test_239_restart_kill_start(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(
+            b"admin.vm.Restart", b"test-vm1", b"kill+start"
+        )
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=True, start=True)
+
+    def test_239_restart_force_start_invalid(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.Restart", b"test-vm1", b"forcestartkill"
+            )
+        func_mock.assert_not_called()
+
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()
 

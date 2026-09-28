@@ -2044,6 +2044,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 return await self.kill()
 
             self._power_state = "Halting"
+            if self._start_requested:
+                await self.save_mem()
             # Some libvirt actions have a global lock on a domain, blocking
             # a lot of libvirt operations and even qubesd. When possible to
             # act without it, do so to avoid the whole qubesd hanging.
@@ -2115,6 +2117,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self._power_state = "Halting"
+        if self._start_requested:
+            await self.save_mem()
         try:
             async with self.change_libvirt_state(event="STOPPED"):
                 self.libvirt_domain.destroy()
@@ -2127,6 +2131,39 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._power_state = None
             raise
         self.log.info("Complete kill")
+
+    async def restart(self, force=False, timeout=None, kill=False, start=False):
+        """Restart (reboot) domain.
+
+        Saving memory on reboot event is done just before domain is stopped. On
+        this method, it is done before stop is requested. Although this may
+        allow to reserve memory with anticipation, when shutdown fails due to
+        unresponsive guest (timeout), the domain will have less memory
+        available to it, and it will continue running with that amount of
+        memory until domain is destroyed.
+
+        Another reason why we cannot call the virDomain "reboot" action is that
+        it allows the domain to disrespect it, and clients might want to
+        ``kill`` the domain instead of waiting for ``shutdown``.
+        """
+        self.log.info("Begin restarting")
+        self._start_requested = True
+        try:
+            if kill:
+                await self.kill()
+            else:
+                await self.shutdown(wait=True, force=force, timeout=timeout)
+        except qubes.exc.QubesVMNotStartedError:
+            self._start_requested = False
+            if not start:
+                raise
+            self.log.info("Starting domain from restart method")
+            await self.start()
+        except Exception:  # pylint: disable=broad-exception-caught
+            self._start_requested = False
+            raise
+        else:
+            await self.start()
 
     async def suspend(self):
         """Suspend (pause) domain.
