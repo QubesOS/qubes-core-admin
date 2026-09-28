@@ -1060,6 +1060,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     await self._delete_domain()
             raise
 
+    async def restart(self, **kwargs):
+        """
+        Restart a disposable qube when ``auto_cleanup=False``, by first killing
+        the domain.
+        """
+        # pylint: disable=arguments-differ
+        if self.auto_cleanup:
+            raise qubes.exc.QubesException(
+                "can't restart disposable with auto_cleanup=True"
+            )
+        kwargs["kill"] = True
+        await super().restart(**kwargs)
+
     def create_qdb_entries(self) -> None:
         super().create_qdb_entries()
         self.untrusted_qdb.write("/qubes-vm-persistence", "none")

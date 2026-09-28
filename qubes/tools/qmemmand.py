@@ -253,6 +253,9 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                     elif data_args[0] == "release":
                         if system_state.release_mem(domid=data_args[1]):
                             resp = "OK"
+                    elif data_args[0] == "reboot":
+                        if system_state.set_reboot(domid=data_args[1]):
+                            resp = "OK"
                 resp = str(resp + "\n").encode("ascii")
 
                 self.log.debug("resp={!r}".format(resp))

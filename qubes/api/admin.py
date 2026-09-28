@@ -1266,6 +1266,30 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         await self.dest.shutdown(force=force, wait=wait)
 
     @qubes.api.method(
+        "admin.vm.Restart",
+        wants_arg=None,
+        wants_payload=False,
+        dest_adminvm=None,
+        scope="local",
+        execute=True,
+    )
+    async def vm_restart(self):
+        if self.arg:
+            args = self.arg.split("+")
+        else:
+            args = []
+        allowed_args = ("force", "kill", "start")
+        self.enforce(
+            all(arg in allowed_args for arg in args),
+            reason="Argument must match: " + ", ".join(allowed_args),
+        )
+        kill = "kill" in args
+        force = "force" in args
+        start = "start" in args
+        self.fire_event_for_permission(force=force, kill=kill, start=start)
+        await self.dest.restart(force=force, kill=kill, start=start)
+
+    @qubes.api.method(
         "admin.vm.Pause",
         wants_arg=False,
         wants_payload=False,

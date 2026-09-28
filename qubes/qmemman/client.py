@@ -53,6 +53,9 @@ class QMemmanClient:
     def release_mem(self, domid: int) -> bool:
         return self._send("release {}\n".format(domid))
 
+    def set_reboot(self, domid: int) -> bool:
+        return self._send("reboot {}\n".format(domid))
+
     def close(self) -> None:
         assert isinstance(self.sock, socket.socket)
         self.sock.close()

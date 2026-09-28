@@ -2074,6 +2074,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 return await self.kill()
 
             self._power_state = "Halting"
+            if self._start_requested:
+                await self.send_qmemman("set_reboot", self.xid)
+                self._old_xid_for_qmemman = self.xid
             # Some libvirt actions have a global lock on a domain, blocking
             # a lot of libvirt operations and even qubesd. When possible to
             # act without it, do so to avoid the whole qubesd hanging.
@@ -2145,6 +2148,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self._power_state = "Halting"
+        if self._start_requested:
+            await self.send_qmemman("set_reboot", self.xid)
+            self._old_xid_for_qmemman = self.xid
         try:
             async with self.change_libvirt_state(event="STOPPED"):
                 self.libvirt_domain.destroy()
@@ -2157,6 +2163,32 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._power_state = None
             raise
         self.log.info("Complete kill")
+
+    async def restart(self, force=False, timeout=None, kill=False, start=False):
+        """Restart (reboot) domain.
+
+        We cannot call the virDomain "reboot" action as it allows the domain to
+        disrespect it, and clients might want to ``kill`` the domain instead of
+        waiting for ``shutdown``.
+        """
+        self.log.info("Begin restarting")
+        self._start_requested = True
+        try:
+            if kill:
+                await self.kill()
+            else:
+                await self.shutdown(wait=True, force=force, timeout=timeout)
+        except qubes.exc.QubesVMNotStartedError:
+            self._start_requested = False
+            if not start:
+                raise
+            self.log.info("Starting domain from restart method")
+            await self.start()
+        except Exception:  # pylint: disable=broad-exception-caught
+            self._start_requested = False
+            raise
+        else:
+            await self.start()
 
     async def suspend(self):
         """Suspend (pause) domain.

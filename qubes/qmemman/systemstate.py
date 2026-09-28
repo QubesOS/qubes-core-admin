@@ -91,7 +91,7 @@ class SystemState:
             )
         )
         dom = self.dom_dict[domid]
-        if force or not reboot:
+        if force or (not reboot and not dom.pending_reboot):
             self.dom_dict.pop(domid)
             return
         self.log.info(
@@ -106,6 +106,11 @@ class SystemState:
         dom.mem_current = dom.mem_actual
         self.do_balloon(mem_size=dom.mem_actual)
         dom.mem_current = 0
+
+    def set_reboot(self, domid) -> bool:
+        self.log.debug("set_reboot(domid={!r}".format(domid))
+        self.dom_dict[domid].pending_reboot = True
+        return True
 
     def save_mem(self, domid, mem_size) -> bool:
         self.log.debug(

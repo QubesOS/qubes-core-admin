@@ -3069,6 +3069,49 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
                     self.loop.run_until_complete(vm.shutdown())
 
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.shutdown")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.kill")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.start")
+    def test_660_restart(
+        self,
+        mock_start,
+        mock_kill,
+        mock_shutdown,
+    ):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        with self.subTest("normal"):
+            self.loop.run_until_complete(vm.restart())
+            mock_shutdown.assert_called_once_with(
+                wait=True, force=False, timeout=None
+            )
+            mock_start.assert_called_once_with()
+            mock_kill.assert_not_called()
+        mock_shutdown.reset_mock()
+        mock_start.reset_mock()
+        mock_kill.reset_mock()
+
+        with self.subTest("kill"):
+            self.loop.run_until_complete(vm.restart(kill=True))
+            mock_shutdown.assert_not_called()
+            mock_kill.assert_called_once_with()
+            mock_start.assert_called_once_with()
+        mock_shutdown.reset_mock()
+        mock_start.reset_mock()
+        mock_kill.reset_mock()
+
+        with self.subTest("failed shutdown"):
+            mock_shutdown.side_effect = qubes.exc.QubesVMShutdownTimeoutError(
+                vm=vm
+            )
+            with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                self.loop.run_until_complete(vm.restart())
+            mock_shutdown.assert_called_once_with(
+                wait=True, force=False, timeout=None
+            )
+            mock_start.assert_not_called()
+            mock_kill.assert_not_called()
+
     @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
         start_mock = unittest.mock.AsyncMock()
