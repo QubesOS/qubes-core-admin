@@ -70,16 +70,36 @@ class TC_06_AppVMMixin(object):
 
     def reboot(self, must_start: bool):
         start_time = self.testvm.start_time
+        shutdown_events = ["domain-shutdown"]
         start_events = [
             "domain-pre-start",
             "domain-pre-spawn",
             "domain-spawn",
             "domain-start",
         ]
-        events = ["domain-shutdown", *start_events]
+        events = [*shutdown_events, *start_events]
         self.fired_events: list[str] = []
         for event in events:
             self.testvm.add_handler(event, self._on_event)
+
+        if getattr(self, "reboot_from_api", False):
+            self.loop.run_until_complete(self.testvm.restart())
+            if must_start:
+                wants_events = events
+                rejects_events = []
+            else:
+                wants_events = shutdown_events
+                rejects_events = start_events
+            for event in wants_events:
+                if event not in self.fired_events:
+                    self.fail(f"didn't receive event '{event}'")
+            for event in rejects_events:
+                if event in self.fired_events:
+                    self.fail(f"shouldn't have received event '{event}'")
+            for event in events:
+                self.testvm.remove_handler(event, self._on_event)
+            return
+
         try:
             self.loop.run_until_complete(
                 self.testvm.run_service_for_stdio(
@@ -147,13 +167,25 @@ class TC_06_AppVMMixin(object):
         )
         self.loop.run_until_complete(self.testvm.create_on_disk())
 
-    def test_015_reboot_prohibit(self):
+    def test_015_reboot_prohibit_from_qube(self):
         self._reboot_prohibit()
 
-    def test_015_reboot_once(self):
+    def test_015_reboot_once_from_qube(self):
         self._reboot_once()
 
-    def test_015_reboot_infinite(self):
+    def test_015_reboot_infinite_from_qube(self):
+        self._reboot_infinite()
+
+    def test_016_reboot_prohibit_from_server(self):
+        self.reboot_from_api = True
+        self._reboot_prohibit()
+
+    def test_016_reboot_once_from_server(self):
+        self.reboot_from_api = True
+        self._reboot_once()
+
+    def test_016_reboot_infinite_from_server(self):
+        self.reboot_from_api = True
         self._reboot_infinite()
 
     def test_020_custom_persist(self):

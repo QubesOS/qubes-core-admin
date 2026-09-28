@@ -87,6 +87,7 @@ class TestApp(qubes.tests.TestEmitter):
     }
     check_updates_vm = False
     default_allowed_reboots = False
+    default_shutdown_timeout = 60
 
     def get_label(self, label):
         # pylint: disable=unused-argument
