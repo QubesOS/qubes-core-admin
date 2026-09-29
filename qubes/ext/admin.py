@@ -45,6 +45,9 @@ class JustEvaluateAllowResolution(parser.AllowResolution):
         pass
 
 
+PROTECTED_TAG_PREFIXES = ("created-by-", "guivm-", "audiovm-", "relayvm-")
+
+
 class AdminExtension(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
 
@@ -77,7 +80,7 @@ class AdminExtension(qubes.ext.Extension):
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
         """Forbid changing specific tags"""
         # pylint: disable=unused-argument
-        if arg.startswith("created-by-") and not isinstance(
+        if arg.startswith(PROTECTED_TAG_PREFIXES) and not isinstance(
             vm, qubes.vm.adminvm.AdminVM
         ):
             raise qubes.exc.PermissionDenied(

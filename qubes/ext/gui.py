@@ -46,6 +46,66 @@ class GUI(qubes.ext.Extension):
             ),
         )
 
+    @staticmethod
+    def displays_itself(vm, guivm, default_guivm):
+        seen = set()
+        while guivm is not None:
+            if guivm is vm:
+                return True
+            if guivm in seen:
+                return True
+            seen.add(guivm)
+            if not hasattr(guivm, "guivm"):
+                return False
+            if guivm.property_is_default("guivm"):
+                guivm = default_guivm
+            else:
+                guivm = guivm.guivm
+        return False
+
+    @qubes.ext.handler("property-pre-set:guivm")
+    def on_property_pre_set(
+        self, subject, event, name, newvalue, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if self.displays_itself(subject, newvalue, subject.app.default_guivm):
+            raise qubes.exc.QubesValueError("Loops in guivm are unsupported")
+
+    @qubes.ext.handler("property-pre-reset:guivm")
+    def on_property_pre_reset(self, subject, event, name, oldvalue=None):
+        # pylint: disable=unused-argument
+        default_guivm = subject.app.default_guivm
+        if self.displays_itself(subject, default_guivm, default_guivm):
+            raise qubes.exc.QubesValueError("Loops in guivm are unsupported")
+
+    @qubes.ext.handler("property-pre-set:default_guivm", system=True)
+    def on_property_pre_set_default_guivm(
+        self, app, event, name, newvalue, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if newvalue is None or not hasattr(newvalue, "guivm"):
+            return
+        if newvalue.property_is_default("guivm"):
+            guivm = newvalue
+        else:
+            guivm = newvalue.guivm
+        if self.displays_itself(newvalue, guivm, newvalue):
+            raise qubes.exc.QubesValueError("Loops in guivm are unsupported")
+
+    @qubes.ext.handler("domain-load")
+    def on_domain_load_guivm_loop_check(self, vm, event):
+        # pylint: disable=unused-argument
+        # A guivm loop crashes qubesd
+        if not hasattr(vm, "guivm"):
+            return
+        if self.displays_itself(vm, vm.guivm, vm.app.default_guivm):
+            vm.log.error(
+                "guivm loop detected on '%s' through '%s', removing its guivm",
+                vm.name,
+                vm.guivm,
+            )
+            vm.guivm = None
+
     @qubes.ext.handler("property-reset:guivm")
     def on_property_reset(self, subject, event, name, oldvalue=None):
         newvalue = getattr(subject, "guivm", None)
