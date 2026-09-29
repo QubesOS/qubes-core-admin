@@ -46,6 +46,71 @@ class GUI(qubes.ext.Extension):
             ),
         )
 
+    @staticmethod
+    def displays_itself(vm, guivm, default_guivm):
+        seen = set()
+        while guivm is not None and guivm not in seen:
+            if guivm is vm:
+                return True
+            seen.add(guivm)
+            if not hasattr(guivm, "guivm"):
+                return False
+            if guivm.property_is_default("guivm"):
+                guivm = default_guivm
+            else:
+                guivm = guivm.guivm
+        return False
+
+    @qubes.ext.handler("property-pre-set:guivm")
+    def on_property_pre_set(
+        self, subject, event, name, newvalue, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if self.displays_itself(subject, newvalue, subject.app.default_guivm):
+            raise qubes.exc.QubesValueError(
+                "{} cannot use {} as its guivm: {} would display "
+                "itself".format(subject.name, newvalue.name, subject.name)
+            )
+
+    @qubes.ext.handler("property-pre-reset:guivm")
+    def on_property_pre_reset(self, subject, event, name, oldvalue=None):
+        # pylint: disable=unused-argument
+        default_guivm = subject.app.default_guivm
+        if self.displays_itself(subject, default_guivm, default_guivm):
+            raise qubes.exc.QubesValueError(
+                "{} cannot use the default guivm {}: {} would display "
+                "itself".format(subject.name, default_guivm.name, subject.name)
+            )
+
+    @qubes.ext.handler("property-pre-set:default_guivm", system=True)
+    def on_property_pre_set_default_guivm(
+        self, app, event, name, newvalue, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        if newvalue is None or not hasattr(newvalue, "guivm"):
+            return
+        if newvalue.property_is_default("guivm"):
+            guivm = newvalue
+        else:
+            guivm = newvalue.guivm
+        if self.displays_itself(newvalue, guivm, newvalue):
+            raise qubes.exc.QubesValueError(
+                "{} cannot be the default guivm: it would display "
+                "itself".format(newvalue.name)
+            )
+
+    @qubes.ext.handler("domain-load")
+    def on_domain_load_guivm_loop_check(self, vm, event):
+        # pylint: disable=unused-argument
+        # a guivm loop crashes qubesd, remove it like a netvm loop
+        if not hasattr(vm, "guivm"):
+            return
+        if self.displays_itself(vm, vm.guivm, vm.app.default_guivm):
+            vm.log.error(
+                "guivm loop detected on '%s', removing its guivm", vm.name
+            )
+            vm.guivm = None
+
     @qubes.ext.handler("property-reset:guivm")
     def on_property_reset(self, subject, event, name, oldvalue=None):
         newvalue = getattr(subject, "guivm", None)
