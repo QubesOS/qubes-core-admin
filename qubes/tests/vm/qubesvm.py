@@ -904,6 +904,8 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         del vm.default_user
         self.assertPropertyDefaultValue(vm, "default_user", "user")
         self.assertPropertyValue(vm, "default_user", 123, "123", "123")
+        for value in ("", "-user", "root", "us+er", "us,er", "us er"):
+            self.assertPropertyInvalidValue(vm, "default_user", value)
         vm.default_user = "user"
         # TODO: check propagation for template-based VMs
 
@@ -3075,7 +3077,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/usr/bin/qrexec-client",
                 "-d",
                 "test-inst-vm",
-                "user:QUBESRPC test.service dom0",
+                "DEFAULT:QUBESRPC test.service dom0",
             )
             self.assertFalse(start_mock.called)
 
@@ -3098,7 +3100,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/usr/bin/qrexec-client",
                 "-d",
                 "test-inst-vm",
-                "user:QUBESRPC test.service dom0",
+                "DEFAULT:QUBESRPC test.service dom0",
             )
             self.assertTrue(start_mock.called)
 
@@ -3140,7 +3142,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/usr/bin/qrexec-client",
                 "-d",
                 "test-inst-vm",
-                "user:QUBESRPC test.service test-inst-vm",
+                "DEFAULT:QUBESRPC test.service test-inst-vm",
             )
             self.assertFalse(start_mock.called)
 
@@ -3156,7 +3158,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/usr/bin/qrexec-client",
                 "-d",
                 "test-inst-vm-dm",
-                "user:QUBESRPC test.service dom0",
+                "DEFAULT:QUBESRPC test.service dom0",
             )
             self.assertFalse(start_mock.called)
 
@@ -3174,7 +3176,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "test-inst-vm",
                 "-w",
                 "10",
-                "user:QUBESRPC test.service dom0",
+                "DEFAULT:QUBESRPC test.service dom0",
             )
             self.assertFalse(start_mock.called)
 

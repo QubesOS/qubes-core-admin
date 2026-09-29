@@ -125,8 +125,15 @@ def _setter_non_negative_int(self, prop, value):
 def _setter_default_user(self, prop, value):
     """Helper for setting default user"""
     value = str(value)
+    if not value or value.startswith("-") or value == "root":
+        raise qubes.exc.QubesPropertyValueError(
+            self,
+            prop,
+            value,
+            "Username must not be empty, start with '-' or be 'root'",
+        )
     # specifically forbid: ':', ' ', """, '"'
-    allowed_chars = string.ascii_letters + string.digits + "_-+,."
+    allowed_chars = string.ascii_letters + string.digits + "_-."
     if not all(c in allowed_chars for c in value):
         raise qubes.exc.QubesPropertyValueError(
             self,
@@ -2160,7 +2167,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         name = self.name + "-dm" if stubdom else self.name
 
         if user is None:
-            user = self.get_default_user()
+            # qrexec-daemon replaces DEFAULT by user set at start
+            user = "DEFAULT"
 
         if self.is_paused():
             # XXX what about autostart?
@@ -2229,7 +2237,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """  # pylint: disable=redefined-builtin
 
         if user is None:
-            user = self.get_default_user()
+            user = "DEFAULT"
 
         return await asyncio.create_subprocess_exec(
             qubes.config.system_path["qrexec_client_path"],
