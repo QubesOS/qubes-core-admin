@@ -147,6 +147,13 @@ class NetVMMixin(qubes.events.Emitter):
         doc="IPv6 address of this domain.",
     )
 
+    mtu = qubes.property(
+        "mtu",
+        type=int,
+        default=None,
+        doc="Maximum Transmission Unit (MTU) for the virtual interface.",
+    )
+
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty(
         "netvm",
@@ -271,6 +278,17 @@ class NetVMMixin(qubes.events.Emitter):
     #
     # used in both
     #
+
+    @qubes.stateless_property
+    def effective_mtu(self):
+        """Effective MTU for this domain. Inherited from netvm if not
+        set explicitly."""
+        netvm = self
+        while netvm is not None:
+            if hasattr(netvm, "mtu") and netvm.mtu is not None:
+                return netvm.mtu
+            netvm = getattr(netvm, "netvm", None)
+        return None
 
     @qubes.stateless_property
     def dns(self):
@@ -785,3 +803,46 @@ class NetVMMixin(qubes.events.Emitter):
     def has_firewall(self):
         """Return `True` if there are some vm specific firewall rules set"""
         return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))
+
+    @qubes.events.handler("domain-qdb-create")
+    def on_domain_qdb_create_mtu(self, event):
+        """Copies effective MTU to this VM's QubesDB."""
+        # pylint: disable=unused-argument
+        eff_mtu = self.effective_mtu
+        if eff_mtu is not None:
+            self.untrusted_qdb.write("/vm-config/net-mtu", str(eff_mtu))
+
+    @qubes.events.handler(
+        "property-set:mtu",
+        "property-reset:mtu",
+        "property-set:netvm",
+        "property-reset:netvm",
+    )
+    def on_property_set_mtu(
+        self, event, name, newvalue=None, oldvalue=None, **kwargs
+    ):
+        """Propagate mtu changes to connected VMs."""
+
+        # pylint: disable=unused-argument
+        def _update_descendants(netvm):
+            for vm in netvm.connected_vms:
+                if hasattr(vm, "mtu") and vm.mtu is not None:
+                    continue
+                if vm.is_running() and hasattr(vm, "untrusted_qdb"):
+                    eff_mtu = vm.effective_mtu
+                    if eff_mtu is not None:
+                        vm.untrusted_qdb.write(
+                            "/vm-config/net-mtu", str(eff_mtu)
+                        )
+                    else:
+                        vm.untrusted_qdb.rm("/vm-config/net-mtu")
+                _update_descendants(vm)
+
+        if self.is_running() and hasattr(self, "untrusted_qdb"):
+            if getattr(self, "mtu", None) is None or name == "mtu":
+                eff_mtu = self.effective_mtu
+                if eff_mtu is not None:
+                    self.untrusted_qdb.write("/vm-config/net-mtu", str(eff_mtu))
+                else:
+                    self.untrusted_qdb.rm("/vm-config/net-mtu")
+        _update_descendants(self)
