@@ -227,7 +227,11 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         path = await self.dest.storage.import_data(self.arg, requested_size)
         self.enforce(" " not in path, reason="Path contains whitespace")
         if requested_size is None:
-            size = self.dest.volumes[self.arg].size
+            volume = self.dest.volumes[self.arg]
+            size = volume.size
+            if volume.encrypted:
+                # pylint: disable=protected-access
+                size = volume._luks_guest_size()
         else:
             size = requested_size
 

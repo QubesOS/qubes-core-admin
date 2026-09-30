@@ -64,6 +64,8 @@ volume_properties = [
     "snap_on_start",
     "revisions_to_keep",
     "ephemeral",
+    "encrypted",
+    "has_passphrase",
 ]
 
 _uuid_regex = re.compile(
@@ -5028,6 +5030,315 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             )
         self.assertFalse(self.app.save.called)
 
+    def test_727_vm_volume_set_encrypted(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = False
+        volume._luks_needs_zero = False
+        volume._luks_setup_guest_size = None
+        volume._luks_guest_size.return_value = 128 << 20
+        volume.has_passphrase.return_value = True
+        volume.is_luks = unittest.mock.AsyncMock(return_value=False)
+        volume._volume_has_data.return_value = False
+        order = []
+        first_save = {}
+
+        def on_save(*_a, **_k):
+            if not first_save:
+                first_save["encrypted"] = volume.encrypted
+                first_save["needs_zero"] = volume._luks_needs_zero
+                first_save["guest"] = volume._luks_setup_guest_size
+            order.append("save")
+
+        self.app.save.side_effect = on_save
+
+        async def setup():
+            order.append("setup")
+
+        volume.setup_luks = unittest.mock.AsyncMock(side_effect=setup)
+
+        async def discard():
+            order.append("discard")
+
+        volume._discard_revisions_if_unused = unittest.mock.AsyncMock(
+            side_effect=discard
+        )
+        volume.source = None
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(
+            b"admin.vm.volume.Set.encrypted",
+            b"test-vm1",
+            b"private",
+            b"True",
+        )
+        self.assertIsNone(value)
+        self.assertEqual(volume.encrypted, True)
+        self.assertEqual(volume._luks_needs_zero, True)
+        volume.is_luks.assert_awaited()
+        volume.setup_luks.assert_called_once_with()
+        self.assertEqual(order, ["discard", "save", "setup", "save"])
+        self.assertTrue(first_save["encrypted"])
+        self.assertTrue(first_save["needs_zero"])
+        self.assertEqual(first_save["guest"], 128 << 20)
+
+    def test_728_vm_volume_set_encrypted_no_passphrase(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.has_passphrase.return_value = False
+        volume.setup_luks = unittest.mock.AsyncMock()
+        volume.source = None
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.encrypted",
+                b"test-vm1",
+                b"private",
+                b"True",
+            )
+        volume.setup_luks.assert_not_called()
+        self.assertFalse(self.app.save.called)
+
+    def test_729_vm_volume_set_encrypted_invalid(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.encrypted",
+                b"test-vm1",
+                b"private",
+                b"abc",
+            )
+        self.assertFalse(self.app.save.called)
+
+    def test_733_vm_volume_set_passphrase(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        value = self.call_mgmt_func(
+            b"admin.vm.volume.SetPassphrase",
+            b"test-vm1",
+            b"private",
+            b"s3cret",
+        )
+        self.assertIsNone(value)
+        volume.set_passphrase.assert_called_once_with(b"s3cret")
+        self.assertFalse(self.app.save.called)
+
+    def test_733b_vm_volume_clear_passphrase(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = True
+        value = self.call_mgmt_func(
+            b"admin.vm.volume.SetPassphrase",
+            b"test-vm1",
+            b"private",
+            b"",
+        )
+        self.assertIsNone(value)
+        volume.clear_passphrase.assert_called_once_with()
+        volume.set_passphrase.assert_not_called()
+        self.assertFalse(self.app.save.called)
+
+    def test_733c_vm_volume_set_passphrase_unencrypted_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = False
+        volume.is_encryptable.return_value = True
+        self.vm.is_halted = unittest.mock.Mock(return_value=False)
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.SetPassphrase",
+                b"test-vm1",
+                b"private",
+                b"s3cret",
+            )
+        volume.set_passphrase.assert_not_called()
+
+    def test_734_vm_volume_change_passphrase(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.change_passphrase = unittest.mock.AsyncMock()
+        value = self.call_mgmt_func(
+            b"admin.vm.volume.ChangePassphrase",
+            b"test-vm1",
+            b"private",
+            b"oldpass\nnewpass",
+        )
+        self.assertIsNone(value)
+        volume.change_passphrase.assert_called_once_with(b"oldpass", b"newpass")
+        self.assertFalse(self.app.save.called)
+
+    def test_735_vm_volume_change_passphrase_bad_payload(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.ChangePassphrase",
+                b"test-vm1",
+                b"private",
+                b"no-separator",
+            )
+        self.assertFalse(self.app.save.called)
+
+    def test_736_vm_volume_set_encrypted_disable_not_implemented(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = True
+        with self.assertRaises(qubes.exc.QubesValueError) as ctx:
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.encrypted",
+                b"test-vm1",
+                b"private",
+                b"False",
+            )
+        self.assertIn("not implemented", str(ctx.exception))
+        self.assertFalse(self.app.save.called)
+
+    def test_737_vm_volume_set_passphrase_ineligible(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["volatile"]
+        volume.encrypted = False
+        volume.is_encryptable.return_value = False
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.SetPassphrase",
+                b"test-vm1",
+                b"volatile",
+                b"s3cret",
+            )
+        volume.set_passphrase.assert_not_called()
+
+    def test_739_vm_volume_set_encrypted_refuses_existing_luks(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = False
+        volume.has_passphrase.return_value = True
+        volume.is_luks = unittest.mock.AsyncMock(return_value=True)
+        volume.setup_luks = unittest.mock.AsyncMock()
+        volume.source = None
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(qubes.exc.QubesValueError) as ctx:
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.encrypted",
+                b"test-vm1",
+                b"private",
+                b"True",
+            )
+        self.assertIn("LUKS header", str(ctx.exception))
+        volume.setup_luks.assert_not_called()
+        self.assertFalse(self.app.save.called)
+
+    def test_740_vm_volume_set_encrypted_retry_already_enabled(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = True
+        volume.has_passphrase.return_value = True
+        volume.is_luks = unittest.mock.AsyncMock()
+        volume.setup_luks = unittest.mock.AsyncMock()
+        volume.source = None
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(
+            b"admin.vm.volume.Set.encrypted",
+            b"test-vm1",
+            b"private",
+            b"True",
+        )
+        self.assertIsNone(value)
+        volume.is_luks.assert_not_called()
+        volume.setup_luks.assert_called_once_with()
+        self.app.save.assert_called_once_with()
+
+    def test_741_vm_volume_set_encrypted_discard_before_persist(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = False
+        volume.has_passphrase.return_value = True
+        volume.is_luks = unittest.mock.AsyncMock(return_value=False)
+        volume.setup_luks = unittest.mock.AsyncMock()
+        volume._discard_revisions_if_unused = unittest.mock.AsyncMock(
+            side_effect=qubes.exc.StoragePoolException("leftover revisions")
+        )
+        volume.source = None
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(qubes.exc.StoragePoolException):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.encrypted",
+                b"test-vm1",
+                b"private",
+                b"True",
+            )
+        self.assertEqual(volume.encrypted, False)
+        volume.setup_luks.assert_not_called()
+        self.assertFalse(self.app.save.called)
+
+    def test_738_vm_volume_change_passphrase_not_encrypted(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        volume = self.vm.volumes["private"]
+        volume.encrypted = False
+        volume.change_passphrase = unittest.mock.AsyncMock()
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.ChangePassphrase",
+                b"test-vm1",
+                b"private",
+                b"old\nnew",
+            )
+        volume.change_passphrase.assert_not_called()
+
     def test_730_vm_console(self):
         self.vm._libvirt_domain = unittest.mock.Mock()
         xml_desc = (
@@ -5098,6 +5409,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             volumes_conf = {
                 "keys.return_value": ["root", "private", "volatile", "kernel"],
                 "__getitem__.return_value.size": 0xDEADBEEF,
+                "__getitem__.return_value.encrypted": False,
             }
             self.vm.volumes.configure_mock(**volumes_conf)
             self.vm.storage = unittest.mock.Mock()

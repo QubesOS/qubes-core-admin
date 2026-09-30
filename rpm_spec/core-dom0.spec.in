@@ -318,8 +318,11 @@ admin.vm.volume.List
 admin.vm.volume.ListSnapshots
 admin.vm.volume.Resize
 admin.vm.volume.Revert
+admin.vm.volume.ChangePassphrase
+admin.vm.volume.Set.encrypted
 admin.vm.volume.Set.revisions_to_keep
 admin.vm.volume.Set.rw
+admin.vm.volume.SetPassphrase
 admin.vmclass.List
 include/admin-global-ro
 include/admin-global-rwx
@@ -499,6 +502,7 @@ done
 %{python3_sitelib}/qubes/tests/storage_lvm.py
 %{python3_sitelib}/qubes/tests/storage_zfs.py
 %{python3_sitelib}/qubes/tests/storage_callback.py
+%{python3_sitelib}/qubes/tests/storage_encrypt.py
 %{python3_sitelib}/qubes/tests/tarwriter.py
 
 %dir %{python3_sitelib}/qubes/tests/vm

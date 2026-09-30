@@ -1159,8 +1159,7 @@ class DeviceInfo(VirtualDevice):
 
         try:
             device = cls._deserialize(rest, device)
-            # pylint: disable=broad-exception-caught
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             print(str(exc), file=sys.stderr)
             device = UnknownDevice.from_device(device)
 

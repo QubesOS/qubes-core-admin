@@ -387,7 +387,7 @@ class FileVolume(qubes.storage.Volume):
         assert self.save_on_stop and self.rw, msg
 
         if os.path.exists(self.path_cow):
-            if self.revisions_to_keep:
+            if self.revisions_to_keep > 0:
                 old_path = self.path_cow + ".old"
                 os.rename(self.path_cow, old_path)
             else:
@@ -595,6 +595,21 @@ class FileVolume(qubes.storage.Volume):
         return qubes.storage.BlockDevice(
             path, self.name, self.script, self.rw, self.domain, self.devtype
         )
+
+    @qubes.storage.Volume.locked
+    async def discard_revisions(self):
+        """Remove the file-pool ``-cow.img.old`` revision, if any."""
+        if self._export_lock is not None:
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of a running or exported volume"
+            )
+        if self.is_dirty():
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of a dirty volume"
+            )
+        if self.snap_on_start or self.save_on_stop:
+            _remove_if_exists(self.path_cow + ".old")
+        return self
 
     @property
     def revisions(self):

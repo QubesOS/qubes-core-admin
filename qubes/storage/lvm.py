@@ -428,18 +428,20 @@ class ThinVolume(qubes.storage.Volume):
         ]
         await qubes_lvm_coro(cmd, self.log)
 
-    async def _remove_revisions(self, revisions=None):
+    async def _remove_revisions(self, revisions=None, *, ignore_errors=True):
         """Remove old volume revisions.
 
         If no revisions list is given, it removes old revisions according to
         :py:attr:`revisions_to_keep`
 
         :param revisions: list of revisions to remove
+        :param ignore_errors: swallow per-revision remove failures
         """
         if revisions is None:
             revisions = sorted(self.revisions.items(), key=_revision_sort_key)
+            keep = max(0, self.revisions_to_keep)
             # pylint: disable=invalid-unary-operand-type
-            revisions = revisions[: (-self.revisions_to_keep) or None]
+            revisions = revisions[: (-keep) or None]
             revisions = [rev_id for rev_id, _ in revisions]
 
         for rev_id in revisions:
@@ -449,7 +451,20 @@ class ThinVolume(qubes.storage.Volume):
                 cmd = ["remove", self.vid + "-" + rev_id]
                 await qubes_lvm_coro(cmd, self.log)
             except qubes.exc.StoragePoolException:
-                pass
+                if not ignore_errors:
+                    raise
+
+    @qubes.storage.Volume.locked
+    async def discard_revisions(self):
+        """Remove every stored LVM revision of this volume."""
+        if self.is_dirty():
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of a dirty volume"
+            )
+        await self._remove_revisions(
+            list(self.revisions.keys()), ignore_errors=False
+        )
+        await reset_cache_coro()
 
     async def _activate(self):
         """
@@ -904,7 +919,18 @@ def _get_lvm_cmdline(cmd):
         ]
     elif action == "resize":
         assert len(cmd) == 3, "wrong number of arguments for resize"
-        lvm_cmd = ["lvresize", "--size=" + cmd[2] + "B", "--", cmd[1]]
+        # --yes/--force/--fs ignore: LUKS in-place encrypt shrinks the
+        # unused datashift tail; non-interactive lvresize otherwise
+        # refuses to reduce a crypto_LUKS thin LV.
+        lvm_cmd = [
+            "lvresize",
+            "--yes",
+            "--force",
+            "--fs=ignore",
+            "--size=" + cmd[2] + "B",
+            "--",
+            cmd[1],
+        ]
     elif action == "activate":
         assert len(cmd) == 2, "wrong number of arguments for activate"
         lvm_cmd = ["lvchange", "--activate=y", "--", cmd[1]]

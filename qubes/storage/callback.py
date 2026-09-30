@@ -559,6 +559,18 @@ class CallbackVolume(qubes.storage.Volume):
         await self._callback("post_volume_stop")
         return ret
 
+    async def start_luks(self, name):
+        # Bind to this wrapper so start() runs the callback hooks.
+        return await qubes.storage.Volume.start_luks(self, name)
+
+    async def stop_luks(self, name):
+        return await qubes.storage.Volume.stop_luks(self, name)
+
+    async def setup_luks(self, device=None, *, existing=None, guest_size=None):
+        return await qubes.storage.Volume.setup_luks(
+            self, device, existing=existing, guest_size=guest_size
+        )
+
     async def import_data(self, size):
         await self._assert_initialized()
         await self._callback("pre_volume_import_data", cb_args=[size])
@@ -632,6 +644,10 @@ class CallbackVolume(qubes.storage.Volume):
         await self._assert_initialized()
         return await coro_maybe(self._cb_impl.revert(revision=revision))
 
+    async def discard_revisions(self):
+        await self._assert_initialized()
+        return await coro_maybe(self._cb_impl.discard_revisions())
+
     # shadow all qubes.storage.Volume class attributes as instance properties
     # NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
     @property
@@ -684,3 +700,9 @@ class CallbackVolume(qubes.storage.Volume):
 
     def encrypted_volume_path(self, qube_name, device_name):
         return self._cb_impl.encrypted_volume_path(qube_name, device_name)
+
+    def is_encryptable(self):
+        return self._cb_impl.is_encryptable()
+
+    def luks_backend_path(self):
+        return self._cb_impl.luks_backend_path()

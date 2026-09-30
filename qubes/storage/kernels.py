@@ -108,6 +108,16 @@ class LinuxModules(Volume):
             "LinuxModules does not support setting ephemeral value"
         )
 
+    @property
+    def encrypted(self):
+        return False
+
+    @encrypted.setter
+    def encrypted(self, value):
+        raise qubes.exc.QubesValueError(
+            "LinuxModules does not support setting encrypted value"
+        )
+
     async def remove(self):
         pass
 
