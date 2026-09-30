@@ -311,7 +311,7 @@ class ReflinkVolume(qubes.storage.Volume):
             _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
-        if self.revisions_to_keep == 0:
+        if self.revisions_to_keep <= 0:
             return
         timestamp = qubes.storage.isodate(
             int(os.path.getmtime(self._path_clean))
@@ -324,8 +324,20 @@ class ReflinkVolume(qubes.storage.Volume):
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
+        if keep < 0:
+            keep = 0
         for rev, timestamp in list(self.revisions.items())[: -keep or None]:
             _remove_file(self._path_revision(rev, timestamp))
+
+    @qubes.storage.Volume.locked
+    @_async_thread
+    def discard_revisions(self):  # pylint: disable=invalid-overridden-method
+        if self.is_dirty():
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of a dirty volume"
+            )
+        self._prune_revisions(keep=0)
+        return self
 
     @qubes.storage.Volume.locked
     @_async_thread

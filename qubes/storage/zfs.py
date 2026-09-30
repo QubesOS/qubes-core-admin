@@ -1863,7 +1863,7 @@ class ZFSVolume(qubes.storage.Volume):
             DEF_AUTO_SNAPSHOT if self.save_on_stop else NO_AUTO_SNAPSHOT
         )
 
-    async def _purge_old_revisions(self) -> None:
+    async def _purge_old_revisions(self, keep=None) -> None:
         """
         Deletes all revisions except the `revisions_to_keep` latest ones.
 
@@ -1890,12 +1890,40 @@ class ZFSVolume(qubes.storage.Volume):
                 )
             )
         )
-        num = max(0, self.revisions_to_keep)
+        if keep is None:
+            keep = self.revisions_to_keep
+        num = max(0, keep)
         for snapshot, _ in revs[num:]:
             vsn = VolumeSnapshot.make(self.vid, snapshot)
             self.log.debug("Pruning %s", vsn)
             await self.pool.accessor.remove_volume_async(vsn, log=self.log)
         return
+
+    @qubes.storage.Volume.locked
+    async def discard_revisions(self) -> None:
+        """Remove every stored Qubes revision snapshot of this volume."""
+        if self.is_dirty():
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of a dirty volume"
+            )
+        await self._purge_old_revisions(keep=0)
+        snapshots = await self.pool.accessor.get_volume_snapshots_async(
+            self.volume,
+            log=self.log,
+        )
+        for sninfo in snapshots:
+            await self.pool.accessor.remove_volume_async(
+                sninfo.name, log=self.log
+            )
+        leftover = await self.pool.accessor.get_volume_snapshots_async(
+            self.volume,
+            log=self.log,
+        )
+        if leftover:
+            raise qubes.exc.StoragePoolException(
+                "Cannot discard revisions of volume {!s} while snapshots "
+                "are still in use".format(self.vid)
+            )
 
     async def _mark_clean(self):
         existing_cleans = [
@@ -2235,11 +2263,10 @@ class ZFSVolume(qubes.storage.Volume):
         * value is an ISO date string referring to when the revision was
           created
 
-        Revisions marked for deferred destruction are also listed.
-        The user may revert a volume to such revisions until the moment
-        that the dependent cloned dataset is destroyed, at which point in
-        time the revision will disappear and will no longer be usable as a
-        revert point.  This behavior was tested manually.
+        Revisions marked for deferred destruction are hidden even though
+        the snapshot may still exist until clones go away.  Encrypt
+        leftover checks must use ``get_volume_snapshots_async``, not
+        this property.
         """
         if not self.pool.accessor.volume_exists(self.volume, self.log):
             # No snapshots, volume does not exist yet.

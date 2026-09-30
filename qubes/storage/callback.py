@@ -644,6 +644,10 @@ class CallbackVolume(qubes.storage.Volume):
         await self._assert_initialized()
         return await coro_maybe(self._cb_impl.revert(revision=revision))
 
+    async def discard_revisions(self):
+        await self._assert_initialized()
+        return await coro_maybe(self._cb_impl.discard_revisions())
+
     # shadow all qubes.storage.Volume class attributes as instance properties
     # NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
     @property

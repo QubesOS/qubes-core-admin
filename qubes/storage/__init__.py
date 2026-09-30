@@ -399,7 +399,11 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         return False
 
     def _assert_safe_to_encrypt(self):
-        """Refuse in-place encryption when it would leak or lose data."""
+        """Refuse in-place encryption when it would leak or lose data.
+
+        Leftover revisions are allowed when :py:attr:`revisions_to_keep`
+        is 0 or -1; :py:meth:`setup_luks` discards them first.
+        """
         try:
             if self.is_dirty():
                 raise StoragePoolException(
@@ -408,13 +412,60 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         except NotImplementedError:
             pass
         try:
-            if self.revisions:
+            if self.revisions and self.revisions_to_keep not in (0, -1):
                 raise StoragePoolException(
                     "Cannot encrypt a volume that has revisions; "
                     "discard revisions first"
                 )
         except NotImplementedError:
             pass
+
+    async def discard_revisions(self):
+        """Remove all stored revisions of this volume.
+
+        Used before enabling encryption when
+        :py:attr:`revisions_to_keep` is 0 or -1 so leftover snapshots
+        are not left as plaintext.  Drivers with no revisions do
+        nothing.  Dirty volumes are refused.
+        """
+        try:
+            if self.is_dirty():
+                raise StoragePoolException(
+                    "Cannot discard revisions of a dirty volume"
+                )
+        except NotImplementedError:
+            pass
+        try:
+            revisions = self.revisions
+        except NotImplementedError:
+            return
+        if not revisions:
+            return
+        raise self._not_implemented("discard_revisions")
+
+    async def _discard_revisions_if_unused(self):
+        """Drop leftover revisions when keep is 0 or -1.
+
+        Always call :py:meth:`discard_revisions` even if
+        :py:attr:`revisions` is empty.  Some drivers (ZFS) hide
+        non-revision snapshots such as ``qubes-clean-*``.
+        """
+        if self.revisions_to_keep not in (0, -1):
+            return
+        try:
+            await qubes.utils.coro_maybe(self.discard_revisions())
+        except NotImplementedError:
+            return
+        try:
+            leftover = self.revisions
+        except NotImplementedError:
+            leftover = {}
+        if leftover:
+            raise StoragePoolException(
+                "Cannot encrypt volume {!s}: leftover revisions remain".format(
+                    self.vid
+                )
+            )
 
     def _discard_unused_cow(self):
         """Remove a clean leftover COW so the next start matches origin size.
@@ -466,8 +517,10 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         formatted with ``--offset`` at that size.  The guest mapper stays
         the original size.
 
-        Dirty volumes and volumes with revisions are refused.  Once the
-        backing device has been mutated, :py:attr:`_luks_device_mutated`
+        Dirty volumes are refused.  Volumes with revisions are refused
+        unless :py:attr:`revisions_to_keep` is 0 or -1, in which case
+        leftover revisions are discarded first.  Once the backing
+        device has been mutated, :py:attr:`_luks_device_mutated`
         stays set so callers do not clear the encrypted flag.
 
         The passphrase must already be set via :py:meth:`set_passphrase`.
@@ -491,6 +544,7 @@ class Volume:  # pylint: disable=too-many-instance-attributes
             await self._drop_reencrypt_tail(guest_size)
             return
         self._assert_safe_to_encrypt()
+        await self._discard_revisions_if_unused()
         if existing is None:
             existing = self._volume_has_data()
         if existing:
