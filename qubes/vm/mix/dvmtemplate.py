@@ -466,13 +466,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "domain-preload-dispvm-used",
         "domain-preload-dispvm-start",
     )
-    async def on_domain_preload_dispvm_used(
+    async def on_domain_preload_dispvm_used(  # pylint: disable=unused-argument
         self,
         event: str,
         dispvm: Optional["qubes.vm.dispvm.DispVM"] = None,
         reason: Optional[str] = None,
         delay: Union[int, float] = 0,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,
     ) -> None:
         """
         Offloads on excess and preload on vacancy.

@@ -1626,7 +1626,7 @@ class Storage:
                 if save is not None:
                     try:
                         save()
-                    except Exception:
+                    except Exception:  # pylint: disable=broad-except
                         logging.getLogger("qubes.storage").exception(
                             "Failed to persist LUKS zero-complete flag"
                         )

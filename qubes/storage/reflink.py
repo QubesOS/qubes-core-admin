@@ -324,8 +324,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
-        if keep < 0:
-            keep = 0
+        keep = max(keep, 0)
         for rev, timestamp in list(self.revisions.items())[: -keep or None]:
             _remove_file(self._path_revision(rev, timestamp))
 
