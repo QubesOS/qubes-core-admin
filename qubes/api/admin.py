@@ -677,6 +677,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         volume = self.dest.volumes[self.arg]
         size = volume.size
+        if volume.encrypted:
+            # pylint: disable=protected-access
+            size = volume._luks_guest_size()
 
         # Clear the volume by importing empty data into it
         path = await self.dest.storage.import_data(self.arg, size)
@@ -828,21 +831,39 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                     "passphrase"
                 )
             volume._assert_safe_to_encrypt()  # pylint: disable=protected-access
+            # Discard leftovers before persisting encrypted=True so a
+            # failed discard cannot leave a plaintext volume unstartable.
+            await qubes.utils.coro_maybe(
+                # pylint: disable=protected-access
+                volume._discard_revisions_if_unused()
+            )
+            # Persist needs-zero and guest size with encrypted=True so
+            # a crash after luksFormat still retries payload zeroing
+            # without treating grown backing as the guest size.
+            # pylint: disable=protected-access
+            if not volume._volume_has_data():
+                volume._luks_needs_zero = True
+            volume._luks_setup_guest_size = volume._luks_guest_size()
             volume.encrypted = True
             self.app.save()
-        await volume.setup_luks()
-        self.app.save()
+        try:
+            await volume.setup_luks()
+        finally:
+            self.app.save()
 
     @qubes.api.method(
         "admin.vm.volume.SetPassphrase",
         wants_arg=True,
-        wants_payload=True,
+        wants_payload=None,
         dest_adminvm=None,
         scope="local",
         write=True,
     )
     async def vm_volume_set_passphrase(self, untrusted_payload):
-        """Set the in-memory LUKS passphrase.  Not serialized to XML."""
+        """Set or clear the in-memory LUKS passphrase.
+
+        Empty payload clears.  Not serialized to XML.
+        """
         self.enforce_arg(
             wants=self.dest.volumes.keys(),
             short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
@@ -850,11 +871,17 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # Do not include the passphrase in the permission event.
         self.fire_event_for_permission()
         volume = self.dest.volumes[self.arg]
-        if not volume.encrypted and not volume.is_encryptable():
-            raise qubes.exc.QubesValueError(
-                "Volume does not support persistent encryption"
-            )
-        volume.set_passphrase(untrusted_payload)
+        if not volume.encrypted:
+            if not self.dest.is_halted():
+                raise qubes.exc.QubesVMNotHaltedError(self.dest)
+            if not volume.is_encryptable():
+                raise qubes.exc.QubesValueError(
+                    "Volume does not support persistent encryption"
+                )
+        if not untrusted_payload:
+            volume.clear_passphrase()
+        else:
+            volume.set_passphrase(untrusted_payload)
         del untrusted_payload
         # Intentionally not saved: the passphrase must never hit qubes.xml.
 
