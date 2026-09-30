@@ -32,6 +32,7 @@ import socket
 import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
+from typing import Any
 
 import importlib.metadata
 
@@ -163,9 +164,9 @@ def parse_bool(value):
     """Deserialize bool property, handling usual encodings"""
     if isinstance(value, bool):
         return value
-    if value in ("True", "1", "on"):
+    if value in ("True", "true", "1", "on"):
         return True
-    if value in ("False", "0", "off", ""):
+    if value in ("False", "false", "0", "off", ""):
         return False
     raise ValueError(f"invalid bool: {value}")
 
@@ -503,6 +504,9 @@ def sbdf_to_path(device_id: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
@@ -558,6 +562,9 @@ def path_to_sbdf(path: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
@@ -631,3 +638,21 @@ def validate_label_value(untrusted_label_value) -> None:
             "Label value must only contain hexadecimal digits after prefix: "
             + string.hexdigits
         )
+
+
+async def async_shield(awaitable) -> Any:
+    """
+    Protect awaitable from being cancelled, skip raising
+    ``asyncio.CancelledError`` and still retrieve any exception if it was
+    raised, by awaiting for the cancellation to complete.
+    """
+    if not isinstance(awaitable, asyncio.Task):
+        awaitable = asyncio.create_task(awaitable)
+    with suppress(asyncio.CancelledError):
+        await asyncio.shield(awaitable)
+    try:
+        return awaitable.result()
+    except asyncio.InvalidStateError:
+        # The task completion was already waited above, if it has no result,
+        # waiting for it would block indefinitely.
+        return None

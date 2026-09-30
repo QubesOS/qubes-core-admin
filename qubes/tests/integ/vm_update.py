@@ -738,6 +738,10 @@ SHA256:
 
         self.start_vm_with_proxy_repo()
 
+        pkcon = "pkcon"
+        if "archlinux" in self.template:
+            pkcon = "pkgcli"
+
         with self.qrexec_policy(
             "qubes.UpdatesProxy",
             self.testvm1,
@@ -747,12 +751,12 @@ SHA256:
 
             # update repository metadata
             self.assertRunCommandReturnCode(
-                self.testvm1, "pkcon refresh", self.ret_code_ok
+                self.testvm1, f"{pkcon} refresh", self.ret_code_ok
             )
 
             # install test package
             self.assertRunCommandReturnCode(
-                self.testvm1, "pkcon install -y test-pkg", self.ret_code_ok
+                self.testvm1, f"{pkcon} install -y test-pkg", self.ret_code_ok
             )
 
             # verify if it was really installed

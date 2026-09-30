@@ -41,6 +41,8 @@ class DomainState:  # pylint: disable=too-few-public-methods
         self.no_progress: bool = False
         # Slow react to memset (after few tries still above target).
         self.slow_memset_react: bool = False
+        # Domain can't redistribute memory
+        self.paused: bool = False
 
     def __repr__(self) -> str:
         return self.__dict__.__repr__()

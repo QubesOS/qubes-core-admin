@@ -33,21 +33,23 @@ import qubes.tests
 VM_PREFIX = "test-"
 
 try:
-    dom0_releasever = (
-        subprocess.check_output(
+    dom0_releasever = [
+        line.split()[2]
+        for line in subprocess.check_output(
             [
                 "rpm",
                 "-q",
                 "--whatprovides",
                 "--qf",
-                "%{VERSION}",
+                "[%{PROVIDENEVRS}\n]",
                 "system-release",
             ],
             stderr=subprocess.DEVNULL,
         )
         .decode()
-        .strip()
-    )
+        .splitlines()
+        if line.startswith("system-release(releasever) = ")
+    ][0]
 except subprocess.CalledProcessError:
     dom0_releasever = "4.3"
 
