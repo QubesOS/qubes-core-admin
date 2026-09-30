@@ -605,6 +605,9 @@ class ZFSPool(qubes.storage.Pool):
             snap_on_start=cfg.get("snap_on_start", False),
             source=cfg.get("source", None),
             ephemeral=cfg.get("ephemeral"),
+            encrypted=cfg.get("encrypted"),
+            luks_needs_zero=cfg.get("luks_needs_zero"),
+            luks_guest_size=cfg.get("luks_guest_size"),
             snap_on_start_forensics=cfg.get("snap_on_start_forensics", False),
         )
         self._volume_objects_cache[vid] = volume
@@ -1810,6 +1813,9 @@ class ZFSVolume(qubes.storage.Volume):
         snap_on_start: bool = False,
         source: Optional[qubes.storage.Volume] = None,
         ephemeral: Optional[bool] = None,
+        encrypted=None,
+        luks_needs_zero=None,
+        luks_guest_size=None,
         snap_on_start_forensics: bool = False,
         **kwargs: Dict[str, Any],
     ) -> None:
@@ -1848,6 +1854,9 @@ class ZFSVolume(qubes.storage.Volume):
             snap_on_start=snap_on_start,
             source=source,
             ephemeral=ephemeral,
+            encrypted=encrypted,
+            luks_needs_zero=luks_needs_zero,
+            luks_guest_size=luks_guest_size,
             **kwargs,
         )
         self.snap_on_start_forensics = snap_on_start_forensics
