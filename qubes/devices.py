@@ -60,7 +60,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 """
 
 import itertools
-from typing import Iterable
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import qubes.exc
 import qubes.utils
@@ -71,13 +71,108 @@ from qubes.device_protocol import (
     DeviceAssignment,
     VirtualDevice,
     AssignmentMode,
+    qbool,
 )
 from qubes.exc import (
     ProtocolError,
+    QubesValueError,
     DeviceNotAssigned,
     DeviceAlreadyAttached,
     DeviceAlreadyAssigned,
 )
+
+# QubesDB path a backend writes under, per device class, while it supports
+# ``used`` markers for that class.
+USAGE_TRACKING_QDB_PREFIX = "/qubes-device-usage-tracking"
+# A malicious backend could block qubesd by infinite searching.
+MAX_TREE_DEPTH = 8
+
+
+def qbool_untrusted_used(untrusted_used, log=None) -> bool:
+    """
+    Parse the untrusted ``used`` marker read from a backend VM's QubesDB.
+
+    A missing value (:py:obj:`None`) or a boolean-false literal
+    (``False``/``0``/``no``/``off``) means the device is not in use there.
+    A boolean-true literal (``True``/``1``/``yes``/``on``) means it is.
+
+    Any other, unparsable value is treated as **in use**: it is safer to
+    refuse such a device. Such a case is logged as a warning.
+    """
+    if untrusted_used is None:
+        return False
+    if isinstance(untrusted_used, bytes):
+        untrusted_used = untrusted_used.decode("ascii", errors="replace")
+    try:
+        return qbool(untrusted_used.strip())
+    except QubesValueError:
+        if log is not None:
+            log.warning(
+                "Invalid 'used' marker %r, assuming the device is in use",
+                untrusted_used,
+            )
+        return True
+
+
+def _children_by_parent(backend_domain) -> Dict[Tuple[str, str], List]:
+    index: Dict[Tuple[str, str], List] = {}
+    for devclass in list(backend_domain.devices.keys()):
+        for dev in backend_domain.devices[devclass]:
+            parent = dev.parent_device
+            if parent is None:
+                continue
+            key = (parent.port.devclass, parent.port.port_id)
+            index.setdefault(key, []).append(dev)
+    return index
+
+
+def ancestors(device) -> Iterable:
+    """
+    Ancestors of *device*, nearest first, as reported by the backend.
+
+    The links are untrusted input, so a backend could describe a cycle;
+    ``seen`` is what keeps that from looping forever here.
+    """
+    seen = {(device.port.devclass, device.port.port_id)}
+    node = getattr(device, "parent_device", None)
+    while node is not None and len(seen) <= MAX_TREE_DEPTH:
+        key = (node.port.devclass, node.port.port_id)
+        if key in seen:
+            return
+        seen.add(key)
+        yield node
+        node = getattr(node, "parent_device", None)
+
+
+def all_subdevices(device, children=None) -> Iterable:
+    """
+    Descendants of *device*, as reported by the backend.
+
+    The "links" are untrusted input, so a backend could describe a cycle;
+    ``seen`` is what keeps that from looping forever here.
+
+    *children* is an index from `_children_by_parent`, to reuse it.
+    """
+
+    def key(dev):
+        return dev.port.devclass, dev.port.port_id
+
+    seen = {key(device)}
+
+    if children is None:
+        children = _children_by_parent(device.backend_domain)
+    stack = [(child, 1) for child in children.get(key(device), ())]
+    while stack:
+        child, depth = stack.pop()
+        if key(child) in seen:
+            continue
+        seen.add(key(child))
+        yield child
+        if depth < MAX_TREE_DEPTH:
+            stack.extend(
+                (grandchild, depth + 1)
+                for grandchild in children.get(key(child), ())
+            )
 
 
 class DeviceCollection:
@@ -184,6 +279,29 @@ class DeviceCollection:
         Assignment modes allowed for this device class.
         """
         return self.devclass.SUPPORTED_ASSIGNMENT_MODES
+
+    @property
+    def usage_tracking(self) -> bool:
+        """
+        Does this backend maintain the ``used`` markers for this class?
+
+        The backend manifests it by writing `USAGE_TRACKING_QDB_PREFIX` +
+        the class name.
+        """
+        if not self._vm or not self._vm.is_running():
+            return False
+        untrusted_value = self._vm.untrusted_qdb.read(
+            f"{USAGE_TRACKING_QDB_PREFIX}/{self._bus}"
+        )
+        if untrusted_value is None:
+            return False
+        if isinstance(untrusted_value, bytes):
+            # do not raise on decoding errors
+            untrusted_value = untrusted_value.decode("ascii", errors="replace")
+        try:
+            return qbool(untrusted_value.strip())
+        except QubesValueError:
+            return False
 
     async def attach(self, assignment: DeviceAssignment):
         """
@@ -429,6 +547,28 @@ class DeviceCollection:
                     mode="manual",
                 )
 
+    def get_exposed_attachments(self) -> Dict[str, Any]:
+        """
+        Returns map of exposed devices attached to their frontend VMs.
+
+        It asks every domain; for repeating calls use :py:class:`Attachments`.
+        """
+        result: Dict[str, Any] = {}
+        app = getattr(self._vm, "app", None)
+        if app is not None:
+            for vm in app.domains:
+                if not vm.is_running():
+                    continue
+                try:
+                    assignments = vm.devices[self._bus].get_attached_devices()
+                except LookupError:
+                    continue
+                for assignment in assignments:
+                    if assignment.backend_domain == self._vm:
+                        result[assignment.port.port_id] = vm
+
+        return result
+
     def get_assigned_devices(
         self, required_only: bool = False
     ) -> Iterable[DeviceAssignment]:
@@ -481,10 +621,108 @@ class DeviceManager(dict):
     def __init__(self, vm):
         super().__init__()
         self._vm = vm
+        # guards the recursion in `busy_ports()`
+        self._computing_busy_ports = False
 
     def __missing__(self, key):
         self[key] = DeviceCollection(self._vm, key)
         return self[key]
+
+    def attachments(self) -> "Attachments":
+        """
+        Lazy snapshot set of all device attachments.
+        """
+        return Attachments(self)
+
+    def busy_ports(
+        self, devclasses: Tuple[str, ...] = ("block",)
+    ) -> Dict[str, Set[str]]:
+        """
+        Ports unusable because they, something below or something above
+        them is attached.
+
+        Returns ``{devclass: {port_id, ...}}``.  It walks up and down from
+        the exported ports of each class in `devclasses`.
+
+        For now, only block devices are included as starting points, as only
+        they can be child devices. *If this changes*, modify the default
+        argument or (better) add a handler that will search all device classes.
+
+        WARNING: Finding a class's attached ports lists that class, and an
+        extension lists a class by asking `busy_ports`: that creates a loops
+        here, it will re-enter `busy_ports` while it runs. So we need a guard.
+        The guard turns the nested call into an empty {}, which is ok since
+        a nested caller only needs port ids, never their busy state.
+        """
+        if self._computing_busy_ports:
+            return {}
+        self._computing_busy_ports = True
+        try:
+            return self._busy_ports(devclasses)
+        finally:
+            self._computing_busy_ports = False
+
+    def _busy_ports(self, devclasses) -> Dict[str, Set[str]]:
+        result: Dict[str, Set[str]] = {}
+        children = None
+
+        for devclass in devclasses:
+            for port_id in self[devclass].get_exposed_attachments():
+                try:
+                    node = self[devclass][port_id]
+                except (LookupError, TypeError):
+                    # exported but no longer listed; the port still counts
+                    result.setdefault(devclass, set()).add(port_id)
+                    continue
+
+                if children is None:
+                    children = _children_by_parent(self._vm)
+                for busy in itertools.chain(
+                    [node], ancestors(node), all_subdevices(node, children)
+                ):
+                    result.setdefault(busy.port.devclass, set()).add(
+                        busy.port.port_id
+                    )
+
+        return result
+
+
+class Attachments:
+    """
+    Lazy snapshot set of all device attachments.
+
+    Who holds what, from one search over the running domains.
+    Meant to live for a single operation: it never refreshes.
+    """
+
+    def __init__(self, manager: DeviceManager):
+        self._manager = manager
+        self._bus_cache: Dict[str, Dict[str, Any]] = {}
+
+    def _bus(self, devclass: str) -> Dict[str, Any]:
+        if devclass not in self._bus_cache:
+            self._bus_cache[devclass] = self._manager[
+                devclass
+            ].get_exposed_attachments()
+        return self._bus_cache[devclass]
+
+    def frontend(self, port) -> Optional[Any]:
+        """
+        The frontend domain *port* is attached to, if any.
+        """
+        return self._bus(port.devclass).get(port.port_id)
+
+    def attached_subdevice(self, device) -> Optional[Tuple[Any, Any]]:
+        """
+        A subdevice of *device* that is attached to a VM, and that VM.
+
+        Stops at the first one found; the caller has to free it itself.
+        """
+        for subdevice in all_subdevices(device):
+            frontend = self.frontend(subdevice.port)
+            if frontend is not None:
+                return subdevice, frontend
+        return None
 
 
 class AssignedCollection:

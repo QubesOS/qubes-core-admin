@@ -94,6 +94,9 @@ def device_list_change(
                     assignment.matches(device)
                     and device.port_id in added
                     and device.port_id not in attached
+                    # do not auto-attach busy devices: attach would be
+                    # refused anyway, leaving an unhandled task exception
+                    and not device.busy
                 ):
                     frontends = to_attach.get(device.port_id, {})
                     # make it unique
