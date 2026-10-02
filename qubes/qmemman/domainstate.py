@@ -43,6 +43,10 @@ class DomainState:  # pylint: disable=too-few-public-methods
         self.slow_memset_react: bool = False
         # Domain can't redistribute memory
         self.paused: bool = False
+        # Reserve domain memory for reuse on the next power cycle.
+        self.reserved: float = 0.0
+        # Reserved domain was released from hypervisor.
+        self.delete_requested: bool = False
 
     def __repr__(self) -> str:
         return self.__dict__.__repr__()

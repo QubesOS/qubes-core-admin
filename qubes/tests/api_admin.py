@@ -1531,6 +1531,89 @@ netvm default=True type=vm \n"""
             self.call_mgmt_func(b"admin.vm.Shutdown", b"test-vm1", b"forcewait")
         func_mock.assert_not_called()
 
+    def test_235_restart(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=False)
+
+    def test_235_restart_kill(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"kill")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=True)
+
+    def test_236_restart_force(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"force")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, kill=False)
+
+    def test_237_restart_wait(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(b"admin.vm.Restart", b"test-vm1", b"wait")
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=False, kill=False)
+
+    def test_238_restart_wait_force(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(
+            b"admin.vm.Restart", b"test-vm1", b"wait+force"
+        )
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, kill=False)
+
+    def test_239_restart_force_wait(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        value = self.call_mgmt_func(
+            b"admin.vm.Restart", b"test-vm1", b"force+wait"
+        )
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with(force=True, kill=False)
+
+    def test_239_restart_force_wait_invalid(self):
+        func_mock = unittest.mock.Mock()
+
+        async def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+
+        self.vm.restart = coroutine_mock
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.Restart", b"test-vm1", b"forcewaitkill"
+            )
+        func_mock.assert_not_called()
+
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()
 
@@ -1815,6 +1898,25 @@ netvm default=True type=vm \n"""
                 b"admin.vm.feature.Remove",
                 b"test-vm1",
                 str(feature).encode(),
+            )
+
+    def test_304_property_prohibited(self):
+        del self.app.domains[0].fire_event
+        prop = qubes.ext.admin.PROHIBITED_PROPERTIES[0]
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.property.Set",
+                b"test-vm1",
+                str(prop).encode(),
+                b"5",
+            )
+
+        setattr(self.vm, prop, False)
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.property.Reset",
+                b"test-vm1",
+                str(prop).encode(),
             )
 
     def test_310_feature_checkwithtemplate(self):
@@ -2378,6 +2480,7 @@ netvm default=True type=vm \n"""
     def test_411_property_get_all(self):
         expected = """check_updates_vm default=True type=bool True
 clockvm default=True type=vm 
+default_allowed_reboots default=True type=int 0
 default_audiovm default=True type=vm dom0
 default_dispvm default=True type=vm 
 default_guivm default=True type=vm dom0

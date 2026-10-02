@@ -54,6 +54,140 @@ class TC_06_AppVMMixin(object):
             self.assertEqual(tpl.features.get("os-distribution"), "kali")
             self.assertEqual(tpl.features.get("os-distribution-like"), "debian")
 
+    def _on_event(self, vm, event, *args, **kwargs):
+        # pylint: disable=unused-argument
+        self.log.info("Received event: %s", event)
+        self.fired_events.append(event)
+
+    def _wait_for_event(self, event, timeout):
+        self.log.info("Waiting for event '%s'", event)
+        for _ in range(timeout):
+            if event in self.fired_events:
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+        else:
+            self.fail(f"didn't receive event '{event}' after {timeout}s")
+
+    def reboot(self, must_start: bool):
+        start_time = self.testvm.start_time
+        shutdown_events = ["domain-shutdown"]
+        start_events = [
+            "domain-pre-start",
+            "domain-pre-spawn",
+            "domain-spawn",
+            "domain-start",
+        ]
+        events = [*shutdown_events, *start_events]
+        self.fired_events: list[str] = []
+        for event in events:
+            self.testvm.add_handler(event, self._on_event)
+
+        if getattr(self, "reboot_from_api", False):
+            self.loop.run_until_complete(self.testvm.restart())
+            if must_start:
+                wants_events = events
+                rejects_events = []
+            else:
+                wants_events = shutdown_events
+                rejects_events = start_events
+            for event in wants_events:
+                if event not in self.fired_events:
+                    self.fail(f"didn't receive event '{event}'")
+            for event in rejects_events:
+                if event in self.fired_events:
+                    self.fail(f"shouldn't have received event '{event}'")
+            for event in events:
+                self.testvm.remove_handler(event, self._on_event)
+            return
+
+        try:
+            self.loop.run_until_complete(
+                self.testvm.run_service_for_stdio(
+                    "qubes.VMExec+reboot+now", user="root"
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 129:
+                raise
+        self._wait_for_event(
+            event="domain-shutdown", timeout=self.testvm.shutdown_timeout
+        )
+        if must_start:
+            start_timeout = max(
+                self.testvm.qrexec_timeout // len(start_events), 15
+            )
+            for event in start_events:
+                self._wait_for_event(event=event, timeout=start_timeout)
+            new_start_time = self.testvm.start_time
+            self.assertNotEqual(start_time, new_start_time)
+        else:
+            for _ in range(10):
+                if "domain-pre-start" in self.fired_events:
+                    self.fail("qube attempted to start again")
+                    break
+                self.loop.run_until_complete(asyncio.sleep(1))
+            self.assertFalse(self.testvm.is_running())
+        for event in events:
+            self.testvm.remove_handler(event, self._on_event)
+
+    def _reboot_prohibit(self):
+        self.gen_testvm()
+        self.log.info("Prohibiting reboot and attempting to do it anyway")
+        self.loop.run_until_complete(self.testvm.start())
+        self.assertTrue(self.testvm.is_running())
+        self.testvm.allowed_reboots = 0
+        self.reboot(must_start=False)
+        self.log.info("Done")
+
+    def _reboot_once(self):
+        self.gen_testvm()
+        self.log.info("Allows a single reboot but attempt twice")
+        self.loop.run_until_complete(self.testvm.start())
+        self.assertTrue(self.testvm.is_running())
+        self.testvm.allowed_reboots = 1
+        self.reboot(must_start=True)
+        self.reboot(must_start=False)
+        self.log.info("Done")
+
+    def _reboot_infinite(self):
+        self.gen_testvm()
+        self.log.info("Allows infinite reboots and attempt twice")
+        self.loop.run_until_complete(self.testvm.start())
+        self.assertTrue(self.testvm.is_running())
+        self.testvm.allowed_reboots = -1
+        self.reboot(must_start=True)
+        self.reboot(must_start=True)
+        self.log.info("Done")
+
+    def gen_testvm(self):
+        self.testvm = self.app.add_new_vm(
+            "AppVM",
+            label="red",
+            name=self.make_vm_name("vm"),
+        )
+        self.loop.run_until_complete(self.testvm.create_on_disk())
+
+    def test_015_reboot_prohibit_from_qube(self):
+        self._reboot_prohibit()
+
+    def test_015_reboot_once_from_qube(self):
+        self._reboot_once()
+
+    def test_015_reboot_infinite_from_qube(self):
+        self._reboot_infinite()
+
+    def test_016_reboot_prohibit_from_server(self):
+        self.reboot_from_api = True
+        self._reboot_prohibit()
+
+    def test_016_reboot_once_from_server(self):
+        self.reboot_from_api = True
+        self._reboot_once()
+
+    def test_016_reboot_infinite_from_server(self):
+        self.reboot_from_api = True
+        self._reboot_infinite()
+
     def test_020_custom_persist(self):
         self.testvm = self.app.add_new_vm(
             "AppVM",
