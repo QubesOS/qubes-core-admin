@@ -1680,6 +1680,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 raise
 
         self.startup_task = None
+        self.log.info("Started qube")
         return self
 
     @asynccontextmanager
