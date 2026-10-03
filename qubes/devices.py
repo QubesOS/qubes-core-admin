@@ -210,6 +210,20 @@ class DeviceCollection:
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
+        .. event:: device-check-available:<class> (device, options)
+
+            Asks whether a device is free to be attached.
+
+            Fired for `required` assignment while the qube is starting;
+            raising refuses the start. Right after it, the device is
+            reserved for the qube (:py:meth:`DeviceCollection.reserve`).
+
+            Handler for this event must be synchronous: nothing may await
+            between the check and the reservation.
+
+            :param device: :py:class:`DeviceInfo` object about to be taken
+            :param options: :py:class:`dict` of assignment options
+
         .. event:: device-detach:<class> (port)
 
             Fired when device is detached from a VM.
@@ -268,6 +282,8 @@ class DeviceCollection:
         self._vm = vm
         self._bus = bus
         self._set = AssignedCollection()
+        #: port id -> qube starting with that device required
+        self._reserved: Dict[str, Any] = {}
 
         self.devclass = qubes.utils.get_entry_point_one(
             "qubes.devices", self._bus
@@ -547,13 +563,31 @@ class DeviceCollection:
                     mode="manual",
                 )
 
+    def reserve(self, port_id: str, vm) -> None:
+        """
+        Count an exposed device as attached to *vm*, a qube still starting.
+
+        A starting qube shows its required devices as attached only once
+        libvirt creates it, long after the start-time check; until then
+        the reservation keeps every other check from handing them out.
+        """
+        self._reserved[port_id] = vm
+
+    def release(self, port_id: str, vm) -> None:
+        """
+        Drop a reservation made with :py:meth:`reserve`.
+        """
+        if self._reserved.get(port_id) == vm:
+            del self._reserved[port_id]
+
     def get_exposed_attachments(self) -> Dict[str, Any]:
         """
         Returns map of exposed devices attached to their frontend VMs.
 
+        Includes devices reserved for starting qubes.
         It asks every domain; for repeating calls use :py:class:`Attachments`.
         """
-        result: Dict[str, Any] = {}
+        result: Dict[str, Any] = dict(self._reserved)
         app = getattr(self._vm, "app", None)
         if app is not None:
             for vm in app.domains:
@@ -722,6 +756,19 @@ class Attachments:
             frontend = self.frontend(subdevice.port)
             if frontend is not None:
                 return subdevice, frontend
+        return None
+
+    def attached_ancestor(self, device) -> Optional[Tuple[Any, Any]]:
+        """
+        An ancestor of *device* that is attached to a VM, and that VM.
+
+        A backend hides the partitions of an exported disk, but not of reserved
+        ones.
+        """
+        for ancestor in ancestors(device):
+            frontend = self.frontend(ancestor.port)
+            if frontend is not None:
+                return ancestor, frontend
         return None
 
 

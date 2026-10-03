@@ -598,6 +598,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     f"Device {device} cannot be attached: its subdevice "
                     f"{subdevice} is attached to another VM."
                 )
+            parent_attach = attachments.attached_ancestor(device)
+            if parent_attach is not None:
+                parent, _frontend = parent_attach
+                raise qubes.exc.DeviceUsed(
+                    f"Device {device} cannot be attached: its parent "
+                    f"{parent} is attached to another VM."
+                )
 
             # Guardian for local usage, DeviceAlreadyAttached is checked below.
             if device.busy:
@@ -643,6 +650,34 @@ class BlockDeviceExtension(qubes.ext.Extension):
         raise qubes.exc.DeviceAlreadyAttached(
             f"Device {device} is already attached to another VM."
         )
+
+    @qubes.ext.handler("device-check-available:block")
+    def on_device_check_available_block(self, vm, event, device, options):
+        """
+        Checks if device can be attached.
+
+        Used in `QubesVM.start()` while nothing has been allocated yet,
+        so raising here aborts the start. Prevents forcible stealing of
+        a device from another qube.
+        """
+        # pylint: disable=unused-argument
+        if isinstance(device, qubes.device_protocol.UnknownDevice):
+            return
+
+        attachments = device.backend_domain.devices.attachments()
+        current_attachment = attachments.frontend(device.port)
+
+        # With `check_local_usage=False`, even if the backend VM does not have a
+        # device watcher, the block device will be taken and attached, which may
+        # disrupt local usage.
+        self.refuse_unavailable(
+            device,
+            attachments,
+            current_attachment,
+            force=False,
+            check_local_usage=False,
+        )
+        self.refuse_already_attached(vm, device, current_attachment)
 
     def pre_attachment_internal(self, vm, device, options):
         if isinstance(device, qubes.device_protocol.UnknownDevice):
