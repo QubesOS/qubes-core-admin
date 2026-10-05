@@ -24,6 +24,7 @@ import unittest.mock
 
 import qubes.api
 import qubes.exc
+import qubes.firewall
 import qubes.tests
 
 
@@ -41,6 +42,7 @@ class TestMgmt:
                 "mgmt.success": self.success,
                 "mgmt.success_none": self.success_none,
                 "mgmt.qubesexception": self.qubesexception,
+                "mgmt.invalid_firewall_comment": self.invalid_firewall_comment,
                 "mgmt.exception": self.exception,
                 "mgmt.event": self.event,
             }[self.method.decode()]
@@ -66,6 +68,9 @@ class TestMgmt:
 
     async def qubesexception(self, untrusted_payload):
         raise qubes.exc.QubesException("qubes-exception")
+
+    async def invalid_firewall_comment(self, untrusted_payload):
+        qubes.firewall.Rule.from_api_string(untrusted_payload.decode("ascii"))
 
     async def exception(self, untrusted_payload):
         # pylint: disable=broad-exception-raised
@@ -164,6 +169,22 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
                 asyncio.wait_for(self.reader.read(), 1)
             )
         self.assertEqual(response, b"2\0QubesException\0\0qubes-exception\0")
+
+    def test_003_invalid_firewall_comment(self):
+        self.writer.write(
+            b"mgmt.invalid_firewall_comment dom0 name dom0\0"
+            b"action=accept comment=Access?"
+        )
+        self.writer.write_eof()
+        response = self.loop.run_until_complete(
+            asyncio.wait_for(self.reader.read(), 1)
+        )
+        self.assertTrue(
+            response.startswith(
+                b"2\0QubesValueError\0\0Invalid firewall comment: "
+            ),
+            response,
+        )
 
     def test_004_exception_generic(self):
         self.writer.write(b"mgmt.exception+arg dom0 name dom0\0payload")

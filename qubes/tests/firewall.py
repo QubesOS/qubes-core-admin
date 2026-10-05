@@ -341,6 +341,14 @@ class TC_07_Comment(qubes.tests.QubesTestCase):
         self.assertEqual(instance.api_rule, "comment=Some comment")
         self.assertIsNone(instance.rule)
 
+    def test_001_invalid(self):
+        for comment in ("Access?", "Access!", "a\tb", "ä"):
+            with self.subTest(comment=comment):
+                with self.assertRaisesRegex(
+                    qubes.exc.QubesValueError, "Invalid firewall comment"
+                ):
+                    qubes.firewall.Comment(comment)
+
 
 class TC_08_Rule(qubes.tests.QubesTestCase):
     def test_000_simple(self):
