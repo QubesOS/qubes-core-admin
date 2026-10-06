@@ -1826,8 +1826,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                         for mode in device_info.SUPPORTED_ASSIGNMENT_MODES
                     )
                 )
-            # pylint: disable=broad-exception-caught
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 # a class that fails to load or does not expose the metadata
                 # is still listed, just without the extra properties
                 self.app.log.warning(
