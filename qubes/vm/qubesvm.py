@@ -1749,10 +1749,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             when domain is already shut down.
         """
 
-        # This flags already started shutdown operation.
+        # This flags an already started shutdown operation.
+        # An halted VM or having a waiter lock are indicators of ongoing shutdown operation.
         pending = not self.__waiter is None
+        is_running = not pending or not self.is_halted()
 
-        if not self.is_running() and not self.is_paused() and (not pending or not self.is_halted):
+        if (
+                not self.is_running() 
+                and (not self.is_paused() and is_running)
+            ):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         if self.__waiter is None:

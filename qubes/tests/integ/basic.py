@@ -253,7 +253,6 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             # one after another, private volume is gone
             self.loop.run_until_complete(self.vm.storage.verify())
 
-
     def test_200_shutdown_when_in_pre_shutdown(self):
         vmname = self.make_vm_name("appvm")
         
@@ -278,9 +277,9 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.vm.start())
 
         # Once the domain is in pre shutdown, a new shutdown request will be triggered.
-        self.vm.add_handler("domain-pre-shutdown", 
-                            self._test_200_on_domain_pre_shutdown
-            )
+        self.vm.add_handler(
+                "domain-pre-shutdown", self._test_200_on_domain_pre_shutdown
+        )
         self.vm.add_handler("domain-shutdown", increment_emission_count)
         self.loop.run_until_complete(self.vm.shutdown(wait=True))
 
