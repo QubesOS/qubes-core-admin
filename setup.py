@@ -69,6 +69,7 @@ if __name__ == "__main__":
                 "qubes.ext.block = qubes.ext.block:BlockDeviceExtension",
                 "qubes.ext.core_features = qubes.ext.core_features:CoreFeatures",
                 "qubes.ext.custom_persist = qubes.ext.custom_persist:CustomPersist",
+                "qubes.ext.dpi = qubes.ext.dpi:DPI",
                 "qubes.ext.gui = qubes.ext.gui:GUI",
                 "qubes.ext.pci = qubes.ext.pci:PCIDeviceExtension",
                 "qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility",
