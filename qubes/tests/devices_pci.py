@@ -185,8 +185,13 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         self.dom0 = TestVM(name="dom0", qid=0)
+        self.dom0.features = {}
         self.app = self.dom0.app
-        self.app.domains = {"dom0": self.dom0, self.dom0: self.dom0}
+        self.app.domains = {
+            "dom0": self.dom0,
+            self.dom0: self.dom0,
+            0: self.dom0,
+        }
         self.ext = qubes.ext.pci.PCIDeviceExtension()
 
     @mock.patch("builtins.open", new=mock_file_open)
@@ -294,3 +299,36 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         )
         self.assertEqual(response, None)
         self.assertListEqual(list(pci_devices.get_assigned_devices()), [])
+
+    @mock.patch("subprocess.Popen")
+    def test_020_pre_detach_pci_executes_service(self, mock_popen):
+        vm = TestVM(name="testvm", qid=1, app=self.app)
+        vm.xid = 5
+        vm.run_service_for_stdio = mock.AsyncMock()
+        vm.libvirt_domain = mock.Mock()
+        self.app.env = mock.Mock()
+        self.app.env.get_template.return_value.render.return_value = "<device/>"
+
+        pci_list_output = b"00.0 0000:00:18.4\n"
+        mock_proc = mock.MagicMock()
+        mock_proc.communicate.return_value = (pci_list_output, b"")
+        mock_proc.__enter__.return_value = mock_proc
+        mock_proc.__exit__.return_value = None
+        mock_popen.return_value = mock_proc
+
+        port = qubes.device_protocol.Port(
+            backend_domain=self.dom0,
+            port_id="0000_00_18.4",
+            devclass="pci",
+        )
+        self.loop.run_until_complete(
+            self.ext.on_device_pre_detached_pci(
+                vm, "device-pre-detach:pci", port
+            )
+        )
+        vm.run_service_for_stdio.assert_called_once_with(
+            "qubes.DetachPciDevice",
+            user="root",
+            input=b"00:00.0",
+        )
+        vm.libvirt_domain.detachDevice.assert_called_once_with("<device/>")
