@@ -304,6 +304,9 @@ elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT_VERSION" = "V540TU" ] && [[ "$BIOS
     fi
 elif [ "$BRAND" = "Star Labs" ] && [ "$PRODUCT" = "StarFighter" ] && [[ "$PRODUCT_FAMILY" = "F2" ]]; then
     CERTIFIED=yes
+elif [ "$BRAND" = "Star Labs" ] && [ "$PRODUCT" = "StarBook Horizon" ] && [[ "$CPU" = "  Intel(R) Core(TM) i3-N305" ]]; then
+    # StarBook Horizon Standard only, for now
+    CERTIFIED=yes
 fi
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
