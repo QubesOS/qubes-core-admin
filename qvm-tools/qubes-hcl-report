@@ -228,7 +228,7 @@ END {
   if (brand == "O.E.M") {
     brand = alt_brand;
     product = alt_product;
-    protuct_version = alt_product_version;
+    product_version = alt_product_version;
   }
   print("BRAND=" shellquote(brand));
   print("PRODUCT=" shellquote(product));
