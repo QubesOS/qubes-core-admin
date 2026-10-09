@@ -72,7 +72,7 @@ def needed_mem(dom) -> int:
 # Returns empty list when the request cannot be satisfied.
 def balloon(mem_size, dom_dict) -> list:
     log.debug(
-        "balloon(mem_size={!r}, dom_dict={!r})".format(mem_size, dom_dict)
+        "balloon(mem_size={:,}, dom_dict={!r})".format(mem_size, dom_dict)
     )
     donors = []
     request = []
@@ -83,14 +83,16 @@ def balloon(mem_size, dom_dict) -> list:
         need = needed_mem(dom)
         if need < 0:
             log.info(
-                "balloon: dom {} has actual memory {}".format(
+                "balloon: dom {} has actual memory {:,}".format(
                     domid, dom.mem_actual
                 )
             )
             donors.append((domid, -need))
             available -= need
 
-    log.info("req={} avail={} donors={!r}".format(mem_size, available, donors))
+    log.info(
+        "req={:,} avail={:,} donors={!r}".format(mem_size, available, donors)
+    )
 
     if available < mem_size:
         return []
@@ -98,7 +100,7 @@ def balloon(mem_size, dom_dict) -> list:
     for donors_iter in donors:
         domid, mem = donors_iter
         mem_borrowed = mem * scale * REQ_SAFETY_NET_FACTOR
-        log.info("borrow {} from {}".format(mem_borrowed, domid))
+        log.info("borrow {:,.0f} from {}".format(mem_borrowed, domid))
         mem_target = int(dom_dict[domid].mem_actual - mem_borrowed)
         request.append((domid, mem_target))
     return request
@@ -110,8 +112,8 @@ def balance_when_enough_mem(
     dom_dict, xen_free_mem, total_mem_pref, total_available_mem
 ):
     log.info(
-        "balance_when_enough_mem(xen_free_mem={!r}, "
-        "total_mem_pref={!r}, total_available_mem={!r})".format(
+        "balance_when_enough_mem(xen_free_mem={:,}, "
+        "total_mem_pref={:,}, total_available_mem={:,})".format(
             xen_free_mem, total_mem_pref, total_available_mem
         )
     )
@@ -139,7 +141,7 @@ def balance_when_enough_mem(
     # Distribute left memory across all acceptors.
     while mem_left > 0 and acceptors_count > 0:
         log.info(
-            "mem_left={} acceptors_count={}".format(mem_left, acceptors_count)
+            "mem_left={:,} acceptors_count={}".format(mem_left, acceptors_count)
         )
 
         new_mem_left = 0
@@ -184,8 +186,8 @@ def balance_when_low_on_mem(
     acceptors,
 ):
     log.info(
-        "balance_when_low_on_mem(xen_free_mem={!r}, "
-        "total_mem_pref_acceptors={!r}, donors={!r}, acceptors={!r})".format(
+        "balance_when_low_on_mem(xen_free_mem={:,}, "
+        "total_mem_pref_acceptors={:,}, donors={!r}, acceptors={!r})".format(
             xen_free_mem, total_mem_pref_acceptors, donors, acceptors
         )
     )
@@ -219,7 +221,7 @@ def balance_when_low_on_mem(
 # Return a dictionary of various memory data points.
 def mem_info(xen_free_mem, dom_dict) -> dict:
     log.debug(
-        "mem_info(xen_free_mem={!r}, dom_dict={!r})".format(
+        "mem_info(xen_free_mem={:,}, dom_dict={!r})".format(
             xen_free_mem, dom_dict
         )
     )
@@ -271,7 +273,7 @@ def mem_info(xen_free_mem, dom_dict) -> dict:
 # equivalent
 def balance(xen_free_mem, dom_dict) -> dict:
     log.debug(
-        "balance(xen_free_mem={!r}, dom_dict={!r})".format(
+        "balance(xen_free_mem={:,}, dom_dict={!r})".format(
             xen_free_mem, dom_dict
         )
     )
