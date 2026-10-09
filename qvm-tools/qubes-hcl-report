@@ -189,6 +189,7 @@ function shellquote(s) {
 in_system_info == 1 && /^\tManufacturer:/ { brand = $2; }
 in_system_info == 1 && /^\tProduct Name:/ { product = $2; }
 in_system_info == 1 && /^\tVersion:/ { product_version = $2; }
+in_system_info == 1 && /^\tFamily:/ { product_family = $2; }
 in_base_board_info == 1 && /^\tManufacturer:/ { alt_brand = $2; }
 in_base_board_info == 1 && /^\tProduct Name:/ { alt_product = $2; }
 in_base_board_info == 1 && /^\tVersion:/ { alt_product_version = $2; }
@@ -233,6 +234,7 @@ END {
   print("BRAND=" shellquote(brand));
   print("PRODUCT=" shellquote(product));
   print("PRODUCT_VERSION=" shellquote(product_version));
+  print("PRODUCT_FAMILY=" shellquote(product_family));
   print("BIOS=" shellquote(bios_version));
   print("TYPE=" shellquote(type));
 }' "$TEMP_DIR/dmidecode") || exit
@@ -300,6 +302,8 @@ elif [ "$BRAND" = "Notebook" ] && [ "$PRODUCT_VERSION" = "V540TU" ] && [[ "$BIOS
     if [ -z "$wifi" ] || [[ "$wifi" = *"8086:7e40"* ]] || [[ "$wifi" = *"8086:272b"* ]]; then
         CERTIFIED=yes
     fi
+elif [ "$BRAND" = "Star Labs" ] && [ "$PRODUCT" = "StarFighter" ] && [[ "$PRODUCT_FAMILY" = "F2" ]]; then
+    CERTIFIED=yes
 fi
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
