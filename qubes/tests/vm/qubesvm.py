@@ -535,6 +535,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         # TODO: lower than memory
         # TODO: human readable setter (500M, 4G)?
 
+    def test_172_maxmem_running_nohotplug(self):
+        vm = self.get_vm()
+        vm.use_memory_hotplug = False
+        with unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                vm.maxmem = 1000
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't change maxmem of VM", str(cm.exception))
+
     def test_190_vcpus(self):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, "vcpus", 2)
@@ -3306,6 +3315,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             fully_usable = vm.is_fully_usable()
             mock_os_path_exists.assert_not_called()
             self.assertEqual(fully_usable, True)
+
+    def test_730_remove_from_disk_running(self):
+        vm = self.get_vm()
+        vm.get_power_state = unittest.mock.Mock(return_value="Running")
+        with unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                self.loop.run_until_complete(vm.remove_from_disk())
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't remove VM", str(cm.exception))
 
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
