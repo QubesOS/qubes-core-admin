@@ -39,6 +39,10 @@ class AUDIO(qubes.ext.Extension):
         if not vm.is_running():
             return
 
+        # QubesDB is not up yet, domain-qdb-create will set the entry
+        if vm.untrusted_qdb is None:
+            return
+
         # Add AudioVM Xen ID for gui-agent
         audiovm = getattr(vm, "audiovm", None)
         if audiovm is not None:
@@ -159,6 +163,9 @@ class AUDIO(qubes.ext.Extension):
             domain for domain in self.attached_vms(vm) if domain.is_running()
         ]
         for attached_vm in attached_vms:
+            if attached_vm.untrusted_qdb is None:
+                # QubesDB is not up yet, domain-qdb-create will set the entry
+                continue
             attached_vm.untrusted_qdb.write(
                 "/qubes-audio-domain-xid", str(vm.xid)
             )
