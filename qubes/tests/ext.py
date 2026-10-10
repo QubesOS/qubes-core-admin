@@ -26,6 +26,7 @@ import qubes.ext.admin
 import qubes.ext.audio
 import qubes.ext.core_features
 import qubes.ext.custom_persist
+import qubes.ext.gui
 import qubes.ext.services
 import qubes.ext.windows
 import qubes.ext.supported_features
@@ -2730,6 +2731,23 @@ class TC_50_Admin(qubes.tests.QubesTestCase):
                 tag,
             )
 
+    def test_001_derived_tags_permission(self):
+        dom0 = mock.MagicMock(spec=qubes.vm.adminvm.AdminVM)
+        for tag in ("guivm-sys-gui", "audiovm-sys-audio", "relayvm-sys-relay"):
+            for event in (
+                "admin-permission:admin.vm.tag.Set",
+                "admin-permission:admin.vm.tag.Remove",
+            ):
+                with self.subTest(tag=tag, event=event):
+                    with self.assertRaises(qubes.exc.PermissionDenied):
+                        self.ext.on_tag_set_or_remove("test-vm1", event, tag)
+                    # dom0 can still change them
+                    self.ext.on_tag_set_or_remove(dom0, event, tag)
+        # other tags are not protected
+        self.ext.on_tag_set_or_remove(
+            "test-vm1", "admin-permission:admin.vm.tag.Set", "work"
+        )
+
 
 class TC_60_Audio(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -2782,3 +2800,118 @@ class TC_60_Audio(qubes.tests.QubesTestCase):
                     self.audiovm,
                     "domain-pre-shutdown",
                 )
+
+
+class TC_71_GUIVM(qubes.tests.QubesTestCase):
+    """A qube cannot be its own guivm."""
+
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.gui.GUI()
+
+    @staticmethod
+    def _vm(name, guivm=None, default=False):
+        vm = mock.MagicMock()
+        vm.name = name
+        vm.guivm = guivm
+        vm.property_is_default.return_value = default
+        return vm
+
+    def _set(self, vm, guivm):
+        self.ext.on_property_pre_set(
+            vm, "property-pre-set:guivm", name="guivm", newvalue=guivm
+        )
+
+    def test_000_valid_chain(self):
+        dom0 = mock.MagicMock(spec=qubes.vm.adminvm.AdminVM)
+        sys_gui = self._vm("sys-gui", guivm=dom0)
+        self._set(self._vm("work", guivm=sys_gui), sys_gui)
+        self._set(self._vm("work"), None)
+
+    def test_010_self(self):
+        vm = self._vm("sys-gui")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set(vm, vm)
+
+    def test_020_loop(self):
+        gui_a = self._vm("gui-a")
+        gui_b = self._vm("gui-b", guivm=gui_a)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set(gui_a, gui_b)
+        gui_c = self._vm("gui-c", guivm=gui_b)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set(gui_a, gui_c)
+
+    def test_030_existing_loop_elsewhere_terminates(self):
+        # a loop elsewhere must not hang the check
+        gui_x = self._vm("gui-x")
+        gui_y = self._vm("gui-y", guivm=gui_x)
+        gui_x.guivm = gui_y
+        self._set(self._vm("work"), gui_x)
+
+    def _set_default(self, value):
+        self.ext.on_property_pre_set_default_guivm(
+            "app",
+            "property-pre-set:default_guivm",
+            name="default_guivm",
+            newvalue=value,
+        )
+
+    def test_040_loop_through_default(self):
+        sys_gui = self._vm("sys-gui")
+        work = self._vm("work", default=True)
+        sys_gui.app.default_guivm = sys_gui
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set(sys_gui, work)
+
+    def _reset(self, vm):
+        self.ext.on_property_pre_reset(
+            vm, "property-pre-reset:guivm", name="guivm"
+        )
+
+    def test_050_reset(self):
+        dom0 = mock.MagicMock(spec=qubes.vm.adminvm.AdminVM)
+        vm = self._vm("sys-gui", guivm=dom0)
+        vm.app.default_guivm = dom0
+        self._reset(vm)
+        vm.app.default_guivm = vm
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._reset(vm)
+        other = self._vm("sys-gui-2", guivm=vm)
+        vm.app.default_guivm = other
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._reset(vm)
+
+    def test_100_default_guivm(self):
+        self._set_default(None)
+        self._set_default(mock.MagicMock(spec=qubes.vm.adminvm.AdminVM))
+        self._set_default(self._vm("sys-gui"))
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set_default(self._vm("sys-gui-2", default=True))
+
+    def test_110_default_guivm_loop(self):
+        gui_a = self._vm("gui-a", default=True)
+        gui_b = self._vm("gui-b", guivm=gui_a)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self._set_default(gui_b)
+
+    def _load(self, vm):
+        self.ext.on_domain_load_guivm_loop_check(vm, "domain-load")
+
+    def test_200_load_breaks_loop(self):
+        gui_a = self._vm("gui-a")
+        gui_b = self._vm("gui-b", guivm=gui_a)
+        gui_a.guivm = gui_b
+        self._load(gui_a)
+        self.assertIsNone(gui_a.guivm)
+        gui_a.log.error.assert_called_once()
+        self._load(gui_b)
+        self.assertIs(gui_b.guivm, gui_a)
+        gui_b.log.error.assert_not_called()
+
+    def test_210_load_breaks_default_loop(self):
+        vm = self._vm("sys-gui", default=True)
+        vm.guivm = vm
+        vm.app.default_guivm = vm
+        self._load(vm)
+        self.assertIsNone(vm.guivm)
