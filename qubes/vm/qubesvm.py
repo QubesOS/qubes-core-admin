@@ -2245,9 +2245,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """Remove domain remnants from disk."""
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
+                self,
                 "Can't remove VM {!s}, because it's in state {!r}.".format(
                     self, self.get_power_state()
-                )
+                ),
             )
 
         # make sure shutdown is handled before removing anything, but only if
