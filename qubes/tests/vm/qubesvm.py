@@ -3201,6 +3201,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             mock_os_path_exists.assert_not_called()
             self.assertEqual(fully_usable, True)
 
+    def test_730_remove_from_disk_running(self):
+        vm = self.get_vm()
+        vm.get_power_state = unittest.mock.Mock(return_value="Running")
+        with unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                self.loop.run_until_complete(vm.remove_from_disk())
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't remove VM", str(cm.exception))
+
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
             event_fired = False
