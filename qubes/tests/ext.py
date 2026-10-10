@@ -2714,21 +2714,36 @@ class TC_50_Admin(qubes.tests.QubesTestCase):
 
     def test_000_features_permission(self):
         feature = qubes.ext.admin.PROHIBITED_FEATURES[0]
-        with self.assertRaises(qubes.exc.PermissionDenied):
-            self.ext.on_feature_set_or_remove(
-                "test-vm1",
-                "admin-permission:admin.vm.feature.Set",
-                feature,
-            )
+        for mode in ["Set", "Remove"]:
+            with self.subTest(mode=mode):
+                with self.assertRaises(qubes.exc.PermissionDenied):
+                    self.ext.on_feature_set_or_remove(
+                        "test-vm1",
+                        f"admin-permission:admin.vm.feature.{mode}",
+                        feature,
+                    )
+
+    def test_000_properties_permission(self):
+        prop = qubes.ext.admin.PROHIBITED_PROPERTIES[0]
+        for mode in ["Set", "Reset", "Remove"]:
+            with self.subTest(mode=mode):
+                with self.assertRaises(qubes.exc.PermissionDenied):
+                    self.ext.on_property_set_or_remove(
+                        "test-vm1",
+                        f"admin-permission:admin.vm.property.{mode}",
+                        prop,
+                    )
 
     def test_000_tags_permission(self):
         tag = "created-by-test"
-        with self.assertRaises(qubes.exc.PermissionDenied):
-            self.ext.on_tag_set_or_remove(
-                "test-vm1",
-                "admin-permission:admin.vm.tag.Set",
-                tag,
-            )
+        for mode in ["Set", "Remove"]:
+            with self.subTest(mode=mode):
+                with self.assertRaises(qubes.exc.PermissionDenied):
+                    self.ext.on_tag_set_or_remove(
+                        "test-vm1",
+                        f"admin-permission:admin.vm.tag.{mode}",
+                        tag,
+                    )
 
 
 class TC_60_Audio(qubes.tests.QubesTestCase):
