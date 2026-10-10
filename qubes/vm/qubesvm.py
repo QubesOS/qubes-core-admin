@@ -2545,9 +2545,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """Remove domain remnants from disk."""
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
+                self,
                 "Can't remove VM {!s}, because it's in state {!r}.".format(
                     self, self.get_power_state()
-                )
+                ),
             )
 
         # make sure shutdown is handled before removing anything, but only if
@@ -3200,8 +3201,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # Necessary for it to reflect the current state for clients to query.
         if not self.is_halted() and not self.use_memory_hotplug:
             raise qubes.exc.QubesVMNotHaltedError(
+                self,
                 "Can't change maxmem of VM {!s}, because it isn't Halted and "
-                "memory hotplug is forbidden".format(self)
+                "memory hotplug is forbidden".format(self),
             )
 
     @qubes.events.handler("property-set:maxmem")
