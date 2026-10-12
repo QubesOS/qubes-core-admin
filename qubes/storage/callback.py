@@ -699,3 +699,9 @@ class CallbackVolume(qubes.storage.Volume):
     async def is_empty(self):
         await self._assert_initialized()
         return await coro_maybe(self._cb_impl.is_empty())
+
+    async def change_passphrase(self, untrusted_old, untrusted_new):
+        await self._assert_initialized()
+        return await coro_maybe(
+            self._cb_impl.change_passphrase(untrusted_old, untrusted_new)
+        )

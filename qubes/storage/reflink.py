@@ -182,6 +182,11 @@ class ReflinkVolume(qubes.storage.Volume):
         # of copying it
         return self._path_dirty if self.is_dirty() else self._path_clean
 
+    async def change_passphrase(self, untrusted_old, untrusted_new):
+        await super().change_passphrase(untrusted_old, untrusted_new)
+        # the precache would keep the old keyslot
+        _remove_file(self._path_precache)
+
     @contextmanager
     def _update_precache(self):
         _remove_file(self._path_precache)
