@@ -1709,11 +1709,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 asyncio.get_running_loop().create_future()
             )
         waiter = self._lifecycle_waiter[event]
-        try:
-            yield
-        finally:
-            if wait:
-                await asyncio.wait_for(waiter, timeout=timeout)
+        yield
+        if wait:
+            await asyncio.wait_for(waiter, timeout=timeout)
 
     def end_lifecycle_waiter(
         self, event: LibvirtEvents, exc: BaseException | None = None
