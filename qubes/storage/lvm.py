@@ -872,7 +872,7 @@ class ThinVolume(qubes.storage.Volume):
         return super().block_device()
 
     def encrypted_volume_path(self, qube_name, device_name):
-        """Find the name of the encrypted volatile volume"""
+        """Find the name of the mapping of an encrypted volume"""
         # pylint: disable=line-too-long
         vid = "-".join(
             i.replace("-", "--") for i in self._vid_current.split("/")

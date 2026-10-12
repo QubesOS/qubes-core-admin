@@ -55,6 +55,9 @@ _big_buffer = b"\0" * BYTES_TO_ZERO
 LUKS2_HEADER_SIZE = 32 << 20
 #: Maximum length of a passphrase typed into cryptsetup interactively
 LUKS_PASSPHRASE_MAX = 512
+#: Size of the start of a new encrypted volume that gets zeroed, so that the
+#: qube sees an empty volume (see setup-rwdev.sh in the qube)
+LUKS_ZEROED_SIZE = 10 << 20
 _LUKS_MAGIC = b"LUKS\xba\xbe"
 #: Both copies of the LUKS2 header (16 KiB each) at the start of the volume
 _LUKS2_HEADER_AREA = 2 * 16384
@@ -776,7 +779,9 @@ class Volume:
         return self._size
 
     def encrypted_volume_path(self, qube_name, device_name):
-        """Find the name of the encrypted volatile volume"""
+        """Find the name of the mapping of an encrypted (ephemeral, or LUKS2)
+        volume; dom0 udev rules do not probe its content (see
+        00-qubes-ignore-devices.rules in qubes-core-admin-linux)"""
         # We need to ensure we don’t collide with any name used by LVM or LUKS,
         # and that different qubes have different encrypted volume names.
         # LUKS volumes have a name starting with ‘luks-’ followed by a UUID.
@@ -1487,7 +1492,7 @@ class Storage:
         """
         Helper function to import volume data.
 
-        :size: new size in bytes, or None if using old size
+        :size: new size in bytes (seen by the qube), or None if using old size
         """
 
         volume = self.get_volume(volume)
@@ -1495,9 +1500,13 @@ class Storage:
             size = volume.data_size
         if not volume.encrypted:
             return await qubes.utils.coro_maybe(volume.import_data(size))
+        if volume.is_running():
+            raise StoragePoolException(
+                f"Volume {volume!s} must be stopped before importing data"
+            )
         # import through a LUKS mapping of a new container, so that the data
         # gets encrypted on the way
-        name = volume.encrypted_volume_path(self.vm.name, volume.name)
+        name = self._import_mapping(volume)
         if os.path.exists(name):
             raise StoragePoolException(
                 "Encrypted volume {!s} is in use".format(volume)
@@ -1506,32 +1515,49 @@ class Storage:
             volume.import_data(size + LUKS2_HEADER_SIZE)
         )
         try:
+            if volume.is_luks():
+                # the new container gets the passphrase of the old one, make
+                # sure it is not mistyped
+                await volume.check_passphrase()
             await volume.cryptsetup(
                 *_LUKS_FORMAT_ARGS, "--", "luksFormat", path
             )
             await volume.cryptsetup("--", "open", path, name[12:])
             # unwritten parts of a LUKS volume read as random data: zero the
             # beginning, so that the qube sees an empty volume if nothing
-            # (or less) is written (see setup-rwdev.sh in the qube)
+            # (or less) is written
             await qubes.utils.run_program(
                 "dd",
                 "if=/dev/zero",
                 "of=" + name,
                 "bs=1M",
-                "count={}".format(min(size >> 20, 10)),
-                "conv=fsync",
+                "count={}".format(min(size, LUKS_ZEROED_SIZE) >> 20),
+                "conv=nocreat,fsync",
+                "status=none",
                 sudo=True,
+            )
+        except subprocess.CalledProcessError:
+            await self.import_data_end(volume, False)
+            raise StoragePoolException(
+                "Failed to set up encrypted volume {!s}".format(volume)
             )
         except:  # pylint: disable=bare-except
             await self.import_data_end(volume, False)
             raise
         return name
 
+    def _import_mapping(self, volume):
+        """The LUKS mapping importing data into an encrypted volume: not the
+        one of the started volume, but ignored by dom0 udev rules like it"""
+        return Volume.encrypted_volume_path(
+            volume, self.vm.name, volume.name + "-import"
+        )
+
     async def import_data_end(self, volume, success):
         """Helper function to finish/cleanup data import"""
         volume = self.get_volume(volume)
         if volume.encrypted:
-            name = volume.encrypted_volume_path(self.vm.name, volume.name)
+            name = self._import_mapping(volume)
             if os.path.exists(name):
                 await qubes.utils.cryptsetup("--", "close", name[12:])
         return await qubes.utils.coro_maybe(
