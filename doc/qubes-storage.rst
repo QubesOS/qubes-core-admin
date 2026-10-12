@@ -77,12 +77,29 @@ those properties:
   with LUKS2 (persistently, unlike
   :py:attr:`~qubes.storage.Volume.ephemeral`). This can be enabled only on
   writable, :py:attr:`~qubes.storage.Volume.save_on_stop`, non-snapshot
-  volumes in dom0 (like `private`) that are not used as a snapshot source by
-  other volumes, see :py:meth:`qubes.storage.Storage.encrypt`. The passphrase
-  is kept in qubesd memory only (set with ``admin.vm.volume.SetPassphrase``
-  before starting the qube, or before resizing the volume of a running
-  qube) and never written to disk. Existing data is encrypted in place.
-  Disabling encryption is not implemented.
+  volumes in dom0 (like `private`) of qubes that are not templates for other
+  qubes, in pools supporting it (`file`, `file-reflink` and `lvm_thin`), see
+  :py:meth:`qubes.storage.Storage.encrypt`. Existing data is encrypted in
+  place, which writes the whole volume (on a thin pool it gets fully
+  allocated); data written before may remain in blocks released by the
+  pool. If cryptsetup was interrupted while moving the start of the data to
+  the end of the volume (before writing the LUKS header), enabling
+  encryption again is refused; disabling it gives the qube its volume back.
+  Only if the start of the volume is damaged (cryptsetup had started writing
+  the header there), its last 32 MiB hold a copy of the first 32 MiB to
+  restore. The passphrase is kept in qubesd memory only (set with
+  ``admin.vm.volume.SetPassphrase`` before enabling encryption, starting the
+  qube, clearing or importing the volume, or resizing it while the qube
+  runs) and never written to disk, so such a qube cannot be started without
+  it (for example on boot). Changing it does not affect earlier revisions or
+  backups. qubesd reads the volume directly (an LVM volume must be active),
+  and passes discards through, so the pool sees which blocks are unused.
+  Backups hold the encrypted data as is, restoring it as an encrypted volume
+  is not supported yet (a restored volume is a plain one holding the LUKS
+  container, header included). The size reported by
+  ``admin.vm.volume.Info`` is the one visible to the qube, the backing volume
+  is 32 MiB bigger. Disabling encryption is not implemented (only possible
+  while the volume has no LUKS header yet, after a failed attempt).
 
 The storage pool driver may define additional properties.
 
