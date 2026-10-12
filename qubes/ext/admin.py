@@ -180,6 +180,42 @@ class AdminExtension(qubes.ext.Extension):
 
         return (filter_events,)
 
+    @qubes.ext.handler("admin-permission:admin.vm.Stats")
+    def admin_vm_stats(self, vm, event, arg, **kwargs):
+        """
+        When called with target 'dom0' (aka "stats of all domains"),
+        exclude domains that the caller don't have permission to get stats of
+        """
+        # pylint: disable=unused-argument
+
+        if vm.klass == "AdminVM":
+            return None
+
+        def filter_stats(dest):
+            if not hasattr(vm, "app"):
+                return False
+
+            policy = self.policy_cache.get_policy()
+            system_info = qubes.api.internal.SystemInfoCache.get_system_info(
+                vm.app
+            )
+            request = parser.Request(
+                "admin.vm.Stats",
+                "+",
+                vm.name,
+                dest,
+                system_info=system_info,
+                ask_resolution_type=JustEvaluateAskResolution,
+                allow_resolution_type=JustEvaluateAllowResolution,
+            )
+            try:
+                resolution = policy.evaluate(request)
+                return isinstance(resolution, parser.AllowResolution)
+            except parser.AccessDenied:
+                return False
+
+        return (filter_stats,)
+
     @qubes.ext.handler("qubes-close", system=True)
     def on_qubes_close(self, app, event, **kwargs):
         """Unregister policy file watches on app.close()."""
