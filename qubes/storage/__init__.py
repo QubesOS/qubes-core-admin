@@ -1408,18 +1408,33 @@ class Storage:
                     self.vm,
                     f"Volume {vol.source.vid} is encrypted, cannot snapshot it",
                 )
-
-        def start_volume(name, vol):
-            path = vol.encrypted_volume_path(self.vm.name, name)
-            if vol.encrypted:
-                return vol.start_luks(path)
-            if vol.ephemeral:
-                return vol.start_encrypted(path)
-            return vol.start()
-
-        await qubes.utils.void_coros_maybe(
-            start_volume(name, vol) for name, vol in self.vm.volumes.items()
-        )
+        unlocked = []
+        try:
+            for name, vol in self.vm.volumes.items():
+                if vol.encrypted:
+                    path = vol.encrypted_volume_path(self.vm.name, name)
+                    # one at a time, each unlock takes the key derivation
+                    # memory
+                    await vol.start_luks(path)
+                    unlocked.append((vol, path))
+            await qubes.utils.void_coros_maybe(
+                # pylint: disable=line-too-long
+                (
+                    vol.start_encrypted(
+                        vol.encrypted_volume_path(self.vm.name, name)
+                    )
+                    if vol.ephemeral
+                    else vol.start()
+                )
+                for name, vol in self.vm.volumes.items()
+                if not vol.encrypted
+            )
+        except:  # pylint: disable=bare-except
+            # do not leave encrypted volumes unlocked
+            await qubes.utils.void_coros_maybe(
+                vol.stop_encrypted(path) for vol, path in unlocked
+            )
+            raise
 
         for vol in self.vm.volumes.values():
             with open(vol.state_file, "w", encoding="ascii"):
