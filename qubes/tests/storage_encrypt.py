@@ -6,9 +6,16 @@
 # License as published by the Free Software Foundation; either
 # version 2.1 of the License, or (at your option) any later version.
 #
-"""Tests for persistent per-VM LUKS2 encryption (#1293)."""
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, see <https://www.gnu.org/licenses/>.
+#
+"""Tests for LUKS2 volume encryption"""
 
-import asyncio
 import os
 import shutil
 import subprocess
@@ -17,1677 +24,990 @@ import unittest.mock
 
 import qubes.exc
 import qubes.storage
-import qubes.storage.callback
 import qubes.storage.file
+import qubes.storage.lvm
+import qubes.storage.reflink
 import qubes.storage.zfs
 import qubes.tests
 import qubes.tests.storage
-from qubes.config import defaults
-from qubes.storage import StoragePoolException
+from qubes.storage import LUKS2_HEADER_SIZE, StoragePoolException
+
+SIZE = 64 << 20
+LUKS_MAGIC = b"LUKS\xba\xbe"
 
 
-class _DummyApp:
-    """Stand-in so TestVM can be constructed without a full Qubes()."""
+class TestApp:
+    def __init__(self):
+        self.save = unittest.mock.Mock()
+        self.domains = []
 
 
-class _EncryptTestCase(qubes.tests.QubesTestCase):
+class TestVM(qubes.tests.storage.TestVM):
+    klass = "AppVM"
+    template_for_dispvms = False
+
+    def __init__(self, test):
+        super().__init__(test)
+        self.volumes = {}
+        self.fire_event_async = unittest.mock.AsyncMock()
+
+    def is_running(self):
+        return False
+
+
+class EncryptTestCase(qubes.tests.QubesTestCase):
     def setUp(self):
-        try:
-            asyncio.get_event_loop()
-        except RuntimeError:
-            asyncio.set_event_loop(asyncio.new_event_loop())
         super().setUp()
-        self.app = _DummyApp()
+        self.app = TestApp()
         self.tmpdir = tempfile.mkdtemp()
         self.pool = qubes.storage.file.FilePool(
-            name="test-enc-pool", dir_path=self.tmpdir
+            name="test-pool", dir_path=self.tmpdir
         )
         self.pool.setup()
+        self.vm = TestVM(self)
+        self.storage = qubes.storage.Storage(self.vm)
+        self.cryptsetup = unittest.mock.patch(
+            "qubes.utils.cryptsetup", new_callable=unittest.mock.AsyncMock
+        ).start()
+        self.cryptsetup.side_effect = self.cryptsetup_side_effect
+        #: passphrases passed to cryptsetup, as they were at call time
+        self.passphrases = []
+        self.failing = None
+        self.addCleanup(unittest.mock.patch.stopall)
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        shutil.rmtree(self.tmpdir)
         super().tearDown()
 
-    def _private_volume(self, **extra):
-        config = {
-            "name": "private",
+    def make_volume(self, name="private", **config):
+        volume_config = {
+            "name": name,
             "rw": True,
             "save_on_stop": True,
-            "size": defaults["private_img_size"],
+            "size": SIZE,
         }
-        config.update(extra)
-        vm = qubes.tests.storage.TestVM(self)
-        return self.pool.init_volume(vm, config)
+        volume_config.update(config)
+        volume = self.pool.init_volume(self.vm, volume_config)
+        os.makedirs(os.path.dirname(volume.path), exist_ok=True)
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
+        self.vm.volumes[name] = volume
+        return volume
 
-    def _volatile_volume(self, **extra):
-        config = {
-            "name": "volatile",
-            "rw": True,
-            "size": defaults["root_img_size"],
-        }
-        config.update(extra)
-        vm = qubes.tests.storage.TestVM(self)
-        return self.pool.init_volume(vm, config)
+    def mapping(self, volume):
+        return volume.encrypted_volume_path(self.vm.name, volume.name)
+
+    def cryptsetup_calls(self, action):
+        return [
+            call.args
+            for call in self.cryptsetup.call_args_list
+            if action in call.args
+        ]
+
+    def cryptsetup_side_effect(self, *args, **kwargs):
+        if "passphrase" in kwargs:
+            self.passphrases.append(bytes(kwargs["passphrase"]))
+        if self.failing and self.failing[0] in args:
+            raise subprocess.CalledProcessError(self.failing[1], "cryptsetup")
+
+    def fail_cryptsetup(self, action, returncode=1):
+        """Make cryptsetup mock fail for the given action"""
+        self.failing = (action, returncode)
+
+    @staticmethod
+    def write_luks_magic(volume):
+        with open(volume.path, "r+b") as image:
+            image.write(LUKS_MAGIC)
+
+    @staticmethod
+    def fake_resize(volume):
+        """resize() of FileVolume needs losetup, replace it"""
+
+        def resize(size):
+            with open(volume.path, "r+b") as image:
+                image.truncate(size)
+
+        volume.resize = unittest.mock.Mock(side_effect=resize)
+        return volume.resize
 
 
-class TC_00_EncryptedProperty(_EncryptTestCase):
-    """Volume.encrypted constraints and serialization."""
+class TC_00_Encrypted(EncryptTestCase):
+    """Volume.encrypted and the passphrase"""
 
-    def test_000_default_false(self):
-        vol = self._private_volume()
-        self.assertFalse(vol.encrypted)
-        self.assertNotIn("encrypted", vol.config)
+    def test_000_default(self):
+        volume = self.make_volume()
+        self.assertFalse(volume.encrypted)
+        self.assertNotIn("encrypted", volume.config)
+        self.assertEqual(volume.data_size, SIZE)
 
-    def test_001_enable_on_private(self):
-        vol = self._private_volume()
-        vol.encrypted = True
-        self.assertTrue(vol.encrypted)
-        self.assertTrue(vol.config["encrypted"])
+    def test_001_enable(self):
+        volume = self.make_volume()
+        volume.encrypted = True
+        self.assertTrue(volume.encrypted)
+        self.assertTrue(volume.config["encrypted"])
+        self.assertEqual(volume.__xml__().get("encrypted"), "True")
+        self.assertEqual(volume.data_size, SIZE - LUKS2_HEADER_SIZE)
 
-    def test_002_init_with_encrypted(self):
-        vol = self._private_volume(encrypted=True)
-        self.assertTrue(vol.encrypted)
-        self.assertTrue(vol.config["encrypted"])
+    def test_002_init(self):
+        volume = self.make_volume(encrypted=True)
+        self.assertTrue(volume.encrypted)
 
-    def test_003_reject_volatile(self):
-        vol = self._volatile_volume()
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.encrypted = True
+    def test_003_not_encryptable(self):
+        volatile = self.make_volume("volatile", save_on_stop=False)
+        readonly = self.make_volume("readonly", rw=False)
+        for volume in (volatile, readonly):
+            self.assertFalse(volume.is_encryptable())
+            with self.assertRaises(qubes.exc.QubesValueError):
+                volume.encrypted = True
+            self.assertFalse(volume.encrypted)
 
-    def test_004_reject_readonly(self):
-        vol = self._private_volume(rw=False)
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.encrypted = True
-
-    def test_005_reject_snap_on_start(self):
-        template_vm = qubes.tests.storage.TestTemplateVM(self)
-        src_config = {
+    def test_004_snapshot(self):
+        template = qubes.tests.storage.TestTemplateVM(self)
+        source = self.pool.init_volume(
+            template,
+            {"name": "root", "rw": True, "save_on_stop": True, "size": SIZE},
+        )
+        snapshot_config = {
             "name": "root",
             "rw": True,
-            "save_on_stop": True,
-            "size": defaults["root_img_size"],
+            "snap_on_start": True,
+            "source": source,
+            "size": SIZE,
         }
-        src = self.pool.init_volume(template_vm, src_config)
-        vm = qubes.tests.storage.TestVM(self, template=template_vm)
-        snap = self.pool.init_volume(
-            vm,
-            {
-                "name": "root",
-                "rw": True,
-                "snap_on_start": True,
-                "source": src,
-                "size": defaults["root_img_size"],
-            },
+        snapshot = self.pool.init_volume(self.vm, snapshot_config)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            snapshot.encrypted = True
+        # a snapshot of an encrypted volume loads (qubes.xml may say so), but
+        # does not start
+        source.encrypted = True
+        snapshot = self.pool.init_volume(self.vm, snapshot_config)
+        snapshot.start = unittest.mock.AsyncMock()
+        self.vm.volumes["root"] = snapshot
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.loop.run_until_complete(qubes.storage.Storage(self.vm).start())
+        snapshot.start.assert_not_called()
+
+    def test_005_ephemeral(self):
+        volatile = self.make_volume("volatile", save_on_stop=False)
+        volatile.ephemeral = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            volatile.encrypted = True
+        private = self.make_volume(encrypted=True)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            private.ephemeral = True
+
+    def test_006_disable(self):
+        volume = self.make_volume(encrypted=True)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            volume.encrypted = False
+        self.assertTrue(volume.encrypted)
+        volume = self.make_volume("root")
+        volume.encrypted = False
+        self.assertFalse(volume.encrypted)
+
+    def test_007_passphrase(self):
+        volume = self.make_volume(encrypted=True)
+        self.assertFalse(volume.has_passphrase())
+        volume.set_passphrase(b"s3cret")
+        self.assertTrue(volume.has_passphrase())
+        self.assertNotIn(b"s3cret", repr(volume.config).encode())
+        self.assertNotIn(b"s3cret", repr(volume.__xml__().items()).encode())
+        buffer = volume._passphrase  # pylint: disable=protected-access
+        volume.clear_passphrase()
+        self.assertFalse(volume.has_passphrase())
+        self.assertEqual(buffer, bytearray(len(b"s3cret")))
+
+    def test_008_passphrase_invalid(self):
+        volume = self.make_volume(encrypted=True)
+        for passphrase in (b"", b"a\nb", b"x" * 513):
+            with self.assertRaises(qubes.exc.QubesValueError):
+                volume.set_passphrase(passphrase)
+            self.assertFalse(volume.has_passphrase())
+
+
+class TC_01_VolumeLuks(EncryptTestCase):
+    """LUKS operations of a Volume"""
+
+    def test_000_cryptsetup(self):
+        volume = self.make_volume(encrypted=True)
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(volume.cryptsetup("--", "x"))
+        self.cryptsetup.assert_not_called()
+        volume.set_passphrase(b"s3cret")
+        self.loop.run_until_complete(volume.cryptsetup("--", "x", "y"))
+        self.cryptsetup.assert_called_once_with(
+            "--batch-mode",
+            "--key-file=-",
+            "--",
+            "x",
+            "y",
+            passphrase=bytearray(b"s3cret"),
         )
-        with self.assertRaises(qubes.exc.QubesValueError):
-            snap.encrypted = True
 
-    def test_006_mutex_with_ephemeral(self):
-        vol = self._volatile_volume()
-        vol.ephemeral = True
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.encrypted = True
+    def test_001_is_luks(self):
+        volume = self.make_volume()
+        self.assertEqual(volume.luks_backend_path(), volume.path)
+        self.assertFalse(volume.is_luks())
+        self.assertTrue(self.loop.run_until_complete(volume.is_empty()))
+        self.write_luks_magic(volume)
+        self.assertTrue(volume.is_luks())
+        self.assertFalse(self.loop.run_until_complete(volume.is_empty()))
+        self.cryptsetup.assert_not_called()
 
-        priv = self._private_volume()
-        priv.encrypted = True
-        with self.assertRaises(qubes.exc.QubesValueError):
-            priv.ephemeral = True
-
-    def test_007_cannot_disable(self):
-        vol = self._private_volume()
-        vol.encrypted = True
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.encrypted = False
-
-    def test_008_config_has_no_passphrase(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"secret-pass")
-        self.assertNotIn("passphrase", vol.config)
-        xml = vol.__xml__()
-        self.assertIsNone(xml.get("passphrase"))
-        self.assertEqual(xml.get("encrypted"), "True")
-        self.assertNotIn("luks_needs_zero", vol.config)
-
-    def test_009_config_persists_needs_zero(self):
-        vol = self._private_volume(encrypted=True, luks_needs_zero=True)
-        self.assertTrue(vol._luks_needs_zero)
-        self.assertTrue(vol.config["luks_needs_zero"])
-        xml = vol.__xml__()
-        self.assertEqual(xml.get("luks_needs_zero"), "True")
-        vol._luks_needs_zero = False
-        self.assertNotIn("luks_needs_zero", vol.config)
-
-    def test_010_config_persists_guest_size(self):
-        orig = 2 << 20
-        backing = orig + qubes.storage.LUKS2_HEADER_SIZE
-        vol = self._private_volume(
-            size=backing,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
+    def start_luks_volume(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"s3cret")
+        volume.start = unittest.mock.AsyncMock()
+        volume.stop = unittest.mock.AsyncMock()
+        volume.block_device = unittest.mock.Mock(
+            return_value=qubes.storage.BlockDevice(
+                "/dev/backend", "private", None, True, None, "disk"
+            )
         )
-        self.assertEqual(vol._luks_guest_size(), orig)
-        self.assertEqual(vol.config["luks_guest_size"], orig)
-        xml = vol.__xml__()
-        self.assertEqual(int(xml.get("luks_guest_size")), orig)
-        reloaded = self._private_volume(**vol.config)
-        self.assertEqual(reloaded._luks_guest_size(), orig)
-        self.assertTrue(reloaded._luks_needs_zero)
+        return volume
 
+    def test_002_start_luks(self):
+        volume = self.start_luks_volume()
+        name = self.mapping(volume)
+        self.loop.run_until_complete(volume.start_luks(name))
+        volume.start.assert_awaited_once_with()
+        self.cryptsetup.assert_called_once()
+        self.assertEqual(
+            self.cryptsetup.call_args.args,
+            (
+                "--batch-mode",
+                "--key-file=-",
+                "--type=luks2",
+                "--allow-discards",
+                "--",
+                "open",
+                "/dev/backend",
+                name[12:],
+            ),
+        )
+        self.assertEqual(self.passphrases, [b"s3cret"])
+        self.assertFalse(volume.has_passphrase())
+        volume.stop.assert_not_called()
 
-class TC_01_Passphrase(_EncryptTestCase):
-    """In-memory passphrase handling."""
+    def test_003_start_luks_no_passphrase(self):
+        volume = self.start_luks_volume()
+        volume.clear_passphrase()
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                volume.start_luks(self.mapping(volume))
+            )
+        volume.start.assert_not_called()
+        self.cryptsetup.assert_not_called()
 
-    def test_000_set_and_clear(self):
-        vol = self._private_volume()
-        self.assertFalse(vol.has_passphrase())
-        vol.set_passphrase(b"s3cret")
-        self.assertTrue(vol.has_passphrase())
-        self.assertEqual(bytes(vol._passphrase), b"s3cret")
-        vol.clear_passphrase()
-        self.assertFalse(vol.has_passphrase())
-        self.assertIsNone(vol._passphrase)
+    def test_004_check_passphrase(self):
+        volume = self.start_luks_volume()
+        self.loop.run_until_complete(volume.check_passphrase())
+        self.cryptsetup.assert_called_once_with(
+            "--batch-mode",
+            "--key-file=-",
+            "--test-passphrase",
+            "--",
+            "open",
+            volume.path,
+            passphrase=bytearray(b"s3cret"),
+        )
+        for returncode in (1, 2):
+            self.fail_cryptsetup("--test-passphrase", returncode=returncode)
+            with self.assertRaises(StoragePoolException):
+                self.loop.run_until_complete(volume.check_passphrase())
+        self.assertTrue(volume.has_passphrase())
+        volume.start.assert_not_called()
 
-    def test_001_clear_overwrites_buffer(self):
-        vol = self._private_volume()
-        vol.set_passphrase(b"s3cret")
-        buf = vol._passphrase
-        vol.clear_passphrase()
-        self.assertEqual(buf, bytearray(len(buf)))
+    def test_005_start_luks_stale_mapping(self):
+        volume = self.start_luks_volume()
+        name = self.mapping(volume)
+        exists = os.path.exists
+        close = unittest.mock.call("--", "close", name[12:])
+        volume.start.side_effect = lambda: self.assertEqual(
+            self.cryptsetup.call_args_list, [close]
+        )
+        with unittest.mock.patch(
+            "os.path.exists", lambda path: path == name or exists(path)
+        ), self.assertLogs("qubes.storage", "WARNING"):
+            self.loop.run_until_complete(volume.start_luks(name))
+        volume.start.assert_awaited_once_with()
+        self.assertEqual(self.cryptsetup.call_args_list[0], close)
+        self.assertEqual(len(self.cryptsetup.call_args_list), 2)
 
-    def test_002_reject_empty(self):
-        vol = self._private_volume()
+    def test_006_start_luks_open_failed(self):
+        volume = self.start_luks_volume()
+        self.fail_cryptsetup("open", returncode=5)
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                volume.start_luks(self.mapping(volume))
+            )
+        volume.start.assert_awaited_once_with()
+        volume.stop.assert_awaited_once_with()
+        # keep it for the next attempt
+        self.assertTrue(volume.has_passphrase())
+
+    def test_007_change_passphrase(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"old")
+        new_passphrase = []
+
+        def side_effect(*args, **kwargs):
+            # the new passphrase is readable from the passed fd
+            (read_fd,) = kwargs["pass_fds"]
+            new_passphrase.append(os.read(read_fd, 100))
+            self.assertIn("/dev/fd/{}".format(read_fd), args)
+            self.cryptsetup_side_effect(*args, **kwargs)
+
+        self.cryptsetup.side_effect = side_effect
+        self.loop.run_until_complete(volume.change_passphrase(b"old", b"new"))
+        self.cryptsetup.assert_called_once()
+        self.assertEqual(
+            self.cryptsetup.call_args.args[:5],
+            (
+                "--batch-mode",
+                "--key-file=-",
+                "--",
+                "luksChangeKey",
+                volume.path,
+            ),
+        )
+        self.assertEqual(self.passphrases, [b"old"])
+        self.assertEqual(new_passphrase, [b"new"])
+        # pylint: disable=protected-access
+        self.assertEqual(volume._passphrase, b"new")
+
+    def test_008_change_passphrase_failed(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"old")
+        volume.is_dirty = lambda: True
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                volume.change_passphrase(b"old", b"new")
+            )
+        volume.is_dirty = lambda: False
         with self.assertRaises(qubes.exc.QubesValueError):
-            vol.set_passphrase(b"")
-
-    def test_003_reject_newline(self):
-        vol = self._private_volume()
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.set_passphrase(b"foo\nbar")
-
-    def test_004_accept_str(self):
-        vol = self._private_volume()
-        vol.set_passphrase("s3cret")
-        self.assertEqual(bytes(vol._passphrase), b"s3cret")
-
-    def test_005_reject_too_long(self):
-        vol = self._private_volume()
-        with self.assertRaises(qubes.exc.QubesValueError):
-            vol.set_passphrase(b"x" * (qubes.storage.LUKS_PASSPHRASE_MAX + 1))
+            self.loop.run_until_complete(
+                volume.change_passphrase(b"old", b"new\nline")
+            )
+        self.cryptsetup.assert_not_called()
+        self.fail_cryptsetup("luksChangeKey", returncode=2)
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                volume.change_passphrase(b"wrong", b"new")
+            )
+        # pylint: disable=protected-access
+        self.assertEqual(volume._passphrase, b"old")
 
 
-class TC_02_LuksMethods(_EncryptTestCase):
-    """setup_luks / start_luks / stop_luks / change_passphrase."""
+class TC_02_Storage(EncryptTestCase):
+    """Encrypted volumes in Storage"""
 
     def setUp(self):
         super().setUp()
-        self.cryptsetup_patch = unittest.mock.patch(
-            "qubes.utils.cryptsetup", new_callable=unittest.mock.AsyncMock
-        )
-        self.mock_cryptsetup = self.cryptsetup_patch.start()
-
-    def tearDown(self):
-        self.cryptsetup_patch.stop()
-        super().tearDown()
-
-    def _created_volume(self):
-        vol = self._private_volume()
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        return vol
-
-    def _patch_zero_mapper(self, leftover=False, appear=True):
-        """Control when the temp zero mapper node is visible.
-
-        *leftover*: node exists before ``cryptsetup open`` (stale mapping).
-        *appear*: node exists after ``open`` so ``_wait_for_mapper`` succeeds.
-        """
-        real_exists = os.path.exists
-
-        def fake_exists(path):
-            if isinstance(path, str) and "luks-zero-" in path:
-                called = self.mock_cryptsetup.call_args_list
-                opened = any("open" in c[0] for c in called)
-                closed_n = sum(1 for c in called if "close" in c[0])
-                if leftover and closed_n == 0:
-                    return True
-                if not appear:
-                    return False
-                return opened
-            return real_exists(path)
-
-        return unittest.mock.patch(
-            "os.path.exists", side_effect=fake_exists
-        ), unittest.mock.patch(
+        self.run_program = unittest.mock.patch(
             "qubes.utils.run_program", new_callable=unittest.mock.AsyncMock
+        ).start()
+        state_dir = os.path.join(self.tmpdir, "run")
+        os.mkdir(state_dir)
+        unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir).start()
+
+    def test_000_start(self):
+        encrypted = self.make_volume("private", encrypted=True)
+        encrypted.set_passphrase(b"s3cret")
+        encrypted.start_luks = unittest.mock.AsyncMock()
+        volatile = self.make_volume("volatile", save_on_stop=False)
+        volatile.ephemeral = True
+        volatile.start_encrypted = unittest.mock.AsyncMock()
+        plain = self.make_volume("root")
+        plain.set_passphrase(b"stale")
+        plain.start = unittest.mock.AsyncMock()
+        encrypted.start_luks.side_effect = lambda _name: self.assertIn(
+            "--test-passphrase", self.cryptsetup.call_args.args
         )
-
-    def _assert_zero_write(self, vol, mock_dd, orig_size):
-        mapper = vol._luks_zero_mapper_name()
-        mapper_path = "/dev/mapper/" + mapper
-        dd_calls = [
-            c for c in mock_dd.call_args_list if c[0] and c[0][0] == "dd"
-        ]
-        self.assertEqual(len(dd_calls), 1)
-        dd_args = dd_calls[0][0]
-        self.assertIn("if=/dev/zero", dd_args)
-        self.assertIn("of=" + mapper_path, dd_args)
-        self.assertIn("count=1", dd_args)
-        self.assertIn("status=none", dd_args)
-        self.assertIn("conv=fsync,notrunc", dd_args)
-        zero_len = min(orig_size, qubes.storage.LUKS2_ZERO_PAYLOAD)
-        self.assertIn("bs=" + str(zero_len), dd_args)
-        self.assertTrue(dd_calls[0][1].get("sudo"))
-        open_calls = [
-            c
-            for c in self.mock_cryptsetup.call_args_list
-            if c[0] and "open" in c[0]
-        ]
-        self.assertTrue(open_calls)
-        opened = open_calls[0][0]
-        self.assertIn("--batch-mode", opened)
-        self.assertIn("--type=luks2", opened)
-        self.assertIn("--key-file=-", opened)
-        self.assertIn(mapper, opened)
-        self.assertIn(vol.luks_backend_path(), opened)
-        self.assertIsNotNone(open_calls[0][1].get("passphrase"))
-        if vol.has_passphrase():
-            self.assertEqual(open_calls[0][1]["passphrase"], vol._passphrase)
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        closed = [c for c in called if "close" in c]
-        self.assertTrue(closed)
-        self.assertIn("--batch-mode", closed[-1])
-        self.assertIn(mapper, closed[-1])
-
-    def test_000_setup_luks_formats_empty(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        orig_size = vol.size
-        resized = []
-
-        def fake_resize(size):
-            resized.append(size)
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-        self.mock_cryptsetup.side_effect = [
-            subprocess.CalledProcessError(1, "isLuks"),
-            None,
-            None,
-            None,
-            None,
-        ]
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd:
-            self.loop.run_until_complete(vol.setup_luks())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        formatted = [c for c in called if "luksFormat" in c]
-        self.assertTrue(formatted)
-        args = formatted[0]
-        self.assertIn("--type=luks2", args)
-        self.assertIn("--key-file=-", args)
-        self.assertIn(
-            "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS),
-            args,
+        self.loop.run_until_complete(self.storage.start())
+        encrypted.start_luks.assert_awaited_once_with(self.mapping(encrypted))
+        volatile.start_encrypted.assert_awaited_once_with(
+            self.mapping(volatile)
         )
-        self.assertNotIn("reencrypt", args)
-        self._assert_zero_write(vol, mock_dd, orig_size)
-        self.assertFalse(vol._luks_needs_zero)
-        self.assertEqual(resized, [orig_size + qubes.storage.LUKS2_HEADER_SIZE])
-        self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
-        fmt_call = next(
-            c
-            for c in self.mock_cryptsetup.call_args_list
-            if "luksFormat" in c[0]
+        plain.start.assert_awaited_once_with()
+        self.assertFalse(plain.has_passphrase())
+        self.vm.fire_event_async.assert_not_called()
+        self.assertEqual(self.passphrases, [b"s3cret"])
+
+    def test_000b_start_wrong_passphrase(self):
+        first = self.make_volume("private", encrypted=True)
+        second = self.make_volume("second", encrypted=True)
+        for volume in (first, second):
+            volume.set_passphrase(b"s3cret")
+            volume.start_luks = unittest.mock.AsyncMock()
+        self.fail_cryptsetup(second.path, returncode=2)
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(self.storage.start())
+        # nothing started, passphrases kept for the next attempt
+        first.start_luks.assert_not_called()
+        second.start_luks.assert_not_called()
+        self.assertTrue(first.has_passphrase())
+        self.assertTrue(second.has_passphrase())
+
+    def test_001_start_passphrase_required(self):
+        volume = self.make_volume(encrypted=True)
+        volume.start_luks = unittest.mock.AsyncMock()
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(self.storage.start())
+        self.vm.fire_event_async.assert_awaited_once_with(
+            "domain-passphrase-required", volumes=["private"]
         )
-        self.assertEqual(fmt_call[1]["passphrase"], vol._passphrase)
+        volume.start_luks.assert_not_called()
 
-    def test_000c_setup_luks_keeps_needs_zero_if_close_fails(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
+    def test_002_start_passphrase_from_event(self):
+        volume = self.make_volume(encrypted=True)
+        volume.start_luks = unittest.mock.AsyncMock()
 
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
+        async def handler(_event, volumes):
+            self.assertEqual(volumes, ["private"])
+            volume.set_passphrase(b"s3cret")
 
-        vol.resize = fake_resize
+        self.vm.fire_event_async = handler
+        self.loop.run_until_complete(self.storage.start())
+        volume.start_luks.assert_awaited_once_with(self.mapping(volume))
 
-        closes = {"n": 0}
+    def test_003_block_devices(self):
+        encrypted = self.make_volume("private", encrypted=True)
+        plain = self.make_volume("root")
+        paths = {dev.name: dev.path for dev in self.storage.block_devices()}
+        self.assertEqual(paths["private"], self.mapping(encrypted))
+        self.assertEqual(paths["root"], plain.block_device().path)
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            if "close" in args:
-                closes["n"] += 1
-                if closes["n"] > 1:
-                    raise subprocess.CalledProcessError(1, "close")
-            return None
+    def test_004_resize(self):
+        volume = self.make_volume(encrypted=True)
+        resize = self.fake_resize(volume)
+        self.loop.run_until_complete(self.storage.resize("private", 2 * SIZE))
+        resize.assert_called_once_with(2 * SIZE + LUKS2_HEADER_SIZE)
+        self.assertEqual(volume.data_size, 2 * SIZE)
+        self.cryptsetup.assert_not_called()
 
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        exists_p, dd_p = self._patch_zero_mapper(leftover=True)
-        with exists_p, dd_p as mock_dd, unittest.mock.patch(
-            "asyncio.sleep", new_callable=unittest.mock.AsyncMock
-        ), self.assertRaises(subprocess.CalledProcessError):
-            self.loop.run_until_complete(vol.setup_luks())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        close_i = next(i for i, c in enumerate(called) if "close" in c)
-        open_i = next(i for i, c in enumerate(called) if "open" in c)
-        self.assertLess(close_i, open_i)
-        dd_calls = [
-            c for c in mock_dd.call_args_list if c[0] and c[0][0] == "dd"
-        ]
-        self.assertEqual(len(dd_calls), 1)
-        self.assertGreater(closes["n"], 1)
-        self.assertTrue(vol._luks_needs_zero)
-
-    def test_000b_setup_luks_raises_if_zero_mapper_missing(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-        self.mock_cryptsetup.side_effect = [
-            subprocess.CalledProcessError(1, "isLuks"),
-            None,
-            None,
-            None,
-        ]
-        exists_p, dd_p = self._patch_zero_mapper(appear=False)
-        with exists_p, dd_p as mock_dd, unittest.mock.patch(
-            "asyncio.sleep", new_callable=unittest.mock.AsyncMock
-        ), self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertIn("did not appear", str(ctx.exception))
-        self.assertTrue(vol._luks_needs_zero)
-        mock_dd.assert_not_called()
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        opened = [c for c in called if "open" in c]
-        closed = [c for c in called if "close" in c]
-        self.assertTrue(opened)
-        self.assertTrue(closed)
-        self.assertIn(vol._luks_zero_mapper_name(), opened[0])
-        self.assertIn("--batch-mode", closed[-1])
-        self.assertIn(vol._luks_zero_mapper_name(), closed[-1])
-        open_i = next(i for i, c in enumerate(called) if "open" in c)
-        close_i = next(i for i, c in enumerate(called) if "close" in c)
-        self.assertLess(open_i, close_i)
-
-    def test_000d_setup_luks_zeros_as_root(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        orig_size = vol.size
-
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        mapper_path = "/dev/mapper/" + vol._luks_zero_mapper_name()
-        real_open = open
-        mock_fh = unittest.mock.MagicMock()
-        mock_fh.__enter__.return_value = mock_fh
-        mock_fh.__exit__.return_value = False
-        mock_fh.fileno.return_value = 3
-
-        def selective_open(path, mode="r", *args, **kwargs):
-            if path == mapper_path:
-                self.assertEqual(mode, "r+b")
-                return mock_fh
-            return real_open(path, mode, *args, **kwargs)
-
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd, unittest.mock.patch(
-            "qubes.storage._am_root", True
-        ), unittest.mock.patch(
-            "builtins.open", side_effect=selective_open
-        ), unittest.mock.patch(
-            "os.fsync"
-        ) as mock_fsync:
-            self.loop.run_until_complete(vol.setup_luks())
-        mock_dd.assert_not_called()
-        mock_fh.write.assert_called()
-        mock_fh.flush.assert_called()
-        mock_fsync.assert_called()
-        zero_len = min(orig_size, qubes.storage.LUKS2_ZERO_PAYLOAD)
-        written = sum(len(c[0][0]) for c in mock_fh.write.call_args_list)
-        self.assertEqual(written, zero_len)
-        self.assertFalse(vol._luks_needs_zero)
-
-    def test_001_setup_luks_requires_passphrase(self):
-        vol = self._created_volume()
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertIn("Passphrase required", str(ctx.exception))
-        self.mock_cryptsetup.assert_not_called()
-
-    def test_002_setup_luks_skips_if_already_luks(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        self.mock_cryptsetup.return_value = None  # isLuks succeeds
-        self.loop.run_until_complete(vol.setup_luks())
-        # only isLuks, no luksFormat
-        self.assertEqual(self.mock_cryptsetup.call_count, 1)
-        self.assertIn("isLuks", self.mock_cryptsetup.call_args[0])
-
-    def test_002b_setup_luks_retries_zero_if_needed(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol._luks_needs_zero = True
-        self.mock_cryptsetup.return_value = None
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd:
-            self.loop.run_until_complete(vol.setup_luks())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertFalse(any("luksFormat" in c for c in called))
-        self.assertIn("isLuks", called[0])
-        self._assert_zero_write(vol, mock_dd, vol._configured_size)
-        self.assertFalse(vol._luks_needs_zero)
-
-    def test_003_setup_luks_reencrypts_existing_data(self):
-        vol = self._created_volume()
-        # write some non-zero data so _volume_has_data() is True
-        with open(vol.path, "r+b") as fh:
-            fh.write(b"filesystem-superblock")
-        vol.set_passphrase(b"s3cret")
-        orig_size = vol.size
-        resized = []
-
-        def fake_resize(size):
-            resized.append(size)
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        self.loop.run_until_complete(vol.setup_luks())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertTrue(any("reencrypt" in c for c in called))
-        self.assertTrue(any("--encrypt" in c for c in called))
-        self.assertTrue(any("--reduce-device-size=64M" in c for c in called))
-        self.assertTrue(
-            any(
-                "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS)
-                in c
-                for c in called
+    def test_005_resize_started(self):
+        volume = self.make_volume(encrypted=True)
+        resize = self.fake_resize(volume)
+        name = self.mapping(volume)
+        exists = os.path.exists
+        with unittest.mock.patch(
+            "os.path.exists", lambda path: path == name or exists(path)
+        ):
+            # the passphrase is needed before anything changes
+            with self.assertRaises(StoragePoolException):
+                self.loop.run_until_complete(
+                    self.storage.resize("private", 2 * SIZE)
+                )
+            resize.assert_not_called()
+            self.cryptsetup.assert_not_called()
+            volume.set_passphrase(b"s3cret")
+            self.loop.run_until_complete(
+                self.storage.resize("private", 2 * SIZE)
             )
+        resize.assert_called_once_with(2 * SIZE + LUKS2_HEADER_SIZE)
+        self.cryptsetup.assert_called_once_with(
+            "--batch-mode",
+            "--key-file=-",
+            "--",
+            "resize",
+            name[12:],
+            passphrase=bytearray(b"s3cret"),
         )
-        self.assertTrue(any("--force-offline-reencrypt" in c for c in called))
-        self.assertFalse(any("--reduce-device-size=32M" in c for c in called))
+
+    def test_010_import_data_plain(self):
+        volume = self.make_volume()
+        path = self.loop.run_until_complete(
+            self.storage.import_data("private", None)
+        )
+        self.assertEqual(path, volume.path_import)
+        self.assertEqual(os.path.getsize(path), SIZE)
+        self.loop.run_until_complete(
+            self.storage.import_data_end("private", True)
+        )
+        self.cryptsetup.assert_not_called()
+
+    def test_011_import_data(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"s3cret")
+        name = self.mapping(volume)
+        path = self.loop.run_until_complete(
+            self.storage.import_data("private", None)
+        )
+        self.assertEqual(path, name)
         self.assertEqual(
-            resized,
+            os.path.getsize(volume.path_import),
+            SIZE - LUKS2_HEADER_SIZE + LUKS2_HEADER_SIZE,
+        )
+        self.assertEqual(
+            self.cryptsetup.call_args_list,
             [
-                orig_size + qubes.storage.LUKS2_REENCRYPT_WORKSPACE,
-                orig_size + qubes.storage.LUKS2_HEADER_SIZE,
+                unittest.mock.call(
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--type=luks2",
+                    "--cipher=aes-xts-plain64",
+                    "--offset=65536",
+                    "--",
+                    "luksFormat",
+                    volume.path_import,
+                    passphrase=bytearray(b"s3cret"),
+                ),
+                unittest.mock.call(
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--",
+                    "open",
+                    volume.path_import,
+                    name[12:],
+                    passphrase=bytearray(b"s3cret"),
+                ),
             ],
         )
-        self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
-
-    def test_004_start_luks_opens_and_wipes_passphrase(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        vol.block_device = unittest.mock.Mock(
-            return_value=qubes.storage.BlockDevice(
-                vol.path, vol.name, None, True, None, "disk"
-            )
+        self.run_program.assert_awaited_once_with(
+            "dd",
+            "if=/dev/zero",
+            "of=" + name,
+            "bs=1M",
+            "count=10",
+            "conv=fsync",
+            sudo=True,
         )
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                return None
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        self.loop.run_until_complete(vol.start_luks(mapper))
-        vol.start.assert_called_once_with()
-        opened = [
-            c for c in self.mock_cryptsetup.call_args_list if "open" in c[0]
-        ]
-        self.assertTrue(opened)
-        self.assertIn("--type=luks2", opened[0][0])
-        self.assertIn("--allow-discards", opened[0][0])
-        resized = [
-            c for c in self.mock_cryptsetup.call_args_list if "resize" in c[0]
-        ]
-        self.assertFalse(
-            resized,
-            "start_luks must not cryptsetup resize after open",
-        )
-        self.assertFalse(vol.has_passphrase())
-
-    def _reload_from_config(self, vol):
-        return self._private_volume(**vol.config)
-
-    def test_004b_start_luks_zeros_if_needed(self):
-        orig = 3 << 20
-        backing = orig + qubes.storage.LUKS2_HEADER_SIZE
-        vol = self._private_volume(
-            size=backing,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        self.assertTrue(vol.config["luks_needs_zero"])
-        vol = self._reload_from_config(vol)
-        vol.set_passphrase(b"s3cret")
-        sentinel = os.path.join(self.tmpdir, "luks-origin-sentinel")
-        with open(sentinel, "wb"):
-            pass
-        vol.luks_backend_path = lambda: sentinel
-        order = []
-        vol.block_device = unittest.mock.Mock(
-            return_value=qubes.storage.BlockDevice(
-                vol.path, vol.name, None, True, None, "disk"
-            )
-        )
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-        self.mock_cryptsetup.return_value = None
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd:
-
-            async def start_side():
-                self.assertTrue(mock_dd.call_count)
-                order.append("start")
-
-            vol.start = unittest.mock.AsyncMock(side_effect=start_side)
-            self.loop.run_until_complete(vol.start_luks(mapper))
-        self._assert_zero_write(vol, mock_dd, orig)
-        open_calls = [
-            c
-            for c in self.mock_cryptsetup.call_args_list
-            if c[0] and "open" in c[0]
-        ]
-        self.assertIn(sentinel, open_calls[0][0])
-        self.assertNotEqual(sentinel, vol.path)
-        self.assertGreaterEqual(len(open_calls), 2)
-        vol.start.assert_called_once_with()
-        self.assertEqual(order, ["start"])
-        self.assertFalse(vol._luks_needs_zero)
-        self.assertNotIn("luks_needs_zero", vol.config)
-        reloaded = self._reload_from_config(vol)
-        self.assertFalse(reloaded._luks_needs_zero)
-
-    def test_004c_start_luks_zeros_persisted_guest_size(self):
-        orig = 2 << 20
-        backing = orig + qubes.storage.LUKS2_HEADER_SIZE
-        vol = self._private_volume(
-            size=backing,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        vol = self._reload_from_config(vol)
-        self.assertEqual(vol._luks_guest_size(), orig)
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        vol.block_device = unittest.mock.Mock(
-            return_value=qubes.storage.BlockDevice(
-                vol.path, vol.name, None, True, None, "disk"
-            )
-        )
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-        self.mock_cryptsetup.return_value = None
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd:
-            self.loop.run_until_complete(vol.start_luks(mapper))
-        self._assert_zero_write(vol, mock_dd, orig)
-        self.assertFalse(vol._luks_needs_zero)
-        self.assertEqual(vol._luks_guest_size(), orig)
-
-    def test_004d_reload_does_not_stack_header(self):
-        orig = 2 << 20
-        backing = orig + qubes.storage.LUKS2_HEADER_SIZE
-        vol = self._private_volume(
-            size=backing,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        vol = self._reload_from_config(vol)
-        vol.set_passphrase(b"s3cret")
-        resized = []
-
-        def fake_resize(size):
-            resized.append(size)
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-        self.mock_cryptsetup.side_effect = [
-            subprocess.CalledProcessError(1, "isLuks"),
-            None,
-            None,
-            None,
-            None,
-        ]
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p as mock_dd:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertEqual(resized, [])
-        self._assert_zero_write(vol, mock_dd, orig)
-        self.assertEqual(vol.size, backing)
-        self.assertFalse(vol._luks_needs_zero)
-
-    def test_004e_drop_tail_does_not_shrink_resized(self):
-        orig = 2 << 20
-        grown = 2 << 30
-        vol = self._private_volume(
-            size=grown,
-            encrypted=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        vol = self._reload_from_config(vol)
-        self.assertEqual(vol._luks_guest_size(), orig)
-        self.assertEqual(vol.config["luks_guest_size"], orig)
-        vol.set_passphrase(b"s3cret")
-        resized = []
-
-        def fake_resize(size):
-            resized.append(size)
-            vol._size = size
-
-        vol.resize = fake_resize
-        self.mock_cryptsetup.return_value = None
-        self.loop.run_until_complete(vol.setup_luks())
-        self.assertEqual(resized, [])
-        self.assertEqual(vol.size, grown)
-        self.assertEqual(vol._luks_guest_size(), orig)
-
-    def test_005_start_luks_requires_passphrase(self):
-        vol = self._created_volume()
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.start_luks(mapper))
-        self.assertIn("Passphrase required", str(ctx.exception))
-
-    def test_006_stop_luks_closes(self):
-        vol = self._created_volume()
-        vol.stop = unittest.mock.AsyncMock()
-        mapper = "/dev/mapper/vm-test-luks@private"
-        with unittest.mock.patch("os.path.exists", return_value=True):
-            self.loop.run_until_complete(vol.stop_luks(mapper))
-        self.mock_cryptsetup.assert_called()
-        self.assertIn("close", self.mock_cryptsetup.call_args[0])
-        vol.stop.assert_called_once_with()
-
-    def test_007_change_passphrase(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"oldpass")
-        change = unittest.mock.AsyncMock()
+        exists = os.path.exists
         with unittest.mock.patch(
-            "qubes.utils.cryptsetup_change_key", change
-        ), unittest.mock.patch.object(
-            vol, "is_luks", new=unittest.mock.AsyncMock(return_value=True)
+            "os.path.exists", lambda path: path == name or exists(path)
         ):
             self.loop.run_until_complete(
-                vol.change_passphrase(b"oldpass", b"newpass")
+                self.storage.import_data_end("private", True)
             )
-        change.assert_called_once()
-        self.assertEqual(bytes(vol._passphrase), b"newpass")
+        self.assertEqual(
+            self.cryptsetup.call_args,
+            unittest.mock.call("--", "close", name[12:]),
+        )
+        self.assertFalse(os.path.exists(volume.path_import))
+        self.assertEqual(volume.size, SIZE)
 
-    def test_008_setup_luks_refuses_dirty(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.is_dirty = lambda: True
+    def test_012_import_data_size(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"s3cret")
+        self.loop.run_until_complete(
+            self.storage.import_data("private", 4 << 20)
+        )
+        self.assertEqual(
+            os.path.getsize(volume.path_import), (4 << 20) + LUKS2_HEADER_SIZE
+        )
+        self.assertIn("count=4", self.run_program.call_args.args)
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
+    def test_013_import_data_in_use(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"s3cret")
+        name = self.mapping(volume)
+        exists = os.path.exists
+        with unittest.mock.patch(
+            "os.path.exists", lambda path: path == name or exists(path)
+        ), self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                self.storage.import_data("private", None)
+            )
+        self.assertFalse(exists(volume.path_import))
+        self.cryptsetup.assert_not_called()
 
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertIn("dirty", str(ctx.exception).lower())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertFalse(
-            any("luksFormat" in c or "reencrypt" in c for c in called)
+    def test_014_import_data_failed(self):
+        volume = self.make_volume(encrypted=True)
+        volume.set_passphrase(b"s3cret")
+        self.fail_cryptsetup("open")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.loop.run_until_complete(
+                self.storage.import_data("private", None)
+            )
+        self.assertFalse(os.path.exists(volume.path_import))
+        self.run_program.assert_not_called()
+
+    def test_020_import_volume(self):
+        source = self.make_volume("source", encrypted=True)
+        destination = self.make_volume("private")
+        destination.import_volume = unittest.mock.AsyncMock(
+            side_effect=lambda _src: self.assertFalse(destination.encrypted)
+        )
+        self.loop.run_until_complete(
+            self.storage.import_volume(destination, source)
+        )
+        self.assertTrue(destination.encrypted)
+        destination.import_volume.assert_awaited_once_with(source)
+        self.vm.fire_event_async.assert_awaited_once_with(
+            "domain-import-volume", name="private", source=source
         )
 
-    def test_009_setup_luks_refuses_revisions(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
+    def test_021_import_volume_refused(self):
+        encrypted = self.make_volume("source", encrypted=True)
+        plain = self.make_volume("plain")
+        volatile = self.make_volume("volatile", save_on_stop=False)
+        for destination, source in ((encrypted, plain), (volatile, encrypted)):
+            destination.import_volume = unittest.mock.AsyncMock()
+            with self.assertRaises(qubes.exc.QubesException):
+                self.loop.run_until_complete(
+                    self.storage.import_volume(destination, source)
+                )
+            destination.import_volume.assert_not_called()
+        self.assertFalse(volatile.encrypted)
+        # nor into a volume of a template
+        self.vm.klass = "TemplateVM"
+        plain.import_volume = unittest.mock.AsyncMock()
+        with self.assertRaises(StoragePoolException):
+            self.loop.run_until_complete(
+                self.storage.import_volume(plain, encrypted)
+            )
+        plain.import_volume.assert_not_called()
+        self.assertFalse(plain.encrypted)
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertIn("revision", str(ctx.exception).lower())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertFalse(
-            any("luksFormat" in c or "reencrypt" in c for c in called)
+    def test_022_clone_volume(self):
+        source_vm = TestVM(self)
+        source = self.pool.init_volume(
+            source_vm,
+            {
+                "name": "private",
+                "rw": True,
+                "save_on_stop": True,
+                "size": SIZE,
+                "encrypted": True,
+            },
         )
+        source_vm.volumes["private"] = source
+        self.vm.volume_config = {
+            "private": {
+                "name": "private",
+                "pool": "test-pool",
+                "rw": True,
+                "save_on_stop": True,
+                "size": SIZE,
+            }
+        }
+        self.app.get_pool = lambda name: self.pool
+        with unittest.mock.patch.object(
+            qubes.storage.file.FileVolume,
+            "import_volume",
+            new_callable=unittest.mock.AsyncMock,
+        ) as import_volume:
+            volume = self.loop.run_until_complete(
+                self.storage.clone_volume(source_vm, "private")
+            )
+        self.assertTrue(volume.encrypted)
+        import_volume.assert_awaited_once_with(source)
 
-    def test_009b_setup_luks_discards_revisions_when_keep_zero(self):
-        vol = self._created_volume()
-        vol.revisions_to_keep = 0
-        vol.set_passphrase(b"s3cret")
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
-        self.assertTrue(vol.revisions)
 
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
+class TC_03_StorageEncrypt(EncryptTestCase):
+    """Storage.encrypt"""
 
-        vol.resize = fake_resize
+    def setUp(self):
+        super().setUp()
+        self.run_program = unittest.mock.patch(
+            "qubes.utils.run_program", new_callable=unittest.mock.AsyncMock
+        ).start()
+        self.volume = self.make_volume()
+        self.volume.set_passphrase(b"s3cret")
+        self.resize = self.fake_resize(self.volume)
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
+    def encrypt(self):
+        self.loop.run_until_complete(self.storage.encrypt("private"))
 
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertFalse(vol.revisions)
-        self.assertFalse(os.path.exists(vol.path_cow + ".old"))
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertTrue(any("luksFormat" in c for c in called))
+    def assert_refused(self):
+        with self.assertRaises(StoragePoolException):
+            self.encrypt()
+        self.assertFalse(self.volume.encrypted)
+        self.app.save.assert_not_called()
+        self.assertEqual(os.path.getsize(self.volume.path), SIZE)
 
-    def test_009d_setup_luks_aborts_if_revisions_remain(self):
-        vol = self._created_volume()
-        vol.revisions_to_keep = 0
-        vol.set_passphrase(b"s3cret")
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
-        vol.discard_revisions = lambda: None
+    def test_000_passphrase_required(self):
+        self.volume.clear_passphrase()
+        self.assert_refused()
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
+    def test_002_dirty(self):
+        self.volume.is_dirty = lambda: True
+        self.assert_refused()
 
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertIn("leftover revisions", str(ctx.exception).lower())
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertFalse(
-            any("luksFormat" in c or "reencrypt" in c for c in called)
+    def test_003_luks_header(self):
+        self.write_luks_magic(self.volume)
+        self.assert_refused()
+
+    def test_004_revisions(self):
+        with open(self.volume.path_cow + ".old", "wb"):
+            pass
+        self.assertEqual(self.volume.revisions_to_keep, 1)
+        self.assert_refused()
+        self.volume.revisions_to_keep = 0
+        self.encrypt()
+        self.assertFalse(self.volume.revisions)
+        self.assertTrue(self.volume.encrypted)
+
+    def test_005_empty(self):
+        self.encrypt()
+        self.assertTrue(self.volume.encrypted)
+        self.app.save.assert_called_once_with()
+        self.assertEqual(
+            [call.args for call in self.cryptsetup.call_args_list],
+            [
+                (
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--type=luks2",
+                    "--cipher=aes-xts-plain64",
+                    "--offset=65536",
+                    "--",
+                    "luksFormat",
+                    self.volume.path_import,
+                ),
+                (
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--",
+                    "open",
+                    self.volume.path_import,
+                    self.mapping(self.volume)[12:],
+                ),
+            ],
         )
+        self.assertEqual(self.passphrases, [b"s3cret", b"s3cret"])
+        self.resize.assert_not_called()
+        # the new container replaced the empty volume
+        self.assertFalse(os.path.exists(self.volume.path_import))
+        self.assertEqual(self.volume.size, SIZE + LUKS2_HEADER_SIZE)
+        self.assertEqual(self.volume.data_size, SIZE)
 
-    def test_009e_setup_luks_discards_revisions_when_keep_minus_one(self):
-        vol = self._created_volume()
-        vol.revisions_to_keep = -1
-        vol.set_passphrase(b"s3cret")
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
+    def test_006_data(self):
+        with open(self.volume.path, "r+b") as image:
+            image.write(b"data")
+        self.encrypt()
+        self.assertTrue(self.volume.encrypted)
+        self.app.save.assert_called_once_with()
+        self.assertEqual(
+            self.cryptsetup_calls("reencrypt"),
+            [
+                (
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--type=luks2",
+                    "--cipher=aes-xts-plain64",
+                    "--encrypt",
+                    "--reduce-device-size={}".format(2 * LUKS2_HEADER_SIZE),
+                    "--offset=65536",
+                    "--force-offline-reencrypt",
+                    "--",
+                    "reencrypt",
+                    self.volume.path,
+                )
+            ],
+        )
+        self.assertEqual(
+            self.resize.call_args_list,
+            [
+                unittest.mock.call(SIZE + 2 * LUKS2_HEADER_SIZE),
+                unittest.mock.call(SIZE + LUKS2_HEADER_SIZE),
+            ],
+        )
+        self.assertEqual(self.volume.size, SIZE + LUKS2_HEADER_SIZE)
+        self.assertEqual(self.volume.data_size, SIZE)
+        self.assertFalse(os.path.exists(self.volume.path_import))
 
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
+    def test_007_save_first(self):
+        with open(self.volume.path, "r+b") as image:
+            image.write(b"data")
+        self.app.save.side_effect = lambda: self.assertFalse(
+            self.cryptsetup_calls("reencrypt") or self.resize.called
+        )
+        self.encrypt()
+        self.app.save.assert_called_once_with()
 
-        vol.resize = fake_resize
+    def test_008_resume(self):
+        # marked encrypted and with a header, but interrupted before finishing
+        self.volume.encrypted = True
+        self.write_luks_magic(self.volume)
+        self.fail_cryptsetup("--resume-only", returncode=1)
+        self.encrypt()
+        self.app.save.assert_not_called()
+        self.assertEqual(
+            self.cryptsetup_calls("reencrypt"),
+            [
+                (
+                    "--batch-mode",
+                    "--key-file=-",
+                    "--resume-only",
+                    "--force-offline-reencrypt",
+                    "--",
+                    "reencrypt",
+                    self.volume.path,
+                )
+            ],
+        )
+        # nothing to resume, so nothing to shrink either
+        self.resize.assert_not_called()
+        self.failing = None
+        self.encrypt()
+        self.resize.assert_called_once_with(SIZE - LUKS2_HEADER_SIZE)
+        self.fail_cryptsetup("--resume-only", returncode=2)
+        with self.assertRaises(StoragePoolException):
+            self.encrypt()
 
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
+    def test_009_retry(self):
+        # marked encrypted, but interrupted before writing the header
+        self.volume.encrypted = True
+        with open(self.volume.path, "r+b") as image:
+            image.write(b"data")
+        self.encrypt()
+        self.app.save.assert_not_called()
+        self.assertEqual(len(self.cryptsetup_calls("--encrypt")), 1)
+        self.assertEqual(self.volume.size, SIZE + LUKS2_HEADER_SIZE)
 
-        self.assertTrue(vol.revisions)
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        exists_p, dd_p = self._patch_zero_mapper()
-        with exists_p, dd_p:
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertFalse(vol.revisions)
-        self.assertFalse(os.path.exists(vol.path_cow + ".old"))
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertTrue(any("luksFormat" in c for c in called))
+    def test_010_template(self):
+        self.vm.klass = "TemplateVM"
+        self.assert_refused()
+        self.vm.klass = "AppVM"
+        self.vm.template_for_dispvms = True
+        self.assert_refused()
 
-    def test_009c_discard_revisions_refuses_dirty(self):
-        vol = self._created_volume()
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
-        vol.is_dirty = lambda: True
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(
-                qubes.utils.coro_maybe(vol.discard_revisions())
-            )
-        self.assertIn("dirty", str(ctx.exception).lower())
-        self.assertTrue(os.path.exists(vol.path_cow + ".old"))
+    def test_011_not_encryptable(self):
+        volatile = self.make_volume("volatile", save_on_stop=False)
+        volatile.set_passphrase(b"s3cret")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.loop.run_until_complete(self.storage.encrypt("volatile"))
+        self.assertFalse(volatile.encrypted)
+        self.cryptsetup.assert_not_called()
 
-    def test_009f_discard_revisions_refuses_running(self):
-        vol = self._created_volume()
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
-        vol._export_lock = qubes.storage.file.FileVolume._marker_running
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(
-                qubes.utils.coro_maybe(vol.discard_revisions())
-            )
-        self.assertIn("running or exported", str(ctx.exception).lower())
-        self.assertTrue(os.path.exists(vol.path_cow + ".old"))
+    def test_012_reencrypt_failed(self):
+        with open(self.volume.path, "r+b") as image:
+            image.write(b"data")
+        self.fail_cryptsetup("--encrypt", returncode=1)
+        with self.assertRaises(StoragePoolException):
+            self.encrypt()
+        # the flag was saved first, the volume is back at its size
+        self.assertTrue(self.volume.encrypted)
+        self.app.save.assert_called_once_with()
+        self.assertEqual(
+            self.resize.call_args_list,
+            [
+                unittest.mock.call(SIZE + 2 * LUKS2_HEADER_SIZE),
+                unittest.mock.call(SIZE),
+            ],
+        )
+        self.assertEqual(self.volume.size, SIZE)
 
-    def test_009g_discard_revisions_refuses_exported(self):
-        vol = self._created_volume()
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow + ".old", "wb") as fh:
-            fh.write(b"previous-revision")
-        vol._export_lock = qubes.storage.file.FileVolume._marker_exported
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(
-                qubes.utils.coro_maybe(vol.discard_revisions())
-            )
-        self.assertIn("running or exported", str(ctx.exception).lower())
-        self.assertTrue(os.path.exists(vol.path_cow + ".old"))
 
-    def test_009h_file_commit_unlinks_when_keep_minus_one(self):
-        vol = self._created_volume()
-        vol.revisions_to_keep = -1
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow, "wb") as fh:
-            fh.write(b"cow")
-        vol.commit()
-        self.assertFalse(os.path.exists(vol.path_cow + ".old"))
-        self.assertTrue(os.path.exists(vol.path_cow))
+class TC_04_DiscardRevisions(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.tmpdir = tempfile.mkdtemp()
+        self.app = TestApp()
 
-    def test_009i_lvm_discard_revisions_does_not_ignore_errors(self):
-        # qubes.storage.lvm runs `lvs` at import time.
-        lvm_json = b'{"report":[{"lv":[]}]}'
-        proc = unittest.mock.Mock()
-        proc.communicate.return_value = (lvm_json, b"")
-        proc.returncode = 0
-        proc.__enter__ = lambda s: s
-        proc.__exit__ = lambda *a: False
-        with unittest.mock.patch("subprocess.Popen", return_value=proc):
-            import qubes.storage.lvm as lvm
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+        super().tearDown()
 
-        pool = qubes.storage.Pool(name="test-lvm")
-        vol = lvm.ThinVolume(
+    def test_000_file(self):
+        pool = qubes.storage.file.FilePool(name="test", dir_path=self.tmpdir)
+        pool.setup()
+        volume = pool.init_volume(
+            TestVM(self),
+            {"name": "private", "rw": True, "save_on_stop": True, "size": SIZE},
+        )
+        os.makedirs(os.path.dirname(volume.path))
+        self.loop.run_until_complete(qubes.utils.coro_maybe(volume.create()))
+        with open(volume.path_cow + ".old", "wb"):
+            pass
+        self.assertTrue(volume.revisions)
+        self.loop.run_until_complete(volume.discard_revisions())
+        self.assertFalse(volume.revisions)
+        self.assertTrue(os.path.exists(volume.path))
+
+    def test_001_lvm(self):
+        pool = qubes.storage.Pool(name="test")
+        volume = qubes.storage.lvm.ThinVolume(
             volume_group="qubes_dom0",
             name="private",
             pool=pool,
             vid="qubes_dom0/vm-test-private",
             rw=True,
             save_on_stop=True,
-            size=1024,
+            size=SIZE,
         )
-        vol.is_dirty = lambda: False
+        revisions = {"1-back": "2020-01-01T00:00:00", "2-back": "2020-01-02"}
         with unittest.mock.patch.object(
-            lvm.ThinVolume,
+            qubes.storage.lvm.ThinVolume,
             "revisions",
             new_callable=unittest.mock.PropertyMock,
-            return_value={"123-back": "2020-01-01T00:00:00"},
+            return_value=revisions,
         ), unittest.mock.patch(
             "qubes.storage.lvm.qubes_lvm_coro",
             new_callable=unittest.mock.AsyncMock,
-            side_effect=qubes.exc.StoragePoolException("lvremove failed"),
-        ) as mock_lvm, unittest.mock.patch(
+        ) as lvm, unittest.mock.patch(
             "qubes.storage.lvm.reset_cache_coro",
             new_callable=unittest.mock.AsyncMock,
-        ) as mock_reset:
+        ) as reset_cache:
+            self.loop.run_until_complete(volume.discard_revisions())
+            self.assertEqual(
+                [call.args[0] for call in lvm.call_args_list],
+                [
+                    ["remove", "qubes_dom0/vm-test-private-1-back"],
+                    ["remove", "qubes_dom0/vm-test-private-2-back"],
+                ],
+            )
+            reset_cache.assert_awaited_once_with()
+            lvm.side_effect = StoragePoolException("lvremove failed")
             with self.assertRaises(StoragePoolException):
-                self.loop.run_until_complete(vol.discard_revisions())
-            mock_lvm.assert_awaited()
-            self.assertEqual(mock_lvm.call_args[0][0][0], "remove")
-            mock_reset.assert_not_called()
-
-    def test_009j_zfs_discard_revisions_blocks_on_any_snapshot(self):
-        vol = object.__new__(qubes.storage.zfs.ZFSVolume)
-        vol.vid = "tank/vm-test-private"
-        vol.log = unittest.mock.Mock()
-        vol._lock = asyncio.Lock()
-        vol.is_dirty = lambda: False
-        vol._purge_old_revisions = unittest.mock.AsyncMock()
-        snap = unittest.mock.Mock()
-        snap.name = "tank/vm-test-private@qubes-clean-abc"
-        accessor = unittest.mock.Mock()
-        accessor.get_volume_snapshots_async = unittest.mock.AsyncMock(
-            side_effect=[[snap], [snap]]
-        )
-        accessor.remove_volume_async = unittest.mock.AsyncMock()
-        vol.pool = unittest.mock.Mock()
-        vol.pool.accessor = accessor
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.discard_revisions())
-        self.assertIn("still in use", str(ctx.exception).lower())
-        vol._purge_old_revisions.assert_awaited_once_with(keep=0)
-        accessor.remove_volume_async.assert_awaited()
-
-    def test_009k_callback_discard_revisions_delegates(self):
-        impl = self._private_volume()
-        impl.discard_revisions = unittest.mock.AsyncMock(return_value=impl)
-        pool = object.__new__(qubes.storage.callback.CallbackPool)
-        vol = qubes.storage.callback.CallbackVolume(pool, impl)
-        with unittest.mock.patch.object(
-            qubes.storage.callback.CallbackVolume,
-            "_assert_initialized",
-            new_callable=unittest.mock.AsyncMock,
-        ):
-            self.loop.run_until_complete(vol.discard_revisions())
-        impl.discard_revisions.assert_called_once_with()
-
-    def test_009l_discard_if_unused_runs_when_revisions_empty(self):
-        vol = self._created_volume()
-        vol.revisions_to_keep = 0
-        self.assertFalse(vol.revisions)
-        called = []
-
-        async def discard():
-            called.append(True)
-
-        vol.discard_revisions = discard
-        self.loop.run_until_complete(vol._discard_revisions_if_unused())
-        self.assertTrue(called)
-
-    def test_010_setup_luks_discards_clean_cow(self):
-        vol = self._created_volume()
-        with open(vol.path, "r+b") as fh:
-            fh.write(b"filesystem-superblock")
-        os.makedirs(os.path.dirname(vol.path_cow), exist_ok=True)
-        with open(vol.path_cow, "wb"):
-            pass
-        vol.is_dirty = lambda: False
-        vol.set_passphrase(b"s3cret")
-
-        def fake_resize(size):
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        self.loop.run_until_complete(vol.setup_luks())
-        self.assertFalse(os.path.exists(vol.path_cow))
-
-    def test_011_start_luks_does_not_format(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.start_luks(mapper))
-        self.assertIn("not LUKS formatted", str(ctx.exception))
-        vol.start.assert_not_called()
-        called = [c[0] for c in self.mock_cryptsetup.call_args_list]
-        self.assertFalse(
-            any("luksFormat" in c or "reencrypt" in c for c in called)
-        )
-
-    def test_013_start_luks_open_failure_rolls_back_and_retries(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        vol.stop = unittest.mock.AsyncMock()
-        vol.block_device = unittest.mock.Mock(
-            return_value=qubes.storage.BlockDevice(
-                vol.path, vol.name, None, True, None, "disk"
-            )
-        )
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-        opens = {"n": 0}
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                return None
-            if "open" in args:
-                opens["n"] += 1
-                if opens["n"] == 1:
-                    raise subprocess.CalledProcessError(1, "open")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(vol.start_luks(mapper))
-        self.assertIn("Failed to unlock", str(ctx.exception))
-        vol.start.assert_called_once_with()
-        vol.stop.assert_called_once_with()
-        self.assertTrue(vol.has_passphrase())
-        self.assertEqual(bytes(vol._passphrase), b"s3cret")
-
-        self.loop.run_until_complete(vol.start_luks(mapper))
-        self.assertEqual(vol.start.call_count, 2)
-        self.assertEqual(vol.stop.call_count, 1)
-        self.assertFalse(vol.has_passphrase())
-
-    def test_012_failed_reencrypt_keeps_encrypted_flag(self):
-        vol = self._created_volume()
-        with open(vol.path, "r+b") as fh:
-            fh.write(b"filesystem-superblock")
-        vol.set_passphrase(b"s3cret")
-        self.assertFalse(vol.encrypted)
-
-        def fake_resize(size):
-            vol._size = size
-
-        vol.resize = fake_resize
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                raise subprocess.CalledProcessError(1, "isLuks")
-            if "reencrypt" in args:
-                raise subprocess.CalledProcessError(1, "reencrypt")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(subprocess.CalledProcessError):
-            self.loop.run_until_complete(vol.setup_luks())
-        self.assertTrue(vol.encrypted)
-        self.assertTrue(vol._luks_device_mutated)
-
-    def test_013b_failed_reencrypt_retry_does_not_stack_grow(self):
-        vol = self._created_volume()
-        with open(vol.path, "r+b") as fh:
-            fh.write(b"filesystem-superblock")
-        vol.set_passphrase(b"s3cret")
-        orig_size = vol.size
-        resized = []
-
-        def fake_resize(size):
-            resized.append(size)
-            vol._size = size
-            with open(vol.path, "r+b") as fh:
-                fh.truncate(size)
-
-        vol.resize = fake_resize
-        fail_reencrypt = {"n": True}
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                if vol.size == orig_size + qubes.storage.LUKS2_HEADER_SIZE:
-                    return None
-                raise subprocess.CalledProcessError(1, "isLuks")
-            if "reencrypt" in args and fail_reencrypt["n"]:
-                fail_reencrypt["n"] = False
-                raise subprocess.CalledProcessError(1, "reencrypt")
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with self.assertRaises(subprocess.CalledProcessError):
-            self.loop.run_until_complete(vol.setup_luks())
-        self.loop.run_until_complete(vol.setup_luks())
-        self.assertEqual(
-            resized,
-            [
-                orig_size + qubes.storage.LUKS2_REENCRYPT_WORKSPACE,
-                orig_size + qubes.storage.LUKS2_HEADER_SIZE,
-            ],
-        )
-        self.assertEqual(vol.size, orig_size + qubes.storage.LUKS2_HEADER_SIZE)
-
-    def test_014_header_size_constant(self):
-        self.assertEqual(qubes.storage.LUKS2_HEADER_SIZE, 32 << 20)
-        self.assertEqual(qubes.storage.LUKS2_REENCRYPT_WORKSPACE, 64 << 20)
-        self.assertEqual(qubes.storage.LUKS2_DATA_OFFSET_SECTORS, 65536)
-        self.assertEqual(qubes.storage.LUKS2_ZERO_PAYLOAD, 10 << 20)
-        self.assertEqual(
-            "--reduce-device-size={}M".format(
-                qubes.storage.LUKS2_REENCRYPT_WORKSPACE >> 20
-            ),
-            "--reduce-device-size=64M",
-        )
-        self.assertEqual(
-            "--offset={}".format(qubes.storage.LUKS2_DATA_OFFSET_SECTORS),
-            "--offset=65536",
-        )
-
-    def test_015_start_luks_warns_on_stale_mapper(self):
-        vol = self._created_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        vol.block_device = unittest.mock.Mock(
-            return_value=qubes.storage.BlockDevice(
-                vol.path, vol.name, None, True, None, "disk"
-            )
-        )
-        mapper = vol.encrypted_volume_path("test-vm", "private")
-        seen = {"first": True}
-        real_exists = os.path.exists
-
-        def exists(path):
-            if path == mapper and seen["first"]:
-                seen["first"] = False
-                return True
-            return real_exists(path)
-
-        async def cryptsetup_side(*args, **kwargs):
-            if "isLuks" in args:
-                return None
-            return None
-
-        self.mock_cryptsetup.side_effect = cryptsetup_side
-        with unittest.mock.patch("os.path.exists", side_effect=exists):
-            with self.assertLogs("qubes.storage", level="WARNING") as log:
-                self.loop.run_until_complete(vol.start_luks(mapper))
-        self.assertTrue(
-            any("leftover LUKS mapping" in line for line in log.output)
-        )
-        closed = [
-            c for c in self.mock_cryptsetup.call_args_list if "close" in c[0]
-        ]
-        self.assertTrue(closed)
-
-    def test_016_luks_backend_uses_volume_path(self):
-        vol = self._created_volume()
-        self.assertTrue(os.path.exists(vol.path))
-        self.assertEqual(vol.luks_backend_path(), vol.path)
-
-
-class TC_03_StorageStartStop(_EncryptTestCase):
-    """Storage.start / stop / create / block_devices for encrypted volumes."""
-
-    def _storage_with(self, vol):
-        vm = vol.pool  # unused; rebuild a TestVM
-        vm = qubes.tests.storage.TestVM(self)
-        vm.volumes = {vol.name: vol}
-        # Storage.import_volume fires domain-import-volume on the VM.
-        vm.fire_event_async = unittest.mock.AsyncMock()
-        return qubes.storage.Storage(vm), vm
-
-    def test_000_start_calls_start_luks(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"s3cret")
-        vol.start_luks = unittest.mock.AsyncMock()
-        vol.start_encrypted = unittest.mock.AsyncMock()
-        vol.start = unittest.mock.AsyncMock()
-        storage, vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vol.start_luks.assert_called_once()
-        vol.start.assert_not_called()
-        vol.start_encrypted.assert_not_called()
-
-    def test_001_start_raises_without_passphrase(self):
-        vol = self._private_volume(encrypted=True)
-        storage, _vm = self._storage_with(vol)
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(storage.start())
-        self.assertIn("Passphrase required", str(ctx.exception))
-
-    def test_002_stop_calls_stop_luks(self):
-        vol = self._private_volume(encrypted=True)
-        vol.stop_luks = unittest.mock.AsyncMock()
-        vol.stop = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.stop())
-        vol.stop_luks.assert_called_once()
-        vol.stop.assert_not_called()
-
-    def test_003_start_plain_still_works(self):
-        vol = self._private_volume()
-        vol.start = unittest.mock.AsyncMock()
-        vol.start_luks = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vol.start.assert_called_once()
-        vol.start_luks.assert_not_called()
-
-    def test_004_start_ephemeral_still_works(self):
-        vol = self._volatile_volume()
-        vol.ephemeral = True
-        vol.start_encrypted = unittest.mock.AsyncMock()
-        vol.start_luks = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vol.start_encrypted.assert_called_once()
-        vol.start_luks.assert_not_called()
-
-    def test_005_create_calls_setup_luks(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"s3cret")
-        vol.create = unittest.mock.AsyncMock()
-        vol.setup_luks = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        self.loop.run_until_complete(storage.create())
-        vol.create.assert_called_once()
-        vol.setup_luks.assert_called_once()
-
-    def test_006_block_devices_uses_mapper(self):
-        vol = self._private_volume(encrypted=True)
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        storage, vm = self._storage_with(vol)
-        devices = list(storage.block_devices())
-        self.assertEqual(len(devices), 1)
-        self.assertTrue(devices[0].path.startswith("/dev/mapper/"))
-
-    def test_007_passphrase_event_then_retry(self):
-        vol = self._private_volume(encrypted=True)
-        vol.start_luks = unittest.mock.AsyncMock()
-        storage, vm = self._storage_with(vol)
-
-        async def provide_passphrase(event, **kwargs):
-            self.assertEqual(event, "domain-passphrase-required")
-            self.assertEqual(kwargs["volumes"], ["private"])
-            vol.set_passphrase(b"s3cret")
-
-        vm.fire_event_async = provide_passphrase
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vol.start_luks.assert_called_once()
-
-    def test_008_refuses_unencrypted_start_with_passphrase(self):
-        vol = self._private_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.start = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            with self.assertRaises(StoragePoolException) as ctx:
-                self.loop.run_until_complete(storage.start())
-        self.assertIn("enable encryption", str(ctx.exception).lower())
-        self.assertTrue(vol.has_passphrase())
-        vol.start.assert_not_called()
-
-    def test_009_clears_passphrase_on_unencrypted_stop(self):
-        vol = self._private_volume()
-        vol.set_passphrase(b"s3cret")
-        vol.stop = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.stop())
-        self.assertFalse(vol.has_passphrase())
-        vol.stop.assert_called_once()
-
-    def test_010_keeps_passphrase_on_encrypted_start_until_luks(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"s3cret")
-        vol.start_luks = unittest.mock.AsyncMock()
-        storage, _vm = self._storage_with(vol)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        self.assertTrue(vol.has_passphrase())
-        vol.start_luks.assert_called_once()
-
-    def test_011_refuses_start_before_any_volume_starts(self):
-        root = self._private_volume()
-        root.start = unittest.mock.AsyncMock()
-        priv = self._private_volume()
-        priv.set_passphrase(b"s3cret")
-        priv.start = unittest.mock.AsyncMock()
-        vm = qubes.tests.storage.TestVM(self)
-        vm.volumes = {"root": root, "private": priv}
-        vm.fire_event_async = unittest.mock.AsyncMock()
-        storage = qubes.storage.Storage(vm)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            with self.assertRaises(StoragePoolException) as ctx:
-                self.loop.run_until_complete(storage.start())
-        self.assertIn("unencrypted volume", str(ctx.exception).lower())
-        root.start.assert_not_called()
-        priv.start.assert_not_called()
-        self.assertTrue(priv.has_passphrase())
-
-    def test_012_start_saves_after_zero(self):
-        vol = self._private_volume(encrypted=True, luks_needs_zero=True)
-        vol.set_passphrase(b"s3cret")
-
-        async def start_luks(_name):
-            vol._luks_needs_zero = False
-
-        vol.start_luks = unittest.mock.AsyncMock(side_effect=start_luks)
-        storage, vm = self._storage_with(vol)
-        saved_flag = []
-
-        def on_save():
-            saved_flag.append(vol._luks_needs_zero)
-
-        vm.app.save = unittest.mock.Mock(side_effect=on_save)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vm.app.save.assert_called_once_with()
-        vol.start_luks.assert_awaited()
-        self.assertEqual(saved_flag, [False])
-        self.assertFalse(vol._luks_needs_zero)
-
-    def test_013_start_skips_save_when_zero_not_needed(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"s3cret")
-        vol.start_luks = unittest.mock.AsyncMock()
-        storage, vm = self._storage_with(vol)
-        vm.app.save = unittest.mock.Mock()
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            self.loop.run_until_complete(storage.start())
-        vm.app.save.assert_not_called()
-
-    def test_014_start_saves_zero_clear_on_unlock_failure(self):
-        vol = self._private_volume(encrypted=True, luks_needs_zero=True)
-        vol.set_passphrase(b"s3cret")
-
-        async def start_luks(_name):
-            vol._luks_needs_zero = False
-            raise StoragePoolException("unlock failed")
-
-        vol.start_luks = unittest.mock.AsyncMock(side_effect=start_luks)
-        storage, vm = self._storage_with(vol)
-        saved_flag = []
-
-        def on_save():
-            saved_flag.append(vol._luks_needs_zero)
-
-        vm.app.save = unittest.mock.Mock(side_effect=on_save)
-        state_dir = os.path.join(self.tmpdir, "run")
-        os.makedirs(state_dir)
-        with unittest.mock.patch("qubes.storage.VOLUME_STATE_DIR", state_dir):
-            with self.assertRaises(StoragePoolException):
-                self.loop.run_until_complete(storage.start())
-        vm.app.save.assert_called_once_with()
-        vol.start_luks.assert_awaited()
-        self.assertEqual(saved_flag, [False])
-        self.assertFalse(vol._luks_needs_zero)
-
-
-class TC_04_PassphraseBytes(_EncryptTestCase):
-    def test_000_no_extra_newline(self):
-        self.assertEqual(qubes.utils._passphrase_bytes(b"s3cret"), b"s3cret")
-        self.assertEqual(qubes.utils._passphrase_bytes("s3cret"), b"s3cret")
-        self.assertEqual(
-            qubes.utils._passphrase_bytes(bytearray(b"s3cret")), b"s3cret"
-        )
-
-
-class TC_05_SnapshotSource(_EncryptTestCase):
-    def test_000_init_rejects_encrypted_source(self):
-        src = self._private_volume(encrypted=True)
-        vm = qubes.tests.storage.TestVM(self)
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.pool.init_volume(
-                vm,
-                {
-                    "name": "root",
-                    "rw": True,
-                    "snap_on_start": True,
-                    "source": src,
-                    "size": defaults["root_img_size"],
-                },
-            )
-        self.assertIn("encrypted source", str(ctx.exception))
-
-    def test_001_consumers_use_equality_not_identity(self):
-        src = self._private_volume()
-        other_vm = qubes.tests.storage.TestVM(self)
-        src_alias = self.pool.init_volume(
-            other_vm,
-            {
-                "name": "private",
-                "rw": True,
-                "save_on_stop": True,
-                "vid": src.vid,
-                "size": defaults["private_img_size"],
-            },
-        )
-        self.assertEqual(src, src_alias)
-        self.assertIsNot(src, src_alias)
-
-        child_vm = qubes.tests.storage.TestVM(self)
-        child = self.pool.init_volume(
-            child_vm,
-            {
-                "name": "root",
-                "rw": True,
-                "snap_on_start": True,
-                "source": src_alias,
-                "size": defaults["private_img_size"],
-            },
-        )
-        child_vm.volumes = {"root": child}
-
-        class _App:
-            domains = [child_vm]
-
-        found = list(qubes.storage.snapshot_consumers(_App(), src))
-        self.assertEqual(len(found), 1)
-        self.assertIs(found[0][1], child)
-
-
-class TC_06_ImportAndCreate(_EncryptTestCase):
-    def test_000_import_encrypted_marks_dest(self):
-        orig = 2 << 20
-        src = self._private_volume(
-            encrypted=True, luks_guest_size=orig, luks_needs_zero=True
-        )
-        dst = self._private_volume()
-        self.assertFalse(dst.encrypted)
-        dst.import_volume = unittest.mock.AsyncMock(return_value=dst)
-        src.is_running = lambda: False
-        storage, vm = TC_03_StorageStartStop._storage_with(self, dst)
-        self.loop.run_until_complete(storage.import_volume(dst, src))
-        self.assertTrue(dst.encrypted)
-        self.assertEqual(dst._luks_setup_guest_size, orig)
-        self.assertTrue(dst._luks_needs_zero)
-        dst.import_volume.assert_called_once_with(src)
-        vm.fire_event_async.assert_awaited_once_with(
-            "domain-import-volume", name=dst.name, source=src
-        )
-
-    def test_001_import_plaintext_into_encrypted_refused(self):
-        src = self._private_volume()
-        dst = self._private_volume(encrypted=True)
-        dst.import_volume = unittest.mock.AsyncMock()
-        src.is_running = lambda: False
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, dst)
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(storage.import_volume(dst, src))
-        self.assertIn("unencrypted", str(ctx.exception))
-        dst.import_volume.assert_not_called()
-
-    def test_002_import_encrypted_into_ineligible_dest_refused(self):
-        src = self._private_volume(encrypted=True)
-        dst = self._volatile_volume()
-        dst.import_volume = unittest.mock.AsyncMock()
-        src.is_running = lambda: False
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, dst)
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.loop.run_until_complete(storage.import_volume(dst, src))
-        dst.import_volume.assert_not_called()
-
-    def test_003_create_requires_passphrase_before_create(self):
-        vol = self._private_volume(encrypted=True)
-        vol.create = unittest.mock.AsyncMock()
-        vol.setup_luks = unittest.mock.AsyncMock()
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
-        with self.assertRaises(StoragePoolException) as ctx:
-            self.loop.run_until_complete(storage.create())
-        self.assertIn("Passphrase required", str(ctx.exception))
-        vol.create.assert_not_called()
-        vol.setup_luks.assert_not_called()
-
-    def test_004_import_data_end_reformats_encrypted(self):
-        vol = self._private_volume(encrypted=True)
-        vol.set_passphrase(b"s3cret")
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.setup_luks = unittest.mock.AsyncMock()
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
-        self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vol.setup_luks.assert_called_once_with()
-
-    def test_005_import_data_end_requires_passphrase(self):
-        vol = self._private_volume(encrypted=True)
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.setup_luks = unittest.mock.AsyncMock()
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
-        with self.assertRaises(StoragePoolException):
-            self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vol.setup_luks.assert_not_called()
-
-    def test_007_import_plaintext_pins_live_guest_and_skips_zero(self):
-        orig = 2 << 20
-        imported = 8 << 20
-        vol = self._private_volume(
-            size=imported,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        with open(vol.path, "r+b") as fh:
-            fh.write(b"imported-filesystem")
-        vol.set_passphrase(b"s3cret")
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.is_luks = unittest.mock.AsyncMock(return_value=False)
-        captured = {}
-
-        async def setup():
-            captured["guest"] = vol._luks_setup_guest_size
-            captured["zero"] = vol._luks_needs_zero
-
-        vol.setup_luks = unittest.mock.AsyncMock(side_effect=setup)
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
-        self.loop.run_until_complete(storage.import_data_end(vol, True))
-        self.assertEqual(captured["guest"], imported)
-        self.assertFalse(captured["zero"])
-
-    def test_008_import_already_luks_pins_payload_and_skips_zero(self):
-        orig = 2 << 20
-        backing = orig + qubes.storage.LUKS2_HEADER_SIZE
-        imported = 64 << 20
-        vol = self._private_volume(
-            size=imported,
-            encrypted=True,
-            luks_needs_zero=True,
-            luks_guest_size=orig,
-        )
-        os.makedirs(os.path.dirname(vol.path), exist_ok=True)
-        self.loop.run_until_complete(qubes.utils.coro_maybe(vol.create()))
-        vol.set_passphrase(b"s3cret")
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.is_luks = unittest.mock.AsyncMock(return_value=True)
-        captured = {}
-
-        async def setup():
-            captured["guest"] = vol._luks_setup_guest_size
-            captured["zero"] = vol._luks_needs_zero
-
-        vol.setup_luks = unittest.mock.AsyncMock(side_effect=setup)
-        storage, _vm = TC_03_StorageStartStop._storage_with(self, vol)
-        self.loop.run_until_complete(storage.import_data_end(vol, True))
-        self.assertEqual(
-            captured["guest"], imported - qubes.storage.LUKS2_HEADER_SIZE
-        )
-        self.assertFalse(captured["zero"])
-        self.assertNotEqual(captured["guest"], orig)
-        self.assertNotEqual(captured["guest"], backing)
-
-    def test_009_import_data_end_saves_luks_pin(self):
-        vol = self._private_volume(encrypted=True, luks_needs_zero=True)
-        vol.set_passphrase(b"s3cret")
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.is_luks = unittest.mock.AsyncMock(return_value=False)
-        vol.setup_luks = unittest.mock.AsyncMock()
-        storage, vm = TC_03_StorageStartStop._storage_with(self, vol)
-        vm.app.save = unittest.mock.Mock()
-        self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vm.app.save.assert_called_once_with()
-
-    def test_010_import_data_end_saves_pin_if_setup_fails(self):
-        vol = self._private_volume(encrypted=True, luks_needs_zero=True)
-        vol.set_passphrase(b"s3cret")
-        vol.import_data_end = unittest.mock.AsyncMock(return_value=vol)
-        vol.is_luks = unittest.mock.AsyncMock(return_value=False)
-        vol.setup_luks = unittest.mock.AsyncMock(
-            side_effect=StoragePoolException("setup failed")
-        )
-        storage, vm = TC_03_StorageStartStop._storage_with(self, vol)
-        vm.app.save = unittest.mock.Mock()
-        with self.assertRaises(StoragePoolException):
-            self.loop.run_until_complete(storage.import_data_end(vol, True))
-        vm.app.save.assert_called_once_with()
-
-    def test_006_zfs_like_path_uses_block_device(self):
-        class ZLike(qubes.storage.Volume):
-            path = None
-
-            def block_device(self):
-                return qubes.storage.BlockDevice(
-                    "/dev/zvol/tank/vm-private",
-                    "private",
-                    None,
-                    True,
-                    None,
-                    "disk",
-                )
-
-        vol = ZLike(
-            "private",
-            self.pool,
-            "zvol-vid",
+                self.loop.run_until_complete(volume.discard_revisions())
+
+    def test_001b_lvm_is_empty(self):
+        pool = qubes.storage.Pool(name="test")
+        volume = qubes.storage.lvm.ThinVolume(
+            volume_group="qubes_dom0",
+            name="private",
+            pool=pool,
+            vid="qubes_dom0/vm-test-private",
             rw=True,
             save_on_stop=True,
-            size=1024,
+            size=SIZE,
         )
-        self.assertEqual(vol.luks_backend_path(), "/dev/zvol/tank/vm-private")
+        proc = unittest.mock.Mock(returncode=0)
+        proc.communicate = unittest.mock.AsyncMock(
+            return_value=(b"0 131072 thin 0 -\n", b"")
+        )
+        with unittest.mock.patch(
+            "asyncio.create_subprocess_exec",
+            new_callable=unittest.mock.AsyncMock,
+            return_value=proc,
+        ) as exec_mock:
+            self.assertTrue(self.loop.run_until_complete(volume.is_empty()))
+            self.assertEqual(
+                exec_mock.call_args.args[-3:],
+                ("status", "--", volume.path),
+            )
+            proc.communicate.return_value = (b"0 131072 thin 128 2047\n", b"")
+            self.assertFalse(self.loop.run_until_complete(volume.is_empty()))
+            # only the zeroed first chunk is mapped
+            proc.communicate.return_value = (b"0 131072 thin 128 127\n", b"")
+            for data, empty in ((bytes(65536), True), (b"x" * 65536, False)):
+                with unittest.mock.patch(
+                    "builtins.open", unittest.mock.mock_open(read_data=data)
+                ):
+                    self.assertEqual(
+                        self.loop.run_until_complete(volume.is_empty()), empty
+                    )
+
+    def test_001c_zfs_not_encryptable(self):
+        volume = object.__new__(qubes.storage.zfs.ZFSVolume)
+        self.assertFalse(volume.is_encryptable())
+
+    def test_002_reflink(self):
+        pool = qubes.storage.reflink.ReflinkPool(
+            name="test", dir_path=self.tmpdir, setup_check=False
+        )
+        volume = pool.init_volume(
+            TestVM(self),
+            {"name": "private", "rw": True, "save_on_stop": True, "size": SIZE},
+        )
+        # pylint: disable=protected-access
+        os.makedirs(os.path.dirname(volume._path_clean))
+        self.assertEqual(volume.luks_backend_path(), volume._path_clean)
+        for revision in ("1@2020-01-01T00:00:00Z", "2@2020-01-02T00:00:00Z"):
+            with open(volume._path_clean + "." + revision, "wb"):
+                pass
+        self.assertEqual(len(volume.revisions), 2)
+        self.loop.run_until_complete(volume.discard_revisions())
+        self.assertFalse(volume.revisions)
