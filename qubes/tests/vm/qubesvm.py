@@ -1075,6 +1075,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     "block_device.return_value.devtype": "disk",
                     "block_device.return_value.name": "kernel",
                     "ephemeral": False,
+                    "encrypted": False,
                 }
             )
             libvirt_xml = vm.create_config_file()
@@ -1482,6 +1483,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     "block_device.return_value.devtype": "disk",
                     "block_device.return_value.name": "kernel",
                     "ephemeral": False,
+                    "encrypted": False,
                 }
             )
             libvirt_xml = vm.create_config_file()
@@ -1555,6 +1557,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     "block_device.return_value.devtype": "disk",
                     "block_device.return_value.name": "kernel",
                     "ephemeral": False,
+                    "encrypted": False,
                 }
             )
             libvirt_xml = vm.create_config_file()
@@ -1631,6 +1634,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     "block_device.return_value.devtype": "disk",
                     "block_device.return_value.name": "kernel",
                     "ephemeral": False,
+                    "encrypted": False,
                 }
             )
             libvirt_xml = vm.create_config_file()
@@ -2057,6 +2061,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     "block_device.return_value.devtype": "disk",
                     "block_device.return_value.name": "kernel",
                     "ephemeral": False,
+                    "encrypted": False,
                 }
             )
             dom0.events_enabled = True
@@ -2347,6 +2352,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "block_device.return_value.devtype": "disk",
                 "block_device.return_value.domain": "dom0",
                 "ephemeral": False,
+                "encrypted": False,
             }
         )
         vm.volumes["other"] = unittest.mock.Mock(
@@ -2356,6 +2362,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "block_device.return_value.devtype": "disk",
                 "block_device.return_value.domain": "dom0",
                 "ephemeral": False,
+                "encrypted": False,
             }
         )
         vm.volumes["other2"] = unittest.mock.Mock(
@@ -2365,6 +2372,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "block_device.return_value.devtype": "disk",
                 "block_device.return_value.domain": "dom0",
                 "ephemeral": False,
+                "encrypted": False,
             }
         )
         assignments = [

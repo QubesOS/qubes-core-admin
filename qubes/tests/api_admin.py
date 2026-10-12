@@ -598,7 +598,7 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf["__getitem__.return_value.data_size"] = "size-value"
+        volumes_conf["__getitem__.return_value.data_size"] = "data_size-value"
         volumes_conf["__getitem__.return_value.is_outdated.return_value"] = (
             False
         )
@@ -606,9 +606,13 @@ netvm default=True type=vm \n"""
         value = self.call_mgmt_func(
             b"admin.vm.volume.Info", b"test-vm1", b"private"
         )
+        # the size as seen by the qube
         self.assertEqual(
             value,
-            "".join("{p}={p}-value\n".format(p=p) for p in volume_properties)
+            "".join(
+                "{}={}-value\n".format(p, "data_size" if p == "size" else p)
+                for p in volume_properties
+            )
             + "is_outdated=False\n",
         )
         self.assertEqual(
@@ -629,7 +633,7 @@ netvm default=True type=vm \n"""
             volumes_conf["__getitem__.return_value.{}".format(prop)] = (
                 prop + "-value"
             )
-        volumes_conf["__getitem__.return_value.data_size"] = "size-value"
+        volumes_conf["__getitem__.return_value.data_size"] = "data_size-value"
         volumes_conf["__getitem__.return_value.is_outdated.side_effect"] = (
             NotImplementedError
         )
@@ -639,7 +643,10 @@ netvm default=True type=vm \n"""
         )
         self.assertEqual(
             value,
-            "".join("{p}={p}-value\n".format(p=p) for p in volume_properties),
+            "".join(
+                "{}={}-value\n".format(p, "data_size" if p == "size" else p)
+                for p in volume_properties
+            ),
         )
         self.assertEqual(
             self.vm.volumes.mock_calls,
@@ -3332,6 +3339,20 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
 
         self.assertEqual(os.stat(file_name).st_size, new_size)
 
+    def test_513_vm_volume_import_encrypted(self):
+        volume = self.vm.volumes["private"]
+        volume.encrypted = True
+        path = volume.encrypted_volume_path("test-vm1", "private")
+        self.vm.storage.import_data = unittest.mock.AsyncMock(return_value=path)
+        value = self.call_internal_mgmt_func(
+            b"internal.vm.volume.ImportBegin", b"test-vm1", b"private"
+        )
+        self.assertEqual(
+            value,
+            "{} {}".format(2 * 2**30 - qubes.storage.LUKS2_HEADER_SIZE, path),
+        )
+        self.vm.storage.import_data.assert_awaited_once_with("private", None)
+
     def test_515_vm_volume_import_fire_event(self):
         self.call_internal_mgmt_func(
             b"internal.vm.volume.ImportBegin", b"test-vm1", b"private"
@@ -3616,6 +3637,27 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
                 b"private",
                 token.encode(),
             )
+
+    def test_526_vm_volume_clone_locked(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+        # not racing the qube starting
+        self.vm2.storage.import_volume = unittest.mock.AsyncMock(
+            side_effect=lambda _dst, _src: self.assertTrue(
+                self.vm2.startup_lock.locked()
+            )
+        )
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+        self.call_mgmt_func(
+            b"admin.vm.volume.CloneTo", b"test-vm2", b"private", token.encode()
+        )
+        self.vm2.storage.import_volume.assert_awaited_once()
 
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")
@@ -5089,7 +5131,11 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
     def test_741_vm_volume_set_encrypted_disable(self):
         self.vm.storage.encrypt = unittest.mock.AsyncMock()
-        self.vm.volumes["private"].encrypted = True
+        volume = self.vm.volumes["private"]
+        volume.encrypted = True
+        os.makedirs(os.path.dirname(volume.path), exist_ok=True)
+        with open(volume.path, "wb") as image:
+            image.write(b"LUKS\xba\xbe")
         with self.assertRaises(qubes.exc.QubesValueError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Set.encrypted",
@@ -5097,13 +5143,17 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 b"private",
                 b"False",
             )
-        # no-op on an unencrypted volume
+        self.assertTrue(volume.encrypted)
+        # possible while there is no LUKS header yet
+        with open(volume.path, "wb") as image:
+            image.write(bytes(4096))
         value = self.call_mgmt_func(
-            b"admin.vm.volume.Set.encrypted", b"test-vm1", b"root", b"False"
+            b"admin.vm.volume.Set.encrypted", b"test-vm1", b"private", b"False"
         )
         self.assertIsNone(value)
+        self.assertFalse(volume.encrypted)
         self.vm.storage.encrypt.assert_not_called()
-        self.assertFalse(self.app.save.called)
+        self.app.save.assert_called()
 
     def test_742_vm_volume_set_encrypted_invalid(self):
         self.vm.storage.encrypt = unittest.mock.AsyncMock()
@@ -5130,6 +5180,15 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                     b"True",
                 )
         self.vm.storage.encrypt.assert_not_called()
+        self.assertFalse(self.app.save.called)
+
+    def test_744_vm_volume_set_rw_encrypted(self):
+        self.vm.volumes["private"].encrypted = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Set.rw", b"test-vm1", b"private", b"False"
+            )
+        self.assertTrue(self.vm.volumes["private"].rw)
         self.assertFalse(self.app.save.called)
 
     def test_745_vm_volume_set_passphrase(self):

@@ -523,20 +523,21 @@ class StorageTestMixin(object):
         """Encrypt an empty volume and one with data, use them"""
         return self.loop.run_until_complete(self._test_010_encrypted())
 
-    async def _assert_volume_content(self, dev, size, content):
-        """Check the size of /dev/<dev> in vm1 and that it holds
-        <content> followed by zeros (at least 10 MiB of them, which is
-        what the qube requires to create a filesystem there)"""
+    async def _assert_volume_content(self, dev, size, content, length):
+        """Check the size of /dev/<dev> in vm1 and that its first <length>
+        bytes hold <content> followed by zeros (a new encrypted volume has
+        only its beginning zeroed, what the qube requires to create a
+        filesystem there)"""
         stdout, _ = await self.vm1.run_for_stdio(
             "blockdev --getsize64 /dev/" + dev, user="root"
         )
         self.assertEqual(int(stdout), size)
         if content:
-            cmd = "echo {} | cat - /dev/zero | head -c {} | diff -q /dev/{} -"
-            cmd = cmd.format(content, size, dev)
+            cmd = "echo {} | cat - /dev/zero | cmp -n {} - /dev/{}"
+            cmd = cmd.format(content, length, dev)
         else:
-            cmd = "cmp -n 10M /dev/{0} /dev/zero && ! blkid -p /dev/{0}"
-            cmd = cmd.format(dev)
+            cmd = "cmp -n {0} /dev/{1} /dev/zero && ! blkid -p /dev/{1}"
+            cmd = cmd.format(length, dev)
         try:
             await self.vm1.run_for_stdio(cmd, user="root")
         except subprocess.CalledProcessError:
@@ -599,13 +600,16 @@ class StorageTestMixin(object):
             await self.vm1.start()
             await self.wait_for_session(self.vm1)
             self.assertFalse(testvol.has_passphrase())
-            await self._assert_volume_content("xvde", size, "test123")
-            await self._assert_volume_content("xvdf", size, "")
+            await self._assert_volume_content("xvde", size, "test123", size)
+            await self._assert_volume_content(
+                "xvdf", size, "", qubes.storage.LUKS_ZEROED_SIZE
+            )
             await self.vm1.shutdown(wait=True)
 
         # change the passphrase, resize, import data (as Import/Clear do)
         new_passphrase = b"new-passphrase"
         await testvol.change_passphrase(passphrase, new_passphrase)
+        await self.vm1.storage.resize("testvol", 2 * size)
         await self.vm1.storage.resize("testvol2", 2 * size)
         self.assertEqual(testvol2.data_size, 2 * size)
         testvol2.set_passphrase(passphrase)
@@ -615,10 +619,23 @@ class StorageTestMixin(object):
         await self.vm1.storage.import_data_end("testvol2", True)
         self.app.save()
 
+        testvol.set_passphrase(new_passphrase)
         await self.vm1.start()
         await self.wait_for_session(self.vm1)
-        await self._assert_volume_content("xvde", size, "test123")
-        await self._assert_volume_content("xvdf", 2 * size, "test456")
+        # the part added to testvol is not zeroed
+        await self._assert_volume_content("xvde", 2 * size, "test123", size)
+        await self._assert_volume_content(
+            "xvdf", 2 * size, "test456", qubes.storage.LUKS_ZEROED_SIZE
+        )
+        # resize while running, the LUKS mapping follows
+        testvol2.set_passphrase(passphrase)
+        with suppress(qubes.exc.StoragePoolException):
+            # qubes.ResizeDisk in the qube resizes only root and private
+            await self.vm1.storage.resize("testvol2", 3 * size)
+        self.assertFalse(testvol2.has_passphrase())
+        path = testvol2.encrypted_volume_path(self.vm1.name, "testvol2")
+        with open(path, "rb") as mapping:
+            self.assertEqual(mapping.seek(0, os.SEEK_END), 3 * size)
         await self.vm1.shutdown(wait=True)
 
 
