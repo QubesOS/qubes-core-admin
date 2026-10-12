@@ -635,9 +635,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(
             src_volume=src_volume, dst_volume=dst_volume
         )
-        self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
-            self.dest.storage.import_volume(dst_volume, src_volume)
-        )
+        # the qube must not start meanwhile (an encrypted copy is refused for
+        # a running qube)
+        async with self.dest.startup_lock:
+            self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
+                self.dest.storage.import_volume(dst_volume, src_volume)
+            )
         self.app.save()
 
     @qubes.api.method(

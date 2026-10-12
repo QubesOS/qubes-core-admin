@@ -1579,15 +1579,36 @@ class Storage:
                 "Cannot import unencrypted volume {!s} into encrypted "
                 "volume {!s}".format(src_volume, dst_volume)
             )
-        if src_volume.encrypted and not dst_volume.encrypted:
+        encrypt = src_volume.encrypted and not dst_volume.encrypted
+        if encrypt:
             self._check_encryptable(dst_volume)
-
-        import_rslt = await qubes.utils.coro_maybe(
-            dst_volume.import_volume(src_volume)
-        )
-        if src_volume.encrypted:
-            # the LUKS container was copied as is
+            # its data would replace the copy when it stops
+            if dst_volume.is_running():
+                raise StoragePoolException(
+                    f"Volume {dst_volume!s} must be stopped before importing "
+                    f"an encrypted volume"
+                )
+            # one written by the qube would be kept if the copy fails
+            if dst_volume.is_luks():
+                raise StoragePoolException(
+                    "Volume {!s} already holds a LUKS container".format(
+                        dst_volume
+                    )
+                )
+            # the LUKS container is copied as is; save the flag first, so
+            # that the copy cannot be mistaken for an unencrypted volume
             dst_volume.encrypted = True
+            self.vm.app.save()
+
+        try:
+            import_rslt = await qubes.utils.coro_maybe(
+                dst_volume.import_volume(src_volume)
+            )
+        except:  # pylint: disable=bare-except
+            if encrypt and not dst_volume.is_luks():
+                dst_volume.encrypted = False
+                self.vm.app.save()
+            raise
         await self.vm.fire_event_async(
             "domain-import-volume", name=dst_volume.name, source=src_volume
         )
