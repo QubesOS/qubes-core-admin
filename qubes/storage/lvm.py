@@ -757,16 +757,17 @@ class ThinVolume(qubes.storage.Volume):
         if size == self.size:
             return
 
+        action = "resize_luks" if self.encrypted else "resize"
         if self.is_dirty() or self.snap_on_start:
-            cmd = ["resize", self._vid_snap, str(size)]
+            cmd = [action, self._vid_snap, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, "_vid_import") and os.path.exists(
             "/dev/" + self._vid_import
         ):
-            cmd = ["resize", self._vid_import, str(size)]
+            cmd = [action, self._vid_import, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif self.save_on_stop and not self.snap_on_start:
-            cmd = ["resize", self._vid_current, str(size)]
+            cmd = [action, self._vid_current, str(size)]
             await qubes_lvm_coro(cmd, self.log)
 
         self._size = size
@@ -938,8 +939,11 @@ def _get_lvm_cmdline(cmd):
         ]
     elif action == "resize":
         assert len(cmd) == 3, "wrong number of arguments for resize"
-        # --yes --fs=ignore: allow shrinking (done when encrypting a volume
-        # in place) without looking at the filesystem of the qube
+        lvm_cmd = ["lvresize", "--size=" + cmd[2] + "B", "--", cmd[1]]
+    elif action == "resize_luks":
+        assert len(cmd) == 3, "wrong number of arguments for resize_luks"
+        # lvresize cannot check a filesystem inside LUKS, and would refuse
+        # shrinking (done after encrypting a volume in place)
         lvm_cmd = [
             "lvresize",
             "--yes",
