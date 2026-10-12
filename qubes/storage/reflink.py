@@ -178,7 +178,9 @@ class ReflinkVolume(qubes.storage.Volume):
         self.path = self._path_dirty
 
     def luks_backend_path(self):
-        return self._path_clean
+        # with snapshots disabled, start() renames the clean image instead
+        # of copying it
+        return self._path_dirty if self.is_dirty() else self._path_clean
 
     @contextmanager
     def _update_precache(self):
