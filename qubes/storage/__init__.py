@@ -281,10 +281,12 @@ class Volume:
     @encrypted.setter
     def encrypted(self, value):
         if not value:
-            if self._encrypted:
+            if self._encrypted and self.is_luks():
                 raise qubes.exc.QubesValueError(
                     "Disabling volume encryption is not implemented"
                 )
+            # marked encrypted, but enabling it failed before writing a header
+            self._encrypted = False
             return
         if not self.is_encryptable():
             raise qubes.exc.QubesValueError(

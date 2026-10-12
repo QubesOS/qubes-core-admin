@@ -785,7 +785,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_volume_set_encrypted(self, untrusted_payload):
         """Enable LUKS2 encryption of a volume of a stopped qube, with the
         passphrase set earlier with admin.vm.volume.SetPassphrase.  Existing
-        data is encrypted in place.  Disabling is not implemented."""
+        data is encrypted in place.  Disabling is possible only while the
+        volume has no LUKS header yet (after a failed attempt)."""
         self.enforce_arg(
             wants=self.dest.volumes.keys(),
             short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
@@ -804,12 +805,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         async with self.dest.startup_lock:
             if not self.dest.is_halted():
                 raise qubes.exc.QubesVMNotHaltedError(self.dest)
-            if not newvalue:
-                # refused by the setter on an encrypted volume
-                self.dest.volumes[self.arg].encrypted = False
-                return
             try:
-                await self.dest.storage.encrypt(self.arg)
+                if newvalue:
+                    await self.dest.storage.encrypt(self.arg)
+                else:
+                    # refused by the setter once there is a LUKS header
+                    self.dest.volumes[self.arg].encrypted = False
             finally:
                 self.app.save()
 
