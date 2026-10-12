@@ -95,6 +95,18 @@ def _cryptsetup_error(exc):
     return "cryptsetup exit status {}".format(exc.returncode)
 
 
+def _is_zeroed(path, offset, length):
+    """Does the file hold only zeros from *offset* on, for *length* bytes?"""
+    with open(path, "rb") as image:
+        image.seek(offset)
+        while length > 0:
+            chunk = image.read(min(length, 1 << 20))
+            if not chunk or chunk != bytes(len(chunk)):
+                return False
+            length -= len(chunk)
+    return True
+
+
 class BlockDevice:
     """Represents a storage block device."""
 
@@ -1183,12 +1195,23 @@ class Storage:
     async def encrypt(self, volume):
         """Enable LUKS2 encryption on a volume of a stopped qube, with the
         passphrase set with :py:meth:`Volume.set_passphrase`.  Existing data
-        is encrypted in place.  Safe to call again, to finish an attempt
-        interrupted during the encryption.
+        is encrypted in place, which takes a while and writes the whole
+        volume, so it needs that much free space in the pool (on thin pools,
+        the volume gets fully allocated): the caller keeps the qube from
+        starting meanwhile, and nothing else may touch the volume.
+        Call again to finish an interrupted attempt.  An interruption before
+        cryptsetup writes the LUKS header, or before the final shrink, leaves
+        the volume 64 or 32 MiB bigger for the qube; one while cryptsetup
+        moves the start of the data to the end of the volume (before writing
+        the header) requires a manual recovery.
         """
         volume = self.get_volume(volume)
         if not volume.encrypted:
             self._check_encryptable(volume)
+        if volume.is_running():
+            raise StoragePoolException(
+                f"Volume {volume!s} must be stopped before encrypting it"
+            )
         await qubes.utils.coro_maybe(volume.verify())
         luks = volume.encrypted and volume.is_luks()
         if luks and not volume.is_partially_encrypted():
@@ -1218,10 +1241,6 @@ class Storage:
                         "first".format(volume)
                     )
                 await qubes.utils.coro_maybe(volume.discard_revisions())
-            # save it first, so that an interrupted setup cannot be mistaken
-            # for an unencrypted volume
-            volume.encrypted = True
-            self.vm.app.save()
         path = volume.luks_backend_path()
         if luks:
             try:
@@ -1246,36 +1265,91 @@ class Storage:
                 )
         elif await qubes.utils.coro_maybe(volume.is_empty()):
             # replace the empty volume with a new LUKS container
-            await self.import_data(volume, volume.size)
-            await self.import_data_end(volume, True)
+            if not volume.encrypted:
+                # save it first, so that an interrupted setup cannot be
+                # mistaken for an unencrypted volume
+                volume.encrypted = True
+                self.vm.app.save()
+            try:
+                await self.import_data(volume, volume.size)
+                await self.import_data_end(volume, True)
+            except:  # pylint: disable=bare-except
+                if not volume.is_luks():
+                    volume.encrypted = False
+                raise
+            # the replaced empty image is not worth a revision
+            if volume.revisions:
+                await qubes.utils.coro_maybe(volume.discard_revisions())
             return
         else:
-            # cryptsetup needs twice the header size at the end of the device
-            # to shift the data; the unused half is removed below
-            await qubes.utils.coro_maybe(
-                volume.resize(volume.size + 2 * LUKS2_HEADER_SIZE)
-            )
-            try:
-                await volume.cryptsetup(
-                    *_LUKS_FORMAT_ARGS,
-                    "--encrypt",
-                    "--reduce-device-size={}".format(2 * LUKS2_HEADER_SIZE),
-                    "--force-offline-reencrypt",
-                    "--",
-                    "reencrypt",
-                    path,
+            # before writing the LUKS header, cryptsetup moves the start of
+            # the data to the end of the volume
+            if volume.encrypted and not await asyncio.to_thread(
+                _is_zeroed,
+                path,
+                volume.size - LUKS2_HEADER_SIZE,
+                LUKS2_HEADER_SIZE,
+            ):
+                raise StoragePoolException(
+                    "Encrypting volume {!s} was interrupted while moving its "
+                    "data, it needs a manual recovery".format(volume)
                 )
-            except subprocess.CalledProcessError as exc:
-                if not volume.is_luks():
-                    # nothing was written yet, undo the resize
+            # cryptsetup needs twice the header size at the end of the
+            # device to shift the data; the unused half is removed below
+            size = volume.size + 2 * LUKS2_HEADER_SIZE
+            # every block gets written; even allocated ones may need new
+            # space, when shared with a clone, a snapshot or a reflink copy
+            # (like the precache of the file-reflink pool)
+            if volume.pool.size - volume.pool.usage < size:
+                raise StoragePoolException(
+                    "Not enough free space in pool {!s} to encrypt volume "
+                    "{!s}, it needs {} MiB".format(
+                        volume.pool, volume, size >> 20
+                    )
+                )
+            await qubes.utils.coro_maybe(volume.resize(size))
+            if volume.size != size:
+                raise StoragePoolException(
+                    "Failed to resize volume {!s} to {}".format(volume, size)
+                )
+            if not volume.encrypted:
+                # save it first, so that an interrupted setup cannot be
+                # mistaken for an unencrypted volume
+                volume.encrypted = True
+                self.vm.app.save()
+            try:
+                try:
+                    # dom0 should not parse the data of the qube (cryptsetup
+                    # still looks at the filesystem superblock)
+                    await volume.cryptsetup(
+                        *_LUKS_FORMAT_ARGS,
+                        "--disable-blkid",
+                        "--encrypt",
+                        "--reduce-device-size={}".format(2 * LUKS2_HEADER_SIZE),
+                        "--force-offline-reencrypt",
+                        "--",
+                        "reencrypt",
+                        path,
+                    )
+                except subprocess.CalledProcessError as exc:
+                    raise StoragePoolException(
+                        "Failed to encrypt volume {!s}: {}".format(
+                            volume, _cryptsetup_error(exc)
+                        )
+                    )
+            except:  # pylint: disable=bare-except
+                if not volume.is_luks() and await asyncio.to_thread(
+                    _is_zeroed,
+                    path,
+                    volume.size - LUKS2_HEADER_SIZE,
+                    LUKS2_HEADER_SIZE,
+                ):
+                    # nothing got encrypted: back to an unencrypted volume
                     await qubes.utils.coro_maybe(
                         volume.resize(volume.size - 2 * LUKS2_HEADER_SIZE)
                     )
-                raise StoragePoolException(
-                    "Failed to encrypt volume {!s}: {}".format(
-                        volume, _cryptsetup_error(exc)
-                    )
-                )
+                    volume.encrypted = False
+                raise
         if volume.is_partially_encrypted():
             # the end of the volume may still hold data to shift
             raise StoragePoolException(
