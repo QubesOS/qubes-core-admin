@@ -1042,16 +1042,19 @@ class Storage:
             name = volume.encrypted_volume_path(self.vm.name, volume.name)
             if os.path.exists(name):
                 mapping = name[12:]
-                # resizing a LUKS2 mapping requires the passphrase, which is
-                # cleared on start
-                if not volume.has_passphrase():
-                    raise StoragePoolException(
-                        "Passphrase required to resize started encrypted "
-                        "volume {!s}, set it first".format(volume)
-                    )
+                # resizing a LUKS2 mapping requires the passphrase (cleared on
+                # start), check it before anything gets resized
+                await volume.check_passphrase()
         await qubes.utils.coro_maybe(volume.resize(size))
         if mapping:
-            await volume.cryptsetup("--", "resize", mapping)
+            try:
+                await volume.cryptsetup("--", "resize", mapping)
+            except subprocess.CalledProcessError:
+                raise StoragePoolException(
+                    "Failed to resize the LUKS mapping of volume {!s}, the "
+                    "qube sees the new size after a restart".format(volume)
+                )
+            volume.clear_passphrase()
         if self.vm.is_running():
             try:
                 await self.vm.run_service_for_stdio(
