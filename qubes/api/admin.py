@@ -852,7 +852,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def vm_volume_change_passphrase(self, untrusted_payload):
         """Change the LUKS passphrase of an encrypted volume of a stopped
         qube.  The payload is the old passphrase, a newline and the new
-        passphrase."""
+        passphrase.  A passphrase set with admin.vm.volume.SetPassphrase is
+        cleared."""
         self.enforce_arg(
             wants=self.dest.volumes.keys(),
             short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,

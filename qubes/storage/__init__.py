@@ -77,15 +77,22 @@ _LUKS_FORMAT_ARGS = (
 LOGGER = logging.getLogger("qubes.storage")
 
 
-def _check_passphrase(passphrase):
-    if not passphrase:
+def _validate_passphrase(untrusted_passphrase):
+    if not untrusted_passphrase:
         raise qubes.exc.QubesValueError("Empty passphrase")
-    if b"\n" in passphrase:
+    if b"\n" in untrusted_passphrase:
         raise qubes.exc.QubesValueError("Passphrase must not contain newline")
-    if len(passphrase) > LUKS_PASSPHRASE_MAX:
+    if len(untrusted_passphrase) > LUKS_PASSPHRASE_MAX:
         raise qubes.exc.QubesValueError(
             "Passphrase longer than {} bytes".format(LUKS_PASSPHRASE_MAX)
         )
+
+
+def _cryptsetup_error(exc):
+    """Explain a failed cryptsetup call"""
+    if exc.returncode == 2:
+        return "wrong passphrase"
+    return "cryptsetup exit status {}".format(exc.returncode)
 
 
 class BlockDevice:
@@ -309,16 +316,16 @@ class Volume:
         """Is the LUKS passphrase currently set?"""
         return self._passphrase is not None
 
-    def set_passphrase(self, passphrase):
+    def set_passphrase(self, untrusted_passphrase):
         """Set the LUKS passphrase.  It is kept in memory only (never written
         to disk, nor to qubes.xml) until :py:meth:`start_luks` uses it.
 
-        :param bytes passphrase: the passphrase
+        :param bytes untrusted_passphrase: the passphrase, checked here
         """
-        _check_passphrase(passphrase)
+        _validate_passphrase(untrusted_passphrase)
         self.clear_passphrase()
         # bytearray, so that clear_passphrase() can overwrite it
-        self._passphrase = bytearray(passphrase)
+        self._passphrase = bytearray(untrusted_passphrase)
 
     def clear_passphrase(self):
         """Overwrite and forget the LUKS passphrase."""
@@ -326,15 +333,20 @@ class Volume:
             self._passphrase[:] = bytes(len(self._passphrase))
             self._passphrase = None
 
-    def cryptsetup(self, *args):
+    async def cryptsetup(self, *args):
         """Run cryptsetup with the passphrase of this volume on its stdin."""
         if not self.has_passphrase():
             raise StoragePoolException(
                 "Passphrase required for encrypted volume {!s}".format(self)
             )
-        return qubes.utils.cryptsetup(
-            "--batch-mode", "--key-file=-", *args, passphrase=self._passphrase
-        )
+        # a copy: the passphrase can be changed or cleared meanwhile
+        passphrase = bytearray(self._passphrase)
+        try:
+            return await qubes.utils.cryptsetup(
+                "--batch-mode", "--key-file=-", *args, passphrase=passphrase
+            )
+        finally:
+            passphrase[:] = bytes(len(passphrase))
 
     async def check_passphrase(self):
         """Verify the passphrase set with :py:meth:`set_passphrase` against
@@ -343,10 +355,14 @@ class Volume:
             await self.cryptsetup(
                 "--test-passphrase", "--", "open", self.luks_backend_path()
             )
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as exc:
+            if exc.returncode == 2:
+                # useless for the next attempt
+                self.clear_passphrase()
             raise StoragePoolException(
-                "Cannot unlock encrypted volume {!s} "
-                "(wrong passphrase?)".format(self)
+                "Cannot unlock encrypted volume {!s}: {}".format(
+                    self, _cryptsetup_error(exc)
+                )
             )
 
     def luks_backend_path(self):
@@ -478,33 +494,40 @@ class Volume:
                 self.block_device().path,
                 name[12:],
             )
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as exc:
             # undo start(), so that the qube can be started again
             await qubes.utils.coro_maybe(self.stop())
             raise StoragePoolException(
-                "Failed to unlock encrypted volume {!s}".format(self)
+                "Failed to unlock encrypted volume {!s}: {}".format(
+                    self, _cryptsetup_error(exc)
+                )
             )
         self.clear_passphrase()
 
-    async def change_passphrase(self, old, new):
-        """Change the LUKS passphrase of a stopped encrypted volume and
-        set the new one as the current passphrase.
+    async def change_passphrase(self, untrusted_old, untrusted_new):
+        """Change the LUKS passphrase of a stopped encrypted volume.  The
+        passphrase set with :py:meth:`set_passphrase`, if any, is cleared.
 
-        :param bytes old: current passphrase
-        :param bytes new: new passphrase
+        :param bytes untrusted_old: current passphrase, checked by cryptsetup
+        :param bytes untrusted_new: new passphrase, checked here
         """
+        if self.is_running():
+            raise StoragePoolException(
+                "Volume {!s} must be stopped before changing its "
+                "passphrase".format(self)
+            )
         if self.is_dirty():
             # the not committed copy would keep the old passphrase
             raise StoragePoolException(
                 "Cannot change the passphrase of dirty volume {!s}, start "
                 "and stop the qube first".format(self)
             )
-        _check_passphrase(new)
+        _validate_passphrase(untrusted_new)
         # the old passphrase goes to stdin, the new one through a pipe (this
         # relies on qubesd running as root: sudo would close the descriptor)
         read_fd, write_fd = os.pipe()
         with os.fdopen(write_fd, "wb") as new_file:
-            new_file.write(new)
+            new_file.write(untrusted_new)
         try:
             await qubes.utils.cryptsetup(
                 "--batch-mode",
@@ -514,17 +537,19 @@ class Volume:
                 "luksChangeKey",
                 self.luks_backend_path(),
                 "/dev/fd/{}".format(read_fd),
-                passphrase=old,
+                passphrase=untrusted_old,
                 pass_fds=(read_fd,),
             )
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as exc:
             raise StoragePoolException(
-                "Failed to change passphrase of volume {!s} "
-                "(wrong passphrase?)".format(self)
+                "Failed to change passphrase of volume {!s}: {}".format(
+                    self, _cryptsetup_error(exc)
+                )
             )
         finally:
             os.close(read_fd)
-        self.set_passphrase(new)
+        # it may be the old one
+        self.clear_passphrase()
 
     @staticmethod
     def locked(method):
@@ -1181,8 +1206,9 @@ class Storage:
                 if exc.returncode == 1:  # nothing to resume
                     return
                 raise StoragePoolException(
-                    "Cannot resume encrypting volume {!s} "
-                    "(wrong passphrase?)".format(volume)
+                    "Cannot resume encrypting volume {!s}: {}".format(
+                        volume, _cryptsetup_error(exc)
+                    )
                 )
         elif await qubes.utils.coro_maybe(volume.is_empty()):
             # replace the empty volume with a new LUKS container
@@ -1205,14 +1231,16 @@ class Storage:
                     "reencrypt",
                     path,
                 )
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as exc:
                 if not volume.is_luks():
                     # nothing was written yet, undo the resize
                     await qubes.utils.coro_maybe(
                         volume.resize(volume.size - 2 * LUKS2_HEADER_SIZE)
                     )
                 raise StoragePoolException(
-                    "Failed to encrypt volume {!s}".format(volume)
+                    "Failed to encrypt volume {!s}: {}".format(
+                        volume, _cryptsetup_error(exc)
+                    )
                 )
         await qubes.utils.coro_maybe(
             volume.resize(volume.size - LUKS2_HEADER_SIZE)
