@@ -55,6 +55,13 @@ _big_buffer = b"\0" * BYTES_TO_ZERO
 LUKS2_HEADER_SIZE = 32 << 20
 #: Maximum length of a passphrase typed into cryptsetup interactively
 LUKS_PASSPHRASE_MAX = 512
+_LUKS_MAGIC = b"LUKS\xba\xbe"
+#: Both copies of the LUKS2 header (16 KiB each) at the start of the volume
+_LUKS2_HEADER_AREA = 2 * 16384
+#: cryptsetup also looks for a copy of a LUKS2 header at these offsets, and
+#: restores the header from it
+_LUKS2_COPY_MAGIC = b"SKUL\xba\xbe"
+_LUKS2_COPY_OFFSETS = tuple(0x4000 << i for i in range(9))
 LOGGER = logging.getLogger("qubes.storage")
 
 
@@ -335,10 +342,28 @@ class Volume:
         operations other than unlocking it."""
         return self.path
 
+    def _luks_header(self, offset=0, length=_LUKS2_HEADER_AREA):
+        """The LUKS2 header area of the volume, or a part of it (the qube
+        cannot write there once the volume is encrypted)"""
+        path = self.luks_backend_path()
+        try:
+            with open(path, "rb") as image:
+                image.seek(offset)
+                return image.read(length)
+        except FileNotFoundError:
+            # do not take it for a volume without a header
+            raise StoragePoolException(
+                "Cannot read volume {!s}: {} not found".format(self, path)
+            )
+
     def is_luks(self):
-        """Does the volume have a LUKS header?"""
-        with open(self.luks_backend_path(), "rb") as image:
-            return image.read(6) == b"LUKS\xba\xbe"
+        """Does the volume have a LUKS header, or a copy of a LUKS2 one, from
+        which cryptsetup would restore it?"""
+        return self._luks_header().startswith(_LUKS_MAGIC) or any(
+            self._luks_header(offset, len(_LUKS2_COPY_MAGIC))
+            == _LUKS2_COPY_MAGIC
+            for offset in _LUKS2_COPY_OFFSETS
+        )
 
     async def is_empty(self):
         """Has nothing been written to the volume yet?  Exact for sparse
@@ -1110,10 +1135,11 @@ class Storage:
                     "Cannot encrypt dirty volume {!s}, start and stop the "
                     "qube first".format(volume)
                 )
-            # a header written by the qube could use any passphrase or cipher
+            # a header written by the qube could use any passphrase or
+            # cipher; a copy of an encrypted volume cannot be adopted yet
             if volume.is_luks():
                 raise StoragePoolException(
-                    "Volume {!s} already has a LUKS header".format(volume)
+                    "Volume {!s} already holds a LUKS container".format(volume)
                 )
             if volume.revisions:
                 if volume.revisions_to_keep > 0:
