@@ -748,7 +748,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        self.dest.volumes[self.arg].rw = newvalue
+        volume = self.dest.volumes[self.arg]
+        if not newvalue and volume.encrypted:
+            raise qubes.exc.QubesValueError("Encrypted volume must be writable")
+        volume.rw = newvalue
         self.app.save()
 
     @qubes.api.method(
