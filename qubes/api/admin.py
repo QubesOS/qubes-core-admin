@@ -840,7 +840,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             volume.set_passphrase(untrusted_payload)
         else:
             volume.clear_passphrase()
-        # intentionally not saved: the passphrase must not land in qubes.xml
 
     @qubes.api.method(
         "admin.vm.volume.ChangePassphrase",

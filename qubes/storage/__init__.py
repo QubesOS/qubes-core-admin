@@ -120,7 +120,7 @@ class Volume:
         snap_on_start=False,
         source=None,
         ephemeral=None,
-        encrypted=None,
+        encrypted=False,
         **kwargs,
     ):
         """Initialize a volume.
@@ -230,10 +230,6 @@ class Volume:
         if not value:
             self._ephemeral = False
             return
-        if self.encrypted:
-            raise qubes.exc.QubesValueError(
-                "Cannot enable ephemeral on encrypted volume"
-            )
         if (
             self.snap_on_start
             or self.save_on_stop
@@ -280,7 +276,6 @@ class Volume:
             and not self.snap_on_start
             and self.domain is None
             and self.rw
-            and not self.ephemeral
         )
 
     @property
@@ -975,9 +970,9 @@ class Storage:
         :return: cloned volume object
         """
         config = self.vm.volume_config[name]
-        src_volume = src_vm.volumes[name]
         dst_pool = self.vm.app.get_pool(config["pool"])
         dst = dst_pool.init_volume(self.vm, config)
+        src_volume = src_vm.volumes[name]
         if src_volume.encrypted:
             # the LUKS container is copied as is
             self._check_encryptable(dst)
@@ -1088,7 +1083,7 @@ class Storage:
         if self.vm.klass == "TemplateVM" or getattr(
             self.vm, "template_for_dispvms", False
         ):
-            raise StoragePoolException(
+            raise qubes.exc.QubesValueError(
                 "Cannot encrypt a volume of {!s}, a template for other "
                 "qubes".format(self.vm)
             )
