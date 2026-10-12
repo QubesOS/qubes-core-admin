@@ -350,9 +350,25 @@ class Volume:
         finally:
             passphrase[:] = bytes(len(passphrase))
 
+    def check_luks(self):
+        """Refuse to use an encrypted volume without a LUKS header, or not
+        encrypted completely (the end of the volume may hold data that
+        cryptsetup still has to move)."""
+        if not self.is_luks():
+            raise StoragePoolException(
+                "Encrypted volume {!s} has no LUKS header, enable encryption "
+                "again".format(self)
+            )
+        if self.is_partially_encrypted():
+            raise StoragePoolException(
+                "Encrypting volume {!s} was interrupted, enable encryption "
+                "again to finish it".format(self)
+            )
+
     async def check_passphrase(self):
-        """Verify the passphrase set with :py:meth:`set_passphrase` against
-        the LUKS header, without unlocking the volume."""
+        """Verify that the volume can be unlocked with the passphrase set
+        with :py:meth:`set_passphrase`, without unlocking it."""
+        self.check_luks()
         try:
             await self.cryptsetup(
                 "--test-passphrase", "--", "open", self.luks_backend_path()
@@ -394,6 +410,14 @@ class Volume:
             == _LUKS2_COPY_MAGIC
             for offset in _LUKS2_COPY_OFFSETS
         )
+
+    def is_partially_encrypted(self):
+        """Has encrypting the volume in place started, but not finished (or
+        damaged the LUKS header, which cryptsetup restores from a copy)?"""
+        header = self._luks_header()
+        if not header.startswith(_LUKS_MAGIC):
+            return self.is_luks()
+        return b"online-reencrypt" in header
 
     async def is_empty(self):
         """Has nothing been written to the volume yet?  Exact for sparse
@@ -525,6 +549,8 @@ class Volume:
                 "and stop the qube first".format(self)
             )
         _validate_passphrase(untrusted_new)
+        await qubes.utils.coro_maybe(self.verify())
+        self.check_luks()
         # the old passphrase goes to stdin, the new one through a pipe (this
         # relies on qubesd running as root: sudo would close the descriptor)
         read_fd, write_fd = os.pipe()
@@ -994,6 +1020,7 @@ class Storage:
         volume = self.get_volume(volume)
         mapping = None
         if volume.encrypted:
+            volume.check_luks()
             size += LUKS2_HEADER_SIZE
             name = volume.encrypted_volume_path(self.vm.name, volume.name)
             if os.path.exists(name):
@@ -1160,11 +1187,13 @@ class Storage:
         interrupted during the encryption.
         """
         volume = self.get_volume(volume)
-        if volume.encrypted:
-            luks = volume.is_luks()
-        else:
+        if not volume.encrypted:
             self._check_encryptable(volume)
-            luks = False
+        await qubes.utils.coro_maybe(volume.verify())
+        luks = volume.encrypted and volume.is_luks()
+        if luks and not volume.is_partially_encrypted():
+            # nothing to finish
+            return
         if not volume.has_passphrase():
             raise StoragePoolException(
                 "Passphrase required to encrypt volume {!s}".format(volume)
@@ -1196,7 +1225,12 @@ class Storage:
         path = volume.luks_backend_path()
         if luks:
             try:
-                # finish an interrupted in-place encryption, if any
+                # resuming refuses a device left inconsistent by the
+                # interruption, repair it first
+                await volume.cryptsetup("--", "repair", path)
+                if not volume.is_partially_encrypted():
+                    # only the header needed restoring from its copy
+                    return
                 await volume.cryptsetup(
                     "--resume-only",
                     "--force-offline-reencrypt",
@@ -1205,8 +1239,6 @@ class Storage:
                     path,
                 )
             except subprocess.CalledProcessError as exc:
-                if exc.returncode == 1:  # nothing to resume
-                    return
                 raise StoragePoolException(
                     "Cannot resume encrypting volume {!s}: {}".format(
                         volume, _cryptsetup_error(exc)
@@ -1244,6 +1276,11 @@ class Storage:
                         volume, _cryptsetup_error(exc)
                     )
                 )
+        if volume.is_partially_encrypted():
+            # the end of the volume may still hold data to shift
+            raise StoragePoolException(
+                "Encrypting volume {!s} did not finish".format(volume)
+            )
         await qubes.utils.coro_maybe(
             volume.resize(volume.size - LUKS2_HEADER_SIZE)
         )
