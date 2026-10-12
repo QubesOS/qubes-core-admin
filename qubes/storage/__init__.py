@@ -62,6 +62,18 @@ _LUKS2_HEADER_AREA = 2 * 16384
 #: restores the header from it
 _LUKS2_COPY_MAGIC = b"SKUL\xba\xbe"
 _LUKS2_COPY_OFFSETS = tuple(0x4000 << i for i in range(9))
+#: Memory (in KiB) for deriving a key from a passphrase; cryptsetup would take
+#: up to 1 GiB, more than dom0 may have spare
+_LUKS_PBKDF_MEMORY = 256 << 10
+#: cryptsetup options for a new LUKS2 container: 512-byte sectors like a
+#: plain volume (4096 would need a size aligned to 4 KiB)
+_LUKS_FORMAT_ARGS = (
+    "--type=luks2",
+    "--cipher=aes-xts-plain64",
+    "--sector-size=512",
+    "--pbkdf-memory={}".format(_LUKS_PBKDF_MEMORY),
+    "--offset={}".format(LUKS2_HEADER_SIZE // 512),
+)
 LOGGER = logging.getLogger("qubes.storage")
 
 
@@ -497,6 +509,7 @@ class Volume:
             await qubes.utils.cryptsetup(
                 "--batch-mode",
                 "--key-file=-",
+                "--pbkdf-memory={}".format(_LUKS_PBKDF_MEMORY),
                 "--",
                 "luksChangeKey",
                 self.luks_backend_path(),
@@ -1184,11 +1197,9 @@ class Storage:
             )
             try:
                 await volume.cryptsetup(
-                    "--type=luks2",
-                    "--cipher=aes-xts-plain64",
+                    *_LUKS_FORMAT_ARGS,
                     "--encrypt",
                     "--reduce-device-size={}".format(2 * LUKS2_HEADER_SIZE),
-                    "--offset={}".format(LUKS2_HEADER_SIZE // 512),
                     "--force-offline-reencrypt",
                     "--",
                     "reencrypt",
@@ -1335,12 +1346,7 @@ class Storage:
         )
         try:
             await volume.cryptsetup(
-                "--type=luks2",
-                "--cipher=aes-xts-plain64",
-                "--offset={}".format(LUKS2_HEADER_SIZE // 512),
-                "--",
-                "luksFormat",
-                path,
+                *_LUKS_FORMAT_ARGS, "--", "luksFormat", path
             )
             await volume.cryptsetup("--", "open", path, name[12:])
             # unwritten parts of a LUKS volume read as random data: zero the
