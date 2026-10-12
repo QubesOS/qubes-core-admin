@@ -255,6 +255,7 @@ class FileVolume(qubes.storage.Volume):
 
     _marker_running = object()
     _marker_exported = object()
+    encryption_supported = True
 
     def __init__(self, dir_path, **kwargs):
         self.dir_path = dir_path

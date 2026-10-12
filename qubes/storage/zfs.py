@@ -2555,11 +2555,6 @@ class ZFSVolume(qubes.storage.Volume):
         # but their removal could help have a neater `zfs list`.
         await self._remove_volume_export_if_exists(suffix)
 
-    def is_encryptable(self) -> bool:
-        # LUKS encryption is not supported by this driver yet: encrypting a
-        # volume in place would leave the unencrypted data in its snapshots
-        return False
-
     def block_device(self) -> qubes.storage.BlockDevice:
         """Return :py:class:`qubes.storage.BlockDevice` for serialization in
         the libvirt XML template as <disk>.

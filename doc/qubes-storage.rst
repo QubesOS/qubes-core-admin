@@ -152,6 +152,13 @@ support only `volatile` volumes (those with
 :py:exc:`NotImplementedError` in :py:meth:`qubes.storage.Pool.init_volume` when
 trying to instantiate unsupported volume.
 
+A pool driver supporting :py:attr:`~qubes.storage.Volume.encrypted` sets
+:py:attr:`~qubes.storage.Volume.encryption_supported`, implements
+:py:meth:`~qubes.storage.Volume.discard_revisions`, can shrink a volume with
+:py:meth:`~qubes.storage.Volume.resize`, and overrides
+:py:meth:`~qubes.storage.Volume.luks_backend_path` and
+:py:meth:`~qubes.storage.Volume.is_empty` if needed.
+
 Note that pool driver should be prepared to recover from power loss before
 stopping a domain - so, if volume have
 :py:attr:`~qubes.storage.Volume.save_on_stop` is `True`, and

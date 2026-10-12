@@ -670,6 +670,10 @@ class CallbackVolume(qubes.storage.Volume):
     def usage(self, usage):
         self._cb_impl.usage = usage
 
+    @property
+    def encryption_supported(self):
+        return self._cb_impl.encryption_supported
+
     # remaining method & attribute delegation
     def __getattr__(self, name):
         return getattr(self._cb_impl, name)
@@ -688,9 +692,6 @@ class CallbackVolume(qubes.storage.Volume):
 
     def encrypted_volume_path(self, qube_name, device_name):
         return self._cb_impl.encrypted_volume_path(qube_name, device_name)
-
-    def is_encryptable(self):
-        return self._cb_impl.is_encryptable()
 
     def luks_backend_path(self):
         return self._cb_impl.luks_backend_path()

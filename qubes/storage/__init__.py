@@ -104,6 +104,8 @@ class Volume:
     #: disk space used by this volume, can be smaller than :py:attr:`size`
     #: for sparse volumes
     usage = 0
+    #: does the pool driver support :py:attr:`encrypted`
+    encryption_supported = False
 
     def __init__(
         self,
@@ -273,7 +275,8 @@ class Volume:
     def is_encryptable(self):
         """Can :py:attr:`encrypted` be enabled on this volume?"""
         return (
-            self.save_on_stop
+            self.encryption_supported
+            and self.save_on_stop
             and not self.snap_on_start
             and self.domain is None
             and self.rw

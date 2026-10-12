@@ -166,6 +166,8 @@ class ReflinkPool(qubes.storage.Pool):
 
 
 class ReflinkVolume(qubes.storage.Volume):
+    encryption_supported = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)

@@ -349,6 +349,8 @@ class ThinVolume(qubes.storage.Volume):
 
     # pylint: disable=too-few-public-methods
 
+    encryption_supported = True
+
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
         super().__init__(**kwargs)
