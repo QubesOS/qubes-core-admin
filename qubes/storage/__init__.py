@@ -22,8 +22,8 @@
 
 """Qubes storage system"""
 
+import errno
 import functools
-import hashlib
 import inspect
 import logging
 import os
@@ -49,56 +49,24 @@ _am_root = os.getuid() == 0
 
 BYTES_TO_ZERO = 1 << 16
 _big_buffer = b"\0" * BYTES_TO_ZERO
-
-# Guest-transparent LUKS2 payload offset (32 MiB).  cryptsetup in-place
-# encrypt needs twice that as --reduce-device-size (header + datashift).
+#: Space reserved for the LUKS2 header at the start of an encrypted volume.
+#: ``cryptsetup reencrypt --encrypt`` needs twice as much while encrypting
+#: an existing volume in place, see :py:meth:`Storage.encrypt`.
 LUKS2_HEADER_SIZE = 32 << 20
-LUKS2_REENCRYPT_WORKSPACE = LUKS2_HEADER_SIZE * 2
-LUKS2_DATA_OFFSET_SECTORS = LUKS2_HEADER_SIZE // 512
-# Guest setup-rwdev.sh treats the first 10 MiB of zeros as empty.
-LUKS2_ZERO_PAYLOAD = 10 << 20
+#: Maximum length of a passphrase typed into cryptsetup interactively
 LUKS_PASSPHRASE_MAX = 512
+LOGGER = logging.getLogger("qubes.storage")
 
 
-def _coerce_passphrase(passphrase):
-    """Validate and normalize a LUKS passphrase to ``bytes``."""
-    if isinstance(passphrase, str):
-        passphrase = passphrase.encode("utf-8")
-    elif isinstance(passphrase, bytearray):
-        passphrase = bytes(passphrase)
+def _check_passphrase(passphrase):
     if not passphrase:
         raise qubes.exc.QubesValueError("Empty passphrase")
     if b"\n" in passphrase:
-        raise qubes.exc.QubesValueError(
-            "Passphrase must not contain newline character"
-        )
+        raise qubes.exc.QubesValueError("Passphrase must not contain newline")
     if len(passphrase) > LUKS_PASSPHRASE_MAX:
         raise qubes.exc.QubesValueError(
             "Passphrase longer than {} bytes".format(LUKS_PASSPHRASE_MAX)
         )
-    return passphrase
-
-
-def snapshot_consumers(app, volume):
-    """Yield ``(vm, vol)`` for volumes that snapshot *volume*.
-
-    Comparison uses :py:meth:`Volume.__eq__` (pool + vid), not identity.
-    """
-    domains = getattr(app, "domains", None)
-    if not domains:
-        return
-    for vm in domains:
-        volumes = getattr(vm, "volumes", None)
-        if not volumes:
-            continue
-        try:
-            others = list(volumes.values())
-        except (TypeError, AttributeError):
-            continue
-        for other in others:
-            source = getattr(other, "source", None)
-            if source is not None and source == volume:
-                yield vm, other
 
 
 class BlockDevice:
@@ -118,7 +86,7 @@ class BlockDevice:
         self.devtype = devtype
 
 
-class Volume:  # pylint: disable=too-many-instance-attributes
+class Volume:
     """Encapsulates all data about a volume for serialization to qubes.xml and
     libvirt config.
 
@@ -151,8 +119,6 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         source=None,
         ephemeral=None,
         encrypted=None,
-        luks_needs_zero=None,
-        luks_guest_size=None,
         **kwargs,
     ):
         """Initialize a volume.
@@ -169,9 +135,7 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         :param Volume source: other volume in same pool to make snapshot
             from, required if *snap_on_start*=`True`
         :param ephemeral: encrypt volume with an ephemeral key
-        :param encrypted: encrypt persistent volume with LUKS2
-        :param luks_needs_zero: empty LUKS payload still needs zeroing
-        :param luks_guest_size: original guest size before LUKS grow
+        :param encrypted: encrypt volume with LUKS2, see :py:attr:`encrypted`
         :param str/int size: Size of the volume
 
         """
@@ -190,14 +154,6 @@ class Volume:  # pylint: disable=too-many-instance-attributes
             msg = "source specified on {!r} but no snap_on_start set"
             msg = msg.format(name)
             raise StoragePoolException(msg)
-        if (
-            snap_on_start
-            and source is not None
-            and getattr(source, "encrypted", False)
-        ):
-            raise StoragePoolException(
-                "Cannot create a snapshot volume from an encrypted source"
-            )
 
         #: Name of the volume in a domain it's attached to (like `root` or
         #: `private`).
@@ -212,27 +168,13 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
-        #: Size from XML/config, before a LUKS grow that is not yet saved
-        self._configured_size = int(size)
         #: Should the volume be encrypted with an ephemeral key;
         #  None means the default value
         self._ephemeral = ephemeral
-        #: Persistent LUKS2 encryption (passphrase kept only in memory)
-        self._encrypted = False
-        #: In-memory LUKS passphrase; never serialized to XML or disk
+        #: Is the volume encrypted with LUKS2, see :py:attr:`encrypted`
+        self._encrypted = bool(encrypted)
+        #: LUKS passphrase kept in memory only, see :py:meth:`set_passphrase`
         self._passphrase = None
-        #: True once setup_luks has started mutating the backing device
-        self._luks_device_mutated = False
-        #: Guest size pinned for LUKS setup (retry-safe across reload)
-        self._luks_setup_guest_size = None
-        if luks_guest_size not in (None, False, "False", ""):
-            self._luks_setup_guest_size = int(luks_guest_size)
-        #: True until empty-payload zero succeeds (retry-safe)
-        self._luks_needs_zero = luks_needs_zero not in (
-            None,
-            False,
-            "False",
-        )
         #: Should the volume state be initialized with a snapshot of
         #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
@@ -242,9 +184,6 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         self.vid = vid
         #: Asynchronous lock for @Volume.locked decorator
         self._lock = asyncio.Lock()
-        if encrypted not in (None, False, "False"):
-            # Validate through the setter once the other fields are set.
-            self.encrypted = True
 
     def __eq__(self, other):
         if isinstance(other, Volume):
@@ -307,573 +246,113 @@ class Volume:  # pylint: disable=too-many-instance-attributes
 
     @property
     def encrypted(self):
-        """Persistent LUKS2 encryption of this volume.
-
-        Allowed only on writable, save_on_stop, non-snapshot, dom0-backed
-        volumes.  The practical target is ``private`` on AppVM/StandaloneVM
-        (and ``root`` on StandaloneVM).  TemplateVM ``root`` meets the
-        mechanical checks but is not useful: AppVMs cannot snapshot an
-        encrypted source.  Mutually exclusive with :py:attr:`ephemeral`.
-        The passphrase is never stored on disk; see
-        :py:meth:`set_passphrase`.
+        """Is this volume encrypted with LUKS2 (as opposed to the ephemeral
+        encryption of :py:attr:`ephemeral`)?  Can be enabled only on
+        writable, save_on_stop, non-snapshot volumes in dom0 (like
+        `private`), see :py:meth:`Storage.encrypt`.  The passphrase is kept
+        in memory only, see :py:meth:`set_passphrase`.
         """
-        return bool(self._encrypted)
+        return self._encrypted
 
     @encrypted.setter
     def encrypted(self, value):
         if not value:
             if self._encrypted:
                 raise qubes.exc.QubesValueError(
-                    "Disabling persistent encryption is not implemented"
+                    "Disabling volume encryption is not implemented"
                 )
-            self._encrypted = False
             return
         if not self.is_encryptable():
             raise qubes.exc.QubesValueError(
-                "Cannot enable encryption on snap_on_start or "
-                "non-save_on_stop or non-dom0 or not writable volume"
+                "Cannot enable encryption on this volume: not a writable, "
+                "save_on_stop, non-snapshot volume in dom0, or not supported "
+                "by the pool"
             )
         self._encrypted = True
 
     def is_encryptable(self):
-        """True if this volume may have persistent LUKS2 enabled."""
+        """Can :py:attr:`encrypted` be enabled on this volume?"""
         return (
-            not self.snap_on_start
-            and bool(self.save_on_stop)
+            self.save_on_stop
+            and not self.snap_on_start
             and self.domain is None
-            and bool(self.rw)
+            and self.rw
             and not self.ephemeral
         )
 
+    @property
+    def data_size(self):
+        """Volume size in bytes as seen by the qube: :py:attr:`size` without
+        the LUKS2 header of an encrypted volume."""
+        if self.encrypted:
+            return self.size - LUKS2_HEADER_SIZE
+        return self.size
+
     def has_passphrase(self):
-        """True if an in-memory LUKS passphrase is currently set."""
-        return bool(self._passphrase)
+        """Is the LUKS passphrase currently set?"""
+        return self._passphrase is not None
 
     def set_passphrase(self, passphrase):
-        """Store a LUKS passphrase in memory only.
+        """Set the LUKS passphrase.  It is kept in memory only (never written
+        to disk, nor to qubes.xml) until :py:meth:`start_luks` uses it.
 
-        The value is never written to the filesystem or serialized into
-        qubes.xml.  An empty passphrase or one containing a newline is
-        rejected (newline is reserved as the Admin API separator for
-        ``ChangePassphrase``).
+        :param bytes passphrase: the passphrase
         """
-        passphrase = _coerce_passphrase(passphrase)
+        _check_passphrase(passphrase)
         self.clear_passphrase()
-        # bytearray so clear_passphrase() can overwrite the buffer
+        # bytearray, so that clear_passphrase() can overwrite it
         self._passphrase = bytearray(passphrase)
 
     def clear_passphrase(self):
-        """Overwrite and drop the in-memory passphrase."""
-        if self._passphrase:
-            self._passphrase[:] = b"\0" * len(self._passphrase)
-        self._passphrase = None
+        """Overwrite and forget the LUKS passphrase."""
+        if self._passphrase is not None:
+            self._passphrase[:] = bytes(len(self._passphrase))
+            self._passphrase = None
+
+    def cryptsetup(self, *args):
+        """Run cryptsetup with the passphrase of this volume on its stdin."""
+        if not self.has_passphrase():
+            raise StoragePoolException(
+                "Passphrase required for encrypted volume {!s}".format(self)
+            )
+        return qubes.utils.cryptsetup(
+            "--batch-mode", "--key-file=-", *args, passphrase=self._passphrase
+        )
+
+    async def check_passphrase(self):
+        """Verify the passphrase set with :py:meth:`set_passphrase` against
+        the LUKS header, without unlocking the volume."""
+        try:
+            await self.cryptsetup(
+                "--test-passphrase", "--", "open", self.luks_backend_path()
+            )
+        except subprocess.CalledProcessError:
+            raise StoragePoolException(
+                "Cannot unlock encrypted volume {!s} "
+                "(wrong passphrase?)".format(self)
+            )
 
     def luks_backend_path(self):
-        """Path of the LUKS container (the offline origin, not the mapper).
+        """Path to the LUKS container of a stopped volume, for cryptsetup
+        operations other than unlocking it."""
+        return self.path
 
-        Drivers that expose a real container (file, LVM) set :py:attr:`path`.
-        Others (ZFS) fall back to the block device.  A driver whose
-        :py:attr:`path` is not the committed image must override this.
-        """
-        if self.path and os.path.exists(self.path):
-            return self.path
-        try:
-            bdev = self.block_device()
-        except Exception:  # pylint: disable=broad-except
-            bdev = None
-        if bdev is not None and getattr(bdev, "path", None):
-            return bdev.path
-        if self.path:
-            return self.path
-        raise StoragePoolException(
-            "Volume {!s} has no path for LUKS setup".format(self.vid)
-        )
+    def is_luks(self):
+        """Does the volume have a LUKS header?"""
+        with open(self.luks_backend_path(), "rb") as image:
+            return image.read(6) == b"LUKS\xba\xbe"
 
-    def _volume_has_data(self):
-        """Best-effort check whether the volume already contains data.
+    async def is_empty(self):
+        """Has nothing been written to the volume yet?  Exact for sparse
+        files, a block device is assumed to hold data.
 
-        Used to decide between ``luksFormat`` (empty) and in-place
-        ``reencrypt --encrypt`` (keep existing contents).  A dirty
-        volume is *not* treated as encryptable here; see
-        :py:meth:`_assert_safe_to_encrypt`.
-        """
-        if self.usage:
-            return True
-        path = None
-        try:
-            path = self.luks_backend_path()
-        except StoragePoolException:
-            path = self.path
-        if path and os.path.exists(path):
+        This can be implemented as a coroutine."""
+        with open(self.luks_backend_path(), "rb") as image:
             try:
-                with open(path, "rb") as fh:
-                    chunk = fh.read(4096)
-                return bool(chunk) and chunk != b"\x00" * len(chunk)
-            except OSError:
-                pass
+                os.lseek(image.fileno(), 0, os.SEEK_DATA)
+            except OSError as err:
+                return err.errno == errno.ENXIO
         return False
-
-    def _assert_safe_to_encrypt(self):
-        """Refuse in-place encryption when it would leak or lose data.
-
-        Leftover revisions are allowed when :py:attr:`revisions_to_keep`
-        is 0 or -1; :py:meth:`setup_luks` discards them first.
-        """
-        try:
-            if self.is_dirty():
-                raise StoragePoolException(
-                    "Cannot encrypt a dirty volume; shut it down cleanly first"
-                )
-        except NotImplementedError:
-            pass
-        try:
-            if self.revisions and self.revisions_to_keep not in (0, -1):
-                raise StoragePoolException(
-                    "Cannot encrypt a volume that has revisions; "
-                    "discard revisions first"
-                )
-        except NotImplementedError:
-            pass
-
-    async def discard_revisions(self):
-        """Remove all stored revisions of this volume.
-
-        Used before enabling encryption when
-        :py:attr:`revisions_to_keep` is 0 or -1 so leftover snapshots
-        are not left as plaintext.  Drivers with no revisions do
-        nothing.  Dirty volumes are refused.
-        """
-        try:
-            if self.is_dirty():
-                raise StoragePoolException(
-                    "Cannot discard revisions of a dirty volume"
-                )
-        except NotImplementedError:
-            pass
-        try:
-            revisions = self.revisions
-        except NotImplementedError:
-            return
-        if not revisions:
-            return
-        raise self._not_implemented("discard_revisions")
-
-    async def _discard_revisions_if_unused(self):
-        """Drop leftover revisions when keep is 0 or -1.
-
-        Always call :py:meth:`discard_revisions` even if
-        :py:attr:`revisions` is empty.  Some drivers (ZFS) hide
-        non-revision snapshots such as ``qubes-clean-*``.
-        """
-        if self.revisions_to_keep not in (0, -1):
-            return
-        try:
-            await qubes.utils.coro_maybe(self.discard_revisions())
-        except NotImplementedError:
-            return
-        try:
-            leftover = self.revisions
-        except NotImplementedError:
-            leftover = {}
-        if leftover:
-            raise StoragePoolException(
-                "Cannot encrypt volume {!s}: leftover revisions remain".format(
-                    self.vid
-                )
-            )
-
-    def _discard_unused_cow(self):
-        """Remove a clean leftover COW so the next start matches origin size.
-
-        After growing the origin for a LUKS header, an old empty COW at
-        the previous size would be reused as-is by the file driver.
-        """
-        cow = getattr(self, "path_cow", None)
-        if not cow or not os.path.exists(cow):
-            return
-        try:
-            if self.is_dirty():
-                raise StoragePoolException(
-                    "Refusing to discard a dirty COW file for {!s}".format(
-                        self.vid
-                    )
-                )
-        except NotImplementedError:
-            pass
-        os.unlink(cow)
-
-    async def is_luks(self, device=None):
-        """Return True if *device* (default: this volume's origin) is LUKS."""
-        if device is None:
-            try:
-                device = self.luks_backend_path()
-            except StoragePoolException:
-                return False
-        if not device or not os.path.exists(device):
-            return False
-        try:
-            await qubes.utils.cryptsetup("--", "isLuks", device)
-            return True
-        except subprocess.CalledProcessError:
-            return False
-
-    async def setup_luks(self, device=None, *, existing=None, guest_size=None):
-        """Create a LUKS2 header on this volume.
-
-        If the volume already has a LUKS header, this is a no-op (used
-        when retrying setup on a volume that is already marked
-        encrypted).  Enabling encryption on a volume that is not yet
-        marked encrypted must refuse a pre-existing header first; see
-        ``admin.vm.volume.Set.encrypted``.  If the volume already
-        contains data, it is grown by :py:data:`LUKS2_REENCRYPT_WORKSPACE`
-        and encrypted in place; the unused datashift tail is then
-        dropped so backing is original plus :py:data:`LUKS2_HEADER_SIZE`.
-        Empty volumes are grown by :py:data:`LUKS2_HEADER_SIZE` and
-        formatted with ``--offset`` at that size.  The guest mapper stays
-        the original size.
-
-        Dirty volumes are refused.  Volumes with revisions are refused
-        unless :py:attr:`revisions_to_keep` is 0 or -1, in which case
-        leftover revisions are discarded first.  After ``luksFormat``,
-        the start of the payload is zeroed so a never-started qube can
-        create a filesystem.  Once the backing device has been mutated,
-        :py:attr:`_luks_device_mutated` stays set so callers do not
-        clear the encrypted flag.
-
-        The passphrase must already be set via :py:meth:`set_passphrase`.
-        It is passed to cryptsetup on stdin and is not written to disk.
-        """
-        if not self.has_passphrase():
-            raise StoragePoolException(
-                "Passphrase required to set up LUKS on volume {!s}".format(
-                    self.vid
-                )
-            )
-        if device is None:
-            device = self.luks_backend_path()
-        if not device or not os.path.exists(device):
-            raise StoragePoolException(
-                "Cannot set up LUKS: device {!r} does not exist".format(device)
-            )
-        guest_size = self._luks_guest_size(guest_size)
-        self._luks_setup_guest_size = guest_size
-        if await self.is_luks(device):
-            await self._drop_reencrypt_tail(guest_size)
-            self._discard_unused_cow()
-            if self._luks_needs_zero:
-                await self._zero_fresh_luks(device, guest_size)
-            return
-        self._assert_safe_to_encrypt()
-        await self._discard_revisions_if_unused()
-        if existing is None:
-            existing = self._volume_has_data()
-        if existing:
-            await self._encrypt_existing(guest_size)
-        else:
-            await self._luks_format(guest_size)
-
-    def _luks_guest_size(self, guest_size=None):
-        """Original guest size, even if the backend was already grown."""
-        if guest_size is not None:
-            return guest_size
-        cached = getattr(self, "_luks_setup_guest_size", None)
-        if cached is not None:
-            return cached
-        live = self.size
-        cfg = getattr(self, "_configured_size", None)
-        if cfg and live > cfg:
-            return cfg
-        return live
-
-    async def _drop_reencrypt_tail(self, guest_size):
-        """If reencrypt finished but shrink failed, drop the workspace tail.
-
-        Only shrink the leftover datashift (guest + 32 MiB header through
-        guest + 64 MiB workspace).  A later resize must not be cut back
-        to the original guest size.
-        """
-        target = guest_size + LUKS2_HEADER_SIZE
-        workspace = guest_size + LUKS2_REENCRYPT_WORKSPACE
-        if target < self.size <= workspace:
-            await self._ensure_backing_size(target)
-
-    async def _ensure_backing_size(self, size):
-        """Grow or shrink the backend to *size* (no-op if already there)."""
-        if self.size == size:
-            return
-        await qubes.utils.coro_maybe(self.resize(size))
-
-    async def _luks_format(self, guest_size):
-        self._luks_device_mutated = True
-        self._encrypted = True
-        self._luks_needs_zero = True
-        await self._ensure_backing_size(guest_size + LUKS2_HEADER_SIZE)
-        device = self.luks_backend_path()
-        await qubes.utils.cryptsetup(
-            "--batch-mode",
-            "--type=luks2",
-            "--cipher=aes-xts-plain64",
-            "--offset={}".format(LUKS2_DATA_OFFSET_SECTORS),
-            "--key-file=-",
-            "--",
-            "luksFormat",
-            device,
-            passphrase=self._passphrase,
-        )
-        self._discard_unused_cow()
-        await self._zero_fresh_luks(device, guest_size)
-
-    def _luks_zero_mapper_name(self):
-        """Short unique dm name for the empty-payload zero mapping."""
-        pool_name = getattr(self.pool, "name", "") or ""
-        digest = hashlib.sha256(
-            "{}:{}".format(pool_name, self.vid).encode("utf-8")
-        ).hexdigest()[:16]
-        return "luks-zero-" + digest
-
-    async def _wait_for_mapper(self, mapper_path):
-        """Wait until udev creates *mapper_path* after cryptsetup open."""
-        for _ in range(40):
-            if os.path.exists(mapper_path):
-                return
-            await asyncio.sleep(0.05)
-        raise StoragePoolException(
-            "LUKS mapping {!s} did not appear".format(mapper_path)
-        )
-
-    async def _close_luks_mapper(self, mapper_name, mapper_path):
-        """Close *mapper_name*, retrying if udev still has the node busy."""
-        last_exc = None
-        for _ in range(10):
-            try:
-                await qubes.utils.cryptsetup(
-                    "--batch-mode", "--", "close", mapper_name
-                )
-                return
-            except subprocess.CalledProcessError as exc:
-                if not os.path.exists(mapper_path):
-                    return
-                last_exc = exc
-                await asyncio.sleep(0.05)
-        if last_exc is not None:
-            raise last_exc
-        raise StoragePoolException(
-            "Failed to close LUKS mapping {!s}".format(mapper_path)
-        )
-
-    async def _zero_fresh_luks(self, device, guest_size):
-        """Zero the start of a freshly formatted LUKS payload.
-
-        Decrypting unwritten (sparse) payload looks like random data to
-        the guest, so ``setup-rwdev.sh`` will not create a filesystem.
-        Write zeros through a temporary mapping.  The guest agent
-        checks at most :py:data:`LUKS2_ZERO_PAYLOAD`.
-        """
-        mapper_name = self._luks_zero_mapper_name()
-        mapper_path = "/dev/mapper/" + mapper_name
-        if os.path.exists(mapper_path):
-            await self._close_luks_mapper(mapper_name, mapper_path)
-        await qubes.utils.cryptsetup(
-            "--batch-mode",
-            "--type=luks2",
-            "--key-file=-",
-            "--",
-            "open",
-            device,
-            mapper_name,
-            passphrase=self._passphrase,
-        )
-        opened = True
-        write_exc = None
-        close_exc = None
-        try:
-            await self._wait_for_mapper(mapper_path)
-            zero_len = min(guest_size, LUKS2_ZERO_PAYLOAD)
-            if zero_len > 0:
-                await self._write_zeros(mapper_path, zero_len)
-        except Exception as exc:
-            write_exc = exc
-            raise
-        finally:
-            if opened:
-                try:
-                    await self._close_luks_mapper(mapper_name, mapper_path)
-                except Exception as exc:  # pylint: disable=broad-except
-                    close_exc = exc
-            if write_exc is None and close_exc is None:
-                self._luks_needs_zero = False
-            elif write_exc is None and close_exc is not None:
-                raise close_exc
-
-    async def _write_zeros(self, path, zero_len):
-        """Write exactly *zero_len* zeros at the start of *path*."""
-        if _am_root:
-            with open(path, "r+b") as clearer:
-                remaining = zero_len
-                while remaining >= BYTES_TO_ZERO:
-                    clearer.write(_big_buffer)
-                    remaining -= BYTES_TO_ZERO
-                if remaining:
-                    clearer.write(b"\0" * remaining)
-                clearer.flush()
-                os.fsync(clearer.fileno())
-            return
-        await qubes.utils.run_program(
-            "dd",
-            "if=/dev/zero",
-            "of=" + path,
-            "bs=" + str(zero_len),
-            "count=1",
-            "status=none",
-            "conv=fsync,notrunc",
-            sudo=True,
-        )
-
-    async def _encrypt_existing(self, guest_size):
-        """Encrypt an existing volume in place, preserving its data.
-
-        cryptsetup requires ``--reduce-device-size`` to be twice the
-        payload offset (header plus first-segment workspace).  After
-        reencrypt the unused tail is dropped so backing is original
-        plus :py:data:`LUKS2_HEADER_SIZE` and ``open`` maps the original
-        guest size.
-        """
-        # Mark *before* resize/reencrypt so a mid-flight failure cannot
-        # be mistaken for "not encrypted" (which would attach ciphertext
-        # as a normal disk).
-        self._luks_device_mutated = True
-        self._encrypted = True
-        # Existing payload must not be zeroed on a later start.
-        self._luks_needs_zero = False
-        await self._ensure_backing_size(guest_size + LUKS2_REENCRYPT_WORKSPACE)
-        device = self.luks_backend_path()
-        await qubes.utils.cryptsetup(
-            "--batch-mode",
-            "--type=luks2",
-            "--encrypt",
-            "--reduce-device-size={}M".format(LUKS2_REENCRYPT_WORKSPACE >> 20),
-            "--offset={}".format(LUKS2_DATA_OFFSET_SECTORS),
-            "--force-offline-reencrypt",
-            "--key-file=-",
-            "--",
-            "reencrypt",
-            device,
-            passphrase=self._passphrase,
-        )
-        await self._ensure_backing_size(guest_size + LUKS2_HEADER_SIZE)
-        self._discard_unused_cow()
-
-    async def start_luks(self, name):
-        """Unlock a persistent LUKS2 volume and start the backing volume.
-
-        The mapper *name* is the path returned by
-        :py:meth:`encrypted_volume_path`.  The mapping is opened with
-        ``--allow-discards`` so guest TRIM can reclaim pool space.
-        The in-memory passphrase is wiped after a successful open.
-        This method never formats the origin; a missing LUKS header
-        is an error.
-        """
-        assert name.startswith("/dev/mapper/"), (
-            "Invalid path %r passed to cryptsetup" % name
-        )
-        mapper_name = name[12:]
-        assert "/" not in mapper_name, "Invalid name passed to cryptsetup"
-        if not self.has_passphrase():
-            raise StoragePoolException(
-                "Passphrase required to unlock encrypted volume {!s}".format(
-                    self.vid
-                )
-            )
-        if os.path.exists(name):
-            logging.getLogger("qubes.storage").warning(
-                "Closing leftover LUKS mapping %s before unlocking %s",
-                name,
-                self.vid,
-            )
-            await qubes.utils.cryptsetup("--", "close", mapper_name)
-        origin = self.luks_backend_path()
-        if not await self.is_luks(origin):
-            raise StoragePoolException(
-                "Encrypted volume {!s} is not LUKS formatted".format(self.vid)
-            )
-        guest_size = self._luks_guest_size()
-        if self._luks_setup_guest_size is None:
-            self._luks_setup_guest_size = guest_size
-        if self._luks_needs_zero:
-            await self._zero_fresh_luks(origin, guest_size)
-        started = False
-        try:
-            await qubes.utils.coro_maybe(self.start())
-            started = True
-            backend = self.block_device().path
-            try:
-                await qubes.utils.cryptsetup(
-                    "--type=luks2",
-                    "--allow-discards",
-                    "--key-file=-",
-                    "--",
-                    "open",
-                    backend,
-                    mapper_name,
-                    passphrase=self._passphrase,
-                )
-            except subprocess.CalledProcessError as exc:
-                raise StoragePoolException(
-                    "Failed to unlock encrypted volume {!s}".format(self.vid)
-                ) from exc
-            # Do not cryptsetup-resize here.  Payload offset is
-            # LUKS2_HEADER_SIZE; backing is guest plus that, so open
-            # already maps the original guest size.
-            self.clear_passphrase()
-        except Exception as exc:
-            if started:
-                if os.path.exists(name):
-                    try:
-                        await qubes.utils.cryptsetup("--", "close", mapper_name)
-                    except Exception:  # pylint: disable=broad-except
-                        logging.getLogger("qubes.storage").warning(
-                            "Failed to close LUKS mapping %s after unlock "
-                            "failure on %s",
-                            name,
-                            self.vid,
-                            exc_info=True,
-                        )
-                try:
-                    await qubes.utils.coro_maybe(self.stop())
-                except Exception as stop_exc:
-                    logging.getLogger("qubes.storage").exception(
-                        "Failed to stop volume %s after LUKS unlock failure",
-                        self.vid,
-                    )
-                    raise stop_exc from exc
-            raise
-
-    async def stop_luks(self, name):
-        """Close the LUKS mapping and stop the backing volume."""
-        assert name.startswith("/dev/mapper/"), (
-            "invalid encrypted volume path %r" % name
-        )
-        if os.path.exists(name):
-            await qubes.utils.cryptsetup("--", "close", name[12:])
-        await qubes.utils.coro_maybe(self.stop())
-
-    async def change_passphrase(self, old, new):
-        """Replace the LUKS passphrase.  Neither value is written to disk."""
-        device = self.luks_backend_path()
-        if not await self.is_luks(device):
-            raise StoragePoolException(
-                "Volume {!s} is not LUKS formatted".format(self.vid)
-            )
-        # Validate the new passphrase first (also rejects newline / empty)
-        # without replacing the current one until cryptsetup succeeds.
-        new_bytes = _coerce_passphrase(new)
-        try:
-            await qubes.utils.cryptsetup_change_key(device, old, new_bytes)
-        except subprocess.CalledProcessError as exc:
-            raise StoragePoolException(
-                "Failed to change passphrase on volume {!s}".format(self.vid)
-            ) from exc
-        self.set_passphrase(new_bytes)
 
     async def start_encrypted(self, name):
         """
@@ -933,6 +412,83 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         if os.path.exists(name):
             await qubes.utils.cryptsetup("--", "close", name)
         await qubes.utils.coro_maybe(self.stop())
+
+    async def start_luks(self, name):
+        """
+        Start an encrypted volume: start it and unlock it with the passphrase
+        set with :py:meth:`set_passphrase`, which is cleared afterwards.
+        Call :py:meth:`check_passphrase` first, a failure here stops the
+        volume again, which may rotate its revisions.  *name* is the path of
+        the mapping, see :py:meth:`encrypted_volume_path`.
+        This can be implemented as a coroutine.
+        """
+        assert name.startswith("/dev/mapper/"), (
+            "Invalid path %r passed to cryptsetup" % name
+        )
+        assert "/" not in name[12:], "Invalid name passed to cryptsetup"
+        if not self.has_passphrase():
+            raise StoragePoolException(
+                "Passphrase required for encrypted volume {!s}".format(self)
+            )
+        if os.path.exists(name):
+            LOGGER.warning("Closing stale LUKS mapping %s", name)
+            await qubes.utils.cryptsetup("--", "close", name[12:])
+        await qubes.utils.coro_maybe(self.start())
+        try:
+            await self.cryptsetup(
+                "--type=luks2",
+                "--allow-discards",
+                "--",
+                "open",
+                self.block_device().path,
+                name[12:],
+            )
+        except subprocess.CalledProcessError:
+            # undo start(), so that the qube can be started again
+            await qubes.utils.coro_maybe(self.stop())
+            raise StoragePoolException(
+                "Failed to unlock encrypted volume {!s}".format(self)
+            )
+        self.clear_passphrase()
+
+    async def change_passphrase(self, old, new):
+        """Change the LUKS passphrase of a stopped encrypted volume and
+        set the new one as the current passphrase.
+
+        :param bytes old: current passphrase
+        :param bytes new: new passphrase
+        """
+        if self.is_dirty():
+            # the not committed copy would keep the old passphrase
+            raise StoragePoolException(
+                "Cannot change the passphrase of dirty volume {!s}, start "
+                "and stop the qube first".format(self)
+            )
+        _check_passphrase(new)
+        # the old passphrase goes to stdin, the new one through a pipe (this
+        # relies on qubesd running as root: sudo would close the descriptor)
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(write_fd, "wb") as new_file:
+            new_file.write(new)
+        try:
+            await qubes.utils.cryptsetup(
+                "--batch-mode",
+                "--key-file=-",
+                "--",
+                "luksChangeKey",
+                self.luks_backend_path(),
+                "/dev/fd/{}".format(read_fd),
+                passphrase=old,
+                pass_fds=(read_fd,),
+            )
+        except subprocess.CalledProcessError:
+            raise StoragePoolException(
+                "Failed to change passphrase of volume {!s} "
+                "(wrong passphrase?)".format(self)
+            )
+        finally:
+            os.close(read_fd)
+        self.set_passphrase(new)
 
     @staticmethod
     def locked(method):
@@ -1066,6 +622,12 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         # pylint: disable=unused-argument
         raise self._not_implemented("revert")
 
+    async def discard_revisions(self):
+        """Remove all :py:attr:`revisions` of the volume.
+
+        This can be implemented as a coroutine."""
+        raise self._not_implemented("discard_revisions")
+
     async def start(self):
         """Do what ever is needed on start.
 
@@ -1106,10 +668,6 @@ class Volume:  # pylint: disable=too-many-instance-attributes
         creation"""
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
-
-    def set_configured_size(self, size):
-        """Record the configured size used to infer LUKS guest size."""
-        self._configured_size = int(size)
 
     @property
     def size(self):
@@ -1168,12 +726,6 @@ class Volume:  # pylint: disable=too-many-instance-attributes
 
         if self._encrypted:
             result["encrypted"] = True
-
-        if self._luks_needs_zero:
-            result["luks_needs_zero"] = True
-
-        if self._luks_setup_guest_size:
-            result["luks_guest_size"] = self._luks_setup_guest_size
 
         if self.size:
             result["size"] = self.size
@@ -1377,21 +929,22 @@ class Storage:
     async def resize(self, volume, size):
         """Resizes volume a read-writable volume"""
         volume = self.get_volume(volume)
-        guest = getattr(volume, "_luks_setup_guest_size", None)
-        if volume.encrypted and guest is not None:
-            header = max(0, int(volume.size) - int(guest))
-            size = int(size)
-            # pylint: disable=protected-access
-            if header and size > header:
-                volume._luks_setup_guest_size = size - header
-            else:
-                volume._luks_setup_guest_size = size
-        await qubes.utils.coro_maybe(volume.resize(size))
-        volume.set_configured_size(size)
+        mapping = None
         if volume.encrypted:
-            mapper = volume.encrypted_volume_path(self.vm.name, volume.name)
-            if os.path.exists(mapper):
-                await qubes.utils.cryptsetup("--", "resize", mapper[12:])
+            size += LUKS2_HEADER_SIZE
+            name = volume.encrypted_volume_path(self.vm.name, volume.name)
+            if os.path.exists(name):
+                mapping = name[12:]
+                # resizing a LUKS2 mapping requires the passphrase, which is
+                # cleared on start
+                if not volume.has_passphrase():
+                    raise StoragePoolException(
+                        "Passphrase required to resize started encrypted "
+                        "volume {!s}, set it first".format(volume)
+                    )
+        await qubes.utils.coro_maybe(volume.resize(size))
+        if mapping:
+            await volume.cryptsetup("--", "resize", mapping)
         if self.vm.is_running():
             try:
                 await self.vm.run_service_for_stdio(
@@ -1407,18 +960,8 @@ class Storage:
 
     async def create(self):
         """Creates volumes on disk"""
-        encrypted = [vol for vol in self.vm.volumes.values() if vol.encrypted]
-        missing = [vol.name for vol in encrypted if not vol.has_passphrase()]
-        if missing:
-            raise StoragePoolException(
-                "Passphrase required to set up encrypted volume(s): "
-                + ", ".join(missing)
-            )
         await qubes.utils.void_coros_maybe(
             vol.create() for vol in self.vm.volumes.values()
-        )
-        await qubes.utils.void_coros_maybe(
-            vol.setup_luks() for vol in encrypted
         )
 
     async def clone_volume(self, src_vm, name):
@@ -1428,19 +971,14 @@ class Storage:
         :param str name: name of volume to clone ('root', 'private' etc)
         :return: cloned volume object
         """
-        config = dict(self.vm.volume_config[name])
+        config = self.vm.volume_config[name]
         src_volume = src_vm.volumes[name]
-        # Clone copies the LUKS container raw; carry the encrypted flag
-        # so the destination is unlocked the same way.  Same passphrase.
-        if src_volume.encrypted:
-            config["encrypted"] = True
-            src_cfg = src_volume.config
-            if src_cfg.get("luks_guest_size"):
-                config["luks_guest_size"] = src_cfg["luks_guest_size"]
-            if src_cfg.get("luks_needs_zero"):
-                config["luks_needs_zero"] = True
         dst_pool = self.vm.app.get_pool(config["pool"])
         dst = dst_pool.init_volume(self.vm, config)
+        if src_volume.encrypted:
+            # the LUKS container is copied as is
+            self._check_encryptable(dst)
+            dst.encrypted = True
         msg = "Importing volume {!s} from vm {!s}"
         self.vm.log.info(msg.format(src_volume.name, src_vm.name))
         await qubes.utils.coro_maybe(dst.create())
@@ -1511,7 +1049,7 @@ class Storage:
         for v in self.vm.volumes.values():
             block_dev = v.block_device()
             if block_dev is not None:
-                if v.ephemeral or v.encrypted is True:
+                if v.ephemeral or v.encrypted:
                     yield v.make_encrypted_device(block_dev, self.vm.name)
                 else:
                     yield block_dev
@@ -1536,51 +1074,114 @@ class Storage:
 
         self.vm.volumes[volume].revisions_to_keep = value
 
-    def _volume_start_stop(self, name, vol, *, start):
-        """Pick start/stop / start_luks/stop_luks / start_encrypted/..."""
-        mapper = vol.encrypted_volume_path(self.vm.name, name)
-        if vol.encrypted:
-            return vol.start_luks(mapper) if start else vol.stop_luks(mapper)
-        # Enable encryption (set passphrase, then encrypted=True) while
-        # the qube is halted.  Starting a still-plaintext volume that
-        # has a passphrase would wipe the secret as a side effect.
-        if vol.has_passphrase():
-            if start:
-                raise StoragePoolException(
-                    "Passphrase is set on unencrypted volume {!s}; "
-                    "enable encryption or clear the passphrase before "
-                    "start".format(vol.vid)
-                )
-            vol.clear_passphrase()
-        if start:
-            return vol.start_encrypted(mapper) if vol.ephemeral else vol.start()
-        # Always call stop_encrypted() - which can handle an unencrypted
-        # volume as well - to correctly clean up even if the ephemeral
-        # property became False while the volume was already started.
-        return vol.stop_encrypted(mapper)
-
-    async def _ensure_passphrases(self):
-        """Ask for missing LUKS passphrases, then fail if still unset."""
-        missing = [
-            name
-            for name, vol in self.vm.volumes.items()
-            if vol.encrypted and not vol.has_passphrase()
-        ]
-        if not missing:
-            return
-        fire = getattr(self.vm, "fire_event_async", None)
-        if fire is not None:
-            await fire("domain-passphrase-required", volumes=missing)
-        missing = [
-            name
-            for name, vol in self.vm.volumes.items()
-            if vol.encrypted and not vol.has_passphrase()
-        ]
-        if missing:
-            raise StoragePoolException(
-                "Passphrase required for encrypted volume(s): "
-                + ", ".join(missing)
+    def _check_encryptable(self, volume):
+        """Refuse to encrypt a volume that cannot be, including any volume of
+        a qube that is a template for others: nothing can snapshot an
+        encrypted volume."""
+        if not volume.is_encryptable():
+            raise qubes.exc.QubesValueError(
+                "Volume {!s} cannot be encrypted".format(volume)
             )
+        if self.vm.klass == "TemplateVM" or getattr(
+            self.vm, "template_for_dispvms", False
+        ):
+            raise StoragePoolException(
+                "Cannot encrypt a volume of {!s}, a template for other "
+                "qubes".format(self.vm)
+            )
+
+    async def encrypt(self, volume):
+        """Enable LUKS2 encryption on a volume of a stopped qube, with the
+        passphrase set with :py:meth:`Volume.set_passphrase`.  Existing data
+        is encrypted in place.  Safe to call again, to finish an attempt
+        interrupted during the encryption.
+        """
+        volume = self.get_volume(volume)
+        if volume.encrypted:
+            luks = volume.is_luks()
+        else:
+            self._check_encryptable(volume)
+            luks = False
+        if not volume.has_passphrase():
+            raise StoragePoolException(
+                "Passphrase required to encrypt volume {!s}".format(volume)
+            )
+        if not volume.encrypted:
+            if volume.is_dirty():
+                raise StoragePoolException(
+                    "Cannot encrypt dirty volume {!s}, start and stop the "
+                    "qube first".format(volume)
+                )
+            # a header written by the qube could use any passphrase or cipher
+            if volume.is_luks():
+                raise StoragePoolException(
+                    "Volume {!s} already has a LUKS header".format(volume)
+                )
+            if volume.revisions:
+                if volume.revisions_to_keep > 0:
+                    raise StoragePoolException(
+                        "Volume {!s} has revisions, which would keep "
+                        "unencrypted data; set revisions_to_keep to 0 "
+                        "first".format(volume)
+                    )
+                await qubes.utils.coro_maybe(volume.discard_revisions())
+            # save it first, so that an interrupted setup cannot be mistaken
+            # for an unencrypted volume
+            volume.encrypted = True
+            self.vm.app.save()
+        path = volume.luks_backend_path()
+        if luks:
+            try:
+                # finish an interrupted in-place encryption, if any
+                await volume.cryptsetup(
+                    "--resume-only",
+                    "--force-offline-reencrypt",
+                    "--",
+                    "reencrypt",
+                    path,
+                )
+            except subprocess.CalledProcessError as exc:
+                if exc.returncode == 1:  # nothing to resume
+                    return
+                raise StoragePoolException(
+                    "Cannot resume encrypting volume {!s} "
+                    "(wrong passphrase?)".format(volume)
+                )
+        elif await qubes.utils.coro_maybe(volume.is_empty()):
+            # replace the empty volume with a new LUKS container
+            await self.import_data(volume, volume.size)
+            await self.import_data_end(volume, True)
+            return
+        else:
+            # cryptsetup needs twice the header size at the end of the device
+            # to shift the data; the unused half is removed below
+            await qubes.utils.coro_maybe(
+                volume.resize(volume.size + 2 * LUKS2_HEADER_SIZE)
+            )
+            try:
+                await volume.cryptsetup(
+                    "--type=luks2",
+                    "--cipher=aes-xts-plain64",
+                    "--encrypt",
+                    "--reduce-device-size={}".format(2 * LUKS2_HEADER_SIZE),
+                    "--offset={}".format(LUKS2_HEADER_SIZE // 512),
+                    "--force-offline-reencrypt",
+                    "--",
+                    "reencrypt",
+                    path,
+                )
+            except subprocess.CalledProcessError:
+                if not volume.is_luks():
+                    # nothing was written yet, undo the resize
+                    await qubes.utils.coro_maybe(
+                        volume.resize(volume.size - 2 * LUKS2_HEADER_SIZE)
+                    )
+                raise StoragePoolException(
+                    "Failed to encrypt volume {!s}".format(volume)
+                )
+        await qubes.utils.coro_maybe(
+            volume.resize(volume.size - LUKS2_HEADER_SIZE)
+        )
 
     async def start(self):
         """Execute the start method on each volume"""
@@ -1593,45 +1194,51 @@ class Storage:
                 raise qubes.exc.QubesVMError(
                     self.vm, f"Volume {vol.source.vid} is running"
                 )
-        await self._ensure_passphrases()
-        stale = [
+            if vol.source and vol.source.encrypted:
+                raise qubes.exc.QubesVMError(
+                    self.vm,
+                    f"Volume {vol.source.vid} is encrypted, cannot snapshot it",
+                )
+        missing = [
             name
             for name, vol in self.vm.volumes.items()
-            if not vol.encrypted and vol.has_passphrase()
+            if vol.encrypted and not vol.has_passphrase()
         ]
-        if stale:
-            raise StoragePoolException(
-                "Passphrase is set on unencrypted volume(s): "
-                + ", ".join(stale)
-                + "; enable encryption or clear the passphrase before start"
+        if missing:
+            await self.vm.fire_event_async(
+                "domain-passphrase-required", volumes=missing
             )
-        # start_luks may clear luks_needs_zero in memory; persist that
-        # so a later qubesd restart cannot re-zero a guest filesystem.
-        # pylint: disable=protected-access
-        zero_pending = [
-            vol for vol in self.vm.volumes.values() if vol._luks_needs_zero
-        ]
-        start_exc = None
-        try:
-            await qubes.utils.void_coros_maybe(
-                self._volume_start_stop(name, vol, start=True)
-                for name, vol in self.vm.volumes.items()
-            )
-        except Exception as exc:
-            start_exc = exc
-            raise
-        finally:
-            if any(not vol._luks_needs_zero for vol in zero_pending):
-                save = getattr(self.vm.app, "save", None)
-                if save is not None:
-                    try:
-                        save()
-                    except Exception:  # pylint: disable=broad-except
-                        logging.getLogger("qubes.storage").exception(
-                            "Failed to persist LUKS zero-complete flag"
-                        )
-                        if start_exc is None:
-                            raise
+            missing = [
+                name
+                for name in missing
+                if not self.vm.volumes[name].has_passphrase()
+            ]
+            if missing:
+                raise StoragePoolException(
+                    "Passphrase required for encrypted volume(s): "
+                    + ", ".join(missing)
+                )
+
+        for vol in self.vm.volumes.values():
+            if vol.encrypted:
+                # before starting anything: a wrong passphrase must not leave
+                # volumes started, nor rotate their revisions
+                await vol.check_passphrase()
+            else:
+                # a passphrase set for encryption that was not enabled
+                vol.clear_passphrase()
+
+        def start_volume(name, vol):
+            path = vol.encrypted_volume_path(self.vm.name, name)
+            if vol.encrypted:
+                return vol.start_luks(path)
+            if vol.ephemeral:
+                return vol.start_encrypted(path)
+            return vol.start()
+
+        await qubes.utils.void_coros_maybe(
+            start_volume(name, vol) for name, vol in self.vm.volumes.items()
+        )
 
         for vol in self.vm.volumes.values():
             with open(vol.state_file, "w", encoding="ascii"):
@@ -1640,7 +1247,10 @@ class Storage:
     async def stop(self):
         """Stop each volume"""
         await qubes.utils.void_coros_maybe(
-            self._volume_start_stop(name, vol, start=False)
+            # Always call stop_encrypted() - which can handle an unencrypted
+            # volume as well - to correctly clean up even if the ephemeral
+            # property became False while the volume was already started.
+            vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
             for name, vol in self.vm.volumes.items()
         )
         for vol in self.vm.volumes.values():
@@ -1686,50 +1296,56 @@ class Storage:
 
         volume = self.get_volume(volume)
         if size is None:
-            if volume.encrypted:
-                # pylint: disable=protected-access
-                size = volume._luks_guest_size()
-            else:
-                size = volume.size
-        return await qubes.utils.coro_maybe(volume.import_data(size))
+            size = volume.data_size
+        if not volume.encrypted:
+            return await qubes.utils.coro_maybe(volume.import_data(size))
+        # import through a LUKS mapping of a new container, so that the data
+        # gets encrypted on the way
+        name = volume.encrypted_volume_path(self.vm.name, volume.name)
+        if os.path.exists(name):
+            raise StoragePoolException(
+                "Encrypted volume {!s} is in use".format(volume)
+            )
+        path = await qubes.utils.coro_maybe(
+            volume.import_data(size + LUKS2_HEADER_SIZE)
+        )
+        try:
+            await volume.cryptsetup(
+                "--type=luks2",
+                "--cipher=aes-xts-plain64",
+                "--offset={}".format(LUKS2_HEADER_SIZE // 512),
+                "--",
+                "luksFormat",
+                path,
+            )
+            await volume.cryptsetup("--", "open", path, name[12:])
+            # unwritten parts of a LUKS volume read as random data: zero the
+            # beginning, so that the qube sees an empty volume if nothing
+            # (or less) is written (see setup-rwdev.sh in the qube)
+            await qubes.utils.run_program(
+                "dd",
+                "if=/dev/zero",
+                "of=" + name,
+                "bs=1M",
+                "count={}".format(min(size >> 20, 10)),
+                "conv=fsync",
+                sudo=True,
+            )
+        except:  # pylint: disable=bare-except
+            await self.import_data_end(volume, False)
+            raise
+        return name
 
     async def import_data_end(self, volume, success):
         """Helper function to finish/cleanup data import"""
         volume = self.get_volume(volume)
-        result = await qubes.utils.coro_maybe(
+        if volume.encrypted:
+            name = volume.encrypted_volume_path(self.vm.name, volume.name)
+            if os.path.exists(name):
+                await qubes.utils.cryptsetup("--", "close", name[12:])
+        return await qubes.utils.coro_maybe(
             volume.import_data_end(success=success)
         )
-        # Import/Clear overwrite the origin.  Re-apply LUKS if this is an
-        # encrypted volume (no-op when the imported image is already LUKS).
-        if success and volume.encrypted:
-            if not volume.has_passphrase():
-                raise StoragePoolException(
-                    "Passphrase required to re-format encrypted volume "
-                    "{!s} after import".format(volume.vid)
-                )
-            try:
-                await self._luks_after_origin_replace(volume)
-            finally:
-                save = getattr(self.vm.app, "save", None)
-                if save is not None:
-                    save()
-        return result
-
-    async def _luks_after_origin_replace(self, volume):
-        """Pin guest size and re-apply LUKS after Import/Clear."""
-        # pylint: disable=protected-access
-        live = volume.size
-        if await volume.is_luks():
-            volume._luks_needs_zero = False
-            if live > LUKS2_HEADER_SIZE:
-                volume._luks_setup_guest_size = live - LUKS2_HEADER_SIZE
-            else:
-                volume._luks_setup_guest_size = live
-        else:
-            volume._luks_setup_guest_size = live
-            volume.set_configured_size(live)
-            volume._luks_needs_zero = not volume._volume_has_data()
-        await volume.setup_luks()
 
     async def import_volume(self, dst_volume: Volume, src_volume: Volume):
         """Helper function to import data from another volume"""
@@ -1738,28 +1354,20 @@ class Storage:
                 f"Volume {src_volume.vid} must be stopped before importing its "
                 f"data"
             )
-
-        if src_volume.encrypted and not dst_volume.encrypted:
-            # Must mark dest *before* copying so a LUKS container is
-            # never attached as a plaintext disk.  The setter enforces
-            # save_on_stop / rw / not snap_on_start.
-            dst_volume.encrypted = True
-        elif dst_volume.encrypted and not src_volume.encrypted:
+        if dst_volume.encrypted and not src_volume.encrypted:
             raise StoragePoolException(
                 "Cannot import unencrypted volume {!s} into encrypted "
-                "volume {!s}".format(src_volume.vid, dst_volume.vid)
+                "volume {!s}".format(src_volume, dst_volume)
             )
+        if src_volume.encrypted and not dst_volume.encrypted:
+            self._check_encryptable(dst_volume)
 
         import_rslt = await qubes.utils.coro_maybe(
             dst_volume.import_volume(src_volume)
         )
         if src_volume.encrypted:
-            src_cfg = src_volume.config
-            guest = src_cfg.get("luks_guest_size")
-            # pylint: disable=protected-access
-            if guest:
-                dst_volume._luks_setup_guest_size = int(guest)
-            dst_volume._luks_needs_zero = bool(src_cfg.get("luks_needs_zero"))
+            # the LUKS container was copied as is
+            dst_volume.encrypted = True
         await self.vm.fire_event_async(
             "domain-import-volume", name=dst_volume.name, source=src_volume
         )

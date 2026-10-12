@@ -428,20 +428,18 @@ class ThinVolume(qubes.storage.Volume):
         ]
         await qubes_lvm_coro(cmd, self.log)
 
-    async def _remove_revisions(self, revisions=None, *, ignore_errors=True):
+    async def _remove_revisions(self, revisions=None):
         """Remove old volume revisions.
 
         If no revisions list is given, it removes old revisions according to
         :py:attr:`revisions_to_keep`
 
         :param revisions: list of revisions to remove
-        :param ignore_errors: swallow per-revision remove failures
         """
         if revisions is None:
             revisions = sorted(self.revisions.items(), key=_revision_sort_key)
-            keep = max(0, self.revisions_to_keep)
             # pylint: disable=invalid-unary-operand-type
-            revisions = revisions[: (-keep) or None]
+            revisions = revisions[: (-self.revisions_to_keep) or None]
             revisions = [rev_id for rev_id, _ in revisions]
 
         for rev_id in revisions:
@@ -451,20 +449,7 @@ class ThinVolume(qubes.storage.Volume):
                 cmd = ["remove", self.vid + "-" + rev_id]
                 await qubes_lvm_coro(cmd, self.log)
             except qubes.exc.StoragePoolException:
-                if not ignore_errors:
-                    raise
-
-    @qubes.storage.Volume.locked
-    async def discard_revisions(self):
-        """Remove every stored LVM revision of this volume."""
-        if self.is_dirty():
-            raise qubes.exc.StoragePoolException(
-                "Cannot discard revisions of a dirty volume"
-            )
-        await self._remove_revisions(
-            list(self.revisions.keys()), ignore_errors=False
-        )
-        await reset_cache_coro()
+                pass
 
     async def _activate(self):
         """
@@ -477,6 +462,38 @@ class ThinVolume(qubes.storage.Volume):
             return
         cmd = ["activate", self._vid_current]
         await qubes_lvm_coro(cmd, self.log)
+
+    @qubes.storage.Volume.locked
+    async def discard_revisions(self):
+        # unlike _remove_revisions(), do not ignore errors: a leftover
+        # revision would keep unencrypted data
+        for rev_id in list(self.revisions):
+            cmd = ["remove", self.vid + "-" + rev_id]
+            await qubes_lvm_coro(cmd, self.log)
+        await reset_cache_coro()
+
+    async def is_empty(self):
+        # lvs rounds data_percent, ask device-mapper for the exact value
+        cmd = ["dmsetup", "status", "--", self.path]
+        if os.getuid() != 0:
+            cmd.insert(0, _sudo)
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=subprocess.PIPE
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode:
+            raise qubes.exc.StoragePoolException(
+                "dmsetup status {} failed".format(self.path)
+            )
+        # <start> <length> thin <mapped sectors> <highest mapped sector>
+        mapped, highest = stdout.split()[3:5]
+        if mapped == b"0":
+            return True
+        # lvcreate zeroes the start of a new volume, which maps one chunk
+        if int(mapped) > 2048 or int(highest) + 1 != int(mapped):
+            return False
+        with open(self.path, "rb") as volume:
+            return volume.read(int(mapped) * 512) == bytes(int(mapped) * 512)
 
     async def _commit(self, vid_to_commit=None, keep=False):
         """
@@ -919,13 +936,11 @@ def _get_lvm_cmdline(cmd):
         ]
     elif action == "resize":
         assert len(cmd) == 3, "wrong number of arguments for resize"
-        # --yes/--force/--fs ignore: LUKS in-place encrypt shrinks the
-        # unused datashift tail; non-interactive lvresize otherwise
-        # refuses to reduce a crypto_LUKS thin LV.
+        # --yes --fs=ignore: allow shrinking (done when encrypting a volume
+        # in place) without looking at the filesystem of the qube
         lvm_cmd = [
             "lvresize",
             "--yes",
-            "--force",
             "--fs=ignore",
             "--size=" + cmd[2] + "B",
             "--",

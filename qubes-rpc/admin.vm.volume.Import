@@ -69,8 +69,13 @@ qubesd-query --null "${flags[@]}" -c /var/run/qubesd.internal.sock \
 error=""
 
 # now process stdin into this path
+conv=sparse,notrunc,nocreat,fdatasync
+# holes in a LUKS mapping (an encrypted volume) read as random data, not zeros
+if [ "$(lsblk --nodeps --noheadings --output TYPE -- "$path" 2>/dev/null)" = crypt ]; then
+    conv=notrunc,nocreat,fdatasync
+fi
 if ! sudo dd bs=128K of="$path" count="$size" iflag=count_bytes,fullblock \
-        conv=sparse,notrunc,nocreat,fdatasync 2>"$tmpfile"; then
+        conv="$conv" 2>"$tmpfile"; then
     error="error copying data"
 fi
 

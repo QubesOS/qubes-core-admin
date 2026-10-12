@@ -74,21 +74,15 @@ those properties:
   from the template (but not for other types of VMs). For `volatile` volumes,
   this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
 - :py:attr:`~qubes.storage.Volume.encrypted` - whether the volume is encrypted
-  with persistent LUKS2. This can be set only on writable, ``save_on_stop``,
-  non-snapshot, dom0-backed volumes. The practical target is `private` on
-  AppVM/StandaloneVM (and `root` on StandaloneVM). TemplateVM `root` is not
-  a useful target: AppVMs cannot snapshot an encrypted source. It is
-  mutually exclusive with :py:attr:`~qubes.storage.Volume.ephemeral`. The
-  LUKS passphrase is kept in qubesd memory only (via
-  ``admin.vm.volume.SetPassphrase``) and is never written to disk or
-  serialized into :file:`qubes.xml`. A volume that already has a LUKS
-  header cannot be marked encrypted (a guest-written header is refused).
-  Enabling encryption on a volume that already contains data encrypts it
-  in place; existing contents are preserved. Dirty volumes and volumes
-  with revisions are refused. Disabling encryption is not implemented.
-  The volume is unlocked on domain start (``cryptsetup open``) and closed
-  on stop; start never formats an encrypted volume that is missing a LUKS
-  header.
+  with LUKS2 (persistently, unlike
+  :py:attr:`~qubes.storage.Volume.ephemeral`). This can be enabled only on
+  writable, :py:attr:`~qubes.storage.Volume.save_on_stop`, non-snapshot
+  volumes in dom0 (like `private`) that are not used as a snapshot source by
+  other volumes, see :py:meth:`qubes.storage.Storage.encrypt`. The passphrase
+  is kept in qubesd memory only (set with ``admin.vm.volume.SetPassphrase``
+  before starting the qube, or before resizing the volume of a running
+  qube) and never written to disk. Existing data is encrypted in place.
+  Disabling encryption is not implemented.
 
 The storage pool driver may define additional properties.
 
@@ -166,3 +160,12 @@ stopping a domain - so, if volume have
 state.
 
 See specific methods documentation for details.
+
+Module contents
+---------------
+
+.. automodule:: qubes.storage
+   :members:
+   :show-inheritance:
+
+.. vim: ts=3 sw=3 et
