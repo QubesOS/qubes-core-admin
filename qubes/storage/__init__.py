@@ -1359,22 +1359,11 @@ class Storage:
             volume.resize(volume.size - LUKS2_HEADER_SIZE)
         )
 
-    async def start(self):
-        """Execute the start method on each volume"""
-        for vol in self.vm.volumes.values():
-            if (
-                vol.source
-                and vol.source.snapshots_disabled
-                and vol.source.is_running()
-            ):
-                raise qubes.exc.QubesVMError(
-                    self.vm, f"Volume {vol.source.vid} is running"
-                )
-            if vol.source and vol.source.encrypted:
-                raise qubes.exc.QubesVMError(
-                    self.vm,
-                    f"Volume {vol.source.vid} is encrypted, cannot snapshot it",
-                )
+    async def check_passphrases(self):
+        """Make sure that the encrypted volumes can be unlocked, before
+        starting anything: a wrong passphrase must not leave volumes started,
+        nor rotate their revisions.  Asks for missing passphrases with the
+        ``domain-passphrase-required`` event."""
         missing = [
             name
             for name, vol in self.vm.volumes.items()
@@ -1397,12 +1386,28 @@ class Storage:
 
         for vol in self.vm.volumes.values():
             if vol.encrypted:
-                # before starting anything: a wrong passphrase must not leave
-                # volumes started, nor rotate their revisions
                 await vol.check_passphrase()
             else:
                 # a passphrase set for encryption that was not enabled
                 vol.clear_passphrase()
+
+    async def start(self):
+        """Start each volume, unlocking the encrypted ones (see
+        :py:meth:`check_passphrases`)"""
+        for vol in self.vm.volumes.values():
+            if (
+                vol.source
+                and vol.source.snapshots_disabled
+                and vol.source.is_running()
+            ):
+                raise qubes.exc.QubesVMError(
+                    self.vm, f"Volume {vol.source.vid} is running"
+                )
+            if vol.source and vol.source.encrypted:
+                raise qubes.exc.QubesVMError(
+                    self.vm,
+                    f"Volume {vol.source.vid} is encrypted, cannot snapshot it",
+                )
 
         def start_volume(name, vol):
             path = vol.encrypted_volume_path(self.vm.name, name)
