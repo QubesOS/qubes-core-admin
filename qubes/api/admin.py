@@ -28,6 +28,7 @@ import pathlib
 import re
 import string
 import subprocess
+import time
 
 from ctypes import CDLL, c_bool
 
@@ -2533,7 +2534,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         summary = backup.get_backup_summary(filtered_domains=domains)
         return summary
 
-    def _send_stats_single(self, info_time, info, only_vm, filters):
+    def _send_stats_single(self, info, only_vm, filters):
         """A single iteration of sending VM stats
 
         :param info_time: time of previous iteration
@@ -2544,12 +2545,14 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         the next iteration)
         """
 
-        info_time, info = self.app.host.get_vm_stats(
-            info_time, info, only_vm=only_vm
+        _info_time, info = self.app.host.get_vm_stats(
+            previous=info, only_vm=only_vm
         )
         for vm_info in info.values():
             name = vm_info["name"]
             if name is None:
+                continue
+            if only_vm and only_vm.name != name:
                 continue
             if vm_info["is_stubdom"]:
                 continue
@@ -2583,7 +2586,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             self.send_event(name, "vm-stats", **data)
 
-        return info_time, info
+        return info
 
     @qubes.api.method(
         "admin.vm.Stats",
@@ -2606,14 +2609,26 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.send_event(self.app, "connection-established")
 
-        info_time = None
         info = None
+        interval = self.app.stats_interval
+        if self.app.host.stats_cache_time:
+            current_time = time.time()
+            cache_diff = current_time - self.app.host.stats_cache_time
+            # Adjusting the first sleep allows the client to query from cache
+            # on first request, sleep just enough for the cache to have been
+            # generated and on second request, be the first to generate the
+            # cache or use the cache. From then on, it will sleep that
+            # ``stats_interval``.
+            interval = self.app.stats_interval - cache_diff
+            if interval <= 0:
+                interval = self.app.stats_interval
         try:
             while True:
-                info_time, info = self._send_stats_single(
-                    info_time, info, only_vm, stats_filters
+                info = self._send_stats_single(
+                    info=info, only_vm=only_vm, filters=stats_filters
                 )
-                await asyncio.sleep(self.app.stats_interval)
+                await asyncio.sleep(interval)
+                interval = self.app.stats_interval
         except asyncio.CancelledError:
             # valid method to terminate this loop
             pass
