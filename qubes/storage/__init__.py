@@ -238,6 +238,7 @@ class Volume:
         await qubes.utils.cryptsetup(
             "--key-file=/dev/urandom",
             "--cipher=aes-xts-plain64",
+            "--key-size=256",
             "--type=plain",
             "--",
             "open",
