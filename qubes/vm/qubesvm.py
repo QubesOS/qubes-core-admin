@@ -1810,7 +1810,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             self.on_libvirt_domain_resumed()
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            self.on_libvirt_domain_stopped()
+            self.on_libvirt_domain_stopped(detail=detail)
 
     def on_libvirt_domain_reboot(self):
         """Handle VIR_DOMAIN_EVENT_ID_REBOOT event from libvirt.
@@ -1889,7 +1889,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.log.exception("Uncaught exception from %s handler ", event)
         self.end_lifecycle_waiter(event="RESUMED")
 
-    def on_libvirt_domain_stopped(self):
+    def on_libvirt_domain_stopped(self, detail):
         """Handle VIR_DOMAIN_EVENT_STOPPED events from libvirt.
 
         This is not a Qubes event handler. Instead we do some sanity checks
@@ -1908,6 +1908,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             # or libvirt reconnect
             return
         self._domain_stopped_event_received = True
+
+        if detail == libvirt.VIR_DOMAIN_EVENT_STOPPED_REBOOT:
+            self._check_reboot_counter()
 
         asyncio.ensure_future(self._domain_stopped_coro())
 
