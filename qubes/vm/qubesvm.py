@@ -1769,7 +1769,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         elif event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             self.on_libvirt_domain_resumed()
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            self.on_libvirt_domain_stopped()
+            self.on_libvirt_domain_stopped(detail=detail)
 
     def on_libvirt_domain_defined(self):
         """Handle VIR_DOMAIN_EVENT_DEFINED event from libvirt.
@@ -1841,7 +1841,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.log.exception("Uncaught exception from %s handler ", event)
         self.end_lifecycle_waiter(event="RESUMED")
 
-    def on_libvirt_domain_stopped(self):
+    def on_libvirt_domain_stopped(self, detail):
         """Handle VIR_DOMAIN_EVENT_STOPPED events from libvirt.
 
         This is not a Qubes event handler. Instead we do some sanity checks
@@ -1861,9 +1861,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             return
         self._domain_stopped_event_received = True
 
-        asyncio.ensure_future(self._domain_stopped_coro())
+        asyncio.ensure_future(self._domain_stopped_coro(detail=detail))
 
-    async def _domain_stopped_coro(self):
+    async def _domain_stopped_coro(self, detail):
         async with self._domain_stopped_lock:
             assert not self._domain_stopped_event_handled
 
@@ -1874,12 +1874,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             # an exception gets thrown.
             self._domain_stopped_event_handled = True
 
+            if detail == libvirt.VIR_DOMAIN_EVENT_STOPPED_REBOOT:
+                self._check_reboot_counter()
+
             while self.get_power_state() == "Halting":
                 await asyncio.sleep(0.25)
             try:
                 await self.fire_event_async("domain-stopped")
                 await self.fire_event_async("domain-shutdown")
-                self._check_reboot_counter()
                 if self._start_requested:
                     self._start_requested = False
                     self.log.info("Starting domain after domain stop")

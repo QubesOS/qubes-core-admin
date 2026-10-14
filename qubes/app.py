@@ -1919,7 +1919,9 @@ class Qubes(qubes.PropertyHolder):
             # events.
             for vm in self.domains.values():
                 if not vm.is_running():
-                    vm.on_libvirt_domain_stopped()
+                    vm.on_libvirt_domain_stopped(
+                        detail=libvirt.VIR_DOMAIN_EVENT_STOPPED_SHUTDOWN
+                    )
 
     def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),
