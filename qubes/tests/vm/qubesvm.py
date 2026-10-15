@@ -18,7 +18,8 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
-#
+
+import asyncio
 import base64
 import os
 import subprocess
@@ -3425,3 +3426,44 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(vm.get_default_user(), "altuser2")
         del vm.features["boot-mode.active"]
         self.assertEqual(vm.get_default_user(), "user")
+
+    async def _test_850_lifecycle_change(self):
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM)
+
+        with self.subTest(msg="Yield raises"):
+            vm._lifecycle_waiter["LIFE"] = None
+            with self.assertRaises(ValueError):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    raise ValueError
+
+        with self.subTest("Normal conditions"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event comes after some time"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(2):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    await asyncio.sleep(1)
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event never arrives and timeout is raised"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(4):
+                with self.assertRaises(asyncio.TimeoutError):
+                    async with vm.change_libvirt_state(event="LIFE", timeout=1):
+                        await asyncio.sleep(2)
+
+        with self.subTest(
+            "Event never arrives but we don't wait for it either"
+        ):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE", wait=False):
+                    pass
+
+    def test_850_lifecycle_change(self):
+        """Simulate libvirt lifecycle changes with events."""
+        self.loop.run_until_complete(self._test_850_lifecycle_change())
