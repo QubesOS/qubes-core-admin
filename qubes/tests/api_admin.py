@@ -3799,6 +3799,21 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
 
+    def test_586_firewall_set_invalid_comment(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = b"action=drop\naction=accept comment=Access?\n"
+        with self.assertRaisesRegex(
+            qubes.exc.QubesValueError, "Invalid firewall comment"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.firewall.Set", b"test-vm1", b"", rules_txt
+            )
+        self.assertEqual(
+            self.vm.firewall.rules, [qubes.firewall.Rule(action="accept")]
+        )
+        self.vm.firewall.save.assert_not_called()
+        self.app.save.assert_not_called()
+
     def test_590_firewall_reload(self):
         self.vm.firewall.save = unittest.mock.Mock()
         self.app.domains["test-vm1"].fire_event = self.emitter.fire_event
