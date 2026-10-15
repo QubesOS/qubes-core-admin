@@ -161,6 +161,35 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         xml = vm.__xml__()
         self.assertNotIn("nxproperty", xml)
 
+    def test_003_load_empty_tag(self):
+        xml = lxml.etree.XML("""
+<qubes version="3">
+    <domains>
+        <domain id="domain-1" class="TestVM">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">domain1</property>
+            </properties>
+            <tags>
+                <tag name="testtag"/>
+                <tag name=""/>
+            </tags>
+        </domain>
+    </domains>
+</qubes>
+        """)
+
+        node = xml.xpath("//domain")[0]
+        vm = TestVM(TestApp(), node)
+        vm.load_properties()
+        vm.init_log()
+        vm.load_extras()
+        self.assertEqual(vm.tags, {"testtag", ""})
+
+        vm.events_enabled = True
+        vm.fire_event("domain-load")
+        self.assertEqual(vm.tags, {"testtag"})
+
 
 class TC_20_Tags(qubes.tests.QubesTestCase):
     def setUp(self):

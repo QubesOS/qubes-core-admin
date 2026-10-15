@@ -417,6 +417,15 @@ class BaseVM(qubes.PropertyHolder):
             # pylint: disable=attribute-defined-outside-init
             self.uuid = uuid.uuid4()
 
+    @qubes.events.handler("domain-load")
+    def on_domain_load_remove_empty_tag(self, event):
+        # pylint: disable=unused-argument
+        # admin.vm.tag.Remove can't remove an empty tag loaded from an
+        # older qubes.xml
+        if "" in self.tags:
+            self.log.warning("Removing empty tag")
+            self.tags.remove("")
+
 
 class LocalVM(BaseVM):
     """Base class for all local VMs
