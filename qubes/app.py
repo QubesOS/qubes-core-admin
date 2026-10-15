@@ -598,7 +598,7 @@ class QubesHost:
                 del untrusted_value
                 return None
             current[domid][f"xs_{key}"] = True
-            if not untrusted_value.isdigit():
+            if not untrusted_value.isascii() or not untrusted_value.isdigit():
                 del untrusted_value
                 return None
             value = int(untrusted_value)
