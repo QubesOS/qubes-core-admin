@@ -3613,6 +3613,29 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
                 token.encode(),
             )
 
+    def test_526_vm_volume_clone_token_in_use(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+
+        token = "a" * 32
+        self.app.api_admin_pending_clone = {token: self.vm.volumes["private"]}
+        with unittest.mock.patch(
+            "qubes.utils.random_string", return_value=token
+        ):
+            with self.assertRaises(qubes.exc.QubesVolumeCopyInUseError) as cm:
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+                )
+        self.assertIs(cm.exception.vm, self.vm)
+        self.assertEqual(cm.exception.volume, "private")
+        self.assertEqual(
+            str(cm.exception),
+            "Domain volume is being cloned already: 'test-vm1':'private'",
+        )
+        self.assertFalse(self.app.save.called)
+
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")
         self.vm.tags.add("tag2")
