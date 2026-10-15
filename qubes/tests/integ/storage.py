@@ -519,6 +519,125 @@ class StorageTestMixin(object):
             self.standalone_vm1.features["boot-mode.active"], "new-mode"
         )
 
+    def test_010_encrypted(self):
+        """Encrypt an empty volume and one with data, use them"""
+        return self.loop.run_until_complete(self._test_010_encrypted())
+
+    async def _assert_volume_content(self, dev, size, content, length):
+        """Check the size of /dev/<dev> in vm1 and that its first <length>
+        bytes hold <content> followed by zeros (a new encrypted volume has
+        only its beginning zeroed, what the qube requires to create a
+        filesystem there)"""
+        stdout, _ = await self.vm1.run_for_stdio(
+            "blockdev --getsize64 /dev/" + dev, user="root"
+        )
+        self.assertEqual(int(stdout), size)
+        if content:
+            cmd = "echo {} | cat - /dev/zero | cmp -n {} - /dev/{}"
+            cmd = cmd.format(content, length, dev)
+        else:
+            cmd = "cmp -n {0} /dev/{1} /dev/zero && ! blkid -p /dev/{1}"
+            cmd = cmd.format(length, dev)
+        try:
+            await self.vm1.run_for_stdio(cmd, user="root")
+        except subprocess.CalledProcessError:
+            self.fail("unexpected content of {}".format(dev))
+
+    async def _test_010_encrypted(self):
+        size = 128 * 1024 * 1024
+        passphrase = b"test-passphrase"
+        for name in ("testvol", "testvol2"):
+            volume_config = {
+                "pool": self.pool.name,
+                "size": size,
+                "save_on_stop": True,
+                "rw": True,
+                # a revision would keep unencrypted data
+                "revisions_to_keep": 0,
+            }
+            testvol = self.vm1.storage.init_volume(name, volume_config)
+            await qubes.utils.coro_maybe(testvol.create())
+            del testvol
+        self.app.save()
+        testvol = self.vm1.volumes["testvol"]
+        testvol2 = self.vm1.volumes["testvol2"]
+        if not testvol.is_encryptable():
+            self.skipTest("pool does not support encrypted volumes")
+        # testvol gets data before being encrypted, testvol2 stays empty
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        await self.vm1.run_for_stdio(
+            "echo test123 > /dev/xvde && sync", user="root"
+        )
+        await self.vm1.shutdown(wait=True)
+
+        for volume in (testvol, testvol2):
+            volume.set_passphrase(passphrase)
+            await self.vm1.storage.encrypt(volume)
+            self.assertTrue(volume.is_luks())
+            self.assertEqual(
+                volume.size, size + qubes.storage.LUKS2_HEADER_SIZE
+            )
+            self.assertEqual(volume.data_size, size)
+        self.app.save()
+
+        # a wrong passphrase must not start anything, nor break the next try
+        testvol.set_passphrase(passphrase)
+        testvol2.set_passphrase(b"wrong")
+        with self.assertRaises(qubes.exc.QubesException):
+            await self.vm1.start()
+        self.assertTrue(testvol.has_passphrase())
+        self.assertFalse(
+            os.path.exists(
+                testvol.encrypted_volume_path(self.vm1.name, "testvol")
+            )
+        )
+
+        # data (and the lack of it) survives restarts
+        for _ in range(2):
+            testvol.set_passphrase(passphrase)
+            testvol2.set_passphrase(passphrase)
+            await self.vm1.start()
+            await self.wait_for_session(self.vm1)
+            self.assertFalse(testvol.has_passphrase())
+            await self._assert_volume_content("xvde", size, "test123", size)
+            await self._assert_volume_content(
+                "xvdf", size, "", qubes.storage.LUKS_ZEROED_SIZE
+            )
+            await self.vm1.shutdown(wait=True)
+
+        # change the passphrase, resize, import data (as Import/Clear do)
+        new_passphrase = b"new-passphrase"
+        await testvol.change_passphrase(passphrase, new_passphrase)
+        await self.vm1.storage.resize("testvol", 2 * size)
+        await self.vm1.storage.resize("testvol2", 2 * size)
+        self.assertEqual(testvol2.data_size, 2 * size)
+        testvol2.set_passphrase(passphrase)
+        path = await self.vm1.storage.import_data("testvol2", None)
+        with open(path, "r+b") as mapping:
+            mapping.write(b"test456\n")
+        await self.vm1.storage.import_data_end("testvol2", True)
+        self.app.save()
+
+        testvol.set_passphrase(new_passphrase)
+        await self.vm1.start()
+        await self.wait_for_session(self.vm1)
+        # the part added to testvol is not zeroed
+        await self._assert_volume_content("xvde", 2 * size, "test123", size)
+        await self._assert_volume_content(
+            "xvdf", 2 * size, "test456", qubes.storage.LUKS_ZEROED_SIZE
+        )
+        # resize while running, the LUKS mapping follows
+        testvol2.set_passphrase(passphrase)
+        with suppress(qubes.exc.StoragePoolException):
+            # qubes.ResizeDisk in the qube resizes only root and private
+            await self.vm1.storage.resize("testvol2", 3 * size)
+        self.assertFalse(testvol2.has_passphrase())
+        path = testvol2.encrypted_volume_path(self.vm1.name, "testvol2")
+        with open(path, "rb") as mapping:
+            self.assertEqual(mapping.seek(0, os.SEEK_END), 3 * size)
+        await self.vm1.shutdown(wait=True)
+
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):

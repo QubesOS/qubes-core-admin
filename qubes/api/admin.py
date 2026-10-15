@@ -481,6 +481,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             "snap_on_start",
             "revisions_to_keep",
             "ephemeral",
+            "encrypted",
+            "has_passphrase",
         ]
 
         def _serialize(value):
@@ -490,9 +492,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 value = ""
             return str(value)
 
+        values = {key: getattr(volume, key) for key in volume_properties}
+        # the size as seen by the qube, without the LUKS2 header
+        values["size"] = volume.data_size
         info = "".join(
-            "{}={}\n".format(key, _serialize(getattr(volume, key)))
-            for key in volume_properties
+            "{}={}\n".format(key, _serialize(value))
+            for key, value in values.items()
         )
         try:
             info += "is_outdated={}\n".format(volume.is_outdated())
@@ -630,9 +635,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(
             src_volume=src_volume, dst_volume=dst_volume
         )
-        self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
-            self.dest.storage.import_volume(dst_volume, src_volume)
-        )
+        # the qube must not start meanwhile (an encrypted copy is refused for
+        # a running qube)
+        async with self.dest.startup_lock:
+            self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
+                self.dest.storage.import_volume(dst_volume, src_volume)
+            )
         self.app.save()
 
     @qubes.api.method(
@@ -674,7 +682,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         volume = self.dest.volumes[self.arg]
-        size = volume.size
+        size = volume.data_size
 
         # Clear the volume by importing empty data into it
         path = await self.dest.storage.import_data(self.arg, size)
@@ -740,7 +748,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        self.dest.volumes[self.arg].rw = newvalue
+        volume = self.dest.volumes[self.arg]
+        if not newvalue and volume.encrypted:
+            raise qubes.exc.QubesValueError("Encrypted volume must be writable")
+        volume.rw = newvalue
         self.app.save()
 
     @qubes.api.method(
@@ -768,6 +779,108 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.dest.volumes[self.arg].ephemeral = newvalue
         self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.volume.Set.encrypted",
+        wants_arg=True,
+        wants_payload=True,
+        dest_adminvm=None,
+        scope="local",
+        write=True,
+    )
+    async def vm_volume_set_encrypted(self, untrusted_payload):
+        """Enable LUKS2 encryption of a volume of a stopped qube, with the
+        passphrase set earlier with admin.vm.volume.SetPassphrase.  Existing
+        data is encrypted in place.  Disabling is possible only while the
+        volume has no LUKS header yet (after a failed attempt)."""
+        self.enforce_arg(
+            wants=self.dest.volumes.keys(),
+            short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
+        )
+        try:
+            newvalue = qubes.property.bool(
+                None, None, untrusted_payload.decode("ascii")
+            )
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.exc.ProtocolError("Payload is not boolean ASCII")
+        del untrusted_payload
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        # the qube must not start while its volume is being encrypted
+        async with self.dest.startup_lock:
+            if not self.dest.is_halted():
+                raise qubes.exc.QubesVMNotHaltedError(self.dest)
+            try:
+                if newvalue:
+                    await self.dest.storage.encrypt(self.arg)
+                else:
+                    # refused by the setter once there is a LUKS header
+                    self.dest.volumes[self.arg].encrypted = False
+            finally:
+                self.app.save()
+
+    @qubes.api.method(
+        "admin.vm.volume.SetPassphrase",
+        wants_arg=True,
+        wants_payload=None,
+        dest_adminvm=None,
+        scope="local",
+        write=True,
+    )
+    async def vm_volume_set_passphrase(self, untrusted_payload):
+        """Set the LUKS passphrase of an encrypted volume (or of a volume
+        about to be encrypted with admin.vm.volume.Set.encrypted).  It is
+        kept in qubesd memory only, until the qube is started.  An empty
+        payload clears it."""
+        self.enforce_arg(
+            wants=self.dest.volumes.keys(),
+            short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
+        )
+        # do not include the passphrase in the event
+        self.fire_event_for_permission()
+
+        volume = self.dest.volumes[self.arg]
+        if not volume.encrypted and not volume.is_encryptable():
+            raise qubes.exc.QubesValueError("Volume cannot be encrypted")
+        if untrusted_payload:
+            volume.set_passphrase(untrusted_payload)
+        else:
+            volume.clear_passphrase()
+
+    @qubes.api.method(
+        "admin.vm.volume.ChangePassphrase",
+        wants_arg=True,
+        wants_payload=True,
+        dest_adminvm=None,
+        scope="local",
+        write=True,
+    )
+    async def vm_volume_change_passphrase(self, untrusted_payload):
+        """Change the LUKS passphrase of an encrypted volume of a stopped
+        qube.  The payload is the old passphrase, a newline and the new
+        passphrase.  A passphrase set with admin.vm.volume.SetPassphrase is
+        cleared."""
+        self.enforce_arg(
+            wants=self.dest.volumes.keys(),
+            short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
+        )
+        untrusted_old, sep, untrusted_new = untrusted_payload.partition(b"\n")
+        if not sep:
+            raise qubes.exc.ProtocolError(
+                "Payload must be the old passphrase, newline, new passphrase"
+            )
+        del untrusted_payload
+
+        self.fire_event_for_permission()
+
+        async with self.dest.startup_lock:
+            if not self.dest.is_halted():
+                raise qubes.exc.QubesVMNotHaltedError(self.dest)
+            volume = self.dest.volumes[self.arg]
+            if not volume.encrypted:
+                raise qubes.exc.QubesValueError("Volume is not encrypted")
+            await volume.change_passphrase(untrusted_old, untrusted_new)
 
     @qubes.api.method(
         "admin.vm.tag.List",

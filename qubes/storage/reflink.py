@@ -166,6 +166,8 @@ class ReflinkPool(qubes.storage.Pool):
 
 
 class ReflinkVolume(qubes.storage.Volume):
+    encryption_supported = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)
@@ -174,6 +176,16 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_dirty = self._path_vid + "-dirty.img"
         self._path_import = self._path_vid + "-import.img"
         self.path = self._path_dirty
+
+    def luks_backend_path(self):
+        # with snapshots disabled, start() renames the clean image instead
+        # of copying it
+        return self._path_dirty if self.is_dirty() else self._path_clean
+
+    async def change_passphrase(self, untrusted_old, untrusted_new):
+        await super().change_passphrase(untrusted_old, untrusted_new)
+        # the precache would keep the old keyslot
+        _remove_file(self._path_precache)
 
     @contextmanager
     def _update_precache(self):
@@ -318,6 +330,11 @@ class ReflinkVolume(qubes.storage.Volume):
             keep = self.revisions_to_keep
         for rev, timestamp in list(self.revisions.items())[: -keep or None]:
             _remove_file(self._path_revision(rev, timestamp))
+
+    @qubes.storage.Volume.locked
+    @_async_thread
+    def discard_revisions(self):  # pylint: disable=invalid-overridden-method
+        self._prune_revisions(keep=0)
 
     @qubes.storage.Volume.locked
     @_async_thread

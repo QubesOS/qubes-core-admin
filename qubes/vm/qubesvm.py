@@ -409,6 +409,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             *other arguments are as in :py:meth:`start`*
 
+        .. event:: domain-passphrase-required (subject, event, volumes)
+
+            Fired from :py:meth:`qubes.storage.Storage.check_passphrases`
+            when encrypted volumes have no passphrase set, early in
+            :py:meth:`start` (before starting the netvm, or requesting
+            memory). A handler may set it with
+            :py:meth:`qubes.storage.Volume.set_passphrase`; if it is still
+            missing afterwards, the start fails. Tools starting qubes over
+            the Admin API should check ``encrypted`` in
+            ``admin.vm.volume.Info`` and call ``admin.vm.volume.SetPassphrase``
+            before ``admin.vm.Start``.
+
+            Handler for this event may be asynchronous.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-passphrase-required'``)
+            :param volumes: names of the volumes missing a passphrase
+
         .. event:: domain-pre-spawn (subject, event, start_guid)
 
             Fired just before creating libvirt domain.
@@ -1561,6 +1579,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                             )
 
                 await self.storage.verify()
+                # may ask for passphrases, do not hold qmemman's lock meanwhile
+                await self.storage.check_passphrases()
 
                 if self.netvm is not None:
                     # pylint: disable = no-member

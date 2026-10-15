@@ -632,6 +632,10 @@ class CallbackVolume(qubes.storage.Volume):
         await self._assert_initialized()
         return await coro_maybe(self._cb_impl.revert(revision=revision))
 
+    async def discard_revisions(self):
+        await self._assert_initialized()
+        return await coro_maybe(self._cb_impl.discard_revisions())
+
     # shadow all qubes.storage.Volume class attributes as instance properties
     # NOTE: this will cause a subtle difference to using an actual _cb_impl instance: CallbackVolume.devtype will return a property object, Volume.devtype the actual value
     @property
@@ -666,6 +670,10 @@ class CallbackVolume(qubes.storage.Volume):
     def usage(self, usage):
         self._cb_impl.usage = usage
 
+    @property
+    def encryption_supported(self):
+        return self._cb_impl.encryption_supported
+
     # remaining method & attribute delegation
     def __getattr__(self, name):
         return getattr(self._cb_impl, name)
@@ -684,3 +692,16 @@ class CallbackVolume(qubes.storage.Volume):
 
     def encrypted_volume_path(self, qube_name, device_name):
         return self._cb_impl.encrypted_volume_path(qube_name, device_name)
+
+    def luks_backend_path(self):
+        return self._cb_impl.luks_backend_path()
+
+    async def is_empty(self):
+        await self._assert_initialized()
+        return await coro_maybe(self._cb_impl.is_empty())
+
+    async def change_passphrase(self, untrusted_old, untrusted_new):
+        await self._assert_initialized()
+        return await coro_maybe(
+            self._cb_impl.change_passphrase(untrusted_old, untrusted_new)
+        )

@@ -349,6 +349,8 @@ class ThinVolume(qubes.storage.Volume):
 
     # pylint: disable=too-few-public-methods
 
+    encryption_supported = True
+
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
         super().__init__(**kwargs)
@@ -462,6 +464,38 @@ class ThinVolume(qubes.storage.Volume):
             return
         cmd = ["activate", self._vid_current]
         await qubes_lvm_coro(cmd, self.log)
+
+    @qubes.storage.Volume.locked
+    async def discard_revisions(self):
+        # unlike _remove_revisions(), do not ignore errors: a leftover
+        # revision would keep unencrypted data
+        for rev_id in list(self.revisions):
+            cmd = ["remove", self.vid + "-" + rev_id]
+            await qubes_lvm_coro(cmd, self.log)
+        await reset_cache_coro()
+
+    async def is_empty(self):
+        # lvs rounds data_percent, ask device-mapper for the exact value
+        cmd = ["dmsetup", "status", "--", self.path]
+        if os.getuid() != 0:
+            cmd.insert(0, _sudo)
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=subprocess.PIPE
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode:
+            raise qubes.exc.StoragePoolException(
+                "dmsetup status {} failed".format(self.path)
+            )
+        # <start> <length> thin <mapped sectors> <highest mapped sector>
+        mapped, highest = stdout.split()[3:5]
+        if mapped == b"0":
+            return True
+        # lvcreate zeroes the start of a new volume, which maps one chunk
+        if int(mapped) > 2048 or int(highest) + 1 != int(mapped):
+            return False
+        with open(self.path, "rb") as volume:
+            return volume.read(int(mapped) * 512) == bytes(int(mapped) * 512)
 
     async def _commit(self, vid_to_commit=None, keep=False):
         """
@@ -723,16 +757,17 @@ class ThinVolume(qubes.storage.Volume):
         if size == self.size:
             return
 
+        action = "resize_luks" if self.encrypted else "resize"
         if self.is_dirty() or self.snap_on_start:
-            cmd = ["resize", self._vid_snap, str(size)]
+            cmd = [action, self._vid_snap, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif hasattr(self, "_vid_import") and os.path.exists(
             "/dev/" + self._vid_import
         ):
-            cmd = ["resize", self._vid_import, str(size)]
+            cmd = [action, self._vid_import, str(size)]
             await qubes_lvm_coro(cmd, self.log)
         elif self.save_on_stop and not self.snap_on_start:
-            cmd = ["resize", self._vid_current, str(size)]
+            cmd = [action, self._vid_current, str(size)]
             await qubes_lvm_coro(cmd, self.log)
 
         self._size = size
@@ -838,7 +873,7 @@ class ThinVolume(qubes.storage.Volume):
         return super().block_device()
 
     def encrypted_volume_path(self, qube_name, device_name):
-        """Find the name of the encrypted volatile volume"""
+        """Find the name of the mapping of an encrypted volume"""
         # pylint: disable=line-too-long
         vid = "-".join(
             i.replace("-", "--") for i in self._vid_current.split("/")
@@ -905,6 +940,18 @@ def _get_lvm_cmdline(cmd):
     elif action == "resize":
         assert len(cmd) == 3, "wrong number of arguments for resize"
         lvm_cmd = ["lvresize", "--size=" + cmd[2] + "B", "--", cmd[1]]
+    elif action == "resize_luks":
+        assert len(cmd) == 3, "wrong number of arguments for resize_luks"
+        # lvresize cannot check a filesystem inside LUKS, and would refuse
+        # shrinking (done after encrypting a volume in place)
+        lvm_cmd = [
+            "lvresize",
+            "--yes",
+            "--fs=ignore",
+            "--size=" + cmd[2] + "B",
+            "--",
+            cmd[1],
+        ]
     elif action == "activate":
         assert len(cmd) == 2, "wrong number of arguments for activate"
         lvm_cmd = ["lvchange", "--activate=y", "--", cmd[1]]

@@ -115,6 +115,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.tag.List \
 	admin.vm.tag.Remove \
 	admin.vm.tag.Set \
+	admin.vm.volume.ChangePassphrase \
 	admin.vm.volume.Clear \
 	admin.vm.volume.CloneFrom \
 	admin.vm.volume.CloneTo \
@@ -123,9 +124,11 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.ListSnapshots \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
+	admin.vm.volume.Set.encrypted \
 	admin.vm.volume.Set.ephemeral \
 	admin.vm.volume.Set.revisions_to_keep \
 	admin.vm.volume.Set.rw \
+	admin.vm.volume.SetPassphrase \
 	admin.vm.Stats \
 	admin.vm.CurrentState \
 	$(null)

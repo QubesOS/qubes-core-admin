@@ -338,9 +338,12 @@ async def void_coros_maybe(values):
             task.result()  # re-raises exception if task failed
 
 
-def cryptsetup(*args):
+def cryptsetup(*args, passphrase=None, **kwargs):
     """
     Run cryptsetup with the given arguments.  This method returns a future.
+
+    If *passphrase* is given, it is written to the standard input of
+    cryptsetup (use ``--key-file=-``), so it never touches the filesystem.
     """
     prog = ("/usr/sbin/cryptsetup", *args)
     return run_program(
@@ -348,9 +351,11 @@ def cryptsetup(*args):
         # otherwise cryptsetup tries to mlock() the entire locale archive :(
         env={"LC_ALL": "C", **os.environ},
         cwd="/",
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL if passphrase is None else subprocess.PIPE,
+        input=passphrase,
         check=True,
         sudo=True,
+        **kwargs,
     )
 
 

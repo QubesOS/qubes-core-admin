@@ -255,6 +255,7 @@ class FileVolume(qubes.storage.Volume):
 
     _marker_running = object()
     _marker_exported = object()
+    encryption_supported = True
 
     def __init__(self, dir_path, **kwargs):
         self.dir_path = dir_path
@@ -595,6 +596,9 @@ class FileVolume(qubes.storage.Volume):
         return qubes.storage.BlockDevice(
             path, self.name, self.script, self.rw, self.domain, self.devtype
         )
+
+    async def discard_revisions(self):
+        _remove_if_exists(self.path_cow + ".old")
 
     @property
     def revisions(self):

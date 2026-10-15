@@ -73,6 +73,33 @@ those properties:
   `volatile` volume. This property of DispVM's volatile volume is inherited
   from the template (but not for other types of VMs). For `volatile` volumes,
   this property defaults to :py:attr:`~qubes.storage.Pool.ephemeral_volatile`.
+- :py:attr:`~qubes.storage.Volume.encrypted` - whether the volume is encrypted
+  with LUKS2 (persistently, unlike
+  :py:attr:`~qubes.storage.Volume.ephemeral`). This can be enabled only on
+  writable, :py:attr:`~qubes.storage.Volume.save_on_stop`, non-snapshot
+  volumes in dom0 (like `private`) of qubes that are not templates for other
+  qubes, in pools supporting it (`file`, `file-reflink` and `lvm_thin`), see
+  :py:meth:`qubes.storage.Storage.encrypt`. Existing data is encrypted in
+  place, which writes the whole volume (on a thin pool it gets fully
+  allocated); data written before may remain in blocks released by the
+  pool. If cryptsetup was interrupted while moving the start of the data to
+  the end of the volume (before writing the LUKS header), enabling
+  encryption again is refused; disabling it gives the qube its volume back.
+  Only if the start of the volume is damaged (cryptsetup had started writing
+  the header there), its last 32 MiB hold a copy of the first 32 MiB to
+  restore. The passphrase is kept in qubesd memory only (set with
+  ``admin.vm.volume.SetPassphrase`` before enabling encryption, starting the
+  qube, clearing or importing the volume, or resizing it while the qube
+  runs) and never written to disk, so such a qube cannot be started without
+  it (for example on boot). Changing it does not affect earlier revisions or
+  backups. qubesd reads the volume directly (an LVM volume must be active),
+  and passes discards through, so the pool sees which blocks are unused.
+  Backups hold the encrypted data as is, restoring it as an encrypted volume
+  is not supported yet (a restored volume is a plain one holding the LUKS
+  container, header included). The size reported by
+  ``admin.vm.volume.Info`` is the one visible to the qube, the backing volume
+  is 32 MiB bigger. Disabling encryption is not implemented (only possible
+  while the volume has no LUKS header yet, after a failed attempt).
 
 The storage pool driver may define additional properties.
 
@@ -141,6 +168,13 @@ support only `volatile` volumes (those with
 :py:attr:`~qubes.storage.Volume.rw` is `True`). In that case, it should raise
 :py:exc:`NotImplementedError` in :py:meth:`qubes.storage.Pool.init_volume` when
 trying to instantiate unsupported volume.
+
+A pool driver supporting :py:attr:`~qubes.storage.Volume.encrypted` sets
+:py:attr:`~qubes.storage.Volume.encryption_supported`, implements
+:py:meth:`~qubes.storage.Volume.discard_revisions`, can shrink a volume with
+:py:meth:`~qubes.storage.Volume.resize`, and overrides
+:py:meth:`~qubes.storage.Volume.luks_backend_path` and
+:py:meth:`~qubes.storage.Volume.is_empty` if needed.
 
 Note that pool driver should be prepared to recover from power loss before
 stopping a domain - so, if volume have
