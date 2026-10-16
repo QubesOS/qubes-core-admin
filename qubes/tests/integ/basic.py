@@ -47,6 +47,100 @@ import qubes.vm.templatevm
 import libvirt  # pylint: disable=import-error
 
 
+async def defer_tpl(
+    test_case, qube: qubes.vm.appvm.AppVM | qubes.vm.dispvm.DispVM
+) -> None:
+    template = qube.template
+    if qube.klass == "AppVM":
+        template_alt = test_case.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM,
+            name=test_case.make_vm_name("defer-tpl-alt"),
+            label="red",
+        )
+    elif qube.klass == "DispVM":
+        template_alt = test_case.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=test_case.make_vm_name("defer-tpl-alt"),
+            label="red",
+            template_for_dispvms=True,
+        )
+    else:
+        raise TypeError("Received invalid qube class")
+
+    await template_alt.create_on_disk()
+    template.features["template-name"] = template.name
+    template_alt.features["template-name"] = template_alt.name
+
+    def get_tpl_vol_vid(qube):
+        if qube.klass == "DispVM":
+            volume = "private"
+        else:
+            volume = "root"
+        vid = qube.volumes[volume].source.vid
+        return vid
+
+    def get_tpl_vol_path(qube):
+        if getattr(qube, "template_for_dispvms", False):
+            volume = "private"
+        else:
+            volume = "root"
+        vid = qube.volumes[volume].vid
+        return vid
+
+    def check_deferred(qube, active, deferred):
+        test_case.assertEqual(qube.template, deferred)
+        test_case.assertEqual(qube.active_template, active)
+        test_case.assertEqual(get_tpl_vol_vid(qube), get_tpl_vol_path(active))
+        test_case.assertEqual(
+            qube.features.check_with_template("template-name"), active.name
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template("template-name", active=False),
+            deferred.name,
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template_and_adminvm("template-name"),
+            active.name,
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template_and_adminvm(
+                "template-name", active=False
+            ),
+            deferred.name,
+        )
+        test_case.assertTrue(
+            qube in qube.app.domains.get_vms_based_on(qube.active_template)
+        )
+        if active != deferred:
+            test_case.assertTrue(
+                qube not in qube.app.domains.get_vms_based_on(qube.template)
+            )
+            test_case.assertFalse(qube.property_is_default("active_template"))
+        else:
+            test_case.assertTrue(qube.property_is_default("active_template"))
+
+    test_case.log.warning("Testing prop is sane")
+    check_deferred(qube, active=template, deferred=template)
+
+    test_case.log.warning("Testing changing template when halted")
+    qube.template = template_alt
+    check_deferred(qube, active=template_alt, deferred=template_alt)
+
+    test_case.log.warning("Test changing template when running is deferred")
+    await qube.start()
+    qube.template = template
+    check_deferred(qube, active=template_alt, deferred=template)
+
+    test_case.log.warning("Test deferred template is applied on shutdown")
+    await qube.shutdown(wait=True)
+    check_deferred(qube, active=template, deferred=template)
+    test_case.log.warning(
+        "Test template changes allows the qube to have a session"
+    )
+    await test_case.start_vm(qube)
+    await qube.kill()
+
+
 class TC_00_Basic(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_00_Basic, self).setUp()
@@ -627,6 +721,19 @@ qvm-features-request boot-mode.active="defuser"
         )
         self.app.save()
         self.loop.run_until_complete(self._test_bootmode_default_user(self.vm))
+
+    def test_300_deferred_template(self) -> None:
+        self.loop.run_until_complete(self._test_300_deferred_template())
+
+    async def _test_300_deferred_template(self) -> None:
+        appvm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("appvm"),
+            template=self.app.default_template,
+            label="red",
+        )
+        await appvm.create_on_disk()
+        await defer_tpl(test_case=self, qube=appvm)
 
 
 class TC_01_Properties(qubes.tests.SystemTestCase):

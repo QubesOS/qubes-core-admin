@@ -63,6 +63,16 @@ class TestVMsCollection(dict):
     def __iter__(self):
         return iter(set(self.values()))
 
+    def get_vms_based_on(self, template):
+        template = self[template]
+        return set(
+            vm
+            for vm in self
+            if hasattr(vm, "template")
+            and getattr(vm, "active_template", getattr(vm, "template"))
+            == template
+        )
+
 
 class TestVolume(object):
     def __init__(self, pool, **kwargs):

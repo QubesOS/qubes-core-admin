@@ -32,7 +32,7 @@ class CoreFeatures(qubes.ext.Extension):
     async def qubes_features_request(self, vm, event, untrusted_features):
         """Handle features provided by qubes-core-agent and qubes-gui-agent"""
         # pylint: disable=unused-argument
-        if getattr(vm, "template", None):
+        if hasattr(vm, "template"):
             vm.log.warning("Ignoring qubes.NotifyTools for template-based VM")
             return
 
