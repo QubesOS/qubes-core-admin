@@ -2816,6 +2816,42 @@ class TC_60_Audio(qubes.tests.QubesTestCase):
                 )
 
 
+class TC_70_Gui(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.gui.GUI()
+        self.guivm = mock.MagicMock()
+        self.guivm.name = "sys-gui"
+        self.client = mock.MagicMock()
+        self.client.name = "client"
+
+    def test_000_shutdown(self):
+        self.ext.on_domain_pre_shutdown(
+            self.guivm,
+            "domain-pre-shutdown",
+        )
+
+    def test_000_shutdown_used(self):
+        with mock.patch.object(
+            self.ext, "attached_vms", return_value=[self.client]
+        ), mock.patch.object(self.client, "is_running", return_value=True):
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.ext.on_domain_pre_shutdown(
+                    self.guivm,
+                    "domain-pre-shutdown",
+                )
+
+    def test_000_shutdown_used_force(self):
+        with mock.patch.object(
+            self.ext, "attached_vms", return_value=[self.client]
+        ), mock.patch.object(self.client, "is_running", return_value=True):
+            self.ext.on_domain_pre_shutdown(
+                self.guivm,
+                "domain-pre-shutdown",
+                force=True,
+            )
+
+
 class TC_71_GUIVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()

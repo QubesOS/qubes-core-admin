@@ -239,7 +239,7 @@ class GUI(qubes.ext.Extension):
             domain for domain in self.attached_vms(vm) if domain.is_running()
         ]
         if attached_vms and not kwargs.get("force", False):
-            raise qubes.exc.QubesVMError(
+            raise qubes.exc.QubesVMInUseError(
                 self,
                 "There are running VMs using this VM as GuiVM: "
                 "{}".format(", ".join(vm.name for vm in attached_vms)),
