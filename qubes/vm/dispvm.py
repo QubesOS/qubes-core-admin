@@ -715,11 +715,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(self, _event, **_kwargs) -> None:
         """
-        If ``auto_cleanup`` is disabled, apply deferred template. If
+        If ``auto_cleanup`` is disabled, apply deferred template and update
+        storage outdated by a template change of the disposable template. If
         ``auto_cleanup`` is enabled, remove domain.
         """
         if not self.auto_cleanup:
             qubes.vm.appvm.apply_deferred_template(self)
+            qubes.vm.appvm.apply_outdated_storage(self)
             return
         await self._delete_domain()
 

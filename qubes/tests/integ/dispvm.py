@@ -1305,6 +1305,72 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
         await dispvm.create_on_disk()
         await defer_tpl(test_case=self, qube=dispvm)
 
+    def test_004_defer_tpl_of_disp_tpl_updates_named_disps(self):
+        """Test deferred template of disposable template updates the storage
+        of named disposables, halted ones when the disposable template shuts
+        down and running ones when they shut down."""
+        self.loop.run_until_complete(
+            self._test_004_defer_tpl_of_disp_tpl_updates_named_disps()
+        )
+
+    async def _test_004_defer_tpl_of_disp_tpl_updates_named_disps(self):
+        template = self.disp_base.template
+        template_alt = self.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM,
+            name=self.make_vm_name("defer-tpl-alt"),
+            label="red",
+        )
+        template_alt.clone_properties(template)
+        template_alt.features.update(template.features)
+        template_alt.tags.update(template.tags)
+        await template_alt.clone_disk_files(template)
+        halted_disp = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp-halted"),
+        )
+        running_disp = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp-running"),
+        )
+        for dispvm in (halted_disp, running_disp):
+            assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+            await dispvm.create_on_disk()
+
+        def check_root_source(qube, expected):
+            self.assertEqual(
+                qube.volumes["root"].source.vid,
+                expected.volumes["root"].vid,
+            )
+
+        for qube in (self.disp_base, halted_disp, running_disp):
+            check_root_source(qube, template)
+
+        self.log.warning("Test deferred template while named disp is running")
+        await self.start_vm(running_disp)
+        await self.disp_base.start()
+        self.disp_base.template = template_alt
+        self.assertEqual(self.disp_base.active_template, template)
+        await self.disp_base.shutdown(wait=True)
+        self.assertEqual(self.disp_base.active_template, template_alt)
+        check_root_source(self.disp_base, template_alt)
+        check_root_source(halted_disp, template_alt)
+        check_root_source(running_disp, template)
+        self.assertTrue(qubes.vm.appvm.is_storage_outdated(running_disp))
+
+        self.log.warning("Test running named disp is updated on shutdown")
+        await running_disp.shutdown(wait=True)
+        check_root_source(running_disp, template_alt)
+        self.assertFalse(qubes.vm.appvm.is_storage_outdated(running_disp))
+
+        self.log.warning("Test named disps have a session after the change")
+        for dispvm in (halted_disp, running_disp):
+            await self.start_vm(dispvm)
+            await dispvm.kill()
+
     def test_011_preload_reject_max(self):
         """Test preloading when max has been reached"""
         self.loop.run_until_complete(

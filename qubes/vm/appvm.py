@@ -43,6 +43,53 @@ def template_changed_update_storage(vm):
             vm.storage.init_volume(volume_name, config)
 
 
+def template_changed_update_storage_tree(vm):
+    """
+    Update storage configuration of the qube and, if it is a disposable
+    template, of the halted qubes based on it. Running qubes are updated on
+    shutdown, refer to :py:func:`apply_outdated_storage`.
+    """
+    template_changed_update_storage(vm)
+    if not getattr(vm, "template_for_dispvms", False):
+        return
+    for qube in vm.app.domains.get_vms_based_on(vm):
+        if not qube.is_halted():
+            continue
+        template_changed_update_storage(qube)
+
+
+def is_storage_outdated(vm):
+    """
+    Check if any snap_on_start volume of the qube does not use the volume of
+    its current template hierarchy as source.
+    """
+    for volume_name, conf in vm.default_volume_config.items():
+        if not conf.get("snap_on_start", False):
+            continue
+        if conf.get("source", None) is not None:
+            continue
+        config = {}
+        # pylint: disable=protected-access
+        vm.storage._update_volume_config_source(volume_name, config)
+        if vm.volume_config[volume_name].get("source") != config.get("source"):
+            return True
+    return False
+
+
+def apply_outdated_storage(vm):
+    """
+    If the qube is not running and its storage still follows a previous
+    template hierarchy, update it. This happens when the template of its
+    disposable template changed while the qube was running.
+    """
+    if not vm.is_halted():
+        return
+    if not is_storage_outdated(vm):
+        return
+    template_changed_update_storage(vm)
+    vm.app.save()
+
+
 def template_changed(vm, oldvalue=None, newvalue=None):
     """
     React to template property change. If qube is running, defer the template
@@ -58,11 +105,7 @@ def template_changed(vm, oldvalue=None, newvalue=None):
         elif newvalue == vm.active_template:
             del vm.active_template
         return
-    template_changed_update_storage(vm)
-    if not getattr(vm, "template_for_dispvms", False):
-        return
-    for qube in vm.app.domains.get_vms_based_on(vm):
-        template_changed_update_storage(qube)
+    template_changed_update_storage_tree(vm)
 
 
 def apply_deferred_template(vm):
@@ -75,7 +118,7 @@ def apply_deferred_template(vm):
     if vm.active_template == vm.template:
         return
     del vm.active_template
-    template_changed_update_storage(vm)
+    template_changed_update_storage_tree(vm)
     vm.app.save()
 
 

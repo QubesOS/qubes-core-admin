@@ -582,6 +582,111 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             self.appvm.volumes["private"],
         )
 
+    def test_021_storage_deferred_template_change(self):
+        self.appvm.template_for_dispvms = True
+        orig_domains = self.app.domains
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_domains.__getitem__,
+                    "__iter__.side_effect": orig_domains.__iter__,
+                    "__setitem__.side_effect": orig_domains.__setitem__,
+                }
+            )
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
+            )
+            self.assertFalse(dispvm.auto_cleanup)
+            # create new mock, so new template will get different volumes
+            self.app.pools["default"] = mock.Mock(
+                **{"init_volume.return_value.pool": "default"}
+            )
+            template2 = qubes.vm.templatevm.TemplateVM(
+                self.app, None, qid=3, name=qubes.tests.VMPREFIX + "template2"
+            )
+            self.app.domains[template2.name] = template2
+            self.app.domains[template2] = template2
+            with mock.patch.object(
+                self.appvm, "get_power_state", return_value="Running"
+            ):
+                self.appvm.template = template2
+            self.assertIs(
+                dispvm.volume_config["root"]["source"],
+                self.template.volumes["root"],
+            )
+            with mock.patch.object(
+                self.appvm, "get_power_state", return_value="Halted"
+            ):
+                qubes.vm.appvm.apply_deferred_template(self.appvm)
+
+        self.assertIs(self.appvm.active_template, template2)
+        self.assertIs(
+            dispvm.volume_config["root"]["source"], template2.volumes["root"]
+        )
+        self.assertIs(
+            dispvm.volume_config["root"]["source"],
+            self.appvm.volume_config["root"]["source"],
+        )
+
+    def test_021_storage_deferred_template_change_running_disp(self):
+        self.appvm.template_for_dispvms = True
+        orig_domains = self.app.domains
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_domains.__getitem__,
+                    "__iter__.side_effect": orig_domains.__iter__,
+                    "__setitem__.side_effect": orig_domains.__setitem__,
+                }
+            )
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
+            )
+            self.assertFalse(dispvm.auto_cleanup)
+            # create new mock, so new template will get different volumes
+            self.app.pools["default"] = mock.Mock(
+                **{"init_volume.return_value.pool": "default"}
+            )
+            template2 = qubes.vm.templatevm.TemplateVM(
+                self.app, None, qid=3, name=qubes.tests.VMPREFIX + "template2"
+            )
+            self.app.domains[template2.name] = template2
+            self.app.domains[template2] = template2
+            with mock.patch.object(
+                self.appvm, "get_power_state", return_value="Running"
+            ):
+                self.appvm.template = template2
+            with mock.patch.object(
+                self.appvm, "get_power_state", return_value="Halted"
+            ), mock.patch.object(
+                dispvm, "get_power_state", return_value="Running"
+            ):
+                qubes.vm.appvm.apply_deferred_template(self.appvm)
+            self.assertIs(self.appvm.active_template, template2)
+            # running disposable keeps its volumes until shutdown
+            self.assertIs(
+                dispvm.volume_config["root"]["source"],
+                self.template.volumes["root"],
+            )
+            self.assertTrue(qubes.vm.appvm.is_storage_outdated(dispvm))
+            with mock.patch.object(
+                dispvm, "get_power_state", return_value="Halted"
+            ):
+                self.loop.run_until_complete(
+                    dispvm.on_domain_shutdown("domain-shutdown")
+                )
+
+        self.assertIs(
+            dispvm.volume_config["root"]["source"], template2.volumes["root"]
+        )
+        self.assertFalse(qubes.vm.appvm.is_storage_outdated(dispvm))
+
     def test_022_storage_app_change(self):
         self.appvm.template_for_dispvms = True
         self.assertTrue(self.appvm.events_enabled)
