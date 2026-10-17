@@ -1898,8 +1898,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.log.info("Begin shutting down")
 
         cancelled_start = await self.cancel_start()
+        waiter = self._lifecycle_waiter["STOPPED"]
 
-        if self.is_halted():
+        if self.is_halted() and not wait:
             if cancelled_start:
                 self.log.debug(
                     "Qube is halted and canceled startup, skipping "
@@ -1933,23 +1934,27 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if wait and timeout is None:
                 timeout = self.shutdown_timeout
             try:
+                pending_stop = False
+                if waiter != None and wait and not waiter.done():
+                    pending_stop = True
                 async with self.change_libvirt_state(
-                    event="STOPPED", wait=wait, timeout=timeout
+                    event="STOPPED", wait=wait, timeout=30000
                 ):
-                    proc = await asyncio.create_subprocess_exec(
-                        *command,
-                        stdin=asyncio.subprocess.DEVNULL,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.STDOUT,
-                    )
-                    stdout, _ = await proc.communicate()
-                    await proc.wait()
-                    if proc.returncode:
-                        raise subprocess.CalledProcessError(
-                            proc.returncode,
-                            command,
-                            output=stdout,
+                    if not pending_stop:
+                        proc = await asyncio.create_subprocess_exec(
+                            *command,
+                            stdin=asyncio.subprocess.DEVNULL,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.STDOUT,
                         )
+                        stdout, _ = await proc.communicate()
+                        await proc.wait()
+                        if proc.returncode:
+                            raise subprocess.CalledProcessError(
+                                proc.returncode,
+                                command,
+                                output=stdout,
+                            )
             except asyncio.TimeoutError:
                 raise qubes.exc.QubesVMShutdownTimeoutError(self)
             except subprocess.CalledProcessError as e:
