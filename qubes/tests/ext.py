@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 # -*- encoding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
@@ -2972,3 +2973,61 @@ class TC_71_GUIVM(qubes.tests.QubesTestCase):
         self._load(work)
         self.assertIsNone(work.guivm)
         work.log.error.assert_called_once_with(mock.ANY, "work", gui_x)
+
+
+class TC_72_GUIShutdown(qubes.tests.QubesTestCase):
+    """
+    The shutdown mark a GUI domain reads to tell dom0's shutdowns apart.
+    """
+
+    class QubesDBError(Exception):
+        pass
+
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.gui.GUI()
+        self.qdb = mock.MagicMock()
+        self.guivm = mock.MagicMock()
+        self.guivm.name = "sys-gui"
+        self.guivm.features = {"service.guivm": "1"}
+        self.guivm.untrusted_qdb = self.qdb
+        patcher = mock.patch("qubes.ext.gui.qubesdb", Error=self.QubesDBError)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_000_pre_shutdown_marks_guivm(self):
+        with mock.patch.object(self.ext, "attached_vms", return_value=[]):
+            self.ext.on_domain_pre_shutdown(self.guivm, "domain-pre-shutdown")
+        self.qdb.write.assert_called_once_with("/qubes-shutdown-requested", "1")
+
+    def test_010_pre_shutdown_other_qube_not_marked(self):
+        self.guivm.features = {}
+        with mock.patch.object(self.ext, "attached_vms", return_value=[]):
+            self.ext.on_domain_pre_shutdown(self.guivm, "domain-pre-shutdown")
+        self.qdb.write.assert_not_called()
+
+    def test_020_refused_shutdown_not_marked(self):
+        client = mock.MagicMock()
+        client.name = "work"
+        client.is_running.return_value = True
+        with mock.patch.object(self.ext, "attached_vms", return_value=[client]):
+            with self.assertRaises(qubes.exc.QubesVMError):
+                self.ext.on_domain_pre_shutdown(
+                    self.guivm, "domain-pre-shutdown"
+                )
+        self.qdb.write.assert_not_called()
+
+    def test_030_failed_shutdown_clears_mark(self):
+        self.ext.on_domain_shutdown_failed(
+            self.guivm, "domain-shutdown-failed", reason="test"
+        )
+        self.qdb.rm.assert_called_once_with("/qubes-shutdown-requested")
+
+    def test_040_no_qubesdb(self):
+        self.guivm.untrusted_qdb = None
+        with mock.patch.object(self.ext, "attached_vms", return_value=[]):
+            self.ext.on_domain_pre_shutdown(self.guivm, "domain-pre-shutdown")
+        self.qdb.write.side_effect = self.QubesDBError()
+        self.guivm.untrusted_qdb = self.qdb
+        with mock.patch.object(self.ext, "attached_vms", return_value=[]):
+            self.ext.on_domain_pre_shutdown(self.guivm, "domain-pre-shutdown")
