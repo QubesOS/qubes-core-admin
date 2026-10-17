@@ -43,6 +43,18 @@ def template_changed_update_storage(vm):
             vm.storage.init_volume(volume_name, config)
 
 
+def template_changed_update_storage_tree(vm):
+    """
+    Update storage configuration of the qube and, if it is a disposable
+    template, of the qubes based on it.
+    """
+    template_changed_update_storage(vm)
+    if not getattr(vm, "template_for_dispvms", False):
+        return
+    for qube in vm.app.domains.get_vms_based_on(vm):
+        template_changed_update_storage(qube)
+
+
 def template_changed(vm, oldvalue=None, newvalue=None):
     """
     React to template property change. If qube is running, defer the template
@@ -58,11 +70,7 @@ def template_changed(vm, oldvalue=None, newvalue=None):
         elif newvalue == vm.active_template:
             del vm.active_template
         return
-    template_changed_update_storage(vm)
-    if not getattr(vm, "template_for_dispvms", False):
-        return
-    for qube in vm.app.domains.get_vms_based_on(vm):
-        template_changed_update_storage(qube)
+    template_changed_update_storage_tree(vm)
 
 
 def apply_deferred_template(vm):
@@ -75,7 +83,7 @@ def apply_deferred_template(vm):
     if vm.active_template == vm.template:
         return
     del vm.active_template
-    template_changed_update_storage(vm)
+    template_changed_update_storage_tree(vm)
     vm.app.save()
 
 
