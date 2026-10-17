@@ -36,7 +36,7 @@ import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 
-@qubes.tests.skipIfTemplate("whonix-g")
+@qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")
 class TC_00_AudioMixin(TC_00_AppVMMixin):
     def tearDown(self):
         if not self.success():
@@ -202,6 +202,11 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if in_qemu and self.testvm1.features.get("audio-model"):
             # be less strict on HVM tests in nested virt, the test environment
             # has huge overhead already
+            margin = 0.50
+        if in_qemu and "whonix" in self.template:
+            # similarly treat Whonix, which has extra overhead (mostly memory
+            # usage, and sdwdate looping) - too much to get clean audio
+            # on nested virt
             margin = 0.50
         if rec_size < margin * 441000:
             fname = f"/tmp/audio-sample-{self.id()}.raw"

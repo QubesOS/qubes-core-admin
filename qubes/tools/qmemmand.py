@@ -37,6 +37,8 @@ import qubes.qmemman.algo
 import qubes.qmemman.systemstate
 import qubes.utils
 
+from qubes.log import Formatter
+
 SOCK_PATH = "/var/run/qubes/qmemman.sock"
 GLOBAL_LOCK = threading.Lock()
 system_state = qubes.qmemman.systemstate.SystemState()
@@ -261,24 +263,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # Setup logging.
-    ha_syslog = logging.handlers.SysLogHandler("/dev/log")
-    ha_syslog.setFormatter(
-        logging.Formatter("%(name)s[%(process)d]: %(message)s")
-    )
-    logging.root.addHandler(ha_syslog)
-
-    if args.foreground:
-        ha_stderr = logging.StreamHandler(sys.stderr)
-        ha_stderr.setFormatter(
-            logging.Formatter("%(asctime)s %(name)s[%(process)d]: %(message)s")
-        )
-        logging.root.addHandler(ha_stderr)
-
-    sys.stdin.close()
-
-    log = logging.getLogger("qmemman.daemon")
-
     config = configparser.ConfigParser(
         {
             "vm-min-mem": str(qubes.qmemman.algo.MIN_PREFMEM),
@@ -287,7 +271,7 @@ def main():
         }
     )
     config.read(args.config)
-
+    loglevel = logging.DEBUG
     if config.has_section("global"):
         qubes.qmemman.algo.MIN_PREFMEM = qubes.utils.parse_size(
             config.get("global", "vm-min-mem")
@@ -301,6 +285,20 @@ def main():
         loglevel = config.getint("global", "log-level", fallback=30)
         logging.root.setLevel(loglevel)
 
+    # Setup logging.
+    debug = bool(loglevel == logging.DEBUG)
+    ha_syslog = logging.handlers.SysLogHandler("/dev/log")
+    ha_syslog.setFormatter(Formatter(debug=debug))
+    logging.root.addHandler(ha_syslog)
+
+    if args.foreground:
+        ha_stderr = logging.StreamHandler(sys.stderr)
+        ha_stderr.setFormatter(Formatter(time=True, debug=debug))
+        logging.root.addHandler(ha_stderr)
+
+    sys.stdin.close()
+
+    log = logging.getLogger("qmemman.daemon")
     log.info(
         "MIN_PREFMEM={algo.MIN_PREFMEM}"
         " DOM0_MEM_BOOST={algo.DOM0_MEM_BOOST}"

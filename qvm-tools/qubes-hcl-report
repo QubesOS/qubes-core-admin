@@ -18,11 +18,26 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 set -uo pipefail
-VERSION=2.5
+VERSION=2.6
 COPY2VM="dom0"
 SUPPORT_FILES=0
 YAML_ONLY=0
+USE_CACHE=1
 XL_DMESG_PREFIX_REGEX='^(XEN) \(\[[^]]*\] \)\?'
+
+if [[ -n "${XDG_CACHE_HOME:-}" ]]
+  then
+    CACHE_DIR="$XDG_CACHE_HOME/qubes-hcl-report"
+elif [[ -n "${HOME:-}" ]]
+  then
+    CACHE_DIR="$HOME/.cache/qubes-hcl-report"
+else
+    CACHE_DIR=
+    USE_CACHE=0
+fi
+CACHE_FILE="$CACHE_DIR/report.yaml"
+CACHE_BOOT_ID_FILE="$CACHE_DIR/boot-id"
+BOOT_ID_FILE=/proc/sys/kernel/random/boot_id
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -33,6 +48,10 @@ while [ $# -gt 0 ]; do
 
     -y |--yaml-only)
       YAML_ONLY=1
+      ;;
+
+    --no-cache)
+      USE_CACHE=0
       ;;
 
     ''|--|[!-]*)
@@ -69,6 +88,9 @@ while [ $# -gt 0 ]; do
       echo -e "\t\t\tIf, for privacy or security reasons, you do not wish to make this information public, "
       echo -e "\t\t\tplease do not send the .cpio.gz file to the public mailing list."
       echo -e "\t-y, --yaml-only\tDo not write any files, only output data to STDOUT in yaml format."
+      echo -e "\t    --no-cache\tCollect the data again instead of reusing the cached yaml output."
+      echo -e "\t\t\tThe yaml output is cached until the next reboot; this option has no"
+      echo -e "\t\t\teffect without --yaml-only."
       echo ""
       echo -e "\t<AppVM Name>\tCopy the results to the given AppVM. The default is to keep it in dom0"
       echo ""
@@ -90,6 +112,30 @@ if [[ "$YAML_ONLY" = 1 ]]
       then
         echo -e "ERROR: --yaml-only is mutually exclusive with providing a VM name"
         exit 1
+    fi
+fi
+
+BOOT_ID=$(cat "$BOOT_ID_FILE")
+
+# Everything in the yaml output is fixed for the lifetime of a boot: the
+# hardware, the firmware version (a flash needs a reboot to take effect), the
+# virtualization features parsed out of the "xl dmesg" boot log, and the
+# running kernel and Xen versions. Only --yaml-only is cached, because the
+# support files bundle raw "lspci -nnvk" output, which does change within a
+# boot, for example when a PCI device is attached to a qube and bound to
+# pciback.
+if [[ "$YAML_ONLY" = 1 && "$USE_CACHE" = 1 && -n "$BOOT_ID" ]]
+  then
+    # tested before reading, so that having no cache yet does not report an
+    # error for a missing file
+    if [[ -s "$CACHE_FILE" && -s "$CACHE_BOOT_ID_FILE" ]] &&
+       [[ "$(cat "$CACHE_BOOT_ID_FILE")" = "$BOOT_ID" ]]
+      then
+        # fall through rather than exiting successfully with no output
+        if cat "$CACHE_FILE"
+          then
+            exit 0
+        fi
     fi
 fi
 
@@ -412,6 +458,27 @@ versions:
 
 if [[ "$YAML_ONLY" == 1 ]]
   then
+    # Do not cache a report with missing data: an incomplete "xl dmesg" ring
+    # buffer empties the virtualization fields, and that would then be served
+    # for the rest of the boot.
+    if [[ "$USE_CACHE" = 1 && -n "$BOOT_ID" && "$XL_DMESG_INCOMPLETE" = no ]] &&
+       mkdir -p "$CACHE_DIR"
+      then
+        # write via a temporary file so that concurrent runs cannot leave a
+        # partially written cache behind
+        if CACHE_TEMP=$(mktemp "$CACHE_DIR/report.XXXXXXXXXX")
+          then
+            # the boot id is written last: should this be interrupted, the
+            # mismatch makes the next run collect the data again
+            if echo -e "$YAML_OUTPUT" > "$CACHE_TEMP" &&
+               mv "$CACHE_TEMP" "$CACHE_FILE"
+              then
+                echo "$BOOT_ID" > "$CACHE_BOOT_ID_FILE"
+              else
+                rm -f "$CACHE_TEMP"
+            fi
+        fi
+    fi
     echo -e "$YAML_OUTPUT"
     exit
 fi

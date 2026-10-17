@@ -34,7 +34,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.device_protocol import Port, UnknownDevice
+from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
@@ -47,7 +47,10 @@ unsupported_devices_warned = set()
 
 
 class UnsupportedDevice(Exception):
-    pass
+    def __init__(self, dev_id, reason=None):
+        super().__init__(f"{dev_id}: {reason}")
+        self.dev_id = dev_id
+        self.reason = reason
 
 
 def load_pci_classes():
@@ -148,12 +151,18 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         r"(?P<device>[0-9a-f]{2})_(?P<function>[0-9a-f])\Z"
     )
 
+    SUPPORTED_ASSIGNMENT_MODES = frozenset({AssignmentMode.REQUIRED})
+
     def __init__(self, port: Port, libvirt_name=None):
         if libvirt_name:
             dev_match = self._libvirt_regex.match(libvirt_name)
             if not dev_match:
                 raise UnsupportedDevice(libvirt_name)
             port_id = sbdf_to_path(libvirt_name)
+            if not port_id:
+                raise UnsupportedDevice(
+                    libvirt_name, "failed to resolve PCI path"
+                )
             port = Port(
                 backend_domain=port.backend_domain,
                 port_id=port_id,
@@ -370,9 +379,11 @@ class PCIDeviceExtension(qubes.ext.Extension):
                     Port(backend_domain=vm, port_id=None, devclass="pci"),
                     libvirt_name=libvirt_name,
                 )
-            except UnsupportedDevice:
+            except UnsupportedDevice as e:
                 if libvirt_name not in unsupported_devices_warned:
-                    vm.log.warning("Unsupported device: %s", libvirt_name)
+                    vm.log.warning(
+                        "Unsupported device: %s (%s)", libvirt_name, e.reason
+                    )
                     unsupported_devices_warned.add(libvirt_name)
 
     @qubes.ext.handler("device-get:pci")
