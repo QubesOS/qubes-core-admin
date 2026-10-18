@@ -47,6 +47,21 @@ class GUI(qubes.ext.Extension):
         )
 
     @staticmethod
+    def write_dpi_scale_qdb(vm, write_all=False):
+        try:
+            dpi_scale = vm.app.domains["dom0"].features.get("dpi.scale", 1)
+        except KeyError:
+            dpi_scale = 1
+
+        if write_all:
+            for domain in vm.app.domains:
+                if domain.is_running():
+                    domain.untrusted_qdb.write("/dpi/scale", str(dpi_scale))
+
+        else:
+            vm.untrusted_qdb.write("/dpi/scale", str(dpi_scale))
+
+    @staticmethod
     def displays_itself(vm, guivm, default_guivm):
         seen = set()
         while guivm is not None:
@@ -167,8 +182,33 @@ class GUI(qubes.ext.Extension):
                 oldvalue=oldvalue,
             )
 
+    @qubes.ext.handler("domain-feature-set:dpi.scale")
+    def on_domain_feature_set_dpi_scale(
+        self, vm, event, feature, value, oldvalue=None
+    ):
+        """Update DPI value of running VMs"""
+        # pylint: disable=unused-argument
+
+        if feature == "dpi.scale" and vm.name == "dom0":
+            self.write_dpi_scale_qdb(vm, write_all=True)
+
+    @qubes.ext.handler("domain-feature-delete:dpi.scale")
+    def on_domain_feature_delete(self, vm, event, feature):
+        """Reset DPI on running VMs"""
+        # pylint: disable=unused-argument
+        if feature == "dpi.scale" and vm.name == "dom0":
+            self.write_dpi_scale_qdb(vm, write_all=True)
+
     @qubes.ext.handler("domain-init", "domain-load")
     def on_domain_init_load(self, vm, event):
+        # Make DPI Scale value available under /run
+        # for display manager
+        if vm.klass == "AdminVM" and vm.features.get("dpi.scale"):
+            with open(
+                "/var/run/qubes_dpi_scale", "w", encoding="ascii"
+            ) as dpi_file:
+                dpi_file.write(vm.features.get("dpi.scale"))
+
         guivm = getattr(vm, "guivm", None)
         if not guivm:
             return
@@ -206,6 +246,9 @@ class GUI(qubes.ext.Extension):
             vm.untrusted_qdb.write(
                 "/guivm-windows-prefix", guivm_windows_prefix
             )
+
+        # DPI
+        self.write_dpi_scale_qdb(vm)
 
     @qubes.ext.handler("domain-tag-add:created-by-*")
     def set_guivm_on_created_by(self, vm, event, tag, **kwargs):
