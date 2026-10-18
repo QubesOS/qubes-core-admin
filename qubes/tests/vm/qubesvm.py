@@ -2525,6 +2525,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": iptables_header,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
+            "/dpi/scale": "1",
         }
 
         self.assertEqual(test_qubesdb.data, data)
@@ -2609,6 +2610,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": iptables_header,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
+            "/dpi/scale": "1",
             "/qubes-mac": "00:16:3e:5e:6c:00",
             "/qubes-ip": "10.137.0.3",
             "/qubes-netmask": "255.255.255.255",
@@ -2756,6 +2758,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/qubes-iptables-header": unittest.mock.ANY,
                 "/qubes-service/qubes-update-check": "0",
                 "/qubes-service/meminfo-writer": "1",
+                "/dpi/scale": "1",
             },
         )
 
@@ -2813,6 +2816,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 "/qubes-iptables-header": unittest.mock.ANY,
                 "/qubes-service/qubes-update-check": "0",
                 "/qubes-service/meminfo-writer": "1",
+                "/dpi/scale": "1",
             },
         )
 
@@ -2881,6 +2885,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": unittest.mock.ANY,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
+            "/dpi/scale": "1",
         }
 
         with self.subTest("default"):
@@ -2985,6 +2990,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "/qubes-iptables-header": unittest.mock.ANY,
             "/qubes-service/qubes-update-check": "0",
             "/qubes-service/meminfo-writer": "1",
+            "/dpi/scale": "1",
         }
 
         with self.subTest("default"):
