@@ -321,7 +321,14 @@ def _default_kernelopts(self):
             extra_opts = " qubes_exp_pm_use_suspend=1"
     else:
         try:
-            return self.template.kernelopts
+            template = self.template
+            # A disposable boots from the root of its disposable template's
+            # active template, so take default kernelopts from there too.
+            if getattr(
+                template, "template_for_dispvms", False
+            ) and template.property_is_default("kernelopts"):
+                template = get_active_template(template)
+            return template.kernelopts
         except AttributeError:
             pass
         path = os.path.join(kernels_dir, "default-kernelopts-nopci.txt")

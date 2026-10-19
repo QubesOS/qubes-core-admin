@@ -750,6 +750,35 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "some  default root=/dev/sda other",
         )
 
+    @unittest.mock.patch.dict(
+        qubes.config.system_path, {"qubes_kernels_base_dir": "/tmp"}
+    )
+    def test_265_kernelopts_deferred_template(self):
+        d = tempfile.mkdtemp(prefix="/tmp/")
+        self.addCleanup(shutil.rmtree, d)
+        open(d + "/vmlinuz", "w").close()
+        open(d + "/initramfs", "w").close()
+        template = self.get_vm(
+            "template", cls=qubes.vm.templatevm.TemplateVM, qid=2
+        )
+        template_new = self.get_vm(
+            "template-new", cls=qubes.vm.templatevm.TemplateVM, qid=3
+        )
+        template.kernelopts = "old options"
+        template_new.kernelopts = "new options"
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template)
+        vm.kernel = os.path.basename(d)
+        vm.volumes["kernel"] = unittest.mock.Mock(kernels_dir=d)
+        self.assertTrue(vm.property_is_default("kernelopts"))
+        self.assertEqual(vm.kernelopts, "old options")
+        with unittest.mock.patch.object(
+            vm, "get_power_state", return_value="Running"
+        ):
+            vm.template = template_new
+            self.assertEqual(vm.active_template, template)
+            # value for the next boot
+            self.assertEqual(vm.kernelopts, "new options")
+
     def test_270_qrexec_timeout(self):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, "qrexec_timeout", 60)

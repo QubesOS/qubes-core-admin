@@ -739,6 +739,38 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 sorted(["netvm", "dns", "visible_netmask"]),
             )
 
+    @mock.patch.object(qubes.vm.qubesvm.QubesVM, "kernel", "linux")
+    def test_025_kernelopts_deferred_template(self):
+        self.appvm.template_for_dispvms = True
+        template2 = self.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM, name="test-template2", label="red"
+        )
+        self.template.kernelopts = "old options"
+        template2.kernelopts = "new options"
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM, name="test-dispvm", template=self.appvm
+            )
+        for vm in (self.appvm, dispvm):
+            vm.volumes["kernel"] = mock.Mock(kernels_dir="/tmp")
+        with mock.patch.object(self.appvm, "is_halted", return_value=False):
+            self.appvm.template = template2
+        self.assertIs(self.appvm.active_template, self.template)
+        # the disposable template itself reports the value for the next boot
+        self.assertEqual(self.appvm.kernelopts, "new options")
+        self.assertEqual(dispvm.kernelopts, "old options")
+        self.appvm.kernelopts = "own options"
+        self.assertEqual(dispvm.kernelopts, "own options")
+
     def test_030_set_disposable_template(self):
         self.appvm.template_for_dispvms = True
         self.appvm_alt.template_for_dispvms = False
