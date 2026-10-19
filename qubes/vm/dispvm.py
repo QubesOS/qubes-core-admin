@@ -47,6 +47,7 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "klass",
     "name",
     "qid",
+    "allowed_reboots",
     "start_time",
     "stubdom_uuid",
     "stubdom_xid",
@@ -60,6 +61,26 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "visible_ip6",
     "xid",
 ]
+
+
+def setter_allowed_reboots(self, prop, value):
+    newvalue = qubes.vm.qubesvm.setter_allowed_reboots(self, prop, value)
+    if newvalue != 0 and getattr(self, "auto_cleanup", False):
+        raise qubes.exc.QubesPropertyValueError(
+            self,
+            prop,
+            value,
+            "allowed_reboots cannot be enabled when qube has auto_cleanup=True",
+        )
+    return newvalue
+
+
+def _default_allowed_reboots(self):
+    if getattr(self, "auto_cleanup", False):
+        return 0
+    return qubes.vm.qubesvm.default_with_template(
+        "allowed_reboots", self.app.default_allowed_reboots
+    )(self)
 
 
 def _setter_template(self, prop, value):
@@ -284,6 +305,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         type=bool,
         default=(lambda self: not self.auto_cleanup),
         doc="If this domain is to be included in default backup.",
+    )
+
+    allowed_reboots = qubes.property(
+        "allowed_reboots",
+        load_stage=4,
+        type=int,
+        setter=setter_allowed_reboots,
+        default=_default_allowed_reboots,
+        doc="Number of reboot requests that can be acknowledged",
     )
 
     default_dispvm = qubes.VMProperty(
@@ -1052,6 +1082,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     )
                     await self._delete_domain()
             raise
+
+    async def restart(self, **kwargs):
+        """
+        Restart a disposable qube when ``auto_cleanup=False``, by first killing
+        the domain.
+        """
+        # pylint: disable=arguments-differ
+        if self.auto_cleanup:
+            raise qubes.exc.QubesException(
+                "can't restart disposable with auto_cleanup=True"
+            )
+        kwargs["kill"] = True
+        await super().restart(**kwargs)
 
     def create_qdb_entries(self) -> None:
         super().create_qdb_entries()

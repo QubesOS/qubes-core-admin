@@ -44,6 +44,18 @@ class QMemmanClient:
         )
         return self._send("{}\n".format(dom_memset_str))
 
+    def save_mem(self, domid: int, amount: int) -> bool:
+        return self._send("save {} {}\n".format(domid, amount))
+
+    def claim_mem(self, domid: int, amount: int | float) -> bool:
+        return self._send("claim {} {}\n".format(domid, int(amount)))
+
+    def release_mem(self, domid: int) -> bool:
+        return self._send("release {}\n".format(domid))
+
+    def set_reboot(self, domid: int) -> bool:
+        return self._send("reboot {}\n".format(domid))
+
     def close(self) -> None:
         assert isinstance(self.sock, socket.socket)
         self.sock.close()
