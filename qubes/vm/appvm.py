@@ -43,6 +43,24 @@ def template_changed_update_storage(vm):
             vm.storage.init_volume(volume_name, config)
 
 
+def template_changed_update_storage_tree(vm):
+    """
+    Update storage configuration of the qube and, if it is a disposable
+    template, of the halted qubes based on it. Running qubes have their
+    template pinned, so the storage is updated by
+    :py:func:`apply_deferred_template` on shutdown.
+    """
+    template_changed_update_storage(vm)
+    if not getattr(vm, "template_for_dispvms", False):
+        return
+    for qube in vm.app.domains.get_vms_based_on(vm):
+        if not qube.is_halted():
+            if qube.property_is_default("active_template"):
+                qube.active_template = qube.template
+            continue
+        template_changed_update_storage(qube)
+
+
 def template_changed(vm, oldvalue=None, newvalue=None):
     """
     React to template property change. If qube is running, defer the template
@@ -58,11 +76,7 @@ def template_changed(vm, oldvalue=None, newvalue=None):
         elif newvalue == vm.active_template:
             del vm.active_template
         return
-    template_changed_update_storage(vm)
-    if not getattr(vm, "template_for_dispvms", False):
-        return
-    for qube in vm.app.domains.get_vms_based_on(vm):
-        template_changed_update_storage(qube)
+    template_changed_update_storage_tree(vm)
 
 
 def apply_deferred_template(vm):
@@ -72,10 +86,10 @@ def apply_deferred_template(vm):
     """
     if not vm.is_halted():
         return
-    if vm.active_template == vm.template:
+    if vm.property_is_default("active_template"):
         return
     del vm.active_template
-    template_changed_update_storage(vm)
+    template_changed_update_storage_tree(vm)
     vm.app.save()
 
 
