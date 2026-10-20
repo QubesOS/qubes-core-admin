@@ -1269,6 +1269,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._domain_stopped_event_handled = True
 
         self._domain_stopped_future = None
+        #: (backend device collection, port id) reserved by a start
+        self._device_reservations = []
 
         # Internal lock to ensure ordering between _domain_stopped_coro() and
         # start(). This should not be accessed anywhere else.
@@ -1554,16 +1556,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     for ass in self.devices[devclass].get_assigned_devices(
                         required_only=True
                     ):
-                        for device in ass.devices:
+                        known = [
+                            device
+                            for device in ass.devices
                             if not isinstance(
                                 device, qubes.device_protocol.UnknownDevice
-                            ):
-                                break
-                        else:
+                            )
+                        ]
+                        if not known:
                             raise qubes.exc.QubesException(
                                 f"{devclass.capitalize()} device {ass} "
                                 f"not available"
                             )
+
+                        # check if device can be attached
+                        for device in known:
+                            self._check_and_reserve(devclass, device, ass)
 
                 await self.storage.verify()
 
@@ -1583,12 +1591,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 await self.storage.start()
 
             except Exception as exc:
+                self._release_device_reservations()
                 await qubes.utils.async_shield(
                     self.notify_failed_startup(exc=exc)
                 )
                 self._power_state = "Halted"
                 if qmemman_client:
                     qmemman_client.close()
+                raise
+            except BaseException:
+                self._release_device_reservations()
                 raise
 
             try:
@@ -1643,6 +1655,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 raise
 
             finally:
+                # devices already attached, reservation can be released
+                self._release_device_reservations()
                 if qmemman_client:
                     qmemman_client.close()
 
@@ -1698,6 +1712,27 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.startup_task = None
         return self
+
+    def _check_and_reserve(self, devclass, device, assignment):
+        """
+        Refuse a required device that is not free, or reserve it.
+        """
+        collection = device.backend_domain.devices[devclass]
+        if (collection, device.port_id) in self._device_reservations:
+            # assigned twice, e.g. by port and by identity
+            return
+        self.fire_event(
+            "device-check-available:" + devclass,
+            device=device,
+            options=assignment.options,
+        )
+        collection.reserve(device.port_id, self)
+        self._device_reservations.append((collection, device.port_id))
+
+    def _release_device_reservations(self):
+        for collection, port_id in self._device_reservations:
+            collection.release(port_id, self)
+        self._device_reservations = []
 
     @asynccontextmanager
     async def change_libvirt_state(
