@@ -261,14 +261,18 @@ def _default_virt_mode(self):
         return "pvh"
 
 
-def _default_with_template(prop, default):
+def _default_with_template(prop, default, active):
     """Return a callable for 'default' argument of a property. Use a value
     from a template (if any), otherwise *default*
+
+    If *active*, query *active_template* first, else go straight to *template*.
     """
 
     def _func(self):
         try:
-            return getattr(get_active_template(self), prop)
+            if active:
+                return getattr(get_active_template(self), prop)
+            return getattr(self.template, prop)
         except AttributeError:
             if callable(default):
                 return default(self)
@@ -294,7 +298,7 @@ def _default_maxmem(self):
         default_maxmem, int(self.app.host.memory_total / 1024 / 2)
     )
 
-    return _default_with_template("maxmem", default_maxmem)(self)
+    return _default_with_template("maxmem", default_maxmem, active=False)(self)
 
 
 def _default_kernelopts(self):
@@ -851,6 +855,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     else "memory"
                 )
             ],
+            active=False,
         ),
         # fmt: on
         doc="Memory currently available for this VM. TemplateBasedVMs use its "
@@ -880,7 +885,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "vcpus",
         type=int,
         setter=_setter_positive_int,
-        default=_default_with_template("vcpus", 2),
+        default=_default_with_template("vcpus", 2, active=False),
         doc="Number of virtual CPUs for a qube. TemplateBasedVMs use its "
         "template's value by default.",
     )
@@ -891,7 +896,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         type=str,
         setter=_setter_kernel,
         default=_default_with_template(
-            "kernel", lambda self: self.app.default_kernel
+            "kernel", lambda self: self.app.default_kernel, active=False
         ),
         doc="Kernel used by this domain. TemplateBasedVMs use its "
         "template's value by default.",
@@ -924,7 +929,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "default_user",
         type=str,
         # pylint: disable=no-member
-        default=_default_with_template("default_user", "user"),
+        default=_default_with_template("default_user", "user", active=True),
         setter=_setter_default_user,
         doc="Default user to start applications as. TemplateBasedVMs use its "
         "template's value by default.",
@@ -934,7 +939,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "qrexec_timeout",
         type=int,
         default=_default_with_template(
-            "qrexec_timeout", lambda self: self.app.default_qrexec_timeout
+            "qrexec_timeout",
+            lambda self: self.app.default_qrexec_timeout,
+            active=True,
         ),
         setter=_setter_positive_int,
         doc="""Time in seconds after which qrexec connection attempt is deemed
@@ -946,7 +953,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         "shutdown_timeout",
         type=int,
         default=_default_with_template(
-            "shutdown_timeout", lambda self: self.app.default_shutdown_timeout
+            "shutdown_timeout",
+            lambda self: self.app.default_shutdown_timeout,
+            active=True,
         ),
         setter=_setter_positive_int,
         doc="""Time in seconds for shutdown of the VM, after which VM may be
@@ -993,7 +1002,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         load_stage=4,
         allow_none=True,
         default=_default_with_template(
-            "management_dispvm", (lambda self: self.app.management_dispvm)
+            "management_dispvm",
+            (lambda self: self.app.management_dispvm),
+            active=True,
         ),
         setter=qubes.vm.setter_disposable_template,
         doc="""Default disposable template to be used for spawning disposable
