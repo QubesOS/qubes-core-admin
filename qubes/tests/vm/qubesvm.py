@@ -212,7 +212,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
 
     def test_000_default_with_template_simple(self):
         default_getter = qubes.vm.qubesvm._default_with_template(
-            "kernel", "dfl-kernel"
+            "kernel", "dfl-kernel", active=False
         )
         self.assertEqual(default_getter(self.vm), "dfl-kernel")
         self.vm.template = None
@@ -223,7 +223,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
 
     def test_001_default_with_template_callable(self):
         default_getter = qubes.vm.qubesvm._default_with_template(
-            "kernel", lambda x: x.app.default_kernel
+            "kernel", lambda x: x.app.default_kernel, active=False
         )
         self.app.default_kernel = "global-dfl-kernel"
         self.assertEqual(default_getter(self.vm), "global-dfl-kernel")
