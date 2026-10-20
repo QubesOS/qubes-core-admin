@@ -48,9 +48,16 @@ import libvirt  # pylint: disable=import-error
 
 
 async def defer_tpl(
-    test_case, qube: qubes.vm.appvm.AppVM | qubes.vm.dispvm.DispVM
+    test_case,
+    qube: qubes.vm.appvm.AppVM | qubes.vm.dispvm.DispVM,
 ) -> None:
+    """Test deferred template of a qube. If the qube is a disposable
+    template, also check that the storage of the disposables based on it
+    follows its template."""
     template = qube.template
+    dispvms = ()
+    if getattr(qube, "template_for_dispvms", False):
+        dispvms = test_case.app.domains.get_vms_based_on(qube)
     if qube.klass == "AppVM":
         template_alt = test_case.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM,
@@ -87,6 +94,11 @@ async def defer_tpl(
         vid = qube.volumes[volume].vid
         return vid
 
+    def check_root_source(qube, template):
+        test_case.assertEqual(
+            qube.volumes["root"].source.vid, template.volumes["root"].vid
+        )
+
     def check_deferred(qube, active, deferred):
         test_case.assertEqual(qube.template, deferred)
         test_case.assertEqual(qube.active_template, active)
@@ -118,6 +130,13 @@ async def defer_tpl(
             test_case.assertFalse(qube.property_is_default("active_template"))
         else:
             test_case.assertTrue(qube.property_is_default("active_template"))
+        # Running disposables keep the root they were started with until they
+        # shut down, halted ones follow the active template right away.
+        for dispvm in dispvms:
+            if dispvm.is_halted():
+                check_root_source(dispvm, active)
+            else:
+                check_root_source(dispvm, template)
 
     test_case.log.warning("Testing prop is sane")
     check_deferred(qube, active=template, deferred=template)
@@ -139,6 +158,18 @@ async def defer_tpl(
     )
     await test_case.start_vm(qube)
     await qube.kill()
+
+    if not dispvms:
+        return
+    test_case.log.warning("Test running disposables are updated on shutdown")
+    for dispvm in dispvms:
+        if not dispvm.is_halted():
+            await dispvm.kill()
+        check_root_source(dispvm, template)
+    test_case.log.warning("Test disposables have a session")
+    for dispvm in dispvms:
+        await test_case.start_vm(dispvm)
+        await dispvm.kill()
 
 
 class TC_00_Basic(qubes.tests.SystemTestCase):
