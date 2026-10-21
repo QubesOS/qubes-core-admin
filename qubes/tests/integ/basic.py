@@ -67,6 +67,9 @@ async def defer_tpl(
         )
     else:
         raise TypeError("Received invalid qube class")
+    dispvms: set[qubes.vm.dispvm.DispVM] = ()
+    if getattr(qube, "template_for_dispvms", False):
+        dispvms = test_case.app.domains.get_vms_based_on(qube)
 
     await template_alt.create_on_disk()
     template.features["template-name"] = template.name
@@ -87,6 +90,11 @@ async def defer_tpl(
             volume = "root"
         vid = qube.volumes[volume].vid
         return vid
+
+    def check_root_source(qube, template):
+        test_case.assertEqual(
+            qube.volumes["root"].source.vid, template.volumes["root"].vid
+        )
 
     def check_deferred(qube, active, deferred):
         test_case.assertEqual(qube.template, deferred)
@@ -122,24 +130,52 @@ async def defer_tpl(
 
     test_case.log.warning("Testing prop is sane")
     check_deferred(qube, active=template, deferred=template)
+    for dispvm in dispvms:
+        check_root_source(dispvm, template)
 
     test_case.log.warning("Testing changing template when halted")
     qube.template = template_alt
     check_deferred(qube, active=template_alt, deferred=template_alt)
+    for dispvm in dispvms:
+        if dispvm.is_halted():
+            check_root_source(dispvm, template_alt)
+        else:
+            check_root_source(dispvm, template)
 
     test_case.log.warning("Test changing template when running is deferred")
-    await qube.start()
+    for dispvm in dispvms:
+        if dispvm.is_halted():
+            check_root_source(dispvm, template_alt)
+            continue
+        check_root_source(dispvm, template)
+        await dispvm.kill()
+        await test_case.start_vm(dispvm)
+        check_root_source(dispvm, template_alt)
+    await test_case.start_vm(qube)
     qube.template = template
     check_deferred(qube, active=template_alt, deferred=template)
+    for dispvm in dispvms:
+        check_root_source(dispvm, template_alt)
 
     test_case.log.warning("Test deferred template is applied on shutdown")
     await qube.shutdown(wait=True)
     check_deferred(qube, active=template, deferred=template)
+    for dispvm in dispvms:
+        if dispvm.is_halted():
+            check_root_source(dispvm, template)
+        else:
+            check_root_source(dispvm, template_alt)
+            await dispvm.kill()
+            check_root_source(dispvm, template)
+
     test_case.log.warning(
         "Test template changes allows the qube to have a session"
     )
     await test_case.start_vm(qube)
     await qube.kill()
+    for dispvm in dispvms:
+        await test_case.start_vm(dispvm)
+        await dispvm.kill()
 
 
 class TC_00_Basic(qubes.tests.SystemTestCase):
