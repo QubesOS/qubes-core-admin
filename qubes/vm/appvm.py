@@ -43,6 +43,21 @@ def template_changed_update_storage(vm):
             vm.storage.init_volume(volume_name, config)
 
 
+def template_changed_update_storage_tree(vm):
+    """
+    Update storage configuration of the qube and, if it is a disposable
+    template, of the halted qubes based on it. Running disposables will have
+    their storage updated on `domain-shutdown` event.
+    """
+    template_changed_update_storage(vm)
+    if not getattr(vm, "template_for_dispvms", False):
+        return
+    for qube in vm.app.domains.get_vms_based_on(vm):
+        if not qube.is_halted():
+            continue
+        template_changed_update_storage(qube)
+
+
 def template_changed(vm, oldvalue=None, newvalue=None):
     """
     React to template property change. If qube is running, defer the template
@@ -58,11 +73,7 @@ def template_changed(vm, oldvalue=None, newvalue=None):
         elif newvalue == vm.active_template:
             del vm.active_template
         return
-    template_changed_update_storage(vm)
-    if not getattr(vm, "template_for_dispvms", False):
-        return
-    for qube in vm.app.domains.get_vms_based_on(vm):
-        template_changed_update_storage(qube)
+    template_changed_update_storage_tree(vm)
 
 
 def apply_deferred_template(vm):
@@ -72,10 +83,21 @@ def apply_deferred_template(vm):
     """
     if not vm.is_halted():
         return
+    force_storage_update = False
     if vm.active_template == vm.template:
-        return
-    del vm.active_template
-    template_changed_update_storage(vm)
+        if (
+            vm.klass == "DispVM"
+            and vm.volume_config["root"]["source"]
+            is not vm.template.volume_config["root"]["source"]
+        ):
+            # Disposable was running while disposable template had its deferred
+            # template applied.
+            force_storage_update = True
+        else:
+            return
+    if not force_storage_update:
+        del vm.active_template
+    template_changed_update_storage_tree(vm)
     vm.app.save()
 
 
