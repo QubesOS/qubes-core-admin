@@ -1248,8 +1248,16 @@ class TC_21_DispVM_Preload(DispVMHelpersMixin, qubes.tests.SystemTestCase):
             auto_cleanup=False,
             name=self.make_vm_name("named-disp"),
         )
+        halted_dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            template=self.disp_base,
+            auto_cleanup=False,
+            name=self.make_vm_name("named-disp-halted"),
+        )
         assert isinstance(dispvm, qubes.vm.dispvm.DispVM)
+        assert isinstance(halted_dispvm, qubes.vm.dispvm.DispVM)
         await dispvm.create_on_disk()
+        await halted_dispvm.create_on_disk()
         await dispvm.start()
         await defer_tpl(test_case=self, qube=self.disp_base)
 
