@@ -299,13 +299,37 @@ class AdminVM(LocalVM):
         """
         raise qubes.exc.QubesVMError(self, "Cannot suspend Dom0 fake domain!")
 
-    def shutdown(self):
+    def shutdown(self, **_kwargs):
         """Does nothing.
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.shutdown`
         """
         raise qubes.exc.QubesVMError(self, "Cannot shutdown Dom0 fake domain!")
+
+    def pause(self):
+        """Does nothing.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.pause`
+        """
+        raise qubes.exc.QubesVMError(self, "Cannot pause Dom0 fake domain!")
+
+    def unpause(self):
+        """Does nothing.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.unpause`
+        """
+        raise qubes.exc.QubesVMError(self, "Cannot unpause Dom0 fake domain!")
+
+    def resume(self):
+        """Does nothing.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.resume`
+        """
+        raise qubes.exc.QubesVMError(self, "Cannot resume Dom0 fake domain!")
 
     def kill(self):
         """Does nothing.
