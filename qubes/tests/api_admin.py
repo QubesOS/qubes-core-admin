@@ -4351,6 +4351,60 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         ]
         self.assertEqual(send_event.mock_calls, expected)
 
+    def test_632_vm_stats_filter(self):
+        send_event = unittest.mock.Mock(spec=[])
+
+        def stats(name):
+            return {
+                "name": name,
+                "is_stubdom": False,
+                "memory_kb": 303916,
+                "memory_assigned_total": 303932,
+                "memory_assigned_usable": 303916,
+                "memory_with_swap_used": 303916,
+                "swap_used": 0,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 0,
+                "online_vcpus": 2,
+            }
+
+        stats1 = {
+            0: stats("dom0"),
+            1: stats("test-template"),
+            2: stats("test-vm1"),
+        }
+        self.app.host.get_vm_stats = unittest.mock.Mock()
+        self.app.host.get_vm_stats.return_value = (0, stats1)
+        self.app.stats_interval = 10
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pathlib.Path(tmpdir)
+            with unittest.mock.patch(
+                "qubes.ext.admin.AdminExtension._instance.policy_cache.paths",
+                [pathlib.Path(tmpdir)],
+            ):
+                with (tmpdir / "admin.policy").open("w") as f:
+                    f.write("admin.vm.Stats * @anyvm @adminvm allow\n")
+                    f.write("admin.vm.Stats * @anyvm test-vm1 allow")
+                mgmt_obj = qubes.api.admin.QubesAdminAPI(
+                    self.app,
+                    b"test-vm1",
+                    b"admin.vm.Stats",
+                    b"dom0",
+                    b"",
+                    send_event=send_event,
+                )
+                loop = asyncio.get_event_loop()
+                execute_task = asyncio.ensure_future(
+                    mgmt_obj.execute(untrusted_payload=b"")
+                )
+                loop.call_later(0.1, mgmt_obj.cancel)
+                loop.run_until_complete(execute_task)
+        self.assertIsNone(execute_task.result())
+        self.assertEqual(
+            [c.args[0] for c in send_event.mock_calls],
+            [self.app, "dom0", "test-vm1"],
+        )
+
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_640_vm_create_disposable(self, mock_storage):
         mock_storage.side_effect = self.dummy_coro
