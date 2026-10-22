@@ -2012,6 +2012,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMNotRunnignError: \
             when domain is already shut down.
         """
+        if self.is_suspended():
+            return self
 
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
@@ -2055,6 +2057,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def pause(self):
         """Pause (suspend) domain."""
 
+        if self.is_paused():
+            return self
+
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
 
@@ -2071,7 +2076,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMError: when machine is suspended
         """
 
-        if self.get_power_state() == "Suspended":
+        if self.is_suspended():
             async with self.change_libvirt_state(event="STARTED"):
                 self.libvirt_domain.pMWakeup()
             if self.features.check_with_template("qrexec", False):
@@ -2899,7 +2904,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :rtype: bool
         """
 
-        return self._power_state == "Paused"
+        return self.get_power_state() == "Paused"
+
+    def is_suspended(self):
+        """Check whether this domain is suspended.
+
+        :returns: :py:obj:`True` if this domain is suspended, \
+            :py:obj:`False` otherwise.
+        :rtype: bool
+        """
+
+        return self.get_power_state() == "Suspended"
 
     def is_qrexec_running(self, stubdom=False):
         """Check whether qrexec for this domain is available.
