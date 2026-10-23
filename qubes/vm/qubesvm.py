@@ -1596,7 +1596,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     "domain-pre-spawn", pre_event=True, start_guid=start_guid
                 )
 
-                self._update_libvirt_domain()
+                async with self.change_libvirt_state(event="DEFINED"):
+                    self._update_libvirt_domain()
 
                 async with self.change_libvirt_state(event="STARTED"):
                     self.libvirt_domain.createWithFlags(
