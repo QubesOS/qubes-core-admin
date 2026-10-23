@@ -1723,20 +1723,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if not event:
             return
         libvirt_event: int = getattr(libvirt, f"VIR_DOMAIN_EVENT_{event}")
-        async with self.change_libvirt_state(
-            event=event, wait=True, timeout=60
-        ):
+        async with self.change_libvirt_state(event=event):
             self.on_libvirt_domain_lifecycle(event=libvirt_event, detail=detail)
 
     @asynccontextmanager
     async def change_libvirt_state(
         self,
         event: LibvirtEvents,
-        wait: bool = True,
-        timeout: int | float | None = None,
+        timeout: int | float | None = 60,
     ):
         """
         Asynchronously wait for libvirt method to complete.
+
+        If ``timeout`` is ``None``, don't wait for the event to arrive. This is
+        a behavioral difference with ``asyncio.Timeout``, because we never want
+        to wait indefinitely for an event to arrive, so we force callers to
+        specify a timeout.
         """
         if self._lifecycle_waiter[event]["waiter"] is None:
             self._lifecycle_waiter[event][
@@ -1744,13 +1746,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             ] = asyncio.get_running_loop().create_future()
         waiter = self._lifecycle_waiter[event]["waiter"]
         yield
-        if wait:
-            try:
-                async with asyncio.timeout(timeout) as context_manager:
-                    self._lifecycle_waiter[event]["cm"] = context_manager
-                    await asyncio.shield(waiter)
-            finally:
-                self._lifecycle_waiter[event]["cm"] = None
+        if timeout is None:
+            return
+        try:
+            async with asyncio.timeout(timeout) as context_manager:
+                self._lifecycle_waiter[event]["cm"] = context_manager
+                await asyncio.shield(waiter)
+        finally:
+            self._lifecycle_waiter[event]["cm"] = None
 
     def extend_lifecycle_waiter(
         self, event: LibvirtEvents, timeout: int | float | None
@@ -2008,7 +2011,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._power_state = "Halting"
             try:
                 async with self.change_libvirt_state(
-                    event="STOPPED", wait=wait, timeout=timeout
+                    event="STOPPED", timeout=timeout
                 ):
                     proc = await asyncio.create_subprocess_exec(
                         *command,
