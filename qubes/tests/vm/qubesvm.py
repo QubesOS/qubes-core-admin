@@ -3483,7 +3483,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         ):
             vm._lifecycle_waiter["LIFE"] = None
             async with asyncio.timeout(1):
-                async with vm.change_libvirt_state(event="LIFE", wait=False):
+                async with vm.change_libvirt_state(event="LIFE", timeout=None):
                     pass
 
     def test_850_lifecycle_change(self):

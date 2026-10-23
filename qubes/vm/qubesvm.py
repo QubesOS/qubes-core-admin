@@ -1703,11 +1703,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def change_libvirt_state(
         self,
         event: LibvirtEvents,
-        wait: bool = True,
-        timeout: int | float | None = None,
+        timeout: int | float | None = 60,
     ):
         """
         Asynchronously wait for libvirt method to complete.
+
+        If ``timeout`` is ``None``, don't wait for the event to arrive. This is
+        a behavioral difference with ``asyncio.Timeout``, because we never want
+        to wait indefinitely for an event to arrive, so we force callers to
+        specify a timeout.
         """
         if self._lifecycle_waiter[event] is None:
             self._lifecycle_waiter[event] = (
@@ -1715,8 +1719,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
         waiter = self._lifecycle_waiter[event]
         yield
-        if wait:
-            await asyncio.wait_for(waiter, timeout=timeout)
+        if timeout is None:
+            return
+        await asyncio.wait_for(waiter, timeout=timeout)
 
     def end_lifecycle_waiter(
         self, event: LibvirtEvents, exc: BaseException | None = None
@@ -1934,7 +1939,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 timeout = self.shutdown_timeout
             try:
                 async with self.change_libvirt_state(
-                    event="STOPPED", wait=wait, timeout=timeout
+                    event="STOPPED", timeout=timeout
                 ):
                     proc = await asyncio.create_subprocess_exec(
                         *command,
