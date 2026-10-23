@@ -2015,7 +2015,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self.is_suspended():
             return self
 
-        if not self.is_running() and not self.is_paused():
+        if not self.is_running() or self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
 
         if self.features.check_with_template("qrexec", False):
@@ -2060,7 +2060,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         if self.is_paused():
             return self
 
-        if not self.is_running():
+        if not self.is_running() or self.is_suspended():
             raise qubes.exc.QubesVMNotRunningError(self)
 
         await self.fire_event_async("domain-pre-paused", pre_event=True)
@@ -2076,34 +2076,36 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         :raises qubes.exc.QubesVMError: when machine is suspended
         """
 
-        if self.is_suspended():
-            async with self.change_libvirt_state(event="STARTED"):
-                self.libvirt_domain.pMWakeup()
-            if self.features.check_with_template("qrexec", False):
-                try:
-                    await asyncio.wait_for(
-                        self.run_service_for_stdio(
-                            "qubes.SuspendPost",
-                            user="root",
-                            connection_timeout=qubes.config.suspend_timeout,
-                        ),
-                        qubes.config.suspend_timeout,
-                    )
-                except subprocess.CalledProcessError as e:
-                    self.log.warning(
-                        "qubes.SuspendPost failed with %d (stderr: %s)",
-                        e.returncode,
-                        qubes.utils.sanitize_stderr_for_log(e.stderr),
-                    )
-                except asyncio.TimeoutError:
-                    self.log.warning(
-                        "qubes.SuspendPost timed out after %d seconds",
-                        qubes.config.suspend_timeout,
-                    )
-            await self.fire_event_async("domain-resumed")
-        else:
-            await self.unpause()
+        if not (self.is_suspended() or self.is_paused()):
+            raise qubes.exc.QubesVMNotSuspendedError(self)
 
+        if self.is_paused():
+            return await self.unpause()
+
+        async with self.change_libvirt_state(event="STARTED"):
+            self.libvirt_domain.pMWakeup()
+        if self.features.check_with_template("qrexec", False):
+            try:
+                await asyncio.wait_for(
+                    self.run_service_for_stdio(
+                        "qubes.SuspendPost",
+                        user="root",
+                        connection_timeout=qubes.config.suspend_timeout,
+                    ),
+                    qubes.config.suspend_timeout,
+                )
+            except subprocess.CalledProcessError as e:
+                self.log.warning(
+                    "qubes.SuspendPost failed with %d (stderr: %s)",
+                    e.returncode,
+                    qubes.utils.sanitize_stderr_for_log(e.stderr),
+                )
+            except asyncio.TimeoutError:
+                self.log.warning(
+                    "qubes.SuspendPost timed out after %d seconds",
+                    qubes.config.suspend_timeout,
+                )
+        await self.fire_event_async("domain-resumed")
         return self
 
     async def unpause(self):
