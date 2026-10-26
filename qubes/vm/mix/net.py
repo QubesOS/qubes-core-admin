@@ -108,13 +108,10 @@ class StrSerializableTuple(tuple):
 
 
 def vmid_to_ipv4(prefix, vmid):
+    if vmid not in range(1, 256 * 254 + 1):
+        raise ValueError("vmid out of range")
     # avoid .0 and .255 addresses, it may trip some heuristics
     # if OS assumes /24 netmask
-    # preserve unchanged IPs for low vmid
-    if vmid < 255:
-        return ipaddress.IPv4Address(
-            "{}.{}.{}".format(prefix, (vmid >> 8) & 0xFF, vmid & 0xFF)
-        )
     # don't reserve first .1 for vmid 0, as it is invalid
     vmid -= 1
     return ipaddress.IPv4Address(
