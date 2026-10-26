@@ -318,12 +318,16 @@ class TC_00_List(qubes.tests.SystemTestCase):
         )
 
         dev_list = list(self.vm.devices["block"])
+        found = False
         for dev in dev_list:
             if dev.serial == self.img_path:
-                self.fail(
-                    "Device {} ({}) should not be listed because its "
-                    "partition is mounted".format(dev, self.img_path)
+                # the parent device should be marked busy
+                self.assertTrue(
+                    dev.busy,
+                    "Device {} ({}) should be busy because its "
+                    "partition is mounted".format(dev, self.img_path),
                 )
+                found = True
             elif dev.port_id.startswith("loop") and dev.port_id.endswith("p1"):
                 # FIXME: risky assumption that only tests create partitioned
                 # loop devices
@@ -332,6 +336,11 @@ class TC_00_List(qubes.tests.SystemTestCase):
                         dev, self.img_path
                     )
                 )
+
+        if not found:
+            self.fail(
+                "Device {} not found in {!r}".format(self.img_path, dev_list)
+            )
 
 
 class AttachMixin:
