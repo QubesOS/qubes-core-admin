@@ -1704,13 +1704,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
         Asynchronously wait for libvirt method to complete.
         """
+        entered_new_waiter = False
         if self._lifecycle_waiter[event] is None:
+            entered_new_waiter = True
             self._lifecycle_waiter[event] = (
                 asyncio.get_running_loop().create_future()
             )
         waiter = self._lifecycle_waiter[event]
         try:
-            yield
+            yield entered_new_waiter or self._lifecycle_waiter[event].done()
         finally:
             if wait:
                 await asyncio.wait_for(waiter, timeout=timeout)
@@ -1895,7 +1897,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.log.info("Begin shutting down")
 
         cancelled_start = await self.cancel_start()
-        waiter = self._lifecycle_waiter["STOPPED"]
 
         if self.is_halted() and not wait:
             if cancelled_start:
@@ -1931,13 +1932,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             if wait and timeout is None:
                 timeout = self.shutdown_timeout
             try:
-                pending_stop = False
-                if waiter != None and wait and not waiter.done():
-                    pending_stop = True
                 async with self.change_libvirt_state(
-                    event="STOPPED", wait=wait, timeout=30000
-                ):
-                    if not pending_stop:
+                    event="STOPPED", wait=wait, timeout=timeout
+                ) as entered_new_waiter:
+                    if entered_new_waiter or not wait:
                         proc = await asyncio.create_subprocess_exec(
                             *command,
                             stdin=asyncio.subprocess.DEVNULL,
@@ -1996,8 +1994,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self._power_state = "Halting"
         try:
-            async with self.change_libvirt_state(event="STOPPED"):
-                self.libvirt_domain.destroy()
+            async with self.change_libvirt_state(event="STOPPED") as entered_new_waiter:
+                if entered_new_waiter:
+                    self.libvirt_domain.destroy()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
                 self._is_running = False
