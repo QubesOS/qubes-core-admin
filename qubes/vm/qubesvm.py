@@ -474,6 +474,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             Fired when the domain has been paused.
 
+            Handler for this event may be asynchronous.
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-paused'``)
 
@@ -1700,6 +1702,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.startup_task = None
         return self
 
+    async def fire_event_async_without_raise(self, event):
+        try:
+            await self.fire_event_async(event)
+        except Exception:  # pylint: disable=broad-except
+            self.log.exception("Uncaught exception from %s handler ", event)
+
     @asynccontextmanager
     async def change_libvirt_state(
         self,
@@ -1787,6 +1795,34 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 self._power_state = "Running"
         elif detail == libvirt.VIR_DOMAIN_EVENT_STARTED_WAKEUP:
             self._power_state = "Running"
+            asyncio.ensure_future(self._domain_wokeup_coro())
+            return
+
+        self.end_lifecycle_waiter(event="STARTED")
+
+    async def _domain_wokeup_coro(self):
+        if self.features.check_with_template("qrexec", False):
+            try:
+                await asyncio.wait_for(
+                    self.run_service_for_stdio(
+                        "qubes.SuspendPost",
+                        user="root",
+                        connection_timeout=qubes.config.suspend_timeout,
+                    ),
+                    qubes.config.suspend_timeout,
+                )
+            except subprocess.CalledProcessError as e:
+                self.log.warning(
+                    "qubes.SuspendPost failed with %d (stderr: %s)",
+                    e.returncode,
+                    qubes.utils.sanitize_stderr_for_log(e.stderr),
+                )
+            except asyncio.TimeoutError:
+                self.log.warning(
+                    "qubes.SuspendPost timed out after %d seconds",
+                    qubes.config.suspend_timeout,
+                )
+        await self.fire_event_async("domain-resumed")
         self.end_lifecycle_waiter(event="STARTED")
 
     def on_libvirt_domain_suspended(self):
@@ -1795,11 +1831,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         This is not a Qubes event handler.
         """
         self._power_state = "Paused"
-        event = "domain-paused"
-        try:
-            self.fire_event(event)
-        except Exception:  # pylint: disable=broad-except
-            self.log.exception("Uncaught exception from %s handler ", event)
+        asyncio.ensure_future(self._domain_suspended_coro())
+
+    async def _domain_suspended_coro(self):
+        await self.fire_event_async_without_raise(event="domain-paused")
         self.end_lifecycle_waiter(event="SUSPENDED")
 
     def on_libvirt_domain_pmsuspended(self):
@@ -1808,11 +1843,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         This is not a Qubes event handler.
         """
         self._power_state = "Suspended"
-        event = "domain-suspended"
-        try:
-            self.fire_event(event)
-        except Exception:  # pylint: disable=broad-except
-            self.log.exception("Uncaught exception from %s handler ", event)
+        asyncio.ensure_future(self._domain_pmsuspended_coro())
+
+    async def _domain_pmsuspended_coro(self):
+        await self.fire_event_async_without_raise(event="domain-suspended")
         self.end_lifecycle_waiter(event="PMSUSPENDED")
 
     def on_libvirt_domain_resumed(self):
@@ -1824,14 +1858,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._power_state = "Running"
         else:
             self._power_state = "Transient"
-        event = "domain-unpaused"
-        try:
-            if getattr(self, "skip_unpause_event", False):
-                self.skip_unpause_event = False
-            else:
-                asyncio.ensure_future(self.fire_event_async(event))
-        except Exception:  # pylint: disable=broad-except
-            self.log.exception("Uncaught exception from %s handler ", event)
+        asyncio.ensure_future(self._domain_resumed_coro())
+
+    async def _domain_resumed_coro(self):
+        if getattr(self, "skip_unpause_event", False):
+            self.skip_unpause_event = False
+        else:
+            await self.fire_event_async_without_raise(event="domain-unpaused")
         self.end_lifecycle_waiter(event="RESUMED")
 
     def on_libvirt_domain_stopped(self):
@@ -2090,28 +2123,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         async with self.change_libvirt_state(event="STARTED"):
             self.libvirt_domain.pMWakeup()
-        if self.features.check_with_template("qrexec", False):
-            try:
-                await asyncio.wait_for(
-                    self.run_service_for_stdio(
-                        "qubes.SuspendPost",
-                        user="root",
-                        connection_timeout=qubes.config.suspend_timeout,
-                    ),
-                    qubes.config.suspend_timeout,
-                )
-            except subprocess.CalledProcessError as e:
-                self.log.warning(
-                    "qubes.SuspendPost failed with %d (stderr: %s)",
-                    e.returncode,
-                    qubes.utils.sanitize_stderr_for_log(e.stderr),
-                )
-            except asyncio.TimeoutError:
-                self.log.warning(
-                    "qubes.SuspendPost timed out after %d seconds",
-                    qubes.config.suspend_timeout,
-                )
-        await self.fire_event_async("domain-resumed")
+
         return self
 
     async def unpause(self):
@@ -2120,10 +2132,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             raise qubes.exc.QubesVMNotPausedError(self)
 
         await self.fire_event_async("domain-pre-unpaused", pre_event=True)
-        self.skip_unpause_event = True
         async with self.change_libvirt_state(event="RESUMED"):
             self.libvirt_domain.resume()
-        await self.fire_event_async("domain-unpaused")
 
         return self
 
