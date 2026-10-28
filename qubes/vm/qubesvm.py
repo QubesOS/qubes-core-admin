@@ -1935,6 +1935,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 async with self.change_libvirt_state(
                     event="STOPPED", wait=wait, timeout=timeout
                 ) as entered_new_waiter:
+                    # If the wait flag is not triggered, the virsh call will be always carried independently of the waiter future.
                     if entered_new_waiter or not wait:
                         proc = await asyncio.create_subprocess_exec(
                             *command,

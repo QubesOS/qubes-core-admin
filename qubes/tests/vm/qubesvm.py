@@ -3049,7 +3049,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             with self.subTest("wait-on-existing-shutdown"):
                 existing_waiter = self.loop.create_future()
                 mock_vmm.is_xen = True
-                test_timeout = 30000
+                test_timeout = 3000
                 vm._lifecycle_waiter["STOPPED"] = existing_waiter
                 mock_halted.return_value = True
                 task = self.loop.create_task(vm.shutdown(wait=True, timeout=test_timeout))
