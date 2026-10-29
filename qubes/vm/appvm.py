@@ -167,15 +167,6 @@ class AppVM(
 
         super().__init__(app, xml, **kwargs)
 
-    @qubes.stateless_property
-    def icon(self):
-        if self.template_for_dispvms:
-            # pylint: disable=no-member
-            return "templatevm-" + self.label.name
-        # multi-inheritance and properties confuses pylint here
-        # pylint: disable=no-member
-        return super().icon
-
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
         """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
