@@ -186,10 +186,7 @@ def get_entry_point_one(group, name):
         raise TypeError(
             "more than 1 implementation of {!r} found: {}".format(
                 name,
-                ", ".join(
-                    "{}.{}".format(ep.module_name, ".".join(ep.attrs))
-                    for ep in epoints
-                ),
+                ", ".join(ep.value for ep in epoints),
             )
         )
     return epoints[0].load()
