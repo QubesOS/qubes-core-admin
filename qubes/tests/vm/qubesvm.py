@@ -904,8 +904,32 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         del vm.default_user
         self.assertPropertyDefaultValue(vm, "default_user", "user")
         self.assertPropertyValue(vm, "default_user", 123, "123", "123")
+        self.assertPropertyValue(vm, "default_user", "root", "root", "root")
+        for value in ("", "-user", "us+er", "us,er", "us er"):
+            self.assertPropertyInvalidValue(vm, "default_user", value)
         vm.default_user = "user"
         # TODO: check propagation for template-based VMs
+
+    def test_341_default_user_load(self):
+        xml_template = """
+        <domain class="QubesVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+                <property name="default_user">{}</property>
+            </properties>
+        </domain>
+        """
+        for value in ("-user", "us+er"):
+            with self.subTest(value=value):
+                xml = lxml.etree.XML(xml_template.format(value))
+                vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
+                vm.load_properties()
+                self.assertEqual(vm.default_user, value)
+                vm.events_enabled = True
+                with self.assertRaises(qubes.exc.QubesPropertyValueError):
+                    vm.default_user = value
 
     @unittest.skip("TODO")
     def test_350_timezone(self):

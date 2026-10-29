@@ -1360,6 +1360,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # icon is calculated based on being a template for dispvms
         self.fire_event("property-reset:icon", name="icon")
 
+    @qubes.events.handler("property-pre-set:default_user")
+    def on_property_pre_set_default_user(
+        self, event, name, newvalue, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        # Not in the setter, a stored name must still load
+        allowed_chars = set(string.ascii_letters + string.digits + "_-.")
+        if (
+            not newvalue
+            or newvalue.startswith("-")
+            or not set(newvalue) <= allowed_chars
+        ):
+            raise qubes.exc.QubesPropertyValueError(
+                self,
+                self.property_get_def(name),
+                newvalue,
+                "Invalid username '{}'".format(newvalue),
+            )
+
     @qubes.events.handler("property-pre-set:kernel")
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
