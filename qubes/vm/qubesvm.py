@@ -2055,6 +2055,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def pause(self):
         """Pause (suspend) domain."""
 
+        if not self.is_paused():
+            return self
+
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
 
