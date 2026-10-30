@@ -574,6 +574,15 @@ netvm default=True type=vm \n"""
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
+    def test_063_vm_property_reset_label(self):
+        label = self.vm.label
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.property.Reset", b"test-vm1", b"label"
+            )
+        self.assertEqual(self.vm.label, label)
+        self.assertFalse(self.app.save.called)
+
     def test_070_vm_volume_list(self):
         self.vm.volumes = unittest.mock.Mock()
         volumes_conf = {
