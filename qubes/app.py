@@ -2162,6 +2162,17 @@ class Qubes(qubes.PropertyHolder):
         # pylint: disable=unused-argument
         validate_kernel(self, "default_kernel", newvalue)
 
+    @qubes.events.handler("property-pre-reset:default_kernel")
+    # pylint: disable-next=invalid-name
+    def on_property_pre_reset_default_kernel(self, event, name, oldvalue=None):
+        """Forbid unsetting default_kernel, it has no default value"""
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(
+            "Cannot unset default_kernel, it has no default value. "
+            "Set it to an installed kernel instead, or to an empty value "
+            "to make qubes use their own kernel"
+        )
+
     def get_name_from_domid(self, domid) -> str | None:
         """
         Get qube that has a domid controlled by the VMM.
