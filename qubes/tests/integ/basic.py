@@ -24,6 +24,7 @@
 from distutils import spawn
 
 import asyncio
+import json
 import os
 import subprocess
 import tempfile
@@ -984,6 +985,110 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         self.assertEqual(
             clipboard_source, "", "Clipboard not wiped after paste - owner"
         )
+
+    async def _test_clipboard_image(self, width, height):
+        rgba = bytes((i * 7) % 256 for i in range(width * height * 4))
+
+        testvm1 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm1"), label="red"
+        )
+        await testvm1.create_on_disk()
+        testvm2 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm2"), label="red"
+        )
+        await testvm2.create_on_disk()
+        self.app.save()
+
+        await asyncio.gather(testvm1.start(), testvm2.start())
+        await asyncio.gather(
+            self.wait_for_session(testvm1), self.wait_for_session(testvm2)
+        )
+        try:
+            await testvm1.run_for_stdio("command -v xclip")
+        except subprocess.CalledProcessError:
+            self.skipTest("xclip not installed in the template")
+
+        await testvm1.run_for_stdio(
+            "gm convert -size {}x{} -depth 8 rgba:- /tmp/test.png".format(
+                width, height
+            ),
+            input=rgba,
+        )
+
+        # xclip keeps owning the selection until it is killed
+        clip = await testvm1.run(
+            "xclip -selection clipboard -t image/png -i /tmp/test.png"
+        )
+        window_title = "user@{}".format(testvm1.name)
+        zenity = await testvm1.run(
+            "zenity --info --title={} --text=image".format(window_title)
+        )
+        await self.wait_for_window_coro(window_title)
+        await asyncio.sleep(2)
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+c"])
+        await asyncio.sleep(2)
+        zenity.terminate()
+        await zenity.wait()
+
+        with open("/var/run/qubes/qubes-clipboard.bin.image", "rb") as image:
+            self.assertEqual(
+                image.read(), rgba, "Clipboard image copy failed - content"
+            )
+        with open("/var/run/qubes/qubes-clipboard.bin.metadata", "r") as meta:
+            metadata = json.loads(meta.read())
+        self.assertEqual(metadata["data_type"], 1)
+        self.assertEqual(metadata["image_width"], width)
+        self.assertEqual(metadata["image_height"], height)
+        self.assertEqual(metadata["sent_size"], len(rgba))
+        self.assertEqual(
+            open("/var/run/qubes/qubes-clipboard.bin", "r").read(),
+            "",
+            "Text clipboard not emptied by an image copy",
+        )
+
+        # Then paste it to the other qube
+        window_title = "user@{}".format(testvm2.name)
+        zenity = await testvm2.run(
+            "zenity --info --title={} --text=image".format(window_title)
+        )
+        await self.wait_for_window_coro(window_title)
+        await asyncio.sleep(2)
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+v"])
+        await asyncio.sleep(2)
+
+        pasted_png, _ = await testvm2.run_for_stdio(
+            "xclip -selection clipboard -t image/png -o"
+        )
+        zenity.terminate()
+        await zenity.wait()
+        clip.terminate()
+        await clip.wait()
+
+        pasted, _ = await testvm2.run_service_for_stdio(
+            "qubes.GetImageRGBA", input=b"-\n" + pasted_png
+        )
+        size, pixels = pasted.split(b"\n", 1)
+        self.assertEqual(size, b"%d %d" % (width, height))
+        self.assertEqual(pixels, rgba, "Clipboard image paste failed")
+
+        self.assertEqual(
+            open("/var/run/qubes/qubes-clipboard.bin.image", "rb").read(),
+            b"",
+            "Clipboard image not wiped after paste",
+        )
+
+    @unittest.skipUnless(
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
+    def test_003_clipboard_image(self):
+        self.loop.run_until_complete(self._test_clipboard_image(64, 32))
+
+    @unittest.skipUnless(
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
+    def test_004_clipboard_image_incr(self):
+        # large enough to be transferred with the X11 INCR protocol
+        self.loop.run_until_complete(self._test_clipboard_image(512, 512))
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
