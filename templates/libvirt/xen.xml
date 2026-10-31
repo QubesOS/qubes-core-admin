@@ -93,18 +93,35 @@
     </features>
 
     {% block clock %}
+        {%- set tsc_freq = vm.features.check_with_template('tsc-frequency', '') -%}
         {% if vm.virt_mode == 'hvm' %}
             {% set timezone = vm.features.check_with_template('timezone', '').lower() %}
-            {% if timezone == 'localtime' %}
+            {%- if tsc_freq and tsc_freq.isdigit() %}
+                {% if timezone == 'localtime' %}
+                <clock offset="variable" adjustment="0" basis="localtime">
+                {% elif timezone.strip('-').isdigit() %}
+                <clock offset="variable" adjustment="{{ timezone }}" basis="utc">
+                {% else %}
+                <clock offset="variable" adjustment="0" basis="utc">
+                {% endif %}
+                    <timer name="tsc" frequency="{{ tsc_freq }}" mode="emulate"/>
+                </clock>
+            {%- else %}
+                {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
-            {% elif timezone.strip('-').isdigit() %}
+                {% elif timezone.strip('-').isdigit() %}
                 <clock offset="variable" adjustment="{{ timezone }}" basis="utc" />
-            {% else %}
+                {% else %}
                 <clock offset="variable" adjustment="0" basis="utc" />
-            {% endif %}
+                {% endif %}
+            {%- endif %}
         {% else %}
             <clock offset='utc' adjustment='reset'>
+                {%- if tsc_freq and tsc_freq.isdigit() %}
+                <timer name="tsc" frequency="{{ tsc_freq }}" mode="emulate"/>
+                {%- else %}
                 <timer name="tsc" mode="native"/>
+                {%- endif %}
             </clock>
         {% endif %}
     {% endblock %}
