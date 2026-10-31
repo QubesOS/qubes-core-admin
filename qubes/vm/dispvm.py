@@ -384,6 +384,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                         self.volume_config[name]["ephemeral"] = config[
                             "ephemeral"
                         ]
+            if template.features.get("ephemeral-storage", False):
+                self._set_ephemeral_storage_config(app, template)
 
         super().__init__(app, xml, *args, **kwargs)
 
@@ -415,6 +417,96 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 ]
             )
             self.tags.update(template.tags)
+
+    def _set_ephemeral_storage_config(self, app, template) -> None:
+        """
+        Configure volumes so that nothing the disposable writes reaches the
+        disk unless encrypted with an ephemeral key: root and private are
+        read-only, and the qube keeps their changes on volatile and
+        private-changes, both ephemeral.
+
+        :param qubes.Qubes app: Qubes application.
+        :param qubes.vm.mix.dvmtemplate.DVMTemplateMixin template: \
+            Disposable template.
+        """
+        self.volume_config["root"]["rw"] = False
+        self.volume_config["private"]["rw"] = False
+        volatile = self.volume_config["volatile"]
+        volatile["ephemeral"] = True
+        # there is no default_pool_private-changes, keep it with volatile
+        self.volume_config["private-changes"] = {
+            "name": "private-changes",
+            "snap_on_start": False,
+            "save_on_stop": False,
+            "rw": True,
+            "ephemeral": True,
+            "size": template.volumes["private"].size,
+            "pool": str(volatile.get("pool", app.default_pool_volatile)),
+        }
+
+    @property
+    def has_ephemeral_storage(self) -> bool:
+        """
+        Check if volumes are configured for ephemeral storage.
+
+        :rtype: bool
+        """
+        try:
+            changes = self.volumes["private-changes"]
+            return (
+                not self.volumes["root"].rw
+                and not self.volumes["private"].rw
+                and self.volumes["volatile"].ephemeral
+                and changes.rw
+                and changes.ephemeral
+            )
+        except KeyError:
+            return False
+
+    async def _update_ephemeral_storage(self) -> None:
+        """
+        Apply the ``ephemeral-storage`` feature of the disposable template
+        before starting: the disposable may have been created before the
+        feature was set, and a template change resets root and private.
+        Refuse to start if the template doesn't support it.
+        """
+        wanted = self.template.features.get("ephemeral-storage", False)
+        if not wanted and not self.has_ephemeral_storage:
+            return
+        if not self.features.check_with_template(
+            "supported-feature.ephemeral-storage", False, active=False
+        ):
+            raise qubes.exc.QubesException(
+                "template of this disposable does not support the "
+                "ephemeral-storage feature, its data would not be kept off "
+                "the disk"
+            )
+        if not wanted:
+            return
+        self.volumes["root"].rw = False
+        self.volumes["private"].rw = False
+        volatile = self.volumes["volatile"]
+        volatile.ephemeral = True
+        private_size = self.volumes["private"].size
+        changes = self.volumes.get("private-changes")
+        if changes is None:
+            config = {
+                "name": "private-changes",
+                "snap_on_start": False,
+                "save_on_stop": False,
+                "rw": True,
+                "ephemeral": True,
+                "size": private_size,
+                "pool": volatile.pool,
+            }
+            changes = self.storage.init_volume("private-changes", config)
+            await qubes.utils.coro_maybe(changes.create())
+            return
+        changes.rw = True
+        changes.ephemeral = True
+        # the private volume may have been resized since the creation
+        if changes.size < private_size:
+            await self.storage.resize(changes, private_size)
 
     @property
     def preload_requested(self) -> bool:
@@ -471,6 +563,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         appvm = qubes.vm.qubesvm.get_active_template(self)
         if self.volumes["private"].size != appvm.volumes["private"].size:
             differed["volumes_size"] = ["private"]
+            return differed
+
+        if self.has_ephemeral_storage != bool(
+            appvm.features.get("ephemeral-storage", False)
+        ):
+            differed["features"] = ["ephemeral-storage"]
             return differed
 
         for vol_name, vol in self.volumes.items():
@@ -1033,6 +1131,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     "template for disposable ({}) needs to have "
                     "template_for_dispvms=True".format(template.name)
                 )
+            await self._update_ephemeral_storage()
             await super().start(**kwargs)
         except:
             if self not in self.app.domains:
@@ -1056,3 +1155,5 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def create_qdb_entries(self) -> None:
         super().create_qdb_entries()
         self.untrusted_qdb.write("/qubes-vm-persistence", "none")
+        if self.has_ephemeral_storage:
+            self.untrusted_qdb.write("/qubes-ephemeral-storage", "1")
