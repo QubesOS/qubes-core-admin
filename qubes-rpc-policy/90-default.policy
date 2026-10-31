@@ -28,6 +28,9 @@ qubes.FeaturesRequest   *           @anyvm	        dom0	    allow
 qubes.NotifyTools       *           @anyvm          dom0        allow
 
 # File copy/move
+# A new disposable is destroyed right after the call, so files copied to it
+# are lost (and moved files deleted)
+qubes.Filecopy          *           @anyvm          @dispvm:@all deny
 qubes.Filecopy          *           @anyvm          @anyvm      ask
 
 # Get current date/time
