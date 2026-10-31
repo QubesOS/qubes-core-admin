@@ -322,6 +322,45 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 f"'{', '.join(nonderived)}'"
             )
 
+    @qubes.events.handler("domain-feature-pre-set:ephemeral-storage")
+    def on_feature_pre_set_ephemeral_storage(
+        self, event, feature, value, oldvalue=None
+    ):
+        """
+        Before accepting the ``ephemeral-storage`` feature, check that the
+        template supports it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param str value: New value of the feature.
+        :param str oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
+        if not value:
+            return
+        if not self.features.check_with_template(
+            "supported-feature.ephemeral-storage", False
+        ):
+            raise qubes.exc.QubesValueError(
+                "Template does not support the ephemeral-storage feature"
+            )
+
+    @qubes.events.handler(
+        "domain-feature-set:ephemeral-storage",
+        "domain-feature-delete:ephemeral-storage",
+    )
+    def on_feature_set_ephemeral_storage(self, event, feature, **kwargs):
+        """
+        Refresh preloaded disposables after changing the
+        ``ephemeral-storage`` feature.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        """
+        # pylint: disable=unused-argument
+        if getattr(self, "template_for_dispvms", False):
+            self.refresh_outdated_preload()
+
     @qubes.events.handler("domain-feature-set:preload-dispvm")
     def on_feature_set_preload_dispvm(
         self, event, feature, value, oldvalue=None
