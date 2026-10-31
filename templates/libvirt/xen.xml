@@ -125,7 +125,8 @@
                 {% set counter = namespace(i=0) %}
                 {% set counter.i = counter.i + 1 %}
             #}
-            {% set counter = {'i': 0} %}
+            {# private-changes (ephemeral-storage) always gets xvde #}
+            {% set counter = {'i': 1 if 'private-changes' in vm.volumes else 0} %}
             {# TODO Allow more volumes out of the box #}
             {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
                 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
@@ -142,6 +143,8 @@
                         <target dev="xvdc" />
                     {% elif device.name == 'kernel' %}
                         <target dev="xvdd" />
+                    {% elif device.name == 'private-changes' %}
+                        <target dev="xvde" />
                     {% else %}
                         <target dev="xvd{{dd[counter.i]}}" />
                         {% if counter.update({'i': counter.i + 1}) %}{% endif %}
