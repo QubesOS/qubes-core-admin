@@ -677,6 +677,130 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertIs(dispvm.template, self.appvm)
         self.assertTrue(dispvm.volumes["volatile"].ephemeral)
 
+    def _create_dispvm(self, name="test-dispvm"):
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM, name=name, template=self.appvm
+            )
+            self.loop.run_until_complete(dispvm.create_on_disk())
+        return dispvm
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    def test_025_ephemeral_storage(self, _mock_makedirs, _mock_symlink):
+        self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
+            name="alternative"
+        )
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        self.appvm.volumes["volatile"].pool = self.app.pools["alternative"]
+        self.template.features["supported-feature.ephemeral-storage"] = True
+        self.appvm.features["ephemeral-storage"] = True
+        dispvm = self._create_dispvm()
+        self.assertTrue(dispvm.has_ephemeral_storage)
+        self.assertFalse(dispvm.volumes["root"].rw)
+        self.assertFalse(dispvm.volumes["private"].rw)
+        self.assertTrue(dispvm.volumes["private"].snap_on_start)
+        self.assertTrue(dispvm.volumes["volatile"].ephemeral)
+        changes = dispvm.volumes["private-changes"]
+        self.assertTrue(changes.rw)
+        self.assertTrue(changes.ephemeral)
+        self.assertFalse(changes.snap_on_start)
+        self.assertFalse(changes.save_on_stop)
+        self.assertEqual(changes.size, self.appvm.volumes["private"].size)
+        self.assertIs(changes.pool, self.app.pools["alternative"])
+        # the template itself is unchanged
+        self.assertTrue(self.appvm.volumes["root"].rw)
+        self.assertTrue(self.appvm.volumes["private"].rw)
+        self.assertNotIn("private-changes", self.appvm.volumes)
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    def test_026_ephemeral_storage_off(self, _mock_makedirs, _mock_symlink):
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        dispvm = self._create_dispvm()
+        self.assertFalse(dispvm.has_ephemeral_storage)
+        self.assertNotIn("private-changes", dispvm.volumes)
+        self.assertTrue(dispvm.volumes["private"].rw)
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+
+    def test_027_ephemeral_storage_unsupported(self):
+        self.appvm.template_for_dispvms = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.appvm.features["ephemeral-storage"] = True
+        self.assertNotIn("ephemeral-storage", self.appvm.features)
+        # disabling is always allowed
+        self.appvm.features["ephemeral-storage"] = ""
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    def test_028_ephemeral_storage_start_update(
+        self, _mock_makedirs, _mock_symlink
+    ):
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        self.template.features["supported-feature.ephemeral-storage"] = True
+        dispvm = self._create_dispvm()
+        # feature enabled after the disposable was created
+        self.appvm.features["ephemeral-storage"] = True
+        self.assertFalse(dispvm.has_ephemeral_storage)
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        self.assertTrue(dispvm.has_ephemeral_storage)
+        changes = dispvm.volumes["private-changes"]
+        self.assertEqual(changes.size, dispvm.volumes["private"].size)
+        self.assertIs(changes.pool, dispvm.volumes["volatile"].pool)
+        self.assertFalse(changes.snap_on_start)
+        self.assertFalse(changes.save_on_stop)
+
+        # a template change resets root and private
+        qubes.vm.appvm.template_changed_update_storage(dispvm)
+        self.assertFalse(dispvm.has_ephemeral_storage)
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        self.assertTrue(dispvm.has_ephemeral_storage)
+        self.assertIs(dispvm.volumes["private-changes"], changes)
+
+        # template lost support
+        del self.template.features["supported-feature.ephemeral-storage"]
+        with self.assertRaisesRegex(qubes.exc.QubesException, "support"):
+            self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        # also once the feature is removed, as the layout is still there
+        del self.appvm.features["ephemeral-storage"]
+        with self.assertRaisesRegex(qubes.exc.QubesException, "support"):
+            self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    def test_029_ephemeral_storage_resize(self, _mock_makedirs, _mock_symlink):
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        self.template.features["supported-feature.ephemeral-storage"] = True
+        self.appvm.features["ephemeral-storage"] = True
+        dispvm = self._create_dispvm()
+        size = dispvm.volumes["private"].size
+        dispvm.volumes["private"]._size = size * 2
+        with mock.patch.object(
+            dispvm.storage, "resize", side_effect=self.mock_coro
+        ) as mock_resize:
+            self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        mock_resize.assert_called_once_with(
+            dispvm.volumes["private-changes"], size * 2
+        )
+
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     def test_024_is_preload_outdated(self, _mock_makedirs, _mock_symlink):

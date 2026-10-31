@@ -2455,6 +2455,41 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             lxml.etree.XML(libvirt_xml), lxml.etree.XML(expected)
         )
 
+    def test_616_libvirt_xml_private_changes(self):
+        vm = self.get_vm(uuid="7db78950-c467-4863-94d1-af59806384ea")
+        vm.netvm = None
+        vm.virt_mode = "pvh"
+        for name, path in [
+            ("root", "/dev/loop0"),
+            ("private", "/dev/loop1"),
+            ("other", "/dev/loop2"),
+            ("private-changes", "/dev/loop3"),
+        ]:
+            vm.volumes[name] = unittest.mock.Mock(
+                **{
+                    "block_device.return_value.name": name,
+                    "block_device.return_value.path": path,
+                    "block_device.return_value.devtype": "disk",
+                    "block_device.return_value.domain": None,
+                    "ephemeral": False,
+                }
+            )
+        vm.devices["block"].get_assigned_devices = lambda required_only: []
+        libvirt_xml = lxml.etree.XML(vm.create_config_file())
+        targets = {
+            disk.find("source").get("dev"): disk.find("target").get("dev")
+            for disk in libvirt_xml.findall("devices/disk")
+        }
+        self.assertEqual(
+            targets,
+            {
+                "/dev/loop0": "xvda",
+                "/dev/loop1": "xvdb",
+                "/dev/loop2": "xvdf",
+                "/dev/loop3": "xvde",
+            },
+        )
+
     @unittest.mock.patch("qubes.utils.get_timezone")
     @unittest.mock.patch("qubes.utils.urandom")
     @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
