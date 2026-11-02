@@ -110,7 +110,6 @@ pygments_style = "sphinx"
 
 autodoc_member_order = "groupwise"
 autodoc_mock_imports = [
-    "distutils",
     "qrexec",
     "xen",
 ]
