@@ -528,7 +528,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
         :param qubes.devices.PCIDevice device: device to attach
 
         Devices should be unbound from their normal kernel drivers and bound to
-        the dummy driver, which allows for attaching them to a domain.
+        the dummy driver, which allows for attaching them to a qube.
         """
         try:
             node = app.vmm.libvirt_conn.nodeDeviceLookupByName(

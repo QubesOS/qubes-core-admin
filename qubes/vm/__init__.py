@@ -98,7 +98,7 @@ def validate_name(holder, prop, value):
 
 
 def setter_label(self, prop, value):
-    """Helper for setting the domain label"""
+    """Helper for setting the qube label"""
     # pylint: disable=unused-argument
     if isinstance(value, qubes.Label):
         return value
@@ -108,7 +108,7 @@ def setter_label(self, prop, value):
 
 
 def _setter_qid(self, prop, value):
-    """Helper for setting the domain qid"""
+    """Helper for setting the qube qid"""
     # pylint: disable=unused-argument
     value = int(value)
     if not 0 <= value <= qubes.config.max_qid:
@@ -262,7 +262,7 @@ class BaseVM(qubes.PropertyHolder):
         type=str,
         write_once=True,
         clone=False,
-        doc="User-specified name of the domain.",
+        doc="User-specified name of the qube.",
     )
 
     qid = qubes.property(
@@ -271,14 +271,14 @@ class BaseVM(qubes.PropertyHolder):
         write_once=True,
         setter=_setter_qid,
         clone=False,
-        doc="""Internal, persistent identificator of particular domain. Note
+        doc="""Internal, persistent identificator of particular qube. Note
             this is different from Xen domid.""",
     )
 
     label = qubes.property(
         "label",
         setter=setter_label,
-        doc="""Colourful label assigned to VM. This is where the colour of the
+        doc="""Colourful label assigned to qube. This is where the colour of the
             padlock is set.""",
     )
 
@@ -320,7 +320,7 @@ class BaseVM(qubes.PropertyHolder):
 
     @qubes.stateless_property
     def klass(self):
-        """Domain class name"""
+        """Qube class name"""
         return type(self).__name__
 
     @qubes.stateless_property
@@ -361,7 +361,7 @@ class BaseVM(qubes.PropertyHolder):
         # SEE:1815 firewall, policy.
 
     def init_log(self):
-        """Initialise logger for this domain."""
+        """Initialise logger for this qube."""
         self.log = qubes.log.get_vm_logger(
             "{}.{}".format(self.__class__.__qualname__, self.name)
         )

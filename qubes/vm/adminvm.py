@@ -97,7 +97,7 @@ class AdminVM(LocalVM):
         "include_in_backups",
         default=True,
         type=bool,
-        doc="If this domain is to be included in default backup.",
+        doc="If this qube is to be included in default backup.",
     )
 
     updateable = qubes.property(
@@ -105,7 +105,7 @@ class AdminVM(LocalVM):
         default=True,
         type=bool,
         setter=qubes.property.forbidden,
-        doc="True if this machine may be updated on its own.",
+        doc="True if this qube may be updated on its own.",
     )
 
     devices_denied = qubes.property(
@@ -113,7 +113,7 @@ class AdminVM(LocalVM):
         default="",
         type=str,
         setter=_setter_denied_list,
-        doc="List of device interface codes that are denied for this VM.",
+        doc="List of device interface codes that are denied for this qube.",
     )
 
     # for changes in keyboard_layout, see also the same property in QubesVM
@@ -122,7 +122,7 @@ class AdminVM(LocalVM):
         type=str,
         setter=_setter_kbd_layout,
         default="us++",
-        doc="Keyboard layout for this VM",
+        doc="Keyboard layout for this qube",
     )
 
     maxmem = qubes.property(
@@ -130,7 +130,7 @@ class AdminVM(LocalVM):
         type=int,
         setter=qubes.property.forbidden,
         default=_default_maxmem,
-        doc="""Maximum amount of memory available for this VM""",
+        doc="""Maximum amount of memory available for this qube""",
     )
 
     def __init__(self, *args, **kwargs):
@@ -317,7 +317,7 @@ class AdminVM(LocalVM):
 
     @property
     def untrusted_qdb(self):
-        """QubesDB handle for this domain."""
+        """QubesDB handle for this qube."""
         if self._qdb_connection is None:
             import qubesdb  # pylint: disable=import-error
 
@@ -337,7 +337,7 @@ class AdminVM(LocalVM):
         """Run service on this VM
 
         :param str service: service name
-        :param qubes.vm.qubesvm.QubesVM source: source domain as presented to
+        :param qubes.vm.qubesvm.QubesVM source: source qube as presented to
             this VM
         :param str user: username to run service as
         :param bool filter_esc: filter escape sequences to protect terminal \

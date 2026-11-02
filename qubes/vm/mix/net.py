@@ -130,21 +130,21 @@ class NetVMMixin(qubes.events.Emitter):
         type=str,
         default="00:16:3e:5e:6c:00",
         setter=_setter_mac,
-        doc="MAC address of the NIC emulated inside VM",
+        doc="MAC address of the NIC emulated inside qube",
     )
 
     ip = qubes.property(
         "ip",
         type=ipaddress.IPv4Address,
         default=_default_ip,
-        doc="IP address of this domain.",
+        doc="IP address of this qube.",
     )
 
     ip6 = qubes.property(
         "ip6",
         type=ipaddress.IPv6Address,
         default=_default_ip6,
-        doc="IPv6 address of this domain.",
+        doc="IPv6 address of this qube.",
     )
 
     # CORE2: swallowed uses_default_netvm
@@ -154,8 +154,8 @@ class NetVMMixin(qubes.events.Emitter):
         allow_none=True,
         default=(lambda self: self.app.default_netvm),
         setter=_setter_netvm,
-        doc="""VM that provides network connection to this domain. When
-            `None`, machine is disconnected. When absent, domain uses default
+        doc="""Qube that provides network connection to this qube. When
+            `None`, qube is disconnected. When absent, qube uses default
             NetVM.""",
     )
 
@@ -164,7 +164,7 @@ class NetVMMixin(qubes.events.Emitter):
         default=False,
         type=bool,
         setter=_setter_provides_network,
-        doc="""If this domain can act as network provider (formerly known as
+        doc="""If this qube can act as network provider (formerly known as
             NetVM or ProxyVM)""",
     )
 
@@ -178,31 +178,31 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.stateless_property
     def visible_ip(self):
-        """IP address of this domain as seen by the domain."""
+        """IP address of this qube as seen by the qube."""
         return self.features.check_with_template("net.fake-ip", None) or self.ip
 
     @qubes.stateless_property
     def visible_ip6(self):
-        """IPv6 address of this domain as seen by the domain."""
+        """IPv6 address of this qube as seen by the qube."""
         return self.ip6
 
     @qubes.stateless_property
     def visible_gateway(self):
-        """Default gateway of this domain as seen by the domain."""
+        """Default gateway of this qube as seen by the qube."""
         return self.features.check_with_template("net.fake-gateway", None) or (
             self.netvm.gateway if self.netvm else None
         )
 
     @qubes.stateless_property
     def visible_gateway6(self):
-        """Default (IPv6) gateway of this domain as seen by the domain."""
+        """Default (IPv6) gateway of this qube as seen by the qube."""
         if self.features.check_with_netvm("ipv6", False):
             return self.netvm.gateway6 if self.netvm else None
         return None
 
     @qubes.stateless_property
     def visible_netmask(self):
-        """Netmask as seen by the domain."""
+        """Netmask as seen by the qube."""
         return self.features.check_with_template("net.fake-netmask", None) or (
             self.netvm.netmask if self.netvm else None
         )
@@ -215,7 +215,7 @@ class NetVMMixin(qubes.events.Emitter):
     @staticmethod
     def get_ip_for_vm(vm):
         """
-        Get IP address for (appvm) domain connected to this (netvm) domain.
+        Get IP address for (appvm) qube connected to this (netvm) qube.
         """
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
 
@@ -226,7 +226,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @staticmethod
     def get_ip6_for_vm(vm):
-        """Get IPv6 address for (appvm) domain connected to this (netvm) domain.
+        """Get IPv6 address for (appvm) qube connected to this (netvm) qube.
 
         Default address is constructed with Qubes-specific site-local prefix,
         and IPv4 suffix (0xa89 is 10.137.).
@@ -244,12 +244,12 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.stateless_property
     def gateway(self):
-        """Gateway for other domains that use this domain as netvm."""
+        """Gateway for other qubes that use this qube as netvm."""
         return self.visible_ip if self.provides_network else None
 
     @qubes.stateless_property
     def gateway6(self):
-        """Gateway (IPv6) for other domains that use this domain as netvm."""
+        """Gateway (IPv6) for other qubes that use this qube as netvm."""
         if self.features.check_with_netvm("ipv6", False):
             return self.visible_ip6 if self.provides_network else None
         return None
@@ -261,7 +261,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @property
     def connected_vms(self):
-        """Return a generator containing all domains connected to the current
+        """Return a generator containing all qubes connected to the current
         NetVM.
         """
         for vm in self.app.domains:
@@ -274,7 +274,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.stateless_property
     def dns(self):
-        """DNS servers set up for this domain."""
+        """DNS servers set up for this qube."""
         if self.netvm is not None or self.provides_network:
             return StrSerializableTuple(
                 (
@@ -331,10 +331,10 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler("domain-start")
     async def on_domain_started_net(self, event, **kwargs):
-        """Connect this domain to its downstream domains. Also reload firewall
+        """Connect this qube to its downstream qubes. Also reload firewall
         in its netvm.
 
-        This is needed when starting netvm *after* its connected domains.
+        This is needed when starting netvm *after* its connected qubes.
         """  # pylint: disable=unused-argument
 
         if self.netvm:
@@ -410,7 +410,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, event, force=False):
-        """Checks before NetVM shutdown if any connected domains are running.
+        """Checks before NetVM shutdown if any connected qubes are running.
         If `force` is `True` tries to detach network interfaces of connected
         vms
         """  # pylint: disable=unused-argument

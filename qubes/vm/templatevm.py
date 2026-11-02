@@ -42,7 +42,7 @@ class TemplateVM(QubesVM):
 
     @property
     def appvms(self):
-        """Returns a generator containing all domains based on the current
+        """Returns a generator containing all qubes based on the current
         TemplateVM.
         """
         for vm in self.app.domains:
@@ -64,8 +64,8 @@ class TemplateVM(QubesVM):
         default=None,
         # pylint: disable=protected-access
         setter=qubes.vm.qubesvm.QubesVM.netvm._setter,
-        doc="VM that provides network connection to this domain. When "
-        "`None`, machine is disconnected.",
+        doc="Qube that provides network connection to this qube. When "
+        "`None`, qube is disconnected.",
     )
 
     def __init__(self, *args, **kwargs):

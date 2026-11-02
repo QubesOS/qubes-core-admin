@@ -1095,30 +1095,30 @@ class Qubes(qubes.PropertyHolder):
 
         .. event:: domain-add (subject, event, vm)
 
-            When domain is added.
+            When qube is added.
 
             :param subject: Event emitter
             :param event: Event name (``'domain-add'``)
-            :param vm: Domain object
+            :param vm: Qube object
 
         .. event:: domain-pre-delete (subject, event, vm)
 
-            When domain is deleted. VM still has reference to ``app`` object,
+            When qube is deleted. VM still has reference to ``app`` object,
             and is contained within VMCollection. You may prevent removal by
             raising an exception.
 
             :param subject: Event emitter
             :param event: Event name (``'domain-pre-delete'``)
-            :param vm: Domain object
+            :param vm: Qube object
 
         .. event:: domain-delete (subject, event, vm)
 
-            When domain is deleted. VM still has reference to ``app`` object,
+            When qube is deleted. VM still has reference to ``app`` object,
             but is not contained within VMCollection.
 
             :param subject: Event emitter
             :param event: Event name (``'domain-delete'``)
-            :param vm: Domain object
+            :param vm: Qube object
 
         .. event:: pool-add (subject, event, pool)
 
@@ -1171,7 +1171,7 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=lambda app: app.domains["dom0"],
         allow_none=True,
-        doc="Default GuiVM for VMs.",
+        doc="Default GuiVM for qubes.",
     )
 
     default_audiovm = qubes.VMProperty(
@@ -1179,7 +1179,7 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=lambda app: app.domains["dom0"],
         allow_none=True,
-        doc="Default AudioVM for VMs.",
+        doc="Default AudioVM for qubes.",
     )
 
     default_netvm = qubes.VMProperty(
@@ -1203,7 +1203,7 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=None,
         allow_none=True,
-        doc="""Which VM to use as `yum` proxy for updating AdminVM and
+        doc="""Which qube to use as `yum` proxy for updating AdminVM and
         TemplateVMs""",
     )
     clockvm = qubes.VMProperty(
@@ -1211,12 +1211,12 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=None,
         allow_none=True,
-        doc="Which VM to use as NTP proxy for updating " "AdminVM",
+        doc="Which qube to use as NTP proxy for updating " "AdminVM",
     )
     default_kernel = qubes.property(
         "default_kernel",
         load_stage=3,
-        doc="Which kernel to use when not overriden in VM",
+        doc="Which kernel to use when not overriden in qube",
     )
     default_dispvm = qubes.VMProperty(
         "default_dispvm",
@@ -1292,7 +1292,7 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=60,
         type=int,
-        doc="""Default time in seconds for VM shutdown to complete""",
+        doc="""Default time in seconds for qube shutdown to complete""",
     )
 
     stats_interval = qubes.property(
@@ -1300,7 +1300,7 @@ class Qubes(qubes.PropertyHolder):
         load_stage=3,
         default=3,
         type=int,
-        doc="Interval in seconds for VM stats reporting (memory, CPU usage)",
+        doc="Interval in seconds for qube stats reporting (memory, CPU usage)",
     )
 
     # TODO #1637 #892
@@ -1766,7 +1766,7 @@ class Qubes(qubes.PropertyHolder):
 
     @staticmethod
     def get_vm_class(clsname):
-        """Find the class for a domain.
+        """Find the class for a qube.
 
         Classes are registered as setuptools' entry points in ``qubes.vm``
         group. Any package may supply their own classes.
@@ -1917,7 +1917,7 @@ class Qubes(qubes.PropertyHolder):
 
     async def stop_storage(self):
         """
-        Stop the storage of all domains that are not running.
+        Stop the storage of all qubes that are not running.
         """
 
         async def stop(i):
@@ -2094,7 +2094,7 @@ class Qubes(qubes.PropertyHolder):
         self, event, name, newvalue=None, oldvalue=None
     ):
         """
-        When system's default_dispvm is (re)set, alert every domain that has
+        When system's default_dispvm is (re)set, alert every qube that has
         the default value.
 
         If there is a difference between the maximum number of preloaded

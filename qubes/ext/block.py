@@ -171,7 +171,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
 
     @property
     def device_node(self):
-        """Device node in backend domain"""
+        """Device node in backend qube"""
         return "/dev/" + self.port_id.replace("_", "/")
 
     @property
