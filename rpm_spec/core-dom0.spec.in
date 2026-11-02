@@ -68,7 +68,6 @@ Requires:       python3-docutils
 Requires:       python3-jinja2
 Requires:       python3-lxml
 Requires:       python3-qubesdb
-Requires:       python3-setuptools
 Requires:       python3-PyYAML
 Requires:       python3-xen
 Requires:       libvirt-python3
