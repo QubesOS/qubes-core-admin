@@ -75,19 +75,12 @@ Requires:       libvirt-python3
 
 Requires:       pciutils
 # ionice, for low-disk-impact dd during volume duplication.
-%if 0%{?fedora} == 32
-# FC32 / Q4.1 builds don't have util-linux-core.
-Requires:       util-linux
-%else
 Requires:       util-linux-core
-%endif
 # udev rules for encrypted volatile volumes and zfs
 Requires:       qubes-core-dom0-linux >= 4.2.6
 # qrexec-daemon --uuid support
 Requires:       qubes-core-qrexec-dom0 >= 4.3.0
 Requires:       qubes-db-dom0
-# TODO: R: qubes-gui-dom0 >= 2.1.11
-Conflicts:      qubes-gui-dom0 < 1.1.13
 %if "x%{?backend_vmm}" == "xxen"
 Requires:       xen-runtime
 Requires:       xen-hvm
@@ -114,13 +107,6 @@ Requires:       socat
 Requires:       qubes-utils-libs
 
 %{?systemd_requires}
-
-Obsoletes:	qubes-core-dom0-doc <= 4.0
-Provides:	qubes-core-dom0-doc
-
-# Prevent preupgrade from installation (it pretend to provide distribution upgrade)
-Obsoletes:	preupgrade < 2.0
-Provides:	preupgrade = 2.0
 
 Recommends: qubes-core-admin-addon-kicksecure
 
@@ -163,23 +149,12 @@ sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
 echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 
-if [ -e /etc/sysconfig/prelink ]; then
-sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
-fi
-
-# Conflicts with libxl stack, so disable it
-systemctl --no-reload disable xend.service >/dev/null 2>&1
-systemctl --no-reload disable xendomains.service >/dev/null 2>&1
 systemctl daemon-reload >/dev/null 2>&1 || :
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c 'qubes-create --offline-mode'
 fi
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-rm -f %{name}-%{version}
 
 %pre
 if ! grep -q ^qubes: /etc/group ; then
@@ -194,12 +169,6 @@ fi
 %systemd_preun qubes-qmemman.service
 %systemd_preun qubesd.service
 %systemd_preun qubes-preload-dispvm.service
-
-if [ "$1" = 0 ] ; then
-	# no more packages left
-    service qubes_netvm stop
-    service qubes_core stop
-fi
 
 %postun
 %systemd_postun qubes-core.service
