@@ -23,6 +23,7 @@
 import asyncio
 import collections.abc
 import copy
+import fcntl
 import functools
 import grp
 import itertools
@@ -44,17 +45,6 @@ try:
     import xen.lowlevel.xc  # pylint: disable=wrong-import-order
 except ImportError:
     pass
-
-if os.name == "posix":
-    # pylint: disable=wrong-import-order
-    import fcntl
-elif os.name == "nt":
-    # pylint: disable=import-error
-    import win32con
-    import win32file
-    import pywintypes
-else:
-    raise RuntimeError("Qubes works only on POSIX or WinNT systems")
 
 # pylint: disable=wrong-import-position
 import qubes
@@ -1685,18 +1675,7 @@ class Qubes(qubes.PropertyHolder):
 
             break
 
-        if os.name == "posix":
-            fcntl.lockf(fd, fcntl.LOCK_EX)
-        elif os.name == "nt":
-            # pylint: disable=protected-access
-            overlapped = pywintypes.OVERLAPPED()
-            win32file.LockFileEx(
-                win32file._get_osfhandle(fd),
-                win32con.LOCKFILE_EXCLUSIVE_LOCK,
-                0,
-                -0x10000,
-                overlapped,
-            )
+        fcntl.lockf(fd, fcntl.LOCK_EX)
 
         self.__locked_fh = os.fdopen(fd, "r+b")
         return self.__locked_fh
