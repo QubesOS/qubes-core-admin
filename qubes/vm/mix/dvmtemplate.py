@@ -38,7 +38,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "template_for_dispvms",
         type=bool,
         default=False,
-        doc="Should this VM be allowed to start as Disposable VM",
+        doc="Should this VM be allowed to be used as a disposable template",
     )
 
     @property

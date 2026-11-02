@@ -274,11 +274,7 @@ class AdminVM(LocalVM):
             return 0
 
     def verify_files(self):
-        """Always :py:obj:`True`
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.verify_files`
-        """
+        """Always :py:obj:`True`"""
         return True
 
     def start(self, start_guid=True, notify_function=None, mem_required=None):
