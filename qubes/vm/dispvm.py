@@ -286,6 +286,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         doc="If this domain is to be included in default backup.",
     )
 
+    # follow the disposable template also after this disposable was created,
+    # for example when it was preloaded
+    cleanup_logs = qubes.property(
+        "cleanup_logs",
+        default=(lambda self: self.template.cleanup_logs),
+        type=bool,
+        setter=qubes.property.bool,
+        doc="""Remove this qube's log files in dom0 when the qube is
+            removed. Default: value of the disposable template.""",
+    )
+
     default_dispvm = qubes.VMProperty(
         "default_dispvm",
         load_stage=4,

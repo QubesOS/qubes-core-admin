@@ -494,6 +494,38 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 )
             self.assertFalse(mock_domains.get_new_unused_dispid.called)
 
+    def test_012_cleanup_logs_from_template(self):
+        self.appvm.template_for_dispvms = True
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm",
+            template=self.appvm,
+            dispid=42,
+        )
+        self.assertTrue(dispvm.cleanup_logs)
+        self.assertTrue(dispvm.property_is_default("cleanup_logs"))
+        # follows the disposable template after the disposable was created
+        self.appvm.cleanup_logs = False
+        self.assertFalse(dispvm.cleanup_logs)
+        self.assertTrue(dispvm.property_is_default("cleanup_logs"))
+        # and can be set on the disposable itself
+        dispvm.cleanup_logs = True
+        self.assertTrue(dispvm.cleanup_logs)
+        del self.appvm.cleanup_logs
+        dispvm.close()
+
+    def test_013_cleanup_logs_copied_from_template(self):
+        self.appvm.template_for_dispvms = True
+        self.appvm.cleanup_logs = False
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm",
+            template=self.appvm,
+            dispid=42,
+        )
+        self.assertFalse(dispvm.cleanup_logs)
+        dispvm.close()
+
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     def test_020_copy_storage_pool(self, _mock_makedirs, _mock_symlink):

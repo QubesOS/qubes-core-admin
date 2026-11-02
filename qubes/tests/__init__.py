@@ -879,6 +879,13 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest("outside dom0")
         super(SystemTestCase, self).setUp()
+        # keep logs of removed test qubes, they help debugging failed tests
+        remove_logs_patch = unittest.mock.patch(
+            "qubes.vm.qubesvm.QubesVM.remove_logs"
+        )
+        remove_logs_patch.start()
+        self.addCleanup(remove_logs_patch.stop)
+
         self.remove_test_vms()
 
         global ha_syslog
