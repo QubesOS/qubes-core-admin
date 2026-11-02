@@ -93,6 +93,10 @@ class TC_00_RestoreInDispVM(qubes.tests.integ.backup.BackupTestsMixin):
         args.app.blind_mode = True
         args.vms = []
         args.auto_close = True
+        if options:
+            # qvm-backup-restore options, like "pool"
+            for key, value in options.items():
+                setattr(args, key, value)
         with tempfile.NamedTemporaryFile() as pass_file:
             pass_file.file.write(passphrase.encode())
             pass_file.file.flush()
@@ -127,6 +131,38 @@ class TC_00_RestoreInDispVM(qubes.tests.integ.backup.BackupTestsMixin):
         backup_path = backup_path.decode().strip()
         self.restore_backup(source=backup_path, appvm=self.backupvm.name)
         self.assertCorrectlyRestored(vms_info, orig_hashes)
+
+    def test_010_restore_to_pool(self):
+        self.init_lvm_pool()
+        self.loop.run_until_complete(self.backupvm.start())
+        self.loop.run_until_complete(
+            self.backupvm.run_for_stdio("mkdir '/var/tmp/backup directory'")
+        )
+        vms = self.create_backup_vms()
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(
+                vms, target="/var/tmp/backup directory", target_vm=self.backupvm
+            )
+            self.remove_vms(reversed(vms))
+        finally:
+            del vms
+        backup_path, _ = self.loop.run_until_complete(
+            self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*")
+        )
+        backup_path = backup_path.decode().strip()
+        self.restore_backup(
+            source=backup_path,
+            appvm=self.backupvm.name,
+            options={"pool": self.pool.name},
+        )
+        self.assertCorrectlyRestored(vms_info, orig_hashes)
+        for vm_name in vms_info:
+            vm = self.app.domains[vm_name]
+            for volume in vm.volumes.values():
+                if volume.save_on_stop:
+                    self.assertEqual(volume.pool, self.pool.name)
 
 
 def create_testcases_for_templates():
