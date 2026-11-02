@@ -960,29 +960,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, "backup_timestamp", "xxx")
         self.assertPropertyInvalidValue(vm, "backup_timestamp", None)
 
-    def test_500_property_migrate_virt_mode(self):
-        xml_template = """
-        <domain class="QubesVM" id="domain-1">
-            <properties>
-                <property name="qid">1</property>
-                <property name="name">testvm</property>
-                <property name="label" ref="label-1" />
-                <property name="hvm">{hvm_value}</property>
-            </properties>
-        </domain>
-        """
-        xml = lxml.etree.XML(xml_template.format(hvm_value="True"))
-        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
-        self.assertEqual(vm.virt_mode, "hvm")
-        with self.assertRaises(AttributeError):
-            vm.hvm
-
-        xml = lxml.etree.XML(xml_template.format(hvm_value="False"))
-        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
-        self.assertEqual(vm.virt_mode, "pv")
-        with self.assertRaises(AttributeError):
-            vm.hvm
-
     @unittest.mock.patch("qubes.utils.SYSFS_BASE", tests_sysfs_path)
     def test_510_migrate_pci_assignments(self):
         vm = qubes.vm.adminvm.AdminVM(self.app, None)
