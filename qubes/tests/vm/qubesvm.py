@@ -439,6 +439,19 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertTrue(hasattr(vm, "uuid"))
 
+    def test_005_init_check_updates_vm_disabled(self):
+        self.app.check_updates_vm = False
+        vm = self.get_vm()
+        self.assertIn("service.qubes-update-check", vm.features)
+        self.assertFalse(vm.features["service.qubes-update-check"])
+        self.assertNotIn("check-updates", vm.features)
+
+    def test_006_init_check_updates_vm_enabled(self):
+        self.app.check_updates_vm = True
+        vm = self.get_vm()
+        self.assertNotIn("service.qubes-update-check", vm.features)
+        self.assertNotIn("check-updates", vm.features)
+
     def test_100_qid(self):
         vm = self.get_vm()
         self.assertIsInstance(vm.qid, int)

@@ -1283,9 +1283,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
-            # SEE: 1637 when features are done, migrate to plugin
             if not self.app.check_updates_vm:
-                self.features["check-updates"] = False
+                self.features["service.qubes-update-check"] = False
 
         # will be initialized after loading all the properties
 
