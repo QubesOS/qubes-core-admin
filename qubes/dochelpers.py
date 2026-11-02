@@ -45,10 +45,7 @@ import qubes.tools
 SUBCOMMANDS_TITLE = "COMMANDS"
 OPTIONS_TITLE = "OPTIONS"
 
-try:
-    log = logging.getLogger(__name__)
-except AttributeError:
-    log = None  # type: ignore
+log = logging.getLogger(__name__)
 
 
 class versioncheck(docutils.nodes.warning):
@@ -287,12 +284,7 @@ class ManpageCheckVisitor(docutils.nodes.SparseNodeVisitor):
         try:
             parser = qubes.tools.get_parser_for_command(command)
         except ImportError:
-            msg = f"cannot import module for command '{command}'"
-            if log:
-                log.warning(msg)
-            else:
-                # Handle legacy
-                app.warn(msg)
+            log.warning(f"cannot import module for command '{command}'")
 
             self.parser = None
             return
@@ -353,12 +345,7 @@ def check_man_args(app, doctree, docname):
     if os.path.basename(dirname) != "manpages" or command == "index":
         return
 
-    msg = "Checking arguments for {!r}".format(command)
-    if log:
-        log.info(msg)
-    else:
-        # Handle legacy
-        app.info(msg)
+    log.info("Checking arguments for {!r}".format(command))
 
     doctree.walk(ManpageCheckVisitor(app, command, doctree))
 
