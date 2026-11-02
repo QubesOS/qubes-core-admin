@@ -73,9 +73,9 @@ run_tests(){
 setup_env(){
     : "${PYTHON:=python3}"
     : "${TESTPYTHONPATH:=test-packages}"
-    for dir in ../core-qrexec/qrexec ../qubes-core-qrexec/qrexec; do
+    for dir in ../core-qrexec ../qubes-core-qrexec; do
         if [ -d "$dir" ]; then
-            PYTHONPATH="${PYTHONPATH+"$PYTHONPATH:"}:$dir"
+            PYTHONPATH="${PYTHONPATH+"$PYTHONPATH:"}$dir"
         fi
     done
     unset dir
