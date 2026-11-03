@@ -123,30 +123,10 @@ class AdminExtension(qubes.ext.Extension):
             # dom0 can always list everything
             return None
 
-        if not hasattr(vm, "app"):
-            # process cleanup, do not allow listing VMs anymore
-            return ((lambda _vm: False),)
-
-        policy = self.policy_cache.get_policy()
-        system_info = qubes.api.internal.SystemInfoCache.get_system_info(vm.app)
-
         def filter_vms(dest_vm):
-            request = parser.Request(
-                "admin.vm.List",
-                "+" + arg,
-                vm.name,
-                dest_vm.name,
-                system_info=system_info,
-                ask_resolution_type=JustEvaluateAskResolution,
-                allow_resolution_type=JustEvaluateAllowResolution,
+            return self.policy_allows(
+                vm, "admin.vm.List", "+" + arg, dest_vm.name
             )
-            try:
-                resolution = policy.evaluate(request)
-                # do not consider 'ask' as allow here,
-                # this needs to be not interactive
-                return isinstance(resolution, parser.AllowResolution)
-            except parser.AccessDenied:
-                return False
 
         return (filter_vms,)
 
@@ -173,33 +153,54 @@ class AdminExtension(qubes.ext.Extension):
                 else:
                     dest = "@adminvm"
 
-            if not hasattr(vm, "app"):
-                # process cleanup, do not send events anymore
-                return False
-
-            policy = self.policy_cache.get_policy()
-            # TODO: cache system_info (based on last qubes.xml write time?)
-            system_info = qubes.api.internal.SystemInfoCache.get_system_info(
-                vm.app
+            return self.policy_allows(
+                vm, "admin.Events", "+" + event.replace(":", "_"), dest
             )
-            request = parser.Request(
-                "admin.Events",
-                "+" + event.replace(":", "_"),
-                vm.name,
-                dest,
-                system_info=system_info,
-                ask_resolution_type=JustEvaluateAskResolution,
-                allow_resolution_type=JustEvaluateAllowResolution,
-            )
-            try:
-                resolution = policy.evaluate(request)
-                # do not consider 'ask' as allow here,
-                # this needs to be not interactive
-                return isinstance(resolution, parser.AllowResolution)
-            except parser.AccessDenied:
-                return False
 
         return (filter_events,)
+
+    @qubes.ext.handler("admin-permission:admin.vm.Stats")
+    def admin_vm_stats(self, vm, event, arg, **kwargs):
+        """
+        Send only the stats the policy allows
+        """
+        # pylint: disable=unused-argument
+
+        if vm.klass == "AdminVM":
+            return None
+
+        def filter_stats(dest):
+            return self.policy_allows(vm, "admin.vm.Stats", "+", dest)
+
+        return (filter_stats,)
+
+    def policy_allows(self, source, service, arg, dest):
+        """
+        Check the policy without asking
+        """
+        if not hasattr(source, "app"):
+            # process cleanup, do not allow anything anymore
+            return False
+        # TODO: cache system_info (based on last qubes.xml write time?)
+        system_info = qubes.api.internal.SystemInfoCache.get_system_info(
+            source.app
+        )
+        request = parser.Request(
+            service,
+            arg,
+            source.name,
+            dest,
+            system_info=system_info,
+            ask_resolution_type=JustEvaluateAskResolution,
+            allow_resolution_type=JustEvaluateAllowResolution,
+        )
+        try:
+            resolution = self.policy_cache.get_policy().evaluate(request)
+            # do not consider 'ask' as allow here,
+            # this needs to be not interactive
+            return isinstance(resolution, parser.AllowResolution)
+        except parser.AccessDenied:
+            return False
 
     @qubes.ext.handler("qubes-close", system=True)
     def on_qubes_close(self, app, event, **kwargs):
