@@ -412,8 +412,7 @@ class CallbackPool(qubes.storage.Pool):
 
     @property
     def volumes(self):
-        for vol in self._cb_impl.volumes:
-            yield CallbackVolume(self, vol)
+        return qubes.storage.VolumesCollection(self)
 
     def list_volumes(self):
         for vol in self._cb_impl.list_volumes():
