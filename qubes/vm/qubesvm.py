@@ -1699,7 +1699,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         waiter = self._lifecycle_waiter[event]
         yield
         if wait:
-            await asyncio.wait_for(waiter, timeout=timeout)
+            await asyncio.wait_for(asyncio.shield(waiter), timeout=timeout)
 
     def end_lifecycle_waiter(
         self, event: LibvirtEvents, exc: BaseException | None = None
