@@ -513,3 +513,21 @@ class TC_94_CallbackPoolReflink(qubes.tests.QubesTestCase):
         root = app2.domains["test-inst-app"].volumes["root"]
         self.assertIsInstance(root.source, CallbackVolume)
         self.assertEqual(root.source.vid, tmpl.volumes["root"].vid)
+
+    def test_002_import_volume_keeps_wrapper(self):
+        src = self.app.add_new_vm(
+            "TemplateVM", name="test-inst-src", label="red"
+        )
+        self.loop.run_until_complete(src.create_on_disk())
+        dst = self.app.add_new_vm(
+            "TemplateVM", name="test-inst-dst", label="red"
+        )
+        self.loop.run_until_complete(dst.create_on_disk(pool=self.pool_name))
+        dst_volume = dst.volumes["private"]
+        self.assertIsInstance(dst_volume, CallbackVolume)
+        # admin.vm.volume.CloneTo stores the returned volume in vm.volumes
+        ret = self.loop.run_until_complete(
+            dst.storage.import_volume(dst_volume, src.volumes["private"])
+        )
+        self.assertIsInstance(ret, CallbackVolume)
+        self.assertIs(ret, dst_volume)
