@@ -572,9 +572,9 @@ class CallbackVolume(qubes.storage.Volume):
     async def import_volume(self, src_volume):
         await self._assert_initialized()
         await self._callback("pre_volume_import", cb_args=[src_volume.vid])
-        ret = await coro_maybe(self._cb_impl.import_volume(src_volume))
+        await coro_maybe(self._cb_impl.import_volume(src_volume))
         await self._callback("post_volume_import", cb_args=[src_volume.vid])
-        return ret
+        return self
 
     def is_dirty(self):
         # pylint: disable=protected-access
