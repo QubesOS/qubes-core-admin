@@ -1173,6 +1173,36 @@ class TC_00_Block(qubes.tests.QubesTestCase):
                 self.ext.on_qdb_change(back, None, None)
             resolver.assert_called_once_with(self.ext, {"sda": {front: assign}})
 
+    def test_074_on_qdb_change_other_backend_same_port(self):
+        back, front = self.added_assign_setup()
+        other = TestVM(
+            name="other",
+            qdb=get_qdb(mode="w"),
+            domain_xml=domain_xml_template.format(""),
+        )
+        other.app = back.app
+        back.app.domains["other"] = other
+        other.devices["block"] = TestDeviceCollection(
+            backend_vm=other, devclass="block"
+        )
+
+        exp_dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        assign = DeviceAssignment(exp_dev, mode="auto-attach")
+        front.devices["block"]._assigned.append(assign)
+        back.devices["block"]._exposed.append(exp_dev)
+        other.devices["block"]._exposed.append(
+            qubes.ext.block.BlockDevice(Port(other, "sda", "block"))
+        )
+        # back:sda is known and not attached, other:sda is new
+        self.ext.devices_cache["sys-usb"] = {"sda": None}
+        self.ext.devices_cache["other"] = {}
+
+        resolver_path = "qubes.ext.utils.resolve_conflicts_and_attach"
+        with mock.patch(resolver_path, new_callable=Mock) as resolver:
+            with mock.patch("asyncio.ensure_future"):
+                self.ext.on_qdb_change(other, None, None)
+            resolver.assert_called_once_with(self.ext, {})
+
     def test_080_on_startup_multiple_assignments_including_full(self):
         back, front = self.added_assign_setup()
 
