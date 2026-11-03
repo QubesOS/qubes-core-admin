@@ -3478,6 +3478,24 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                     async with vm.change_libvirt_state(event="LIFE", timeout=1):
                         await asyncio.sleep(2)
 
+        with self.subTest("Timeout does not break later waits"):
+            vm._lifecycle_waiter["LIFE"] = None
+            with self.assertRaises(asyncio.TimeoutError):
+                async with vm.change_libvirt_state(event="LIFE", timeout=0.1):
+                    pass
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    vm.end_lifecycle_waiter(event="LIFE")
+            self.assertIsNone(vm._lifecycle_waiter["LIFE"])
+
+        with self.subTest("Event after a timeout"):
+            vm._lifecycle_waiter["LIFE"] = None
+            with self.assertRaises(asyncio.TimeoutError):
+                async with vm.change_libvirt_state(event="LIFE", timeout=0.1):
+                    pass
+            vm.end_lifecycle_waiter(event="LIFE")
+            self.assertIsNone(vm._lifecycle_waiter["LIFE"])
+
         with self.subTest(
             "Event never arrives but we don't wait for it either"
         ):
