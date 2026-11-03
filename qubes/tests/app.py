@@ -1077,6 +1077,16 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.assertIn("service.clocksync", self.template.features)
         self.assertTrue(self.template.features["service.clocksync"])
 
+    def test_101_clockvm_reset(self):
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        self.app.clockvm = appvm
+        self.assertIn("service.clocksync", appvm.features)
+        del self.app.clockvm
+        self.assertIsNone(self.app.clockvm)
+        self.assertNotIn("service.clocksync", appvm.features)
+
     def test_110_netvm_loop(self):
         """Netvm loop through default_netvm"""
         netvm = self.app.add_new_vm(
@@ -1508,6 +1518,42 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
 
             self.app.default_netvm = netvm2
             mock_detach.assert_called()
+            mock_attach.assert_called()
+
+        self.app.default_netvm = None
+
+    def test_209_default_netvm_reset(self):
+        netvm = self.app.add_new_vm(
+            "AppVM",
+            name="netvm1",
+            template=self.template,
+            label="red",
+            provides_network=True,
+            netvm=None,
+        )
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-vm", template=self.template, label="red"
+        )
+        self.app.default_netvm = netvm
+        self.assertIs(appvm.netvm, netvm)
+        with (
+            mock.patch("qubes.vm.qubesvm.QubesVM.is_running", lambda x: True),
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.attach_network"
+            ) as mock_attach,
+            mock.patch(
+                "qubes.vm.mix.net.NetVMMixin.detach_network"
+            ) as mock_detach,
+            mock.patch("qubes.vm.qubesvm.QubesVM.create_qdb_entries"),
+        ):
+            del self.app.default_netvm
+            self.assertIsNone(appvm.netvm)
+            mock_detach.assert_called()
+            mock_attach.assert_not_called()
+
+            mock_detach.reset_mock()
+            self.app.default_netvm = netvm
+            mock_detach.assert_not_called()
             mock_attach.assert_called()
 
         self.app.default_netvm = None

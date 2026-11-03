@@ -2047,19 +2047,25 @@ class Qubes(qubes.PropertyHolder):
         if "service.clocksync" not in newvalue.features:
             newvalue.features["service.clocksync"] = True
 
-    @qubes.events.handler("property-set:clockvm")
-    def on_property_set_clockvm(self, event, name, newvalue, oldvalue=None):
+    @qubes.events.handler("property-set:clockvm", "property-reset:clockvm")
+    def on_property_set_clockvm(
+        self, event, name, newvalue=None, oldvalue=None
+    ):
         # pylint: disable=unused-argument
+        # on reset, newvalue is not given: the default is None
         if oldvalue == newvalue:
             return
         if oldvalue and oldvalue.features.get("service.clocksync", False):
             del oldvalue.features["service.clocksync"]
 
-    @qubes.events.handler("property-pre-set:default_netvm")
+    @qubes.events.handler(
+        "property-pre-set:default_netvm", "property-pre-reset:default_netvm"
+    )
     def on_property_pre_set_default_netvm(
-        self, event, name, newvalue, oldvalue=None
+        self, event, name, newvalue=None, oldvalue=None
     ):
         # pylint: disable=unused-argument,invalid-name
+        # on reset, newvalue is not given: the default is None
         for vm in self.domains:
             if hasattr(vm, "netvm") and vm.property_is_default("netvm"):
                 # Use pre-set event instead of pre-reset, so it can get both
@@ -2073,9 +2079,11 @@ class Qubes(qubes.PropertyHolder):
                     oldvalue=oldvalue,
                 )
 
-    @qubes.events.handler("property-set:default_netvm")
+    @qubes.events.handler(
+        "property-set:default_netvm", "property-reset:default_netvm"
+    )
     def on_property_set_default_netvm(
-        self, event, name, newvalue, oldvalue=None
+        self, event, name, newvalue=None, oldvalue=None
     ):
         # pylint: disable=unused-argument
         for vm in self.domains:
