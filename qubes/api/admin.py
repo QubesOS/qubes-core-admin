@@ -630,6 +630,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(
             src_volume=src_volume, dst_volume=dst_volume
         )
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
         self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
             self.dest.storage.import_volume(dst_volume, src_volume)
         )
@@ -672,6 +674,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         )
 
         self.fire_event_for_permission()
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         volume = self.dest.volumes[self.arg]
         size = volume.size

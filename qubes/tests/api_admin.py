@@ -3636,6 +3636,29 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         )
         self.assertFalse(self.app.save.called)
 
+    def test_527_vm_volume_clone_running(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneTo",
+                    b"test-vm2",
+                    b"private",
+                    token.encode(),
+                )
+        self.assertFalse(self.vm2.volumes["private"].import_volume.called)
+        self.assertFalse(self.app.save.called)
+
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")
         self.vm.tags.add("tag2")
@@ -5169,6 +5192,23 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             )
             self.assertEventFired(self.emitter, "domain-volume-import-begin")
             self.assertEventFired(self.emitter, "domain-volume-import-end")
+
+    def test_811_vm_volume_clear_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.Clear", b"test-vm1", b"private"
+                )
+        self.assertEqual(self.vm.storage.mock_calls, [])
+        self.assertFalse(self.app.save.called)
 
     def test_900_current_state_default(self):
         vm = self.app.domains["test-vm1"]
