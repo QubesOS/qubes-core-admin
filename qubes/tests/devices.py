@@ -441,6 +441,30 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertEventFired(self.emitter, "device-pre-detach:testclass")
         self.assertEventFired(self.emitter, "device-detach:testclass")
 
+    def test_044_detach_other_backend_same_port(self):
+        # "other" exposes a device on the same port id, not attached
+        other = TestVM(self.app, "other")
+        self.attach()
+        with self.assertRaises(qubes.exc.DeviceNotAssigned):
+            self.loop.run_until_complete(
+                self.collection.detach(other.device.port)
+            )
+        self.assertEventNotFired(self.emitter, "device-pre-detach:testclass")
+        self.assertEventNotFired(self.emitter, "device-detach:testclass")
+
+    def test_045_detach_right_backend_same_port(self):
+        other = TestVM(self.app, "other")
+        self.attach()
+        other.device.data["test_frontend_domain"] = self.emitter
+        for vm in (other, self.emitter):
+            self.emitter.fired_events.clear()
+            self.loop.run_until_complete(self.collection.detach(vm.device.port))
+            self.assertEventFired(
+                self.emitter,
+                "device-detach:testclass",
+                kwargs={"port": vm.device.port},
+            )
+
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
