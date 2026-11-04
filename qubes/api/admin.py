@@ -534,7 +534,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             wants=self.dest.volumes.keys(),
             short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
         )
-        untrusted_revision = untrusted_payload.decode("ascii").strip()
+        try:
+            untrusted_revision = untrusted_payload.decode("ascii").strip()
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Revision name contains non-ASCII characters"
+            )
         del untrusted_payload
         allowed_chars = string.ascii_letters + string.digits + ":-_."
         self.enforce(
