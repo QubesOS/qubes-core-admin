@@ -464,8 +464,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyValue(
             vm, "label", self.app.labels[1], self.app.labels[1], "red"
         )
-        del vm.label
-        self.assertPropertyDefaultValue(vm, "label")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            del vm.label
+        self.assertEqual(vm.label, self.app.labels[1])
         self.assertPropertyValue(vm, "label", "red", self.app.labels[1], "red")
         self.assertPropertyValue(
             vm, "label", "label-1", self.app.labels[1], "red"

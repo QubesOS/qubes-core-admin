@@ -297,3 +297,27 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             ret,
             expected_data,
         )
+
+    def test_011_get_system_info_no_label(self):
+        """A qube without a label gets an empty icon and label."""
+        self.dom0.tags = []
+        self.dom0.default_dispvm = None
+        self.dom0.template_for_dispvms = False
+        self.dom0.get_power_state.return_value = "Running"
+        self.dom0.uuid = uuid.UUID("00000000-0000-0000-0000-000000000000")
+        del self.dom0.guivm
+        vm = mock.NonCallableMock(spec=qubes.vm.qubesvm.QubesVM)
+        vm.name = "vm"
+        vm.features = {}
+        vm.tags = []
+        vm.default_dispvm = None
+        vm.template_for_dispvms = False
+        del vm.label
+        vm.guivm = None
+        vm.get_power_state.return_value = "Halted"
+        vm.uuid = TEST_UUID
+        self.domains["vm"] = vm
+
+        ret = json.loads(self.call_mgmt_func(b"internal.GetSystemInfo"))
+        self.assertEqual(ret["domains"]["vm"]["icon"], "")
+        self.assertEqual(ret["domains"]["vm"]["label"], "")

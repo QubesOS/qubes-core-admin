@@ -426,6 +426,15 @@ class BaseVM(qubes.PropertyHolder):
             self.log.warning("Removing empty tag")
             self.tags.remove("")
 
+    @qubes.events.handler("property-pre-reset:label")
+    def on_property_pre_reset_label(self, event, name, oldvalue=None):
+        """Forbid unsetting label, it has no default value"""
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(
+            "Cannot unset label, it has no default value. "
+            "Set it to another label instead"
+        )
+
 
 class LocalVM(BaseVM):
     """Base class for all local VMs
