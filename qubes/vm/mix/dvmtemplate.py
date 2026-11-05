@@ -671,17 +671,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         :param bool skip_check: Skip check of outdated preloads, refresh all.
         """
         assert isinstance(self, qubes.vm.BaseVM)
-        outdated: list | Iterator = []
-        dispvms: list | Iterator = []
-        if skip_check:
-            outdated = self.dispvms
-        else:
-            dispvms = self.dispvms
-        for qube in dispvms:
+        outdated = []
+        for qube in self.dispvms:
             if not qube.is_preload:
                 continue
-            if qube.is_preload_outdated():
-                assert isinstance(outdated, list)
+            if skip_check or qube.is_preload_outdated():
                 outdated.append(qube)
 
         if outdated:
