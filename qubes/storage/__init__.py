@@ -870,10 +870,12 @@ class Storage:
 
     def unused_frontend(self):
         """Find an unused device name"""
-        unused_frontends = self.AVAILABLE_FRONTENDS.difference(
-            self.used_frontends
-        )
-        return sorted(unused_frontends)[0]
+        used_frontends = self.used_frontends
+        return [
+            frontend
+            for frontend in self.AVAILABLE_FRONTENDS
+            if frontend not in used_frontends
+        ][0]
 
     @property
     def used_frontends(self):
