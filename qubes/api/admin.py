@@ -2081,7 +2081,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     )
     async def vm_device_unassign(self, endpoint):
         devclass = endpoint
-        dev = self.load_device_info(devclass)
+        # only the stored assignments matter, the device may be long gone
+        dev = VirtualDevice.from_qarg(self.arg, devclass, self.app.domains)
         assignment = DeviceAssignment(dev)
 
         self.fire_event_for_permission(device=dev)

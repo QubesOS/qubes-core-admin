@@ -3044,6 +3044,32 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         )
         self.app.save.assert_called_once_with()
 
+    def test_4905_vm_device_unassign_without_device_lookup(self):
+        assignment = DeviceAssignment(
+            VirtualDevice(
+                Port(self.vm, "1234", "testclass"), device_id="dead:beef:cafe"
+            ),
+            mode="required",
+        )
+        self.loop.run_until_complete(
+            self.vm.devices["testclass"].assign(assignment)
+        )
+        with unittest.mock.patch.object(
+            qubes.devices.DeviceCollection,
+            "__getitem__",
+            side_effect=AssertionError("device looked up"),
+        ):
+            value = self.call_mgmt_func(
+                b"admin.vm.device.testclass.Unassign",
+                b"test-vm1",
+                b"test-vm1+1234+dead+beef+cafe",
+            )
+        self.assertIsNone(value)
+        self.assertEqual(
+            list(self.vm.devices["testclass"].get_assigned_devices()), []
+        )
+        self.app.save.assert_called_once_with()
+
     def test_491_vm_device_unassign_required_from_running(self):
         assignment = DeviceAssignment(
             VirtualDevice(
