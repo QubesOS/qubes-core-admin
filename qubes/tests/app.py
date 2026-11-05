@@ -106,6 +106,18 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
             self.qubes_host.memory_total, self.libvirt_info[1] * 1024
         )
 
+    def test_040_cpu_family_model_cached(self):
+        """The cached CPU model stays the model after host info is fetched."""
+        self.app.vmm.offline_mode = False
+        cpuinfo = "processor\t: 0\ncpu family\t: 6\nmodel\t\t: 58\n\n"
+        with mock.patch(
+            "builtins.open", mock.mock_open(read_data=cpuinfo)
+        ) as mock_open:
+            self.assertEqual(self.qubes_host.cpu_family_model, (6, 58))
+            self.assertEqual(self.qubes_host.no_cpus, self.libvirt_info[2])
+            self.assertEqual(self.qubes_host.cpu_family_model, (6, 58))
+        mock_open.assert_called_once()
+
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
