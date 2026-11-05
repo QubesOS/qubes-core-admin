@@ -148,3 +148,87 @@ class TC_10_BackupSplitAndSend(qubes.tests.QubesTestCase):
                     )
                 )
         self.assertTrue(output_queue.empty())
+
+
+class TC_20_BackupTarget(qubes.tests.QubesTestCase):
+    """Tests for the local backup file on success and failure."""
+
+    def setUp(self):
+        super().setUp()
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir)
+        self.target_dir = os.path.join(self.tmpdir, "target")
+        os.mkdir(self.target_dir)
+        store = os.path.join(self.tmpdir, "qubes.xml")
+        open(store, "w", encoding="ascii").close()
+        app = unittest.mock.Mock(store=store, domains=[])
+        self.backup = qubes.backup.Backup(
+            app, vms_list=[], passphrase="pass", target_dir=self.target_dir
+        )
+        for patcher in (
+            unittest.mock.patch("qubes.Qubes"),
+            unittest.mock.patch.object(
+                self.backup, "_prepare_backup_header", self.no_header
+            ),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    @staticmethod
+    async def no_header():
+        return ()
+
+    def run_backup(self, send_files):
+        with unittest.mock.patch.object(
+            self.backup, "_wrap_and_send_files", send_files
+        ):
+            self.loop.run_until_complete(self.backup.backup_do())
+
+    def test_000_success_keeps_file(self):
+        """A finished backup keeps the backup file it created."""
+
+        async def send_files(_files, queue):
+            await queue.put(qubes.backup.QUEUE_FINISHED)
+
+        self.run_backup(send_files)
+        self.assertEqual(len(os.listdir(self.target_dir)), 1)
+
+    def test_010_error_removes_file(self):
+        """A failed backup removes the file it created."""
+
+        async def send_files(_files, _queue):
+            raise qubes.exc.QubesException("failed")
+
+        with self.assertRaises(qubes.exc.QubesException):
+            self.run_backup(send_files)
+        self.assertEqual(os.listdir(self.target_dir), [])
+
+    def test_011_cancel_removes_file(self):
+        """A cancelled backup removes the file it created."""
+
+        async def send_files(_files, _queue):
+            await asyncio.sleep(10)
+
+        with unittest.mock.patch.object(
+            self.backup, "_wrap_and_send_files", send_files
+        ):
+            task = asyncio.ensure_future(self.backup.backup_do())
+            self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.assertEqual(len(os.listdir(self.target_dir)), 1)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                self.loop.run_until_complete(task)
+        self.assertEqual(os.listdir(self.target_dir), [])
+
+    def test_012_error_keeps_existing_file(self):
+        """A failed backup keeps a target file that existed before."""
+        target = os.path.join(self.target_dir, "existing")
+        open(target, "w", encoding="ascii").close()
+        self.backup.target_dir = target
+
+        async def send_files(_files, _queue):
+            raise qubes.exc.QubesException("failed")
+
+        with self.assertRaises(qubes.exc.QubesException):
+            self.run_backup(send_files)
+        self.assertTrue(os.path.exists(target))
