@@ -1306,7 +1306,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self.storage = qubes.storage.Storage(self)
 
         if not self.app.vmm.offline_mode and self.is_running():
-            self.start_qdb_watch()
+            import qubesdb  # pylint: disable=import-error
+
+            try:
+                self.start_qdb_watch()
+            except qubesdb.Error as e:
+                self.log.warning("Cannot watch QubesDB: %s", e)
             self._domain_stopped_event_received = False
             self._domain_stopped_event_handled = False
 

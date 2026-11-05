@@ -454,6 +454,28 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertNotIn("service.qubes-update-check", vm.features)
         self.assertNotIn("check-updates", vm.features)
 
+    def test_007_load_running_qdb_lost(self):
+        """Loading a running qube whose QubesDB is gone logs it and goes on."""
+        import qubesdb  # pylint: disable=import-error
+
+        vm = self.get_vm()
+        old_watch = unittest.mock.Mock()
+        vm._qdb_connection_watch = old_watch
+        self.app.vmm.offline_mode = False
+        with unittest.mock.patch.object(
+            vm, "is_running", lambda: True
+        ), unittest.mock.patch(
+            "qubesdb.QubesDB", side_effect=qubesdb.Error(111, "refused")
+        ), unittest.mock.patch(
+            "asyncio.get_event_loop"
+        ), unittest.mock.patch.object(
+            vm, "log"
+        ):
+            vm.on_domain_init_loaded("domain-load")
+            vm.log.warning.assert_called_once()
+        old_watch.close.assert_called_once_with()
+        self.assertIsNone(vm._qdb_connection_watch)
+
     def test_100_qid(self):
         vm = self.get_vm()
         self.assertIsInstance(vm.qid, int)

@@ -657,17 +657,16 @@ class LocalVM(BaseVM):
 
         try:
             path = self._qdb_connection_watch.read_watch()
-            for watched_path in self._qdb_watch_paths:
-                if watched_path == path or (
-                    watched_path.endswith("/") and path.startswith(watched_path)
-                ):
-                    self.fire_event(
-                        "domain-qdb-change:" + watched_path, path=path
-                    )
         except qubesdb.DisconnectedError:
             loop.remove_reader(self._qdb_connection_watch.watch_fd())
             self._qdb_connection_watch.close()
             self._qdb_connection_watch = None
+            return
+        for watched_path in self._qdb_watch_paths:
+            if watched_path == path or (
+                watched_path.endswith("/") and path.startswith(watched_path)
+            ):
+                self.fire_event("domain-qdb-change:" + watched_path, path=path)
 
     def start_qdb_watch(self, loop=None):
         """Start watching QubesDB
@@ -681,6 +680,7 @@ class LocalVM(BaseVM):
                 self._qdb_connection_watch.watch_fd()
             )
             self._qdb_connection_watch.close()
+            self._qdb_connection_watch = None
 
         import qubesdb  # pylint: disable=import-error
 
