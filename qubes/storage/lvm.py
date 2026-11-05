@@ -592,34 +592,38 @@ class ThinVolume(qubes.storage.Volume):
             ]
             await qubes_lvm_coro(cmd, self.log)
             await reset_cache_coro()
-            src_path = await qubes.utils.coro_maybe(src_volume.export())
             try:
-                cmd = [
-                    _dd,
-                    "if=" + src_path,
-                    "of=/dev/" + self._vid_import,
-                    "conv=sparse,nocreat,fsync",
-                    "status=none",
-                    "bs=128K",
-                ]
-                if not os.access(
-                    "/dev/" + self._vid_import, os.W_OK
-                ) or not os.access(src_path, os.R_OK):
-                    cmd.insert(0, _sudo)
+                src_path = await qubes.utils.coro_maybe(src_volume.export())
+                try:
+                    cmd = [
+                        _dd,
+                        "if=" + src_path,
+                        "of=/dev/" + self._vid_import,
+                        "conv=sparse,nocreat,fsync",
+                        "status=none",
+                        "bs=128K",
+                    ]
+                    if not os.access(
+                        "/dev/" + self._vid_import, os.W_OK
+                    ) or not os.access(src_path, os.R_OK):
+                        cmd.insert(0, _sudo)
 
-                p = await asyncio.create_subprocess_exec(*cmd)
-                await p.wait()
-            finally:
-                await qubes.utils.coro_maybe(src_volume.export_end(src_path))
-            if p.returncode != 0:
-                cmd = ["remove", self._vid_import]
-                await qubes_lvm_coro(cmd, self.log)
-                raise qubes.exc.StoragePoolException(
-                    "Failed to import volume {!r}, dd exit code: {}".format(
-                        src_volume, p.returncode
+                    p = await asyncio.create_subprocess_exec(*cmd)
+                    await p.wait()
+                finally:
+                    await qubes.utils.coro_maybe(
+                        src_volume.export_end(src_path)
                     )
-                )
-            await self._commit(self._vid_import)
+                if p.returncode != 0:
+                    raise qubes.exc.StoragePoolException(
+                        "Failed to import volume {!r}, dd exit code: {}".format(
+                            src_volume, p.returncode
+                        )
+                    )
+                await self._commit(self._vid_import)
+            except Exception:
+                await self._discard_import()
+                raise
             await reset_cache_coro()
 
         return self
@@ -653,12 +657,27 @@ class ThinVolume(qubes.storage.Volume):
                 "No import operation in progress on {}".format(self.vid)
             )
         if success:
-            await self._commit(self._vid_import)
+            try:
+                await self._commit(self._vid_import)
+            except Exception:
+                await self._discard_import()
+                raise
             await reset_cache_coro()
         else:
             cmd = ["remove", self._vid_import]
             await qubes_lvm_coro(cmd, self.log)
             await reset_cache_coro()
+
+    async def _discard_import(self):
+        """Remove the import volume after a failed import, so it does not
+        block the qube. Only logs its own errors, to let the caller re-raise
+        the original one."""
+        try:
+            cmd = ["remove", self._vid_import]
+            await qubes_lvm_coro(cmd, self.log)
+            await reset_cache_coro()
+        except qubes.exc.StoragePoolException as e:
+            self.log.warning("Failed to remove %s: %s", self._vid_import, e)
 
     def abort_if_import_in_progress(self):
         try:
