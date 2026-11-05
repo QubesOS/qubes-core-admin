@@ -1341,6 +1341,17 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             remotevm.remote_name,
         )
 
+    def test_119_remotevm_remove_pool(self):
+        """Removing a pool works while a RemoteVM exists."""
+        self.app.add_new_vm("RemoteVM", name="remote-vm", label="blue")
+        pool = mock.Mock()
+        pool.name = "test-pool"
+        self.app.pools["test-pool"] = pool
+
+        self.loop.run_until_complete(self.app.remove_pool("test-pool"))
+
+        self.assertNotIn("test-pool", self.app.pools)
+
     def test_200_remove_template(self):
         self.app.add_new_vm(
             "AppVM", name="test-vm", template=self.template, label="red"
