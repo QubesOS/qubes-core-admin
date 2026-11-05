@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     import qubes.tests
 
 
-class TC_06_AppVMMixin(object):
+class TC_06_AppVMMixin(qubes.tests.SystemTestMixinBase):
     template = None
 
     def setUp(self):
@@ -199,7 +199,7 @@ class TC_06_AppVMMixin(object):
         self.assertFalse(self.vm.is_running())
 
 
-class TC_10_RemoteVMMixin:
+class TC_10_RemoteVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super().setUp()
         relay_name = self.make_vm_name("relay")

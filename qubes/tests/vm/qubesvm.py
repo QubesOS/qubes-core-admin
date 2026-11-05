@@ -314,7 +314,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 1000)
 
 
-class QubesVMTestsMixin(object):
+class QubesVMTestsMixin(qubes.tests.QubesTestMixinBase):
     property_no_default = object()
 
     def setUp(self):

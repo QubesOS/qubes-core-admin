@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
-class VmUpdatesMixin(object):
+class VmUpdatesMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for VM updates
     """

@@ -92,7 +92,7 @@ CB_DATA = {
 }
 
 
-class CallbackBase:
+class CallbackBase(qubes.tests.QubesTestMixinBase):
     """Mixin base class for callback tests. Has no base class."""
 
     conf_id = None

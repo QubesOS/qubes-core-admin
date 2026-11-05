@@ -34,7 +34,7 @@ import qubes.vm.templatevm
 TEST_DATA = b"0123456789" * 1024
 
 
-class TC_00_QrexecMixin(object):
+class TC_00_QrexecMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super().setUp()
         self.init_default_template(self.template)

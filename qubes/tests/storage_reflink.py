@@ -44,7 +44,7 @@ class TestApp(qubes.Qubes):
         self.load_initial_values()
 
 
-class ReflinkMixin:
+class ReflinkMixin(qubes.tests.QubesTestMixinBase):
     @classmethod
     def setUpClass(cls, *, fs_type, ficlone_supported):
         super().setUpClass()
