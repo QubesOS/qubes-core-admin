@@ -520,7 +520,7 @@ class ZFSPool(qubes.storage.Pool):
         ephemeral_volatile: bool = False,
         snap_on_start_forensics: bool = False,
     ):
-        super().__init__(  # type: ignore
+        super().__init__(
             name=name,
             revisions_to_keep=revisions_to_keep,
             ephemeral_volatile=ephemeral_volatile,
@@ -546,7 +546,7 @@ class ZFSPool(qubes.storage.Pool):
         self._cached_size = 0
         self.log = logging.getLogger("%s" % (self.name,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type: ignore
+            self.log.debug = self.log.warning  # type: ignore[method-assign]
         self.accessor: ZFSAccessor = ZFSAccessor(self.container)
 
     def __repr__(self) -> str:
@@ -582,7 +582,7 @@ class ZFSPool(qubes.storage.Pool):
                 vm_name = str(vm.name)
             else:
                 # for the future if we have volumes not belonging to a vm
-                vm_name = qubes.utils.random_string()  # type: ignore
+                vm_name = qubes.utils.random_string()
 
             vid = Vid.make(self.container, vm_name, volume_config["name"])
         else:
@@ -1837,7 +1837,7 @@ class ZFSVolume(qubes.storage.Volume):
         # Intify.
         # The code is now designed to work with zero
         # revisions_to_keep.
-        super().__init__(  # type: ignore
+        super().__init__(
             name=name,
             pool=pool,
             vid=vid,
@@ -1854,7 +1854,7 @@ class ZFSVolume(qubes.storage.Volume):
         self.vid = vid
         self.log = logging.getLogger("%s" % (self.vid,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type: ignore
+            self.log.debug = self.log.warning  # type: ignore[method-assign]
         if kwargs:
             raise qubes.exc.StoragePoolException(
                 "Unsupported arguments received: %s" % ", ".join(kwargs),
@@ -2042,15 +2042,15 @@ class ZFSVolume(qubes.storage.Volume):
                 self.log.debug("Source is a File volume")
                 # File volume export() does not actually return a coroutine.
                 # This isn't just a typing error.  The await() fails.
-                in_ = await asyncio.to_thread(source.export)  # type: ignore
+                in_ = await asyncio.to_thread(source.export)
             else:
                 self.log.debug("Source is not a ZFS volume")
-                in_ = await source.export()  # type: ignore
+                in_ = await source.export()
             try:
                 async with self._copy_into_volume_2phase(source.size) as out:
                     await duplicate_disk(in_, out, self.log)
             finally:
-                await source.export_end(in_)  # type: ignore
+                await source.export_end(in_)
 
     async def _wipe_and_create_empty(
         self,
@@ -2256,10 +2256,10 @@ class ZFSVolume(qubes.storage.Volume):
                 timestamp = timestamp_from_revision(sninfo.name)
                 revisions[sninfo.name.snapshot] = qubes.storage.isodate(
                     timestamp,
-                )  # type: ignore
+                )
         return revisions
 
-    @property  # type: ignore
+    @property
     def size(self) -> int:
         """
         Get the allocated size of this volume.
@@ -2276,7 +2276,7 @@ class ZFSVolume(qubes.storage.Volume):
         )
 
     @property
-    def usage(self) -> int:  # type: ignore
+    def usage(self) -> int:  # type: ignore[override]
         """
         Return used size of dataset in bytes.
 
@@ -2296,7 +2296,7 @@ class ZFSVolume(qubes.storage.Volume):
             log=self.log,
         )
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def remove(self) -> "ZFSVolume":
         # FIXME: if the last volume of the VM is removed, then
         # the parent dataset should be removed too.
@@ -2304,7 +2304,7 @@ class ZFSVolume(qubes.storage.Volume):
         self.pool.notify_volume_deleted(self)
         return ret
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def create(self) -> "ZFSVolume":
         self.log.debug(
             "Creating %s save_on_stop %s snap_on_start %s",
@@ -2351,7 +2351,7 @@ class ZFSVolume(qubes.storage.Volume):
 
         return self
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def start(self) -> "ZFSVolume":
         """Start the volume, ensuring it is available to use in VMs."""
         # I have investigated what the other drivers do in this case for
@@ -2441,7 +2441,7 @@ class ZFSVolume(qubes.storage.Volume):
         )
         return self
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def stop(self) -> "ZFSVolume":
         """
         Stop the volume, making it clean for clones and such.
@@ -2559,7 +2559,7 @@ class ZFSVolume(qubes.storage.Volume):
         """Return :py:class:`qubes.storage.BlockDevice` for serialization in
         the libvirt XML template as <disk>.
         """
-        return qubes.storage.BlockDevice(  # type: ignore
+        return qubes.storage.BlockDevice(
             os.path.join(
                 ZVOL_DIR,
                 self.volume,
@@ -2571,7 +2571,7 @@ class ZFSVolume(qubes.storage.Volume):
             self.devtype,
         )
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def import_volume(
         self,
         src_volume: qubes.storage.Volume,
@@ -2618,7 +2618,7 @@ class ZFSVolume(qubes.storage.Volume):
                 "Import operation in progress on {}".format(self.volume)
             )
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def import_data(self, size: int) -> str:
         """
         Return a path name that can be `open()`ed.
@@ -2642,7 +2642,7 @@ class ZFSVolume(qubes.storage.Volume):
         )
         return os.path.join(ZVOL_DIR, imp)
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def import_data_end(self, success: bool) -> None:
         """Either commit imported data, or discard temporary volume"""
         self.log.debug("End of importing data into %s", self.volume)
@@ -2676,7 +2676,7 @@ class ZFSVolume(qubes.storage.Volume):
             )
         return False
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def resize(self, size: int) -> None:
         """
         Resizes volume.
@@ -2741,7 +2741,7 @@ class ZFSVolume(qubes.storage.Volume):
         )
         this_isodate = qubes.storage.isodate(
             this_volume_timestamp,
-        )  # type: ignore
+        )
         return bool(last_source_rev_isodate > this_isodate)
 
     @property
@@ -2798,7 +2798,7 @@ class ZFSVolume(qubes.storage.Volume):
             )
         )[-1]
 
-    @qubes.storage.Volume.locked  # type: ignore
+    @qubes.storage.Volume.locked
     async def revert(self, revision: Optional[str] = None) -> "ZFSVolume":
         """
         Revert to a particular revision, or the most recent one

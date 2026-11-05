@@ -846,7 +846,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             "memory",
             lambda self: qubes.config.defaults[
                 (
-                    "hvm_memory"  # type: ignore
+                    "hvm_memory"
                     if self.virt_mode == "hvm"
                     else "memory"
                 )
