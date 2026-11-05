@@ -4052,6 +4052,56 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 )
             self.assertEqual(result, expected_info)
 
+    @unittest.mock.patch("subprocess.check_call")
+    @unittest.mock.patch("pwd.getpwnam")
+    @unittest.mock.patch("grp.getgrnam")
+    def test_613_backup_info_dom0_to_dom0_home(
+        self, mock_getgrnam, mock_getpwnam, mock_check_call
+    ):
+        backup_profile = (
+            "include:\n"
+            " - dom0\n"
+            "destination_vm: dom0\n"
+            "destination_path: {}\n"
+            "passphrase_text: test\n"
+        )
+        with tempfile.TemporaryDirectory() as home_dir:
+            mock_getgrnam.return_value.gr_mem = ["user"]
+            mock_getpwnam.return_value.pw_dir = home_dir
+            for dest_path, refused in (
+                (os.path.join(home_dir, "backups"), True),
+                ("/var/tmp", False),
+            ):
+                with self.subTest(dest_path=dest_path):
+                    mock_check_call.reset_mock()
+                    with tempfile.TemporaryDirectory() as profile_dir:
+                        with open(
+                            os.path.join(profile_dir, "testprofile.conf"),
+                            "w",
+                        ) as profile_file:
+                            profile_file.write(backup_profile.format(dest_path))
+                        with unittest.mock.patch(
+                            "qubes.config.backup_profile_dir", profile_dir
+                        ):
+                            if refused:
+                                with self.assertRaisesRegex(
+                                    qubes.exc.QubesException,
+                                    "Can not backup dom0 home directory",
+                                ):
+                                    self.call_mgmt_func(
+                                        b"admin.backup.Info",
+                                        b"dom0",
+                                        b"testprofile",
+                                    )
+                                mock_check_call.assert_not_called()
+                            else:
+                                self.call_mgmt_func(
+                                    b"admin.backup.Info",
+                                    b"dom0",
+                                    b"testprofile",
+                                )
+                                mock_check_call.assert_called_once()
+
     @unittest.mock.patch("qubes.backup.Backup")
     def test_620_backup_execute(self, mock_backup):
         backup_profile = (
