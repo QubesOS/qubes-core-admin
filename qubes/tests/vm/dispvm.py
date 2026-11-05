@@ -30,9 +30,13 @@ import qubes.vm.templatevm
 import qubes.tests
 import qubes.tests.vm
 import qubes.tests.vm.appvm
+from typing import Any
 
 
 class TestApp(qubes.tests.vm.TestApp):
+    default_dispvm: Any
+    save: Any
+
     def __init__(self):
         super().__init__()
         self.qid_counter = 0

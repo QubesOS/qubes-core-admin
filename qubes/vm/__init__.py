@@ -26,7 +26,7 @@ import asyncio
 import re
 import string
 import uuid
-from typing import List
+from typing import TYPE_CHECKING, Any, List
 
 import lxml.etree
 
@@ -37,6 +37,17 @@ import qubes.events
 import qubes.features
 import qubes.log
 from qubes.utils import is_pci_path, sbdf_to_path
+
+if TYPE_CHECKING:
+    from . import (
+        adminvm,
+        appvm,
+        dispvm,
+        qubesvm,
+        remotevm,
+        standalonevm,
+        templatevm,
+    )
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -246,6 +257,14 @@ class BaseVM(qubes.PropertyHolder):
     provides basic framework. It contains no management logic. For that, see
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     """
+
+    app: Any
+    features: Any
+    name: Any
+
+    log: Any
+    storage: Any
+    _qdb_connection_watch: Any
 
     # pylint: disable=no-member
 

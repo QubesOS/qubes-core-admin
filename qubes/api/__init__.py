@@ -30,11 +30,14 @@ import socket
 import string
 import struct
 import traceback
-from typing import Union, Any, Literal, Generator
+from typing import TYPE_CHECKING, Collection, Union, Any, Literal, Generator
 import uuid
 
 import qubes.exc
 from qubes.exc import ProtocolError, PermissionDenied
+
+if TYPE_CHECKING:
+    from . import admin
 
 
 def method(
@@ -331,7 +334,7 @@ class AbstractQubesAPI:
 
     def enforce_arg(
         self,
-        wants: Union[list, tuple],
+        wants: Collection,
         short_reason: str = "",
     ) -> None:
         """Enforce argument to be absent or be in iterable."""
@@ -379,6 +382,8 @@ class AbstractQubesAPI:
 
 
 class QubesDaemonProtocol(asyncio.Protocol):
+    transport: Any
+
     buffer_size = 65536
     header = struct.Struct("Bx")
 

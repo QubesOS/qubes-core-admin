@@ -31,6 +31,7 @@ import os
 import random
 import sys
 import time
+from typing import Any
 import traceback
 import uuid
 from contextlib import suppress
@@ -71,6 +72,10 @@ import qubes.vm.templatevm
 
 
 class VirDomainWrapper:
+    _connection: Any
+
+    _vm: Any
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, connection, vm):
@@ -284,6 +289,10 @@ class QubesHost:
     :param qubes.Qubes app: Qubes application context (must have \
         :py:attr:`Qubes.vmm` attribute defined)
     """
+
+    _total_mem: Any
+    _no_cpus: Any
+    _physinfo: Any
 
     def __init__(self, app):
         self.app = app
@@ -1165,6 +1174,11 @@ class Qubes(qubes.PropertyHolder):
 
     Methods and attributes:
     """
+
+    __locked_fh: Any
+
+    api_admin_pending_clone: dict
+    api_admin_running_backups: dict
 
     default_guivm = qubes.VMProperty(
         "default_guivm",

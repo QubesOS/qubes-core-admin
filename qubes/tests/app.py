@@ -36,9 +36,11 @@ import logging
 import time
 
 from qubes.tests.vm.qubesvm import TestQubesDB
+from typing import Any
 
 
 class TestApp(qubes.tests.TestEmitter):
+    vmm: Any
 
     def __init__(self):
         super().__init__()

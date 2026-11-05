@@ -31,7 +31,7 @@ import subprocess
 from datetime import datetime, timezone
 
 import asyncio
-from typing import Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 import lxml.etree
 import importlib.metadata
@@ -39,6 +39,9 @@ import qubes
 import qubes.exc
 import qubes.utils
 from qubes.exc import StoragePoolException
+
+if TYPE_CHECKING:
+    from . import lvm
 
 STORAGE_ENTRY_POINT = "qubes.storage"
 VOLUME_STATE_DIR = "/var/run/qubes/"

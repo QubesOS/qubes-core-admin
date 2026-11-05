@@ -33,6 +33,10 @@ from qubes.device_protocol import (
     DeviceAssignment,
     VirtualDevice,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import unittest.mock
 
 
 def async_test(f):

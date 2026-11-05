@@ -41,6 +41,10 @@ import sphinx.util.docfields
 from sphinx.util import logging
 
 import qubes.tools
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import sphinx.addnodes
 
 SUBCOMMANDS_TITLE = "COMMANDS"
 OPTIONS_TITLE = "OPTIONS"

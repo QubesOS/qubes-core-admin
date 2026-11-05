@@ -26,6 +26,10 @@ import qubes.vm.adminvm
 from qrexec.policy import utils, parser
 
 from qubes.device_protocol import DeviceInfo, DeviceInterface
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import importlib.metadata
 
 PROHIBITED_FEATURES = [
     "deferred-netvm-original",

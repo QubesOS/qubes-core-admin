@@ -37,6 +37,7 @@ import subprocess
 import tempfile
 import termios
 import time
+from typing import Any
 
 from .utils import size_to_human
 import qubes
@@ -264,6 +265,11 @@ class Backup:
     """
 
     # pylint: disable=too-many-instance-attributes
+    passphrase: Any
+    target_dir: Any
+    target_vm: Any
+    tmpdir: Any
+
     class FileToBackup:
         # pylint: disable=too-few-public-methods
         def __init__(

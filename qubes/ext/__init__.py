@@ -27,11 +27,18 @@ particular customer.
 
 import collections
 import importlib.metadata
+from typing import TYPE_CHECKING, Any
+
 import qubes.events
+
+if TYPE_CHECKING:
+    from . import admin, pci, utils
 
 
 class Extension:
     """Base class for all extensions"""
+
+    _instance: Any
 
     # pylint: disable=too-few-public-methods
 

@@ -19,7 +19,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional, Union, Iterator, Tuple
+from typing import Any, Optional, Union, Iterator, Tuple
 
 import qubes.config
 import qubes.events
@@ -30,6 +30,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
     """
     VM class capable of being disposable template.
     """
+
+    app: Any
+    features: Any
+    log: Any
+    name: Any
 
     # pylint doesn't see event handlers being registered via decorator
     # pylint: disable=unused-private-member

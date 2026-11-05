@@ -31,11 +31,28 @@ import collections.abc
 import os
 import os.path
 import string
+from typing import TYPE_CHECKING, Any
 
 import lxml.etree
 import qubes.config
 import qubes.events
 import qubes.exc
+
+if TYPE_CHECKING:
+    from . import (
+        api,
+        config,
+        device_protocol,
+        events,
+        exc,
+        ext,
+        features,
+        qmemman,
+        storage,
+        tools,
+        utils,
+        vm,
+    )
 
 __author__ = "Invisible Things Lab"
 __license__ = "GPLv2 or later"
@@ -599,6 +616,8 @@ class PropertyHolder(qubes.events.Emitter):
 
     Members:
     """
+
+    log: Any
 
     def __init__(self, xml, **kwargs):
         self.xml = xml

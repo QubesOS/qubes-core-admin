@@ -27,6 +27,10 @@ import dataclasses
 from typing import Union
 
 import qubesadmin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubesadmin.utils
 
 
 @dataclasses.dataclass

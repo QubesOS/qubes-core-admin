@@ -34,6 +34,10 @@ import qubes.exc
 import qubes.vm
 import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
 @qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")
