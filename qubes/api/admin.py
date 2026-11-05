@@ -2505,6 +2505,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission()
 
+        # stop the backup if the client goes away
+        self.cancellable = True
+
         if not hasattr(self.app, "api_admin_running_backups"):
             self.app.api_admin_running_backups = {}
 

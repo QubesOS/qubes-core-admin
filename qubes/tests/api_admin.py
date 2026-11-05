@@ -4367,6 +4367,67 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                     )
         self.vm.run_service.assert_not_called()
 
+    @unittest.mock.patch("qubes.backup.Backup")
+    def test_624_backup_execute_client_gone(self, mock_backup):
+        """Closing the client connection cancels the running backup."""
+        backup_profile = (
+            "include:\n"
+            " - test-vm1\n"
+            "destination_vm: test-vm1\n"
+            "destination_path: /home/user\n"
+            "passphrase_text: test\n"
+        )
+        backup_started = asyncio.Event()
+        backup_cancelled = False
+
+        async def backup_do():
+            nonlocal backup_cancelled
+            backup_started.set()
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                backup_cancelled = True
+                raise
+
+        mock_backup.return_value.backup_do.side_effect = backup_do
+
+        async def run(sockpath):
+            loop = asyncio.get_running_loop()
+            server = await loop.create_unix_server(
+                lambda: qubes.api.QubesDaemonProtocol(
+                    qubes.api.admin.QubesAdminAPI, app=self.app
+                ),
+                sockpath,
+            )
+            try:
+                with socket.socket(socket.AF_UNIX) as client:
+                    client.setblocking(False)
+                    await loop.sock_connect(client, sockpath)
+                    await loop.sock_sendall(
+                        client,
+                        b"admin.backup.Execute+testprofile dom0 name dom0\0",
+                    )
+                    client.shutdown(socket.SHUT_WR)
+                    await asyncio.wait_for(backup_started.wait(), 1)
+                    await asyncio.sleep(0.1)
+                    self.assertFalse(backup_cancelled)
+                for _ in range(10):
+                    if not self.app.api_admin_running_backups:
+                        break
+                    await asyncio.sleep(0.1)
+            finally:
+                server.close()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(
+                os.path.join(tmpdir, "testprofile.conf"), "w"
+            ) as profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch("qubes.config.backup_profile_dir", tmpdir):
+                self.loop.run_until_complete(run(os.path.join(tmpdir, "sock")))
+        self.assertTrue(backup_cancelled, "backup goes on after client closed")
+        self.assertEqual(self.app.api_admin_running_backups, {})
+
     def test_630_vm_stats(self):
         send_event = unittest.mock.Mock(spec=[])
 
