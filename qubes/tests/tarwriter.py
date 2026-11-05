@@ -20,6 +20,7 @@
 
 import os
 import subprocess
+import sys
 import tempfile
 
 import shutil
@@ -155,3 +156,23 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
         with self.assertNotRaises(subprocess.CalledProcessError):
             subprocess.check_call(["gzip", "--test", self.output_path])
         self.assertTarExtractable()
+
+    def test_013_compress_program_failed(self):
+        """tarwriter exits with the exit code of a failed compress program."""
+        self.write_sparse_chunks(1)
+        filter_path = os.path.join(self.extract_dir, "failing-filter")
+        with open(filter_path, "w") as f:
+            f.write("#!/bin/sh\ncat >/dev/null\nexit 3\n")
+        os.chmod(filter_path, 0o755)
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "qubes.tarwriter",
+                "--use-compress-program=" + filter_path,
+                self.input_path,
+                self.output_path,
+            ],
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 3)
