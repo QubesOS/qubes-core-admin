@@ -334,7 +334,7 @@ class TC_00_List(qubes.tests.SystemTestCase):
                 )
 
 
-class AttachMixin:
+class AttachMixin(qubes.tests.SystemTestMixinBase):
     template = None
 
     def setUp(self):

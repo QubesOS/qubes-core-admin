@@ -1748,6 +1748,15 @@ class SystemTestCase(QubesTestCase):
         await self.wait_for_session(vm)
 
 
+# Mixins must stay plain classes at runtime, or unittest would collect them.
+if TYPE_CHECKING:
+    QubesTestMixinBase = QubesTestCase
+    SystemTestMixinBase = SystemTestCase
+else:
+    QubesTestMixinBase = object
+    SystemTestMixinBase = object
+
+
 _templates = None
 
 

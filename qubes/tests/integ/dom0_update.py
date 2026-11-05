@@ -58,7 +58,7 @@ except subprocess.CalledProcessError:
     os.path.exists("/usr/bin/rpmsign") and os.path.exists("/usr/bin/rpmbuild"),
     "rpm-sign and/or rpm-build not installed",
 )
-class TC_00_Dom0UpgradeMixin(object):
+class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for downloading dom0 updates using VMs based on different templates
     """
@@ -631,7 +631,7 @@ HiddenServiceVersion 3
         )
 
 
-class TC_10_QvmTemplateMixin(object):
+class TC_10_QvmTemplateMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for downloading dom0 updates using VMs based on different templates
     """

@@ -37,7 +37,7 @@ import qubes.vm.standalonevm
 in_qemu = os.path.exists("/sys/firmware/qemu_fw_cfg")
 
 
-class TC_00_AppVMMixin(object):
+class TC_00_AppVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_00_AppVMMixin, self).setUp()
         self.init_default_template(self.template)

@@ -1035,7 +1035,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         )
 
 
-class TC_05_StandaloneVMMixin(object):
+class TC_05_StandaloneVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_05_StandaloneVMMixin, self).setUp()
         self.init_default_template(self.template)
