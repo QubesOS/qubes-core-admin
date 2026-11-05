@@ -48,7 +48,7 @@ OPTIONS_TITLE = "OPTIONS"
 try:
     log = logging.getLogger(__name__)
 except AttributeError:
-    log = None  # type: ignore
+    log = None
 
 
 class versioncheck(docutils.nodes.warning):
