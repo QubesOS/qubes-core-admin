@@ -801,6 +801,25 @@ netvm default=True type=vm \n"""
             )
         self.assertFalse(self.vm.storage.called)
 
+    def test_110_vm_volume_revert_non_ascii(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Revert",
+                b"test-vm1",
+                b"private",
+                b"rev\xff1",
+            )
+        self.assertFalse(self.vm.volumes["private"].revert.called)
+        self.assertFalse(self.vm.storage.called)
+
     def test_120_vm_volume_resize(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {

@@ -134,7 +134,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             "/features-request/feature1": b"\xfe\x01",
         }
         self.configure_qdb(qdb_entries)
-        with self.assertRaises(UnicodeDecodeError):
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
             self.call_mgmt_func(b"qubes.FeaturesRequest")
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(

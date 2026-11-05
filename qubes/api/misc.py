@@ -54,12 +54,17 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         prefix = "/features-request/"
 
         keys = self.src.untrusted_qdb.list(prefix)
-        untrusted_features = {
-            key[len(prefix) :]: self.src.untrusted_qdb.read(key).decode(
-                "ascii", errors="strict"
+        try:
+            untrusted_features = {
+                key[len(prefix) :]: self.src.untrusted_qdb.read(key).decode(
+                    "ascii", errors="strict"
+                )
+                for key in keys
+            }
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Feature value contains non-ASCII characters"
             )
-            for key in keys
-        }
 
         safe_set = string.ascii_letters + string.digits + "-.,_= "
         for untrusted_key in untrusted_features:
