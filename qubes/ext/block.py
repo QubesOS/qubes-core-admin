@@ -50,6 +50,21 @@ SYSTEM_DISKS = ("xvda", "xvdb", "xvdc")
 SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 
 
+def _query_qdb(vm, method, path):
+    """Call `read` or `list` on the QubesDB of *vm*.
+
+    None when QubesDB doesn't answer, as a qube that is starting or dying
+    must not break a listing that goes over all qubes.
+    """
+    import qubesdb  # pylint: disable=import-error
+
+    try:
+        qdb = getattr(vm, "untrusted_qdb", None)
+        return getattr(qdb, method)(path) if qdb is not None else None
+    except qubesdb.Error:
+        return None
+
+
 class BlockDevice(qubes.device_protocol.DeviceInfo):
     SUPPORTED_ASSIGNMENT_MODES = frozenset(
         {
@@ -103,8 +118,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     def _load_lazily_name_and_serial(self):
         if not self.backend_domain.is_running():
             return "unknown", "unknown"
-        untrusted_desc = self.backend_domain.untrusted_qdb.read(
-            f"/qubes-block-devices/{self.port_id}/desc"
+        untrusted_desc = _query_qdb(
+            self.backend_domain,
+            "read",
+            f"/qubes-block-devices/{self.port_id}/desc",
         )
         if not untrusted_desc:
             return "unknown", "unknown"
@@ -135,8 +152,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if self._mode is None:
             if not self.backend_domain.is_running():
                 return "w"
-            untrusted_mode = self.backend_domain.untrusted_qdb.read(
-                "/qubes-block-devices/{}/mode".format(self.port_id)
+            untrusted_mode = _query_qdb(
+                self.backend_domain,
+                "read",
+                "/qubes-block-devices/{}/mode".format(self.port_id),
             )
             if untrusted_mode is None:
                 self._mode = "w"
@@ -155,8 +174,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if self._size is None:
             if not self.backend_domain.is_running():
                 return None
-            untrusted_size = self.backend_domain.untrusted_qdb.read(
-                "/qubes-block-devices/{}/size".format(self.port_id)
+            untrusted_size = _query_qdb(
+                self.backend_domain,
+                "read",
+                "/qubes-block-devices/{}/size".format(self.port_id),
             )
             if untrusted_size is None:
                 self._size = 0
@@ -212,8 +233,10 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if self._parent is None:
             if not self.backend_domain or not self.backend_domain.is_running():
                 return None
-            untrusted_parent_info = self.backend_domain.untrusted_qdb.read(
-                f"/qubes-block-devices/{self.port_id}/parent"
+            untrusted_parent_info = _query_qdb(
+                self.backend_domain,
+                "read",
+                f"/qubes-block-devices/{self.port_id}/parent",
             )
             if untrusted_parent_info is None:
                 return None
@@ -395,8 +418,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
         :returns BlockDevice
         """
 
-        untrusted_qubes_device_attrs = vm.untrusted_qdb.list(
-            "/qubes-block-devices/{}/".format(port_id)
+        untrusted_qubes_device_attrs = _query_qdb(
+            vm, "list", "/qubes-block-devices/{}/".format(port_id)
         )
         if not untrusted_qubes_device_attrs:
             return None
@@ -410,7 +433,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
         if not vm.is_running():
             return
-        untrusted_qubes_devices = vm.untrusted_qdb.list("/qubes-block-devices/")
+        untrusted_qubes_devices = _query_qdb(
+            vm, "list", "/qubes-block-devices/"
+        )
+        if not untrusted_qubes_devices:
+            return
         untrusted_idents = set(
             untrusted_path.split("/", 3)[2]
             for untrusted_path in untrusted_qubes_devices

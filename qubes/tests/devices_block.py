@@ -1413,3 +1413,71 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
         self.ext.detach_and_notify.assert_called_once_with(front, exp_dev.port)
         self.assertEqual(self.ext.devices_cache, {"sys-usb": {}})
+
+    def assert_no_devices(self, vm):
+        self.assertEqual(list(self.ext.on_device_list_block(vm, None)), [])
+        self.assertIsNone(self.ext.device_get(vm, "sda"))
+
+    def test_100_qdb_available(self):
+        """A qube with a working QubesDB lists its block devices."""
+        back, _ = self.added_assign_setup()
+        self.assertEqual(
+            [d.port_id for d in self.ext.on_device_list_block(back, None)],
+            ["sda"],
+        )
+        self.assertIsNotNone(self.ext.device_get(back, "sda"))
+
+    def test_101_qdb_not_ready(self):
+        """A qube whose QubesDB is not ready yet exposes no block devices."""
+        back, _ = self.added_assign_setup()
+        back.untrusted_qdb = None
+        self.assert_no_devices(back)
+
+    def test_102_qdb_connect_fails(self):
+        """A qube whose QubesDB refuses to connect exposes no block devices."""
+        import qubesdb  # pylint: disable=import-error
+
+        back, _ = self.added_assign_setup()
+        with mock.patch.object(
+            TestVM,
+            "untrusted_qdb",
+            new_callable=mock.PropertyMock,
+            side_effect=qubesdb.Error(111, "Connection refused"),
+            create=True,
+        ):
+            self.assert_no_devices(back)
+
+    def test_103_qdb_connection_lost(self):
+        """A QubesDB connection lost while listing gives no block devices."""
+        import qubesdb  # pylint: disable=import-error
+
+        back, _ = self.added_assign_setup()
+        back.untrusted_qdb = mock.Mock()
+        back.untrusted_qdb.list.side_effect = qubesdb.DisconnectedError()
+        self.assert_no_devices(back)
+
+    def test_104_read_qdb_connection_lost(self):
+        """A lost QubesDB connection makes block device properties unknown."""
+        import qubesdb  # pylint: disable=import-error
+
+        back, _ = self.added_assign_setup()
+        dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
+        back.untrusted_qdb = mock.Mock()
+        back.untrusted_qdb.read.side_effect = qubesdb.DisconnectedError()
+        self.assertEqual(dev.name, "unknown")
+        self.assertEqual(dev.serial, "unknown")
+        self.assertEqual(dev.mode, "w")
+        self.assertEqual(dev.size, 0)
+        self.assertIsNone(dev.parent_device)
+        dev.serialize()
+
+    def test_105_domain_load_qdb_lost(self):
+        """domain-load of a qube whose QubesDB is gone caches no devices."""
+        import qubesdb  # pylint: disable=import-error
+
+        back, _ = self.added_assign_setup()
+        back.watch_qdb_path = mock.Mock()
+        back.untrusted_qdb = mock.Mock()
+        back.untrusted_qdb.list.side_effect = qubesdb.DisconnectedError()
+        self.ext.on_domain_init_load(back, "domain-load")
+        self.assertEqual(self.ext.devices_cache["sys-usb"], {})
