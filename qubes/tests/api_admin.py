@@ -40,6 +40,7 @@ import qubes.exc
 import qubes.firewall
 import qubes.api.admin
 import qubes.api.internal
+import qubes.backup
 import qubes.tests
 import qubes.storage
 
@@ -3983,6 +3984,54 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
                     self.call_mgmt_func(
                         b"admin.backup.Info", b"dom0", b"testprofile"
                     )
+
+    def test_604_backup_info_remotevm(self):
+        """A RemoteVM named in a profile is listed as not selected."""
+        self.app.add_new_vm("RemoteVM", name="remote-vm", label="blue")
+        backup_profile = (
+            "include:\n"
+            " - test-vm1\n"
+            " - remote-vm\n"
+            "destination_vm: test-vm1\n"
+            "destination_path: /var/tmp\n"
+            "passphrase_text: test\n"
+        )
+        expected_info = (
+            "------------------+--------------+--------------+\n"
+            "               VM |         type |         size |\n"
+            "------------------+--------------+--------------+\n"
+            "         test-vm1 |           VM |            0 |\n"
+            "------------------+--------------+--------------+\n"
+            "      Total size: |                           0 |\n"
+            "------------------+--------------+--------------+\n"
+            "VMs not selected for backup:\n"
+            " - dom0\n"
+            " - remote-vm\n"
+            " - test-template\n"
+        )
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(
+                os.path.join(profile_dir, "testprofile.conf"), "w"
+            ) as profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch(
+                "qubes.config.backup_profile_dir", profile_dir
+            ):
+                result = self.call_mgmt_func(
+                    b"admin.backup.Info", b"dom0", b"testprofile"
+                )
+            self.assertEqual(result, expected_info)
+
+    def test_605_backup_remotevm_include_in_backups(self):
+        """A RemoteVM with include_in_backups is left out of the backup."""
+        remotevm = self.app.add_new_vm(
+            "RemoteVM", name="remote-vm", label="blue"
+        )
+        remotevm.include_in_backups = True
+        backup = qubes.backup.Backup(
+            self.app, exclude_list=["dom0", "test-template"]
+        )
+        self.assertEqual(backup.vms_for_backup, [self.vm])
 
     def test_610_backup_cancel_not_running(self):
         with self.assertRaises(qubes.exc.QubesException):

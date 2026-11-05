@@ -393,7 +393,9 @@ class Backup:
 
         # Apply exclude list
         self.vms_for_backup = [
-            vm for vm in vms_list if vm.name not in exclude_list
+            vm
+            for vm in vms_list
+            if vm.name not in exclude_list and isinstance(vm, qubes.vm.LocalVM)
         ]
 
         self._files_to_backup = self.get_files_to_backup()
