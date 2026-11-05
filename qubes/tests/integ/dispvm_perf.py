@@ -42,7 +42,7 @@ VM_DISPVM = env_with_reason("VM_DISPVM", False)
 VM_VM = env_with_reason("VM_VM", False)
 
 
-class TC_00_DispVMPerfMixin:
+class TC_00_DispVMPerfMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self: qubes.tests.SystemTestCase):
         super().setUp()
         if "whonix-g" in self.template:

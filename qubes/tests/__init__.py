@@ -70,6 +70,7 @@ import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
 from qubes.log import Formatter
+from typing import TYPE_CHECKING
 
 XMLPATH = "/var/lib/qubes/qubes-test.xml"
 CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
@@ -1740,6 +1741,15 @@ class SystemTestCase(QubesTestCase):
         """Start a VM and wait for it to be fully up"""
         await vm.start()
         await self.wait_for_session(vm)
+
+
+# Mixins must stay plain classes at runtime, or unittest would collect them.
+if TYPE_CHECKING:
+    QubesTestMixinBase = QubesTestCase
+    SystemTestMixinBase = SystemTestCase
+else:
+    QubesTestMixinBase = object
+    SystemTestMixinBase = object
 
 
 _templates = None

@@ -31,7 +31,7 @@ import qubes.vm
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
-class VmUpdatesMixin(object):
+class VmUpdatesMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for VM updates
     """
