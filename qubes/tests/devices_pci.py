@@ -22,9 +22,12 @@ import functools
 import os.path
 from unittest import mock
 
+import libvirt
+
 from qubes.vm.adminvm import AdminVM
 from qubes.vm.appvm import AppVM
 
+import qubes.exc
 import qubes.tests
 import qubes.tests.vm
 import qubes.ext.pci
@@ -33,6 +36,7 @@ from qubes.device_protocol import (
     DeviceInterface,
     DeviceAssignment,
     VirtualDevice,
+    UnknownDevice,
 )
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
@@ -184,6 +188,16 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
         path = path_to_sbdf("0000_c0_03.7-00_00.0-00_00.0")
         self.assertEqual(path, None)
 
+    def test_013_path_to_sbdf_missing_on_root_bus(self):
+        """A device missing from sysfs on an existing root bus has no SBDF."""
+        path = path_to_sbdf("0000_00_18.7")
+        self.assertEqual(path, None)
+
+    def test_014_path_to_sbdf_missing_behind_bridge(self):
+        """A device missing behind an existing bridge has no SBDF."""
+        path = path_to_sbdf("0000_c0_03.5-00_00.0-00_00.1")
+        self.assertEqual(path, None)
+
     def test_020_is_pci_path(self):
         self.assertTrue(is_pci_path("0000_00_18.4"))
 
@@ -252,6 +266,45 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         not_dom0 = self.appvm
         devices = list(self.ext.on_device_list_pci(not_dom0, "device-list:pci"))
         self.assertEqual(devices, [])
+
+    @mock.patch("builtins.open", new=mock_file_open)
+    def test_002_list_skips_device_not_in_sysfs(self):
+        """A device libvirt lists but sysfs doesn't is left out."""
+        vm = self.dom0
+        vm.app.vmm = mock.Mock()
+        vm.app.vmm.configure_mock(
+            **{
+                "offline_mode": False,
+                "libvirt_conn.nodeDeviceLookupByName.return_value": mock.Mock(
+                    **{
+                        "XMLDesc.return_value": PCI_XML.format(
+                            address="0000"
+                        ).replace("pci_0000_00_14_0", "pci_0000_00_18_7")
+                    }
+                ),
+                "libvirt_conn.listDevices.return_value": ["pci_0000_00_18_7"],
+            }
+        )
+        self.assertEqual(
+            list(self.ext.on_device_list_pci(vm, "device-list:pci")), []
+        )
+
+    def test_003_list_attached_device_not_in_sysfs(self):
+        """An attached device gone from sysfs is listed as unknown."""
+        vm = self.appvm
+        vm._libvirt_domain = mock.Mock()
+        vm._libvirt_domain.XMLDesc.return_value = (
+            "<domain><devices><hostdev type='pci'><source>"
+            "<address domain='0x0000' bus='0x00' slot='0x18' function='0x7'/>"
+            "</source></hostdev></devices></domain>"
+        )
+        with mock.patch.object(vm, "is_running", return_value=True):
+            attached = list(
+                self.ext.on_device_list_attached(vm, "device-list-attached:pci")
+            )
+        self.assertEqual(len(attached), 1)
+        self.assertIsInstance(attached[0][0], UnknownDevice)
+        self.assertEqual(attached[0][0].port_id, "00_18.7")
 
     @mock.patch("builtins.open", new=mock_file_open)
     def test_001_unsupported_path(self):
@@ -397,6 +450,18 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             assert False
 
     def test_010_unassign_missing(self):
+        self._unassign_missing("0000_c0_03.7-00_00.0-00_00.0")
+
+    def test_011_unassign_missing_on_existing_bus(self):
+        """Unassigning works for a device gone from an existing bus."""
+        # libvirt doesn't know a removed device
+        self.app.vmm.offline_mode = False
+        self.app.vmm.libvirt_mock.nodeDeviceLookupByName.side_effect = (
+            libvirt.libvirtError("Node device not found")
+        )
+        self._unassign_missing("0000_00_18.7")
+
+    def _unassign_missing(self, missing_port_id):
         vm = self.appvm
         vm.events_enabled = False
         vm.fire_event_async = mock.AsyncMock()
@@ -410,7 +475,6 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         self.dom0.devices = {"pci": dom0_pci_devices}
         self.app.domains["testvm"] = vm
         self.app.domains[vm] = vm
-        missing_port_id = "0000_c0_03.7-00_00.0-00_00.0"
         missing_device_id = "0x8086:0x8cb1::p0c0330"
         device_assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.VirtualDevice(
@@ -446,6 +510,45 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         )
         self.assertEqual(response, None)
         self.assertListEqual(list(pci_devices.get_assigned_devices()), [])
+
+    @mock.patch("subprocess.Popen")
+    def test_021_pre_detach_pci_missing(self, mock_popen):
+        """Detaching a missing device raises instead of passing silently."""
+        vm = self.appvm
+        vm.run_service_for_stdio = mock.AsyncMock()
+        port = qubes.device_protocol.Port(
+            backend_domain=self.dom0,
+            port_id="0000_00_18.7",
+            devclass="pci",
+        )
+        with mock.patch.object(vm, "is_running", return_value=True):
+            with self.assertRaises(qubes.exc.QubesException):
+                self.loop.run_until_complete(
+                    self.ext.on_device_pre_detached_pci(
+                        vm, "device-pre-detach:pci", port
+                    )
+                )
+        mock_popen.assert_not_called()
+        vm.run_service_for_stdio.assert_not_awaited()
+
+    def test_022_pre_start_pci_missing(self):
+        """A missing assigned device, required or not, fails the start."""
+        vm = self.appvm
+        missing = UnknownDevice(
+            qubes.device_protocol.Port(self.dom0, "0000_00_18.7", "pci")
+        )
+        assignment = mock.Mock(devices=[missing])
+        pci = mock.Mock()
+        pci.get_assigned_devices.return_value = [assignment]
+        vm.devices = {"pci": pci}
+        with mock.patch.object(
+            self.ext, "bind_pci_to_pciback"
+        ) as bind, self.assertRaisesRegex(
+            qubes.exc.QubesException, "not available"
+        ):
+            self.ext.on_domain_pre_start(vm, "domain-pre-start")
+        pci.get_assigned_devices.assert_called_once_with()
+        bind.assert_not_called()
 
     @mock.patch("subprocess.Popen")
     def test_020_pre_detach_pci_executes_service(self, mock_popen):
