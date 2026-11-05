@@ -32,6 +32,7 @@ from typing import TypedDict, Dict
 
 
 class PoolConfig(TypedDict, total=False):
+    setup_check: bool
     dir_path: str
     name: str
     driver: str

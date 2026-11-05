@@ -24,6 +24,10 @@ import unittest
 from distutils import spawn
 
 import qubes
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
 class TC_06_AppVMMixin(object):

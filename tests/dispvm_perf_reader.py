@@ -39,6 +39,10 @@ import numpy as np
 import matplotlib  # type: ignore[import]
 import matplotlib.pyplot as plt  # type: ignore[import]
 import matplotlib.image  # type: ignore[import]
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import matplotlib.patches
 
 FIGSIZE = plt.rcParamsDefault["figure.figsize"]
 WIDTH = FIGSIZE[0]

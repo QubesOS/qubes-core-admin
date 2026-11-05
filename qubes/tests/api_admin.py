@@ -50,6 +50,7 @@ from qubes.device_protocol import (
     Port,
     DeviceAssignment,
 )
+from typing import Any
 
 # properties defined in API
 volume_properties = [
@@ -72,6 +73,8 @@ _uuid_regex = re.compile(
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
+    app: Any
+
     def setUp(self):
         super().setUp()
         self.test_base_dir = "/tmp/qubes-test-dir"

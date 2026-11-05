@@ -28,6 +28,10 @@ import sys
 import tempfile
 
 import qubes.vm
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming

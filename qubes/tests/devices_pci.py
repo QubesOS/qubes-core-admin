@@ -31,11 +31,21 @@ from qubes.device_protocol import (
     VirtualDevice,
 )
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
+from typing import Any
 
 orig_open = open
 
 
 class TestVM(object):
+    devices: Any
+    events_enabled: Any
+    features: Any
+    fire_event: Any
+    fire_event_async: Any
+    libvirt_domain: Any
+    run_service_for_stdio: Any
+    xid: Any
+
     def __init__(self, running=True, name="dom0", qid=0, app=None):
         self.name = name
         self.qid = qid

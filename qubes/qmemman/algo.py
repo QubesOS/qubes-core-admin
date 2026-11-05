@@ -23,7 +23,7 @@ from typing import Optional
 
 # These defaults can be overridden by QMemmanServer with values from config
 # file.
-CACHE_FACTOR = 1.3
+CACHE_FACTOR: float = 1.3
 MIN_PREFMEM = 200 * 1024 * 1024
 DOM0_MEM_BOOST = 350 * 1024 * 1024
 # REQ_SAFETY_NET_FACTOR is a bit greater that 1. So that if the domain

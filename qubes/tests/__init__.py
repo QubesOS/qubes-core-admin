@@ -70,6 +70,10 @@ import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
 from qubes.log import Formatter
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from . import never_awaited
 
 XMLPATH = "/var/lib/qubes/qubes-test.xml"
 CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
@@ -455,6 +459,8 @@ class _clear_ex_info(contextlib.ContextDecorator):
 
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests."""
+
+    loop: Any
 
     _callSetUp = never_awaited.detect()(unittest.TestCase._callSetUp)
     _callTestMethod = never_awaited.detect()(unittest.TestCase._callTestMethod)
@@ -864,6 +870,13 @@ class SystemTestCase(QubesTestCase):
     Such (group of) test need to take care about
     :py:meth:`TestCase.tearDownClass` implementation itself.
     """
+
+    dvm: Any
+    results: Any
+    template: Any
+    test_dir: Any
+    vm1: Any
+    vm2: Any
 
     def __init__(self, methodName="runTest"):
         if os.environ.get("QUBES_TEST_WAIT_ON_FAIL", None) == "1":

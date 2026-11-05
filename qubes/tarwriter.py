@@ -27,6 +27,8 @@ BUF_SIZE = 409600
 
 
 class TarSparseInfo(tarfile.TarInfo):
+    pax_headers: dict
+
     def __init__(self, name="", sparsemap=None):
         super().__init__(name)
         if sparsemap is not None:
