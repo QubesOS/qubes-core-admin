@@ -25,6 +25,7 @@ import functools
 import io
 import os
 import re
+import select
 import shutil
 import socket
 import string
@@ -384,12 +385,16 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.log_dom0_call = log_dom0_call
         self.event_sent = False
         self.mgmt = None
+        self.hangup_watch = None
 
     def connection_made(self, transport):
         self.transport = transport
 
     def connection_lost(self, exc):
         self.untrusted_buffer.close()
+        if self.hangup_watch is not None:
+            asyncio.get_running_loop().remove_reader(self.hangup_watch)
+            self.hangup_watch.close()
         # for cancellable operation, interrupt it, otherwise it will do nothing
         if self.mgmt is not None:
             self.mgmt.cancel()
@@ -431,6 +436,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         finally:
             self.untrusted_buffer.close()
 
+        self.watch_hangup()
         asyncio.ensure_future(
             self.respond(
                 src, meth, dest, arg, untrusted_payload=untrusted_payload
@@ -532,6 +538,15 @@ class QubesDaemonProtocol(asyncio.Protocol):
         if content is not None:
             data += content.encode("utf-8")
         self.write(header=header, data=data)
+
+    def watch_hangup(self):
+        """Abort the connection when the client goes away."""
+        # an empty mask reports hangup and errors only, not a half-close
+        self.hangup_watch = select.epoll()
+        self.hangup_watch.register(self.transport.get_extra_info("socket"), 0)
+        asyncio.get_running_loop().add_reader(
+            self.hangup_watch, self.transport.abort
+        )
 
     def send_event(self, subject, event, **kwargs):
         if self.transport is None:
