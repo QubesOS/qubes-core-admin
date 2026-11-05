@@ -526,11 +526,6 @@ done
 %{python3_sitelib}/qubes/tests/vm/mix/dvmtemplate.py
 %{python3_sitelib}/qubes/tests/vm/mix/net.py
 
-%dir %{python3_sitelib}/qubes/tests/tools
-%dir %{python3_sitelib}/qubes/tests/tools/__pycache__
-%{python3_sitelib}/qubes/tests/tools/__pycache__/*
-%{python3_sitelib}/qubes/tests/tools/__init__.py
-
 %dir %{python3_sitelib}/qubes/tests/integ
 %dir %{python3_sitelib}/qubes/tests/integ/__pycache__
 %{python3_sitelib}/qubes/tests/integ/__pycache__/*
