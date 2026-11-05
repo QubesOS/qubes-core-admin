@@ -50,8 +50,9 @@ def get_timezone():
         return tz_path.split("zoneinfo/")[1]
     # last resort way, some applications makes /etc/localtime
     # hardlink instead of symlink...
-    tz_info = os.stat("/etc/localtime")
-    if not tz_info:
+    try:
+        tz_info = os.stat("/etc/localtime")
+    except FileNotFoundError:
         return None
     if tz_info.st_nlink > 1:
         with subprocess.Popen(
