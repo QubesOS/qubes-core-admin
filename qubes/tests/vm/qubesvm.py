@@ -3496,6 +3496,30 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm.end_lifecycle_waiter(event="LIFE")
             self.assertIsNone(vm._lifecycle_waiter["LIFE"])
 
+        with self.subTest("Cancel only ends the cancelled wait"):
+            vm._lifecycle_waiter["LIFE"] = None
+
+            async def wait_for_event():
+                async with vm.change_libvirt_state(event="LIFE"):
+                    pass
+
+            cancelled = asyncio.create_task(wait_for_event())
+            concurrent = asyncio.create_task(wait_for_event())
+            await asyncio.sleep(0)
+            waiter = vm._lifecycle_waiter["LIFE"]
+            cancelled.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await cancelled
+            self.assertFalse(waiter.done())
+            later = asyncio.create_task(wait_for_event())
+            await asyncio.sleep(0)
+            self.assertFalse(concurrent.done())
+            self.assertFalse(later.done())
+            vm.end_lifecycle_waiter(event="LIFE")
+            async with asyncio.timeout(1):
+                await asyncio.gather(concurrent, later)
+            self.assertIsNone(vm._lifecycle_waiter["LIFE"])
+
         with self.subTest(
             "Event never arrives but we don't wait for it either"
         ):
