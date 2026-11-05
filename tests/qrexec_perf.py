@@ -77,7 +77,7 @@ all_tests = [
         True,
         False,
         True,
-        throughput_service_exec_simplex,
+        throughput_service_exec_duplex,
     ),
     TestConfig(
         "exec-data-duplex-root",
