@@ -21,7 +21,9 @@
 #
 
 import asyncio
+import importlib.metadata
 import unittest
+import unittest.mock
 import uuid
 
 import lxml.etree
@@ -673,3 +675,29 @@ class TC_40_Utils_AsyncShield(qubes.tests.QubesTestCase):
 
     def test_004_shield_on_exc_of_sync(self):
         self.loop.run_until_complete(self.call_shield_on_exc_of_sync())
+
+
+class TC_41_Utils_EntryPoint(qubes.tests.QubesTestCase):
+    def test_000_duplicate_entry_points(self):
+        epoints = (
+            importlib.metadata.EntryPoint(
+                name="Dup", value="first.module:Dup", group="qubes.vm"
+            ),
+            importlib.metadata.EntryPoint(
+                name="Dup", value="second.module:Dup", group="qubes.vm"
+            ),
+        )
+        with unittest.mock.patch(
+            "importlib.metadata.entry_points", return_value=epoints
+        ):
+            with self.assertRaises(TypeError) as ctx:
+                qubes.utils.get_entry_point_one("qubes.vm", "Dup")
+        self.assertIn("first.module:Dup", str(ctx.exception))
+        self.assertIn("second.module:Dup", str(ctx.exception))
+
+    def test_001_missing_entry_point(self):
+        with unittest.mock.patch(
+            "importlib.metadata.entry_points", return_value=()
+        ):
+            with self.assertRaises(KeyError):
+                qubes.utils.get_entry_point_one("qubes.vm", "Missing")
