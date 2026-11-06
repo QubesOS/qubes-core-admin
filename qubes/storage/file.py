@@ -425,12 +425,17 @@ class FileVolume(qubes.storage.Volume):
                 )
             )
         if self.save_on_stop:
-            _remove_if_exists(self.path)
+            # copy to a temporary file, so the old image stays if this fails
+            _remove_if_exists(self.path_import)
             path = await qubes.utils.coro_maybe(src_volume.export())
             try:
-                copy_file(path, self.path)
+                copy_file(path, self.path_import)
+            except:
+                _remove_if_exists(self.path_import)
+                raise
             finally:
                 await qubes.utils.coro_maybe(src_volume.export_end(path))
+            os.rename(self.path_import, self.path)
         return self
 
     def import_data(self, size):  # pylint: disable=invalid-overridden-method
