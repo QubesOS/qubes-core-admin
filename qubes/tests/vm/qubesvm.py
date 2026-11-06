@@ -440,6 +440,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertTrue(hasattr(vm, "uuid"))
 
     def test_005_init_check_updates_vm_disabled(self):
+        """A new qube gets the service feature disabled."""
         self.app.check_updates_vm = False
         vm = self.get_vm()
         self.assertIn("service.qubes-update-check", vm.features)
@@ -447,6 +448,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertNotIn("check-updates", vm.features)
 
     def test_006_init_check_updates_vm_enabled(self):
+        """A new qube gets no update check feature."""
         self.app.check_updates_vm = True
         vm = self.get_vm()
         self.assertNotIn("service.qubes-update-check", vm.features)
