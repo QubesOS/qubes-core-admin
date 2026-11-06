@@ -489,6 +489,9 @@ def path_to_sbdf(path: str):
             f"{segment}:{bus_num:02x}:{part_match['device']}."
             f"{part_match['function']}"
         )
+        if not os.path.lexists(f"{SYSFS_BASE}/bus/pci/devices/{current_dev}"):
+            # the bus exists, but the device is gone
+            return None
         try:
             with open(
                 f"{SYSFS_BASE}/bus/pci/devices/"
