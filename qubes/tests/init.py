@@ -22,6 +22,7 @@
 
 import asyncio
 import unittest
+import unittest.mock
 import uuid
 
 import lxml.etree
@@ -673,3 +674,10 @@ class TC_40_Utils_AsyncShield(qubes.tests.QubesTestCase):
 
     def test_004_shield_on_exc_of_sync(self):
         self.loop.run_until_complete(self.call_shield_on_exc_of_sync())
+
+
+class TC_42_Utils_Timezone(qubes.tests.QubesTestCase):
+    def test_000_no_localtime(self):
+        with unittest.mock.patch("os.path.islink", return_value=False):
+            with unittest.mock.patch("os.stat", side_effect=FileNotFoundError):
+                self.assertIsNone(qubes.utils.get_timezone())
