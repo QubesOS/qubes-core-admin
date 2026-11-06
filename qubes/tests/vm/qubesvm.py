@@ -34,6 +34,9 @@ import lxml.etree
 import unittest.mock
 
 import shutil
+from contextlib import asynccontextmanager
+
+import libvirt
 
 import qubes
 import qubes.exc
@@ -539,12 +542,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     def test_172_maxmem_running_nohotplug(self):
         vm = self.get_vm()
-        with unittest.mock.patch.object(
-            type(vm),
-            "use_memory_hotplug",
-            new_callable=unittest.mock.PropertyMock,
-            return_value=False,
-        ), unittest.mock.patch.object(vm, "is_halted", return_value=False):
+        with (
+            unittest.mock.patch.object(
+                type(vm),
+                "use_memory_hotplug",
+                new_callable=unittest.mock.PropertyMock,
+                return_value=False,
+            ),
+            unittest.mock.patch.object(vm, "is_halted", return_value=False),
+        ):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
                 vm.maxmem = 1000
             self.assertIs(cm.exception.vm, vm)
@@ -3331,6 +3337,276 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertIs(cm.exception.vm, vm)
             self.assertIn("Can't remove VM", str(cm.exception))
 
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.change_libvirt_state")
+    def test_750_pause(self, mock_state, mock_libvirt):
+        # pylint: disable=unused-argument
+        pre_paused = False
+
+        async def _pre_paused(qube, event, **kwargs):
+            nonlocal pre_paused
+            pre_paused = True
+
+        vm = self.get_vm()
+        vm.add_handler("domain-pre-paused", _pre_paused)
+        patch = unittest.mock.patch
+        with self.subTest("halted"):
+            with (
+                patch.object(vm, "is_running", return_value=False),
+                patch.object(vm, "get_power_state", return_value="Halted"),
+            ):
+                with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+                    self.loop.run_until_complete(vm.pause())
+                mock_state.assert_not_called()
+                self.assertFalse(pre_paused)
+        pre_paused = False
+
+        with patch.object(vm, "is_running", return_value=True):
+            with self.subTest("halted"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Suspended"
+                ):
+                    with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+                        self.loop.run_until_complete(vm.pause())
+                    mock_state.assert_not_called()
+                    self.assertFalse(pre_paused)
+            mock_state.reset_mock()
+            pre_paused = False
+
+            with self.subTest("running"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Running"
+                ):
+                    self.loop.run_until_complete(vm.pause())
+                    mock_state.assert_called_once_with(event="SUSPENDED")
+                    self.assertTrue(pre_paused)
+            mock_state.reset_mock()
+            pre_paused = False
+
+            with self.subTest("paused"):
+                with patch.object(vm, "get_power_state", return_value="Paused"):
+                    self.loop.run_until_complete(vm.pause())
+                    mock_state.assert_not_called()
+                    self.assertFalse(pre_paused)
+            mock_state.reset_mock()
+            pre_paused = False
+
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.change_libvirt_state")
+    def test_751_unpause(self, mock_state, mock_libvirt):
+        # pylint: disable=unused-argument
+        pre_unpaused = False
+
+        async def _pre_unpaused(qube, event, **kwargs):
+            nonlocal pre_unpaused
+            pre_unpaused = True
+
+        vm = self.get_vm()
+        vm.add_handler("domain-pre-unpaused", _pre_unpaused)
+        patch = unittest.mock.patch
+        with self.subTest("halted"):
+            with (
+                patch.object(vm, "is_running", return_value=False),
+                patch.object(vm, "get_power_state", return_value="Halted"),
+            ):
+                with self.assertRaises(qubes.exc.QubesVMNotPausedError):
+                    self.loop.run_until_complete(vm.unpause())
+                mock_state.assert_not_called()
+                self.assertFalse(pre_unpaused)
+        mock_state.reset_mock()
+        pre_unpaused = False
+
+        with patch.object(vm, "is_running", return_value=True):
+            with self.subTest("suspended"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Suspended"
+                ):
+                    with self.assertRaises(qubes.exc.QubesVMNotPausedError):
+                        self.loop.run_until_complete(vm.unpause())
+                    mock_state.assert_not_called()
+                    self.assertFalse(pre_unpaused)
+            mock_state.reset_mock()
+            pre_unpaused = False
+
+            with self.subTest("running"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Running"
+                ):
+                    with self.assertRaises(qubes.exc.QubesVMNotPausedError):
+                        self.loop.run_until_complete(vm.unpause())
+                    mock_state.assert_not_called()
+                    self.assertFalse(pre_unpaused)
+            mock_state.reset_mock()
+            pre_unpaused = False
+
+            with self.subTest("paused"):
+                with patch.object(vm, "get_power_state", return_value="Paused"):
+                    self.loop.run_until_complete(vm.unpause())
+                    mock_state.assert_called_once_with(event="RESUMED")
+                    self.assertTrue(pre_unpaused)
+            mock_state.reset_mock()
+            pre_unpaused = False
+
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.change_libvirt_state")
+    def test_752_suspend(self, mock_state, mock_libvirt):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        patch = unittest.mock.patch
+        with self.subTest("halted"):
+            with (
+                patch.object(vm, "is_running", return_value=False),
+                patch.object(vm, "get_power_state", return_value="Halted"),
+            ):
+                with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+                    self.loop.run_until_complete(vm.suspend())
+                mock_state.assert_not_called()
+        mock_state.reset_mock()
+
+        with patch.object(vm, "is_running", return_value=True):
+            with self.subTest("suspended"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Suspended"
+                ):
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_state.assert_not_called()
+            mock_state.reset_mock()
+
+            with (
+                patch.object(vm, "get_power_state", return_value="Running"),
+                patch.object(vm, "run_service_for_stdio") as mock_run,
+            ):
+
+                with self.subTest("running"):
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_not_called()
+                    mock_state.assert_called_once_with(event="PMSUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest("running"):
+                    vm.features["qrexec"] = True
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called_once_with(event="PMSUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest("running but timeout of on service"):
+                    mock_run.side_effect = asyncio.TimeoutError
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called_once_with(event="PMSUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest("running but failed on service"):
+                    mock_run.side_effect = subprocess.CalledProcessError(
+                        1, "qubes.SuspendPre", stderr=b"oh no"
+                    )
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called_once_with(event="PMSUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest("running but failed on service"):
+                    mock_run.side_effect = subprocess.CalledProcessError(
+                        1, "qubes.SuspendPre", stderr=b"oh no"
+                    )
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called_once_with(event="PMSUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest("running but failed to suspend"):
+                    mock_state.side_effect = libvirt.libvirtError("fail")
+                    with self.assertRaises(libvirt.libvirtError):
+                        self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called()
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+                with self.subTest(
+                    "running but failed to suspend and could pause"
+                ):
+
+                    @asynccontextmanager
+                    async def passes(*args, **kwargs):
+                        yield
+
+                    error = libvirt.libvirtError("fail")
+                    error.get_error_code = unittest.mock.Mock(
+                        return_value=libvirt.VIR_ERR_OPERATION_UNSUPPORTED
+                    )
+                    mock_state.side_effect = [error, passes()]
+                    self.loop.run_until_complete(vm.suspend())
+                    mock_run.assert_called_once_with(
+                        "qubes.SuspendPre", user="root"
+                    )
+                    mock_state.assert_called_with(event="SUSPENDED")
+                mock_state.reset_mock()
+                mock_run.reset_mock()
+
+            with self.subTest("paused"):
+                with patch.object(vm, "get_power_state", return_value="Paused"):
+                    with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+                        self.loop.run_until_complete(vm.suspend())
+                    mock_state.assert_not_called()
+            mock_state.reset_mock()
+
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.change_libvirt_state")
+    def test_753_resume(self, mock_state, mock_libvirt):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        patch = unittest.mock.patch
+        with self.subTest("halted"):
+            with (
+                patch.object(vm, "is_running", return_value=False),
+                patch.object(vm, "get_power_state", return_value="Halted"),
+            ):
+                with self.assertRaises(qubes.exc.QubesVMNotSuspendedError):
+                    self.loop.run_until_complete(vm.resume())
+                mock_state.assert_not_called()
+        mock_state.reset_mock()
+
+        with patch.object(vm, "is_running", return_value=True):
+            with self.subTest("suspended"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Suspended"
+                ):
+                    self.loop.run_until_complete(vm.resume())
+                    mock_state.assert_called_once_with(event="STARTED")
+            mock_state.reset_mock()
+
+            with self.subTest("running"):
+                with patch.object(
+                    vm, "get_power_state", return_value="Running"
+                ):
+                    with self.assertRaises(qubes.exc.QubesVMNotSuspendedError):
+                        self.loop.run_until_complete(vm.resume())
+                    mock_state.assert_not_called()
+            mock_state.reset_mock()
+
+            with self.subTest("paused"):
+                with patch.object(vm, "get_power_state", return_value="Paused"):
+                    self.loop.run_until_complete(vm.resume())
+                    mock_state.assert_called_once_with(event="RESUMED")
+            mock_state.reset_mock()
+
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
             event_fired = False
@@ -3481,7 +3757,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         ):
             vm._lifecycle_waiter["LIFE"] = None
             async with asyncio.timeout(1):
-                async with vm.change_libvirt_state(event="LIFE", wait=False):
+                async with vm.change_libvirt_state(event="LIFE", timeout=None):
                     pass
 
     def test_850_lifecycle_change(self):
