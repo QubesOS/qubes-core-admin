@@ -354,7 +354,10 @@ class DeviceCollection:
         Detach device from domain.
         """
         for attached in self.get_attached_devices():
-            if port.port_id == attached.port_id:
+            if (
+                port.port_id == attached.port_id
+                and port.backend_domain == attached.backend_domain
+            ):
                 # load all options
                 break
         else:
