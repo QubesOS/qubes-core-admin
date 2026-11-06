@@ -410,11 +410,6 @@ class CallbackPool(qubes.storage.Pool):
         await self._callback("pre_setup")
         return await coro_maybe(self._cb_impl.setup())
 
-    @property
-    def volumes(self):
-        for vol in self._cb_impl.volumes:
-            yield CallbackVolume(self, vol)
-
     def list_volumes(self):
         for vol in self._cb_impl.list_volumes():
             yield CallbackVolume(self, vol)
