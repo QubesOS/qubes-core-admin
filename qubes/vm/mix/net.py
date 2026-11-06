@@ -26,6 +26,7 @@ import asyncio
 import ipaddress
 import os
 import re
+from typing import TYPE_CHECKING, Any
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -124,6 +125,27 @@ def vmid_to_ipv4(prefix, vmid):
 
 class NetVMMixin(qubes.events.Emitter):
     """Mixin containing network functionality"""
+
+    app: Any
+    create_qdb_entries: Any
+    features: Any
+    is_fully_usable: Any
+    is_paused: Any
+    is_running: Any
+    log: Any
+    name: Any
+    run_service_for_stdio: Any
+
+    if TYPE_CHECKING:
+
+        @property
+        def dir_path(self) -> Any: ...
+
+        @property
+        def libvirt_domain(self) -> Any: ...
+
+        @property
+        def untrusted_qdb(self) -> Any: ...
 
     mac = qubes.property(
         "mac",

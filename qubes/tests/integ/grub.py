@@ -29,7 +29,7 @@ import unittest
 import qubes.tests
 
 
-class GrubBase(object):
+class GrubBase(qubes.tests.SystemTestMixinBase):
     virt_mode = None
     kernel = None
     force_dracut = False

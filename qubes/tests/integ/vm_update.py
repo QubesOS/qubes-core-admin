@@ -28,10 +28,14 @@ import sys
 import tempfile
 
 import qubes.vm
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
-class VmUpdatesMixin(object):
+class VmUpdatesMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for VM updates
     """

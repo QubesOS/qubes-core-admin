@@ -782,6 +782,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             Handler for this event may be asynchronous.
     """  # pylint: disable=too-many-instance-attributes
 
+    _domain_stopped_future: Any
+
     #
     # per-class properties
     #
@@ -846,7 +848,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             "memory",
             lambda self: qubes.config.defaults[
                 (
-                    "hvm_memory"  # type: ignore
+                    "hvm_memory"
                     if self.virt_mode == "hvm"
                     else "memory"
                 )

@@ -43,7 +43,7 @@ import qubes
     and spawn.find_executable("wmctrl"),
     "xprop or xdotool or wmctrl not installed",
 )
-class TC_50_MimeHandlers:
+class TC_50_MimeHandlers(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_50_MimeHandlers, self).setUp()
         if self.template.startswith("whonix-g") or "minimal" in self.template:

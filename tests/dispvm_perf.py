@@ -62,6 +62,10 @@ from datetime import datetime, timezone
 
 from deepmerge import Merger
 import qubesadmin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubesadmin.vm
 
 # nose will duplicate this logger.
 logger = logging.getLogger(__name__)

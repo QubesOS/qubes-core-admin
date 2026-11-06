@@ -328,7 +328,7 @@ async def init_cache_coro(log=logging.getLogger("qubes.storage.lvm")):
     return _parse_lvm_cache(out)
 
 
-size_cache_time = 0
+size_cache_time: float = 0
 size_cache = init_cache()
 
 

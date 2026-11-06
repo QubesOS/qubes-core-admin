@@ -26,7 +26,7 @@ import time
 import qubes.tests
 
 
-class TC_00_QrexecPerfMixin:
+class TC_00_QrexecPerfMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self: qubes.tests.SystemTestCase):
         super().setUp()
         self.vm1 = self.app.add_new_vm(

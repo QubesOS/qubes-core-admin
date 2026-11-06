@@ -186,7 +186,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(self.startup_counter, 1)
 
 
-class DispVMHelpersMixin:
+class DispVMHelpersMixin(qubes.tests.SystemTestMixinBase):
     def setup_dispvm_nodes(self, skip_start: bool = False):
         """Initialize disp_base and related attributes. Called by child setUp"""
         for handler in self.log.root.handlers:
