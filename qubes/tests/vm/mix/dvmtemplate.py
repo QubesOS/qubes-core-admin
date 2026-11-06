@@ -31,6 +31,7 @@ import qubes.tests.vm
 import qubes.tests.vm.appvm
 import qubes.tests.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
+import qubes.vm.standalonevm
 
 
 class TestApp(qubes.tests.vm.TestApp):
@@ -545,6 +546,40 @@ class TC_00_DVMTemplateMixin(
                 self.appvm.template_for_dispvms = False
             del self.app.domains[self.dispvm]
             self.appvm.template_for_dispvms = False
+
+    def test_060_icon(self):
+        self.app.default_dispvm = None
+        self.app.management_dispvm = None
+        standalonevm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name="test-standalone",
+            label="green",
+        )
+        for vm, icon in (
+            (self.appvm, "appvm-red"),
+            (standalonevm, "standalonevm-green"),
+        ):
+            with self.subTest(vm=vm.name):
+                reset_icon = mock.Mock(return_value=None)
+                vm.add_handler("property-reset:icon", reset_icon)
+                vm.template_for_dispvms = False
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                self.assertEqual(vm.icon, "templatevm-" + vm.label.name)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                reset_icon.assert_not_called()
+
+                del vm.template_for_dispvms
+                self.assertEqual(vm.icon, icon)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = False
+                reset_icon.assert_not_called()
 
     def test_100_get_preload_templates(self):
         print(qubes.vm.dispvm.get_preload_templates(self.app))

@@ -41,6 +41,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
+    @qubes.stateless_property
+    def icon(self):
+        if self.template_for_dispvms:
+            # pylint: disable=no-member
+            return "templatevm-" + self.label.name
+        # multi-inheritance and properties confuses pylint here
+        # pylint: disable=no-member
+        return super().icon
+
     @property
     def dispvms(self) -> Iterator["qubes.vm.dispvm.DispVM"]:
         """
@@ -395,6 +404,18 @@ class DVMTemplateMixin(qubes.events.Emitter):
         self.remove_preload_excess(
             0, reason="template_for_dispvms was set to False"
         )
+
+    @qubes.events.handler(
+        "property-set:template_for_dispvms",
+        "property-reset:template_for_dispvms",
+    )
+    def __on_changed_dvmtemplate_icon(
+        self, event, name, newvalue=None, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        # icon is calculated based on being a template for dispvms
+        if bool(oldvalue) != self.template_for_dispvms:
+            self.fire_event("property-reset:icon", name="icon")
 
     @qubes.events.handler("property-set:template_for_dispvms")
     def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
