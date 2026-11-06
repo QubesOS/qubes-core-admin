@@ -1310,7 +1310,8 @@ class Qubes(qubes.PropertyHolder):
         setter=qubes.property.bool,
         load_stage=3,
         default=True,
-        doc="Check for updates inside qubes",
+        doc="Check for updates inside qubes. When False, new qubes are "
+        "created with the service.qubes-update-check feature disabled",
     )
 
     maxmem = qubes.property(

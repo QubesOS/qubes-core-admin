@@ -22,7 +22,9 @@ import os
 
 from unittest import mock
 
+import qubes.ext.r3compatibility
 import qubes.ext.services
+import qubes.features
 import qubes.tests
 
 
@@ -364,3 +366,67 @@ class TC_20_Services(qubes.tests.QubesTestCase):
                 ("rm", ("/qubes-service/app-dispvm.short-name",), {}),
             ],
         )
+
+
+class TC_21_R3CheckUpdates(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.r3compatibility.R3Compatibility()
+        self.vm = qubes.tests.TestEmitter()
+        self.vm.name = "test-vm"
+        self.vm.features = qubes.features.Features(self.vm)
+        self.vm.untrusted_qdb = mock.MagicMock()
+
+    def assert_migrated(self, expected):
+        handler = mock.Mock()
+        self.vm.add_handler("domain-feature-set:*", handler)
+        self.ext.on_domain_load(self.vm, "domain-load")
+        self.assertEqual(
+            dict(self.vm.features), {"service.qubes-update-check": expected}
+        )
+        self.assertTrue(self.vm.events_enabled)
+        handler.assert_not_called()
+
+    def test_000_migrate_disabled(self):
+        """A disabled check-updates moves to the service feature."""
+        self.vm.features["check-updates"] = False
+        self.assert_migrated("")
+
+    def test_001_migrate_enabled(self):
+        """An enabled check-updates moves to the service feature."""
+        self.vm.features["check-updates"] = True
+        self.assert_migrated("1")
+
+    def test_002_migrate_conflict(self):
+        """The service feature wins when both are set on load."""
+        self.vm.features["check-updates"] = True
+        self.vm.features["service.qubes-update-check"] = False
+        self.assert_migrated("")
+
+    def test_003_migrate_nothing(self):
+        """A qube without check-updates gets no new feature."""
+        self.ext.on_domain_load(self.vm, "domain-load")
+        self.assertEqual(dict(self.vm.features), {})
+
+    def test_004_migrate_skip_dom0(self):
+        """check-updates on dom0 is not migrated."""
+        self.vm.name = "dom0"
+        self.vm.features["check-updates"] = False
+        self.ext.on_domain_load(self.vm, "domain-load")
+        self.assertEqual(dict(self.vm.features), {"check-updates": ""})
+
+    def test_010_qdb_legacy_only(self):
+        """check-updates alone is still written to QubesDB."""
+        self.vm.features["check-updates"] = False
+        self.ext.write_services(self.vm)
+        self.assertEqual(
+            self.vm.untrusted_qdb.mock_calls,
+            [mock.call.write("/qubes-service/qubes-update-check", "0")],
+        )
+
+    def test_011_qdb_conflict(self):
+        """check-updates is not written when the service feature is set."""
+        self.vm.features["check-updates"] = True
+        self.vm.features["service.qubes-update-check"] = False
+        self.ext.write_services(self.vm)
+        self.assertEqual(self.vm.untrusted_qdb.mock_calls, [])
