@@ -1408,47 +1408,6 @@ class Qubes(qubes.PropertyHolder):
         if self.xml is None:
             return
 
-        # drop default_fw_netvm
-        node_default_fw_netvm = self.xml.find(
-            "./properties/property[@name='default_fw_netvm']"
-        )
-        if node_default_fw_netvm is not None:
-            node_default_netvm = self.xml.find(
-                "./properties/property[@name='default_netvm']"
-            )
-            try:
-                default_fw_netvm = self.domains[node_default_fw_netvm.text]
-                if node_default_netvm is None:
-                    default_netvm = None
-                else:
-                    default_netvm = self.domains[node_default_netvm.text]
-                if default_netvm != default_fw_netvm:
-                    for vm in self.domains:
-                        if not hasattr(vm, "netvm"):
-                            continue
-                        if not getattr(vm, "provides_network", False):
-                            continue
-                        node_netvm = vm.xml.find(
-                            "./properties/property[@name='netvm']"
-                        )
-                        if node_netvm is not None:
-                            # non-default netvm
-                            continue
-                        # this will unfortunately break "being default"
-                        # property state, but the alternative (changing
-                        # value behind user's back) is worse
-                        properties = vm.xml.find("./properties")
-                        element = lxml.etree.Element("property", name="netvm")
-                        element.text = default_fw_netvm.name
-                        # manipulate xml directly, before loading netvm
-                        # property, to avoid hitting netvm loop detection
-                        properties.append(element)
-            except KeyError:
-                # if default_fw_netvm was set to invalid value, simply
-                # drop it
-                pass
-            node_default_fw_netvm.getparent().remove(node_default_fw_netvm)
-
         # Drop invalid setting.
         for prop in ["default_dispvm", "management_dispvm"]:
             for obj in [self] + list(self.domains):
@@ -2031,7 +1990,6 @@ class Qubes(qubes.PropertyHolder):
         for propname in (
             "default_guivm",
             "default_netvm",
-            "default_fw_netvm",
             "clockvm",
             "updatevm",
             "default_template",
