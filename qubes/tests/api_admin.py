@@ -4163,6 +4163,31 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         )
         mock_backup.return_value.backup_do.assert_called_once_with()
 
+    def test_623_backup_execute_refuse_running_vm_disabled_snapshots(self):
+        backup_profile = (
+            "include:\n"
+            " - test-vm1\n"
+            "destination_vm: test-vm1\n"
+            "destination_path: /var/tmp\n"
+            "passphrase_text: test\n"
+        )
+        self.vm.is_running = lambda: True
+        self.vm.volumes["private"].revisions_to_keep = -1
+        self.vm.run_service = unittest.mock.Mock()
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(
+                os.path.join(profile_dir, "testprofile.conf"), "w"
+            ) as profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch(
+                "qubes.config.backup_profile_dir", profile_dir
+            ):
+                with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                    self.call_mgmt_func(
+                        b"admin.backup.Execute", b"dom0", b"testprofile"
+                    )
+        self.vm.run_service.assert_not_called()
+
     def test_630_vm_stats(self):
         send_event = unittest.mock.Mock(spec=[])
 
