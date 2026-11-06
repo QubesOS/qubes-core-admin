@@ -474,6 +474,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 dest,
                 len(untrusted_payload),
                 exc,
+                exc_info=isinstance(exc, ProtocolError),
             )
             if self.transport is not None:
                 self.send_exception(exc)
