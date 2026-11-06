@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
+import os
+import shutil
+import tempfile
 import unittest
 from unittest import mock
 
@@ -764,3 +767,126 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.appvm_alt.template_for_dispvms = True
         dispvm.default_dispvm = self.appvm_alt
         dispvm.management_dispvm = self.appvm_alt
+
+    def _setup_log_dirs(self):
+        tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmpdir)
+        dirs = {}
+        for const in (
+            "QUBES_LOG_DIR",
+            "XEN_CONSOLE_LOG_DIR",
+            "LIBXL_LOG_DIR",
+        ):
+            path = os.path.join(tmpdir, const)
+            os.mkdir(path)
+            dirs[const] = path
+            patch = mock.patch.object(qubes.vm.dispvm, const, path)
+            patch.start()
+            self.addCleanup(patch.stop)
+        return dirs
+
+    def _create_dispvm(self):
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(
+            self.app, "domains", wraps=self.app.domains
+        ) as mock_domains:
+            mock_domains.configure_mock(
+                **{
+                    "get_new_unused_dispid": mock.Mock(return_value=42),
+                    "__getitem__.side_effect": orig_getitem,
+                }
+            )
+            return self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM,
+                name="disp42",
+                template=self.appvm,
+            )
+
+    def _create_logs(self, dirs):
+        logs = {
+            "QUBES_LOG_DIR": {
+                "remove": [
+                    "qrexec.disp42.log",
+                    "qubesdb.disp42.log",
+                    "guid.disp42.log",
+                    "guid.disp42.log.old",
+                ],
+                "keep": [
+                    "qrexec.disp4.log",
+                    "qubesdb.disp420.log",
+                    "guid.disp420.log",
+                ],
+            },
+            "XEN_CONSOLE_LOG_DIR": {
+                "remove": [
+                    "guest-disp42.log",
+                    "guest-disp42-dm.log",
+                    "guest-disp42.log-20260101.gz",
+                    "guest-disp42-dm.log.1",
+                ],
+                "keep": ["guest-disp42-other.log", "hypervisor.log"],
+            },
+            "LIBXL_LOG_DIR": {
+                "remove": ["disp42.log", "disp42.log.1", "disp42.log.2.gz"],
+                "keep": ["disp42.log-x.log", "libxl-driver.log"],
+            },
+        }
+        remove, keep = [], []
+        for const, files in logs.items():
+            for key, paths in (("remove", remove), ("keep", keep)):
+                for name in files[key]:
+                    path = os.path.join(dirs[const], name)
+                    with open(path, "w", encoding="ascii") as file:
+                        file.write("log")
+                    paths.append(path)
+        return remove, keep
+
+    def test_040_remove_logs(self):
+        """Removing a disposable deletes its logs, not other qubes' logs."""
+        dirs = self._setup_log_dirs()
+        remove, keep = self._create_logs(dirs)
+        dispvm = self._create_dispvm()
+        self.loop.run_until_complete(
+            dispvm.fire_event_async("domain-remove-from-disk")
+        )
+        for path in remove:
+            self.assertFalse(os.path.exists(path), path)
+        for path in keep:
+            self.assertTrue(os.path.exists(path), path)
+
+    def test_041_remove_logs_keep(self):
+        """With keep-disposable-logs set, no log is deleted."""
+        self.adminvm.features["keep-disposable-logs"] = True
+        dirs = self._setup_log_dirs()
+        remove, keep = self._create_logs(dirs)
+        dispvm = self._create_dispvm()
+        self.loop.run_until_complete(
+            dispvm.fire_event_async("domain-remove-from-disk")
+        )
+        for path in remove + keep:
+            self.assertTrue(os.path.exists(path), path)
+
+    def test_042_remove_logs_missing(self):
+        """No logs and a missing log dir cause no warning."""
+        dirs = self._setup_log_dirs()
+        os.rmdir(dirs["LIBXL_LOG_DIR"])
+        dispvm = self._create_dispvm()
+        with mock.patch.object(dispvm, "log") as mock_log:
+            self.loop.run_until_complete(
+                dispvm.fire_event_async("domain-remove-from-disk")
+            )
+        mock_log.warning.assert_not_called()
+
+    def test_043_remove_logs_error(self):
+        """A failed delete is logged as a warning."""
+        dirs = self._setup_log_dirs()
+        remove, _ = self._create_logs(dirs)
+        dispvm = self._create_dispvm()
+        with mock.patch(
+            "os.remove", side_effect=PermissionError
+        ), mock.patch.object(dispvm, "log") as mock_log:
+            self.loop.run_until_complete(
+                dispvm.fire_event_async("domain-remove-from-disk")
+            )
+        self.assertEqual(mock_log.warning.call_count, len(remove))

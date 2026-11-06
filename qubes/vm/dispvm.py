@@ -24,6 +24,8 @@ A disposable qube implementation
 
 import asyncio
 import copy
+import os
+import re
 import subprocess
 from typing import Optional
 
@@ -60,6 +62,11 @@ PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
     "visible_ip6",
     "xid",
 ]
+
+# Directories with per-qube logs in dom0, see _remove_logs()
+QUBES_LOG_DIR = "/var/log/qubes"
+XEN_CONSOLE_LOG_DIR = "/var/log/xen/console"
+LIBXL_LOG_DIR = "/var/log/libvirt/libxl"
 
 
 def _setter_template(self, prop, value):
@@ -731,8 +738,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         the ``domain-shutdown`` cleanup was bypassed, possibly by improper
         shutdown, which can happen when a disposable is running, qubesd stops
         and system reboots.
+
+        Also remove the qube logs from dom0, unless the ``dom0`` feature
+        ``keep-disposable-logs`` is set.
         """
         self._preload_cleanup()
+        self._remove_logs()
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(
@@ -978,6 +989,49 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 [self.name], reason="automatic cleanup was called"
             )
             template.remove_preload_from_list([self.name])
+
+    def _remove_logs(self) -> None:
+        """
+        Remove logs of the qube from dom0.
+        """
+        name = getattr(self, "name", None)
+        if not name:
+            return
+        if self.app.domains["dom0"].features.get("keep-disposable-logs", False):
+            return
+        logs = {
+            QUBES_LOG_DIR: [
+                f"qrexec.{name}.log",
+                f"qubesdb.{name}.log",
+                f"guid.{name}.log",
+            ],
+            XEN_CONSOLE_LOG_DIR: [f"guest-{name}.log", f"guest-{name}-dm.log"],
+            LIBXL_LOG_DIR: [f"{name}.log"],
+        }
+        for log_dir, files in logs.items():
+            # Rotated: ".old" (guid), ".1" or "-20250101" (logrotate), ".gz"
+            pattern = re.compile(
+                "(?:"
+                + "|".join(map(re.escape, files))
+                + r")(?:\.old|\.\d+|-\d+)?(?:\.gz)?"
+            )
+            try:
+                entries = os.listdir(log_dir)
+            except FileNotFoundError:
+                continue
+            except OSError as e:
+                self.log.warning("Failed to list logs in %s: %s", log_dir, e)
+                continue
+            for entry in entries:
+                if not pattern.fullmatch(entry):
+                    continue
+                path = os.path.join(log_dir, entry)
+                try:
+                    os.remove(path)
+                except FileNotFoundError:
+                    pass
+                except OSError as e:
+                    self.log.warning("Failed to remove log %s: %s", path, e)
 
     async def _delete_domain(self) -> None:
         """
