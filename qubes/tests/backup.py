@@ -17,11 +17,14 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
 import os
 import shutil
 import tempfile
+import unittest.mock
 
 import qubes.backup
+import qubes.exc
 import qubes.tests
 
 
@@ -104,3 +107,44 @@ class TC_00_BackupHeader(qubes.tests.QubesTestCase):
                 qubes.backup.BackupHeader.header_keys.values(),
                 "init parameter {!r} missing from header_keys".format(attr),
             )
+
+
+class TC_10_BackupSplitAndSend(qubes.tests.QubesTestCase):
+    """Tests for qubes.backup.Backup._split_and_send."""
+
+    def setUp(self):
+        super().setUp()
+        self.tmpdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmpdir)
+        self.backup = qubes.backup.Backup(
+            unittest.mock.Mock(), [], passphrase=b"test"
+        )
+        self.backup.tmpdir = self.tmpdir
+
+    def test_000_scrypt_failure(self):
+        """A chunk scrypt failed to write must not be sent."""
+        scrypt = unittest.mock.Mock()
+        scrypt.returncode = 1
+        scrypt.wait = unittest.mock.AsyncMock(return_value=1)
+        scrypt.stderr.read = unittest.mock.AsyncMock(
+            return_value=b"scrypt: No space left on device\n"
+        )
+        input_stream = asyncio.StreamReader()
+        input_stream.feed_data(b"data")
+        input_stream.feed_eof()
+        output_queue = asyncio.Queue()
+        with unittest.mock.patch(
+            "qubes.backup.launch_scrypt",
+            unittest.mock.AsyncMock(return_value=scrypt),
+        ):
+            with self.assertRaisesRegex(
+                qubes.exc.QubesException, "No space left on device"
+            ):
+                self.loop.run_until_complete(
+                    self.backup._split_and_send(
+                        input_stream,
+                        os.path.join(self.tmpdir, "vm1", "private.img"),
+                        output_queue,
+                    )
+                )
+        self.assertTrue(output_queue.empty())
