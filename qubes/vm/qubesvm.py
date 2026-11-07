@@ -2000,7 +2000,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def suspend(self):
         """Suspend (pause) domain.
 
-        :raises qubes.exc.QubesVMNotRunnignError: \
+        :raises qubes.exc.QubesVMNotRunningError: \
             when domain is already shut down.
         """
 
