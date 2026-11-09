@@ -292,6 +292,18 @@ HiddenServiceVersion 3
                 stderr=subprocess.STDOUT,
             )
         )
+        if self.template.startswith("whonix-g"):
+            # a new onion service can take minutes to be reachable
+            try:
+                self.loop.run_until_complete(
+                    self.updatevm.run_for_stdio(
+                        "timeout 300 sh -c 'until curl -sf -m 60 -o /dev/null"
+                        " --proxy socks5h://127.0.0.1:9050"
+                        f" http://{onion_name}:8080/; do sleep 5; done'"
+                    )
+                )
+            except subprocess.CalledProcessError:
+                self.fail("onion repo not reachable via Tor after 300s")
         self.repo_running = True
 
     def update_func_direct(self):
@@ -428,10 +440,17 @@ HiddenServiceVersion 3
         del self.app.domains[0].features["service.qubes-update-check"]
         proc = self.loop.run_until_complete(
             asyncio.create_subprocess_exec(
-                "/etc/cron.daily/qubes-dom0-updates.cron"
+                "/etc/cron.daily/qubes-dom0-updates.cron",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         )
-        self.loop.run_until_complete(proc.communicate())
+        stdout, _ = self.loop.run_until_complete(proc.communicate())
+        self.assertEqual(
+            proc.returncode,
+            0,
+            "updates check failed: " + stdout.decode(errors="replace"),
+        )
         self.assertTrue(
             self.app.domains[0].features.get("updates-available", False)
         )
