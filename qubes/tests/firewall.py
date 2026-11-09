@@ -25,6 +25,7 @@ import asyncio
 import lxml.etree
 import unittest
 
+import qubes.exc
 import qubes.firewall
 import qubes.tests
 
@@ -441,50 +442,6 @@ class TC_08_Rule(qubes.tests.QubesTestCase):
         self.assertEqual(rule.rule, "action=accept")
         self.assertIsNone(rule.dstports)
 
-    def test_005_from_xml_v1(self):
-        xml_txt = (
-            '<rule address="192.168.0.0" proto="tcp" netmask="24" port="443"/>'
-        )
-        with self.assertNotRaises(ValueError):
-            rule = qubes.firewall.Rule.from_xml_v1(
-                lxml.etree.fromstring(xml_txt), "accept"
-            )
-        self.assertEqual(rule.dsthost, "192.168.0.0/24")
-        self.assertEqual(rule.proto, "tcp")
-        self.assertEqual(rule.dstports, "443")
-        self.assertIsNone(rule.expire)
-        self.assertIsNone(rule.comment)
-
-    def test_006_from_xml_v1(self):
-        xml_txt = (
-            '<rule address="qubes-os.org" proto="tcp" '
-            'port="443" toport="1024"/>'
-        )
-        with self.assertNotRaises(ValueError):
-            rule = qubes.firewall.Rule.from_xml_v1(
-                lxml.etree.fromstring(xml_txt), "drop"
-            )
-        self.assertEqual(rule.dsthost, "qubes-os.org")
-        self.assertEqual(rule.proto, "tcp")
-        self.assertEqual(rule.dstports, "443-1024")
-        self.assertEqual(rule.action, "drop")
-        self.assertIsNone(rule.expire)
-        self.assertIsNone(rule.comment)
-
-    def test_007_from_xml_v1(self):
-        xml_txt = (
-            '<rule address="192.168.0.0" netmask="24" expire="1463292452"/>'
-        )
-        with self.assertNotRaises(ValueError):
-            rule = qubes.firewall.Rule.from_xml_v1(
-                lxml.etree.fromstring(xml_txt), "accept"
-            )
-        self.assertEqual(rule.dsthost, "192.168.0.0/24")
-        self.assertEqual(rule.expire, "1463292452")
-        self.assertEqual(rule.action, "accept")
-        self.assertIsNone(rule.proto)
-        self.assertIsNone(rule.dstports)
-
     def test_008_from_api_string(self):
         rule_txt = "action=drop proto=tcp dstports=80-80"
         with self.assertNotRaises(ValueError):
@@ -565,37 +522,18 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             fw.rules, [qubes.firewall.Rule(None, action="accept")] + rules
         )
 
-    def test_003_load_v1(self):
+    def test_003_load_v1_unsupported(self):
         xml_txt = """<QubesFirewallRules dns="allow" icmp="allow"
         policy="deny" yumProxy="allow">
             <rule address="192.168.0.0" proto="tcp" netmask="24" port="80"/>
-            <rule address="qubes-os.org" proto="tcp" port="443"/>
         </QubesFirewallRules>
         """
         with open(os.path.join("/tmp", self.vm.firewall_conf), "w") as f:
             f.write(xml_txt)
-        with self.assertNotRaises(ValueError):
-            fw = qubes.firewall.Firewall(self.vm)
-        self.assertEqual(str(fw.policy), "drop")
-        rules = [
-            qubes.firewall.Rule(None, action="accept", specialtarget="dns"),
-            qubes.firewall.Rule(None, action="accept", proto="icmp"),
-            qubes.firewall.Rule(
-                None,
-                action="accept",
-                proto="tcp",
-                dsthost="192.168.0.0/24",
-                dstports="80",
-            ),
-            qubes.firewall.Rule(
-                None,
-                action="accept",
-                proto="tcp",
-                dsthost="qubes-os.org",
-                dstports="443",
-            ),
-        ]
-        self.assertEqual(fw.rules, rules)
+        with self.assertRaisesRegex(
+            qubes.exc.QubesVMError, "Unsupported firewall.xml version: 1"
+        ):
+            qubes.firewall.Firewall(self.vm)
 
     def test_004_save_skip_expired(self):
         fw = qubes.firewall.Firewall(self.vm, True)
