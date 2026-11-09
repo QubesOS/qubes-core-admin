@@ -545,7 +545,7 @@ def validate_label_name(untrusted_label, creation: bool = False) -> None:
         )
 
 
-def validate_label_value(untrusted_label_value) -> None:
+def validate_label_value(untrusted_label_value) -> str:
     if not untrusted_label_value:
         raise qubes.exc.QubesInvalidLabelValueError("Label value must be set")
 
@@ -574,6 +574,8 @@ def validate_label_value(untrusted_label_value) -> None:
             "Label value must only contain hexadecimal digits after prefix: "
             + string.hexdigits
         )
+
+    return untrusted_value
 
 
 async def async_shield(awaitable) -> Any:

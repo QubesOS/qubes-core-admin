@@ -255,7 +255,8 @@ def _default_virt_mode(self):
     if list(self.devices["pci"].get_assigned_devices()):
         return "hvm"
     try:
-        return self.template.virt_mode
+        template = get_active_template(self)
+        return template.virt_mode
     except AttributeError:
         return "pvh"
 
@@ -267,7 +268,7 @@ def _default_with_template(prop, default):
 
     def _func(self):
         try:
-            return getattr(self.template, prop)
+            return getattr(get_active_template(self), prop)
         except AttributeError:
             if callable(default):
                 return default(self)
@@ -376,6 +377,10 @@ def _get_libvirt_event_dict() -> dict[int, dict[str, Any]]:
             assert isinstance(event_dict["details"], dict)
             event_dict["details"][detail_id] = detail_pretty
     return libvirt_event_dict
+
+
+def get_active_template(self):
+    return getattr(self, "active_template", getattr(self, "template", None))
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
@@ -1278,9 +1283,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
-            # SEE: 1637 when features are done, migrate to plugin
             if not self.app.check_updates_vm:
-                self.features["check-updates"] = False
+                self.features["service.qubes-update-check"] = False
 
         # will be initialized after loading all the properties
 
@@ -1345,14 +1349,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         # icon is calculated based on label
-        self.fire_event("property-reset:icon", name="icon")
-
-    @qubes.events.handler("property-set:template_for_dispvms")
-    def on_property_set_tmpl_for_dvms(
-        self, event, name, newvalue, oldvalue=None
-    ):
-        # pylint: disable=unused-argument
-        # icon is calculated based on being a template for dispvms
         self.fire_event("property-reset:icon", name="icon")
 
     @qubes.events.handler("property-pre-set:kernel")
@@ -2550,9 +2546,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """Remove domain remnants from disk."""
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
+                self,
                 "Can't remove VM {!s}, because it's in state {!r}.".format(
                     self, self.get_power_state()
-                )
+                ),
             )
 
         # make sure shutdown is handled before removing anything, but only if
@@ -3143,7 +3140,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         )
         self.untrusted_qdb.write("/qubes-debug-mode", str(int(self.debug)))
         try:
-            self.untrusted_qdb.write("/qubes-base-template", self.template.name)
+            self.untrusted_qdb.write(
+                "/qubes-base-template", get_active_template(self).name
+            )
         except AttributeError:
             self.untrusted_qdb.write("/qubes-base-template", "")
 
@@ -3205,8 +3204,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         # Necessary for it to reflect the current state for clients to query.
         if not self.is_halted() and not self.use_memory_hotplug:
             raise qubes.exc.QubesVMNotHaltedError(
+                self,
                 "Can't change maxmem of VM {!s}, because it isn't Halted and "
-                "memory hotplug is forbidden".format(self)
+                "memory hotplug is forbidden".format(self),
             )
 
     @qubes.events.handler("property-set:maxmem")

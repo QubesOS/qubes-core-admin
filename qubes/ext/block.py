@@ -160,7 +160,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             )
             if untrusted_size is None:
                 self._size = 0
-            elif not untrusted_size.isdigit():
+            # more than 20 digits doesn't fit in 64 bits
+            elif not untrusted_size.isdigit() or len(untrusted_size) > 20:
                 self.backend_domain.log.warning(
                     "Device {} has invalid size".format(self.port_id)
                 )
@@ -168,6 +169,23 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             else:
                 self._size = int(untrusted_size)
         return self._size
+
+    def serialize(self) -> bytes:
+        """
+        Serialize an object to be transmitted via Qubes API.
+
+        Add the size to the generic device properties.
+        """
+        properties = super().serialize()
+        size = self.size
+        if size is not None:
+            properties += (
+                b" "
+                + qubes.device_protocol.DeviceSerializer.pack_property(
+                    "_size", str(size)
+                )
+            )
+        return properties
 
     @property
     def device_node(self):

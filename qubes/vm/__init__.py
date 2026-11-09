@@ -417,6 +417,24 @@ class BaseVM(qubes.PropertyHolder):
             # pylint: disable=attribute-defined-outside-init
             self.uuid = uuid.uuid4()
 
+    @qubes.events.handler("domain-load")
+    def on_domain_load_remove_empty_tag(self, event):
+        # pylint: disable=unused-argument
+        # admin.vm.tag.Remove can't remove an empty tag loaded from an
+        # older qubes.xml
+        if "" in self.tags:
+            self.log.warning("Removing empty tag")
+            self.tags.remove("")
+
+    @qubes.events.handler("property-pre-reset:label")
+    def on_property_pre_reset_label(self, event, name, oldvalue=None):
+        """Forbid unsetting label, it has no default value"""
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(
+            "Cannot unset label, it has no default value. "
+            "Set it to another label instead"
+        )
+
 
 class LocalVM(BaseVM):
     """Base class for all local VMs

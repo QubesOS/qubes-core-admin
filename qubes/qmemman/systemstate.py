@@ -525,6 +525,8 @@ class SystemState:
                 )
                 time.sleep(BALLOON_DELAY)
                 self.refresh_mem_actual()
+                if dom.paused:
+                    break
                 ntries -= 1
                 if ntries <= 0:
                     # Waiting hasn't helped. Find which domain got stuck and
@@ -541,6 +543,8 @@ class SystemState:
                     )
                     return
 
+            if dom.paused:
+                continue
             self.mem_set(domid, mem)
 
         xenfree = self.get_free_xen_mem()

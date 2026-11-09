@@ -574,6 +574,15 @@ netvm default=True type=vm \n"""
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
+    def test_063_vm_property_reset_label(self):
+        label = self.vm.label
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.property.Reset", b"test-vm1", b"label"
+            )
+        self.assertEqual(self.vm.label, label)
+        self.assertFalse(self.app.save.called)
+
     def test_070_vm_volume_list(self):
         self.vm.volumes = unittest.mock.Mock()
         volumes_conf = {
@@ -790,6 +799,25 @@ netvm default=True type=vm \n"""
                 b"private",
                 b"no-such-rev",
             )
+        self.assertFalse(self.vm.storage.called)
+
+    def test_110_vm_volume_revert_non_ascii(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Revert",
+                b"test-vm1",
+                b"private",
+                b"rev\xff1",
+            )
+        self.assertFalse(self.vm.volumes["private"].revert.called)
         self.assertFalse(self.vm.storage.called)
 
     def test_120_vm_volume_resize(self):
@@ -3613,6 +3641,52 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
                 token.encode(),
             )
 
+    def test_526_vm_volume_clone_token_in_use(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+
+        token = "a" * 32
+        self.app.api_admin_pending_clone = {token: self.vm.volumes["private"]}
+        with unittest.mock.patch(
+            "qubes.utils.random_string", return_value=token
+        ):
+            with self.assertRaises(qubes.exc.QubesVolumeCopyInUseError) as cm:
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+                )
+        self.assertIs(cm.exception.vm, self.vm)
+        self.assertEqual(cm.exception.volume, "private")
+        self.assertEqual(
+            str(cm.exception),
+            "Domain volume is being cloned already: 'test-vm1':'private'",
+        )
+        self.assertFalse(self.app.save.called)
+
+    def test_527_vm_volume_clone_running(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneTo",
+                    b"test-vm2",
+                    b"private",
+                    token.encode(),
+                )
+        self.assertFalse(self.vm2.volumes["private"].import_volume.called)
+        self.assertFalse(self.app.save.called)
+
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")
         self.vm.tags.add("tag2")
@@ -3798,6 +3872,21 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         )
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
+
+    def test_586_firewall_set_invalid_comment(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = b"action=drop\naction=accept comment=Access?\n"
+        with self.assertRaisesRegex(
+            qubes.exc.QubesValueError, "Invalid firewall comment"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.firewall.Set", b"test-vm1", b"", rules_txt
+            )
+        self.assertEqual(
+            self.vm.firewall.rules, [qubes.firewall.Rule(action="accept")]
+        )
+        self.vm.firewall.save.assert_not_called()
+        self.app.save.assert_not_called()
 
     def test_590_firewall_reload(self):
         self.vm.firewall.save = unittest.mock.Mock()
@@ -5131,6 +5220,23 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             )
             self.assertEventFired(self.emitter, "domain-volume-import-begin")
             self.assertEventFired(self.emitter, "domain-volume-import-end")
+
+    def test_811_vm_volume_clear_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.Clear", b"test-vm1", b"private"
+                )
+        self.assertEqual(self.vm.storage.mock_calls, [])
+        self.assertFalse(self.app.save.called)
 
     def test_900_current_state_default(self):
         vm = self.app.domains["test-vm1"]

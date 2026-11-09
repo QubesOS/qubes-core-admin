@@ -31,6 +31,7 @@ import qubes.tests.vm
 import qubes.tests.vm.appvm
 import qubes.tests.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
+import qubes.vm.standalonevm
 
 
 class TestApp(qubes.tests.vm.TestApp):
@@ -235,7 +236,7 @@ class TC_00_DVMTemplateMixin(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
@@ -372,40 +373,48 @@ class TC_00_DVMTemplateMixin(
             label="red",
             dispid=43,
         )
-        # Can't switch templates if disposable is running.
-        mock_remove.reset_mock()
-        mock_events.reset_mock()
-        with mock.patch.object(self.dispvm, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
 
-        # Can't switch templates if not all running disposable are preloads.
+        # Preloads are refreshed if disposable template is halted.
         mock_remove.reset_mock()
         self.appvm.features["preload-dispvm-max"] = "1"
         self.appvm.features["preload-dispvm"] = self.dispvm.name
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
+        with (
+            mock.patch.object(self.dispvm, "is_running", return_value=True),
+            mock.patch.object(self.dispvm_alt, "is_running", return_value=True),
+        ):
 
-        # Can switch templates if all running disposable are preloads.
-        self.appvm.features["preload-dispvm-max"] = "2"
-        self.appvm.features["preload-dispvm"] = (
-            self.dispvm.name + " " + self.dispvm_alt.name
-        )
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
-            self.appvm.template = self.template_alt
-        mock_remove.assert_called_once_with(0, reason=mock.ANY)
-        mock_events.assert_called_once_with(
-            "domain-preload-dispvm-start", reason=mock.ANY
-        )
+            with (
+                mock.patch.object(
+                    self.appvm, "get_power_state", return_value="Halted"
+                ),
+                mock.patch.object(self.appvm, "is_running", return_value=False),
+                mock.patch.object(self.appvm, "can_preload", return_value=True),
+            ):
+                self.appvm.template = self.template_alt
+                self.assertEqual(self.appvm.template, self.template_alt)
+                self.assertEqual(self.appvm.active_template, self.template_alt)
+                mock_remove.assert_called_once_with(0, reason=mock.ANY)
+                mock_events.assert_called_once_with(
+                    "domain-preload-dispvm-start", reason=mock.ANY
+                )
+                mock_remove.reset_mock()
+                mock_events.reset_mock()
+
+            # Preloads are NOT refreshed if disposable template is running.
+            with (
+                mock.patch.object(
+                    self.appvm, "get_power_state", return_value="Running"
+                ),
+                mock.patch.object(self.appvm, "is_running", return_value=True),
+                mock.patch.object(
+                    self.appvm, "can_preload", return_value=False
+                ),
+            ):
+                self.appvm.template = self.template
+                self.assertEqual(self.appvm.template, self.template)
+                self.assertEqual(self.appvm.active_template, self.template_alt)
+                mock_remove.assert_not_called()
+                mock_events.assert_not_called()
 
     @mock.patch("qubes.events.Emitter.fire_event_async")
     @mock.patch(
@@ -537,6 +546,40 @@ class TC_00_DVMTemplateMixin(
                 self.appvm.template_for_dispvms = False
             del self.app.domains[self.dispvm]
             self.appvm.template_for_dispvms = False
+
+    def test_060_icon(self):
+        self.app.default_dispvm = None
+        self.app.management_dispvm = None
+        standalonevm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name="test-standalone",
+            label="green",
+        )
+        for vm, icon in (
+            (self.appvm, "appvm-red"),
+            (standalonevm, "standalonevm-green"),
+        ):
+            with self.subTest(vm=vm.name):
+                reset_icon = mock.Mock(return_value=None)
+                vm.add_handler("property-reset:icon", reset_icon)
+                vm.template_for_dispvms = False
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                self.assertEqual(vm.icon, "templatevm-" + vm.label.name)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                reset_icon.assert_not_called()
+
+                del vm.template_for_dispvms
+                self.assertEqual(vm.icon, icon)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = False
+                reset_icon.assert_not_called()
 
     def test_100_get_preload_templates(self):
         print(qubes.vm.dispvm.get_preload_templates(self.app))

@@ -90,7 +90,7 @@ class RemoteVM(BaseVM):
     def suspend(self):
         raise qubes.exc.QubesVMError(self, "Cannot suspend a RemoteVM.")
 
-    def shutdown(self):
+    def shutdown(self, **_kwargs):
         raise qubes.exc.QubesVMError(self, "Cannot shutdown a RemoteVM.")
 
     def kill(self):

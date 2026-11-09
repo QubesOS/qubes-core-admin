@@ -367,7 +367,7 @@ class QubesVolumeCopyTokenNotFoundError(ProtocolError, KeyError):
         super().__init__(msg or "Token to clone volume of qube was not found")
 
 
-class QubesVolumeCopyInUseError(QubesException):
+class QubesVolumeCopyInUseError(QubesVMError):
     """Domain volume is already being cloned."""
 
     def __init__(self, vm, volume, msg=None):
@@ -378,6 +378,7 @@ class QubesVolumeCopyInUseError(QubesException):
                 vm.name, volume
             ),
         )
+        self.volume = volume
 
 
 class QubesVolumeRevisionNotFoundError(KeyError):

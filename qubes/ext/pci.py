@@ -466,7 +466,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             )
 
     @qubes.ext.handler("device-pre-detach:pci")
-    def on_device_pre_detached_pci(self, vm, event, port):
+    async def on_device_pre_detached_pci(self, vm, event, port):
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
@@ -490,10 +490,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
         vmdev = m.group(1)
         try:
-            vm.run_service(
+            await vm.run_service_for_stdio(
                 "qubes.DetachPciDevice",
                 user="root",
-                input="00:{}".format(vmdev),
+                input="00:{}".format(vmdev).encode(),
             )
             vm.libvirt_domain.detachDevice(
                 vm.app.env.get_template("libvirt/devices/pci.xml").render(

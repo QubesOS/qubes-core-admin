@@ -27,6 +27,7 @@ from datetime import datetime
 import qubes.api
 import qubes.api.admin
 import qubes.vm.dispvm
+import qubes.vm.qubesvm
 
 
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
@@ -53,12 +54,17 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         prefix = "/features-request/"
 
         keys = self.src.untrusted_qdb.list(prefix)
-        untrusted_features = {
-            key[len(prefix) :]: self.src.untrusted_qdb.read(key).decode(
-                "ascii", errors="strict"
+        try:
+            untrusted_features = {
+                key[len(prefix) :]: self.src.untrusted_qdb.read(key).decode(
+                    "ascii", errors="strict"
+                )
+                for key in keys
+            }
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Feature value contains non-ASCII characters"
             )
-            for key in keys
-        }
 
         safe_set = string.ascii_letters + string.digits + "-.,_= "
         for untrusted_key in untrusted_features:
@@ -136,12 +142,14 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         del untrusted_update_count
 
         # look for the nearest updateable VM up in the template chain
-        updateable_template = getattr(self.src, "template", None)
+        updateable_template = qubes.vm.qubesvm.get_active_template(self.src)
         while (
             updateable_template is not None
             and not updateable_template.updateable
         ):
-            updateable_template = getattr(updateable_template, "template", None)
+            updateable_template = qubes.vm.qubesvm.get_active_template(
+                updateable_template
+            )
 
         if self.src.updateable:
             # Just trust information from VM itself

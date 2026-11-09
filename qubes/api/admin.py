@@ -534,7 +534,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             wants=self.dest.volumes.keys(),
             short_reason=self.EXC_ARG_NOT_IN_DEST_VOLUMES,
         )
-        untrusted_revision = untrusted_payload.decode("ascii").strip()
+        try:
+            untrusted_revision = untrusted_payload.decode("ascii").strip()
+        except UnicodeDecodeError:
+            raise qubes.exc.ProtocolError(
+                "Revision name contains non-ASCII characters"
+            )
         del untrusted_payload
         allowed_chars = string.ascii_letters + string.digits + ":-_."
         self.enforce(
@@ -630,6 +635,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(
             src_volume=src_volume, dst_volume=dst_volume
         )
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
         self.dest.volumes[self.arg] = await qubes.utils.coro_maybe(
             self.dest.storage.import_volume(dst_volume, src_volume)
         )
@@ -672,6 +679,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         )
 
         self.fire_event_for_permission()
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
         volume = self.dest.volumes[self.arg]
         size = volume.size
@@ -1167,12 +1177,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     async def label_create(self, untrusted_payload):
         qubes.utils.validate_label_name(untrusted_label=self.arg, creation=True)
 
-        qubes.utils.validate_label_value(
+        color = qubes.utils.validate_label_value(
             untrusted_label_value=untrusted_payload
         )
-
-        # TODO: avoid creating too-similar qube labels: #2732
-        color = untrusted_payload
         del untrusted_payload
 
         self.fire_event_for_permission(color=color)
@@ -1401,6 +1408,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
 
+    def _get_template_feature_options(self):
+        active = True
+        if "+" in self.arg:
+            untrusted_feature, untrusted_options = self.arg.split("+", 1)
+            if untrusted_options == "deferred":
+                active = False
+        else:
+            untrusted_feature = self.arg
+        return untrusted_feature, active
+
     @qubes.api.method(
         "admin.vm.feature.CheckWithTemplate",
         wants_arg=True,
@@ -1413,10 +1430,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
+        untrusted_feature, active = self._get_template_feature_options()
         try:
-            value = self.dest.features.check_with_template(self.arg)
+            value = self.dest.features.check_with_template(
+                untrusted_feature, active=active
+            )
         except KeyError:
-            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+            raise qubes.exc.QubesFeatureNotFoundError(
+                self.dest, untrusted_feature
+            )
         return value
 
     @qubes.api.method(
@@ -1467,10 +1489,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # validation of self.arg done by qrexec-policy is enough
 
         self.fire_event_for_permission()
+        untrusted_feature, active = self._get_template_feature_options()
         try:
-            value = self.dest.features.check_with_template_and_adminvm(self.arg)
+            value = self.dest.features.check_with_template_and_adminvm(
+                untrusted_feature, active=active
+            )
         except KeyError:
-            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+            raise qubes.exc.QubesFeatureNotFoundError(
+                self.dest, untrusted_feature
+            )
         return value
 
     @qubes.api.method(

@@ -1477,6 +1477,13 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 existence.side_effect = [True, False]
                 self.app.default_kernel = "unittest_GNU_Hurd_1.0.0"
 
+    def test_207_default_kernel_reset(self):
+        with mock.patch("os.path.exists", return_value=True):
+            self.app.default_kernel = "unittest_kernel"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            del self.app.default_kernel
+        self.assertEqual(self.app.default_kernel, "unittest_kernel")
+
     def test_208_default_netvm_change(self):
         netvm1 = self.app.add_new_vm(
             "AppVM",

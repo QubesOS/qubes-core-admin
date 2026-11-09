@@ -64,6 +64,8 @@ import qubes.events
 import qubes.exc
 import qubes.ext.pci
 import qubes.tests.never_awaited
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
@@ -1862,7 +1864,15 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.storage_callback",
         "qubes.tests.storage_kernels",
         "qubes.tests.storage_zfs",
-        "qubes.tests.ext",
+        "qubes.tests.ext_admin",
+        "qubes.tests.ext_audio",
+        "qubes.tests.ext_core_features",
+        "qubes.tests.ext_custom_persist",
+        "qubes.tests.ext_gui",
+        "qubes.tests.ext_services",
+        "qubes.tests.ext_supported_features",
+        "qubes.tests.ext_vm_config",
+        "qubes.tests.ext_windows",
         "qubes.tests.vm.qubesvm",
         "qubes.tests.vm.mix.net",
         "qubes.tests.vm.mix.dvmtemplate",

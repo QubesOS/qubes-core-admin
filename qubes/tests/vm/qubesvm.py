@@ -18,7 +18,8 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
-#
+
+import asyncio
 import base64
 import os
 import subprocess
@@ -438,6 +439,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertTrue(hasattr(vm, "uuid"))
 
+    def test_005_init_check_updates_vm_disabled(self):
+        """A new qube gets the service feature disabled."""
+        self.app.check_updates_vm = False
+        vm = self.get_vm()
+        self.assertIn("service.qubes-update-check", vm.features)
+        self.assertFalse(vm.features["service.qubes-update-check"])
+        self.assertNotIn("check-updates", vm.features)
+
+    def test_006_init_check_updates_vm_enabled(self):
+        """A new qube gets no update check feature."""
+        self.app.check_updates_vm = True
+        vm = self.get_vm()
+        self.assertNotIn("service.qubes-update-check", vm.features)
+        self.assertNotIn("check-updates", vm.features)
+
     def test_100_qid(self):
         vm = self.get_vm()
         self.assertIsInstance(vm.qid, int)
@@ -463,8 +479,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyValue(
             vm, "label", self.app.labels[1], self.app.labels[1], "red"
         )
-        del vm.label
-        self.assertPropertyDefaultValue(vm, "label")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            del vm.label
+        self.assertEqual(vm.label, self.app.labels[1])
         self.assertPropertyValue(vm, "label", "red", self.app.labels[1], "red")
         self.assertPropertyValue(
             vm, "label", "label-1", self.app.labels[1], "red"
@@ -534,6 +551,19 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, "maxmem", "")
         # TODO: lower than memory
         # TODO: human readable setter (500M, 4G)?
+
+    def test_172_maxmem_running_nohotplug(self):
+        vm = self.get_vm()
+        with unittest.mock.patch.object(
+            type(vm),
+            "use_memory_hotplug",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=False,
+        ), unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                vm.maxmem = 1000
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't change maxmem of VM", str(cm.exception))
 
     def test_190_vcpus(self):
         vm = self.get_vm()
@@ -3325,6 +3355,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             mock_os_path_exists.assert_not_called()
             self.assertEqual(fully_usable, True)
 
+    def test_730_remove_from_disk_running(self):
+        vm = self.get_vm()
+        vm.get_power_state = unittest.mock.Mock(return_value="Running")
+        with unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                self.loop.run_until_complete(vm.remove_from_disk())
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't remove VM", str(cm.exception))
+
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
             event_fired = False
@@ -3351,9 +3390,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
         property_change(test_vm, "label", "red")
         property_change(test_vm, "label", "blue")
-
-        property_change(test_vm, "template_for_dispvms", False)
-        property_change(test_vm, "template_for_dispvms", True)
 
     def test_801_ordering(self):
         assert qubes.vm.qubesvm.QubesVM(
@@ -3443,3 +3479,44 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(vm.get_default_user(), "altuser2")
         del vm.features["boot-mode.active"]
         self.assertEqual(vm.get_default_user(), "user")
+
+    async def _test_850_lifecycle_change(self):
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM)
+
+        with self.subTest(msg="Yield raises"):
+            vm._lifecycle_waiter["LIFE"] = None
+            with self.assertRaises(ValueError):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    raise ValueError
+
+        with self.subTest("Normal conditions"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event comes after some time"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(2):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    await asyncio.sleep(1)
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event never arrives and timeout is raised"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(4):
+                with self.assertRaises(asyncio.TimeoutError):
+                    async with vm.change_libvirt_state(event="LIFE", timeout=1):
+                        await asyncio.sleep(2)
+
+        with self.subTest(
+            "Event never arrives but we don't wait for it either"
+        ):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE", wait=False):
+                    pass
+
+    def test_850_lifecycle_change(self):
+        """Simulate libvirt lifecycle changes with events."""
+        self.loop.run_until_complete(self._test_850_lifecycle_change())

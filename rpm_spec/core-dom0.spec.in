@@ -485,7 +485,15 @@ done
 %{python3_sitelib}/qubes/tests/devices_block.py
 %{python3_sitelib}/qubes/tests/devices_pci.py
 %{python3_sitelib}/qubes/tests/events.py
-%{python3_sitelib}/qubes/tests/ext.py
+%{python3_sitelib}/qubes/tests/ext_admin.py
+%{python3_sitelib}/qubes/tests/ext_audio.py
+%{python3_sitelib}/qubes/tests/ext_core_features.py
+%{python3_sitelib}/qubes/tests/ext_custom_persist.py
+%{python3_sitelib}/qubes/tests/ext_gui.py
+%{python3_sitelib}/qubes/tests/ext_services.py
+%{python3_sitelib}/qubes/tests/ext_supported_features.py
+%{python3_sitelib}/qubes/tests/ext_vm_config.py
+%{python3_sitelib}/qubes/tests/ext_windows.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
 %{python3_sitelib}/qubes/tests/never_awaited.py

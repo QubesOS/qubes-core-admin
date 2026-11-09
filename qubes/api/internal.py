@@ -133,8 +133,18 @@ class SystemInfoCache:
                         if getattr(domain, "default_dispvm", None)
                         else None
                     ),
-                    "icon": str(domain.label.icon),
-                    "label": str(domain.label.color),
+                    # a qube without a label must not break policy
+                    # evaluation for all qubes
+                    "icon": (
+                        str(domain.label.icon)
+                        if hasattr(domain, "label")
+                        else ""
+                    ),
+                    "label": (
+                        str(domain.label.color)
+                        if hasattr(domain, "label")
+                        else ""
+                    ),
                     "guivm": (
                         domain.guivm.name
                         if getattr(domain, "guivm", None)

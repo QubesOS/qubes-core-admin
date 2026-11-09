@@ -598,7 +598,7 @@ class QubesHost:
                 del untrusted_value
                 return None
             current[domid][f"xs_{key}"] = True
-            if not untrusted_value.isdigit():
+            if not untrusted_value.isascii() or not untrusted_value.isdigit():
                 del untrusted_value
                 return None
             value = int(untrusted_value)
@@ -864,7 +864,7 @@ class VMCollection:
         return set(
             vm
             for vm in self
-            if hasattr(vm, "template") and vm.template == template
+            if qubes.vm.qubesvm.get_active_template(vm) == template
         )
 
     def get_vms_connected_to(self, netvm):
@@ -1310,7 +1310,8 @@ class Qubes(qubes.PropertyHolder):
         setter=qubes.property.bool,
         load_stage=3,
         default=True,
-        doc="Check for updates inside qubes",
+        doc="Check for updates inside qubes. When False, new qubes are "
+        "created with the service.qubes-update-check feature disabled",
     )
 
     maxmem = qubes.property(
@@ -2161,6 +2162,17 @@ class Qubes(qubes.PropertyHolder):
     ):
         # pylint: disable=unused-argument
         validate_kernel(self, "default_kernel", newvalue)
+
+    @qubes.events.handler("property-pre-reset:default_kernel")
+    # pylint: disable-next=invalid-name
+    def on_property_pre_reset_default_kernel(self, event, name, oldvalue=None):
+        """Forbid unsetting default_kernel, it has no default value"""
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(
+            "Cannot unset default_kernel, it has no default value. "
+            "Set it to an installed kernel instead, or to an empty value "
+            "to make qubes use their own kernel"
+        )
 
     def get_name_from_domid(self, domid) -> str | None:
         """

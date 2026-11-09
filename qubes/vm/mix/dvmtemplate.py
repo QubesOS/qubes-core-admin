@@ -41,6 +41,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
+    @qubes.stateless_property
+    def icon(self):
+        if self.template_for_dispvms:
+            # pylint: disable=no-member
+            return "templatevm-" + self.label.name
+        # multi-inheritance and properties confuses pylint here
+        # pylint: disable=no-member
+        return super().icon
+
     @property
     def dispvms(self) -> Iterator["qubes.vm.dispvm.DispVM"]:
         """
@@ -50,7 +59,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         assert isinstance(self, qubes.vm.BaseVM)
         for vm in self.app.domains:
-            if getattr(vm, "template", None) == self:
+            if qubes.vm.qubesvm.get_active_template(vm) == self:
                 yield vm
 
     @qubes.events.handler("domain-load")
@@ -313,7 +322,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         nonderived = [
             qube
             for qube in new_list_diff
-            if getattr(self.app.domains[qube], "template") != self
+            if qubes.vm.qubesvm.get_active_template(self.app.domains[qube])
+            != self
         ]
         if nonderived:
             raise qubes.exc.QubesValueError(
@@ -395,6 +405,18 @@ class DVMTemplateMixin(qubes.events.Emitter):
             0, reason="template_for_dispvms was set to False"
         )
 
+    @qubes.events.handler(
+        "property-set:template_for_dispvms",
+        "property-reset:template_for_dispvms",
+    )
+    def __on_changed_dvmtemplate_icon(
+        self, event, name, newvalue=None, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        # icon is calculated based on being a template for dispvms
+        if bool(oldvalue) != self.template_for_dispvms:
+            self.fire_event("property-reset:icon", name="icon")
+
     @qubes.events.handler("property-set:template_for_dispvms")
     def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
@@ -430,29 +452,20 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if newvalue == oldvalue:
             return
-        dependencies = [
-            disp.name
-            for disp in self.dispvms
-            if disp.is_running() and not disp.is_preload
-        ]
-        if dependencies:
-            msg = (
-                "Cannot change template while there are running disposables"
-                " based on this disposable template",
-            )
-            self.log.error("%s: %s", msg, ", ".join(dependencies))
-            raise qubes.exc.QubesVMInUseError(self, msg)
-        self.remove_preload_excess(0, reason="template will change")
 
     @qubes.events.handler("property-set:template")
     def __on_property_set_template(
         self, event, name, newvalue, oldvalue=None
     ) -> None:
         # pylint: disable=unused-argument
+        assert isinstance(self, qubes.vm.qubesvm.QubesVM)
         if newvalue == oldvalue:
             return
         if not getattr(self, "template_for_dispvms"):
             return
+        if self.is_running():
+            return
+        self.remove_preload_excess(0, reason="template has changed")
         if not self.can_preload():
             return
         asyncio.ensure_future(

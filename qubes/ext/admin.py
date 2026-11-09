@@ -34,6 +34,10 @@ PROHIBITED_FEATURES = [
     "preload-dispvm-in-progress",
 ]
 
+PROHIBITED_PROPERTIES = [
+    "active_template",
+]
+
 
 class JustEvaluateAskResolution(parser.AskResolution):
     async def execute(self):
@@ -43,6 +47,9 @@ class JustEvaluateAskResolution(parser.AskResolution):
 class JustEvaluateAllowResolution(parser.AllowResolution):
     async def execute(self):
         pass
+
+
+PROTECTED_TAG_PREFIXES = ("created-by-", "guivm-", "audiovm-", "relayvm-")
 
 
 class AdminExtension(qubes.ext.Extension):
@@ -71,13 +78,27 @@ class AdminExtension(qubes.ext.Extension):
             )
 
     @qubes.ext.handler(
+        "admin-permission:admin.vm.property.Set",
+        "admin-permission:admin.vm.property.Reset",
+    )
+    def on_property_set_or_remove(self, vm, event, arg, **kwargs):
+        """Forbid changing specific properties"""
+        # pylint: disable=unused-argument
+        if arg in PROHIBITED_PROPERTIES:
+            raise qubes.exc.PermissionDenied(
+                "changing this property is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
+
+    @qubes.ext.handler(
         "admin-permission:admin.vm.tag.Set",
         "admin-permission:admin.vm.tag.Remove",
     )
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
         """Forbid changing specific tags"""
         # pylint: disable=unused-argument
-        if arg.startswith("created-by-") and not isinstance(
+        if arg.startswith(PROTECTED_TAG_PREFIXES) and not isinstance(
             vm, qubes.vm.adminvm.AdminVM
         ):
             raise qubes.exc.PermissionDenied(

@@ -362,6 +362,35 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         device_info = self.ext.device_get(vm, "sdb")
         self.assertIsNone(device_info)
 
+    def test_006_device_serialize_size(self):
+        vm = TestVM(get_qdb("w"))
+        device_info = self.ext.device_get(vm, "sda")
+        serialized = device_info.serialize()
+        self.assertIn(b"_size='1024000'", serialized.split(b" "))
+        deserialized = DeviceInfo.deserialize(b"sda " + serialized, vm)
+        self.assertEqual(deserialized.data["size"], "1024000")
+
+    def test_007_device_serialize_size_zero(self):
+        # e.g. an empty card reader slot
+        qdb = get_qdb("w")
+        qdb["/qubes-block-devices/sda/size"] = b"0"
+        vm = TestVM(qdb)
+        device_info = self.ext.device_get(vm, "sda")
+        self.assertIn(b"_size='0'", device_info.serialize().split(b" "))
+
+    def test_008_device_serialize_backend_not_running(self):
+        vm = TestVM(get_qdb("w"), running=False)
+        device_info = qubes.ext.block.BlockDevice(Port(vm, "sda", "block"))
+        self.assertNotIn(b"_size", device_info.serialize())
+
+    def test_009_device_get_too_large_size(self):
+        qdb = get_qdb("w")
+        qdb["/qubes-block-devices/sda/size"] = b"1" * 21
+        vm = TestVM(qdb)
+        device_info = self.ext.device_get(vm, "sda")
+        self.assertEqual(device_info.size, 0)
+        vm.log.warning.assert_called_once_with("Device sda has invalid size")
+
     def test_010_devices_list(self):
         vm = TestVM(
             {

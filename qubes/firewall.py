@@ -252,7 +252,10 @@ class Comment(RuleOption):
         safe_set = string.ascii_letters + string.digits + ":;,./-_[] "
         untrusted_value = str(untrusted_value)
         if not all(x in safe_set for x in untrusted_value):
-            raise ValueError("strange characters comment")
+            raise qubes.exc.QubesValueError(
+                "Invalid firewall comment: only ASCII letters, digits, spaces, "
+                "and these characters are allowed: : ; , . / - _ [ ]"
+            )
         self._value = untrusted_value
 
     @property
