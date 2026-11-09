@@ -259,12 +259,12 @@ class DeviceSerializer:
 
 class Port:
     """
-    Class of a *bus* device port with *port id* exposed by a *backend domain*.
+    Class of a *bus* device port with *port id* exposed by a *backend qube*.
 
     Attributes:
-        backend_domain (QubesVM): The domain which exposes devices,
+        backend_domain (QubesVM): The qube which exposes devices,
             e.g.`sys-usb`.
-        port_id (str): A unique (in backend domain) identifier for the port.
+        port_id (str): A unique (in backend qube) identifier for the port.
         devclass (str): The class of the port (e.g., 'usb', 'pci').
     """
 
@@ -357,7 +357,7 @@ class Port:
         """
         Immutable port identifier.
 
-        Unique for given domain and devclass.
+        Unique for given qube and devclass.
         """
         if self.__port_id is not None:
             return self.__port_id
@@ -365,7 +365,7 @@ class Port:
 
     @property
     def backend_domain(self) -> Optional[QubesVM]:
-        """Which domain exposed this port. (immutable)"""
+        """Which qube exposed this port. (immutable)"""
         return self.__backend_domain
 
     @property
@@ -465,7 +465,7 @@ class VirtualDevice:
     @property
     def backend_name(self) -> str:
         """
-        Return backend domain name if any or `*`.
+        Return backend qube name if any or `*`.
         """
         return self.port.backend_name
 
@@ -1093,7 +1093,7 @@ class DeviceInfo(VirtualDevice):
     @property
     def attachment(self) -> Optional[QubesVM]:
         """
-        VM to which device is attached (frontend domain).
+        Qube to which device is attached (frontend qube).
         """
         return self._attachment
 
@@ -1232,7 +1232,7 @@ class DeviceInfo(VirtualDevice):
 
 class UnknownDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
-    """Unknown device - for example, exposed by domain not running currently"""
+    """Unknown device - for example, exposed by qube not running currently"""
 
     @staticmethod
     def from_device(device: VirtualDevice) -> "UnknownDevice":
@@ -1400,12 +1400,12 @@ class DeviceAssignment:
 
     @property
     def frontend_domain(self) -> Optional[QubesVM]:
-        """Which domain the device is attached/assigned to."""
+        """Which qube the device is attached/assigned to."""
         return self.__frontend_domain
 
     @frontend_domain.setter
     def frontend_domain(self, frontend_domain: Optional[Union[str, QubesVM]]):
-        """Which domain the device is attached/assigned to."""
+        """Which qube the device is attached/assigned to."""
         if isinstance(frontend_domain, str):
             if not self.backend_domain:
                 raise ProtocolError("Cannot determine backend domain")
@@ -1418,9 +1418,9 @@ class DeviceAssignment:
     @property
     def attached(self) -> bool:
         """
-        Is the device attached to the fronted domain?
+        Is the device attached to the frontend qube?
 
-        Returns False if device is attached to different domain
+        Returns False if device is attached to different qube
         """
         for device in self.devices:
             if device.attachment and device.attachment == self.frontend_domain:
@@ -1430,7 +1430,7 @@ class DeviceAssignment:
     @property
     def required(self) -> bool:
         """
-        Is the presence of this device required for the domain to start? If yes,
+        Is the presence of this device required for the qube to start? If yes,
         it will be attached automatically.
         """
         return self.mode == AssignmentMode.REQUIRED
@@ -1438,7 +1438,7 @@ class DeviceAssignment:
     @property
     def attach_automatically(self) -> bool:
         """
-        Should this device automatically connect to the frontend domain when
+        Should this device automatically connect to the frontend qube when
         available and not connected to other qubes?
         """
         return self.mode in (

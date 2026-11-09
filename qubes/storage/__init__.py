@@ -102,7 +102,7 @@ class Volume:
     ):
         """Initialize a volume.
 
-        :param str name: The name of the volume inside owning domain
+        :param str name: The name of the volume inside owning qube
         :param Pool pool: The pool object
         :param str vid:  Volume identifier needs to be unique in pool
         :param int revisions_to_keep: Amount of revisions to keep around
@@ -304,14 +304,14 @@ class Volume:
     async def export(self):
         """Returns a path to read the volume data from.
 
-        Reading from this path when domain owning this volume is
+        Reading from this path when qube owning this volume is
         running (i.e. when :py:meth:`is_dirty` is True) should return the
-        data from before domain startup.
+        data from before qube startup.
 
         Reading from the path returned by this method should return the
         volume data. If extracting volume data require something more
         than just reading from file (for example connecting to some other
-        domain, or decompressing the data), the returned path may be a pipe.
+        qube, or decompressing the data), the returned path may be a pipe.
 
         This can be implemented as a coroutine.
 
@@ -337,7 +337,7 @@ class Volume:
 
         Writing to this path should overwrite volume data. If importing
         volume data require something more than just writing to a file (
-        for example connecting to some other domain, or converting data
+        for example connecting to some other qube, or converting data
         on the fly), the returned path may be a pipe.
 
         This can be implemented as a coroutine.
@@ -371,7 +371,7 @@ class Volume:
     def is_dirty(self):
         """Return `True` if volume was not properly shutdown and committed.
 
-        This include the situation when domain owning the volume is still
+        This include the situation when qube owning the volume is still
         running.
 
         """
@@ -584,7 +584,7 @@ class Storage:
                 break
 
     def init_volume(self, name, volume_config):
-        """Initialize Volume instance attached to this domain"""
+        """Initialize Volume instance attached to this qube"""
 
         if "name" not in volume_config:
             volume_config["name"] = name
@@ -622,7 +622,7 @@ class Storage:
         raise TypeError("You need to pass a Volume object or name")
 
     def attach(self, volume, rw=False):
-        """Attach a volume to the domain"""
+        """Attach a volume to the qube"""
         assert self.vm.is_running()
 
         if self._is_already_attached(volume):
@@ -665,7 +665,7 @@ class Storage:
         return False
 
     def detach(self, volume):
-        """Detach a volume from domain"""
+        """Detach a volume from qube"""
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
         disks = parsed_xml.xpath("//domain/devices/disk")
         for disk in disks:
@@ -694,7 +694,7 @@ class Storage:
         )
 
     def get_disk_utilization(self):
-        """Returns summed up disk utilization for all domain volumes"""
+        """Returns summed up disk utilization for all qube volumes"""
         result = 0
         for volume in self.vm.volumes.values():
             result += volume.usage
@@ -798,7 +798,7 @@ class Storage:
             self.vm.log.exception("Failed to remove some volume")
 
     def block_devices(self):
-        """Return all :py:class:`qubes.storage.BlockDevice` for current domain
+        """Return all :py:class:`qubes.storage.BlockDevice` for current qube
         for serialization in the libvirt XML template as <disk>.
         """
         for v in self.vm.volumes.values():

@@ -136,7 +136,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         read=True,
     )
     async def vm_list(self):
-        """List all the domains"""
+        """List all the qubes"""
         if self.dest.name == "dom0":
             domains = self.fire_event_for_filter(self.app.domains)
         else:

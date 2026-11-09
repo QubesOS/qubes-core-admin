@@ -543,7 +543,7 @@ netvm default=True type=vm \n"""
         )
         self.assertEqual(
             value,
-            "Colourful label assigned to VM. This is where the colour of the "
+            "Colourful label assigned to qube. This is where the colour of the "
             "padlock is set.",
         )
         self.assertFalse(self.app.save.called)
@@ -2454,7 +2454,7 @@ updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
         # actual function tested for admin.vm.property.* already
         value = self.call_mgmt_func(b"admin.property.Help", b"dom0", b"clockvm")
         self.assertEqual(
-            value, "Which VM to use as NTP proxy for updating AdminVM"
+            value, "Which qube to use as NTP proxy for updating AdminVM"
         )
         self.assertFalse(self.app.save.called)
 

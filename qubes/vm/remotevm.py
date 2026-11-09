@@ -28,7 +28,7 @@ class RemoteVM(BaseVM):
         "include_in_backups",
         type=bool,
         default=False,
-        doc="If this domain is to be included in default backup.",
+        doc="If this qube is to be included in default backup.",
     )
 
     relayvm = qubes.VMProperty(

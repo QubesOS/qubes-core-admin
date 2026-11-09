@@ -451,10 +451,10 @@ class ZFSPool(qubes.storage.Pool):
     snap_on_start  save_on_stop    typical use
 
     False          False           volatile
-        upon domain start:
+        upon qube start:
             the volume is recursively destroyed and recreated
             to its specifications
-        upon domain stop:
+        upon qube stop:
             the volume is removed completely
 
     False          True            private / full persistence
@@ -462,20 +462,20 @@ class ZFSPool(qubes.storage.Pool):
             the volume is created according to specifications;
             it may later be used as an import target or a clone
             source
-        upon domain start:
+        upon qube start:
             the volume is used as-is; but flagged dirty
-        upon domain stop:
+        upon qube stop:
             the volume is kept untouched; a revision snapshot
             is created after stopping the qube, and all aged
             snapshots are deleted; then it is flagged clean
 
     True           False           root / volatile
-        upon domain start:
+        upon qube start:
             the volume is recursively destroyed and recreated,
             cloning it from the last committed state of the
             corresponding source volume, and then applying
             the volume's storage specifications (size)
-        upon domain stop:
+        upon qube stop:
             if snap on start forensics is enabled:
                 the volume is kept; the next start it
                 will be blown-away and recreated

@@ -38,7 +38,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "template_for_dispvms",
         type=bool,
         default=False,
-        doc="Should this VM be allowed to start as Disposable VM",
+        doc="Should this qube be allowed to start as Disposable VM",
     )
 
     @qubes.stateless_property
@@ -65,7 +65,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event) -> None:
         """
-        Cleanup invalid preloaded qubes when domain is loaded.
+        Cleanup invalid preloaded qubes when qube is loaded.
 
         :param str event: Event which was fired.
         """
@@ -124,7 +124,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
     @qubes.events.handler("domain-pre-start")
     def __on_domain_pre_start(self, event, **kwargs) -> None:
         """
-        Prevents startup for domain having a volume with disabled snapshots
+        Prevents startup for qube having a volume with disabled snapshots
         and a disposable based on this volume started.
 
         :param str event: Event which was fired.

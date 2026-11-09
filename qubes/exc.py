@@ -53,7 +53,7 @@ class PermissionDenied(PermissionError):
 
 
 class QubesVMNotFoundError(QubesException, KeyError):
-    """Domain cannot be found in the system"""
+    """Qube cannot be found in the system"""
 
     def __init__(self, vmname):
         super().__init__("No such domain: {!r}".format(vmname))
@@ -65,7 +65,7 @@ class QubesVMNotFoundError(QubesException, KeyError):
 
 
 class QubesVMInvalidUUIDError(QubesException):
-    """Domain UUID is invalid"""
+    """Qube UUID is invalid"""
 
     # pylint: disable = super-init-not-called
     def __init__(self, uuid: str) -> None:
@@ -76,11 +76,11 @@ class QubesVMInvalidUUIDError(QubesException):
 
 
 class QubesVMAlreadyExistsError(QubesException):
-    """Domain was requested to be created, but it already exists."""
+    """Qube was requested to be created, but it already exists."""
 
 
 class QubesVMError(QubesException):
-    """Some problem with domain state."""
+    """Some problem with qube state."""
 
     def __init__(self, vm, msg):
         super().__init__(msg)
@@ -95,7 +95,7 @@ class QubesVMInUseError(QubesVMError):
 
 
 class QubesVMNotStartedError(QubesVMError):
-    """Domain is not started.
+    """Qube is not started.
 
     This exception is thrown when machine is halted, but should be started
     (that is, either running or paused).
@@ -108,7 +108,7 @@ class QubesVMNotStartedError(QubesVMError):
 
 
 class QubesVMNotRunningError(QubesVMNotStartedError):
-    """Domain is not running.
+    """Qube is not running.
 
     This exception is thrown when machine should be running but is either
     halted or paused.
@@ -125,7 +125,7 @@ class QubesVMNotRunningError(QubesVMNotStartedError):
 
 
 class QubesVMNotPausedError(QubesVMNotStartedError):
-    """Domain is not paused.
+    """Qube is not paused.
 
     This exception is thrown when machine should be paused, but is not.
     """
@@ -150,7 +150,7 @@ class QubesVMCancelledPauseError(QubesVMError):
 
 
 class QubesVMNotSuspendedError(QubesVMError):
-    """Domain is not suspended.
+    """Qube is not suspended.
 
     This exception is thrown when machine should be suspended but is either
     halted or running.
@@ -163,7 +163,7 @@ class QubesVMNotSuspendedError(QubesVMError):
 
 
 class QubesVMNotHaltedError(QubesVMError):
-    """Domain is not halted.
+    """Qube is not halted.
 
     This exception is thrown when machine should be halted, but is not (either
     running or paused).
@@ -176,7 +176,7 @@ class QubesVMNotHaltedError(QubesVMError):
 
 
 class QubesVMShutdownTimeoutError(QubesVMError):
-    """Domain shutdown timed out."""
+    """Qube shutdown timed out."""
 
     def __init__(self, vm, msg=None):
         super().__init__(
@@ -185,7 +185,7 @@ class QubesVMShutdownTimeoutError(QubesVMError):
 
 
 class QubesNoTemplateError(QubesVMError):
-    """Cannot start domain, because there is no template"""
+    """Cannot start qube, because there is no template"""
 
     def __init__(self, vm, msg=None):
         super().__init__(
@@ -266,7 +266,7 @@ class BackupAlreadyRunningError(QubesException):
 
 
 class QubesMemoryError(QubesVMError, MemoryError):
-    """Cannot start domain, because not enough memory is available"""
+    """Cannot start qube, because not enough memory is available"""
 
     def __init__(self, vm, msg=None):
         super().__init__(
@@ -275,7 +275,7 @@ class QubesMemoryError(QubesVMError, MemoryError):
 
 
 class QubesFeatureNotFoundError(QubesException, KeyError):
-    """Feature not set for a given domain"""
+    """Feature not set for a given qube"""
 
     def __init__(self, domain, feature):
         super().__init__(
@@ -290,7 +290,7 @@ class QubesFeatureNotFoundError(QubesException, KeyError):
 
 
 class QubesTagNotFoundError(QubesException, KeyError):
-    """Tag not set for a given domain"""
+    """Tag not set for a given qube"""
 
     def __init__(self, domain, tag):
         super().__init__("Tag not set for domain {}: {}".format(domain, tag))
@@ -361,14 +361,14 @@ class StoragePoolException(QubesException):
 
 
 class QubesVolumeCopyTokenNotFoundError(ProtocolError, KeyError):
-    """Domain volume copy did not specify a configured token."""
+    """Qube volume copy did not specify a configured token."""
 
     def __init__(self, msg=None):
         super().__init__(msg or "Token to clone volume of qube was not found")
 
 
 class QubesVolumeCopyInUseError(QubesVMError):
-    """Domain volume is already being cloned."""
+    """Qube volume is already being cloned."""
 
     def __init__(self, vm, volume, msg=None):
         super().__init__(
@@ -394,15 +394,15 @@ class QubesVolumeNotFoundError(KeyError):
 
 
 class QubesInvalidTagError(ProtocolError):
-    """Domain tag is invalid."""
+    """Qube tag is invalid."""
 
 
 class QubesInvalidLabelError(ProtocolError):
-    """Domain label is invalid."""
+    """Qube label is invalid."""
 
 
 class QubesInvalidLabelValueError(ProtocolError):
-    """Domain label value is invalid."""
+    """Qube label value is invalid."""
 
 
 class QubesLabelInUseError(QubesException):

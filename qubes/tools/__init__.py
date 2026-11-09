@@ -172,7 +172,7 @@ class HelpPropertiesAction(argparse.Action):
 
 
 class VmNameAction(QubesAction):
-    """Action for parsing one ore multiple domains from provided VMNAMEs"""
+    """Action for parsing one ore multiple qubes from provided VMNAMEs"""
 
     # pylint: disable=too-few-public-methods,redefined-builtin
     def __init__(
@@ -227,7 +227,7 @@ class VmNameAction(QubesAction):
 
 
 class RunningVmNameAction(VmNameAction):
-    """Action for argument parser that gets a running domain from VMNAME"""
+    """Action for argument parser that gets a running qube from VMNAME"""
 
     # pylint: disable=too-few-public-methods
 

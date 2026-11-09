@@ -283,7 +283,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "include_in_backups",
         type=bool,
         default=(lambda self: not self.auto_cleanup),
-        doc="If this domain is to be included in default backup.",
+        doc="If this qube is to be included in default backup.",
     )
 
     default_dispvm = qubes.VMProperty(
@@ -557,7 +557,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=unused-argument
         """
         When starting a qube, await for basic services to be started on
-        preloaded disposables and interrupts the domain if the qube has not
+        preloaded disposables and interrupts the qube if the qube has not
         been requested yet.
 
         :param str event: Event which was fired.
@@ -716,7 +716,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     async def on_domain_shutdown(self, _event, **_kwargs) -> None:
         """
         If ``auto_cleanup`` is disabled, apply deferred template. If
-        ``auto_cleanup`` is enabled, remove domain.
+        ``auto_cleanup`` is enabled, remove qube.
         """
         if not self.auto_cleanup:
             qubes.vm.appvm.apply_deferred_template(self)

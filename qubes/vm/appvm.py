@@ -169,7 +169,7 @@ class AppVM(
 
     @qubes.events.handler("domain-load")
     def on_domain_loaded(self, event):
-        """When domain is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
+        """When qube is loaded assert that this vm has a template."""  # pylint: disable=unused-argument
         domain_loaded(self)
 
     @qubes.events.handler("domain-shutdown")

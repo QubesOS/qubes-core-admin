@@ -70,7 +70,7 @@ _vm_uuid_re = re.compile(rb"\A/vm/[0-9a-f]{8}(?:-[0-9a-f]{4}){4}[0-9a-f]{8}\Z")
 
 def _setter_kernel(self, prop, value):
     """
-    Helper for setting the domain kernel and running sanity checks on it.
+    Helper for setting the qube kernel and running sanity checks on it.
     """
     # pylint: disable=unused-argument
     if not value:
@@ -85,7 +85,7 @@ def _setter_kernel(self, prop, value):
 
 def _setter_kernelopts(self, prop, value):
     """
-    Helper for setting the domain kernelopts and running sanity checks on it.
+    Helper for setting the qube kernelopts and running sanity checks on it.
     """
     if not value:
         return ""
@@ -452,7 +452,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         .. event:: domain-start-failed (subject, event, reason)
 
             Fired when :py:meth:`start` method fails.
-            or if domain has a `prohibit-start` feature.
+            or if qube has a `prohibit-start` feature.
             *reason* argument is a textual error message.
 
             Handler for this event may be asynchronous.
@@ -472,7 +472,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-paused (subject, event)
 
-            Fired when the domain has been paused.
+            Fired when the qube has been paused.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-paused'``)
@@ -489,7 +489,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-unpaused (subject, event)
 
-            Fired when the domain has been unpaused.
+            Fired when the qube has been unpaused.
 
             Handler for this event may be asynchronous.
 
@@ -498,7 +498,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-suspended (subject, event)
 
-            Fired when the domain has been suspended.
+            Fired when the qube has been suspended.
 
             Handler for this event may be asynchronous.
 
@@ -507,7 +507,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-resumed (subject, event)
 
-            Fired when the domain has been resumed from suspend.
+            Fired when the qube has been resumed from suspend.
 
             Handler for this event may be asynchronous.
 
@@ -516,7 +516,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-stopped (subject, event)
 
-            Fired when domain has been stopped.
+            Fired when qube has been stopped.
 
             This event is emitted before ``'domain-shutdown'`` and will trigger
             the cleanup in QubesVM. So if you require that the cleanup has
@@ -533,7 +533,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-shutdown (subject, event)
 
-            Fired when domain has been shut down. It is generated after
+            Fired when qube has been shut down. It is generated after
             ``'domain-stopped'``.
 
             Note that you can receive this event as soon as you received
@@ -624,8 +624,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             :param event: Event name (``'domain-is-fully-usable'``)
 
             You may ``yield False`` from the handler if you think the qube is
-            not fully usable. This will cause the domain to be in "transient"
-            state in the domain lifecycle.
+            not fully usable. This will cause the qube to be in "transient"
+            state in the qube lifecycle.
 
         .. event:: domain-qdb-create (subject, event)
 
@@ -659,7 +659,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: domain-restore (subject, event)
 
-            Domain was just restored from backup, although the storage was not
+            Qube was just restored from backup, although the storage was not
             yet verified and the app object was not yet saved.
 
             :param subject: Event emitter (the qube object)
@@ -737,7 +737,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         .. event:: features-request (subject, event, *, untrusted_features)
 
-            The domain is performing a features request.
+            The qube is performing a features request.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'features-request'``)
@@ -767,16 +767,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'net-domain-connect'``)
-            :param vm: The domain that was just connected.
+            :param vm: The qube that was just connected.
 
             On the `vm` object there was probably ``property-set:netvm`` fired
             earlier.
 
         .. event:: template-postinstall (subject, event)
 
-            Fired on non-template-based domain (TemplateVM, StandaloneVM) when
+            Fired on non-template-based qube (TemplateVM, StandaloneVM) when
             it first reports qrexec presence. This happens at the first
-            domain startup just after its installation and is suitable for
+            qube startup just after its installation and is suitable for
             performing various post-installation setup.
 
             Handler for this event may be asynchronous.
@@ -799,7 +799,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         type=str,
         load_stage=4,
         default=_default_bootmode,
-        doc="Active boot mode for this domain",
+        doc="Active boot mode for this qube",
     )
 
     guivm = qubes.VMProperty(
@@ -807,7 +807,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         load_stage=4,
         allow_none=True,
         default=(lambda self: self.app.default_guivm),
-        doc="VM used for Gui",
+        doc="Qube used for GUI",
     )
 
     audiovm = qubes.VMProperty(
@@ -815,7 +815,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         load_stage=4,
         allow_none=True,
         default=(lambda self: self.app.default_audiovm),
-        doc="VM used for Audio",
+        doc="Qube used for audio",
     )
 
     virt_mode = qubes.property(
@@ -833,7 +833,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         type=bool,
         setter=qubes.property.bool,
         default=False,
-        doc="""If this domain's image was installed from package tracked by
+        doc="""If this qube's image was installed from package tracked by
             package manager.""",
     )
 
@@ -853,8 +853,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             ],
         ),
         # fmt: on
-        doc="Memory currently available for this VM. TemplateBasedVMs use its "
-        "template's value by default.",
+        doc="Memory currently available for this qube. TemplateBasedVMs use "
+        "its template's value by default.",
     )
 
     maxmem = qubes.property(
@@ -862,7 +862,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         type=int,
         setter=_setter_non_negative_int,
         default=_default_maxmem,
-        doc="""Maximum amount of memory available for this VM (for the purpose
+        doc="""Maximum amount of memory available for this qube (for the purpose
             of the memory balancer). Set to 0 to disable memory balancing for
             this qube. TemplateBasedVMs use its template\'s value by default
             (unless memory balancing not supported for this qube).""",
@@ -893,7 +893,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=_default_with_template(
             "kernel", lambda self: self.app.default_kernel
         ),
-        doc="Kernel used by this domain. TemplateBasedVMs use its "
+        doc="Kernel used by this qube. TemplateBasedVMs use its "
         "template's value by default.",
     )
 
@@ -905,7 +905,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         load_stage=4,
         default=_default_kernelopts,
         setter=_setter_kernelopts,
-        doc="Kernel command line passed to domain. TemplateBasedVMs use its "
+        doc="Kernel command line passed to qube. TemplateBasedVMs use its "
         "template's value by default.",
     )
 
@@ -938,7 +938,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         ),
         setter=_setter_positive_int,
         doc="""Time in seconds after which qrexec connection attempt is deemed
-            failed. Operating system inside VM should be able to boot in this
+            failed. Operating system inside qube should be able to boot in this
             time.""",
     )
 
@@ -949,8 +949,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             "shutdown_timeout", lambda self: self.app.default_shutdown_timeout
         ),
         setter=_setter_positive_int,
-        doc="""Time in seconds for shutdown of the VM, after which VM may be
-            forcefully powered off. Operating system inside VM should be
+        doc="""Time in seconds for shutdown of the qube, after which qube may
+            be forcefully powered off. Operating system inside qube should be
             able to fully shutdown in this time.""",
     )
 
@@ -959,7 +959,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=False,
         type=bool,
         setter=qubes.property.bool,
-        doc="""Setting this to `True` means that VM should be autostarted on
+        doc="""Setting this to `True` means that qube should be autostarted on
             dom0 boot.""",
     )
 
@@ -968,7 +968,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=True,
         type=bool,
         setter=qubes.property.bool,
-        doc="If this domain is to be included in default backup.",
+        doc="If this qube is to be included in default backup.",
     )
 
     backup_timestamp = qubes.property(
@@ -1005,7 +1005,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=(lambda self: not hasattr(self, "template")),
         type=bool,
         setter=qubes.property.forbidden,
-        doc="True if this machine may be updated on its own.",
+        doc="True if this qube may be updated on its own.",
     )
 
     devices_denied = qubes.property(
@@ -1013,7 +1013,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default="",
         type=str,
         setter=_setter_denied_list,
-        doc="List of device interface codes that are denied for this VM.",
+        doc="List of device interface codes that are denied for this qube.",
     )
 
     # for changes in keyboard_layout, see also the same property in AdminVM
@@ -1022,7 +1022,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         default=(lambda self: getattr(self.guivm, "keyboard_layout", "us++")),
         type=str,
         setter=_setter_kbd_layout,
-        doc="Keyboard layout for this VM",
+        doc="Keyboard layout for this qube",
     )
 
     #
@@ -1164,14 +1164,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @property
     def block_devices(self):
-        """Return all :py:class:`qubes.storage.BlockDevice` for current domain
+        """Return all :py:class:`qubes.storage.BlockDevice` for current qube
         for serialization in the libvirt XML template as <disk>.
         """
         return self.storage.block_devices()
 
     @property
     def untrusted_qdb(self):
-        """QubesDB handle for this domain."""
+        """QubesDB handle for this qube."""
         if self._qdb_connection is None and self.is_running():
             import qubesdb  # pylint: disable=import-error
 
@@ -1184,7 +1184,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @property
     def dir_path(self):
-        """Root directory for files related to this domain"""
+        """Root directory for files related to this qube"""
         return os.path.join(
             qubes.config.qubes_base_dir, self.dir_path_prefix, self.name
         )
@@ -1436,7 +1436,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     async def _ensure_shutdown_handled(self):
         """Make sure previous shutdown is fully handled.
-        MUST NOT be called when domain is running.
+        MUST NOT be called when qube is running.
         """
         async with self._domain_stopped_lock:
             # Don't accept any new stopped event's till a new VM has been
@@ -1490,7 +1490,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     async def start(
         self, start_guid=True, notify_function=None, mem_required=None
     ):
-        """Start domain
+        """Start qube
 
         :param bool start_guid: FIXME
         :param collections.abc.Callable notify_function: FIXME
@@ -1866,7 +1866,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.events.handler("domain-stopped")
     async def on_domain_stopped(self, _event, **_kwargs):
-        """Cleanup after domain was stopped"""
+        """Cleanup after qube was stopped"""
         try:
             await self.storage.stop()
         except qubes.exc.StoragePoolException:
@@ -1877,14 +1877,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.fire_event("property-reset:start_time", name="start_time")
 
     async def shutdown(self, force=False, wait=False, timeout=None):
-        """Shutdown domain.
+        """Shutdown qube.
 
         :param force: ignored
         :param wait: wait for shutdown to complete
         :param timeout: shutdown wait timeout (for *wait* = True), defaults to
             :py:attr:`shutdown_timeout`
         :raises qubes.exc.QubesVMNotStartedError: \
-            when domain is already shut down.
+            when qube is already shut down.
         """
         self.log.info("Begin shutting down")
 
@@ -1965,10 +1965,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self
 
     async def kill(self):
-        """Forcefully shutdown (destroy) domain.
+        """Forcefully shutdown (destroy) qube.
 
         :raises qubes.exc.QubesVMNotStartedError: \
-            when domain is already shut down.
+            when qube is already shut down.
         """
         self.log.info("Begin kill")
 
@@ -1998,10 +1998,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.log.info("Complete kill")
 
     async def suspend(self):
-        """Suspend (pause) domain.
+        """Suspend (pause) qube.
 
         :raises qubes.exc.QubesVMNotRunnignError: \
-            when domain is already shut down.
+            when qube is already shut down.
         """
 
         if not self.is_running() and not self.is_paused():
@@ -2044,7 +2044,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self
 
     async def pause(self):
-        """Pause (suspend) domain."""
+        """Pause (suspend) qube."""
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
@@ -2056,7 +2056,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self
 
     async def resume(self):
-        """Resume suspended domain.
+        """Resume suspended qube.
 
         :raises qubes.exc.QubesVMNotSuspendedError: when machine is not paused
         :raises qubes.exc.QubesVMError: when machine is suspended
@@ -2093,7 +2093,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self
 
     async def unpause(self):
-        """Resume (unpause) a domain"""
+        """Resume (unpause) a qube"""
         if not self.is_paused():
             raise qubes.exc.QubesVMNotPausedError(self)
 
@@ -2121,7 +2121,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """Run service on this VM
 
         :param str service: service name
-        :param qubes.vm.qubesvm.QubesVM source: source domain as presented to
+        :param qubes.vm.qubesvm.QubesVM source: source qube as presented to
             this VM
         :param str user: username to run service as
         :param bool filter_esc: filter escape sequences to protect terminal \
@@ -2214,7 +2214,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return stdouterr
 
     async def run(self, command, user=None, **kwargs):
-        """Run a shell command inside the domain using qrexec.
+        """Run a shell command inside the qube using qrexec.
 
         This method is a coroutine.
         """  # pylint: disable=redefined-builtin
@@ -2231,7 +2231,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         )
 
     async def run_for_stdio(self, *args, input=None, **kwargs):
-        """Run a shell command inside the domain using qrexec.
+        """Run a shell command inside the qube using qrexec.
 
         This method is a coroutine.
         """  # pylint: disable=redefined-builtin
@@ -2536,7 +2536,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         await self.fire_event_async("domain-create-on-disk")
 
     async def remove_from_disk(self):
-        """Remove domain remnants from disk."""
+        """Remove qube remnants from disk."""
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self,
@@ -2855,18 +2855,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             self._power_state = "NA"
 
     def is_halted(self):
-        """ Check whether this domain's state is 'Halted'
-            :returns: :py:obj:`True` if this domain is halted, \
+        """ Check whether this qube's state is 'Halted'
+            :returns: :py:obj:`True` if this qube is halted, \
                 :py:obj:`False` otherwise.
             :rtype: bool
         """
         return self.get_power_state() == "Halted"
 
     def is_running(self):
-        """Check whether this domain is active. This is not the same as
+        """Check whether this qube is active. This is not the same as
         ``Running`` power state, it only means the qube has a libvirt ID.
 
-        :returns: :py:obj:`True` if this domain is started, \
+        :returns: :py:obj:`True` if this qube is started, \
             :py:obj:`False` otherwise.
         :rtype: bool
         """
@@ -2883,9 +2883,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self._is_running
 
     def is_paused(self):
-        """Check whether this domain is paused.
+        """Check whether this qube is paused.
 
-        :returns: :py:obj:`True` if this domain is paused, \
+        :returns: :py:obj:`True` if this qube is paused, \
             :py:obj:`False` otherwise.
         :rtype: bool
         """
@@ -2893,7 +2893,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self._power_state == "Paused"
 
     def is_qrexec_running(self, stubdom=False):
-        """Check whether qrexec for this domain is available.
+        """Check whether qrexec for this qube is available.
 
         :returns: :py:obj:`True` if qrexec is running, \
             :py:obj:`False` otherwise.
@@ -2909,7 +2909,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
     @qubes.events.handler("domain-is-fully-usable")
     def on_domain_is_fully_usable(self, event):
-        """Check whether domain is running and sane.
+        """Check whether qube is running and sane.
 
         Currently this checks for running qrexec.
         """  # pylint: disable=unused-argument
@@ -2954,7 +2954,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         return self.maxmem * 1024
 
     def get_cputime(self):
-        """Get total CPU time burned by this domain since start.
+        """Get total CPU time burned by this qube since start.
 
         :returns: CPU time usage [FIXME unit].
         :rtype: FIXME

@@ -20,7 +20,7 @@
 
 """
 Backup restore related functionality. Specifically:
- - prevent starting a domain currently being restored
+ - prevent starting a qube currently being restored
 """
 
 import qubes.api

@@ -23,12 +23,12 @@
 
 """API for various types of devices.
 
-Main concept is that some domain may
-expose (potentially multiple) devices, which can be attached to other domains.
+Main concept is that some qube may
+expose (potentially multiple) devices, which can be attached to other qubes.
 Devices can be of different buses (like 'pci', 'usb', etc.). Each device
 bus is implemented by an extension.
 
-Devices are identified by pair of (backend domain, `port_id`), where `port_id`
+Devices are identified by pair of (backend qube, `port_id`), where `port_id`
 is :py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
 
 Such extension should:
@@ -36,15 +36,15 @@ Such extension should:
    :py:class:`qubes.device_protocol.DeviceInfo`, designed to hold device
    description (including bus-specific properties)
  - handle `device-attach:bus` and `device-detach:bus` events for
-   performing the attach/detach action; events are fired even when domain isn't
+   performing the attach/detach action; events are fired even when qube isn't
    running and extension should be prepared for this; handlers for those events
    can be coroutines
  - handle `device-list:bus` event - list devices exposed by particular
-   domain; it should return a list of appropriate DeviceInfo objects
+   qube; it should return a list of appropriate DeviceInfo objects
  - handle `device-get:bus` event - get one device object exposed by this
-   domain of given identifier
+   qube of given identifier
  - handle `device-list-attached:bus` event - list devices currently attached
-   to this domain
+   to this qube
  - fire `device-list-change:bus` and following `device-added:bus` or
    `device-removed:bus` events when a device list change is detected
    (new/removed device)
@@ -165,7 +165,7 @@ class DeviceCollection:
 
             Fired to get list of currently attached devices to a VM. Handlers
             of this event should return list of devices actually attached to
-            a domain, regardless of its settings.
+            a qube, regardless of its settings.
 
     """
 
@@ -187,7 +187,7 @@ class DeviceCollection:
 
     async def attach(self, assignment: DeviceAssignment):
         """
-        Attach device to domain.
+        Attach device to qube.
         """
 
         if assignment.devclass != self._bus:
@@ -260,7 +260,7 @@ class DeviceCollection:
 
     async def assign(self, assignment: DeviceAssignment):
         """
-        Assign device to domain.
+        Assign device to qube.
         """
         if assignment.devclass != self._bus:
             raise ValueError(
@@ -351,7 +351,7 @@ class DeviceCollection:
 
     async def detach(self, port: Port):
         """
-        Detach device from domain.
+        Detach device from qube.
         """
         for attached in self.get_attached_devices():
             if port.port_id == attached.port_id:
@@ -385,7 +385,7 @@ class DeviceCollection:
 
     async def unassign(self, assignment: DeviceAssignment):
         """
-        Unassign device from domain.
+        Unassign device from qube.
         """
         for assign in self.get_assigned_devices():
             if assignment == assign:
@@ -455,7 +455,7 @@ class DeviceCollection:
 
         :returns: py:class:`DeviceInfo`
 
-        If domain isn't running, it is impossible to check device validity,
+        If qube isn't running, it is impossible to check device validity,
         so return UnknownDevice object. Also do the same for non-existing
         devices - otherwise it will be impossible to detach already
         disconnected device.

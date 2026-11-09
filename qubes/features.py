@@ -143,9 +143,9 @@ class Features(dict):
     ):
         """Recursive search for a feature.
 
-        Traverse domains along one attribute, like
+        Traverse qubes along one attribute, like
         :py:attr:`qubes.vm.qubesvm.QubesVM.netvm` or
-        :py:attr:`qubes.vm.appvm.AppVM.template`, starting with current domain
+        :py:attr:`qubes.vm.appvm.AppVM.template`, starting with current qube
         (:py:attr:`subject`). Search stops when first `feature` is found. If
         a qube has no attribute, or if the attribute is :py:obj:`None`, the
         *default* is returned, or if not specified, :py:class:`KeyError` is

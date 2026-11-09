@@ -114,7 +114,7 @@ class AdminExtension(qubes.ext.Extension):
         "admin-permission:admin.backup.Info",
     )
     def admin_vm_list(self, vm, event, arg, **kwargs):
-        """When called with target 'dom0' (aka "get full list"), exclude domains
+        """When called with target 'dom0' (aka "get full list"), exclude qubes
         that the caller don't have permission to list
         """
         # pylint: disable=unused-argument
@@ -153,7 +153,7 @@ class AdminExtension(qubes.ext.Extension):
     @qubes.ext.handler("admin-permission:admin.Events")
     def admin_events(self, vm, event, arg, **kwargs):
         """When called with target 'dom0' (aka "get all events"),
-        exclude domains that the caller don't have permission to receive
+        exclude qubes that the caller don't have permission to receive
         events about
         """
         # pylint: disable=unused-argument
