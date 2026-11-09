@@ -1047,7 +1047,7 @@ class SystemTestCase(QubesTestCase):
         except subprocess.CalledProcessError:
             pass
         await vm.run_for_stdio(
-            "timeout=120; while ! tor-circuit-established-check; do"
+            "timeout=300; while ! tor-circuit-established-check; do"
             " sleep 1;"
             " timeout=$(( timeout - 1 ));"
             " [ $timeout -gt 0 ] || exit 1; "
