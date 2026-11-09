@@ -592,6 +592,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, "include_in_backups", True)
 
+    def test_221_cleanup_logs(self):
+        vm = self.get_vm()
+        self._test_generic_bool_property(vm, "cleanup_logs", True)
+
     @unittest.mock.patch("qubes.config.qubes_base_dir", "/tmp/qubes-test")
     def test_250_kernel(self):
         for kver in ("dummy", "dummy2", "pvgrub2", "pvgrub2-pvh"):
@@ -3345,6 +3349,141 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 self.loop.run_until_complete(vm.remove_from_disk())
             self.assertIs(cm.exception.vm, vm)
             self.assertIn("Can't remove VM", str(cm.exception))
+
+    def _test_remove_from_disk_logs(self, cleanup_logs):
+        vm = self.get_vm()
+        if cleanup_logs is not None:
+            vm.cleanup_logs = cleanup_logs
+        vm.storage = unittest.mock.Mock()
+        vm.storage.remove = unittest.mock.AsyncMock()
+        vm._domain_stopped_event_handled = True
+        with tempfile.TemporaryDirectory() as tmpdir, unittest.mock.patch(
+            "qubes.config.qubes_base_dir", tmpdir
+        ), unittest.mock.patch.object(
+            vm, "is_halted", return_value=True
+        ), unittest.mock.patch.object(
+            vm, "remove_logs"
+        ) as mock_remove_logs:
+            self.loop.run_until_complete(vm.remove_from_disk())
+        vm.storage.remove.assert_called_once_with()
+        return mock_remove_logs
+
+    def test_731_remove_from_disk_logs_default(self):
+        mock_remove_logs = self._test_remove_from_disk_logs(None)
+        mock_remove_logs.assert_called_once_with()
+
+    def test_732_remove_from_disk_logs_disabled(self):
+        mock_remove_logs = self._test_remove_from_disk_logs(False)
+        mock_remove_logs.assert_not_called()
+
+    def test_733_remove_logs(self):
+        vm = self.get_vm(name="work")
+        # vm.name is "test-inst-work"
+        removed = [
+            "qubes/guid.test-inst-work.log",
+            "qubes/guid.test-inst-work.log.old",
+            "qubes/qrexec.test-inst-work.log",
+            "qubes/qubesdb.test-inst-work.log",
+            "qubes/pacat.test-inst-work.log",
+            "qubes/mgmt-test-inst-work.log",
+            "qubes/update-test-inst-work.log",
+            "qubes/guid.test-inst-work-dm.log",
+            "xen/console/guest-test-inst-work.log",
+            "xen/console/guest-test-inst-work.log-20261101.gz",
+            "xen/console/guest-test-inst-work.log.1.gz",
+            "xen/console/guest-test-inst-work-dm.log",
+            "xen/console/guest-test-inst-work-dm.log-20261101.gz",
+            "xen/qmp-proxy-test-inst-work-dm.log",
+            "xen/qmp-proxy-test-inst-work-dm.log.10",
+            "libxl/test-inst-work.log",
+            "libxl/test-inst-work.log.1",
+            "libxl/test-inst-work.log.2.gz",
+        ]
+        kept = [
+            # other qubes with similar names
+            "qubes/guid.test-inst-work-web.log",
+            "qubes/guid.test-inst-work.1.log",
+            "qubes/qrexec.test-inst-work.log.log",
+            "qubes/guid.test-inst-wor.log",
+            "xen/console/guest-test-inst-work-web.log",
+            "xen/console/guest-test-inst-work-web-dm.log",
+            "xen/qmp-proxy-test-inst-work-web-dm.log",
+            "libxl/test-inst-work-web.log",
+            "libxl/test-inst-work.log.log",
+            # global logs
+            "qubes/qubes-vm-update.log",
+            "qubes/policy-admin.log",
+            "xen/console/hypervisor.log",
+            "libxl/libxl-driver.log",
+            # not a log of this qube, even if in a subdirectory
+            "qubes/sub/guid.test-inst-work.log",
+        ]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_files = {
+                os.path.join(tmpdir, "qubes"): (
+                    "guid.{}.log",
+                    "qrexec.{}.log",
+                    "qubesdb.{}.log",
+                    "pacat.{}.log",
+                    "mgmt-{}.log",
+                    "update-{}.log",
+                ),
+                os.path.join(tmpdir, "xen/console"): ("guest-{}.log",),
+                os.path.join(tmpdir, "xen"): ("qmp-proxy-{}.log",),
+                os.path.join(tmpdir, "libxl"): ("{}.log",),
+                # missing directory is ignored
+                os.path.join(tmpdir, "missing"): ("{}.log",),
+            }
+            for path in removed + kept:
+                path = os.path.join(tmpdir, path)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="ascii") as f:
+                    f.write("log\n")
+            # symlinks are not followed nor removed
+            os.mkdir(os.path.join(tmpdir, "outside"))
+            target = os.path.join(tmpdir, "outside/target.log")
+            open(target, "w", encoding="ascii").close()
+            os.symlink(
+                target,
+                os.path.join(tmpdir, "qubes/qrexec.test-inst-work.log.1"),
+            )
+            kept.append("qubes/qrexec.test-inst-work.log.1")
+            kept.append("outside/target.log")
+            # a directory with a matching name is not removed
+            os.mkdir(os.path.join(tmpdir, "qubes/qubesdb.test-inst-work.log.1"))
+            kept.append("qubes/qubesdb.test-inst-work.log.1")
+
+            with unittest.mock.patch(
+                "qubes.config.qube_log_files", log_files
+            ), unittest.mock.patch.object(vm, "log") as mock_log:
+                vm.remove_logs()
+            mock_log.warning.assert_not_called()
+
+            for path in removed:
+                self.assertFalse(
+                    os.path.lexists(os.path.join(tmpdir, path)), path
+                )
+            for path in kept:
+                self.assertTrue(
+                    os.path.lexists(os.path.join(tmpdir, path)), path
+                )
+
+    def test_734_remove_logs_error(self):
+        vm = self.get_vm()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "guid.test-inst-test.log")
+            open(path, "w", encoding="ascii").close()
+            with unittest.mock.patch(
+                "qubes.config.qube_log_files", {tmpdir: ("guid.{}.log",)}
+            ), unittest.mock.patch.object(
+                vm, "log"
+            ) as mock_log, unittest.mock.patch(
+                "os.unlink", side_effect=PermissionError("denied")
+            ):
+                vm.remove_logs()
+            mock_log.warning.assert_called_once_with(
+                "Failed to remove log file %s: %s", path, unittest.mock.ANY
+            )
 
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
