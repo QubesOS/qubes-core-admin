@@ -49,8 +49,10 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.List \
 	admin.vm.Pause \
 	admin.vm.Remove \
+	admin.vm.Resume \
 	admin.vm.Shutdown \
 	admin.vm.Start \
+	admin.vm.Suspend \
 	admin.vm.Unpause \
 	admin.vm.device.pci.Assign \
 	admin.vm.device.pci.Assigned \
