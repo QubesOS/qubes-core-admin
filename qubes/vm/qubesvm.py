@@ -1712,7 +1712,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             )
         waiter = self._lifecycle_waiter[event]
         try:
-            yield entered_new_waiter or self._lifecycle_waiter[event].done()
+            yield entered_new_waiter
         finally:
             if wait:
                 await asyncio.wait_for(waiter, timeout=timeout)
