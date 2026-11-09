@@ -1868,6 +1868,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.ext_audio",
         "qubes.tests.ext_core_features",
         "qubes.tests.ext_custom_persist",
+        "qubes.tests.ext_exclusive",
         "qubes.tests.ext_gui",
         "qubes.tests.ext_services",
         "qubes.tests.ext_supported_features",

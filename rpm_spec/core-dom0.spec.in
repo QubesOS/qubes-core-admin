@@ -457,6 +457,7 @@ done
 %{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/core_features.py
 %{python3_sitelib}/qubes/ext/custom_persist.py
+%{python3_sitelib}/qubes/ext/exclusive.py
 %{python3_sitelib}/qubes/ext/gui.py
 %{python3_sitelib}/qubes/ext/audio.py
 %{python3_sitelib}/qubes/ext/pci.py
@@ -489,6 +490,7 @@ done
 %{python3_sitelib}/qubes/tests/ext_audio.py
 %{python3_sitelib}/qubes/tests/ext_core_features.py
 %{python3_sitelib}/qubes/tests/ext_custom_persist.py
+%{python3_sitelib}/qubes/tests/ext_exclusive.py
 %{python3_sitelib}/qubes/tests/ext_gui.py
 %{python3_sitelib}/qubes/tests/ext_services.py
 %{python3_sitelib}/qubes/tests/ext_supported_features.py
