@@ -5,6 +5,9 @@
 admin.vm.Create.AppVM                      *   @tag:backup-restore-mgmt dom0                 allow target=dom0
 admin.vm.Create.StandaloneVM               *   @tag:backup-restore-mgmt dom0                 allow target=dom0
 admin.vm.Create.TemplateVM                 *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.CreateInPool.AppVM                *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.CreateInPool.StandaloneVM         *   @tag:backup-restore-mgmt dom0                 allow target=dom0
+admin.vm.CreateInPool.TemplateVM           *   @tag:backup-restore-mgmt dom0                 allow target=dom0
 admin.vm.List                              *   @tag:backup-restore-mgmt dom0                 allow target=dom0
 ## Allow checking some basic info about all the VMs, to propose conflicts resolution
 admin.vm.List                              *   @tag:backup-restore-mgmt @anyvm               allow target=dom0
