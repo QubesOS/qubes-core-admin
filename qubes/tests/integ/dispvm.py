@@ -747,6 +747,101 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         await self.run_preload(assert_stdout=False)
         self.log.info("end")
 
+    async def _run_for_output(self, vm, cmd, user="root"):
+        stdout, _ = await asyncio.wait_for(
+            vm.run_for_stdio(cmd, user=user), timeout=30
+        )
+        return stdout.decode().strip()
+
+    async def _check_ephemeral_storage(self, dispvm):
+        for name in ("root", "private"):
+            self.assertFalse(dispvm.volumes[name].rw, name)
+        self.assertTrue(dispvm.volumes["volatile"].ephemeral)
+        changes = dispvm.volumes["private-changes"]
+        self.assertTrue(changes.rw)
+        self.assertTrue(changes.ephemeral)
+        run = self._run_for_output
+        self.assertEqual(
+            await run(dispvm, "qubesdb-read /qubes-ephemeral-storage"), "1"
+        )
+        self.assertEqual(await run(dispvm, "blockdev --getro /dev/xvdb"), "1")
+        self.assertEqual(
+            await run(
+                dispvm,
+                "if dd if=/dev/xvdb of=/dev/xvdb bs=4096 count=1 "
+                "conv=notrunc oflag=direct 2>/dev/null; "
+                "then echo written; else echo refused; fi",
+            ),
+            "refused",
+        )
+        self.assertEqual(
+            await run(dispvm, "blockdev --getsize64 /dev/xvde"),
+            str(changes.size),
+        )
+        deps = await run(dispvm, "dmsetup deps -o devname snapshot-private")
+        self.assertIn("(xvdb)", deps)
+        self.assertIn("(xvde)", deps)
+        self.assertEqual(
+            await run(dispvm, "findmnt -n -o SOURCE /rw"),
+            "/dev/mapper/snapshot-private",
+        )
+        self.assertEqual(
+            await run(dispvm, "cat /home/user/dvm-file", user="user"),
+            "from dvm",
+        )
+        self.assertEqual(
+            await run(
+                dispvm,
+                "echo from disp > /home/user/disp-file && "
+                "cat /home/user/disp-file",
+                user="user",
+            ),
+            "from disp",
+        )
+
+    def test_020_ephemeral_storage(self):
+        """Private changes go to an ephemeral volume, xvdb stays read-only"""
+        self.loop.run_until_complete(self._test_020_ephemeral_storage())
+
+    async def _test_020_ephemeral_storage(self):
+        self.log.info("start")
+        if not self.disp_base.features.check_with_template(
+            "supported-feature.ephemeral-storage", False
+        ):
+            self.skipTest("template does not support ephemeral-storage")
+        await self.disp_base.start()
+        await self._run_for_output(
+            self.disp_base, "echo from dvm > /home/user/dvm-file", user="user"
+        )
+        await self.disp_base.shutdown(wait=True)
+        self.disp_base.features["ephemeral-storage"] = True
+        self.assertTrue(self.disp_base.volumes["private"].rw)
+
+        with self.subTest(msg="dynamic disposable"):
+            dispvm = await qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+            try:
+                await dispvm.start()
+                await self._check_ephemeral_storage(dispvm)
+            finally:
+                await dispvm.cleanup()
+
+        with self.subTest(msg="named disposable"):
+            dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM,
+                template=self.disp_base,
+                auto_cleanup=False,
+                name=self.make_vm_name("named-disp"),
+            )
+            await dispvm.create_on_disk()
+            await dispvm.start()
+            await self._check_ephemeral_storage(dispvm)
+            await dispvm.shutdown(wait=True)
+            # applied again at start, private-changes already exists
+            await dispvm.start()
+            await self._check_ephemeral_storage(dispvm)
+            await dispvm.shutdown(wait=True)
+        self.log.info("end")
+
     @unittest.skipUnless(which("xdotool"), "xdotool not installed")
     def test_080_gui_app(self):
         dispvm = self.loop.run_until_complete(
