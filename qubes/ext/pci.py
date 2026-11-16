@@ -385,6 +385,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
                         "Unsupported device: %s (%s)", libvirt_name, e.reason
                     )
                     unsupported_devices_warned.add(libvirt_name)
+            except DeviceNotFound:
+                # libvirt still lists a device that is gone from sysfs
+                continue
 
     @qubes.ext.handler("device-get:pci")
     def on_device_get_pci(self, vm, event, port_id):
@@ -414,14 +417,21 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield PCIDevice(
-                Port(
-                    backend_domain=vm.app.domains[0],
-                    port_id=None,
-                    devclass="pci",
-                ),
-                libvirt_name=libvirt_name,
-            ), {}
+            try:
+                dev = PCIDevice(
+                    Port(
+                        backend_domain=vm.app.domains[0],
+                        port_id=None,
+                        devclass="pci",
+                    ),
+                    libvirt_name=libvirt_name,
+                )
+            except DeviceNotFound as e:
+                # removed while attached
+                dev = UnknownDevice(
+                    Port(vm.app.domains[0], e.args[0], "pci"),
+                )
+            yield dev, {}
 
     @qubes.ext.handler("device-pre-attach:pci")
     def on_device_pre_attached_pci(self, vm, event, device, options):
@@ -476,6 +486,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
 
         device = _cache_get(port.backend_domain, port.port_id)
+        if isinstance(device, UnknownDevice):
+            # no SBDF to look for, and no driver to unbind
+            vm.log.error("Device %s is missing, cannot detach", port.port_id)
+            return
         with subprocess.Popen(
             ["xl", "pci-list", str(vm.xid)], stdout=subprocess.PIPE
         ) as p:
@@ -519,6 +533,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # Bind pci devices to pciback driver
         for assignment in vm.devices["pci"].get_assigned_devices():
             for device in assignment.devices:
+                if isinstance(device, UnknownDevice):
+                    # UnknownDevice has no libvirt node to bind to pciback
+                    continue
                 self.bind_pci_to_pciback(vm.app, device)
 
     @staticmethod

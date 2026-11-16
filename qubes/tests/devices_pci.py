@@ -22,6 +22,8 @@ import os.path
 import unittest
 from unittest import mock
 
+import libvirt
+
 import qubes.tests
 import qubes.ext.pci
 import qubes.devices
@@ -193,6 +195,14 @@ class TC_00_helpers(qubes.tests.QubesTestCase):
         path = path_to_sbdf("0000_c0_03.7-00_00.0-00_00.0")
         self.assertEqual(path, None)
 
+    def test_013_path_to_sbdf_missing_on_root_bus(self):
+        path = path_to_sbdf("0000_00_18.7")
+        self.assertEqual(path, None)
+
+    def test_014_path_to_sbdf_missing_behind_bridge(self):
+        path = path_to_sbdf("0000_c0_03.5-00_00.0-00_00.1")
+        self.assertEqual(path, None)
+
     def test_020_is_pci_path(self):
         self.assertTrue(is_pci_path("0000_00_18.4"))
 
@@ -264,6 +274,46 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         self.assertEqual(devices[0].device_id, "0x8086:0x8cb1::p0c0330")
 
     @mock.patch("builtins.open", new=mock_file_open)
+    def test_002_list_skips_device_not_in_sysfs(self):
+        vm = TestVM()
+        vm.app.configure_mock(
+            **{
+                "vmm.offline_mode": False,
+                "vmm.libvirt_conn.listAllDevices.return_value": [
+                    mock.Mock(
+                        **{
+                            "XMLDesc.return_value": PCI_XML.format(
+                                *["0000"] * 3
+                            ).replace("pci_0000_00_14_0", "pci_0000_00_18_7"),
+                            "listCaps.return_value": ["pci"],
+                        }
+                    ),
+                ],
+            }
+        )
+        self.assertEqual(
+            list(self.ext.on_device_list_pci(vm, "device-list:pci")), []
+        )
+
+    def test_003_list_attached_device_not_in_sysfs(self):
+        vm = TestVM(name="testvm", qid=1, app=mock.MagicMock())
+        vm.app.domains.__getitem__.return_value = self.dom0
+        vm.libvirt_domain = mock.Mock()
+        vm.libvirt_domain.XMLDesc.return_value = (
+            "<domain><devices><hostdev type='pci'><source>"
+            "<address domain='0x0000' bus='0x00' slot='0x18' function='0x7'/>"
+            "</source></hostdev></devices></domain>"
+        )
+        attached = list(
+            self.ext.on_device_list_attached(vm, "device-list-attached:pci")
+        )
+        self.assertEqual(len(attached), 1)
+        self.assertIsInstance(
+            attached[0][0], qubes.device_protocol.UnknownDevice
+        )
+        self.assertEqual(attached[0][0].port_id, "00_18.7")
+
+    @mock.patch("builtins.open", new=mock_file_open)
     def test_001_unsupported_path(self):
         vm = TestVM()
         vm.app.configure_mock(
@@ -316,6 +366,16 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             assert False
 
     def test_010_unassign_missing(self):
+        self._unassign_missing("0000_c0_03.7-00_00.0-00_00.0")
+
+    def test_011_unassign_missing_on_existing_bus(self):
+        # libvirt doesn't know a removed device
+        self.app.vmm.libvirt_conn.nodeDeviceLookupByName.side_effect = (
+            libvirt.libvirtError("Node device not found")
+        )
+        self._unassign_missing("0000_00_18.7")
+
+    def _unassign_missing(self, missing_port_id):
         vm = TestVM(name="testvm", qid=1, app=self.app)
         vm.app.vmm.offline_mode = False
         vm.events_enabled = False
@@ -330,7 +390,6 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         self.dom0.devices = {"pci": dom0_pci_devices}
         self.app.domains["testvm"] = vm
         self.app.domains[vm] = vm
-        missing_port_id = "0000_c0_03.7-00_00.0-00_00.0"
         missing_device_id = "0x8086:0x8cb1::p0c0330"
         device_assignment = qubes.device_protocol.DeviceAssignment(
             qubes.device_protocol.VirtualDevice(
@@ -366,6 +425,24 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
         )
         self.assertEqual(response, None)
         self.assertListEqual(list(pci_devices.get_assigned_devices()), [])
+
+    @mock.patch("subprocess.Popen")
+    def test_021_pre_detach_pci_missing(self, mock_popen):
+        vm = TestVM(name="testvm", qid=1, app=self.app)
+        vm.run_service_for_stdio = mock.AsyncMock()
+        port = qubes.device_protocol.Port(
+            backend_domain=self.dom0,
+            port_id="0000_00_18.7",
+            devclass="pci",
+        )
+        self.loop.run_until_complete(
+            self.ext.on_device_pre_detached_pci(
+                vm, "device-pre-detach:pci", port
+            )
+        )
+        vm.log.error.assert_called_once()
+        mock_popen.assert_not_called()
+        vm.run_service_for_stdio.assert_not_awaited()
 
     @mock.patch("subprocess.Popen")
     def test_020_pre_detach_pci_executes_service(self, mock_popen):
