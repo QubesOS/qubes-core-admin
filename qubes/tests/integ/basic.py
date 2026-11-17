@@ -299,6 +299,104 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             "systemd service not disabled on domain remove",
         )
 
+    async def _test_196_on_domain_shutdown(self, vm, event, **_kwargs):
+        """Simulate failure on domain-shutdown"""
+        self.log.warning("domain-shutdown called, let's fail")
+        self.assertEqual(vm.get_power_state(), "Halted")
+        raise ValueError()
+
+    def test_196_shutdown_event_failed_stop(self):
+        """Regression test for 11278 - pure events edition
+
+        Domain shutdown made, but domain-shutdown fails.
+        """
+        vmname = self.make_vm_name("appvm")
+
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        self.vm.add_handler(
+            "domain-shutdown", self._test_196_on_domain_shutdown
+        )
+
+        with self.assertRaises(ValueError):
+            self.loop.run_until_complete(self.vm.shutdown(wait=True))
+        self.vm.remove_handler(
+            "domain-shutdown", self._test_196_on_domain_shutdown
+        )
+        self.assertTrue(self.vm.is_halted())
+        self.assertFalse(self.vm.is_running())
+
+    def test_197_shutdown_event_timeout(self):
+        """Regression test for 11278 - pure events edition
+
+        Domain shutdown times out.
+        """
+        vmname = self.make_vm_name("appvm")
+
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        proc = self.loop.run_until_complete(
+            self.vm.run("echo freeze >/sys/power/state", user="root")
+        )
+        try:
+            with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                self.loop.run_until_complete(self.vm.shutdown(wait=True))
+            self.assertFalse(self.vm.is_halted())
+            self.assertTrue(self.vm.is_running())
+            self.loop.run_until_complete(self.vm.kill())
+            self.assertTrue(self.vm.is_halted())
+            self.assertFalse(self.vm.is_running())
+        finally:
+            proc.kill()
+            self.loop.run_until_complete(proc.wait())
+
+    async def _test_198_on_domain_pre_shutdown(self, vm, event, **_kwargs):
+        """Simulate failure in domain-pre-shutdown"""
+        self.log.warning(
+            "domain-pre-shutdown called, let's abruptly destroy the domain"
+        )
+        vm.libvirt_domain.destroy()
+
+    def test_198_shutdown_event_pre_shutdown_race(self):
+        """Regression test for 11278 - pure events edition
+
+        domain-pre-shutdown destroys the domain, system should still behave
+        well.
+        """
+        vmname = self.make_vm_name("appvm")
+
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        self.vm.add_handler(
+            "domain-pre-shutdown", self._test_198_on_domain_pre_shutdown
+        )
+
+        with self.assertRaises(qubes.exc.QubesVMShutdownFailedError):
+            self.loop.run_until_complete(self.vm.shutdown())
+        self.vm.remove_handler(
+            "domain-pre-shutdown", self._test_198_on_domain_pre_shutdown
+        )
+        self.assertTrue(self.vm.is_halted())
+        self.assertFalse(self.vm.is_running())
+
     async def _test_199_on_domain_shutdown(self, vm, event, **_kwargs):
         """Simulate slow domain-shutdown"""
         self.log.warning(
