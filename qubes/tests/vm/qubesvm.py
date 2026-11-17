@@ -3046,7 +3046,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 mock_proc.communicate.return_value = (b"Oh no (xen)", None)
                 mock_proc.returncode = 1
                 mock_vmm.is_xen = True
-                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                with self.assertRaises(qubes.exc.QubesVMShutdownFailedError):
                     self.loop.run_until_complete(vm.shutdown())
 
             mock_async_sub.reset_mock()
@@ -3074,7 +3074,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 uri = "kvm:///"
                 mock_vmm.is_xen = False
                 mock_vmm.libvirt_conn_uri = uri
-                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                with self.assertRaises(qubes.exc.QubesVMShutdownFailedError):
                     self.loop.run_until_complete(vm.shutdown())
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")

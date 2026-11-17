@@ -175,12 +175,21 @@ class QubesVMNotHaltedError(QubesVMError):
         )
 
 
-class QubesVMShutdownTimeoutError(QubesVMError):
+class QubesVMShutdownTimeoutError(QubesVMError, TimeoutError):
     """Domain shutdown timed out."""
 
     def __init__(self, vm, msg=None):
         super().__init__(
             vm, msg or "Domain shutdown timed out: {!r}".format(vm.name)
+        )
+
+
+class QubesVMShutdownFailedError(QubesVMError):
+    """Domain shutdown wasn't successfull."""
+
+    def __init__(self, vm, msg=None):
+        super().__init__(
+            vm, msg or "Domain shutdown failed: {!r}".format(vm.name)
         )
 
 

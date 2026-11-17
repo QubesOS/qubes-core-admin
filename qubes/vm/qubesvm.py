@@ -1950,30 +1950,45 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                 return
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        old_power_state = self._power_state
         try:
             await self.fire_event_async(
                 "domain-pre-shutdown", pre_event=True, force=force
             )
+        except Exception as ex:
+            if not isinstance(ex, qubes.exc.QubesVMInUseError):
+                self._is_running = None
+                self._power_state = None
+            await self.fire_event_async(
+                "domain-shutdown-failed", reason=str(ex)
+            )
+            raise
 
+        try:
             is_preload = getattr(self, "is_preload", False)
             if self.is_paused() and not force and not is_preload:
                 raise qubes.exc.QubesVMNotRunningError(self)
-
             if self.is_paused():
                 return await self.kill()
+        except Exception as ex:
+            await self.fire_event_async(
+                "domain-shutdown-failed", reason=str(ex)
+            )
+            raise
 
+        # Some libvirt actions have a global lock on a domain, blocking
+        # a lot of libvirt operations and even qubesd. When possible to
+        # act without it, do so to avoid the whole qubesd hanging.
+        if self.app.vmm.is_xen:
+            command = ["xl", "shutdown", "-F", self.name]
+        else:
+            uri = self.app.vmm.libvirt_conn_uri
+            command = ["virsh", "-c", uri, "shutdown", self.name]
+        if wait and timeout is None:
+            timeout = self.shutdown_timeout
+
+        old_power_state = self._power_state
+        try:
             self._power_state = "Halting"
-            # Some libvirt actions have a global lock on a domain, blocking
-            # a lot of libvirt operations and even qubesd. When possible to
-            # act without it, do so to avoid the whole qubesd hanging.
-            if self.app.vmm.is_xen:
-                command = ["xl", "shutdown", "-F", self.name]
-            else:
-                uri = self.app.vmm.libvirt_conn_uri
-                command = ["virsh", "-c", uri, "shutdown", self.name]
-            if wait and timeout is None:
-                timeout = self.shutdown_timeout
             try:
                 async with self.change_libvirt_state(
                     event="STOPPED", wait=wait, timeout=timeout
@@ -2003,10 +2018,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                         qubes.utils.sanitize_stderr_for_log(e.output),
                     )
                 )
-                raise qubes.exc.QubesVMShutdownTimeoutError(self)
-
+                raise qubes.exc.QubesVMShutdownFailedError(self)
         except Exception as ex:
-            self._power_state = old_power_state
+            if not isinstance(ex, TimeoutError):
+                self._is_running = None
+                self._power_state = None
+            else:
+                self._power_state = old_power_state
             await self.fire_event_async(
                 "domain-shutdown-failed", reason=str(ex)
             )
