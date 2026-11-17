@@ -155,10 +155,6 @@ class AdminVM(LocalVM):
         assert self is other, "multiple instances of AdminVM?"
         return False
 
-    @property
-    def attached_volumes(self):
-        return []
-
     @qubes.stateless_property
     def start_time(self) -> int:
         """Tell when machine was started.
