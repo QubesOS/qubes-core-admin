@@ -1199,7 +1199,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             event["event"] for event in self.libvirt_event_dict.values()
         ]
         for power_event in libvirt_events:
-            self._lifecycle_waiter[power_event] = None
+            self._lifecycle_waiter.setdefault(power_event, {}).setdefault(
+                "waiter", None
+            )
 
         if volume_config is None:
             volume_config = {}
@@ -1683,14 +1685,33 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
         Asynchronously wait for libvirt method to complete.
         """
-        if self._lifecycle_waiter[event] is None:
-            self._lifecycle_waiter[event] = (
-                asyncio.get_running_loop().create_future()
-            )
-        waiter = self._lifecycle_waiter[event]
+        if self._lifecycle_waiter[event]["waiter"] is None:
+            self._lifecycle_waiter[event][
+                "waiter"
+            ] = asyncio.get_running_loop().create_future()
+        waiter = self._lifecycle_waiter[event]["waiter"]
+        # Timeout must be a mutable object to be changed later.
+        expiry = self._lifecycle_waiter[event]["timeout"] = [timeout]
         yield
         if wait:
-            await asyncio.wait_for(waiter, timeout=timeout)
+            await asyncio.wait_for(waiter, timeout=expiry[0])
+
+    def extend_lifecycle_waiter(
+        self, event: LibvirtEvents, timeout: int | float | None
+    ):
+        """
+        Extend the lifecycle waiter.
+
+        Useful when libvirt informs that the requested lifecycle change was
+        acknowledged and completed, but Qubes event handlers still have to run,
+        and those might be slow, so we don't want to raise timeout for the
+        lifecycle change.
+        """
+        if timeout is None:
+            self._lifecycle_waiter["timeout"] = [timeout]
+            return
+        old_timeout = self._lifecycle_waiter["timeout"][0] or 0
+        self._lifecycle_waiter["timeout"] = [old_timeout + timeout]
 
     def end_lifecycle_waiter(
         self, event: LibvirtEvents, exc: BaseException | None = None
@@ -1698,12 +1719,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
         Set power state waiter's result.
         """
-        if self._lifecycle_waiter[event] is not None:
+        if self._lifecycle_waiter[event]["waiter"] is not None:
             if exc:
-                self._lifecycle_waiter[event].set_exception(exc)
+                self._lifecycle_waiter[event]["waiter"].set_exception(exc)
             else:
-                self._lifecycle_waiter[event].set_result(None)
-            self._lifecycle_waiter[event] = None
+                self._lifecycle_waiter[event]["waiter"].set_result(None)
+            self._lifecycle_waiter[event]["waiter"] = None
 
     def on_libvirt_domain_lifecycle(self, event: int, detail: int) -> None:
         """Handle VIR_DOMAIN_EVENT_ID_LIFECYCLE events from libvirt.
@@ -1711,14 +1732,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         This is not a Qubes event handler.
         """
 
-        pretty_event = self.libvirt_event_dict[event]["pretty"]
-        pretty_detail = self.libvirt_event_dict[event]["details"][detail]
+        event_dict = self.libvirt_event_dict[event]
+        machine_event = event_dict["event"]
+        pretty_event = event_dict["pretty"]
+        pretty_detail = event_dict["details"][detail]
 
         self.log.info(
             "Libvirt event received for domain: %s: %s",
             pretty_event,
             pretty_detail,
         )
+        # If libvirt event has been received, the event handlers should not
+        # timeout.
+        self.extend_lifecycle_waiter(event=machine_event, timeout=None)
         if event == libvirt.VIR_DOMAIN_EVENT_DEFINED:
             self.on_libvirt_domain_defined()
         elif event == libvirt.VIR_DOMAIN_EVENT_STARTED:

@@ -298,6 +298,38 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             "systemd service not disabled on domain remove",
         )
 
+    async def _test_199_on_domain_stopped(self, vm, event, **_kwargs):
+        """Simulate slow domain-stopped"""
+        self.log.warning(
+            "domain-stopped called, let's sleep beyond shutdown_timeout"
+        )
+        await asyncio.sleep(vm.shutdown_timeout + 5)
+
+    def test_199_shutdown_event_timeout_race(self):
+        """Regression test for 11278 - pure events edition
+
+        Domain shutdown is acknowledge, but domain-stopped can take too long
+        depending on the volumes, that would timeout the shutdown.
+        """
+        vmname = self.make_vm_name("appvm")
+
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.loop.run_until_complete(self.vm.start())
+        self.vm.add_handler("domain-stopped", self._test_199_on_domain_stopped)
+
+        # Use "kill" to speed up domain destruction on the hypervisor level.
+        # All remaining tasks are event handling. Reduce the timeout to not
+        # make the test take too long.
+        self.vm.shutdown_timeout = 5
+        self.loop.run_until_complete(self.vm.kill())
+        self.assertTrue(self.vm.is_halted())
+
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
         """Simulate domain crash just after startup"""
         vm.libvirt_domain.destroy()
