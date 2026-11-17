@@ -2570,6 +2570,51 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             except FileNotFoundError:
                 pass
 
+        if not self.features.check_with_template("no-logs-cleanup", False):
+            self.remove_logs()
+
+    def remove_logs(self):
+        """Remove log files of this qube (and of its stubdomain) in dom0.
+
+        Only files named after exactly this qube are removed, see
+        :py:data:`qubes.config.qube_log_files`. Errors are only logged.
+        """
+        names = (self.name, self.name + "-dm")
+        for log_dir, patterns in qubes.config.qube_log_files.items():
+            files = "|".join(
+                re.escape(pattern.format(name))
+                for pattern in patterns
+                for name in names
+                # libvirt's own log lives next to per-qube ones
+                if pattern.format(name) != "libxl-driver.log"
+            )
+            files_re = re.compile(
+                r"\A(?:" + files + r")"
+                r"(?:\.old|\.[0-9]+|-[0-9]+)?"
+                r"(?:\.gz|\.xz|\.bz2|\.zst)?\Z"
+            )
+            try:
+                entries = list(os.scandir(log_dir))
+            except FileNotFoundError:
+                continue
+            except OSError as e:
+                self.log.warning("Failed to list %s: %s", log_dir, e)
+                continue
+            for entry in entries:
+                if not files_re.match(entry.name):
+                    continue
+                try:
+                    # skip symlinks and anything else that is not a file
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    os.unlink(entry.path)
+                except FileNotFoundError:
+                    pass
+                except OSError as e:
+                    self.log.warning(
+                        "Failed to remove log file %s: %s", entry.path, e
+                    )
+
     async def clone_disk_files(
         self,
         src,

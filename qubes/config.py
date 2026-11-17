@@ -111,3 +111,22 @@ suspend_timeout = 60
 #: amount of available memory on the system. Beware that the use of a file is
 # subject to change.
 qmemman_avail_mem_file = "/var/run/qubes/qmemman-avail-mem"
+
+#: dom0 log files of a qube, removed with the qube unless it or one of its
+# templates has the ``no-logs-cleanup`` feature: directory and file names,
+# where ``{}`` is the qube name
+# (or the stubdomain name, ``<name>-dm``). Rotated copies (``.old``, ``.1``,
+# ``-20250101.gz`` and so on) are removed too.
+qube_log_files = {
+    "/var/log/qubes": (
+        "guid.{}.log",
+        "qrexec.{}.log",
+        "qubesdb.{}.log",
+        "pacat.{}.log",
+        "mgmt-{}.log",
+        "update-{}.log",
+    ),
+    "/var/log/xen/console": ("guest-{}.log",),
+    "/var/log/xen": ("qmp-proxy-{}.log",),
+    "/var/log/libvirt/libxl": ("{}.log",),
+}
