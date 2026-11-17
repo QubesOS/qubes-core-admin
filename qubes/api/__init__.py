@@ -203,8 +203,19 @@ class AbstractQubesAPI:
         self.dest = decode_vm(dest, app.domains)
 
         #: argument
-        self.arg = arg.decode("ascii")
-
+        untrusted_arg = arg.decode("ascii")
+        # Validate arg against qrexec allowed characters
+        # Consistent with sanitize_name() in qrexec-daemon.c
+        _allowed_arg_chars = string.ascii_letters + string.digits + "-+_."
+        if untrusted_arg and not all(
+            c in _allowed_arg_chars for c in untrusted_arg
+        ):
+            raise ProtocolError(
+                "Argument contains characters outside safe set: "
+                + _allowed_arg_chars
+            )
+        self.arg = untrusted_arg
+        del untrusted_arg
         #: name of the method
         self.method = method_name.decode("ascii")
 
