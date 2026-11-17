@@ -1684,6 +1684,50 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.startup_task = None
         return self
 
+    async def libvirt_reconnect(self) -> None:
+        """
+        Handle libvirt reconnection.
+
+        - Clears cached attributes
+        - Fires lifecycle events
+
+        """
+        old_power_state = self._power_state
+        self._is_running = None
+        self._power_state = None
+        state = self.get_power_state()
+        if old_power_state == state:
+            return
+        self.log.info(
+            "Libvirt reconnection received and power state changed: %s -> %s",
+            old_power_state,
+            state,
+        )
+        event: LibvirtEvents | None = None
+        detail: int = 0
+        if self.is_halted():
+            event = "STOPPED"
+        elif self.is_running():
+            if self.is_suspended():
+                event = "PMSUSPENDED"
+            elif self.is_paused():
+                event = "SUSPENDED"
+            elif old_power_state == "Paused":
+                event = "RESUMED"
+            elif old_power_state == "Suspended":
+                event = "STARTED"
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_WAKEUP
+            elif old_power_state == "Halted":
+                event = "STARTED"
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_BOOTED
+        if not event:
+            return
+        libvirt_event: int = getattr(libvirt, f"VIR_DOMAIN_EVENT_{event}")
+        async with self.change_libvirt_state(
+            event=event, wait=True, timeout=60
+        ):
+            self.on_libvirt_domain_lifecycle(event=libvirt_event, detail=detail)
+
     @asynccontextmanager
     async def change_libvirt_state(
         self,
