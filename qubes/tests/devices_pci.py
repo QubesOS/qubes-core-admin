@@ -205,6 +205,7 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         super().tearDown()
+        self.ext.on_app_close(self.app, "qubes-close")
         del self.ext
         self.appvm.close()
         self.dom0.close()
@@ -448,10 +449,11 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
 
     @mock.patch("subprocess.Popen")
     def test_020_pre_detach_pci_executes_service(self, mock_popen):
-        vm = TestVM(name="testvm", qid=1, app=self.app)
-        vm.xid = 5
+        vm = self.appvm
+        vm._id = 5
         vm.run_service_for_stdio = mock.AsyncMock()
-        vm.libvirt_domain = mock.Mock()
+        vm._libvirt_domain = mock.Mock()
+        self.app.vmm.offline_mode = False
         self.app.env = mock.Mock()
         self.app.env.get_template.return_value.render.return_value = "<device/>"
 
@@ -477,4 +479,4 @@ class TC_10_PCI(qubes.tests.QubesTestCase):
             user="root",
             input=b"00:00.0",
         )
-        vm.libvirt_domain.detachDevice.assert_called_once_with("<device/>")
+        vm._libvirt_domain.detachDevice.assert_called_once_with("<device/>")
