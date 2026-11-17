@@ -1970,8 +1970,8 @@ class Qubes(qubes.PropertyHolder):
             # were missed. on_libvirt_domain_stopped() can deal with duplicated
             # events.
             for vm in self.domains.values():
-                if not vm.is_running():
-                    vm.on_libvirt_domain_stopped()
+                if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                    vm.libvirt_reconnect()
 
     def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),

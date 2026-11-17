@@ -1675,6 +1675,48 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self.startup_task = None
         return self
 
+    def libivrt_reconnect(self):
+        """
+        Handle libvirt reconnection.
+
+        - Clears cached attributes
+        - Fires lifecycle events
+
+        """
+        old_power_state = self._power_state
+        self._is_running = None
+        self._power_state = None
+        state = self.get_power_state()
+        if old_power_state == state:
+            return
+        self.log.info(
+            "Libvirt reconnection received and power state changed: %s -> %s",
+            old_power_state,
+            state,
+        )
+        event = None
+        detail = 0
+        # TODO: ben: is_suspended():
+        #   depends: https://github.com/QubesOS/qubes-core-admin/pull/921
+        if self.is_suspended():
+            event = libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED
+        elif self.is_paused():
+            event = libvirt.VIR_DOMAIN_EVENT_SUSPENDED
+        elif self.is_halted():
+            event = libvirt.VIR_DOMAIN_EVENT_STOPPED
+        elif self.is_running():
+            if old_power_state == "Paused":
+                event = libvirt.VIR_DOMAIN_EVENT_RESUMED
+            elif old_power_state == "Suspended":
+                event = libvirt.VIR_DOMAIN_EVENT_STARTED
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_WAKEUP
+            elif old_power_state == "Halted":
+                event = libvirt.VIR_DOMAIN_EVENT_STARTED
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_BOOTED
+        if not event:
+            return
+        self.on_libvirt_domain_lifecycle(event=event, detail=detail)
+
     @asynccontextmanager
     async def change_libvirt_state(
         self,
@@ -1708,10 +1750,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         lifecycle change.
         """
         if timeout is None:
-            self._lifecycle_waiter["timeout"] = [timeout]
+            self._lifecycle_waiter[event]["timeout"] = [timeout]
             return
-        old_timeout = self._lifecycle_waiter["timeout"][0] or 0
-        self._lifecycle_waiter["timeout"] = [old_timeout + timeout]
+        old_timeout = self._lifecycle_waiter[event]["timeout"][0] or 0
+        self._lifecycle_waiter[event]["timeout"] = [old_timeout + timeout]
 
     def end_lifecycle_waiter(
         self, event: LibvirtEvents, exc: BaseException | None = None
