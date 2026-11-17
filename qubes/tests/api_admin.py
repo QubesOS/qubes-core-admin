@@ -4239,8 +4239,8 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertEqual(
             self.app.host.get_vm_stats.mock_calls,
             [
-                unittest.mock.call(None, None, only_vm=None),
-                unittest.mock.call(0, stats1, only_vm=None),
+                unittest.mock.call(previous=None, only_vm=None),
+                unittest.mock.call(previous=stats1, only_vm=None),
             ],
         )
 
@@ -4363,8 +4363,8 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         self.assertEqual(
             self.app.host.get_vm_stats.mock_calls,
             [
-                unittest.mock.call(None, None, only_vm=self.vm),
-                unittest.mock.call(0, stats1, only_vm=self.vm),
+                unittest.mock.call(previous=None, only_vm=self.vm),
+                unittest.mock.call(previous=stats1, only_vm=self.vm),
             ],
         )
         expected = [

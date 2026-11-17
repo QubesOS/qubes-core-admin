@@ -944,6 +944,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             }
         )
         self.maxDiff = None
+        self.app.stats_interval = 1
 
         qdb = {"/qubes-service/meminfo-writer": "1"}
         test_qubesdb = TestQubesDB(data=qdb)
@@ -953,15 +954,22 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             obj.read.side_effect = test_qubesdb.read
 
         prev_time, prev_info = self.app.host.get_vm_stats()
+        self.assertIsNotNone(prev_time)
 
-        prev_time -= 1
-        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
-        prev_info[1]["cpu_time"] -= 10**9  # 1s
-        prev_info[2]["cpu_time"] -= 10**9  # 1s
+        # Test using data from cache.
+        time.sleep(self.app.stats_interval / 2)
+        new_time, new_info = self.app.host.get_vm_stats(previous=prev_info)
+        self.assertEqual(prev_time, new_time)
+        self.assertEqual(prev_info, new_info)
 
-        info_time, info = self.app.host.get_vm_stats(prev_time, prev_info)
+        # Test cache expired.
+        new_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s X interval
+        new_info[1]["cpu_time"] -= 10**9  # 1s X interval
+        new_info[2]["cpu_time"] -= 10**9  # 1s X interval
+        time.sleep(self.app.stats_interval / 2)
+        info_time, info = self.app.host.get_vm_stats(previous=new_info)
+        self.assertNotEqual(new_time, info_time)
 
-        self.assertIsNotNone(info_time)
         expected_info = {
             0: {
                 "name": "dom0",
@@ -1033,32 +1041,44 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         )
 
     def test_002_get_vm_stats_one_vm(self):
-        vm = mock.Mock
-        vm.xid = 1
-        vm.name = "somevm"
-
-        names = {1: vm.name}
-        xenstore = {"/local/domain/1/memory/meminfo": None}
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+        xenstore = {
+            "/local/domain/0/memory/meminfo": b"849924",
+            "/local/domain/1/memory/meminfo": b"849925",
+            "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": b"0",
+            "/local/domain/1/memory/swapinfo": None,
+            "/local/domain/2/memory/swapinfo": b"4",
+        }
         self.app.get_name_from_domid = lambda domid: names[domid]
         self.app.vmm = mock.Mock()
         self.app.vmm.configure_mock(
             **{
-                "xc.domain_getinfo.return_value": [
-                    self.sample_xc_domain_getinfo[1]
-                ],
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
                 "is_xen.return_value": True,
                 "xs.read.side_effect": lambda _, path: xenstore[path],
             }
         )
 
-        info_time, _info = self.app.host.get_vm_stats(only_vm=vm)
+        info_time, _info = self.app.host.get_vm_stats(
+            only_vm=self.app.domains[1].name
+        )
         self.assertIsNotNone(info_time)
 
         self.assertEqual(
             self.app.vmm.mock_calls,
             [
-                ("xc.domain_getinfo", (1, 1)),
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
             ],
         )
 
