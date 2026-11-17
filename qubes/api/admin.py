@@ -100,6 +100,18 @@ class QubesMgmtEventsDispatcher:
         vm.remove_handler("*", self.vm_handler)
 
 
+def _validate_feature_name(name):
+    """Validate feature name against allowed character set.
+
+    Allowed characters: alphanumeric, dot, underscore, hyphen.
+    Raises ProtocolError if name is invalid.
+    """
+    if not re.match(r"\A[a-zA-Z0-9_.+-]+\Z", name):
+        raise qubes.exc.ProtocolError(
+            "feature name contains illegal characters"
+        )
+
+
 class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     """Implementation of Qubes Management API calls
 
@@ -1509,8 +1521,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         write=True,
     )
     async def vm_feature_remove(self):
-        # validation of self.arg done by qrexec-policy is enough
-
+        _validate_feature_name(self.arg)
         self.fire_event_for_permission()
         try:
             del self.dest.features[self.arg]
@@ -1527,6 +1538,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         write=True,
     )
     async def vm_feature_set(self, untrusted_payload):
+        _validate_feature_name(self.arg)
         try:
             untrusted_value = untrusted_payload.decode("ascii", errors="strict")
         except UnicodeDecodeError:
@@ -1535,10 +1547,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             )
 
         del untrusted_payload
-        if re.match(r"\A[a-zA-Z0-9_.-]+\Z", self.arg) is None:
-            raise qubes.exc.ProtocolError(
-                "feature name contains illegal characters"
-            )
         if re.match(r"\A[\x20-\x7E]*\Z", untrusted_value) is None:
             raise qubes.exc.ProtocolError(
                 f"{self.arg} value contains illegal characters"
