@@ -1236,6 +1236,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         self._stubdom_uuid = ""
         self._is_running = None
         self._power_state = None
+        self._old_power_state = None
         self._start_time = None
 
         # We assume a fully halted VM here. The 'domain-init' handler will
@@ -1683,6 +1684,68 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         self.startup_task = None
         return self
+
+    def libvirt_disconnect(self) -> None:
+        """
+        Handle libvirt disconnection.
+
+        - Clears cached attributes
+        """
+        self._old_power_state = self._power_state
+        self._is_running = None
+        self._power_state = None
+        self._id = -1
+        self._stubdom_xid = -1
+        self._stubdom_uuid = ""
+        self._start_time = None
+
+    def libvirt_reconnect(self) -> None:
+        """
+        Handle libvirt reconnection.
+
+        - Fires lifecycle events
+        """
+        # Reset power_state because in cache in some cases when libvirt can't
+        # connect.
+        self._is_running = None
+        self._power_state = None
+        state = self.get_power_state()
+        if self._old_power_state == state:
+            return
+        self.log.info(
+            "Libvirt reconnection received and power state changed: %s -> %s",
+            self._old_power_state,
+            state,
+        )
+        event: LibvirtEvents | None = None
+        detail: int = 0
+        if self.is_halted():
+            event = "STOPPED"
+        elif self.is_running():
+            if self.is_suspended():
+                event = "PMSUSPENDED"
+            elif self.is_paused():
+                event = "SUSPENDED"
+            elif self._old_power_state == "Paused":
+                event = "RESUMED"
+            elif self._old_power_state == "Suspended":
+                event = "STARTED"
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_WAKEUP
+            elif self._old_power_state == "Halted":
+                # TODO: ben: this can't happen, as explained on
+                # https://github.com/QubesOS/qubes-core-admin/pull/921#issuecomment-7170558574
+                # And currently, on_libvirt_domain_started just sets the
+                # power state, so it isn't useful to call it, but might be
+                # useful in the future, to just set some cache. In any case,
+                # the previous state _old_power_state might not be halted, but
+                # something else, such as [None, "NA", "Running"]. So what we
+                # might do, is change the above "elif" to "else".
+                event = "STARTED"
+                detail = libvirt.VIR_DOMAIN_EVENT_STARTED_BOOTED
+        if not event:
+            return
+        libvirt_event: int = getattr(libvirt, f"VIR_DOMAIN_EVENT_{event}")
+        self.on_libvirt_domain_lifecycle(event=libvirt_event, detail=detail)
 
     @asynccontextmanager
     async def change_libvirt_state(

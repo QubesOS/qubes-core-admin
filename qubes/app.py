@@ -1982,24 +1982,34 @@ class Qubes(qubes.PropertyHolder):
             self._domain_event_callback,
             None,
         )
-        # If this is libvirt restart, check if ensure no shutdown events
-        # were missed. on_libvirt_domain_stopped() can deal with duplicated
-        # events.
+        # On libvirt reconnection, ensure power events aren't missed.
         for vm in self.domains.values():
-            if not vm.is_running():
-                vm.on_libvirt_domain_stopped()
+            if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                vm.libvirt_reconnect()
 
     def deregister_event_handlers(self, old_connection):
         """
-        Deregister libvirt event handlers when connection is closed.
+        Deregister libvirt event handlers and cached properties when connection
+        is closed.
         """
-        self.log.info("Deregistering events from old libvirt connection")
+        self.log.info(
+            "Deregistering events and cached properties from old libvirt "
+            "connection"
+        )
         if self._domain_event_callback_id is not None:
             with suppress(libvirt.libvirtError):
                 old_connection.domainEventDeregisterAny(
                     self._domain_event_callback_id
                 )
             self._domain_event_callback_id = None
+        # On libvirt disconnection, discard cached power state to force queries
+        # to the power state to go through VirDomainWrapper, and at least
+        # attempt to reconnect. But if domains attribute is missing, we are
+        # closing the app, so it is safe to ignore it.
+        if hasattr(self, "domains"):
+            for vm in self.domains.values():
+                if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                    vm.libvirt_disconnect()
 
     def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),

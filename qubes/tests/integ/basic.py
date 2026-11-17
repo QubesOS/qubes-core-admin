@@ -24,6 +24,7 @@
 from distutils import spawn
 
 import asyncio
+import contextlib
 import json
 import os
 import subprocess
@@ -541,6 +542,148 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # check if vm object still works
         with self.assertNotRaises(libvirt.libvirtError):
             self.app.domains[0].libvirt_domain.isActive()
+
+    def _test_142_on_domain_resumed(self, vm, event, **kwargs):
+        self.domain_resumed_received = True
+
+    def _test_142_on_domain_suspended(self, vm, event, **kwargs):
+        self.domain_suspended_received = True
+
+    def _test_142_on_domain_paused(self, vm, event, **kwargs):
+        self.domain_paused_received = True
+
+    def _test_142_on_domain_unpaused(self, vm, event, **kwargs):
+        self.domain_unpaused_received = True
+
+    def _test_142_on_domain_shutdown(self, vm, event, **kwargs):
+        self.domain_shutdown_received = True
+
+    async def async_subprocess(self, *args):
+        p = await asyncio.create_subprocess_exec(*args)
+        await p.communicate()
+
+    @contextlib.asynccontextmanager
+    async def _without_virtxend(self):
+        self.log.info("stopping virtxend")
+        await self.async_subprocess(
+            "systemctl", "mask", "--runtime", "virtxend"
+        )
+        await self.async_subprocess("systemctl", "stop", "virtxend")
+        try:
+            yield
+        finally:
+            self.log.info("starting virtxend")
+            await self.async_subprocess(
+                "systemctl", "unmask", "--runtime", "virtxend"
+            )
+            await self.async_subprocess("systemctl", "start", "virtxend")
+
+    async def _test_142_libvirt_reconnect_invalidate_cache(self):
+        await self.vm.create_on_disk()
+        await self.vm.start()
+
+        self.log.info("test suspend")
+        async with self._without_virtxend():
+            self.domain_suspended_received = False
+            self.vm.add_handler(
+                "domain-suspended", self._test_142_on_domain_suspended
+            )
+            await self.async_subprocess(
+                "xl",
+                "suspend",
+                self.vm.name,
+            )
+        self.assertTrue(self.vm.is_suspended())
+        await asyncio.sleep(3)
+        self.assertTrue(
+            self.domain_suspended_received,
+            "event not received after libvirt reconnection",
+        )
+
+        self.log.info("test resume")
+        async with self._without_virtxend():
+            self.domain_resumed_received = False
+            self.vm.add_handler(
+                "domain-resumed", self._test_142_on_domain_resumed
+            )
+            await self.async_subprocess("xl", "resume", self.vm.name)
+        self.assertTrue(self.vm.is_running())
+        self.assertEqual(self.vm.get_power_state(), "Running")
+        await asyncio.sleep(3)
+        self.assertTrue(
+            self.domain_resumed_received,
+            "event not received after libvirt reconnection",
+        )
+
+        self.log.info("test pause")
+        async with self._without_virtxend():
+            self.domain_paused_received = False
+            self.vm.add_handler(
+                "domain-paused", self._test_142_on_domain_paused
+            )
+            await self.async_subprocess("xl", "pause", self.vm.name)
+        self.assertTrue(self.vm.is_paused())
+        await asyncio.sleep(3)
+        self.assertTrue(
+            self.domain_paused_received,
+            "event not received after libvirt reconnection",
+        )
+
+        self.log.info("test unpause")
+        async with self._without_virtxend():
+            self.domain_unpaused_received = False
+            self.vm.add_handler(
+                "domain-unpaused", self._test_142_on_domain_unpaused
+            )
+            await self.async_subprocess("xl", "unpause", self.vm.name)
+        self.assertTrue(self.vm.is_running())
+        self.assertEqual(self.vm.get_power_state(), "Running")
+        await asyncio.sleep(3)
+        self.assertTrue(
+            self.domain_unpaused_received,
+            "event not received after libvirt reconnection",
+        )
+
+        self.log.info("test shutdown")
+        async with self._without_virtxend():
+            self.domain_shutdown_received = False
+            self.vm.add_handler(
+                "domain-shutdown", self._test_142_on_domain_shutdown
+            )
+            await self.async_subprocess("xl", "destroy", self.vm.name)
+        await asyncio.sleep(3)
+        # TODO: ben: this fails, libvirt bug, treats absent domain as paused,
+        # with reason VIR_DOMAIN_PAUSED_UNKOWN, see src/libxl/libxl_driver.c,
+        # function libxlReconnectDomain. Test by masking and stopping qubesd
+        # also, to prevent it from querying libvirt. It seems to be a race
+        # condtion, if the query is made very early, domain is seen as paused,
+        # else, it is not seen anymore.
+        self.assertTrue(self.vm.is_halted())
+        self.assertFalse(self.vm.is_running())
+        await asyncio.sleep(10)
+        self.assertTrue(
+            self.domain_shutdown_received,
+            "event not received after libvirt reconnection",
+        )
+
+    def test_142_libvirt_reconnect_invalidate_cache(self):
+        vmname = self.make_vm_name("vm")
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=vmname,
+            template=self.app.default_template,
+            label="red",
+        )
+        try:
+            self.loop.run_until_complete(
+                self._test_142_libvirt_reconnect_invalidate_cache()
+            )
+        finally:
+            # If test fails, libvirt might keep domains that were already deleted
+            # by the VMM.
+            self.loop.run_until_complete(
+                self.async_subprocess("systemctl", "restart", "virtxend")
+            )
 
     def test_202_udev_block_exclude_default(self):
         """Check if VM images are excluded from udev parsing -
