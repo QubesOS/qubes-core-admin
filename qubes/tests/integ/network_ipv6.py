@@ -581,7 +581,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         )
         if iptables:
             try:
-                (output, _) = self.loop.run_until_complete(
+                output, _ = self.loop.run_until_complete(
                     self.testnetvm.run_for_stdio(
                         "ip6tables -nxvL INPUT", user="root"
                     )
@@ -592,7 +592,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             line = 2
         else:
             try:
-                (output, _) = self.loop.run_until_complete(
+                output, _ = self.loop.run_until_complete(
                     self.testnetvm.run_for_stdio(
                         "nft list chain ip6 qubes custom-input", user="root"
                     )

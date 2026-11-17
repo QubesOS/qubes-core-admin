@@ -25,7 +25,7 @@ import os
 import re
 import string
 import subprocess
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterator
 
 import libvirt
 import lxml
@@ -34,7 +34,7 @@ import lxml.etree
 import qubes.device_protocol
 import qubes.devices
 import qubes.ext
-from qubes.device_protocol import Port, UnknownDevice
+from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
@@ -47,7 +47,10 @@ unsupported_devices_warned = set()
 
 
 class UnsupportedDevice(Exception):
-    pass
+    def __init__(self, dev_id, reason=None):
+        super().__init__(f"{dev_id}: {reason}")
+        self.dev_id = dev_id
+        self.reason = reason
 
 
 def load_pci_classes():
@@ -64,16 +67,23 @@ def load_pci_classes():
         subclass_id = None
         for line in pciids.readlines():
             line = line.rstrip()
-            if line.startswith("\t\t") and class_id and subclass_id:
-                (progif_id, _, class_name) = line[2:].split(" ", 2)
+            if not line:
+                continue
+            first_two_chars = line[:2]
+            if (
+                first_two_chars == "\t\t"
+                and class_id is not None
+                and subclass_id is not None
+            ):
+                progif_id, _, class_name = line[2:].split(" ", 2)
                 result[class_id + subclass_id + progif_id] = class_name
-            elif line.startswith("\t") and class_id:
-                (subclass_id, _, class_name) = line[1:].split(" ", 2)
+            elif first_two_chars[0] == "\t" and class_id:
+                subclass_id, _, class_name = line[1:].split(" ", 2)
                 # store both prog-if specific entry and generic one
                 result[class_id + subclass_id + "00"] = class_name
                 result[class_id + subclass_id] = class_name
-            elif line.startswith("C "):
-                (_, class_id, _, class_name) = line.split(" ", 3)
+            elif first_two_chars == "C ":
+                _, class_id, _, class_name = line.split(" ", 3)
                 result[class_id + "0000"] = class_name
                 result[class_id + "00"] = class_name
                 subclass_id = None
@@ -148,12 +158,18 @@ class PCIDevice(qubes.device_protocol.DeviceInfo):
         r"(?P<device>[0-9a-f]{2})_(?P<function>[0-9a-f])\Z"
     )
 
+    SUPPORTED_ASSIGNMENT_MODES = frozenset({AssignmentMode.REQUIRED})
+
     def __init__(self, port: Port, libvirt_name=None):
         if libvirt_name:
             dev_match = self._libvirt_regex.match(libvirt_name)
             if not dev_match:
                 raise UnsupportedDevice(libvirt_name)
             port_id = sbdf_to_path(libvirt_name)
+            if not port_id:
+                raise UnsupportedDevice(
+                    libvirt_name, "failed to resolve PCI path"
+                )
             port = Port(
                 backend_domain=port.backend_domain,
                 port_id=port_id,
@@ -355,24 +371,21 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler("device-list:pci")
     def on_device_list_pci(self, vm, event):
         # pylint: disable=unused-argument
-        # only dom0 expose PCI devices
+        # only dom0 exposes PCI devices
         if vm.qid != 0:
             return
 
-        for dev in vm.app.vmm.libvirt_conn.listAllDevices():
-            if "pci" not in dev.listCaps():
-                continue
-
-            xml_desc = lxml.etree.fromstring(dev.XMLDesc())
-            libvirt_name = xml_desc.findtext("name")
+        for libvirt_name in vm.app.vmm.libvirt_conn.listDevices("pci"):
             try:
                 yield PCIDevice(
                     Port(backend_domain=vm, port_id=None, devclass="pci"),
                     libvirt_name=libvirt_name,
                 )
-            except UnsupportedDevice:
+            except UnsupportedDevice as e:
                 if libvirt_name not in unsupported_devices_warned:
-                    vm.log.warning("Unsupported device: %s", libvirt_name)
+                    vm.log.warning(
+                        "Unsupported device: %s (%s)", libvirt_name, e.reason
+                    )
                     unsupported_devices_warned.add(libvirt_name)
 
     @qubes.ext.handler("device-get:pci")
@@ -382,20 +395,26 @@ class PCIDeviceExtension(qubes.ext.Extension):
             yield _cache_get(vm, port_id)
 
     @qubes.ext.handler("device-list-attached:pci")
-    def on_device_list_attached(self, vm, event, **kwargs):
+    def on_device_list_attached(
+        self, vm, event, **kwargs
+    ) -> Iterator[tuple[PCIDevice, dict]]:
         # pylint: disable=unused-argument
         if not vm.is_running() or isinstance(vm, qubes.vm.adminvm.AdminVM):
             return
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for hostdev in xml_desc.findall("devices/hostdev"):
-            if hostdev.get("type") != "pci":
-                continue
-            address = hostdev.find("source/address")
-            segment = address.get("domain")[2:]
-            bus = address.get("bus")[2:]
-            device = address.get("slot")[2:]
-            function = address.get("function")[2:]
+        for hostdev in xml_desc.findall(
+            "devices/hostdev[@type='pci']/source/address"
+        ):
+            attrib = hostdev.attrib
+            segment = attrib["domain"][2:]
+            bus = attrib["bus"][2:]
+            device = attrib["slot"][2:]
+            function = attrib["function"][2:]
+            assert isinstance(segment, str)
+            assert isinstance(bus, str)
+            assert isinstance(device, str)
+            assert isinstance(function, str)
 
             libvirt_name = "pci_{segment}_{bus}_{device}_{function}".format(
                 segment=segment,
@@ -455,7 +474,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             )
 
     @qubes.ext.handler("device-pre-detach:pci")
-    def on_device_pre_detached_pci(self, vm, event, port):
+    async def on_device_pre_detached_pci(self, vm, event, port):
         # pylint: disable=unused-argument
         if not vm.is_running():
             return
@@ -479,10 +498,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
         vmdev = m.group(1)
         try:
-            vm.run_service(
+            await vm.run_service_for_stdio(
                 "qubes.DetachPciDevice",
                 user="root",
-                input="00:{}".format(vmdev),
+                input="00:{}".format(vmdev).encode(),
             )
             vm.libvirt_domain.detachDevice(
                 vm.app.env.get_template("libvirt/devices/pci.xml").render(

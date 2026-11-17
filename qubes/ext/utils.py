@@ -82,6 +82,8 @@ def device_list_change(
 
     to_attach: Dict[str, Dict] = {}
     for front_vm in vm.app.domains:
+        if front_vm.klass == "RemoteVM":
+            continue
         if not front_vm.is_running():
             continue
         for assignment in reversed(
@@ -105,6 +107,47 @@ def device_list_change(
                     to_attach[device.port_id] = frontends
 
     asyncio.ensure_future(resolve_conflicts_and_attach(ext, to_attach))
+
+
+def detach_attached_devices_on_shutdown(
+    ext: qubes.ext.Extension,
+    vm,
+    device_class: Type[qubes.device_protocol.DeviceInfo],
+):
+    """
+    Notify about devices attached to a shutting-down frontend VM.
+
+    For every device attached to ``vm`` fire a ``device-detach`` event with the
+    proper backend :py:class:`Port` and mark it as no longer attached in the
+    cache. The backend keeps exposing the device, so the cache entry is reset
+    to ``None``.
+    """
+    devclass = device_class.__name__[: -len("Device")].lower()
+
+    for backend_name, ports in ext.devices_cache.items():
+        if backend_name == vm.name:
+            # devices exposed by the shutting-down vm are handled by the caller
+            continue
+        try:
+            backend = vm.app.domains[backend_name]
+        except KeyError:
+            continue
+        for port_id, front_vm in ports.items():
+            if front_vm != vm:
+                continue
+            device = device_class(
+                Port(
+                    backend_domain=backend,
+                    port_id=port_id,
+                    devclass=devclass,
+                )
+            )
+            ports[port_id] = None
+            asyncio.ensure_future(
+                vm.fire_event_async(
+                    f"device-detach:{devclass}", port=device.port
+                )
+            )
 
 
 async def resolve_conflicts_and_attach(ext, to_attach):

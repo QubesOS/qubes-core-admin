@@ -24,6 +24,12 @@ from qubes.vm import BaseVM
 
 
 class RemoteVM(BaseVM):
+    include_in_backups = qubes.property(
+        "include_in_backups",
+        type=bool,
+        default=False,
+        doc="If this domain is to be included in default backup.",
+    )
 
     relayvm = qubes.VMProperty(
         "relayvm",
@@ -84,7 +90,7 @@ class RemoteVM(BaseVM):
     def suspend(self):
         raise qubes.exc.QubesVMError(self, "Cannot suspend a RemoteVM.")
 
-    def shutdown(self):
+    def shutdown(self, **_kwargs):
         raise qubes.exc.QubesVMError(self, "Cannot shutdown a RemoteVM.")
 
     def kill(self):

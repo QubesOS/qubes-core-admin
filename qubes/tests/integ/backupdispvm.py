@@ -100,7 +100,7 @@ class TC_00_RestoreInDispVM(qubes.tests.integ.backup.BackupTestsMixin):
             restore_in_dispvm = RestoreInDisposableVM(args.app, args)
             try:
                 backup_log = self.loop.run_until_complete(
-                    self.loop.run_in_executor(None, restore_in_dispvm.run)
+                    asyncio.to_thread(restore_in_dispvm.run)
                 )
             except qubesadmin.exc.BackupRestoreError as e:
                 self.fail(str(e) + " backup log: " + e.backup_log.decode())
@@ -121,7 +121,7 @@ class TC_00_RestoreInDispVM(qubes.tests.integ.backup.BackupTestsMixin):
             self.remove_vms(reversed(vms))
         finally:
             del vms
-        (backup_path, _) = self.loop.run_until_complete(
+        backup_path, _ = self.loop.run_until_complete(
             self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*")
         )
         backup_path = backup_path.decode().strip()

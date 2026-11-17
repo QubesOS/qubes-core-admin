@@ -39,104 +39,13 @@ from qubes.tests.vm.qubesvm import TestQubesDB
 
 
 class TestApp(qubes.tests.TestEmitter):
-    pass
+
+    def __init__(self):
+        super().__init__()
+        self.log = mock.Mock()
 
 
 class TC_20_QubesHost(qubes.tests.QubesTestCase):
-    sample_xc_domain_getinfo = [
-        {
-            "paused": 0,
-            "cpu_time": 243951379111104,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 3733212,
-            "domid": 0,
-            "max_vcpu_id": 7,
-            "crashed": 0,
-            "running": 1,
-            "maxmem_kb": 3734236,
-            "shutdown": 0,
-            "online_vcpus": 8,
-            "handle": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "cpupool": 0,
-            "blocked": 0,
-        },
-        {
-            "paused": 0,
-            "cpu_time": 2849496569205,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 303916,
-            "domid": 1,
-            "max_vcpu_id": 0,
-            "crashed": 0,
-            "running": 0,
-            "maxmem_kb": 308224,
-            "shutdown": 0,
-            "online_vcpus": 1,
-            "handle": [
-                116,
-                174,
-                229,
-                207,
-                17,
-                1,
-                79,
-                39,
-                191,
-                37,
-                41,
-                186,
-                205,
-                158,
-                219,
-                8,
-            ],
-            "cpupool": 0,
-            "blocked": 1,
-        },
-        {
-            "paused": 0,
-            "cpu_time": 249658663079978,
-            "ssidref": 0,
-            "hvm": 0,
-            "shutdown_reason": 255,
-            "dying": 0,
-            "mem_kb": 3782668,
-            "domid": 11,
-            "max_vcpu_id": 7,
-            "crashed": 0,
-            "running": 0,
-            "maxmem_kb": 3783692,
-            "shutdown": 0,
-            "online_vcpus": 8,
-            "handle": [
-                169,
-                95,
-                55,
-                127,
-                140,
-                94,
-                79,
-                220,
-                186,
-                210,
-                117,
-                5,
-                148,
-                11,
-                185,
-                206,
-            ],
-            "cpupool": 0,
-            "blocked": 1,
-        },
-    ]
-
     def setUp(self):
         super().setUp()
         self.app = TestApp()
@@ -144,160 +53,58 @@ class TC_20_QubesHost(qubes.tests.QubesTestCase):
         self.qubes_host = qubes.app.QubesHost(self.app)
         self.maxDiff = None
 
-    def test_000_get_vm_stats_single(self):
-        self.app.vmm.configure_mock(
-            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
-        )
-
-        info_time, info = self.qubes_host.get_vm_stats()
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (0, 1024), {}),
-            ],
-        )
-        self.assertIsNotNone(info_time)
-        expected_info = {
-            0: {
-                "cpu_time": 243951379111104,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 3733212,
-            },
-            1: {
-                "cpu_time": 2849496569205,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 303916,
-            },
-            11: {
-                "cpu_time": 249658663079978,
-                "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 3782668,
-            },
+        self.libvirt_info = ["x86_64", 32404, 16, 2995, 1, 1, 16, 1]
+        self.xen_physinfo = {
+            "nr_nodes": 1,
+            "threads_per_core": 1,
+            "cores_per_socket": 16,
+            "nr_cpus": 16,
+            "total_memory": 33182508,
+            "free_memory": 23905768,
+            "scrub_memory": 0,
+            "cpu_khz": 2995195,
+            "hw_caps": "...",
+            "virt_caps": "hvm pv hvm_directio pv_directio",
         }
-        self.assertEqual(info, expected_info)
-
-    def test_001_get_vm_stats_twice(self):
-        self.app.vmm.configure_mock(
-            **{"xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo}
-        )
-
-        prev_time, prev_info = self.qubes_host.get_vm_stats()
-        prev_time -= 1
-        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
-        prev_info[1]["cpu_time"] -= 10**9  # 1s
-        prev_info[11]["cpu_time"] -= 10**9  # 1s
-        info_time, info = self.qubes_host.get_vm_stats(prev_time, prev_info)
-        self.assertIsNotNone(info_time)
-        expected_info = {
-            0: {
-                "cpu_time": 243951379111104,
-                "cpu_usage": 10,
-                "cpu_usage_raw": 80,
-                "memory_kb": 3733212,
-            },
-            1: {
-                "cpu_time": 2849496569205,
-                "cpu_usage": 100,
-                "cpu_usage_raw": 100,
-                "memory_kb": 303916,
-            },
-            11: {
-                "cpu_time": 249658663079978,
-                "cpu_usage": 12,
-                "cpu_usage_raw": 100,
-                "memory_kb": 3782668,
-            },
-        }
-        self.assertEqual(info, expected_info)
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (0, 1024), {}),
-                ("xc.domain_getinfo", (0, 1024), {}),
-            ],
-        )
-
-    def test_002_get_vm_stats_one_vm(self):
         self.app.vmm.configure_mock(
             **{
-                "xc.domain_getinfo.return_value": [
-                    self.sample_xc_domain_getinfo[1]
-                ]
+                "libvirt_conn.getInfo.return_value": self.libvirt_info,
+                "xc.physinfo.return_value": self.xen_physinfo,
             }
-        )
-
-        vm = mock.Mock
-        vm.xid = 1
-        vm.name = "somevm"
-
-        info_time, _info = self.qubes_host.get_vm_stats(only_vm=vm)
-        self.assertIsNotNone(info_time)
-        self.assertEqual(
-            self.app.vmm.mock_calls,
-            [
-                ("xc.domain_getinfo", (1, 1), {}),
-            ],
         )
 
     def test_010_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_011_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm hvm_directio pv pv_directio",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm hvm_directio pv pv_directio"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), True)
 
     def test_012_iommu_supported(self):
-        self.app.vmm.configure_mock(
-            **{
-                "xc.physinfo.return_value": {
-                    "hw_caps": "...",
-                    "scrub_memory": 0,
-                    "virt_caps": "hvm pv",
-                    "nr_cpus": 4,
-                    "threads_per_core": 1,
-                    "cpu_khz": 3400001,
-                    "nr_nodes": 1,
-                    "free_memory": 234752,
-                    "cores_per_socket": 4,
-                    "total_memory": 16609720,
-                }
-            }
-        )
+        physinfo = self.xen_physinfo
+        physinfo["virt_caps"] = "hvm pv"
+        self.app.vmm.configure_mock(**{"xc.physinfo.return_value": physinfo})
         self.assertEqual(self.qubes_host.is_iommu_supported(), False)
+
+    def test_030_attrs(self):
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.xen_physinfo["total_memory"]
+        )
+        self.assertEqual(self.qubes_host.no_cpus, self.libvirt_info[2])
+
+        self.app.vmm.is_xen = False
+        self.app.vmm.offline_mode = False
+        self.qubes_host = qubes.app.QubesHost(self.app)
+        self.assertEqual(
+            self.qubes_host.memory_total, self.libvirt_info[1] * 1024
+        )
 
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
@@ -637,7 +444,169 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             app.close()
             del app
 
-    def test_101_property_migrate_label(self):
+    def test_101_property_migrate_disposable_template(self):
+        xml_template = """<?xml version="1.0" encoding="utf-8" ?>
+        <qubes version="3.0">
+            <properties>
+                <property name="default_template"></property>
+                <property name="default_dispvm">{app_default_dispvm}</property>
+                <property name="management_dispvm">{app_management_dispvm}</property>
+            </properties>
+            <labels>
+                <label id="label-1" color="#cc0000">red</label>
+            </labels>
+            <pools>
+              <pool driver="file" dir_path="/tmp/qubes-test" name="default"/>
+            </pools>
+            <domains>
+
+                <domain class="AdminVM" id="domain-0">
+                    <properties>
+                        <property name="default_dispvm">{adminvm_default_dispvm}</property>
+                    </properties>
+                </domain>
+
+                <domain class="StandaloneVM" id="domain-1">
+                    <properties>
+                        <property name="qid">1</property>
+                        <property name="name">work</property>
+                        <property name="label" ref="label-1" />
+                        <property name="uuid">2fcfc1f4-b2fe-4361-931a-c5294b35edfa</property>
+                        <property name="management_dispvm">{work_management_dispvm}</property>
+                    </properties>
+                    <features/>
+                    <devices class="pci"/>
+                </domain>
+
+                <domain class="StandaloneVM" id="domain-2">
+                    <properties>
+                        <property name="qid">3</property>
+                        <property name="name">disp-template</property>
+                        <property name="label" ref="label-1" />
+                        <property name="uuid">2ccfc1f4-b2fe-4361-931a-c5294b35edfa</property>
+                        <property name="template_for_dispvms">True</property>
+                    </properties>
+                </domain>
+
+            </domains>
+        </qubes>
+        """
+
+        with self.subTest("default"):
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        app_default_dispvm="disp-template",
+                        app_management_dispvm="disp-template",
+                        adminvm_default_dispvm="disp-template",
+                        work_management_dispvm="disp-template",
+                    )
+                )
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            adminvm = app.domains["dom0"]
+            work = app.domains["work"]
+            disp_template = app.domains["disp-template"]
+
+            self.assertFalse(app.property_is_default("default_dispvm"))
+            self.assertEqual(app.default_dispvm, disp_template)
+            self.assertFalse(app.property_is_default("management_dispvm"))
+            self.assertEqual(app.management_dispvm, disp_template)
+
+            self.assertFalse(adminvm.property_is_default("default_dispvm"))
+            self.assertEqual(adminvm.default_dispvm, disp_template)
+
+            self.assertTrue(work.property_is_default("default_dispvm"))
+            self.assertEqual(work.default_dispvm, disp_template)
+            self.assertFalse(work.property_is_default("management_dispvm"))
+            self.assertEqual(work.management_dispvm, disp_template)
+
+            self.assertTrue(disp_template.property_is_default("default_dispvm"))
+            self.assertEqual(disp_template.default_dispvm, disp_template)
+            self.assertTrue(
+                disp_template.property_is_default("management_dispvm")
+            )
+            self.assertEqual(disp_template.management_dispvm, disp_template)
+
+            app.close()
+            del app
+
+        with self.subTest("invalid-system"):
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        app_default_dispvm="work",
+                        app_management_dispvm="work",
+                        adminvm_default_dispvm="disp-template",
+                        work_management_dispvm="disp-template",
+                    )
+                )
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            adminvm = app.domains["dom0"]
+            work = app.domains["work"]
+            disp_template = app.domains["disp-template"]
+
+            self.assertFalse(app.property_is_default("default_dispvm"))
+            self.assertEqual(app.default_dispvm, None)
+            self.assertFalse(app.property_is_default("management_dispvm"))
+            self.assertEqual(app.management_dispvm, None)
+
+            self.assertFalse(adminvm.property_is_default("default_dispvm"))
+            self.assertEqual(adminvm.default_dispvm, disp_template)
+
+            self.assertTrue(work.property_is_default("default_dispvm"))
+            self.assertEqual(work.default_dispvm, None)
+            self.assertFalse(work.property_is_default("management_dispvm"))
+            self.assertEqual(work.management_dispvm, disp_template)
+
+            self.assertTrue(disp_template.property_is_default("default_dispvm"))
+            self.assertEqual(disp_template.default_dispvm, None)
+            self.assertTrue(
+                disp_template.property_is_default("management_dispvm")
+            )
+            self.assertEqual(disp_template.management_dispvm, None)
+
+            app.close()
+            del app
+
+        with self.subTest("invalid-per-qube"):
+            with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
+                xml_file.write(
+                    xml_template.format(
+                        app_default_dispvm="disp-template",
+                        app_management_dispvm="disp-template",
+                        adminvm_default_dispvm="work",
+                        work_management_dispvm="work",
+                    )
+                )
+            app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+            adminvm = app.domains["dom0"]
+            work = app.domains["work"]
+            disp_template = app.domains["disp-template"]
+
+            self.assertFalse(app.property_is_default("default_dispvm"))
+            self.assertEqual(app.default_dispvm, disp_template)
+            self.assertFalse(app.property_is_default("management_dispvm"))
+            self.assertEqual(app.management_dispvm, disp_template)
+
+            self.assertFalse(adminvm.property_is_default("default_dispvm"))
+            self.assertEqual(adminvm.default_dispvm, None)
+
+            self.assertTrue(work.property_is_default("default_dispvm"))
+            self.assertEqual(work.default_dispvm, disp_template)
+            self.assertFalse(work.property_is_default("management_dispvm"))
+            self.assertEqual(work.management_dispvm, None)
+
+            self.assertTrue(disp_template.property_is_default("default_dispvm"))
+            self.assertEqual(disp_template.default_dispvm, disp_template)
+            self.assertTrue(
+                disp_template.property_is_default("management_dispvm")
+            )
+            self.assertEqual(disp_template.management_dispvm, disp_template)
+
+            app.close()
+            del app
+
+    def test_102_property_migrate_label(self):
         xml_template = """<?xml version="1.0" encoding="utf-8" ?>
         <qubes version="3.0">
             <labels>
@@ -678,8 +647,123 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             app.close()
             del app
 
+    def test_200_load_pools(self):
+        qubes_xml = """<?xml version="1.0" encoding="utf-8" ?>
+        <qubes version="3.0">
+            <labels>
+                <label id="label-1" color="{old_gray}">gray</label>
+            </labels>
+            <pools>
+              <pool driver="file" dir_path="/tmp/qubes-test" name="default" ephemeral_volatile="False"/>
+            </pools>
+            <domains>
+            </domains>
+        </qubes>
+        """
+        with open("/tmp/qubestest.xml", "w", encoding="ascii") as xml_file:
+            xml_file.write(qubes_xml)
+        app = qubes.Qubes("/tmp/qubestest.xml", offline_mode=True)
+        self.assertEqual(app.pools["default"].ephemeral_volatile, False)
+        self.assertEqual(app.pools["default"].dir_path, "/tmp/qubes-test")
+        app.close()
+        del app
+
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
+    sample_xc_domain_getinfo = [
+        {
+            "paused": 0,
+            "cpu_time": 243951379111104,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3733212,
+            "domid": 0,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 1,
+            "maxmem_kb": 3734236,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "cpupool": 0,
+            "blocked": 0,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 2849496569205,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 303916,
+            "domid": 1,
+            "max_vcpu_id": 0,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 308224,
+            "shutdown": 0,
+            "online_vcpus": 1,
+            "handle": [
+                116,
+                174,
+                229,
+                207,
+                17,
+                1,
+                79,
+                39,
+                191,
+                37,
+                41,
+                186,
+                205,
+                158,
+                219,
+                8,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+        {
+            "paused": 0,
+            "cpu_time": 249658663079978,
+            "ssidref": 0,
+            "hvm": 0,
+            "shutdown_reason": 255,
+            "dying": 0,
+            "mem_kb": 3782668,
+            "domid": 2,
+            "max_vcpu_id": 7,
+            "crashed": 0,
+            "running": 0,
+            "maxmem_kb": 3783692,
+            "shutdown": 0,
+            "online_vcpus": 8,
+            "handle": [
+                169,
+                95,
+                55,
+                127,
+                140,
+                94,
+                79,
+                220,
+                186,
+                210,
+                117,
+                5,
+                148,
+                11,
+                185,
+                206,
+            ],
+            "cpupool": 0,
+            "blocked": 1,
+        },
+    ]
+
     def setUp(self):
         super().setUp()
         self.app = qubes.Qubes(
@@ -695,6 +779,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.template.features["supported-rpc.qubes.WaitForRunningSystem"] = (
             True
         )
+        self.template.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm = self.app.add_new_vm(
             "AppVM",
             name="test-dvm",
@@ -712,6 +797,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             qube.template_for_dispvms = True
         self.app.save()
         self.emitter = qubes.tests.TestEmitter()
+        self.maxDiff = None
 
     def tearDown(self):
         try:
@@ -730,6 +816,251 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             del self.appvm_alt
         except AttributeError:
             pass
+
+    @mock.patch("qubes.vm.adminvm.AdminVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    def test_000_get_vm_stats_single(self, mock_qubesdb, mock_adminvm_qubesdb):
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+        xenstore = {
+            "/local/domain/0/memory/meminfo": b"849924",
+            "/local/domain/1/memory/meminfo": b"849925",
+            "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": None,
+            "/local/domain/1/memory/swapinfo": b"35",
+            "/local/domain/2/memory/swapinfo": b"4",
+        }
+
+        qdb = {"/qubes-service/meminfo-writer": "1"}
+        test_qubesdb = TestQubesDB(data=qdb)
+        for obj in [mock_qubesdb, mock_adminvm_qubesdb]:
+            obj.write.side_effect = test_qubesdb.write
+            obj.rm.side_effect = test_qubesdb.rm
+            obj.read.side_effect = test_qubesdb.read
+
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+
+        info_time, info = self.app.host.get_vm_stats()
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024)),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+            ],
+        )
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                "name": "dom0",
+                "is_stubdom": False,
+                "memory_assigned_total": 3734236,
+                "memory_assigned_usable": 3733212,
+                "memory_kb": 3733212,
+                "memory_with_swap_used": 849924,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
+            },
+            1: {
+                "name": names[1],
+                "is_stubdom": False,
+                "memory_assigned_total": 308224,
+                "memory_assigned_usable": 303916,
+                "memory_kb": 303916,
+                "memory_with_swap_used": 849925,
+                "swap_used": 35,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 1,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+            2: {
+                "name": names[2],
+                "is_stubdom": False,
+                "memory_assigned_total": 3783692,
+                "memory_assigned_usable": 3782668,
+                "memory_kb": 3782668,
+                "memory_with_swap_used": 849926,
+                "swap_used": 4,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 0,
+                "cpu_usage_raw": 0,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+        }
+        self.assertEqual(info, expected_info)
+
+    @mock.patch("qubes.vm.adminvm.AdminVM.untrusted_qdb")
+    @mock.patch("qubes.vm.qubesvm.QubesVM.untrusted_qdb")
+    def test_001_get_vm_stats_twice(self, mock_qubesdb, mock_adminvm_qubesdb):
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+
+        xenstore = {
+            "/local/domain/0/memory/meminfo": b"849924",
+            "/local/domain/1/memory/meminfo": b"849925",
+            "/local/domain/2/memory/meminfo": b"849926",
+            "/local/domain/0/memory/swapinfo": b"0",
+            "/local/domain/1/memory/swapinfo": None,
+            "/local/domain/2/memory/swapinfo": b"4",
+        }
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+        self.maxDiff = None
+
+        qdb = {"/qubes-service/meminfo-writer": "1"}
+        test_qubesdb = TestQubesDB(data=qdb)
+        for obj in [mock_qubesdb, mock_adminvm_qubesdb]:
+            obj.write.side_effect = test_qubesdb.write
+            obj.rm.side_effect = test_qubesdb.rm
+            obj.read.side_effect = test_qubesdb.read
+
+        prev_time, prev_info = self.app.host.get_vm_stats()
+
+        prev_time -= 1
+        prev_info[0]["cpu_time"] -= 8 * 10**8  # 0.8s
+        prev_info[1]["cpu_time"] -= 10**9  # 1s
+        prev_info[2]["cpu_time"] -= 10**9  # 1s
+
+        info_time, info = self.app.host.get_vm_stats(prev_time, prev_info)
+
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                "name": "dom0",
+                "is_stubdom": False,
+                "memory_assigned_total": 3734236,
+                "memory_assigned_usable": 3733212,
+                "memory_kb": 3733212,
+                "memory_with_swap_used": 849924,
+                "swap_used": 0,
+                "cpu_time": 243951379111104,
+                "cpu_usage": 10,
+                "cpu_usage_raw": 80,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+            1: {
+                "name": names[1],
+                "is_stubdom": False,
+                "memory_assigned_total": 308224,
+                "memory_assigned_usable": 303916,
+                "memory_kb": 303916,
+                "memory_with_swap_used": 849925,
+                "cpu_time": 2849496569205,
+                "cpu_usage": 100,
+                "cpu_usage_raw": 100,
+                "online_vcpus": 1,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": False,
+            },
+            2: {
+                "name": names[2],
+                "is_stubdom": False,
+                "memory_assigned_total": 3783692,
+                "memory_assigned_usable": 3782668,
+                "memory_kb": 3782668,
+                "memory_with_swap_used": 849926,
+                "swap_used": 4,
+                "cpu_time": 249658663079978,
+                "cpu_usage": 12,
+                "cpu_usage_raw": 100,
+                "online_vcpus": 8,
+                "stubdom_xid": -1,
+                "xs_meminfo": True,
+                "xs_swapinfo": True,
+            },
+        }
+        self.assertEqual(info, expected_info)
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/1/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+                ("xc.domain_getinfo", (0, 1024), {}),
+                ("xs.read", ("", "/local/domain/0/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/0/memory/swapinfo")),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/meminfo")),
+                ("xs.read", ("", "/local/domain/2/memory/swapinfo")),
+            ],
+        )
+
+    def test_002_get_vm_stats_one_vm(self):
+        vm = mock.Mock
+        vm.xid = 1
+        vm.name = "somevm"
+
+        names = {1: vm.name}
+        xenstore = {"/local/domain/1/memory/meminfo": None}
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": [
+                    self.sample_xc_domain_getinfo[1]
+                ],
+                "is_xen.return_value": True,
+                "xs.read.side_effect": lambda _, path: xenstore[path],
+            }
+        )
+
+        info_time, _info = self.app.host.get_vm_stats(only_vm=vm)
+        self.assertIsNotNone(info_time)
+
+        self.assertEqual(
+            self.app.vmm.mock_calls,
+            [
+                ("xc.domain_getinfo", (1, 1)),
+                ("xs.read", ("", "/local/domain/1/memory/meminfo")),
+            ],
+        )
 
     def test_100_clockvm(self):
         appvm = self.app.add_new_vm(
@@ -1052,27 +1383,32 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         appvm = self.app.add_new_vm(
             "AppVM", name="test-appvm", template=self.template, label="red"
         )
+        appvm.template_for_dispvms = True
         self.app.default_dispvm = appvm
         with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
                 del self.app.domains[appvm]
 
-    def test_204_remove_appvm_dispvm(self):
-        dispvm = self.app.add_new_vm(
-            "AppVM", name="test-appvm", template=self.template, label="red"
+    def test_204_remove_appvm_used_as_default_dispvm(self):
+        appvm = self.app.add_new_vm(
+            "AppVM",
+            name="test-appvm",
+            template=self.template,
+            label="red",
+            template_for_dispvms=True,
         )
         self.app.add_new_vm(
             "AppVM",
             name="test-appvm2",
             template=self.template,
-            default_dispvm=dispvm,
+            default_dispvm=appvm,
             label="red",
         )
         with mock.patch.object(self.app, "vmm"):
             with self.assertRaises(qubes.exc.QubesVMInUseError):
-                del self.app.domains[dispvm]
+                del self.app.domains[appvm]
 
-    def test_205_remove_appvm_dispvm(self):
+    def test_205_remove_appvm_used_as_template_of_dispvm(self):
         appvm = self.app.add_new_vm(
             "AppVM",
             name="test-appvm",
@@ -1140,6 +1476,13 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             with mock.patch("os.path.exists") as existence:
                 existence.side_effect = [True, False]
                 self.app.default_kernel = "unittest_GNU_Hurd_1.0.0"
+
+    def test_207_default_kernel_reset(self):
+        with mock.patch("os.path.exists", return_value=True):
+            self.app.default_kernel = "unittest_kernel"
+        with self.assertRaises(qubes.exc.QubesValueError):
+            del self.app.default_kernel
+        self.assertEqual(self.app.default_kernel, "unittest_kernel")
 
     def test_208_default_netvm_change(self):
         netvm1 = self.app.add_new_vm(
@@ -1255,6 +1598,20 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             mock_new.assert_called_once_with(
                 "domain-preload-dispvm-start", reason=mock.ANY
             )
+
+    def test_304_event_default_dispvm(self):
+        self.appvm.template_for_dispvms = False
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.app.default_dispvm = self.appvm
+        self.appvm.template_for_dispvms = True
+        self.app.default_dispvm = self.appvm
+
+    def test_305_event_management_dispvm(self):
+        self.appvm.template_for_dispvms = False
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.app.management_dispvm = self.appvm
+        self.appvm.template_for_dispvms = True
+        self.app.management_dispvm = self.appvm
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):

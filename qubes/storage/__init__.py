@@ -238,6 +238,7 @@ class Volume:
         await qubes.utils.cryptsetup(
             "--key-file=/dev/urandom",
             "--cipher=aes-xts-plain64",
+            "--key-size=256",
             "--type=plain",
             "--",
             "open",
@@ -379,7 +380,7 @@ class Volume:
 
     def is_outdated(self):
         """Returns `True` if this snapshot of a source volume (for
-        `snap_on_start`=True) is outdated.
+        `snap_on_start` = True) is outdated.
         """
         raise self._not_implemented("is_outdated")
 
@@ -657,24 +658,28 @@ class Storage:
 
     def _is_already_attached(self, volume):
         """Checks if the given volume is already attached"""
+        # TODO: ben: cache
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
-        disk_sources = parsed_xml.xpath("//domain/devices/disk/source")
-        for source in disk_sources:
-            if source.get("dev") == "/dev/%s" % volume.vid:
-                return True
+        disks = parsed_xml.xpath(
+            "//domain/devices/disk/source[@dev='/dev/$vid']", vid=volume.vid
+        )
+        if disks:
+            return True
         return False
 
     def detach(self, volume):
         """Detach a volume from domain"""
+        # TODO: ben: cache
         parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
-        disks = parsed_xml.xpath("//domain/devices/disk")
-        for disk in disks:
-            source = disk.xpath("source")[0]
-            if source.get("dev") == "/dev/%s" % volume.vid:
-                disk_xml = lxml.etree.tostring(disk, encoding="utf-8")
-                self.vm.libvirt_domain.detachDevice(disk_xml)
-                return
-        raise StoragePoolException("Volume {!r} is not attached".format(volume))
+        disks = parsed_xml.xpath(
+            "//domain/devices/disk/source[@dev='/dev/$vid']", vid=volume.vid
+        )
+        if not disks:
+            raise StoragePoolException(
+                "Volume {!r} is not attached".format(volume)
+            )
+        disk_xml = lxml.etree.tostring(disks[0], encoding="utf-8")
+        self.vm.libvirt_domain.detachDevice(disk_xml)
 
     @property
     def kernels_dir(self):
@@ -728,7 +733,7 @@ class Storage:
 
         :param QubesVM src_vm: source VM
         :param str name: name of volume to clone ('root', 'private' etc)
-        :return cloned volume object
+        :return: cloned volume object
         """
         config = self.vm.volume_config[name]
         dst_pool = self.vm.app.get_pool(config["pool"])
@@ -857,16 +862,12 @@ class Storage:
                 pass
 
     async def stop(self):
-        """Execute the stop method on each volume"""
+        """Stop each volume"""
         await qubes.utils.void_coros_maybe(
-            # pylint: disable=line-too-long
-            (
-                vol.stop_encrypted(
-                    vol.encrypted_volume_path(self.vm.name, name)
-                )
-                if vol.ephemeral
-                else vol.stop()
-            )
+            # Always call stop_encrypted() - which can handle an unencrypted
+            # volume as well - to correctly clean up even if the ephemeral
+            # property became False while the volume was already started.
+            vol.stop_encrypted(vol.encrypted_volume_path(self.vm.name, name))
             for name, vol in self.vm.volumes.items()
         )
         for vol in self.vm.volumes.values():
@@ -882,11 +883,12 @@ class Storage:
     @property
     def used_frontends(self):
         """Used device names"""
+        # TODO: ben: cache
         xml = self.vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
         return {
             target.get("dev", None)
-            for target in parsed_xml.xpath("//domain/devices/disk/target")
+            for target in parsed_xml.xpath("//domain/devices/disk/target[@dev]")
         }
 
     async def export(self, volume):
@@ -929,9 +931,13 @@ class Storage:
                 f"data"
             )
 
-        return await qubes.utils.coro_maybe(
+        import_rslt = await qubes.utils.coro_maybe(
             dst_volume.import_volume(src_volume)
         )
+        await self.vm.fire_event_async(
+            "domain-import-volume", name=dst_volume.name, source=src_volume
+        )
+        return import_rslt
 
 
 class VolumesCollection:
@@ -1001,7 +1007,7 @@ class Pool:
         self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
-        self.ephemeral_volatile = ephemeral_volatile
+        self.ephemeral_volatile = qubes.utils.parse_bool(ephemeral_volatile)
 
     def __eq__(self, other):
         if isinstance(other, Pool):
@@ -1073,7 +1079,7 @@ class Pool:
         all the other drivers.
 
         :param app: Qubes() object to lookup other pools in
-        :returns pool or None
+        :return: pool or None
         """
 
     @property
@@ -1115,6 +1121,8 @@ def _sanitize_config(config):
         if isinstance(value, bool):
             if value:
                 result[key] = "True"
+            else:
+                result[key] = "False"
         else:
             result[key] = str(value)
     return result

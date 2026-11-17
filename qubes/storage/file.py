@@ -21,6 +21,7 @@
 #
 
 """This module contains pool implementations backed by file images"""
+
 import asyncio
 import errno
 import os
@@ -361,14 +362,6 @@ class FileVolume(qubes.storage.Volume):
                 "the template instead"
             )
             raise qubes.exc.StoragePoolException(msg)
-
-        if size < self.size:
-            raise qubes.exc.StoragePoolException(
-                "For your own safety, shrinking of %s is"
-                " disabled. If you really know what you"
-                " are doing, use `truncate` on %s manually."
-                % (self.name, self.vid)
-            )
 
         with open(self.path, "a+b") as fd:
             fd.truncate(size)

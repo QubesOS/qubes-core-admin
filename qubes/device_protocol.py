@@ -30,7 +30,6 @@ The same in `qubes-core-admin` and `qubes-core-admin-client`,
 should be moved to one place.
 """
 
-
 import string
 import sys
 from enum import Enum
@@ -837,8 +836,8 @@ class DeviceInterface:
             return "Microphone"
         return repr(self)
 
-    @staticmethod
-    def _load_classes(bus: str):
+    @classmethod
+    def _load_classes(cls, bus: str):
         """
         List of known device classes, subclasses and programming interfaces.
         """
@@ -846,6 +845,9 @@ class DeviceInterface:
         # C class       class_name
         #       subclass        subclass_name           <-- single tab
         #               prog-if  prog-if_name   <-- two tabs
+        data = "_{}_known_classes".format(bus)
+        if hasattr(cls, data):
+            return getattr(cls, data)
         result = {}
         with open(
             f"/usr/share/hwdata/{bus}.ids", encoding="utf-8", errors="ignore"
@@ -856,22 +858,26 @@ class DeviceInterface:
             subclass_id = None
             for line in pciids.readlines():
                 line = line.rstrip()
+                if not line:
+                    continue
+                first_two_chars = line[:2]
                 if (
-                    line.startswith("\t\t")
+                    first_two_chars == "\t\t"
                     and class_id is not None
                     and subclass_id is not None
                 ):
-                    (progif_id, _, progif_name) = line[2:].split(" ", 2)
+                    progif_id, _, progif_name = line[2:].split(" ", 2)
                     result[class_id + subclass_id + progif_id] = progif_name
-                elif line.startswith("\t") and class_id:
-                    (subclass_id, _, subclass_name) = line[1:].split(" ", 2)
+                elif first_two_chars[0] == "\t" and class_id:
+                    subclass_id, _, subclass_name = line[1:].split(" ", 2)
                     # store both prog-if specific entry and generic one
                     result[class_id + subclass_id + "**"] = subclass_name
-                elif line.startswith("C "):
-                    (_, class_id, _, class_name) = line.split(" ", 3)
+                elif first_two_chars == "C ":
+                    _, class_id, _, class_name = line.split(" ", 3)
                     result[class_id + "****"] = class_name
                     subclass_id = None
 
+        setattr(cls, data, result)
         return result
 
     def matches(self, other: "DeviceInterface") -> bool:
@@ -896,8 +902,24 @@ class DeviceInterface:
         return True
 
 
+class AssignmentMode(Enum):
+    """
+    Device assignment modes
+    """
+
+    MANUAL = "manual"
+    ASK = "ask-to-attach"
+    AUTO = "auto-attach"
+    REQUIRED = "required"
+
+
 class DeviceInfo(VirtualDevice):
     """Holds all information about a device"""
+
+    # Subclasses should override this.
+    SUPPORTED_ASSIGNMENT_MODES: "frozenset[AssignmentMode]" = frozenset(
+        {AssignmentMode.MANUAL, AssignmentMode.ASK, AssignmentMode.AUTO}
+    )
 
     def __init__(
         self,
@@ -1140,8 +1162,7 @@ class DeviceInfo(VirtualDevice):
 
         try:
             device = cls._deserialize(rest, device)
-            # pylint: disable=broad-exception-caught
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             print(str(exc), file=sys.stderr)
             device = UnknownDevice.from_device(device)
 
@@ -1222,17 +1243,6 @@ class UnknownDevice(DeviceInfo):
         Return `UnknownDevice` based on any virtual device.
         """
         return UnknownDevice(device.port, device_id=device.device_id)
-
-
-class AssignmentMode(Enum):
-    """
-    Device assignment modes
-    """
-
-    MANUAL = "manual"
-    ASK = "ask-to-attach"
-    AUTO = "auto-attach"
-    REQUIRED = "required"
 
 
 class DeviceAssignment:
@@ -1369,7 +1379,9 @@ class DeviceAssignment:
     @property
     def device(self) -> DeviceInfo:
         """
-        Get single DeviceInfo object or raise an error.
+        Get single DeviceInfo object or UnknownDevice, if the device has
+        not been found.
+        If there are more devices than one matching, raise ProtocolError.
 
         If port id is set we have exactly one device
         since we can attach ony one device to one port.
@@ -1380,7 +1392,7 @@ class DeviceAssignment:
             return devices[0]
         if len(devices) > 1:
             raise ProtocolError("Too many devices matches to assignment")
-        raise ProtocolError("No devices matches to assignment")
+        return UnknownDevice(port=self.port, device_id=self.device_id)
 
     @property
     def port(self) -> Port:

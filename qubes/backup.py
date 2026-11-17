@@ -190,7 +190,7 @@ async def launch_proc_with_pty(
             termios_p[3] &= ~termios.ECHO
             termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
 
-    (pty_master, pty_slave) = os.openpty()
+    pty_master, pty_slave = os.openpty()
     p = await asyncio.create_subprocess_exec(
         *args,
         stdin=stdin,
@@ -216,7 +216,7 @@ async def launch_scrypt(action, input_name, output_name, passphrase):
     :return: subprocess.Popen object
     """
     command_line = ["scrypt", action, input_name, output_name]
-    (p, pty) = await launch_proc_with_pty(
+    p, pty = await launch_proc_with_pty(
         command_line,
         stdin=subprocess.PIPE if input_name == "-" else None,
         stdout=subprocess.PIPE if output_name == "-" else None,
@@ -257,7 +257,7 @@ class Backup:
     >>> }
     >>> backup_op = Backup(app, vms, exclude_vms, **options)
     >>> print(backup_op.get_backup_summary())
-    >>> asyncio.get_event_loop().run_until_complete(backup_op.backup_do())
+    >>> asyncio.run(backup_op.backup_do())
 
     See attributes of this object for all available options.
 
@@ -301,7 +301,7 @@ class Backup:
                     + "/"
                 )
                 abs_file_dir = os.path.dirname(abs_file_path) + "/"
-                (nothing, directory, subdir) = abs_file_dir.partition(
+                nothing, directory, subdir = abs_file_dir.partition(
                     abs_base_dir
                 )
                 assert nothing == ""
@@ -482,7 +482,7 @@ class Backup:
         )
         return files_to_backup
 
-    def get_backup_summary(self):
+    def get_backup_summary(self, filtered_domains):
         summary = ""
 
         fields_to_display = [
@@ -568,14 +568,13 @@ class Backup:
         summary += "\n"
 
         vms_not_for_backup = [
-            vm.name for vm in self.app.domains if vm not in self.vms_for_backup
+            vm.name for vm in filtered_domains if vm not in self.vms_for_backup
         ]
         summary += (
             "VMs not selected for backup:\n - "
             + "\n - ".join(sorted(vms_not_for_backup))
             + "\n"
         )
-
         return summary
 
     async def _prepare_backup_header(self):

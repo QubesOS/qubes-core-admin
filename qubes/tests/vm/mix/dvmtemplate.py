@@ -19,6 +19,8 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import os
+import shutil
 from unittest import mock
 
 import qubes
@@ -29,6 +31,7 @@ import qubes.tests.vm
 import qubes.tests.vm.appvm
 import qubes.tests.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
+import qubes.vm.standalonevm
 
 
 class TestApp(qubes.tests.vm.TestApp):
@@ -55,17 +58,41 @@ class TC_00_DVMTemplateMixin(
 ):
     def setUp(self):
         super().setUp()
-        self.app = TestApp()
+        self.test_base_dir = "/tmp/qubes-test-dir"
+        self.base_dir_patch = mock.patch.dict(
+            qubes.config.system_path, {"qubes_base_dir": self.test_base_dir}
+        )
+        self.base_dir_patch2 = mock.patch(
+            "qubes.config.qubes_base_dir", self.test_base_dir
+        )
+        self.base_dir_patch3 = mock.patch.dict(
+            qubes.config.defaults["pool_configs"]["varlibqubes"],
+            {"dir_path": self.test_base_dir},
+        )
+        self.skip_kernel_validation_patch = mock.patch(
+            "qubes.app.validate_kernel", lambda obj, key, value: None
+        )
+        self.base_dir_patch.start()
+        self.base_dir_patch2.start()
+        self.base_dir_patch3.start()
+        self.skip_kernel_validation_patch.start()
+        self.app = qubes.Qubes("/tmp/qubes-test.xml", load=False)
+        self.app.vmm = mock.Mock(spec=qubes.app.VMMConnection)
+        self.app.load_initial_values()
+        self.loop.run_until_complete(self.app.setup_pools())
+        self.app.default_kernel = "1.0"
+        self.app.default_netvm = None
+        with qubes.tests.substitute_entry_points(
+            "qubes.storage", "qubes.tests.storage"
+        ):
+            self.loop.run_until_complete(
+                self.app.add_pool("test", driver="test")
+            )
+        self.app.default_pool = "varlibqubes"
+
         self.app.save = mock.Mock()
-        self.app.pools["default"] = qubes.tests.vm.appvm.TestPool(
-            name="default"
-        )
-        self.app.pools["linux-kernel"] = qubes.tests.vm.appvm.TestPool(
-            name="linux-kernel"
-        )
         self.app.vmm.offline_mode = True
-        self.adminvm = self.app.add_new_vm(qubes.vm.adminvm.AdminVM)
-        self.addCleanup(self.cleanup_adminvm)
+        self.adminvm = self.app.domains[0]
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"
         )
@@ -84,36 +111,37 @@ class TC_00_DVMTemplateMixin(
         self.appvm.features["qrexec"] = True
         self.appvm.features["gui"] = False
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
-        self.app.domains[self.appvm.name] = self.appvm
-        self.app.domains[self.appvm] = self.appvm
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.app.default_dispvm = self.appvm
         self.addCleanup(self.cleanup_dispvm)
         self.emitter = qubes.tests.TestEmitter()
 
     def tearDown(self):
+        try:
+            os.unlink("/tmp/qubestest.xml")
+        except:  # pylint: disable=bare-except
+            pass
+        self.base_dir_patch3.stop()
+        self.base_dir_patch2.stop()
+        self.base_dir_patch.stop()
+        self.skip_kernel_validation_patch.stop()
+        if os.path.exists(self.test_base_dir):
+            shutil.rmtree(self.test_base_dir)
         self.app.default_dispvm = None
+        del self.appvm
+        del self.template
+        del self.template_alt
+        del self.adminvm
+        self.app.close()
+        del self.app
         del self.emitter
         super().tearDown()
 
-    def cleanup_adminvm(self):
-        self.adminvm.close()
-        del self.adminvm
-
     def cleanup_dispvm(self):
         if hasattr(self, "dispvm"):
-            self.dispvm.close()
             del self.dispvm
         if hasattr(self, "dispvm_alt"):
-            self.dispvm_alt.close()
             del self.dispvm_alt
-        self.template.close()
-        self.template_alt.close()
-        self.appvm.close()
-        del self.template
-        del self.template_alt
-        del self.appvm
-        self.app.domains.clear()
-        self.app.pools.clear()
 
     async def mock_coro(self, *args, **kwargs):
         pass
@@ -163,9 +191,13 @@ class TC_00_DVMTemplateMixin(
         self.appvm.features["qrexec"] = True
         self.appvm.features["gui"] = False
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = False
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = False
         with self.assertRaises(qubes.exc.QubesValueError):
             self.appvm.features["preload-dispvm-max"] = "1"
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.appvm.features["preload-dispvm-max"] = "1"
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = "1"
         cases_invalid = ["a", "-1", "1 1"]
         for value in cases_invalid:
@@ -204,7 +236,7 @@ class TC_00_DVMTemplateMixin(
             self.app, "domains", wraps=self.app.domains
         ) as mock_domains:
             mock_qube = mock.Mock()
-            mock_qube.template = self.appvm
+            mock_qube.template = mock_qube.active_template = self.appvm
             mock_domains.configure_mock(
                 **{
                     "get_new_unused_dispid": mock.Mock(return_value=42),
@@ -285,6 +317,7 @@ class TC_00_DVMTemplateMixin(
         )
 
         mock_events.reset_mock()
+        self.app.default_dispvm = None
         self.appvm.template_for_dispvms = False
         self.appvm.features["preload-dispvm-max"] = "2"
         mock_events.assert_not_called()
@@ -340,40 +373,48 @@ class TC_00_DVMTemplateMixin(
             label="red",
             dispid=43,
         )
-        # Can't switch templates if disposable is running.
-        mock_remove.reset_mock()
-        mock_events.reset_mock()
-        with mock.patch.object(self.dispvm, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
 
-        # Can't switch templates if not all running disposable are preloads.
+        # Preloads are refreshed if disposable template is halted.
         mock_remove.reset_mock()
         self.appvm.features["preload-dispvm-max"] = "1"
         self.appvm.features["preload-dispvm"] = self.dispvm.name
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
-            with self.assertRaises(qubes.exc.QubesVMInUseError):
-                self.appvm.template = self.template_alt
-        mock_remove.assert_not_called()
-        mock_events.assert_not_called()
+        with (
+            mock.patch.object(self.dispvm, "is_running", return_value=True),
+            mock.patch.object(self.dispvm_alt, "is_running", return_value=True),
+        ):
 
-        # Can switch templates if all running disposable are preloads.
-        self.appvm.features["preload-dispvm-max"] = "2"
-        self.appvm.features["preload-dispvm"] = (
-            self.dispvm.name + " " + self.dispvm_alt.name
-        )
-        with mock.patch.object(
-            self.dispvm, "is_running", return_value=True
-        ), mock.patch.object(self.dispvm_alt, "is_running", return_value=True):
-            self.appvm.template = self.template_alt
-        mock_remove.assert_called_once_with(0, reason=mock.ANY)
-        mock_events.assert_called_once_with(
-            "domain-preload-dispvm-start", reason=mock.ANY
-        )
+            with (
+                mock.patch.object(
+                    self.appvm, "get_power_state", return_value="Halted"
+                ),
+                mock.patch.object(self.appvm, "is_running", return_value=False),
+                mock.patch.object(self.appvm, "can_preload", return_value=True),
+            ):
+                self.appvm.template = self.template_alt
+                self.assertEqual(self.appvm.template, self.template_alt)
+                self.assertEqual(self.appvm.active_template, self.template_alt)
+                mock_remove.assert_called_once_with(0, reason=mock.ANY)
+                mock_events.assert_called_once_with(
+                    "domain-preload-dispvm-start", reason=mock.ANY
+                )
+                mock_remove.reset_mock()
+                mock_events.reset_mock()
+
+            # Preloads are NOT refreshed if disposable template is running.
+            with (
+                mock.patch.object(
+                    self.appvm, "get_power_state", return_value="Running"
+                ),
+                mock.patch.object(self.appvm, "is_running", return_value=True),
+                mock.patch.object(
+                    self.appvm, "can_preload", return_value=False
+                ),
+            ):
+                self.appvm.template = self.template
+                self.assertEqual(self.appvm.template, self.template)
+                self.assertEqual(self.appvm.active_template, self.template_alt)
+                mock_remove.assert_not_called()
+                mock_events.assert_not_called()
 
     @mock.patch("qubes.events.Emitter.fire_event_async")
     @mock.patch(
@@ -383,6 +424,8 @@ class TC_00_DVMTemplateMixin(
         self, mock_remove, mock_events
     ):
         # Remove preloads when disabling property.
+        self.app.default_dispvm = None
+
         mock_events.side_effect = self.mock_coro
         self.appvm.template_for_dispvms = False
         mock_events.assert_not_called()
@@ -451,12 +494,96 @@ class TC_00_DVMTemplateMixin(
         )
         mock_events.reset_mock()
         mock_remove.reset_mock()
+        self.dispvm.default_dispvm = None
+        self.dispvm_alt.default_dispvm = None
         del self.appvm.template_for_dispvms
         mock_remove.assert_called_once_with(0, reason=mock.ANY)
         mock_events.assert_not_called()
 
+    def test_050_dvm_del_template_for_dispvms_used_by_system(self):
+        for prop in ["default_dispvm", "management_dispvm"]:
+            with self.subTest(prop=prop):
+                self.appvm.template_for_dispvms = True
+                setattr(self.app, prop, self.appvm)
+                with self.assertRaises(qubes.exc.QubesVMInUseError):
+                    self.appvm.template_for_dispvms = False
+                setattr(self.app, prop, None)
+                self.appvm.template_for_dispvms = False
+
+    def test_051_dvm_del_template_for_dispvms_from_self(self):
+        self.app.default_dispvm = None
+        self.app.management_dispvm = None
+        for prop in ["default_dispvm", "management_dispvm"]:
+            with self.subTest(prop=prop):
+                self.appvm.template_for_dispvms = True
+                setattr(self.appvm, prop, self.appvm)
+                self.appvm.template_for_dispvms = False
+                setattr(self.appvm, prop, None)
+
+    def test_052_dvm_del_template_for_dispvms_used_by_others(self):
+        self.app.default_dispvm = None
+        self.app.management_dispvm = None
+        for prop in ["default_dispvm", "management_dispvm"]:
+            with self.subTest(prop=prop):
+                self.appvm.template_for_dispvms = True
+                setattr(self.template, prop, self.appvm)
+                with self.assertRaises(qubes.exc.QubesVMInUseError):
+                    self.appvm.template_for_dispvms = False
+                setattr(self.template, prop, None)
+                self.appvm.template_for_dispvms = False
+        with self.subTest(prop="template"):
+            self.appvm.template_for_dispvms = True
+            self.dispvm = self.app.add_new_vm(
+                qubes.vm.dispvm.DispVM,
+                name="test-dispvm",
+                template=self.appvm,
+                label="red",
+                dispid=42,
+            )
+            for remove_prop in ["default_dispvm", "management_dispvm"]:
+                setattr(self.dispvm, remove_prop, None)
+            with self.assertRaises(qubes.exc.QubesVMInUseError):
+                self.appvm.template_for_dispvms = False
+            del self.app.domains[self.dispvm]
+            self.appvm.template_for_dispvms = False
+
+    def test_060_icon(self):
+        self.app.default_dispvm = None
+        self.app.management_dispvm = None
+        standalonevm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name="test-standalone",
+            label="green",
+        )
+        for vm, icon in (
+            (self.appvm, "appvm-red"),
+            (standalonevm, "standalonevm-green"),
+        ):
+            with self.subTest(vm=vm.name):
+                reset_icon = mock.Mock(return_value=None)
+                vm.add_handler("property-reset:icon", reset_icon)
+                vm.template_for_dispvms = False
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                self.assertEqual(vm.icon, "templatevm-" + vm.label.name)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = True
+                reset_icon.assert_not_called()
+
+                del vm.template_for_dispvms
+                self.assertEqual(vm.icon, icon)
+                reset_icon.assert_called_once()
+                reset_icon.reset_mock()
+
+                vm.template_for_dispvms = False
+                reset_icon.assert_not_called()
+
     def test_100_get_preload_templates(self):
         print(qubes.vm.dispvm.get_preload_templates(self.app))
         self.appvm.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = 1
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)

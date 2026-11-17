@@ -24,13 +24,12 @@
 from distutils import spawn
 
 import asyncio
+import json
 import os
 import subprocess
 import tempfile
 import time
 import unittest
-
-import collections
 
 import shutil
 
@@ -47,6 +46,100 @@ import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
 import libvirt  # pylint: disable=import-error
+
+
+async def defer_tpl(
+    test_case, qube: qubes.vm.appvm.AppVM | qubes.vm.dispvm.DispVM
+) -> None:
+    template = qube.template
+    if qube.klass == "AppVM":
+        template_alt = test_case.app.add_new_vm(
+            qubes.vm.templatevm.TemplateVM,
+            name=test_case.make_vm_name("defer-tpl-alt"),
+            label="red",
+        )
+    elif qube.klass == "DispVM":
+        template_alt = test_case.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=test_case.make_vm_name("defer-tpl-alt"),
+            label="red",
+            template_for_dispvms=True,
+        )
+    else:
+        raise TypeError("Received invalid qube class")
+
+    await template_alt.create_on_disk()
+    template.features["template-name"] = template.name
+    template_alt.features["template-name"] = template_alt.name
+
+    def get_tpl_vol_vid(qube):
+        if qube.klass == "DispVM":
+            volume = "private"
+        else:
+            volume = "root"
+        vid = qube.volumes[volume].source.vid
+        return vid
+
+    def get_tpl_vol_path(qube):
+        if getattr(qube, "template_for_dispvms", False):
+            volume = "private"
+        else:
+            volume = "root"
+        vid = qube.volumes[volume].vid
+        return vid
+
+    def check_deferred(qube, active, deferred):
+        test_case.assertEqual(qube.template, deferred)
+        test_case.assertEqual(qube.active_template, active)
+        test_case.assertEqual(get_tpl_vol_vid(qube), get_tpl_vol_path(active))
+        test_case.assertEqual(
+            qube.features.check_with_template("template-name"), active.name
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template("template-name", active=False),
+            deferred.name,
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template_and_adminvm("template-name"),
+            active.name,
+        )
+        test_case.assertEqual(
+            qube.features.check_with_template_and_adminvm(
+                "template-name", active=False
+            ),
+            deferred.name,
+        )
+        test_case.assertTrue(
+            qube in qube.app.domains.get_vms_based_on(qube.active_template)
+        )
+        if active != deferred:
+            test_case.assertTrue(
+                qube not in qube.app.domains.get_vms_based_on(qube.template)
+            )
+            test_case.assertFalse(qube.property_is_default("active_template"))
+        else:
+            test_case.assertTrue(qube.property_is_default("active_template"))
+
+    test_case.log.warning("Testing prop is sane")
+    check_deferred(qube, active=template, deferred=template)
+
+    test_case.log.warning("Testing changing template when halted")
+    qube.template = template_alt
+    check_deferred(qube, active=template_alt, deferred=template_alt)
+
+    test_case.log.warning("Test changing template when running is deferred")
+    await qube.start()
+    qube.template = template
+    check_deferred(qube, active=template_alt, deferred=template)
+
+    test_case.log.warning("Test deferred template is applied on shutdown")
+    await qube.shutdown(wait=True)
+    check_deferred(qube, active=template, deferred=template)
+    test_case.log.warning(
+        "Test template changes allows the qube to have a session"
+    )
+    await test_case.start_vm(qube)
+    await qube.kill()
 
 
 class TC_00_Basic(qubes.tests.SystemTestCase):
@@ -111,7 +204,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
                 stderr=subprocess.STDOUT,
             )
         )
-        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        stdout, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
@@ -153,7 +246,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
                 stderr=subprocess.STDOUT,
             )
         )
-        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        stdout, _ = self.loop.run_until_complete(p.communicate())
         self.assertEqual(p.returncode, 0, stdout)
         # check if VM do not crash instantly
         self.loop.run_until_complete(asyncio.sleep(50))
@@ -223,12 +316,11 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.vm.features["qrexec"] = False
         self.loop.run_until_complete(self.vm.create_on_disk())
         # another way to help the luck a little - make sure the private
-        # volume is first in (normally unordered) dict - this way if any
-        # volume action fails, it will be at or after private volume - not
-        # before (preventing private volume action)
+        # volume is first in dict - this way if any volume action fails,
+        # it will be at or after private volume - not before (preventing
+        # private volume action)
         old_volumes = self.vm.volumes
-        self.vm.volumes = collections.OrderedDict()
-        self.vm.volumes["private"] = old_volumes.pop("private")
+        self.vm.volumes = {"private": old_volumes.pop("private")}
         self.vm.volumes.update(old_volumes.items())
         del old_volumes
 
@@ -241,7 +333,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
         self.vm.add_handler("domain-start", self._test_200_on_domain_start)
-        self.loop.run_until_complete(self.vm.start())
+        try:
+            self.loop.run_until_complete(self.vm.start())
+        except asyncio.CancelledError:
+            pass
 
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(1))
@@ -302,7 +397,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # now, lets try to start the VM again, before domain-shutdown event
         # got handled (#3164), and immediately trigger second domain-shutdown
         self.vm.add_handler("domain-start", self._test_200_on_domain_start)
-        self.loop.run_until_complete(self.vm.start())
+        try:
+            self.loop.run_until_complete(self.vm.start())
+        except asyncio.CancelledError:
+            pass
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
@@ -483,6 +581,42 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.loop.run_until_complete(self.vm.start())
         self.assertFalse(self.vm.is_running())
 
+    def test_208_domain_start_cancellation(self):
+        """Cancel the startup procedure when a termination power state, such as
+        kill or shutdown, is requested."""
+        self.loop.run_until_complete(self._domain_start_cancellation())
+
+    async def _domain_start_cancellation(self):
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("pre-spawn-fail"),
+            template=self.app.default_template,
+            label="red",
+        )
+        await self.vm.create_on_disk()
+
+        async def _kill_on_pre_spawn(*_args, **_kwargs):
+            self.vm.log.info("domain-pre-spawn awaiting kill()")
+            await self.vm.kill()
+            self.vm.log.info("domain-pre-spawn completed kill()")
+
+        def _fail_on_property_reset_start_time(*_args, **_kwargs):
+            self.fail("Should not have reached this event")
+
+        self.vm.add_handler("domain-pre-spawn", _kill_on_pre_spawn)
+        self.vm.add_handler(
+            "property-reset:start_time", _fail_on_property_reset_start_time
+        )
+        try:
+            await self.vm.start()
+        except asyncio.CancelledError:
+            pass
+        else:
+            self.fail("didn't cancel start")
+        self.assertFalse(self.vm.startup_lock.locked())
+        self.assertTrue(self.vm.is_halted())
+        self.assertTrue(self.vm in self.app.domains)
+
     async def _test_bootmode(self, tpl, vm):
         await tpl.start()
         await tpl.run_for_stdio(
@@ -588,6 +722,19 @@ qvm-features-request boot-mode.active="defuser"
         )
         self.app.save()
         self.loop.run_until_complete(self._test_bootmode_default_user(self.vm))
+
+    def test_300_deferred_template(self) -> None:
+        self.loop.run_until_complete(self._test_300_deferred_template())
+
+    async def _test_300_deferred_template(self) -> None:
+        appvm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            name=self.make_vm_name("appvm"),
+            template=self.app.default_template,
+            label="red",
+        )
+        await appvm.create_on_disk()
+        await defer_tpl(test_case=self, qube=appvm)
 
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
@@ -821,7 +968,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         await p.wait()
 
         # And compare the result
-        (test_output, _) = await testvm2.run_for_stdio("cat /tmp/test.txt")
+        test_output, _ = await testvm2.run_for_stdio("cat /tmp/test.txt")
         self.assertEqual(test_string, test_output.strip().decode("ascii"))
 
         clipboard_content = (
@@ -838,6 +985,112 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         self.assertEqual(
             clipboard_source, "", "Clipboard not wiped after paste - owner"
         )
+
+    async def _test_clipboard_image(self, width, height):
+        rgba = bytes((i * 7) % 256 for i in range(width * height * 4))
+
+        testvm1 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm1"), label="red"
+        )
+        await testvm1.create_on_disk()
+        testvm2 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM, name=self.make_vm_name("vm2"), label="red"
+        )
+        await testvm2.create_on_disk()
+        self.app.save()
+
+        await asyncio.gather(testvm1.start(), testvm2.start())
+        await asyncio.gather(
+            self.wait_for_session(testvm1), self.wait_for_session(testvm2)
+        )
+        try:
+            await testvm1.run_for_stdio("command -v xclip")
+        except subprocess.CalledProcessError:
+            self.skipTest("xclip not installed in the template")
+
+        await testvm1.run_for_stdio(
+            "gm convert -size {}x{} -depth 8 rgba:- /tmp/test.png".format(
+                width, height
+            ),
+            input=rgba,
+        )
+
+        # xclip keeps owning the selection until it is killed
+        clip = await testvm1.run(
+            "xclip -quiet -selection clipboard -t image/png -i /tmp/test.png"
+        )
+        window_title = "user@{}".format(testvm1.name)
+        zenity = await testvm1.run(
+            "zenity --info --title={} --text=image".format(window_title)
+        )
+        await self.wait_for_window_coro(window_title)
+        await asyncio.sleep(2)
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+c"])
+        await asyncio.sleep(2)
+        zenity.terminate()
+        await zenity.wait()
+
+        with open("/var/run/qubes/qubes-clipboard.bin.image", "rb") as image:
+            self.assertEqual(
+                image.read(), rgba, "Clipboard image copy failed - content"
+            )
+        with open("/var/run/qubes/qubes-clipboard.bin.metadata", "r") as meta:
+            metadata = json.loads(meta.read())
+        self.assertEqual(metadata["data_type"], 1)
+        self.assertEqual(metadata["image_width"], width)
+        self.assertEqual(metadata["image_height"], height)
+        self.assertEqual(metadata["sent_size"], len(rgba))
+        if os.path.exists("/var/run/qubes/qubes-clipboard.bin"):
+            self.assertEqual(
+                open("/var/run/qubes/qubes-clipboard.bin", "r").read(),
+                "",
+                "Text clipboard not wiped after image copy",
+            )
+
+        # Then paste it to the other qube
+        window_title = "user@{}".format(testvm2.name)
+        zenity = await testvm2.run(
+            "zenity --info --title={} --text=image".format(window_title)
+        )
+        await self.wait_for_window_coro(window_title)
+        await asyncio.sleep(2)
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+v"])
+        await asyncio.sleep(2)
+
+        pasted_png, _ = await testvm2.run_for_stdio(
+            "xclip -selection clipboard -t image/png -o"
+        )
+        zenity.terminate()
+        await zenity.wait()
+        if clip.returncode is None:
+            clip.terminate()
+        await clip.wait()
+
+        pasted, _ = await testvm2.run_service_for_stdio(
+            "qubes.GetImageRGBA", input=b"-\n" + pasted_png
+        )
+        size, pixels = pasted.split(b"\n", 1)
+        self.assertEqual(size, b"%d %d" % (width, height))
+        self.assertEqual(pixels, rgba, "Clipboard image paste failed")
+
+        self.assertEqual(
+            open("/var/run/qubes/qubes-clipboard.bin.image", "rb").read(),
+            b"",
+            "Clipboard image not wiped after paste",
+        )
+
+    @unittest.skipUnless(
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
+    def test_003_clipboard_image(self):
+        self.loop.run_until_complete(self._test_clipboard_image(64, 32))
+
+    @unittest.skipUnless(
+        spawn.find_executable("xdotool"), "xdotool not installed"
+    )
+    def test_004_clipboard_image_incr(self):
+        # large enough to be transferred with the X11 INCR protocol
+        self.loop.run_until_complete(self._test_clipboard_image(512, 512))
 
     @unittest.skipUnless(
         spawn.find_executable("xdotool"), "xdotool not installed"
@@ -934,7 +1187,7 @@ class TC_05_StandaloneVMMixin(object):
         self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         self.loop.run_until_complete(self.testvm1.start())
         # new_size in 1k-blocks
-        (new_size, _) = self.loop.run_until_complete(
+        new_size, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
         )
         # some safety margin for FS metadata
@@ -967,7 +1220,7 @@ class TC_05_StandaloneVMMixin(object):
             self.fail(str(e))
         self.assertEqual(self.testvm1.volumes["root"].size, 20 * 1024**3)
         # new_size in 1k-blocks
-        (new_size, _) = self.loop.run_until_complete(
+        new_size, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("df --output=size /|tail -n 1")
         )
         # some safety margin for FS metadata

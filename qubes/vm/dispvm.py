@@ -32,6 +32,7 @@ import qubes.vm.appvm
 import qubes.vm.qubesvm
 
 PRELOAD_OUTDATED_IGNORED_PROPERTIES = [
+    "active_template",
     "autostart",
     "backup_timestamp",
     "default_dispvm",
@@ -251,7 +252,16 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "template",
         load_stage=4,
         setter=_setter_template,
-        doc="AppVM, on which this disposable is based.",
+        doc="Template, on which this AppVM is based or will be based after"
+        "restart",
+    )
+
+    active_template = qubes.VMProperty(
+        "active_template",
+        load_stage=4,
+        setter=_setter_template,
+        default=(lambda self: self.template),
+        doc="Template in use.",
     )
 
     dispid = qubes.property(
@@ -280,8 +290,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         "default_dispvm",
         load_stage=4,
         allow_none=True,
-        default=(lambda self: self.template),
-        doc="Default disposable template to be used for service calls.",
+        default=qubes.vm.qubesvm.get_active_template,
+        setter=qubes.vm.setter_disposable_template,
+        doc="""Default disposable template to be used for spawning disposable
+            qubes for service calls.""",
     )
 
     default_volume_config = {
@@ -440,7 +452,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
         :rtype: bool
         """
-        appvm = self.template
+        appvm = qubes.vm.qubesvm.get_active_template(self)
         preload_dispvm = appvm.get_feat_preload()
         if self.name in preload_dispvm or self.preload_requested:
             return True
@@ -456,7 +468,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_preload:
             return differed
 
-        appvm = self.template
+        appvm = qubes.vm.qubesvm.get_active_template(self)
         if self.volumes["private"].size != appvm.volumes["private"].size:
             differed["volumes_size"] = ["private"]
             return differed
@@ -486,7 +498,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         When qube is loaded, assert that this qube has a template.
         """
         # pylint: disable=unused-argument
-        assert self.template
+        qubes.vm.appvm.domain_loaded(self)
 
     async def wait_operational_preload(
         self, service: str, timeout: int | float
@@ -506,25 +518,34 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             await asyncio.wait_for(
                 self.run_service_for_stdio(
                     service,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.STDOUT,
                 ),
                 timeout=timeout,
             )
             self.log.info("Preload startup completed '%s'", service)
         except asyncio.TimeoutError:
-            debug_msg = "systemd-analyze blame"
+            if service == "qubes.WaitForSession":
+                debug_msg = "systemd-analyze --user blame"
+            else:
+                debug_msg = "systemd-analyze blame"
             raise qubes.exc.QubesException(
                 "Timed out call to '%s' after '%d' seconds during preload "
                 "startup. To debug, run the following on a new disposable of "
-                "'%s': %s" % (service, timeout, self.template, debug_msg)
+                "'%s': %s"
+                % (
+                    service,
+                    timeout,
+                    qubes.vm.qubesvm.get_active_template(self),
+                    debug_msg,
+                )
             )
-        except (subprocess.CalledProcessError, qubes.exc.QubesException):
-            debug_msg = "systemctl --failed"
+        except subprocess.CalledProcessError as e:
             raise qubes.exc.QubesException(
-                "Error on call to '%s' during preload startup. To debug, "
-                "disable preloading from '%s' and run the following on a new "
-                "disposable: %s" % (service, self.template, debug_msg)
+                "Error on call to '%s' during preload startup: %s"
+                % (
+                    service,
+                    qubes.utils.sanitize_stderr_for_log(e.stdout),
+                )
             )
 
     @qubes.events.handler("domain-start")
@@ -546,6 +567,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not self.preload_requested:
             timeout = self.qrexec_timeout
             services = ["qubes.WaitForRunningSystem"]
+            if (
+                self.guivm
+                and self.features.check_with_template("gui", False)
+                and self.features.check_with_template(
+                    "supported-feature.late-gui-daemon", False
+                )
+            ):
+                services.append("qubes.WaitForSession")
             start_tasks = []
             for service in services:
                 start_tasks.append(
@@ -611,32 +640,46 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             return
         if self.preload_requested:
             return
-        qmemman_client = None
         break_task = asyncio.create_task(self.preload_requested_event.wait())
-        qmemman_task = asyncio.get_event_loop().run_in_executor(
-            None, self.set_mem
+        qmemman_client = qubes.qmemman.client.QMemmanClient()
+        qmemman_task = asyncio.create_task(
+            asyncio.to_thread(
+                qmemman_client.set_mem,
+                {self.xid: 0},
+            )
         )
-        tasks = [break_task, qmemman_task]
+        tasks: list = [break_task, qmemman_task]
+        result = None
+        cancelled = False
+        self.log.info("Setting qube memory to pref mem")
         try:
             # CI uses Python 3.12 and asynchronous iterator requires >=3.13
             # pylint: disable=not-an-iterable
             async for earliest_task in asyncio.as_completed(tasks):
                 await earliest_task
                 if earliest_task == break_task:
+                    self.log.info(
+                        "Canceling ballooning task, server might continue"
+                    )
+                    cancelled = True
                     qmemman_task.cancel()
                 else:
+                    result = qmemman_task.result()
                     break_task.cancel()
         except asyncio.CancelledError:
-            if qmemman_client:
-                qmemman_client.close()
+            pass
+        except IOError as e:
+            raise IOError("Failed to connect to qmemman: {!s}".format(e))
         except Exception as exc:
             self.log.warning(
                 "Preload memory request before pause failed: %s", str(exc)
             )
-            if qmemman_client:
-                qmemman_client.close()
             raise
         finally:
+            if qmemman_client.sock:
+                qmemman_client.close()
+            if not result or cancelled:
+                self.log.warning("Failed to set memory")
             if self.preload_requested:
                 raise qubes.exc.QubesVMCancelledPauseError(
                     self,
@@ -672,9 +715,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @qubes.events.handler("domain-shutdown")
     async def on_domain_shutdown(self, _event, **_kwargs) -> None:
         """
-        Do auto cleanup if enabled.
+        If ``auto_cleanup`` is disabled, apply deferred template. If
+        ``auto_cleanup`` is enabled, remove domain.
         """
-        await self._auto_cleanup()
+        if not self.auto_cleanup:
+            qubes.vm.appvm.apply_deferred_template(self)
+            return
+        await self._delete_domain()
 
     @qubes.events.handler("domain-remove-from-disk")
     def on_domain_remove_from_disk(self, _event, **_kwargs) -> None:
@@ -707,7 +754,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self, event, name, newvalue, oldvalue=None
     ):
         """
-        Forbid changing template of running qube.
+        Forbid changing template of running disposable with ``auto_cleanup``
+        enabled.
 
         :param str event: Event which was fired.
         :param str name: Property name.
@@ -717,7 +765,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             of the property.
         """
         # pylint: disable=unused-argument
-        if not self.is_halted():
+        if self.auto_cleanup and not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, "Cannot change template while qube is running"
             )
@@ -738,7 +786,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             of the property.
         """
         # pylint: disable=unused-argument
-        qubes.vm.appvm.template_changed_update_storage(self)
+        if not self.auto_cleanup:
+            qubes.vm.appvm.template_changed(
+                self, oldvalue=oldvalue, newvalue=newvalue
+            )
 
     @classmethod
     async def from_appvm(
@@ -817,18 +868,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if preload:
             dispvm.mark_preload()
         await dispvm.create_on_disk()
+        # Save before a possible unclean shutdown.
+        app.save()
         if preload:
             await dispvm.start()
-        else:
             # Start method saves the qubes.xml.
-            app.save()
         return dispvm
 
     def mark_preload(self) -> None:
         """
         Mark disposable as a preload.
         """
-        appvm = self.template
+        appvm = qubes.vm.qubesvm.get_active_template(self)
         self.log.info("Marking preloaded qube")
         self.features["preload-dispvm-in-progress"] = True
         preload_dispvm = appvm.get_feat_preload()
@@ -871,7 +922,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         Mark preloaded disposable as requested.
         """
-        appvm = self.template
+        appvm = qubes.vm.qubesvm.get_active_template(self)
         self.log.info("Requesting preloaded qube")
         self.features["preload-dispvm-in-progress"] = True
         appvm.remove_preload_from_list([self.name], reason="qube was requested")
@@ -885,7 +936,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         """
         if not self.is_preload:
             raise qubes.exc.QubesException("Disposable is not preloaded")
-        appvm = self.template
+        appvm = qubes.vm.qubesvm.get_active_template(self)
         if self.preload_requested:
             self.log.info("Using preloaded qube")
             if not appvm.features.get("internal", None):
@@ -918,73 +969,88 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         Cleanup preload from list.
         """
         name = getattr(self, "name", None)
-        template = getattr(self, "template", None)
+        template = qubes.vm.qubesvm.get_active_template(self)
         if not (name and template):
             # Objects from self may be absent.
             return
         if name in template.get_feat_preload():
-            self.template.remove_preload_from_list(
+            template.remove_preload_from_list(
                 [self.name], reason="automatic cleanup was called"
             )
-            self.template.remove_preload_from_list([self.name])
+            template.remove_preload_from_list([self.name])
 
-    async def _auto_cleanup(self, force: bool = False) -> None:
+    async def _delete_domain(self) -> None:
         """
-        Do auto cleanup if enabled.
-
-        :param bool force: Auto clean up even if property is disabled
+        Delete the disposable qube.
         """
-        if not self.auto_cleanup and not force:
-            return
         self._preload_cleanup()
+        if not hasattr(self, "app"):
+            return
         if self not in self.app.domains:
             return
         del self.app.domains[self]
         await self.remove_from_disk()
         self.app.save()
 
-    async def cleanup(self, force: bool = False) -> None:
+    async def cleanup(self) -> None:
         """
         Clean up after the disposable.
 
         This stops the disposable qube and removes it from the store.
         This method modifies :file:`qubes.xml` file.
-
-        :param bool force: Auto clean up if property is enabled and domain \
-                is not running, should be used in special circumstances only \
-                as the sole purpose of this option is because using it may not \
-                be reliable.
         """
+        self.log.info("Begin cleanup")
         if self not in self.app.domains:
+            self.log.debug("Skipped cleanup as domain is not in collection")
             return
-        running = True
         try:
             await self.kill()
         except qubes.exc.QubesVMNotStartedError:
-            running = False
-        # Full cleanup will be done automatically if event 'domain-shutdown' is
-        # triggered and "auto_cleanup=True".
-        if not self.auto_cleanup or (
-            force and not running and self.auto_cleanup
-        ):
-            await self._auto_cleanup(force=force)
+            if self.auto_cleanup:
+                self.log.info(
+                    "Cleanup of of disposable with auto_cleanup=True that isn't"
+                    " running, will delete the domain"
+                )
+                await self._delete_domain()
+        finally:
+            if not self.auto_cleanup:
+                self.log.info(
+                    "Cleanup of disposable with auto_cleanup=False, will delete"
+                    " the domain"
+                )
+                await self._delete_domain()
 
     async def start(self, **kwargs):
         """
         Start disposable qube, but if it fails, make sure to clean it up.
         """
         # pylint: disable=arguments-differ
+        template = qubes.vm.qubesvm.get_active_template(self)
         try:
             # sanity check, if template_for_dispvm got changed in the meantime
-            if not self.template.template_for_dispvms:
+            if not template.template_for_dispvms:
                 raise qubes.exc.QubesException(
                     "template for disposable ({}) needs to have "
-                    "template_for_dispvms=True".format(self.template.name)
+                    "template_for_dispvms=True".format(template.name)
                 )
             await super().start(**kwargs)
         except:
-            # Cleanup also on failed startup
-            await self.cleanup()
+            if self not in self.app.domains:
+                self.log.debug(
+                    "Skipped startup failure handling as domain is not in "
+                    "collection"
+                )
+                return
+            try:
+                self.log.info("Failed start, will kill the disposable")
+                await self.kill()
+            except qubes.exc.QubesVMNotStartedError:
+                if self.auto_cleanup:
+                    self.log.info(
+                        "Failed startup of disposable with auto_cleanup=True "
+                        "will delete the domain"
+                    )
+                    await self._delete_domain()
             raise
 
     def create_qdb_entries(self) -> None:

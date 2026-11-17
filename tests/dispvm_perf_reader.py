@@ -40,7 +40,6 @@ import matplotlib  # type: ignore[import]
 import matplotlib.pyplot as plt  # type: ignore[import]
 import matplotlib.image  # type: ignore[import]
 
-
 FIGSIZE = plt.rcParamsDefault["figure.figsize"]
 WIDTH = FIGSIZE[0]
 HEIGHT = FIGSIZE[1]

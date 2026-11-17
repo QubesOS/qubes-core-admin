@@ -24,6 +24,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from distutils import spawn
 
@@ -35,7 +36,7 @@ import qubes.devices
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 
 
-@qubes.tests.skipIfTemplate("whonix-g")
+@qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")
 class TC_00_AudioMixin(TC_00_AppVMMixin):
     def tearDown(self):
         if not self.success():
@@ -130,8 +131,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
         )
         self.loop.run_until_complete(self.audiovm.create_on_disk())
         with open("/etc/qubes/policy.d/10-test-audiovm.policy", "w") as f:
-            f.write(
-                """
+            f.write("""
 admin.Events          *   {vm}     {vm}               allow   target=dom0
 admin.Events          *   {vm}     @adminvm                allow   target=dom0
 admin.Events          *   {vm}     @tag:audiovm-{vm}  allow   target=dom0
@@ -148,10 +148,7 @@ admin.vm.property.Get               +virt_mode     {vm}     @tag:audiovm-{vm}  a
 admin.vm.property.Get               +is_preload     {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio   {vm}     @tag:audiovm-{vm}  allow   target=dom0
 admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  allow   target=dom0
-""".format(
-                    vm=self.audiovm.name
-                )
-            )
+""".format(vm=self.audiovm.name))
         self.addCleanup(os.unlink, "/etc/qubes/policy.d/10-test-audiovm.policy")
         self.audiovm.features["service.audiovm"] = True
         if start:
@@ -205,7 +202,12 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if in_qemu and self.testvm1.features.get("audio-model"):
             # be less strict on HVM tests in nested virt, the test environment
             # has huge overhead already
-            margin = 0.80
+            margin = 0.50
+        if in_qemu and "whonix" in self.template:
+            # similarly treat Whonix, which has extra overhead (mostly memory
+            # usage, and sdwdate looping) - too much to get clean audio
+            # on nested virt
+            margin = 0.50
         if rec_size < margin * 441000:
             fname = f"/tmp/audio-sample-{self.id()}.raw"
             with open(fname, "wb") as f:
@@ -394,8 +396,13 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             output_index = output_info["index"]
             current_source = output_info["source"]
             attempts_left -= 1
+            self.loop.run_until_complete(asyncio.sleep(1))
 
-        self.assertGreater(attempts_left, 0, "Failed to move-source-output")
+        self.assertGreater(
+            attempts_left,
+            0,
+            f"Failed to move-source-output (output: {output_index}, source: {source_index})",
+        )
 
     async def retrieve_audio_input(self, vm, status):
         try:
@@ -606,7 +613,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_223_audio_play_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         try:
@@ -625,7 +632,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_224_audio_rec_muted_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         try:
@@ -647,7 +654,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         "pulseaudio-utils not installed in dom0",
     )
     def test_225_audio_rec_unmuted_hvm(self):
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.prepare_audio_test("pulseaudio")
         pa_info = self.loop.run_until_complete(
@@ -683,7 +690,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     def test_252_audio_playback_audiovm_switch_hvm(self):
         self.create_audio_vm("pulseaudio")
         self.testvm1.audiovm = self.audiovm
-        self.testvm1.virt_mode = "hvm"
+        self.set_hvm(self.testvm1)
         self.testvm1.features["audio-model"] = "ich6"
         self.testvm1.features["stubdom-qrexec"] = "1"
         self.prepare_audio_test("pulseaudio")
@@ -746,6 +753,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -759,6 +767,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.testvm1.audiovm = self.audiovm
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
+        self.loop.run_until_complete(self.wait_for_session(self.audiovm))
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)

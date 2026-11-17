@@ -77,12 +77,12 @@ class TC_50_MimeHandlers:
         )
 
     def get_window_class(self, winid, dispvm=False):
-        (vm_winid, _) = subprocess.Popen(
+        vm_winid, _ = subprocess.Popen(
             ["xprop", "-id", winid, "_QUBES_VMWINDOWID"], stdout=subprocess.PIPE
         ).communicate()
         vm_winid = vm_winid.decode().split("#")[1].strip('\n" ')
         if dispvm:
-            (vmname, _) = subprocess.Popen(
+            vmname, _ = subprocess.Popen(
                 ["xprop", "-id", winid, "_QUBES_VMNAME"], stdout=subprocess.PIPE
             ).communicate()
             vmname = vmname.decode().split("=")[1].strip('\n" ')
@@ -164,7 +164,7 @@ class TC_50_MimeHandlers:
                     if retcode == 0:
                         winid = search.stdout.read().strip()
                         # get window title
-                        (window_title, _) = subprocess.Popen(
+                        window_title, _ = subprocess.Popen(
                             ["xdotool", "getwindowname", winid],
                             stdout=subprocess.PIPE,
                         ).communicate()

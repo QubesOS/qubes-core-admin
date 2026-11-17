@@ -32,7 +32,7 @@ class CoreFeatures(qubes.ext.Extension):
     async def qubes_features_request(self, vm, event, untrusted_features):
         """Handle features provided by qubes-core-agent and qubes-gui-agent"""
         # pylint: disable=unused-argument
-        if getattr(vm, "template", None):
+        if hasattr(vm, "template"):
             vm.log.warning("Ignoring qubes.NotifyTools for template-based VM")
             return
 
@@ -194,6 +194,22 @@ class CoreFeatures(qubes.ext.Extension):
             ) and hasattr(vm, "appvm_default_bootmode"):
                 bootmode_value = untrusted_feature_value
                 vm.features["boot-mode.appvm-default"] = bootmode_value
+        if "boot-mode.standalone-default" in untrusted_features:
+            untrusted_feature_value = untrusted_features[
+                "boot-mode.standalone-default"
+            ]
+            if (
+                f"boot-mode.kernelopts.{untrusted_feature_value}" in vm.features
+                or untrusted_feature_value == "default"
+            ):
+                bootmode_value = untrusted_feature_value
+                vm.features["boot-mode.standalone-default"] = bootmode_value
+
+        # allow VMs to switch on anon-timezone, but do not permit dropping it
+        if "anon-timezone" in untrusted_features:
+            untrusted_value = untrusted_features["anon-timezone"]
+            if untrusted_value == "1":
+                vm.features["anon-timezone"] = True
         del untrusted_features
 
         # default user for qvm-run etc

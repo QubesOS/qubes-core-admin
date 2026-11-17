@@ -24,6 +24,7 @@ Any pool variables prefixed with 'LVM_' or 'lvm_' represent a LVM
 'volume_group/thin_pool' combination. Pool variables without a prefix
 represent a :py:class:`qubes.storage.lvm.ThinPool`.
 """
+
 import os
 import subprocess
 import tempfile

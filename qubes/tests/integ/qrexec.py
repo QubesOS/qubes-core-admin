@@ -88,7 +88,7 @@ class TC_00_QrexecMixin(object):
 
         self.loop.run_until_complete(self.testvm1.start())
         try:
-            (stdout, stderr) = self.loop.run_until_complete(
+            stdout, stderr = self.loop.run_until_complete(
                 asyncio.wait_for(
                     self.testvm1.run_for_stdio("cat", input=TEST_DATA),
                     timeout=10,
@@ -163,14 +163,10 @@ class TC_00_QrexecMixin(object):
             try:
                 stdout, _ = self.loop.run_until_complete(
                     asyncio.wait_for(
-                        self.testvm1.run_for_stdio(
-                            """\
+                        self.testvm1.run_for_stdio("""\
                         /usr/lib/qubes/qrexec-client-vm {} test.EOF \
                             /bin/sh -c 'echo test; exec >&-; cat >&$SAVED_FD_1'
-                    """.format(
-                                self.testvm2.name
-                            )
-                        ),
+                    """.format(self.testvm2.name)),
                         timeout=10,
                     )
                 )
@@ -203,14 +199,10 @@ class TC_00_QrexecMixin(object):
             try:
                 stdout, _ = self.loop.run_until_complete(
                     asyncio.wait_for(
-                        self.testvm1.run_for_stdio(
-                            """\
+                        self.testvm1.run_for_stdio("""\
                         /usr/lib/qubes/qrexec-client-vm {} test.EOF \
                             /bin/sh -c 'cat >&$SAVED_FD_1'
-                        """.format(
-                                self.testvm2.name
-                            )
-                        ),
+                        """.format(self.testvm2.name)),
                         timeout=10,
                     )
                 )
@@ -250,14 +242,12 @@ class TC_00_QrexecMixin(object):
                 # exit code 1: ECONNRESET (some buffered data remains)
                 stdout, _ = self.loop.run_until_complete(
                     asyncio.wait_for(
-                        self.testvm1.run_for_stdio(
-                            """\
+                        self.testvm1.run_for_stdio("""\
                         /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
                             /bin/sh -c 'cat /dev/zero; echo $? >/tmp/exit-code';
                             sleep 1;
                             e=$(cat /tmp/exit-code);
-                            test $e -eq 141 -o $e -eq 1"""
-                        ),
+                            test $e -eq 141 -o $e -eq 1"""),
                         timeout=10,
                     )
                 )
@@ -286,13 +276,11 @@ class TC_00_QrexecMixin(object):
             self.create_remote_file(
                 self.testvm2, "/etc/qubes-rpc/test.Retcode", "#!/bin/sh\nexit 0"
             )
-            (stdout, stderr) = self.loop.run_until_complete(
+            stdout, stderr = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     """\
                     /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
-                        echo $?""".format(
-                        self.testvm2.name
-                    ),
+                        echo $?""".format(self.testvm2.name),
                     stderr=None,
                 )
             )
@@ -301,13 +289,11 @@ class TC_00_QrexecMixin(object):
             self.create_remote_file(
                 self.testvm2, "/etc/qubes-rpc/test.Retcode", "#!/bin/sh\nexit 3"
             )
-            (stdout, stderr) = self.loop.run_until_complete(
+            stdout, stderr = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     """\
                     /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
-                        echo $?""".format(
-                        self.testvm2.name
-                    ),
+                        echo $?""".format(self.testvm2.name),
                     stderr=None,
                 )
             )
@@ -346,18 +332,14 @@ class TC_00_QrexecMixin(object):
                     asyncio.wait_for(
                         # first write a lot of data to fill all the buffers
                         # then after some time start reading
-                        self.testvm1.run_for_stdio(
-                            """\
+                        self.testvm1.run_for_stdio("""\
                         /usr/lib/qubes/qrexec-client-vm {} test.write \
                                 /bin/sh -c '
                             dd if=/dev/zero bs=993 count=10000 iflag=fullblock &
                             sleep 1;
                             dd of=/dev/null bs=993 count=10000 iflag=fullblock;
                             wait'
-                        """.format(
-                                self.testvm2.name
-                            )
-                        ),
+                        """.format(self.testvm2.name)),
                         timeout=10,
                     )
                 )
@@ -634,7 +616,7 @@ class TC_00_QrexecMixin(object):
 
         try:
             with self.qrexec_policy("test.Socket", self.testvm1, "@adminvm"):
-                (stdout, stderr) = self.loop.run_until_complete(
+                stdout, stderr = self.loop.run_until_complete(
                     asyncio.wait_for(
                         self.testvm1.run_for_stdio(
                             "qrexec-client-vm @adminvm test.Socket",
@@ -655,7 +637,7 @@ class TC_00_QrexecMixin(object):
             )
 
         try:
-            (service_stdout, service_stderr) = self.loop.run_until_complete(
+            service_stdout, service_stderr = self.loop.run_until_complete(
                 asyncio.wait_for(self.service_proc.communicate(), timeout=10)
             )
         except asyncio.TimeoutError:
@@ -706,7 +688,7 @@ class TC_00_QrexecMixin(object):
             )
 
         try:
-            (service_stdout, service_stderr) = self.loop.run_until_complete(
+            service_stdout, service_stderr = self.loop.run_until_complete(
                 asyncio.wait_for(self.service_proc.communicate(), timeout=10)
             )
         except asyncio.TimeoutError:
@@ -868,7 +850,7 @@ class TC_00_QrexecMixin(object):
         self._wait_for_socket_setup()
 
         try:
-            (stdout, stderr) = self.loop.run_until_complete(
+            stdout, stderr = self.loop.run_until_complete(
                 asyncio.wait_for(
                     self.testvm1.run_service_for_stdio(
                         "test.Socket+", input=TEST_DATA
@@ -888,7 +870,7 @@ class TC_00_QrexecMixin(object):
             )
 
         try:
-            (service_stdout, service_stderr) = self.loop.run_until_complete(
+            service_stdout, service_stderr = self.loop.run_until_complete(
                 asyncio.wait_for(self.service_proc.communicate(), timeout=10)
             )
         except asyncio.TimeoutError:
@@ -923,7 +905,7 @@ class TC_00_QrexecMixin(object):
         self._wait_for_socket_setup()
 
         try:
-            (stdout, stderr) = self.loop.run_until_complete(
+            stdout, stderr = self.loop.run_until_complete(
                 asyncio.wait_for(
                     self.testvm1.run_service_for_stdio("test.Socket+"),
                     timeout=10,
@@ -941,7 +923,7 @@ class TC_00_QrexecMixin(object):
             )
 
         try:
-            (service_stdout, service_stderr) = self.loop.run_until_complete(
+            service_stdout, service_stderr = self.loop.run_until_complete(
                 asyncio.wait_for(self.service_proc.communicate(), timeout=10)
             )
         except asyncio.TimeoutError:

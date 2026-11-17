@@ -708,7 +708,7 @@ class PropertyHolder(qubes.events.Emitter):
         """Get property default value.
 
         :param qubes.property or str prop: property object of particular
-        interest
+            interest
         """
 
         return self.property_get_def(prop).get_default(self)

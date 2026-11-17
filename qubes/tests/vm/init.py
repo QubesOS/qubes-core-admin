@@ -58,8 +58,7 @@ class TestVM(qubes.vm.LocalVM):
 class TC_10_LocalVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        self.xml = lxml.etree.XML(
-            """
+        self.xml = lxml.etree.XML("""
 <qubes version="3"> <!-- xmlns="https://qubes-os.org/QubesXML/1" -->
     <labels>
         <label id="label-1" color="#cc0000">red</label>
@@ -97,8 +96,7 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         </domain>
     </domains>
 </qubes>
-        """
-        )
+        """)
 
     def test_000_load(self):
         node = self.xml.xpath("//domain")[0]
@@ -138,8 +136,7 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         self.assertXMLIsValid(vm.__xml__(), "relaxng/domain.rng")
 
     def test_001_nxproperty(self):
-        xml = lxml.etree.XML(
-            """
+        xml = lxml.etree.XML("""
 <qubes version="3">
     <domains>
         <domain id="domain-1" class="TestVM">
@@ -151,8 +148,7 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         </domain>
     </domains>
 </qubes>
-        """
-        )
+        """)
 
         node = xml.xpath("//domain")[0]
 
@@ -164,6 +160,35 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         vm.nxproperty = "value"
         xml = vm.__xml__()
         self.assertNotIn("nxproperty", xml)
+
+    def test_003_load_empty_tag(self):
+        xml = lxml.etree.XML("""
+<qubes version="3">
+    <domains>
+        <domain id="domain-1" class="TestVM">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">domain1</property>
+            </properties>
+            <tags>
+                <tag name="testtag"/>
+                <tag name=""/>
+            </tags>
+        </domain>
+    </domains>
+</qubes>
+        """)
+
+        node = xml.xpath("//domain")[0]
+        vm = TestVM(TestApp(), node)
+        vm.load_properties()
+        vm.init_log()
+        vm.load_extras()
+        self.assertEqual(vm.tags, {"testtag", ""})
+
+        vm.events_enabled = True
+        vm.fire_event("domain-load")
+        self.assertEqual(vm.tags, {"testtag"})
 
 
 class TC_20_Tags(qubes.tests.QubesTestCase):

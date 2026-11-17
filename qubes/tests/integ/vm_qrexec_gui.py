@@ -32,6 +32,7 @@ import qubes.devices
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.templatevm
+import qubes.vm.standalonevm
 
 in_qemu = os.path.exists("/sys/firmware/qemu_fw_cfg")
 
@@ -82,11 +83,13 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
-        p = self.loop.run_until_complete(self.testvm1.run("xterm"))
+        title = "user@{}".format(self.testvm1.name)
+        p = self.loop.run_until_complete(
+            self.testvm1.run(
+                f"xterm -xrm 'xterm*allowTitleOps: false' -title {title}"
+            )
+        )
         try:
-            title = "user@{}".format(self.testvm1.name)
-            if self.template.count("whonix"):
-                title = "user@host"
             self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
@@ -122,6 +125,8 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             self.skipTest("Xfce template doesn't have 'gnome-terminal'")
         if "archlinux" in self.template:
             self.skipTest("Arch template doesn't have 'gnome-terminal'")
+        if "guix" in self.template:
+            self.skipTest("Guix template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
@@ -372,9 +377,11 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
 
         with self.qrexec_policy("qubes.Filecopy", self.testvm1, self.testvm2):
             try:
+                service_ctl = "herd" if "guix" in self.template else "systemctl"
                 self.loop.run_until_complete(
                     self.testvm2.run_for_stdio(
-                        "systemctl stop qubes-qrexec-agent.service", user="root"
+                        f"{service_ctl} stop qubes-qrexec-agent.service",
+                        user="root",
                     )
                 )
             except subprocess.CalledProcessError:
@@ -811,8 +818,7 @@ int main(int argc, char **argv) {
         winid = await self.wait_for_window_coro(
             self.testvm1.name + ":xterm", search_class=True
         )
-        xprop = await asyncio.get_event_loop().run_in_executor(
-            None,
+        xprop = await asyncio.to_thread(
             subprocess.check_output,
             ["xprop", "-notype", "-id", winid, "_QUBES_VMWINDOWID"],
         )
@@ -849,8 +855,7 @@ int main(int argc, char **argv) {
             "gm import -window {} rgba:-".format(vm_winid)
         )
 
-        dom0_image = await asyncio.get_event_loop().run_in_executor(
-            None,
+        dom0_image = await asyncio.to_thread(
             subprocess.check_output,
             ["gm", "import", "-window", winid, "rgba:-"],
         )
@@ -929,6 +934,113 @@ int main(int argc, char **argv) {
                 await p.wait()
             except ProcessLookupError:  # already dead
                 pass
+
+    def test_500_gui_agent_env_sync(self):
+        # Create a StandaloneVM so changes made to it will survive a reboot
+        self.env_sync_vm = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            label="red",
+            name=self.make_vm_name("envsync"),
+        )
+        self.env_sync_vm.clone_properties(self.app.domains[self.template])
+        self.env_sync_vm.features.update(
+            self.app.domains[self.template].features
+        )
+        self.loop.run_until_complete(
+            self.env_sync_vm.clone_disk_files(self.app.domains[self.template])
+        )
+        self.env_sync_vm.provides_network = True
+        self.app.save()
+
+        # Create a user environment generator and profile script that will
+        # both modify the same environment variable
+        self.loop.run_until_complete(self.env_sync_vm.start())
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.env_sync_vm))
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "printf '%s\\n' "
+                    + "'#!/bin/bash' "
+                    + "'echo QUBES_ENV_TEST=first' "
+                    + "| sudo tee "
+                    + "/usr/lib/systemd/user-environment-generators/90-test"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot create user environment generator")
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "printf '%s\\n' "
+                    + "'#!/bin/bash' "
+                    + "'QUBES_ENV_TEST=\"${QUBES_ENV_TEST}:second\"' "
+                    + "'export QUBES_ENV_TEST' "
+                    + "| sudo tee /etc/profile.d/ztest.sh"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot create profile.d script")
+
+        try:
+            self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "sudo chmod +x "
+                    + "/usr/lib/systemd/user-environment-generators/90-test "
+                    + "/etc/profile.d/ztest.sh"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.fail("cannot mark scripts executable")
+
+        self.loop.run_until_complete(self.env_sync_vm.shutdown(wait=True))
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Halted")
+
+        # Get the value of QUBES_ENV_TEST from a user session and ensure it is
+        # equal to 'first:second', indicating that the environment has been
+        # synced from systemd into the session
+        self.loop.run_until_complete(self.env_sync_vm.start())
+        self.assertEqual(self.env_sync_vm.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.env_sync_vm))
+
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio('printf "%s" "$QUBES_ENV_TEST"')
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                "could not get value of QUBES_ENV_TEST variable: {}".format(
+                    e.stderr
+                )
+            )
+        if stdout != b"first:second":
+            self.fail(
+                "unexpected QUBES_ENV_TEST value from session, "
+                + 'got "{}", expected "b\'first:second\'"'.format(stdout)
+            )
+
+        ## Make sure the systemd user manager has the variable set properly too
+        try:
+            stdout, _ = self.loop.run_until_complete(
+                self.env_sync_vm.run_for_stdio(
+                    "systemctl --user show-environment "
+                    + "| grep '^QUBES_ENV_TEST=' "
+                    + "| cut -d'=' -f2"
+                    + "| tr -d '\\n'"
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                "could not get value of QUBES_ENV_TEST from systemd user "
+                + "manager: {}".format(e.stderr)
+            )
+        if stdout != b"first:second":
+            self.fail(
+                "unexpected QUBES_ENV_TEST value from systemd user manager, "
+                + 'got "{}", expected "b\'first:second\'"'.format(stdout)
+            )
 
 
 class TC_10_Generic(qubes.tests.SystemTestCase):

@@ -58,6 +58,7 @@ Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
 `domain-qdb-change:path`) to detect changes and fire
 `device-list-change:class` event.
 """
+
 import itertools
 from typing import Iterable
 
@@ -177,6 +178,13 @@ class DeviceCollection:
             "qubes.devices", self._bus
         )
 
+    @property
+    def supported_assignment_modes(self):
+        """
+        Assignment modes allowed for this device class.
+        """
+        return self.devclass.SUPPORTED_ASSIGNMENT_MODES
+
     async def attach(self, assignment: DeviceAssignment):
         """
         Attach device to domain.
@@ -188,6 +196,11 @@ class DeviceCollection:
                 f"when {self._bus} device expected."
             )
 
+        if AssignmentMode.MANUAL not in self.supported_assignment_modes:
+            raise qubes.exc.QubesValueError(
+                f"{self._bus} devices cannot be attached manually."
+            )
+
         if self._vm.is_halted():
             raise qubes.exc.QubesVMNotRunningError(
                 self._vm,
@@ -197,8 +210,13 @@ class DeviceCollection:
 
         try:
             device = assignment.device
+            if isinstance(device, UnknownDevice):
+                # assignment matches no devices
+                raise ProtocolError(
+                    f"Cannot attach unknown {assignment.devclass} device."
+                )
         except ProtocolError:
-            # assignment matches no or top many devices
+            # assignment matches too many devices
             raise ProtocolError(
                 f"Cannot attach ambiguous {assignment.devclass} device."
             )
@@ -229,6 +247,17 @@ class DeviceCollection:
             options=assignment.options,
         )
 
+    def _validate_mode_supported(self, mode: AssignmentMode):
+        if mode in self.supported_assignment_modes:
+            return
+        allowed = ", ".join(
+            sorted(m.value for m in self.supported_assignment_modes)
+        )
+        raise qubes.exc.QubesValueError(
+            f"{self._bus} devices cannot be assigned in "
+            f"'{mode.value}' mode; allowed modes: {allowed}."
+        )
+
     async def assign(self, assignment: DeviceAssignment):
         """
         Assign device to domain.
@@ -246,9 +275,11 @@ class DeviceCollection:
                 f"already assigned to {self._vm!s}"
             )
 
+        # avoid putting MANUAL assigment to qubes.xml
         if not assignment.attach_automatically:
             raise ValueError("Only auto-attachable devices can be assigned.")
 
+        self._validate_mode_supported(assignment.mode)
         self._set.add(assignment)
 
         await self._vm.fire_event_async(
@@ -287,6 +318,7 @@ class DeviceCollection:
             raise qubes.exc.QubesValueError(
                 "Cannot change assignment mode to 'manual'"
             )
+        self._validate_mode_supported(mode)
         assignments = [
             a for a in self.get_assigned_devices() if a.virtual_device == device
         ]

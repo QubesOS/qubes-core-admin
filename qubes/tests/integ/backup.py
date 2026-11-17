@@ -188,6 +188,7 @@ class BackupTestsMixin(object):
         self.loop.run_until_complete(testvm5.create_on_disk(pool=pool))
         testvm5.features["qrexec"] = True
         testvm5.features["supported-rpc.qubes.WaitForRunningSystem"] = True
+        testvm5.features["supported-rpc.qubes.WaitForSession"] = True
         testvm5.features["preload-dispvm-max"] = 0
         testvm5.features["preload-dispvm"] = ""
         vms.append(testvm5)
@@ -249,14 +250,11 @@ class BackupTestsMixin(object):
         client_app = qubesadmin.Qubes()
         if appvm:
             appvm = self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None, client_app.domains.__getitem__, appvm.name
-                )
+                asyncio.to_thread(client_app.domains.__getitem__, appvm.name)
             )
         with self.assertNotRaises(qubesadmin.exc.QubesException):
             restore_op = self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None,
+                asyncio.to_thread(
                     qubesadmin.backup.restore.BackupRestore,
                     client_app,
                     backupfile,
@@ -268,7 +266,7 @@ class BackupTestsMixin(object):
                 for key, value in options.items():
                     setattr(restore_op.options, key, value)
             restore_info = self.loop.run_until_complete(
-                self.loop.run_in_executor(None, restore_op.get_restore_info)
+                asyncio.to_thread(restore_op.get_restore_info)
             )
         if callable(manipulate_restore_info):
             restore_info = manipulate_restore_info(restore_info)
@@ -276,9 +274,7 @@ class BackupTestsMixin(object):
 
         with self.assertNotRaises(qubesadmin.exc.QubesException):
             self.loop.run_until_complete(
-                self.loop.run_in_executor(
-                    None, restore_op.restore_do, restore_info
-                )
+                asyncio.to_thread(restore_op.restore_do, restore_info)
             )
 
         errors = []
@@ -737,7 +733,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
                 target="/var/tmp/backup directory",
             )
             self.remove_vms(reversed(vms))
-            (backup_path, _) = self.loop.run_until_complete(
+            backup_path, _ = self.loop.run_until_complete(
                 self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*")
             )
             backup_path = backup_path.decode().strip()

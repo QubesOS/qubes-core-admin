@@ -65,6 +65,21 @@ class R3Compatibility(qubes.ext.Extension):
 
         self.write_services(vm)
 
+    @qubes.ext.handler("domain-load")
+    def on_domain_load(self, vm: qubes.vm.qubesvm.QubesVM, event: str) -> None:
+        """Migrate check-updates to service.qubes-update-check"""
+        # pylint: disable=unused-argument
+        if vm.name == "dom0" or "check-updates" not in vm.features:
+            return
+        # QubesDB may not be reachable yet, and a running qube has this value
+        vm.events_enabled = False
+        if "service.qubes-update-check" not in vm.features:
+            vm.features["service.qubes-update-check"] = vm.features[
+                "check-updates"
+            ]
+        del vm.features["check-updates"]
+        vm.events_enabled = True
+
     @qubes.ext.handler("domain-spawn")
     def on_domain_started(self, vm, event, **kwargs):
         # pylint: disable=unused-argument
@@ -173,6 +188,11 @@ class R3Compatibility(qubes.ext.Extension):
         for feature, value in vm.features.items():
             service = self.features_to_services.get(feature, None)
             if service is None:
+                continue
+            if (
+                feature == "check-updates"
+                and "service.qubes-update-check" in vm.features
+            ):
                 continue
             # forcefully convert to '0' or '1'
             vm.untrusted_qdb.write(

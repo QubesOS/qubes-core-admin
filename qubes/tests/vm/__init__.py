@@ -30,6 +30,7 @@ class TestVMM(object):
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
         self.xs = unittest.mock.Mock()
+        self.is_xen = unittest.mock.Mock(return_value=True)
         self.libvirt_mock = unittest.mock.Mock()
 
     @property
@@ -61,6 +62,16 @@ class TestVMsCollection(dict):
 
     def __iter__(self):
         return iter(set(self.values()))
+
+    def get_vms_based_on(self, template):
+        template = self[template]
+        return set(
+            vm
+            for vm in self
+            if hasattr(vm, "template")
+            and getattr(vm, "active_template", getattr(vm, "template"))
+            == template
+        )
 
 
 class TestVolume(object):

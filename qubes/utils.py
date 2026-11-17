@@ -21,10 +21,11 @@
 #
 
 import asyncio
+import functools
 import hashlib
 import logging
-import random
 import re
+import secrets
 import string
 import os
 import os.path
@@ -32,6 +33,7 @@ import socket
 import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
+from typing import Any
 
 import importlib.metadata
 
@@ -159,6 +161,17 @@ def size_to_human(size):
     return str(round(size / (1024.0 * 1024 * 1024), 1)) + " GiB"
 
 
+def parse_bool(value):
+    """Deserialize bool property, handling usual encodings"""
+    if isinstance(value, bool):
+        return value
+    if value in ("True", "true", "1", "on"):
+        return True
+    if value in ("False", "false", "0", "off", ""):
+        return False
+    raise ValueError(f"invalid bool: {value}")
+
+
 def urandom(size):
     rand = os.urandom(size)
     if rand is None:
@@ -166,6 +179,7 @@ def urandom(size):
     return hashlib.sha512(rand).digest()
 
 
+@functools.cache
 def get_entry_point_one(group, name):
     epoints = tuple(importlib.metadata.entry_points(group=group, name=name))
     if not epoints:
@@ -186,7 +200,7 @@ def get_entry_point_one(group, name):
 def random_string(length=5):
     """Return random string consisting of ascii_leters and digits"""
     return "".join(
-        random.choice(string.ascii_letters + string.digits)
+        secrets.choice(string.ascii_letters + string.digits)
         for _ in range(length)
     )
 
@@ -428,6 +442,9 @@ def sbdf_to_path(device_id: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
@@ -483,6 +500,9 @@ def path_to_sbdf(path: str):
                 # this one is in decimal
                 # this can raise ValueError, propagate it
                 bus_offset = int(f_bus_num.read())
+            if bus_offset == 255:
+                # Failed read of config space returns 0xff
+                return None
         except FileNotFoundError:
             # last device in chain
             bus_offset = -1
@@ -510,3 +530,69 @@ def is_pci_path(device_id: str):
         r"(-[0-9a-f]{2}_[0-9a-f]{2}\.[0-9a-f])*\Z"
     )
     return bool(path_re.match(device_id))
+
+
+def validate_label_name(untrusted_label, creation: bool = False) -> None:
+    if not untrusted_label:
+        raise qubes.exc.QubesInvalidLabelError("Label name must be set")
+
+    # don't confuse label name with label index
+    if creation and str(untrusted_label).isdigit():
+        raise qubes.exc.QubesInvalidLabelError("Label must not be a digit")
+
+    allowed_chars = string.ascii_letters + string.digits + "-_."
+    if not all(c in allowed_chars for c in untrusted_label):
+        raise qubes.exc.QubesInvalidLabelError(
+            "Label must be in safe set: " + allowed_chars
+        )
+
+
+def validate_label_value(untrusted_label_value) -> str:
+    if not untrusted_label_value:
+        raise qubes.exc.QubesInvalidLabelValueError("Label value must be set")
+
+    try:
+        untrusted_value = untrusted_label_value.decode(
+            "ascii", "strict"
+        ).strip()
+    except UnicodeDecodeError:
+        raise qubes.exc.QubesInvalidLabelValueError(
+            "Label value must be encoded in ASCII"
+        )
+
+    if len(untrusted_value) != 8:
+        raise qubes.exc.QubesInvalidLabelValueError(
+            "Label value must have length of 8"
+        )
+
+    if not untrusted_value.startswith("0x"):
+        raise qubes.exc.QubesInvalidLabelValueError(
+            "Label value must start with: 0x"
+        )
+
+    # besides prefix, only hex digits are allowed
+    if not all(x in string.hexdigits for x in untrusted_value[2:]):
+        raise qubes.exc.QubesInvalidLabelValueError(
+            "Label value must only contain hexadecimal digits after prefix: "
+            + string.hexdigits
+        )
+
+    return untrusted_value
+
+
+async def async_shield(awaitable) -> Any:
+    """
+    Protect awaitable from being cancelled, skip raising
+    ``asyncio.CancelledError`` and still retrieve any exception if it was
+    raised, by awaiting for the cancellation to complete.
+    """
+    if not isinstance(awaitable, asyncio.Task):
+        awaitable = asyncio.create_task(awaitable)
+    with suppress(asyncio.CancelledError):
+        await asyncio.shield(awaitable)
+    try:
+        return awaitable.result()
+    except asyncio.InvalidStateError:
+        # The task completion was already waited above, if it has no result,
+        # waiting for it would block indefinitely.
+        return None

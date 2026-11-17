@@ -140,6 +140,8 @@ class GrubBase(object):
             "StandaloneVM", name=self.make_vm_name("vm1"), label="red"
         )
         self.testvm1.virt_mode = self.virt_mode
+        if self.virt_mode == "hvm":
+            self.set_hvm(self.testvm1)
         self.testvm1.features.update(self.app.domains[self.template].features)
         self.testvm1.clone_properties(self.app.domains[self.template])
         self.loop.run_until_complete(
@@ -157,7 +159,7 @@ class GrubBase(object):
             # maxmem
             self.testvm1.memory = 450
         self.loop.run_until_complete(self.testvm1.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)
@@ -169,6 +171,8 @@ class GrubBase(object):
             "TemplateVM", name=self.make_vm_name("template"), label="red"
         )
         self.test_template.virt_mode = self.virt_mode
+        if self.virt_mode == "hvm":
+            self.set_hvm(self.test_template)
         self.test_template.features.update(
             self.app.domains[self.template].features
         )
@@ -198,7 +202,7 @@ class GrubBase(object):
 
         # Check if TemplateBasedVM boots and has the right kernel
         self.loop.run_until_complete(self.testvm1.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)
@@ -207,7 +211,7 @@ class GrubBase(object):
 
         # And the same for the TemplateVM itself
         self.loop.run_until_complete(self.test_template.start())
-        (actual_kver, _) = self.loop.run_until_complete(
+        actual_kver, _ = self.loop.run_until_complete(
             self.test_template.run_for_stdio("uname -r")
         )
         self.assertEqual(actual_kver.strip(), kver)

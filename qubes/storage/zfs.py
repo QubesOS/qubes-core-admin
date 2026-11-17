@@ -7,7 +7,7 @@ import contextlib
 import dataclasses
 import logging
 import os
-import random
+import secrets
 import shlex
 import shutil
 import string
@@ -81,7 +81,7 @@ def get_random_string(
     length: int,
     character_set: str = string.ascii_lowercase,
 ) -> str:
-    return "".join(random.choice(character_set) for _ in range(length))
+    return "".join(secrets.choice(character_set) for _ in range(length))
 
 
 T = TypeVar("T")
@@ -546,7 +546,7 @@ class ZFSPool(qubes.storage.Pool):
         self._cached_size = 0
         self.log = logging.getLogger("%s" % (self.name,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type:ignore
+            self.log.debug = self.log.warning  # type: ignore
         self.accessor: ZFSAccessor = ZFSAccessor(self.container)
 
     def __repr__(self) -> str:
@@ -582,7 +582,7 @@ class ZFSPool(qubes.storage.Pool):
                 vm_name = str(vm.name)
             else:
                 # for the future if we have volumes not belonging to a vm
-                vm_name = qubes.utils.random_string()  # type:ignore
+                vm_name = qubes.utils.random_string()  # type: ignore
 
             vid = Vid.make(self.container, vm_name, volume_config["name"])
         else:
@@ -1412,11 +1412,9 @@ class ZFSAccessor:
         log: logging.Logger,
     ) -> None:
         """
-        Enlarge a volume to the specified size.
+        Resize a volume to the specified size.
 
         The volume must exist.
-
-        An error will be raised if size is < current size.
         """
         assert dataset_in_root(volume, self.root)
         async with self._cache.locked():
@@ -1856,7 +1854,7 @@ class ZFSVolume(qubes.storage.Volume):
         self.vid = vid
         self.log = logging.getLogger("%s" % (self.vid,))
         if DEBUG_IS_WARNING:
-            self.log.debug = self.log.warning  # type:ignore
+            self.log.debug = self.log.warning  # type: ignore
         if kwargs:
             raise qubes.exc.StoragePoolException(
                 "Unsupported arguments received: %s" % ", ".join(kwargs),
@@ -2044,19 +2042,15 @@ class ZFSVolume(qubes.storage.Volume):
                 self.log.debug("Source is a File volume")
                 # File volume export() does not actually return a coroutine.
                 # This isn't just a typing error.  The await() fails.
-                loop = asyncio.get_event_loop()
-                in_ = await loop.run_in_executor(
-                    None,
-                    source.export,
-                )  # type:ignore
+                in_ = await asyncio.to_thread(source.export)  # type: ignore
             else:
                 self.log.debug("Source is not a ZFS volume")
-                in_ = await source.export()  # type:ignore
+                in_ = await source.export()  # type: ignore
             try:
                 async with self._copy_into_volume_2phase(source.size) as out:
                     await duplicate_disk(in_, out, self.log)
             finally:
-                await source.export_end(in_)  # type:ignore
+                await source.export_end(in_)  # type: ignore
 
     async def _wipe_and_create_empty(
         self,
@@ -2685,33 +2679,12 @@ class ZFSVolume(qubes.storage.Volume):
     @qubes.storage.Volume.locked  # type: ignore
     async def resize(self, size: int) -> None:
         """
-        Expands volume.
-
-        Throws
-        :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
-        given size is less than current_size.
+        Resizes volume.
         """
-        # FIXME: there does not seem to be a pathway to, but there
-        # should be a pathway to, reducing the storage size of a
-        # volume, whether it be by having to stop the VM first and
-        # then making a non-atomic clone / partial copy / rename
-        # of a zvol.  It is annoying that ZFS prevents volumes from
-        # being reduced in size.  It is further annoying that
-        # reduction of a volume requires the file system in it to
-        # be reduced first, which can only be done while the qube
-        # is running, but a Towers-of-Hanoi operation with datasets
-        # can only be performed with the qube off.  Perhaps in the
-        # future we can have a qvm feature exposed that allows dom0
-        # to coordinate shrinking the file system and defers the
-        # Towers-of-Hanoi operation to after the qube has powered off.
         self.log.debug("Resizing %s to %s", self.volume, size)
         mysize = self.size
         if size == mysize:
             return
-        if size < mysize:
-            raise qubes.exc.StoragePoolException(
-                "Shrinking of ZFS volume %s is not possible" % (self.volume,)
-            )
         if await self.pool.accessor.volume_exists_async(
             self.volume,
             log=self.log,

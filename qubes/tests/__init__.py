@@ -64,8 +64,12 @@ import qubes.events
 import qubes.exc
 import qubes.ext.pci
 import qubes.tests.never_awaited
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
+
+from qubes.log import Formatter
 
 XMLPATH = "/var/lib/qubes/qubes-test.xml"
 CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
@@ -494,11 +498,6 @@ class QubesTestCase(unittest.TestCase):
 
         self._success = True
 
-        global libvirt_event_impl
-
-        if in_dom0 and not libvirt_event_impl:
-            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
-
     def set_result(self, success):
         self._success = success
 
@@ -513,7 +512,17 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.addCleanup(self.cleanup_gc)
 
-        self.loop = asyncio.get_event_loop()
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        global libvirt_event_impl
+
+        if in_dom0 and not libvirt_event_impl:
+            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel
@@ -526,6 +535,10 @@ class QubesTestCase(unittest.TestCase):
             "qubes.app.validate_kernel", kernel_validator_patched
         )
         self.skip_kernel_validation_patch.start()
+
+    def tearDown(self):
+        self.skip_kernel_validation_patch.stop()
+        super().tearDown()
 
     def cleanup_gc(self):
         # remove cached references to Qubes() object
@@ -584,7 +597,14 @@ class QubesTestCase(unittest.TestCase):
                     asyncio.wait_for(libvirt_event_impl.drain(), timeout=30)
                 )
             except asyncio.TimeoutError:
-                raise AssertionError("libvirt event impl drain timeout")
+                raise AssertionError(
+                    "libvirt event impl drain timeout, loop tasks: %s, pending:"
+                    " %s"
+                    % (
+                        asyncio.all_tasks(loop=self.loop),
+                        libvirt_event_impl._pending,
+                    )
+                )
 
         # this is stupid, but apparently it requires two passes
         # to cleanup SIGCHLD handlers
@@ -592,6 +612,27 @@ class QubesTestCase(unittest.TestCase):
         self.loop.run_forever()
         self.loop.stop()
         self.loop.run_forever()
+
+        # and finally, cancel remaining tasks
+        to_cancel = asyncio.all_tasks(self.loop)
+        if to_cancel:
+            for task in to_cancel:
+                self.log.warning("Leftover task: %r", task)
+                task.cancel()
+
+        self.loop.run_until_complete(
+            asyncio.gather(*to_cancel, return_exceptions=True)
+        )
+
+        for task in to_cancel:
+            if task.cancelled():
+                continue
+            if task.exception() is not None:
+                self.log.warning(
+                    "Unhandled exception during test %r shutdown: %r",
+                    task,
+                    task.exception(),
+                )
 
         # Check there are no Tasks left.
         assert not self.loop._ready
@@ -843,11 +884,11 @@ class SystemTestCase(QubesTestCase):
         global ha_syslog
         if ha_syslog is None:
             ha_syslog = logging.handlers.SysLogHandler("/dev/log")
-            ha_syslog.setFormatter(
-                logging.Formatter("%(name)s[%(process)d]: %(message)s")
-            )
+            loglevel = logging.INFO
+            debug = bool(loglevel == logging.DEBUG)
+            ha_syslog.setFormatter(Formatter(debug=debug))
             logging.root.addHandler(ha_syslog)
-            logging.root.setLevel(logging.INFO)
+            logging.root.setLevel(loglevel)
 
         self.log.critical("starting")
 
@@ -891,6 +932,21 @@ class SystemTestCase(QubesTestCase):
             vm._qdb_connection_watch.close()
             vm._qdb_connection_watch = None
 
+    @staticmethod
+    def set_hvm(vm):
+        vm.virt_mode = "hvm"
+        # when running test in nested virt, set lower maxmem to workaround
+        # https://github.com/QubesOS/qubes-issues/issues/10723
+        qemu = False
+        try:
+            with open("/sys/firmware/dmi/entries/1-0/raw", "rb") as f:
+                if b"QEMU" in f.read():
+                    qemu = True
+        except OSError:
+            pass
+        if qemu:
+            vm.maxmem = 1024
+
     def cleanup_app(self):
         self.remove_test_vms()
 
@@ -926,6 +982,12 @@ class SystemTestCase(QubesTestCase):
         for attr in dir(self):
             obj_type = type(getattr(self, attr))
             if obj_type.__module__.startswith("qubes"):
+                delattr(self, attr)
+            elif issubclass(obj_type, list) and any(
+                type(obj).__module__.startswith("qubes")
+                for obj in getattr(self, attr)
+            ):
+                # remove also list of qubes objects
                 delattr(self, attr)
 
         # then trigger garbage collector to really destroy those objects
@@ -1353,7 +1415,7 @@ class SystemTestCase(QubesTestCase):
                 stdout=subprocess.PIPE,
             )
             try:
-                (winid, _) = await asyncio.wait_for(p.communicate(), timeout)
+                winid, _ = await asyncio.wait_for(p.communicate(), timeout)
                 # don't check exit code, getting winid on stdout is enough
                 # indicator of success; specifically ignore xdotool failing
                 # with BadWindow or such - when some window appears only for a
@@ -1455,7 +1517,7 @@ class SystemTestCase(QubesTestCase):
             ["sudo", "losetup", "-f", "-P", "--show", vm.storage.root_img],
             stdout=subprocess.PIPE,
         )
-        (loopdev, _) = p.communicate()
+        loopdev, _ = p.communicate()
         loopdev = loopdev.strip()
         looppart = loopdev + "p1"
         assert p.returncode == 0, "losetup failed"
@@ -1492,7 +1554,7 @@ class SystemTestCase(QubesTestCase):
                     "}"
                 )
             p = subprocess.Popen(["uname", "-r"], stdout=subprocess.PIPE)
-            (kernel_version, _) = p.communicate()
+            kernel_version, _ = p.communicate()
             kernel_version = kernel_version.strip()
             kernel = "/boot/vmlinuz-{}".format(kernel_version)
             shutil.copy(kernel, os.path.join(mountpoint, "vmlinuz"))
@@ -1749,9 +1811,10 @@ def maybe_create_testcases_on_import(create_testcases_gen):
     using load tests protocol.
 
     The conditions - any of:
-     - QUBES_TEST_TEMPLATES present in the environment (it's possible to
-     create test cases without opening qubes.xml)
-     - QUBES_TEST_LOAD_ALL present in the environment
+
+    - QUBES_TEST_TEMPLATES present in the environment (it's possible to
+      create test cases without opening qubes.xml)
+    - QUBES_TEST_LOAD_ALL present in the environment
     """
     if (
         "QUBES_TEST_TEMPLATES" in os.environ
@@ -1801,7 +1864,15 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.storage_callback",
         "qubes.tests.storage_kernels",
         "qubes.tests.storage_zfs",
-        "qubes.tests.ext",
+        "qubes.tests.ext_admin",
+        "qubes.tests.ext_audio",
+        "qubes.tests.ext_core_features",
+        "qubes.tests.ext_custom_persist",
+        "qubes.tests.ext_gui",
+        "qubes.tests.ext_services",
+        "qubes.tests.ext_supported_features",
+        "qubes.tests.ext_vm_config",
+        "qubes.tests.ext_windows",
         "qubes.tests.vm.qubesvm",
         "qubes.tests.vm.mix.net",
         "qubes.tests.vm.mix.dvmtemplate",
@@ -1809,6 +1880,7 @@ def load_tests(loader, tests, pattern):  # pylint: disable=unused-argument
         "qubes.tests.vm.appvm",
         "qubes.tests.vm.dispvm",
         "qubes.tests.app",
+        "qubes.tests.backup",
         "qubes.tests.tarwriter",
         "qubes.tests.api",
         "qubes.tests.api_admin",

@@ -25,14 +25,17 @@ import qubes.ext
 import qubes.vm.adminvm
 from qrexec.policy import utils, parser
 
-from qubes.device_protocol import DeviceInterface
-
+from qubes.device_protocol import DeviceInfo, DeviceInterface
 
 PROHIBITED_FEATURES = [
     "deferred-netvm-original",
     "preload-dispvm",
     "preload-dispvm-completed",
     "preload-dispvm-in-progress",
+]
+
+PROHIBITED_PROPERTIES = [
+    "active_template",
 ]
 
 
@@ -44,6 +47,9 @@ class JustEvaluateAskResolution(parser.AskResolution):
 class JustEvaluateAllowResolution(parser.AllowResolution):
     async def execute(self):
         pass
+
+
+PROTECTED_TAG_PREFIXES = ("created-by-", "guivm-", "audiovm-", "relayvm-")
 
 
 class AdminExtension(qubes.ext.Extension):
@@ -72,13 +78,27 @@ class AdminExtension(qubes.ext.Extension):
             )
 
     @qubes.ext.handler(
+        "admin-permission:admin.vm.property.Set",
+        "admin-permission:admin.vm.property.Reset",
+    )
+    def on_property_set_or_remove(self, vm, event, arg, **kwargs):
+        """Forbid changing specific properties"""
+        # pylint: disable=unused-argument
+        if arg in PROHIBITED_PROPERTIES:
+            raise qubes.exc.PermissionDenied(
+                "changing this property is prohibited by {}.{}".format(
+                    __name__, type(self).__name__
+                )
+            )
+
+    @qubes.ext.handler(
         "admin-permission:admin.vm.tag.Set",
         "admin-permission:admin.vm.tag.Remove",
     )
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
         """Forbid changing specific tags"""
         # pylint: disable=unused-argument
-        if arg.startswith("created-by-") and not isinstance(
+        if arg.startswith(PROTECTED_TAG_PREFIXES) and not isinstance(
             vm, qubes.vm.adminvm.AdminVM
         ):
             raise qubes.exc.PermissionDenied(
@@ -89,7 +109,10 @@ class AdminExtension(qubes.ext.Extension):
 
     # TODO create that tag here (need to figure out how to pass mgmtvm name)
 
-    @qubes.ext.handler("admin-permission:admin.vm.List")
+    @qubes.ext.handler(
+        "admin-permission:admin.vm.List",
+        "admin-permission:admin.backup.Info",
+    )
     def admin_vm_list(self, vm, event, arg, **kwargs):
         """When called with target 'dom0' (aka "get full list"), exclude domains
         that the caller don't have permission to list
@@ -209,6 +232,16 @@ class AdminExtension(qubes.ext.Extension):
 
         # check if any presented interface is on denied list
         denied = set(DeviceInterface.from_str_bulk(dest.devices_denied))
+        if not denied:
+            return
+
+        if not isinstance(device, DeviceInfo):
+            # failed to load full device info, so we cannot verify its
+            # interfaces against the denied list -> reject.
+            raise qubes.exc.PermissionDenied(
+                "Could not load interfaces to verify against denied list"
+            )
+
         for pattern in denied:
             for devint in device.interfaces:
                 if pattern.matches(devint):

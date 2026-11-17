@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 """Qubes block devices extensions"""
+
 import asyncio
 import re
 import string
@@ -50,6 +51,14 @@ SYSTEM_DISKS_DOM0_KERNEL = SYSTEM_DISKS + ("xvdd",)
 
 
 class BlockDevice(qubes.device_protocol.DeviceInfo):
+    SUPPORTED_ASSIGNMENT_MODES = frozenset(
+        {
+            qubes.device_protocol.AssignmentMode.MANUAL,
+            qubes.device_protocol.AssignmentMode.ASK,
+            qubes.device_protocol.AssignmentMode.AUTO,
+            qubes.device_protocol.AssignmentMode.REQUIRED,
+        }
+    )
 
     def __init__(self, port: qubes.device_protocol.Port):
         if port.devclass != "block":
@@ -151,7 +160,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             )
             if untrusted_size is None:
                 self._size = 0
-            elif not untrusted_size.isdigit():
+            # more than 20 digits doesn't fit in 64 bits
+            elif not untrusted_size.isdigit() or len(untrusted_size) > 20:
                 self.backend_domain.log.warning(
                     "Device {} has invalid size".format(self.port_id)
                 )
@@ -159,6 +169,23 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
             else:
                 self._size = int(untrusted_size)
         return self._size
+
+    def serialize(self) -> bytes:
+        """
+        Serialize an object to be transmitted via Qubes API.
+
+        Add the size to the generic device properties.
+        """
+        properties = super().serialize()
+        size = self.size
+        if size is not None:
+            properties += (
+                b" "
+                + qubes.device_protocol.DeviceSerializer.pack_property(
+                    "_size", str(size)
+                )
+            )
+        return properties
 
     @property
     def device_node(self):
@@ -219,7 +246,7 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
         if not self.backend_domain or not self.backend_domain.is_running():
             return None
         for vm in self.backend_domain.app.domains:
-            if not vm.is_running():
+            if not vm.is_running() or not hasattr(vm, "libvirt_domain"):
                 continue
             if self._is_attached_to(vm):
                 return vm
@@ -229,11 +256,8 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
     def _is_attached_to(self, vm):
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for disk in xml_desc.findall("devices/disk"):
-            info = _try_get_block_device_info(vm.app, disk)
-            if not info:
-                continue
-            backend_domain, port_id = info
+        for disk in xml_desc.findall("devices/disk[source][@type='block']"):
+            backend_domain, port_id = _try_get_block_device_info(vm.app, disk)
 
             if backend_domain.name != self.backend_domain.name:
                 continue
@@ -287,18 +311,13 @@ class BlockDevice(qubes.device_protocol.DeviceInfo):
 
 
 def _try_get_block_device_info(app, disk):
-    if disk.get("type") != "block":
-        return None
-    dev_path_node = disk.find("source")
-    if dev_path_node is None:
-        return None
-
     backend_domain_node = disk.find("backenddomain")
     if backend_domain_node is not None:
         backend_domain = app.domains[backend_domain_node.get("name")]
     else:
         backend_domain = app.domains[0]
 
+    dev_path_node = disk.find("source")
     dev_path = dev_path_node.get("dev")
 
     if dev_path.startswith("/dev/"):
@@ -356,11 +375,10 @@ class BlockDeviceExtension(qubes.ext.Extension):
 
             xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-            for disk in xml_desc.findall("devices/disk"):
-                info = _try_get_block_device_info(vm.app, disk)
-                if not info:
-                    continue
-                backend_domain, port_id = info
+            for disk in xml_desc.findall("devices/disk[source][@type='block']"):
+                backend_domain, port_id = _try_get_block_device_info(
+                    vm.app, disk
+                )
                 if backend_domain != vm_:
                     continue
 
@@ -433,29 +451,16 @@ class BlockDeviceExtension(qubes.ext.Extension):
             system_disks = SYSTEM_DISKS_DOM0_KERNEL
         xml_desc = lxml.etree.fromstring(vm.libvirt_domain.XMLDesc())
 
-        for disk in xml_desc.findall("devices/disk"):
-            if disk.get("type") != "block":
-                continue
-            dev_path_node = disk.find("source")
-            if dev_path_node is None:
-                continue
-            dev_path = dev_path_node.get("dev")
-
+        for disk in xml_desc.findall(
+            "devices/disk[source][target][@type='block']"
+        ):
+            backend_domain, port_id = _try_get_block_device_info(vm.app, disk)
             target_node = disk.find("target")
-            if target_node is not None:
-                frontend_dev = target_node.get("dev")
-                if not frontend_dev:
-                    continue
-                if frontend_dev in system_disks:
-                    continue
-            else:
+            frontend_dev = target_node.get("dev")
+            if not frontend_dev:
                 continue
-
-            backend_domain_node = disk.find("backenddomain")
-            if backend_domain_node is not None:
-                backend_domain = vm.app.domains[backend_domain_node.get("name")]
-            else:
-                backend_domain = vm.app.domains[0]
+            if frontend_dev in system_disks:
+                continue
 
             options = {}
             read_only_node = disk.find("readonly")
@@ -464,15 +469,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
             else:
                 options["read-only"] = "no"
             options["frontend-dev"] = frontend_dev
-            if disk.get("device") != "disk":
-                options["devtype"] = disk.get("device")
-
-            if dev_path.startswith("/dev/"):
-                port_id = dev_path[len("/dev/") :]
-            else:
-                port_id = dev_path
-
-            port_id = port_id.replace("/", "_")
+            devtype = disk.get("device")
+            if devtype != "disk":
+                options["devtype"] = devtype
 
             yield BlockDevice(Port(backend_domain, port_id, "block")), options
 
@@ -643,28 +642,17 @@ class BlockDeviceExtension(qubes.ext.Extension):
         """
         # pylint: disable=unused-argument
 
-        new_cache = {}
-        for domain in vm.app.domains.values():
-            new_cache[domain.name] = {}
-            if domain == vm:
-                for dev_id, front_vm in self.devices_cache[domain.name].items():
-                    dev = BlockDevice(Port(vm, dev_id, "block"))
-                    vm.fire_event("device-removed:block", port=dev.port)
-                    if front_vm is None:
-                        continue
-                    await self.detach_and_notify(front_vm, dev.port)
-                continue
-            for dev_id, front_vm in self.devices_cache[domain.name].items():
-                if front_vm == vm:
-                    dev = BlockDevice(Port(vm, dev_id, "block"))
-                    asyncio.ensure_future(
-                        front_vm.fire_event_async(
-                            "device-detach:block", port=dev.port
-                        )
-                    )
-                else:
-                    new_cache[domain.name][dev_id] = front_vm
-        self.devices_cache = new_cache.copy()
+        # devices exposed by the shutting-down backend vm:
+        # notify that they are gone and detach them from frontend vms
+        for dev_id, front_vm in self.devices_cache[vm.name].items():
+            dev = BlockDevice(Port(vm, dev_id, "block"))
+            vm.fire_event("device-removed:block", port=dev.port)
+            if front_vm is not None:
+                await self.detach_and_notify(front_vm, dev.port)
+        self.devices_cache[vm.name] = {}
+
+        # devices attached to shutting-down frontend vm: notify detach
+        utils.detach_attached_devices_on_shutdown(self, vm, BlockDevice)
 
     def ensure_detach(self, vm, port):
         """

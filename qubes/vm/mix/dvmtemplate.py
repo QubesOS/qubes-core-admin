@@ -19,7 +19,7 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterator, Tuple
 
 import qubes.config
 import qubes.events
@@ -41,6 +41,15 @@ class DVMTemplateMixin(qubes.events.Emitter):
         doc="Should this VM be allowed to start as Disposable VM",
     )
 
+    @qubes.stateless_property
+    def icon(self):
+        if self.template_for_dispvms:
+            # pylint: disable=no-member
+            return "templatevm-" + self.label.name
+        # multi-inheritance and properties confuses pylint here
+        # pylint: disable=no-member
+        return super().icon
+
     @property
     def dispvms(self) -> Iterator["qubes.vm.dispvm.DispVM"]:
         """
@@ -50,7 +59,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         """
         assert isinstance(self, qubes.vm.BaseVM)
         for vm in self.app.domains:
-            if getattr(vm, "template", None) == self:
+            if qubes.vm.qubesvm.get_active_template(vm) == self:
                 yield vm
 
     @qubes.events.handler("domain-load")
@@ -107,7 +116,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     reason="their progress was interrupted",
                 )
                 for dispvm in preload_in_progress:
-                    asyncio.ensure_future(dispvm.cleanup(force=True))
+                    asyncio.ensure_future(dispvm.cleanup())
 
         if changes:
             self.app.save()
@@ -223,10 +232,11 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if not self.features.check_with_template("qrexec", None):
             raise qubes.exc.QubesValueError("Qube does not support qrexec")
 
-        service = "qubes.WaitForRunningSystem"
-        if not self.supports_preload():
+        supported, missing_services = self.supports_preload()
+        if not supported:
             raise qubes.exc.QubesValueError(
-                "Qube does not support the RPC '%s'" % service
+                "Qube does not support the RPC(s) '%s'"
+                % ", ".join(missing_services)
             )
 
         value = value or "0"
@@ -312,7 +322,8 @@ class DVMTemplateMixin(qubes.events.Emitter):
         nonderived = [
             qube
             for qube in new_list_diff
-            if getattr(self.app.domains[qube], "template") != self
+            if qubes.vm.qubesvm.get_active_template(self.app.domains[qube])
+            != self
         ]
         if nonderived:
             raise qubes.exc.QubesValueError(
@@ -342,13 +353,17 @@ class DVMTemplateMixin(qubes.events.Emitter):
                 qube = self.app.domains[qube]
                 qube.fire_event("property-reset:is_preload", name="is_preload")
 
-    @qubes.events.handler("property-pre-set:template_for_dispvms")
+    @qubes.events.handler(
+        "property-pre-set:template_for_dispvms",
+        "property-pre-reset:template_for_dispvms",
+    )
     def __on_pre_set_dvmtemplate(
-        self, event, name, newvalue, oldvalue=None
+        self, event, name, newvalue=None, oldvalue=None
     ) -> None:
         """
         Forbid disabling ``template_for_dispvms`` while there are disposables
-        running.
+        running or it is set a system or per qube disposable template property,
+        normally ``default_dispvm`` or ``management_dispvm``.
 
         :param str event: Event which was fired.
         :param str name: Property name.
@@ -361,31 +376,46 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if not newvalue and not oldvalue:
             return
-        dependencies = [
-            disp.name for disp in self.dispvms if not disp.is_preload
-        ]
-        if dependencies:
+        system_props = ["default_dispvm", "management_dispvm"]
+        qube_props = ["default_dispvm", "management_dispvm", "template"]
+        system_deps, qube_deps = qubes.app.get_qube_prop_deps(
+            qube=self,
+            system_properties=system_props,
+            qube_properties=qube_props,
+        )
+        if system_deps:
             msg = (
-                "Cannot change template_for_dispvms to False while there are "
-                "some disposables based on this disposable template",
+                "Cannot change template_for_dispvms to False while it is in use"
+                " by the system by any of these properties: %s"
+                % (", ".join(system_props))
             )
-            self.log.error("%s: %s", msg, ", ".join(dependencies))
+            self.log.error("%s", msg)
+            raise qubes.exc.QubesVMInUseError(self, msg)
+        if qube_deps:
+            msg = (
+                "Cannot change template_for_dispvms to False while it is the "
+                "disposable template of a qube by any of these properties: %s"
+                % (", ".join(qube_props))
+            )
+            self.log.error(
+                "%s: %s", msg, ", ".join(":".join(i) for i in qube_deps)
+            )
             raise qubes.exc.QubesVMInUseError(self, msg)
         self.remove_preload_excess(
             0, reason="template_for_dispvms was set to False"
         )
 
-    @qubes.events.handler("property-pre-del:template_for_dispvms")
-    def __on_pre_del_dvmtemplate(self, event, name, oldvalue=None) -> None:
-        """
-        Forbid disabling ``template_for_dispvms`` while there are disposables
-        running.
-
-        :param str event: Event which was fired.
-        :param str name: Property name.
-        :param bool oldvalue: Old value of the property.
-        """
-        self.__on_pre_set_dvmtemplate(event, name, False, oldvalue)
+    @qubes.events.handler(
+        "property-set:template_for_dispvms",
+        "property-reset:template_for_dispvms",
+    )
+    def __on_changed_dvmtemplate_icon(
+        self, event, name, newvalue=None, oldvalue=None
+    ):
+        # pylint: disable=unused-argument
+        # icon is calculated based on being a template for dispvms
+        if bool(oldvalue) != self.template_for_dispvms:
+            self.fire_event("property-reset:icon", name="icon")
 
     @qubes.events.handler("property-set:template_for_dispvms")
     def __on_set_dvmtemplate(self, event, name, newvalue, oldvalue=None):
@@ -422,29 +452,20 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
         if newvalue == oldvalue:
             return
-        dependencies = [
-            disp.name
-            for disp in self.dispvms
-            if disp.is_running() and not disp.is_preload
-        ]
-        if dependencies:
-            msg = (
-                "Cannot change template while there are running disposables"
-                " based on this disposable template",
-            )
-            self.log.error("%s: %s", msg, ", ".join(dependencies))
-            raise qubes.exc.QubesVMInUseError(self, msg)
-        self.remove_preload_excess(0, reason="template will change")
 
     @qubes.events.handler("property-set:template")
     def __on_property_set_template(
         self, event, name, newvalue, oldvalue=None
     ) -> None:
         # pylint: disable=unused-argument
+        assert isinstance(self, qubes.vm.qubesvm.QubesVM)
         if newvalue == oldvalue:
             return
         if not getattr(self, "template_for_dispvms"):
             return
+        if self.is_running():
+            return
+        self.remove_preload_excess(0, reason="template has changed")
         if not self.can_preload():
             return
         asyncio.ensure_future(
@@ -458,13 +479,13 @@ class DVMTemplateMixin(qubes.events.Emitter):
         "domain-preload-dispvm-used",
         "domain-preload-dispvm-start",
     )
-    async def on_domain_preload_dispvm_used(
+    async def on_domain_preload_dispvm_used(  # pylint: disable=unused-argument
         self,
         event: str,
         dispvm: Optional["qubes.vm.dispvm.DispVM"] = None,
         reason: Optional[str] = None,
         delay: Union[int, float] = 0,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,
     ) -> None:
         """
         Offloads on excess and preload on vacancy.
@@ -486,11 +507,12 @@ class DVMTemplateMixin(qubes.events.Emitter):
         if delay:
             event_log += " with a delay of %s second(s)" % f"{delay:.1f}"
         self.log.info(event_log)
-        service = "qubes.WaitForRunningSystem"
-        if not self.supports_preload():
+
+        supported, missing_services = self.supports_preload()
+        if not supported:
             raise qubes.exc.QubesValueError(
-                "Qube does not support the RPC '%s' but tried to preload, "
-                "check if template is outdated" % service
+                "Qube does not support the RPC(s) '%s' but tried to preload, "
+                "check if template is outdated" % ", ".join(missing_services)
             )
         if delay:
             await asyncio.sleep(abs(delay))
@@ -507,7 +529,6 @@ class DVMTemplateMixin(qubes.events.Emitter):
             return
 
         avail_mem_file = qubes.config.qmemman_avail_mem_file
-        available_memory = None
         try:
             with open(avail_mem_file, "r", encoding="ascii") as file:
                 available_memory = max(
@@ -516,7 +537,7 @@ class DVMTemplateMixin(qubes.events.Emitter):
         except FileNotFoundError:
             can_preload = want_preload
             self.log.warning("File containing available memory was not found")
-        if available_memory is not None:
+        else:
             memory = getattr(self, "memory", 0) * 1024**2
             unrestricted_preload = int(available_memory / memory)
             can_preload = min(unrestricted_preload, want_preload)
@@ -796,15 +817,21 @@ class DVMTemplateMixin(qubes.events.Emitter):
                     dispvm = self.app.domains[unwanted_disp]
                     asyncio.ensure_future(dispvm.cleanup())
 
-    def supports_preload(self) -> bool:
+    def supports_preload(self) -> Tuple[bool, list]:
         """
-        Check if the necessary RPC is supported.
+        Check if the necessary RPCs are supported.
 
-        :rtype: bool
+        The first returned value indicates success while the second value is
+        non empty and contains the missing services if they are not supported.
+
+        :rtype: (bool, list)
         """
         assert isinstance(self, qubes.vm.BaseVM)
-        service = "qubes.WaitForRunningSystem"
-        supported_service = "supported-rpc." + service
-        if self.features.check_with_template(supported_service, False):
-            return True
-        return False
+        supported = True
+        missing_services = []
+        for service in ["qubes.WaitForRunningSystem", "qubes.WaitForSession"]:
+            feature = "supported-rpc." + service
+            if not self.features.check_with_template(feature, False):
+                missing_services.append(service)
+                supported = False
+        return (supported, missing_services)

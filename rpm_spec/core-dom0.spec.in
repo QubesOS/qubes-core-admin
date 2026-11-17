@@ -480,11 +480,20 @@ done
 %{python3_sitelib}/qubes/tests/api_internal.py
 %{python3_sitelib}/qubes/tests/api_misc.py
 %{python3_sitelib}/qubes/tests/app.py
+%{python3_sitelib}/qubes/tests/backup.py
 %{python3_sitelib}/qubes/tests/devices.py
 %{python3_sitelib}/qubes/tests/devices_block.py
 %{python3_sitelib}/qubes/tests/devices_pci.py
 %{python3_sitelib}/qubes/tests/events.py
-%{python3_sitelib}/qubes/tests/ext.py
+%{python3_sitelib}/qubes/tests/ext_admin.py
+%{python3_sitelib}/qubes/tests/ext_audio.py
+%{python3_sitelib}/qubes/tests/ext_core_features.py
+%{python3_sitelib}/qubes/tests/ext_custom_persist.py
+%{python3_sitelib}/qubes/tests/ext_gui.py
+%{python3_sitelib}/qubes/tests/ext_services.py
+%{python3_sitelib}/qubes/tests/ext_supported_features.py
+%{python3_sitelib}/qubes/tests/ext_vm_config.py
+%{python3_sitelib}/qubes/tests/ext_windows.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
 %{python3_sitelib}/qubes/tests/never_awaited.py
@@ -597,6 +606,7 @@ done
 %attr(0664,root,qubes) %config /etc/qubes/policy.d/85-admin-backup-restore.policy
 %attr(0664,root,qubes) %config /etc/qubes/policy.d/90-admin-default.policy
 %attr(0664,root,qubes) %config /etc/qubes/policy.d/90-default.policy
+%attr(0664,root,qubes) %config /etc/qubes/policy.d/91-admin-default-deny.policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-ro
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-global-rwx
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes/policy.d/include/admin-local-ro

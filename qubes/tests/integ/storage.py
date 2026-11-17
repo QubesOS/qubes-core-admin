@@ -31,6 +31,7 @@ import qubes.tests.storage_reflink
 import qubes.tests.storage_zfs
 import qubes.utils
 import qubes.vm.appvm
+import qubes.vm.standalonevm
 
 
 class StorageTestMixin(object):
@@ -46,6 +47,16 @@ class StorageTestMixin(object):
             qubes.vm.appvm.AppVM, name=self.make_vm_name("vm2"), label="red"
         )
         self.loop.run_until_complete(self.vm2.create_on_disk())
+        self.standalone_vm1 = self.app.add_new_vm(
+            qubes.vm.standalonevm.StandaloneVM,
+            name=self.make_vm_name("standalone-vm1"),
+            label="red",
+        )
+        self.standalone_vm1.clone_properties(self.app.default_template)
+        self.standalone_vm1.features.update(self.app.default_template.features)
+        self.loop.run_until_complete(
+            self.standalone_vm1.clone_disk_files(self.app.default_template)
+        )
         self.pool = None
         self.init_pool()
         self.app.save()
@@ -484,6 +495,29 @@ class StorageTestMixin(object):
             "head -c 7 /dev/xvde", user="root"
         )
         self.assertEqual(stdout, b"test123")
+
+    def test_007_standalone_clone_boot_mode_transition(self):
+        return self.loop.run_until_complete(
+            self._test_007_standalone_clone_boot_mode_transition()
+        )
+
+    async def _test_007_standalone_clone_boot_mode_transition(self):
+        self.standalone_vm1.features["boot-mode.kernelopts.orig-mode"] = "test1"
+        self.standalone_vm1.features["boot-mode.kernelopts.new-mode"] = "test2"
+        self.standalone_vm1.features["boot-mode.active"] = "orig-mode"
+        self.standalone_vm1.features["boot-mode.standalone-default"] = (
+            "new-mode"
+        )
+        template_rootvol = self.app.default_template.storage.get_volume("root")
+        standalone_vm1_rootvol = self.standalone_vm1.storage.get_volume("root")
+        await qubes.utils.coro_maybe(
+            self.standalone_vm1.storage.import_volume(
+                standalone_vm1_rootvol, template_rootvol
+            )
+        )
+        self.assertEqual(
+            self.standalone_vm1.features["boot-mode.active"], "new-mode"
+        )
 
 
 class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):

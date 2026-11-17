@@ -475,6 +475,15 @@ class QubesArgumentParser(argparse.ArgumentParser):
         This is done by configuring global logging.
         :param argparse.Namespace args: args as parsed by parser
         """
+        if namespace.debug:
+            qubes.log.enable(
+                log_level=logging.DEBUG,
+                enable_debug_libvirt=getattr(
+                    namespace, "enable_debug_libvirt", False
+                ),
+            )
+            return
+
         verbose = namespace.verbose - namespace.quiet
         levels = [logging.NOTSET, logging.INFO, logging.DEBUG]
         log_level = levels[min(verbose, 2)]
@@ -589,7 +598,7 @@ def print_table(table):
             cmd + ["-c", "80"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
         ) as p:
             p.stdin.write(text_table.encode())
-            (out, _) = p.communicate()
+            out, _ = p.communicate()
         sys.stdout.write(out.decode())
     else:
         with subprocess.Popen(cmd, stdin=subprocess.PIPE) as p:

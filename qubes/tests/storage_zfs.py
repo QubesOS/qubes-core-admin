@@ -144,7 +144,7 @@ def dump_zfs_filesystems(text: str = "", dataset: str = "") -> None:
 
 class AsyncLoopHolderMixin(qubes.tests.QubesTestCase):
     def rc(self, future: Coroutine[Any, Any, Any]) -> Any:
-        return self.loop.run_until_complete(future)  # type:ignore
+        return self.loop.run_until_complete(future)  # type: ignore
 
 
 class ZFSBase(AsyncLoopHolderMixin):
@@ -175,7 +175,7 @@ class ZFSBase(AsyncLoopHolderMixin):
         return volume_path
 
     def setUp(self) -> None:
-        super().setUp()  # type:ignore
+        super().setUp()  # type: ignore
         pool_conf = {
             "driver": "zfs",
             "container": self.container,
@@ -319,7 +319,7 @@ class TC_10_ZFSPool(ZFSBase):
 
     def get_vol(self, factory: Any, **kwargs: Any) -> zfs.ZFSVolume:
         volume = self.pool.init_volume(
-            ts.TestVM(self),  # type:ignore
+            ts.TestVM(self),  # type: ignore
             factory(self.pool.name, **kwargs),
         )
         assert isinstance(self.vols_created_during_test, list)
@@ -418,7 +418,7 @@ class TC_10_ZFSPool(ZFSBase):
         self.rc(volume.export_end(exported))
 
     def test_013_resize_saveonstop(self) -> None:
-        """Test that a volume can be enlarged, but cannot be shrunk."""
+        """Test that a volume can be enlarged and shrunk."""
         volume = self.get_vol(ONEMEG_SAVE_ON_STOP)
         self.rc(volume.create())
 
@@ -431,10 +431,13 @@ class TC_10_ZFSPool(ZFSBase):
             f"volume.size {volume.size} != newsize {newsize}",
         )
 
-        # Fail at shrinking.
-        self.assertRaises(
-            qubes.exc.StoragePoolException,
-            lambda: self.rc(volume.resize(1024 * 1024)),
+        # Shrink!
+        newsize = 1 * 1024 * 1024
+        self.rc(volume.resize(newsize))
+        self.assertEqual(
+            volume.size,
+            newsize,
+            f"volume.size {volume.size} != newsize {newsize}",
         )
 
     def test_014_snaponstart_forgets_data(self) -> None:

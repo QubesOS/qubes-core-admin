@@ -3,7 +3,7 @@ class QubesDB:
         pass
 
     def read(self, key):
-        return b'testvm'
+        return b"testvm"
 
     def write(self, key, value):
         pass
@@ -12,7 +12,7 @@ class QubesDB:
         pass
 
     def list(self, path):
-        return ['test']
+        return ["test"]
 
     def watch(self, path):
         pass
@@ -22,12 +22,14 @@ class QubesDB:
 
     def watch_fd(self):
         return 3
-    
+
     def close(self):
         pass
 
+
 class Error(Exception):
     pass
+
 
 class DisconnectedError(Error):
     pass

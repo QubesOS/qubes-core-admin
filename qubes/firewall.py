@@ -99,6 +99,8 @@ class DstHost(RuleOption):
     """Represent host/network address: either IPv4, IPv6, or DNS name"""
 
     def __init__(self, untrusted_value, prefixlen=None):
+        if untrusted_value is None:
+            raise ValueError("Destination address cannot be empty")
         if untrusted_value.count("/") > 1:
             raise ValueError("Too many /: " + untrusted_value)
         if not untrusted_value.count("/"):
@@ -180,7 +182,7 @@ class DstPorts(RuleOption):
             self.range = [int(untrusted_value), int(untrusted_value)]
         else:
             raise ValueError(untrusted_value)
-        if any(port < 0 or port > 65536 for port in self.range):
+        if any(port < 0 or port >= 65536 for port in self.range):
             raise ValueError("Ports out of range")
         if self.range[0] > self.range[1]:
             raise ValueError("Invalid port range")
@@ -250,7 +252,10 @@ class Comment(RuleOption):
         safe_set = string.ascii_letters + string.digits + ":;,./-_[] "
         untrusted_value = str(untrusted_value)
         if not all(x in safe_set for x in untrusted_value):
-            raise ValueError("strange characters comment")
+            raise qubes.exc.QubesValueError(
+                "Invalid firewall comment: only ASCII letters, digits, spaces, "
+                "and these characters are allowed: : ; , . / - _ [ ]"
+            )
         self._value = untrusted_value
 
     @property
@@ -620,8 +625,8 @@ class Firewall:
         try:
             with qubes.utils.replace_file(
                 firewall_conf, permissions=0o664
-            ) as tmp_io:
-                xml_tree.write(tmp_io, encoding="UTF-8", pretty_print=True)
+            ) as tmp_fh:
+                xml_tree.write(tmp_fh, encoding="UTF-8", pretty_print=True)
         except EnvironmentError as err:
             msg = "firewall save error: {}".format(err)
             self.vm.log.error(msg)

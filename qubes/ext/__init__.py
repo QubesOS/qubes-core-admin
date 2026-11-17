@@ -24,6 +24,7 @@ Extensions provide additional features (like application menus) found only on
 some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
 """
+
 import collections
 import importlib.metadata
 import qubes.events

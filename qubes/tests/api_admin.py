@@ -574,6 +574,15 @@ netvm default=True type=vm \n"""
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
+    def test_063_vm_property_reset_label(self):
+        label = self.vm.label
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(
+                b"admin.vm.property.Reset", b"test-vm1", b"label"
+            )
+        self.assertEqual(self.vm.label, label)
+        self.assertFalse(self.app.save.called)
+
     def test_070_vm_volume_list(self):
         self.vm.volumes = unittest.mock.Mock()
         volumes_conf = {
@@ -713,7 +722,7 @@ netvm default=True type=vm \n"""
             },
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Snapshots", b"test-vm1", b"no-such-volume"
             )
@@ -728,7 +737,7 @@ netvm default=True type=vm \n"""
             "keys.return_value": ["root", "private", "volatile", "kernel"]
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Snapshots",
                 b"test-vm1",
@@ -783,20 +792,32 @@ netvm default=True type=vm \n"""
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesVolumeRevisionNotFoundError):
             self.call_mgmt_func(
                 b"admin.vm.volume.Revert",
                 b"test-vm1",
                 b"private",
                 b"no-such-rev",
             )
-        self.assertEqual(
-            self.vm.volumes.mock_calls,
-            [
-                unittest.mock.call.keys(),
-                unittest.mock.call.__getattr__("__getitem__")("private"),
-            ],
-        )
+        self.assertFalse(self.vm.storage.called)
+
+    def test_110_vm_volume_revert_non_ascii(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.volume.Revert",
+                b"test-vm1",
+                b"private",
+                b"rev\xff1",
+            )
+        self.assertFalse(self.vm.volumes["private"].revert.called)
         self.assertFalse(self.vm.storage.called)
 
     def test_120_vm_volume_resize(self):
@@ -1055,6 +1076,32 @@ netvm default=True type=vm \n"""
 
     @unittest.mock.patch("qubes.storage.pool_drivers")
     @unittest.mock.patch("qubes.storage.driver_parameters")
+    def test_160_pool_add_wrong_payload(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            "file": unittest.mock.Mock(),
+            "lvm": unittest.mock.Mock(),
+        }
+
+        mock_drivers.return_value = ["driver1", "driver2"]
+        mock_parameters.side_effect = lambda driver: {
+            "driver1": {"param1": True, "param2": True},
+            "driver2": {"param3": True, "param4": True},
+        }[driver]
+
+        add_pool_mock, self.app.add_pool = self.coroutine_mock()
+
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.pool.Add",
+                b"dom0",
+                b"driver1",
+                "name=test-pool\nparam1=\u00f6\n".encode(),
+            )
+        self.assertEqual(add_pool_mock.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.pool_drivers")
+    @unittest.mock.patch("qubes.storage.driver_parameters")
     def test_160_pool_add_missing_param(self, mock_parameters, mock_drivers):
         self.app.pools = {
             "file": unittest.mock.Mock(),
@@ -1095,7 +1142,7 @@ netvm default=True type=vm \n"""
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.exc.QubesException):
+        with self.assertRaises(qubes.exc.PermissionDenied):
             self.call_mgmt_func(
                 b"admin.pool.Add",
                 b"dom0",
@@ -1123,7 +1170,7 @@ netvm default=True type=vm \n"""
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.exc.QubesException):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.pool.Add",
                 b"dom0",
@@ -1153,7 +1200,7 @@ netvm default=True type=vm \n"""
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.pool.Add",
                 b"dom0",
@@ -1181,7 +1228,7 @@ netvm default=True type=vm \n"""
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesPoolInUseError):
             self.call_mgmt_func(
                 b"admin.pool.Add",
                 b"dom0",
@@ -1189,7 +1236,6 @@ netvm default=True type=vm \n"""
                 b"name=file\nparam1=value\nparam2=some-value\n",
             )
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
-        self.assertEqual(mock_parameters.mock_calls, [])
         self.assertEqual(add_pool_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
@@ -1211,7 +1257,7 @@ netvm default=True type=vm \n"""
 
         add_pool_mock, self.app.add_pool = self.coroutine_mock()
 
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.pool.Add",
                 b"dom0",
@@ -1267,6 +1313,11 @@ netvm default=True type=vm \n"""
         )
         self.assertFalse(self.app.save.called)
 
+    def test_191_label_get_invalid(self):
+        with self.assertRaises(qubes.exc.QubesInvalidLabelError):
+            self.call_mgmt_func(b"admin.label.Get", b"dom0", b" ")
+        self.assertFalse(self.app.save.called)
+
     def test_195_label_index(self):
         self.app.get_label = unittest.mock.Mock()
         self.app.get_label.configure_mock(**{"return_value.index": 1})
@@ -1311,13 +1362,31 @@ netvm default=True type=vm \n"""
             "keys.return_value": range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaisesRegex(
+            qubes.exc.QubesInvalidLabelValueError, "encoded in ASCII"
+        ):
             self.call_mgmt_func(
-                b"admin.label.Create", b"dom0", b"cyan", b"abcd"
+                b"admin.label.Create", b"dom0", b"cyan", "\u00f6".encode()
             )
-        self.assertEqual(
-            self.app.get_label.mock_calls, [unittest.mock.call("cyan")]
-        )
+        with self.assertRaisesRegex(
+            qubes.exc.QubesInvalidLabelValueError, "length of 8"
+        ):
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"cyan", b"0x00fffff"
+            )
+        with self.assertRaisesRegex(
+            qubes.exc.QubesInvalidLabelValueError, "must start with: 0x"
+        ):
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"cyan", b"0X00ffff"
+            )
+        with self.assertRaisesRegex(
+            qubes.exc.QubesInvalidLabelValueError,
+            "hexadecimal digits after prefix",
+        ):
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"cyan", b"0x00fffg"
+            )
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
@@ -1329,7 +1398,7 @@ netvm default=True type=vm \n"""
             "keys.return_value": range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.label.Create", b"dom0", b"01", b"0xff0000"
             )
@@ -1351,8 +1420,10 @@ netvm default=True type=vm \n"""
 
     def test_200_label_create_already_exists(self):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label)
-        with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b"admin.label.Create", b"dom0", b"red", b"abcd")
+        with self.assertRaises(qubes.exc.QubesLabelInUseError):
+            self.call_mgmt_func(
+                b"admin.label.Create", b"dom0", b"red", b"0xff0000"
+            )
         self.assertEqual(
             self.app.get_label.mock_calls, [unittest.mock.call("red")]
         )
@@ -1373,8 +1444,19 @@ netvm default=True type=vm \n"""
         )
         self.assertTrue(self.app.save.called)
 
+    def test_211_label_remove_in_use(self):
+        label = qubes.Label(9, "0x00ffff", "cyan")
+        self.app.labels[9] = label
+        self.app.get_label = unittest.mock.Mock(**{"return_value.index": 9})
+        self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
+        self.vm.label = "cyan"
+        with self.assertRaises(qubes.exc.QubesLabelInUseError):
+            self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"cyan")
+        self.assertEqual(self.app.labels.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
     def test_210_label_remove_invalid_label(self):
-        with self.assertRaises(qubes.exc.QubesValueError):
+        with self.assertRaises(qubes.exc.QubesLabelNotFoundError):
             self.call_mgmt_func(
                 b"admin.label.Remove", b"dom0", b"no-such-label"
             )
@@ -1383,7 +1465,7 @@ netvm default=True type=vm \n"""
     def test_210_label_remove_default_label(self):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(**{"return_value.index": 6})
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"blue")
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
@@ -1391,7 +1473,7 @@ netvm default=True type=vm \n"""
     def test_210_label_remove_in_use(self):
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
         self.app.get_label = unittest.mock.Mock(**{"return_value.index": 1})
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"admin.label.Remove", b"dom0", b"red")
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
@@ -1473,7 +1555,7 @@ netvm default=True type=vm \n"""
             return func_mock(*args, **kwargs)
 
         self.vm.shutdown = coroutine_mock
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"admin.vm.Shutdown", b"test-vm1", b"forcewait")
         func_mock.assert_not_called()
 
@@ -1654,6 +1736,56 @@ netvm default=True type=vm \n"""
                     [
                         unittest.mock.call(self.app, "connection-established"),
                         unittest.mock.call(self.vm, "test-event", arg1="abc"),
+                    ],
+                )
+
+    def test_273_events_single(self):
+        vm2 = self.app.add_new_vm(
+            "AppVM",
+            label="red",
+            name="test-vm2",
+            template="test-template",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pathlib.Path(tmpdir)
+            with unittest.mock.patch(
+                "qubes.ext.admin.AdminExtension._instance.policy_cache.paths",
+                [pathlib.Path(tmpdir)],
+            ):
+                with (tmpdir / "admin.policy").open("w") as file:
+                    file.write("admin.Events * test-vm1 test-vm2 allow")
+
+                send_event = unittest.mock.Mock(spec=[])
+                mgmt_obj = qubes.api.admin.QubesAdminAPI(
+                    self.app,
+                    b"test-vm1",
+                    b"admin.Events",
+                    b"test-vm2",
+                    b"",
+                    send_event=send_event,
+                )
+
+                async def fire_event():
+                    vm2.fire_event("test-event2", arg1="abc")
+                    self.vm.fire_event("test-event", arg1="abc")
+                    mgmt_obj.cancel()
+                    return vm2
+
+                loop = asyncio.get_event_loop()
+                execute_task = asyncio.ensure_future(
+                    mgmt_obj.execute(untrusted_payload=b"")
+                )
+                event_task = asyncio.ensure_future(fire_event())
+                loop.run_until_complete(execute_task)
+                event_task.result()
+                self.assertIsNone(execute_task.result())
+
+                self.assertEqual(
+                    send_event.mock_calls,
+                    [
+                        unittest.mock.call(self.app, "connection-established"),
+                        unittest.mock.call(vm2, "test-event2", arg1="abc"),
                     ],
                 )
 
@@ -1863,13 +1995,50 @@ netvm default=True type=vm \n"""
         self.assertEqual(self.vm.features["test-feature"], "")
         self.assertTrue(self.app.save.called)
 
-    def test_322_feature_set_invalid(self):
-        with self.assertRaises(UnicodeDecodeError):
+    def test_322_feature_set_invalid_value(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.feature.Set",
                 b"test-vm1",
                 b"test-feature",
                 b"\x02\x03\xffsome-value",
+            )
+        self.assertNotIn("test-feature", self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Set",
+                b"test-vm1",
+                b"test-feature",
+                "\u00f6".encode(),
+            )
+        self.assertNotIn("test-feature", self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+    def test_322_feature_set_invalid_key(self):
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "expected an argument"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Set",
+                b"test-vm1",
+                b"",
+                b"value",
+            )
+        self.assertNotIn("test-feature", self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "illegal characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.feature.Set",
+                b"test-vm1",
+                b" ",
+                b"",
             )
         self.assertNotIn("test-feature", self.vm.features)
         self.assertFalse(self.app.save.called)
@@ -1933,7 +2102,7 @@ netvm default=True type=vm \n"""
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_331_vm_create_standalone_spurious_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.exc.QubesValueError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.Create.StandaloneVM",
                 b"dom0",
@@ -1977,6 +2146,26 @@ netvm default=True type=vm \n"""
         )
 
         self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_333_vm_create_appvm_invalid_template(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesVMNotFoundError):
+            self.call_mgmt_func(
+                b"admin.vm.Create.AppVM",
+                b"dom0",
+                b"test-template-inexistent",
+                b"name=test-vm2 label=red",
+            )
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertEqual(storage_mock.mock_calls, [])
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(self.test_base_dir, "appvms", "test-vm2")
+            )
+        )
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_333_vm_create_app_default_template(self, storage_mock):
@@ -2060,7 +2249,7 @@ netvm default=True type=vm \n"""
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_337_vm_create_duplicate_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.exc.QubesException):
+        with self.assertRaises(qubes.exc.QubesVMAlreadyExistsError):
             self.call_mgmt_func(
                 b"admin.vm.Create.AppVM",
                 b"dom0",
@@ -2081,6 +2270,20 @@ netvm default=True type=vm \n"""
                 b"name=test-vm2 name=test-vm3 label=red",
             )
 
+        self.assertNotIn("test-vm2", self.app.domains)
+        self.assertNotIn("test-vm3", self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_339_vm_create_spurious_params(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaisesRegex(qubes.exc.ProtocolError, "does not match"):
+            self.call_mgmt_func(
+                b"admin.vm.Create.AppVM",
+                b"dom0",
+                b"test-template",
+                b"name=test-vm2 label=red what=is",
+            )
         self.assertNotIn("test-vm2", self.app.domains)
         self.assertNotIn("test-vm3", self.app.domains)
         self.assertFalse(self.app.save.called)
@@ -2186,7 +2389,7 @@ netvm default=True type=vm \n"""
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.CreateInPool.AppVM",
                 b"dom0",
@@ -2245,6 +2448,43 @@ netvm default=True type=vm \n"""
             b"admin.property.Get", b"dom0", b"default_kernel"
         )
         self.assertEqual(value, "default=False type=str 1.0")
+
+    def test_411_property_get_all(self):
+        expected = """check_updates_vm default=True type=bool True
+clockvm default=True type=vm 
+default_audiovm default=True type=vm dom0
+default_dispvm default=True type=vm 
+default_guivm default=True type=vm dom0
+default_kernel default=False type=str 1.0
+default_netvm default=False type=vm 
+default_pool default=False type=str varlibqubes
+default_pool_kernel default=False type=str linux-kernel
+default_pool_private default=True type=str varlibqubes
+default_pool_root default=True type=str varlibqubes
+default_pool_volatile default=True type=str varlibqubes
+default_qrexec_timeout default=True type=int 60
+default_shutdown_timeout default=True type=int 60
+default_template default=False type=vm test-template
+management_dispvm default=True type=vm 
+maxmem default=True type=int {maxmem}
+no_cpus default=True type=int 42
+stats_interval default=True type=int 3
+updatevm default=True type=vm \n""".format(maxmem=self.app.maxmem)
+        value = self.call_mgmt_func(b"admin.property.GetAll", b"dom0", b"")
+        self.maxDiff = None
+        self.assertEqual(value, expected)
+
+    def test_411_property_get_default_none(self):
+        value = self.call_mgmt_func(
+            b"admin.property.GetDefault", b"dom0", b"default_template"
+        )
+        self.assertEqual(value, None)
+
+    def test_411_property_get_default_bool(self):
+        value = self.call_mgmt_func(
+            b"admin.property.GetDefault", b"dom0", b"updatevm"
+        )
+        self.assertEqual(value, "type=vm ")
 
     def test_420_propert_set_str(self):
         # actual function tested for admin.vm.property.* already
@@ -3111,6 +3351,20 @@ netvm default=True type=vm \n"""
     # Import tests
     # (internal methods, normally called from qubes-rpc script)
 
+    def test_509_vm_volume_import_begin_wrong_volume(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_internal_mgmt_func(
+                b"internal.vm.volume.ImportBegin", b"test-vm1", b"inexistent"
+            )
+        self.assertFalse(self.app.save.called)
+
+    def test_509_vm_volume_import_end_wrong_volume(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_internal_mgmt_func(
+                b"internal.vm.volume.ImportEnd", b"test-vm1", b"inexistent"
+            )
+        self.assertFalse(self.app.save.called)
+
     def test_510_vm_volume_import(self):
         value = self.call_internal_mgmt_func(
             b"internal.vm.volume.ImportBegin", b"test-vm1", b"private"
@@ -3304,6 +3558,64 @@ netvm default=True type=vm \n"""
         )
         self.assertFalse(self.app.save.called)
 
+    def test_522_vm_volume_clone_invalid_token(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.CloneTo",
+                b"test-vm1",
+                b"private",
+                token.encode() + "\u00f6".encode(),
+            )
+        self.assertNotIn(
+            "init_volume().import_volume",
+            map(operator.itemgetter(0), self.pool.mock_calls),
+        )
+        self.assertFalse(self.app.save.called)
+
+    def test_523_vm_volume_clone_wrong_pool(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+
+        self.app.pools = {
+            "pool1": unittest.mock.Mock(
+                config={"param1": "value1", "param2": "value2"},
+                usage=102400,
+                size=204800,
+                volumes={
+                    "vol1": unittest.mock.Mock(),
+                    "vol2": unittest.mock.Mock(),
+                },
+            )
+        }
+        with self.assertRaises(qubes.exc.QubesPoolNotFoundError):
+            self.call_mgmt_func(
+                b"admin.vm.volume.CloneTo",
+                b"test-vm1",
+                b"private",
+                token.encode(),
+            )
+        self.assertNotIn(
+            "init_volume().import_volume",
+            map(operator.itemgetter(0), self.pool.mock_calls),
+        )
+        self.assertFalse(self.app.save.called)
+
     def test_523_vm_volume_clone_removed_volume(self):
         self.setup_for_clone()
 
@@ -3322,7 +3634,7 @@ netvm default=True type=vm \n"""
                 return unittest.mock.DEFAULT
 
         self.pool.get_volume.side_effect = get_volume
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.QubesVolumeNotFoundError):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneTo",
                 b"test-vm1",
@@ -3342,7 +3654,7 @@ netvm default=True type=vm \n"""
         self.vm.storage.get_volume = lambda x: x
         self.vm2.storage.get_volume = lambda x: x
 
-        with self.assertRaises(qubes.exc.PermissionDenied):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.volume.CloneTo",
                 b"test-vm1",
@@ -3374,6 +3686,52 @@ netvm default=True type=vm \n"""
                 b"private",
                 token.encode(),
             )
+
+    def test_526_vm_volume_clone_token_in_use(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+
+        token = "a" * 32
+        self.app.api_admin_pending_clone = {token: self.vm.volumes["private"]}
+        with unittest.mock.patch(
+            "qubes.utils.random_string", return_value=token
+        ):
+            with self.assertRaises(qubes.exc.QubesVolumeCopyInUseError) as cm:
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+                )
+        self.assertIs(cm.exception.vm, self.vm)
+        self.assertEqual(cm.exception.volume, "private")
+        self.assertEqual(
+            str(cm.exception),
+            "Domain volume is being cloned already: 'test-vm1':'private'",
+        )
+        self.assertFalse(self.app.save.called)
+
+    def test_527_vm_volume_clone_running(self):
+        self.setup_for_clone()
+
+        self.vm.volumes["private"].is_running = lambda: False
+        self.vm.storage.get_volume = lambda x: x
+        self.vm2.storage.get_volume = lambda x: x
+
+        token = self.call_mgmt_func(
+            b"admin.vm.volume.CloneFrom", b"test-vm1", b"private", b""
+        )
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.CloneTo",
+                    b"test-vm2",
+                    b"private",
+                    token.encode(),
+                )
+        self.assertFalse(self.vm2.volumes["private"].import_volume.called)
+        self.assertFalse(self.app.save.called)
 
     def test_530_tag_list(self):
         self.vm.tags.add("tag1")
@@ -3414,9 +3772,20 @@ netvm default=True type=vm \n"""
         self.assertTrue(self.app.save.called)
 
     def test_561_tag_set_invalid(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"+.some-tag")
         self.assertNotIn("+.some-tag", self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
+    def test_562_tag_set_invalid_empty(self):
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"")
+        self.assertNotIn("", self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
+        with self.assertRaises(qubes.exc.QubesInvalidTagError):
+            self.call_mgmt_func(b"admin.vm.tag.Set", b"test-vm1", b"+")
+        self.assertNotIn("", self.vm.tags)
         self.assertFalse(self.app.save.called)
 
     def test_570_firewall_get(self):
@@ -3425,6 +3794,13 @@ netvm default=True type=vm \n"""
         self.assertEqual(value, "action=accept\n")
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
+
+    def test_570_firewall_get_invalid_dest(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "destination to not be AdminVM"
+        ):
+            self.call_mgmt_func(b"admin.vm.firewall.Get", b"dom0", b"")
 
     def test_571_firewall_get_non_default(self):
         self.vm.firewall.save = unittest.mock.Mock()
@@ -3533,7 +3909,7 @@ netvm default=True type=vm \n"""
         rules_txt = (
             "action=accept dstports=1-1024 comment=ążźł\n" "action=drop\n"
         )
-        with self.assertRaises(UnicodeDecodeError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.firewall.Set", b"test-vm1", b"", rules_txt.encode()
             )
@@ -3542,6 +3918,21 @@ netvm default=True type=vm \n"""
         )
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
+
+    def test_586_firewall_set_invalid_comment(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = b"action=drop\naction=accept comment=Access?\n"
+        with self.assertRaisesRegex(
+            qubes.exc.QubesValueError, "Invalid firewall comment"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.firewall.Set", b"test-vm1", b"", rules_txt
+            )
+        self.assertEqual(
+            self.vm.firewall.rules, [qubes.firewall.Rule(action="accept")]
+        )
+        self.vm.firewall.save.assert_not_called()
+        self.app.save.assert_not_called()
 
     def test_590_firewall_reload(self):
         self.vm.firewall.save = unittest.mock.Mock()
@@ -3623,6 +4014,18 @@ netvm default=True type=vm \n"""
                 "qubes.config.backup_profile_dir", profile_dir
             ):
                 with self.assertRaises(qubes.exc.QubesException):
+                    self.call_mgmt_func(
+                        b"admin.backup.Info", b"dom0", b"testprofile"
+                    )
+
+    def test_603_backup_info_profile_missing(self):
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with unittest.mock.patch(
+                "qubes.config.backup_profile_dir", profile_dir
+            ):
+                with self.assertRaises(
+                    qubes.exc.QubesBackupProfileNotFoundError
+                ):
                     self.call_mgmt_func(
                         b"admin.backup.Info", b"dom0", b"testprofile"
                     )
@@ -3811,24 +4214,34 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
         stats1 = {
             0: {
+                "name": "dom0",
+                "is_stubdom": False,
+                "memory_kb": 3733212,
+                "memory_assigned_total": 3733244,
+                "memory_assigned_usable": 3733212,
+                "memory_with_swap_used": 3733212,
+                "swap_used": 0,
                 "cpu_time": 243951379111104 // 8,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 3733212,
+                "online_vcpus": 16,
             },
             1: {
+                "name": "test-template",
+                "is_stubdom": False,
+                "memory_kb": 303916,
+                "memory_assigned_total": 303932,
+                "memory_assigned_usable": 303916,
+                "memory_with_swap_used": 303916,
+                "swap_used": 0,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 303916,
+                "online_vcpus": 2,
             },
         }
         stats2 = copy.deepcopy(stats1)
         stats2[0]["cpu_time"] += 100000000
         stats2[0]["cpu_usage"] = 10
-        stats2[0]["cpu_usage_raw"] = 10
         stats2[1]["cpu_usage"] = 5
-        stats2[1]["cpu_usage_raw"] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1),
@@ -3876,59 +4289,83 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 unittest.mock.call(0, stats1, only_vm=None),
             ],
         )
-        self.assertEqual(
-            send_event.mock_calls,
-            [
-                unittest.mock.call(self.app, "connection-established"),
-                unittest.mock.call(
-                    "dom0",
-                    "vm-stats",
-                    cpu_time=stats1[0]["cpu_time"] // 1000000,
-                    cpu_usage=stats1[0]["cpu_usage"],
-                    cpu_usage_raw=stats1[0]["cpu_usage_raw"],
-                    memory_kb=stats1[0]["memory_kb"],
-                ),
-                unittest.mock.call(
-                    "test-template",
-                    "vm-stats",
-                    cpu_time=stats1[1]["cpu_time"] // 1000000,
-                    cpu_usage=stats1[1]["cpu_usage"],
-                    cpu_usage_raw=stats1[1]["cpu_usage_raw"],
-                    memory_kb=stats1[1]["memory_kb"],
-                ),
-                unittest.mock.call(
-                    "dom0",
-                    "vm-stats",
-                    cpu_time=stats2[0]["cpu_time"] // 1000000,
-                    cpu_usage=stats2[0]["cpu_usage"],
-                    cpu_usage_raw=stats2[0]["cpu_usage_raw"],
-                    memory_kb=stats2[0]["memory_kb"],
-                ),
-                unittest.mock.call(
-                    "test-template",
-                    "vm-stats",
-                    cpu_time=stats2[1]["cpu_time"] // 1000000,
-                    cpu_usage=stats2[1]["cpu_usage"],
-                    cpu_usage_raw=stats2[1]["cpu_usage_raw"],
-                    memory_kb=stats2[1]["memory_kb"],
-                ),
-            ],
-        )
+
+        expected = [
+            unittest.mock.call(self.app, "connection-established"),
+            unittest.mock.call(
+                "dom0",
+                "vm-stats",
+                memory_kb=stats1[0]["memory_kb"],
+                memory_assigned_total=stats1[0]["memory_assigned_total"],
+                memory_assigned_usable=stats1[0]["memory_assigned_usable"],
+                memory_with_swap_used=stats1[0]["memory_with_swap_used"],
+                swap_used=stats1[0]["swap_used"],
+                cpu_time=stats1[0]["cpu_time"] // 1000000,
+                cpu_usage=stats1[0]["cpu_usage"],
+                online_vcpus=stats1[0]["online_vcpus"],
+            ),
+            unittest.mock.call(
+                "test-template",
+                "vm-stats",
+                memory_kb=stats1[1]["memory_kb"],
+                memory_assigned_total=stats1[1]["memory_assigned_total"],
+                memory_assigned_usable=stats1[1]["memory_assigned_usable"],
+                memory_with_swap_used=stats1[1]["memory_with_swap_used"],
+                swap_used=stats1[1]["swap_used"],
+                cpu_time=stats1[1]["cpu_time"] // 1000000,
+                cpu_usage=stats1[1]["cpu_usage"],
+                online_vcpus=stats1[1]["online_vcpus"],
+            ),
+            unittest.mock.call(
+                "dom0",
+                "vm-stats",
+                memory_kb=stats2[0]["memory_kb"],
+                memory_assigned_total=stats2[0]["memory_assigned_total"],
+                memory_assigned_usable=stats2[0]["memory_assigned_usable"],
+                memory_with_swap_used=stats2[0]["memory_with_swap_used"],
+                swap_used=stats2[0]["swap_used"],
+                cpu_time=stats2[0]["cpu_time"] // 1000000,
+                cpu_usage=stats2[0]["cpu_usage"],
+                online_vcpus=stats2[0]["online_vcpus"],
+            ),
+            unittest.mock.call(
+                "test-template",
+                "vm-stats",
+                memory_kb=stats2[1]["memory_kb"],
+                memory_assigned_total=stats2[1]["memory_assigned_total"],
+                memory_assigned_usable=stats2[1]["memory_assigned_usable"],
+                memory_with_swap_used=stats2[1]["memory_with_swap_used"],
+                swap_used=stats2[1]["swap_used"],
+                cpu_time=stats2[1]["cpu_time"] // 1000000,
+                cpu_usage=stats2[1]["cpu_usage"],
+                online_vcpus=stats2[1]["online_vcpus"],
+            ),
+        ]
+
+        self.assertEqual(send_event.mock_calls, expected)
 
     def test_631_vm_stats_single_vm(self):
         send_event = unittest.mock.Mock(spec=[])
 
         stats1 = {
             2: {
+                "name": "test-vm1",
+                "is_stubdom": False,
+                "memory_kb": 303916,
+                "memory_assigned_usable": 303932,
+                "memory_assigned_total": 303916,
+                "memory_with_swap_used": 300000,
+                "swap_used": 0,
                 "cpu_time": 2849496569205,
                 "cpu_usage": 0,
-                "cpu_usage_raw": 0,
-                "memory_kb": 303916,
+                "online_vcpus": 2,
+                "cpu_time_internal": 2849496569205,
+                "cpu_usage_internal": 0.0,
+                "online_vcpus_internal": 1,
             },
         }
         stats2 = copy.deepcopy(stats1)
         stats2[2]["cpu_usage"] = 5
-        stats2[2]["cpu_usage_raw"] = 5
         self.app.host.get_vm_stats = unittest.mock.Mock()
         self.app.host.get_vm_stats.side_effect = [
             (0, stats1),
@@ -3976,28 +4413,40 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                 unittest.mock.call(0, stats1, only_vm=self.vm),
             ],
         )
-        self.assertEqual(
-            send_event.mock_calls,
-            [
-                unittest.mock.call(self.app, "connection-established"),
-                unittest.mock.call(
-                    "test-vm1",
-                    "vm-stats",
-                    cpu_time=stats1[2]["cpu_time"] // 1000000,
-                    cpu_usage=stats1[2]["cpu_usage"],
-                    cpu_usage_raw=stats1[2]["cpu_usage_raw"],
-                    memory_kb=stats1[2]["memory_kb"],
-                ),
-                unittest.mock.call(
-                    "test-vm1",
-                    "vm-stats",
-                    cpu_time=stats2[2]["cpu_time"] // 1000000,
-                    cpu_usage=stats2[2]["cpu_usage"],
-                    cpu_usage_raw=stats2[2]["cpu_usage_raw"],
-                    memory_kb=stats2[2]["memory_kb"],
-                ),
-            ],
-        )
+        expected = [
+            unittest.mock.call(self.app, "connection-established"),
+            unittest.mock.call(
+                "test-vm1",
+                "vm-stats",
+                memory_kb=stats1[2]["memory_kb"],
+                memory_assigned_total=stats1[2]["memory_assigned_total"],
+                memory_assigned_usable=stats1[2]["memory_assigned_usable"],
+                memory_with_swap_used=stats1[2]["memory_with_swap_used"],
+                swap_used=stats1[2]["swap_used"],
+                cpu_time=stats1[2]["cpu_time"] // 1000000,
+                cpu_usage=stats1[2]["cpu_usage"],
+                online_vcpus=stats1[2]["online_vcpus"],
+                cpu_time_internal=stats1[2]["cpu_time_internal"] // 1000000,
+                cpu_usage_internal=stats1[2]["cpu_usage_internal"],
+                online_vcpus_internal=stats1[2]["online_vcpus_internal"],
+            ),
+            unittest.mock.call(
+                "test-vm1",
+                "vm-stats",
+                memory_kb=stats2[2]["memory_kb"],
+                memory_assigned_total=stats2[2]["memory_assigned_total"],
+                memory_assigned_usable=stats2[2]["memory_assigned_usable"],
+                memory_with_swap_used=stats2[2]["memory_with_swap_used"],
+                swap_used=stats2[2]["swap_used"],
+                cpu_time=stats2[2]["cpu_time"] // 1000000,
+                cpu_usage=stats2[2]["cpu_usage"],
+                online_vcpus=stats2[2]["online_vcpus"],
+                cpu_time_internal=stats2[2]["cpu_time_internal"] // 1000000,
+                cpu_usage_internal=stats2[2]["cpu_usage_internal"],
+                online_vcpus_internal=stats2[2]["online_vcpus_internal"],
+            ),
+        ]
+        self.assertEqual(send_event.mock_calls, expected)
 
     @unittest.mock.patch("qubes.storage.Storage.create")
     def test_640_vm_create_disposable(self, mock_storage):
@@ -4049,6 +4498,17 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             self.call_mgmt_func(b"admin.vm.CreateDisposable", b"test-vm1")
         self.assertFalse(self.app.save.called)
 
+    @unittest.mock.patch("qubes.storage.Storage.create")
+    def test_642_vm_create_disposable_wrong_arg(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.template_for_dispvms = True
+        self.app.default_dispvm = self.vm
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(
+                b"admin.vm.CreateDisposable", b"test-vm1", b"oops"
+            )
+        self.assertFalse(self.app.save.called)
+
     @unittest.mock.patch("qubes.vm.dispvm.DispVM.start")
     @unittest.mock.patch("qubes.storage.Storage.verify")
     @unittest.mock.patch("qubes.storage.Storage.create")
@@ -4068,6 +4528,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         )
         self.vm.features["qrexec"] = "1"
         self.vm.features["supported-rpc.qubes.WaitForRunningSystem"] = "1"
+        self.vm.features["supported-rpc.qubes.WaitForSession"] = "1"
         self.vm.features["preload-dispvm-max"] = "1"
         for _ in range(10):
             if len(self.vm.get_feat_preload()) == 1:
@@ -4276,7 +4737,7 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         with unittest.mock.patch.object(
             qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
         ):
-            with self.assertRaises(qubes.exc.PermissionDenied):
+            with self.assertRaises(qubes.exc.ProtocolError):
                 self.call_mgmt_func(
                     b"admin.vm.device.testclass.Set.assignment",
                     b"test-vm1",
@@ -4330,12 +4791,26 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
     def test_664_vm_device_denied_add_repeated(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.device.denied.Add",
                 b"test-vm1",
                 b"",
                 b"u112233u112233",
+            )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
+        self.assertFalse(self.app.save.called)
+
+    def test_664_vm_device_denied_add_invalid(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.device.denied.Add",
+                b"test-vm1",
+                b"",
+                "u112233u112233\u00f6\n".encode(),
             )
         self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
@@ -4366,12 +4841,26 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
     def test_671_vm_device_denied_remove_repeated(self):
         self.vm.devices_denied = "b******p012345p53**2*"
-        with self.assertRaises(qubes.exc.QubesValueError):
+        with self.assertRaises(qubes.exc.ProtocolError):
             self.call_mgmt_func(
                 b"admin.vm.device.denied.Remove",
                 b"test-vm1",
                 b"",
                 b"b******b******",
+            )
+        self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
+        self.assertFalse(self.app.save.called)
+
+    def test_671_vm_device_denied_remove_invalid(self):
+        self.vm.devices_denied = "b******p012345p53**2*"
+        with self.assertRaisesRegex(
+            qubes.exc.ProtocolError, "non-ASCII characters"
+        ):
+            self.call_mgmt_func(
+                b"admin.vm.device.denied.Remove",
+                b"test-vm1",
+                b"",
+                "u112233u112233\u00f6\n".encode(),
             )
         self.assertEqual(self.vm.devices_denied, "b******p012345p53**2*")
         self.assertFalse(self.app.save.called)
@@ -4778,10 +5267,29 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             self.assertEventFired(self.emitter, "domain-volume-import-begin")
             self.assertEventFired(self.emitter, "domain-volume-import-end")
 
+    def test_811_vm_volume_clear_running(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            "keys.return_value": ["root", "private", "volatile", "kernel"],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with unittest.mock.patch.object(
+            qubes.vm.qubesvm.QubesVM, "is_halted", lambda _: False
+        ):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(
+                    b"admin.vm.volume.Clear", b"test-vm1", b"private"
+                )
+        self.assertEqual(self.vm.storage.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
     def test_900_current_state_default(self):
-        value = self.call_mgmt_func(b"admin.vm.CurrentState", b"test-vm1")
+        vm = self.app.domains["test-vm1"]
+        value = self.call_mgmt_func(b"admin.vm.CurrentState", vm.name.encode())
+        maxmem = vm.maxmem * 1024
         self.assertEqual(
-            value, "mem=0 mem_static_max=0 cputime=0 power_state=Halted"
+            value, f"mem=0 mem_static_max={maxmem} cputime=0 power_state=Halted"
         )
 
     def test_901_current_state_changed(self):
@@ -4794,6 +5302,34 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             value,
             "mem=512 mem_static_max=1024 cputime=100 power_state=Running",
         )
+
+    def test_910_deviceclass_list(self):
+        value = self.call_mgmt_func(b"admin.deviceclass.List", b"dom0")
+        classes = value.splitlines()
+        for line in classes:
+            self.assertNotIn("=", line)
+        self.assertIn("pci", classes)
+        self.assertIn("block", classes)
+
+    def test_911_deviceclass_list_details(self):
+        value = self.call_mgmt_func(
+            b"admin.deviceclass.List", b"dom0", b"details"
+        )
+        parsed = {}
+        for line in value.splitlines():
+            name, _, rest = line.partition(" ")
+            parsed[name] = rest
+        self.assertIn("pci", parsed)
+        self.assertIn("block", parsed)
+        self.assertEqual(parsed["pci"], "assignment_modes=required")
+        self.assertEqual(
+            parsed["block"],
+            "assignment_modes=ask-to-attach,auto-attach,manual,required",
+        )
+
+    def test_912_deviceclass_list_bad_argument(self):
+        with self.assertRaises(qubes.exc.PermissionDenied):
+            self.call_mgmt_func(b"admin.deviceclass.List", b"dom0", b"badarg")
 
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
@@ -4870,7 +5406,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             b"admin.vm.firewall.Get",
             b"admin.vm.firewall.Set",
             b"admin.vm.firewall.Reload",
-            b"admin.deviceclass.List",
             b"admin.vm.device.denied.List",
             b"admin.vm.volume.List",
             b"admin.vm.Start",
@@ -4887,17 +5422,16 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(qubes.exc.PermissionDenied):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"test-vm1", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(
                         method, b"test-vm1", b"unexpected-arg", b"some-payload"
                     )
@@ -4951,7 +5485,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
 
     def test_993_dom0_unexpected_argument(self):
         methods_with_no_argument = [
-            b"admin.deviceclass.List",
             b"admin.vmclass.List",
             b"admin.vm.List",
             b"admin.label.List",
@@ -4966,17 +5499,16 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_with_no_argument:
             # should reject argument regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(qubes.exc.PermissionDenied):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"dom0", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(
                         method, b"dom0", b"unexpected-arg", b"some-payload"
                     )
@@ -5007,12 +5539,6 @@ running and private volume snapshots are disabled. Backup will fail!\n"
             b"admin.pool.Info",
             b"admin.pool.Add",
             b"admin.pool.Remove",
-            # b"admin.pool.volume.List",
-            # b"admin.pool.volume.Info",
-            # b"admin.pool.volume.ListSnapshots",
-            # b"admin.pool.volume.Snapshot",
-            # b"admin.pool.volume.Revert",
-            # b"admin.pool.volume.Resize",
             b"admin.backup.Execute",
             b"admin.backup.Info",
         ]
@@ -5022,29 +5548,28 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_for_dom0_only:
             # should reject call regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"test-vm1", b"", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"test-vm1", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"test-vm1", b"", b"payload")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(
                         method, b"test-vm1", b"some-arg", b"some-payload"
                     )
@@ -5107,30 +5632,29 @@ running and private volume snapshots are disabled. Backup will fail!\n"
         vm_mock.qid = self.vm.qid
         vm_mock.__lt__ = lambda x, y: x.qid < y.qid
         self.app.domains._dict[self.vm.qid] = vm_mock
-        exceptions = (qubes.exc.PermissionDenied, qubes.exc.ProtocolError)
         for method in methods_for_vm_only:
             # should reject payload regardless of having argument or not
             # should reject call regardless of having payload or not
             with self.subTest(method.decode("ascii")):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"dom0", b"", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"dom0", b"some-arg", b"")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(method, b"dom0", b"", b"payload")
                 self.assertFalse(vm_mock.called)
                 self.assertFalse(self.app.save.called)
 
             with self.subTest(method.decode("ascii") + "+arg+payload"):
-                with self.assertRaises(exceptions):
+                with self.assertRaises(qubes.exc.ProtocolError):
                     self.call_mgmt_func(
                         method, b"dom0", b"some-arg", b"some-payload"
                     )

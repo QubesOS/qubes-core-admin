@@ -32,6 +32,27 @@ import qubes.tests
 
 VM_PREFIX = "test-"
 
+try:
+    dom0_releasever = [
+        line.split()[2]
+        for line in subprocess.check_output(
+            [
+                "rpm",
+                "-q",
+                "--whatprovides",
+                "--qf",
+                "[%{PROVIDENEVRS}\n]",
+                "system-release",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+        .decode()
+        .splitlines()
+        if line.startswith("system-release(releasever) = ")
+    ][0]
+except subprocess.CalledProcessError:
+    dom0_releasever = "4.3"
+
 
 @unittest.skipUnless(
     os.path.exists("/usr/bin/rpmsign") and os.path.exists("/usr/bin/rpmbuild"),
@@ -59,8 +80,7 @@ class TC_00_Dom0UpgradeMixin(object):
             stdin=subprocess.PIPE,
             stderr=open(os.devnull, "w"),
         )
-        p.stdin.write(
-            """
+        p.stdin.write("""
 Key-Type: RSA
 Key-Length: 4096
 Key-Usage: sign
@@ -68,10 +88,7 @@ Name-Real: Qubes test
 Expire-Date: 0
 %no-protection
 %commit
-        """.format(
-                keydir=keydir
-            ).encode()
-        )
+        """.format(keydir=keydir).encode())
         p.stdin.close()
         p.wait()
 
@@ -101,15 +118,13 @@ Expire-Date: 0
     @classmethod
     def write_repo_file(cls, hostname="localhost"):
         with open("/etc/yum.repos.d/test.repo", "w") as repo_file:
-            repo_file.write(
-                f"""
+            repo_file.write(f"""
 [test]
 name = Test
 baseurl = http://{hostname}:8080/
 gpgkey = file://{cls.pubkey_path}
 enabled = 1
-"""
-            )
+""")
 
     @classmethod
     def tearDownClass(cls):
@@ -162,8 +177,7 @@ enabled = 1
     def create_pkg(self, dir, name, version):
         spec_path = os.path.join(dir, name + ".spec")
         spec = open(spec_path, "w")
-        spec.write(
-            """
+        spec.write("""
 Name:       {name}
 Summary:    Test Package
 Version:    {version}
@@ -179,10 +193,7 @@ Test package
 %install
 
 %files
-            """.format(
-                name=name, version=version
-            )
-        )
+            """.format(name=name, version=version))
         spec.close()
         subprocess.check_call(
             [
@@ -324,6 +335,26 @@ HiddenServiceVersion 3
                 self.fail("salt pkg.uptodate failed: " + f_log.read())
         del proc
 
+    def update_func_qubes_vm_update(self):
+        logpath = os.path.join(self.tmpdir, "dom0-update-output.txt")
+        with open(logpath, "w") as f_log:
+            proc = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec(
+                    "qubes-vm-update",
+                    "--targets=dom0",
+                    "--force-update",
+                    "--show-output",
+                    stdout=f_log,
+                    stderr=subprocess.STDOUT,
+                )
+            )
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-vm-update failed: " + f_log.read())
+        del proc
+
     def _test_000_update(self, do_update_func):
         """Dom0 update tests
 
@@ -370,6 +401,9 @@ HiddenServiceVersion 3
 
     def test_000_update_salt(self):
         self._test_000_update(self.update_func_salt)
+
+    def test_000_update_qubes_vm_update(self):
+        self._test_000_update(self.update_func_qubes_vm_update)
 
     def test_001_update_check(self):
         """Check if dom0 updates check works"""
@@ -694,7 +728,10 @@ class TC_10_QvmTemplateMixin(object):
 
 
 class TC_11_QvmTemplateMgmtVMMixin(TC_10_QvmTemplateMixin):
-    common_args = TC_10_QvmTemplateMixin.common_args + ["--updatevm="]
+    common_args = TC_10_QvmTemplateMixin.common_args + [
+        "--updatevm=",
+        f"--releasever={dom0_releasever}",
+    ]
 
     def run_qvm_template(self, *args):
         try:
@@ -722,8 +759,7 @@ class TC_11_QvmTemplateMgmtVMMixin(TC_10_QvmTemplateMixin):
                 )
             )
         with open(self.policy_path, "w") as policy:
-            policy.write(
-                """### Qrexec policy used by tests in {file}
+            policy.write("""### Qrexec policy used by tests in {file}
 admin.vm.Create.TemplateVM * {vm} @adminvm allow target=dom0
 admin.vm.feature.Get * {vm} @tag:created-by-{vm} allow target=dom0
 admin.vm.feature.Set * {vm} @tag:created-by-{vm} allow target=dom0
@@ -744,10 +780,7 @@ admin.vm.List + {vm} @tag:created-by-{vm} allow target=dom0
 admin.Events * {vm} @adminvm allow target=dom0
 admin.Events * {vm} @tag:created-by-{vm} allow target=dom0
 qubes.PostInstall + {vm} @tag:created-by-{vm} allow
-""".format(
-                    file=__file__, vm=self.updatevm.name
-                )
-            )
+""".format(file=__file__, vm=self.updatevm.name))
 
     def tearDown(self):
         os.unlink(self.policy_path)

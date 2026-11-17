@@ -42,9 +42,19 @@ class ProcessWrapper(object):
             return super(ProcessWrapper, self).__setattr__(key, value)
         return setattr(self._proc, key, value)
 
-    def communicate(self, input=None):
+    def communicate(self, input=None, timeout=None):
         if self._proc.stdin is not None and input is None:
             input = b""
+        if timeout is not None:
+            try:
+                return self._loop.run_until_complete(
+                    asyncio.wait_for(
+                        self._proc.communicate(input),
+                        timeout=timeout,
+                    )
+                )
+            except asyncio.TimeoutError:
+                raise subprocess.TimeoutExpired(None, timeout)
         return self._loop.run_until_complete(self._proc.communicate(input))
 
     def wait(self):
@@ -64,6 +74,8 @@ class VMWrapper(object):
     def __setattr__(self, key, value):
         if key.startswith("_"):
             return super(VMWrapper, self).__setattr__(key, value)
+        if key == "virt_mode" and value == "hvm":
+            qubes.tests.SystemTestCase.set_hvm(self._vm)
         return setattr(self._vm, key, value)
 
     def __str__(self):

@@ -209,6 +209,10 @@ class TC_02_DstHost(qubes.tests.QubesTestCase):
         with self.assertRaises(ValueError):
             qubes.firewall.DstHost("https://qubes-os.org")
 
+    def test_021_none_value(self):
+        with self.assertRaises(ValueError):
+            qubes.firewall.DstHost(None)
+
 
 class TC_03_DstPorts(qubes.tests.QubesTestCase):
     def test_000_single_str(self):
@@ -336,6 +340,14 @@ class TC_07_Comment(qubes.tests.QubesTestCase):
         self.assertEqual(str(instance), "Some comment")
         self.assertEqual(instance.api_rule, "comment=Some comment")
         self.assertIsNone(instance.rule)
+
+    def test_001_invalid(self):
+        for comment in ("Access?", "Access!", "a\tb", "ä"):
+            with self.subTest(comment=comment):
+                with self.assertRaisesRegex(
+                    qubes.exc.QubesValueError, "Invalid firewall comment"
+                ):
+                    qubes.firewall.Comment(comment)
 
 
 class TC_08_Rule(qubes.tests.QubesTestCase):
@@ -648,3 +660,22 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
         self.loop.run_until_complete(asyncio.sleep(3))
         # expect new rules
         self.assertEqual(fw.rules, rules)
+
+    def test_007_load_v2_empty_dsthost(self):
+        xml_txt = """<firewall version="2">
+            <rules>
+                <rule>
+                    <properties>
+                        <property name="action">accept</property>
+                        <property name="proto">tcp</property>
+                        <property name="dstports">443</property>
+                        <property name="dsthost"/>
+                    </properties>
+                </rule>
+            </rules>
+        </firewall>
+        """
+        with open(os.path.join("/tmp", self.vm.firewall_conf), "w") as f:
+            f.write(xml_txt)
+        with self.assertRaises(ValueError):
+            qubes.firewall.Firewall(self.vm)

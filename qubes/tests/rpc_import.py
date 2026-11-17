@@ -47,7 +47,7 @@ fi
 
 if [ "$1" = --single-line ] && [ "$2" = --max-bytes=21 ]; then
     shift 2
-    read -r -n 21 val
+    IFS= read -r val
     method=$4
     printf %s "$val" > "payload-$method"
 elif [ "$1" = --empty ]; then
@@ -69,6 +69,7 @@ if [ "$null" = true ]; then printf '\\0'; fi
     )
 
     def setUp(self):
+        super().setUp()
         self.tmpdir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmpdir)
         with open(

@@ -19,6 +19,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 """Extension responsible for qvm-service framework"""
+
 import base64
 import hashlib
 import os

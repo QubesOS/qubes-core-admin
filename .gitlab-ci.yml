@@ -21,7 +21,7 @@ checks:tests:
       # Installing ZFS after the CI requirements so after_script codecov-wrapper does not explode if ZFS install fails.
       kver=$(uname -r)
       echo $kver is the running kernel >&2
-      sudo dnf install -y https://zfsonlinux.org/fedora/zfs-release-2-8$(rpm --eval "%{dist}").noarch.rpm
+      sudo dnf install -y https://zfsonlinux.org/fedora/zfs-release-3-1$(rpm --eval "%{dist}").noarch.rpm
       # We are now going to force the installation of the specific kernel-devel version
       # that matches the current kernel.  If unavailable, the test should fail now.
       # Ideally the VM image ships with a kernel-devel package that matches the
@@ -48,8 +48,8 @@ mypy:
   tags:
     - docker
   before_script:
-    - sudo dnf install -y python3-mypy python3-pip
-    - sudo python3 -m pip install lxml-stubs types-docutils types-pywin32
+    - sudo dnf install -y python3-mypy python3-pip python3-types-docutils python3-types-pyyaml
+    - python3 -m pip install lxml-stubs types-pywin32
   script:
     - mypy --install-types --non-interactive --ignore-missing-imports --exclude tests/ --junit-xml mypy.xml qubes
   artifacts:

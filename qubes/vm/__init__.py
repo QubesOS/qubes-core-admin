@@ -21,6 +21,7 @@
 #
 
 """Qubes Virtual Machines"""
+
 import asyncio
 import re
 import string
@@ -84,8 +85,10 @@ def validate_name(holder, prop, value):
                 "{} value contains illegal characters".format(prop.__name__),
             )
         raise qubes.exc.QubesValueError("VM name contains illegal characters")
-    if value == "Domain-0":
-        raise qubes.exc.QubesValueError("VM name cannot be 'Domain-0'")
+    if value in ("Domain-0", "Dom0"):
+        raise qubes.exc.QubesValueError(
+            "VM name cannot be 'Domain-0' or 'Dom0'"
+        )
     if value in ("none", "default"):
         raise qubes.exc.QubesValueError(
             "VM name cannot be 'none' nor 'default'"
@@ -100,8 +103,7 @@ def setter_label(self, prop, value):
     if isinstance(value, qubes.Label):
         return value
     if isinstance(value, str) and value.startswith("label-"):
-        return self.app.labels[int(value.split("-", 1)[1])]
-
+        value = int(value.split("-", 1)[1])
     return self.app.get_label(value)
 
 
@@ -115,6 +117,36 @@ def _setter_qid(self, prop, value):
                 prop.__name__
             )
         )
+    return value
+
+
+def validate_disposable_template(obj, prop, value) -> None:
+    """Helper function to validate change of disposable template settings,
+    such as default_dispvm and management_dispvm."""
+    if not value:
+        return
+    assert isinstance(value, qubes.vm.qubesvm.QubesVM)
+    if not getattr(value, "template_for_dispvms", None):
+        if isinstance(obj, qubes.app.Qubes):
+            target = "system"
+        else:
+            target = "qube {!r}".format(obj.name)
+        msg = (
+            "Cannot set invalid property to {!s}, {!s} {!r} has "
+            "template_for_dispvms set to False".format(
+                target, str(prop), value.name
+            )
+        )
+        raise qubes.exc.QubesPropertyValueError(
+            obj,
+            obj.property_get_def(prop),
+            value,
+            msg,
+        )
+
+
+def setter_disposable_template(obj, prop, value):
+    validate_disposable_template(obj, prop, value)
     return value
 
 
@@ -195,9 +227,11 @@ class Tags(set):
 
     @staticmethod
     def validate_tag(tag):
+        if not tag:
+            raise qubes.exc.QubesInvalidTagError("tag cannot be empty")
         safe_set = string.ascii_letters + string.digits + "-_"
         if not all((x in safe_set) for x in tag):
-            raise ValueError("disallowed characters")
+            raise qubes.exc.QubesInvalidTagError("disallowed characters")
 
 
 class BaseVM(qubes.PropertyHolder):
@@ -271,6 +305,7 @@ class BaseVM(qubes.PropertyHolder):
         #: operations which shouldn't happen simultaneously with qube startup
         #  (including another startup of the same qube)
         self.startup_lock = asyncio.Lock()
+        self.startup_task = None
 
     def __str__(self):
         return self.name
@@ -287,6 +322,23 @@ class BaseVM(qubes.PropertyHolder):
     def klass(self):
         """Domain class name"""
         return type(self).__name__
+
+    @qubes.stateless_property
+    def icon(self) -> str:
+        """freedesktop icon name, suitable for use in
+        :py:meth:`PyQt4.QtGui.QIcon.fromTheme`"""
+        raw_icon_name = self.label.name
+        if self.klass == "TemplateVM":
+            return "templatevm-" + raw_icon_name
+        if self.features.get("servicevm", False):
+            return "servicevm-" + raw_icon_name
+        if self.klass == "DispVM":
+            return "dispvm-" + raw_icon_name
+        if self.klass == "StandaloneVM":
+            return "standalonevm-" + raw_icon_name
+        if self.klass == "RemoteVM":
+            return "remotevm-" + raw_icon_name
+        return "appvm-" + raw_icon_name
 
     def close(self):
         super().close()
@@ -310,7 +362,9 @@ class BaseVM(qubes.PropertyHolder):
 
     def init_log(self):
         """Initialise logger for this domain."""
-        self.log = qubes.log.get_vm_logger(self.name)
+        self.log = qubes.log.get_vm_logger(
+            "{}.{}".format(self.__class__.__qualname__, self.name)
+        )
 
     def __xml__(self):
         element = lxml.etree.Element("domain")
@@ -362,6 +416,24 @@ class BaseVM(qubes.PropertyHolder):
         if not hasattr(self, "uuid"):
             # pylint: disable=attribute-defined-outside-init
             self.uuid = uuid.uuid4()
+
+    @qubes.events.handler("domain-load")
+    def on_domain_load_remove_empty_tag(self, event):
+        # pylint: disable=unused-argument
+        # admin.vm.tag.Remove can't remove an empty tag loaded from an
+        # older qubes.xml
+        if "" in self.tags:
+            self.log.warning("Removing empty tag")
+            self.tags.remove("")
+
+    @qubes.events.handler("property-pre-reset:label")
+    def on_property_pre_reset_label(self, event, name, oldvalue=None):
+        """Forbid unsetting label, it has no default value"""
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(
+            "Cannot unset label, it has no default value. "
+            "Set it to another label instead"
+        )
 
 
 class LocalVM(BaseVM):

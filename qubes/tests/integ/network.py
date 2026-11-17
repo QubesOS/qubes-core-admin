@@ -156,7 +156,7 @@ class VmNetworkingMixin:
                     vm, "systemctl --no-pager status xendriverdomain"
                 )
                 self._run_cmd_and_log_output(
-                    vm, "journalctl --no-pager --since '10 seconds ago'"
+                    vm, "journalctl --no-pager --since '30 seconds ago'"
                 )
                 self._run_cmd_and_log_output(
                     vm, "cat /var/log/xen/xen-hotplug.log"
@@ -807,6 +807,8 @@ class VmNetworkingMixin:
             )
         )
 
+        client1 = None
+        client2 = None
         try:
             self.assertEqual(
                 self.run_cmd(self.testvm1, self.ping_ip), 0, "Ping by IP failed"
@@ -871,10 +873,10 @@ class VmNetworkingMixin:
             if server2.returncode is None:
                 server2.terminate()
                 self.loop.run_until_complete(server2.wait())
-            if client1.returncode is None:
+            if client1 and client1.returncode is None:
                 client1.terminate()
                 self.loop.run_until_complete(client1.wait())
-            if client2.returncode is None:
+            if client2 and client2.returncode is None:
                 client2.terminate()
                 self.loop.run_until_complete(client2.wait())
 
@@ -982,7 +984,7 @@ class VmNetworkingMixin:
         )
         if iptables:
             try:
-                (output, _) = self.loop.run_until_complete(
+                output, _ = self.loop.run_until_complete(
                     self.testnetvm.run_for_stdio(
                         "iptables -nxvL INPUT", user="root"
                     )
@@ -993,7 +995,7 @@ class VmNetworkingMixin:
             line = 2
         else:
             try:
-                (output, _) = self.loop.run_until_complete(
+                output, _ = self.loop.run_until_complete(
                     self.testnetvm.run_for_stdio(
                         "nft list chain qubes custom-input", user="root"
                     )
@@ -1015,11 +1017,15 @@ class VmNetworkingMixin:
         """
         # Simulater late xl devd startup
         cmd = "systemctl stop xendriverdomain"
+        if "guix" in self.template:
+            cmd = "herd stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
         self.loop.run_until_complete(self.start_vm(self.testvm1))
 
         cmd = "systemctl start xendriverdomain"
+        if "guix" in self.template:
+            cmd = "herd start xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command failed on '%s': '%s'" % (self.testnetvm, cmd))
 
@@ -1113,7 +1119,7 @@ class VmNetworkingMixin:
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("ip addr show dev eth0", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1124,7 +1130,7 @@ class VmNetworkingMixin:
         self.assertNotIn(str(self.testvm1.ip), output)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("ip route show", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1146,7 +1152,7 @@ class VmNetworkingMixin:
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("ip addr show dev eth0", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1278,7 +1284,7 @@ class VmNetworkingMixin:
             cmd = "nft list chain ip qubes custom-input | grep {}".format(
                 self.testvm2.ip
             )
-            (stdout, _) = self.loop.run_until_complete(
+            stdout, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(cmd, user="root")
             )
         except subprocess.CalledProcessError as e:
@@ -1314,7 +1320,7 @@ class VmNetworkingMixin:
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.proxy.run_for_stdio("ip addr show dev eth0", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1324,7 +1330,7 @@ class VmNetworkingMixin:
         self.assertNotIn(str(self.testvm1.ip), output)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.proxy.run_for_stdio("ip route show", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1334,7 +1340,7 @@ class VmNetworkingMixin:
         self.assertNotIn(str(self.testvm1.netvm.ip), output)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("ip addr show dev eth0", user="root")
             )
         except subprocess.CalledProcessError:
@@ -1344,7 +1350,7 @@ class VmNetworkingMixin:
         self.assertIn(str(self.testvm1.ip), output)
 
         try:
-            (output, _) = self.loop.run_until_complete(
+            output, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio("ip route show", user="root")
             )
         except subprocess.CalledProcessError:

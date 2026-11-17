@@ -18,7 +18,8 @@
 #
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
-#
+
+import asyncio
 import base64
 import os
 import subprocess
@@ -63,6 +64,15 @@ class TestApp(object):
         self.domains = {}
         self.host = unittest.mock.Mock()
         self.host.memory_total = 4096 * 1024
+
+    def get_label(self, label):
+        # pylint: disable=unused-argument
+        if label in self.labels:
+            return self.labels[label]
+        for l in self.labels.values():
+            if l.name == label:
+                return l
+        raise qubes.exc.QubesLabelNotFoundError(label)
 
 
 class TestFeatures(dict):
@@ -234,6 +244,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm), "hvm")
 
     def test_020_default_maxmem(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         default_maxmem = 2048
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
@@ -263,6 +276,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         )
 
     def test_021_default_maxmem_with_pcidevs(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
                 self.vm
@@ -272,6 +288,9 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 0)
 
     def test_022_default_maxmem_linux(self):
+        self.app.vmm = unittest.mock.Mock()
+        self.app.vmm.offline_mode.return_value = True
+
         self.vm.is_memory_balancing_possible = (
             lambda: qubes.vm.qubesvm.QubesVM.is_memory_balancing_possible(
                 self.vm
@@ -420,6 +439,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertTrue(hasattr(vm, "uuid"))
 
+    def test_005_init_check_updates_vm_disabled(self):
+        """A new qube gets the service feature disabled."""
+        self.app.check_updates_vm = False
+        vm = self.get_vm()
+        self.assertIn("service.qubes-update-check", vm.features)
+        self.assertFalse(vm.features["service.qubes-update-check"])
+        self.assertNotIn("check-updates", vm.features)
+
+    def test_006_init_check_updates_vm_enabled(self):
+        """A new qube gets no update check feature."""
+        self.app.check_updates_vm = True
+        vm = self.get_vm()
+        self.assertNotIn("service.qubes-update-check", vm.features)
+        self.assertNotIn("check-updates", vm.features)
+
     def test_100_qid(self):
         vm = self.get_vm()
         self.assertIsInstance(vm.qid, int)
@@ -445,8 +479,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyValue(
             vm, "label", self.app.labels[1], self.app.labels[1], "red"
         )
-        del vm.label
-        self.assertPropertyDefaultValue(vm, "label")
+        with self.assertRaises(qubes.exc.QubesValueError):
+            del vm.label
+        self.assertEqual(vm.label, self.app.labels[1])
         self.assertPropertyValue(vm, "label", "red", self.app.labels[1], "red")
         self.assertPropertyValue(
             vm, "label", "label-1", self.app.labels[1], "red"
@@ -516,6 +551,19 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, "maxmem", "")
         # TODO: lower than memory
         # TODO: human readable setter (500M, 4G)?
+
+    def test_172_maxmem_running_nohotplug(self):
+        vm = self.get_vm()
+        with unittest.mock.patch.object(
+            type(vm),
+            "use_memory_hotplug",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=False,
+        ), unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                vm.maxmem = 1000
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't change maxmem of VM", str(cm.exception))
 
     def test_190_vcpus(self):
         vm = self.get_vm()
@@ -785,7 +833,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     def test_290_management_dispvm(self):
         vm = self.get_vm()
-        vm2 = self.get_vm("test2", qid=2)
+        vm2 = self.get_vm(
+            "test2", qid=2, cls=qubes.vm.appvm.AppVM, template_for_dispvms=True
+        )
         self.app.management_dispvm = None
         self.assertPropertyDefaultValue(vm, "management_dispvm", None)
         self.app.management_dispvm = vm
@@ -800,7 +850,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     def test_291_management_dispvm_template_based(self):
         tpl = self.get_vm(name="tpl", cls=qubes.vm.templatevm.TemplateVM)
         vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=tpl, qid=2)
-        vm2 = self.get_vm("test2", qid=3)
+        vm2 = self.get_vm(
+            "test2", qid=3, cls=qubes.vm.appvm.AppVM, template_for_dispvms=True
+        )
         del vm.volumes
         self.app.management_dispvm = None
         try:
@@ -814,6 +866,22 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             )
         finally:
             self.app.management_dispvm = None
+
+    def test_292_management_dispvm_setter_without_template_for_dispvms(self):
+        vm = self.get_vm()
+        kwargs = {"name": "test2", "qid": 2, "management_dispvm": vm}
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.get_vm(**kwargs)
+        vm.template_for_dispvms = True
+        self.get_vm(**kwargs)
+
+    def test_293_default_dispvm_setter_without_template_for_dispvms(self):
+        vm = self.get_vm()
+        kwargs = {"name": "test2", "qid": 2, "default_dispvm": vm}
+        with self.assertRaises(qubes.exc.QubesPropertyValueError):
+            self.get_vm(**kwargs)
+        vm.template_for_dispvms = True
+        self.get_vm(**kwargs)
 
     @unittest.skip("TODO")
     def test_320_seamless_gui_mode(self):
@@ -992,7 +1060,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpv">linux</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
         </features>
@@ -1258,7 +1326,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1395,7 +1463,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1469,7 +1537,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <os>
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1543,7 +1611,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <type arch="x86_64" machine="xenpvh">xenpvh</type>
             <kernel>/tmp/qubes-test/vm-kernels/dummy/vmlinuz</kernel>
             <initrd>/tmp/qubes-test/vm-kernels/dummy/initramfs</initrd>
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -1948,7 +2016,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 swiotlb=2048</cmdline>
+            <cmdline>systemd.machine_id={UUID(my_uuid).hex} root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 xen_privcmd.unrestricted swiotlb=2048</cmdline>
         </os>
         <features>
             <pae/>
@@ -2942,6 +3010,74 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         return mock(*args, **kwargs)
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")
+    @unittest.mock.patch(
+        "qubes.vm.qubesvm.QubesVM.is_running", return_value=True
+    )
+    @unittest.mock.patch("qubes.vm.qubesvm.QubesVM.libvirt_domain")
+    @unittest.mock.patch(
+        "qubes.vm.qubesvm.QubesVM.is_halted", return_value=False
+    )
+    def test_650_shutdown(
+        self, mock_halted, mock_shutdown, mock_running, mock_async_sub
+    ):
+        # pylint: disable=unused-argument
+        vm = self.get_vm()
+        mock_proc = unittest.mock.AsyncMock()
+        mock_proc.communicate.return_value = (b"", None)
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = mock_proc.returncode
+        mock_async_sub.return_value = mock_proc
+        with unittest.mock.patch.object(vm.app, "vmm") as mock_vmm:
+            with self.subTest("xen"):
+                mock_vmm.is_xen = True
+                self.loop.run_until_complete(vm.shutdown())
+                mock_async_sub.assert_called_once_with(
+                    "xl",
+                    "shutdown",
+                    "-F",
+                    vm.name,
+                    stdin=unittest.mock.ANY,
+                    stdout=unittest.mock.ANY,
+                    stderr=unittest.mock.ANY,
+                )
+
+            mock_async_sub.reset_mock()
+            with self.subTest("xen-fail"):
+                mock_proc.communicate.return_value = (b"Oh no (xen)", None)
+                mock_proc.returncode = 1
+                mock_vmm.is_xen = True
+                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                    self.loop.run_until_complete(vm.shutdown())
+
+            mock_async_sub.reset_mock()
+            with self.subTest("not-xen"):
+                mock_proc.returncode = 0
+                uri = "kvm:///"
+                mock_vmm.is_xen = False
+                mock_vmm.libvirt_conn_uri = uri
+                self.loop.run_until_complete(vm.shutdown())
+                mock_async_sub.assert_called_once_with(
+                    "virsh",
+                    "-c",
+                    uri,
+                    "shutdown",
+                    vm.name,
+                    stdin=unittest.mock.ANY,
+                    stdout=unittest.mock.ANY,
+                    stderr=unittest.mock.ANY,
+                )
+
+            mock_async_sub.reset_mock()
+            with self.subTest("not-xen-fail"):
+                mock_proc.communicate.return_value = (b"Oh no (not-xen)", None)
+                mock_proc.returncode = 1
+                uri = "kvm:///"
+                mock_vmm.is_xen = False
+                mock_vmm.libvirt_conn_uri = uri
+                with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
+                    self.loop.run_until_complete(vm.shutdown())
+
+    @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
         start_mock = unittest.mock.AsyncMock()
 
@@ -3201,6 +3337,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             mock_os_path_exists.assert_not_called()
             self.assertEqual(fully_usable, True)
 
+    def test_730_remove_from_disk_running(self):
+        vm = self.get_vm()
+        vm.get_power_state = unittest.mock.Mock(return_value="Running")
+        with unittest.mock.patch.object(vm, "is_halted", return_value=False):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
+                self.loop.run_until_complete(vm.remove_from_disk())
+            self.assertIs(cm.exception.vm, vm)
+            self.assertIn("Can't remove VM", str(cm.exception))
+
     def test_800_reset_icon_event(self):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
             event_fired = False
@@ -3227,9 +3372,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         )
         property_change(test_vm, "label", "red")
         property_change(test_vm, "label", "blue")
-
-        property_change(test_vm, "template_for_dispvms", False)
-        property_change(test_vm, "template_for_dispvms", True)
 
     def test_801_ordering(self):
         assert qubes.vm.qubesvm.QubesVM(
@@ -3319,3 +3461,44 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(vm.get_default_user(), "altuser2")
         del vm.features["boot-mode.active"]
         self.assertEqual(vm.get_default_user(), "user")
+
+    async def _test_850_lifecycle_change(self):
+        vm = self.get_vm(cls=qubes.vm.appvm.AppVM)
+
+        with self.subTest(msg="Yield raises"):
+            vm._lifecycle_waiter["LIFE"] = None
+            with self.assertRaises(ValueError):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    raise ValueError
+
+        with self.subTest("Normal conditions"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event comes after some time"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(2):
+                async with vm.change_libvirt_state(event="LIFE"):
+                    await asyncio.sleep(1)
+                    vm.end_lifecycle_waiter(event="LIFE")
+
+        with self.subTest("Event never arrives and timeout is raised"):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(4):
+                with self.assertRaises(asyncio.TimeoutError):
+                    async with vm.change_libvirt_state(event="LIFE", timeout=1):
+                        await asyncio.sleep(2)
+
+        with self.subTest(
+            "Event never arrives but we don't wait for it either"
+        ):
+            vm._lifecycle_waiter["LIFE"] = None
+            async with asyncio.timeout(1):
+                async with vm.change_libvirt_state(event="LIFE", wait=False):
+                    pass
+
+    def test_850_lifecycle_change(self):
+        """Simulate libvirt lifecycle changes with events."""
+        self.loop.run_until_complete(self._test_850_lifecycle_change())

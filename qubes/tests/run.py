@@ -35,6 +35,8 @@ import unittest.signals
 import qubes.tests
 import qubes.api.admin
 
+from qubes.log import Formatter
+
 
 class CursesColor(dict):
     colors = (
@@ -455,15 +457,14 @@ def main(args=None):
             print(str(test))  # pylint: disable=superfluous-parens
         return True
 
+    debug = bool(args.loglevel == logging.DEBUG)
     logging.root.setLevel(args.loglevel)
 
     if args.logfile is not None:
         ha_file = logging.FileHandler(
             os.path.join(os.environ["HOME"], args.logfile)
         )
-        ha_file.setFormatter(
-            logging.Formatter("%(asctime)s %(name)s[%(process)d]: %(message)s")
-        )
+        ha_file.setFormatter(Formatter(time=True, debug=debug))
         logging.root.addHandler(ha_file)
 
     if args.kmsg:
@@ -473,9 +474,7 @@ def main(args=None):
             parser.error("could not chmod /dev/kmsg")
         else:
             ha_kmsg = logging.FileHandler("/dev/kmsg", "w")
-            ha_kmsg.setFormatter(
-                logging.Formatter("%(name)s[%(process)d]: %(message)s")
-            )
+            ha_kmsg.setFormatter(Formatter(debug=debug))
             ha_kmsg.setLevel(logging.CRITICAL)
             logging.root.addHandler(ha_kmsg)
 
