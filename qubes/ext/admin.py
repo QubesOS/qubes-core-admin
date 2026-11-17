@@ -181,7 +181,6 @@ class AdminExtension(qubes.ext.Extension):
         if not hasattr(source, "app"):
             # process cleanup, do not allow anything anymore
             return False
-        # TODO: cache system_info (based on last qubes.xml write time?)
         system_info = qubes.api.internal.SystemInfoCache.get_system_info(
             source.app
         )
