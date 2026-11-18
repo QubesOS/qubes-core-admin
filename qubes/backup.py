@@ -825,6 +825,16 @@ class Backup:
             raise qubes.exc.QubesException("No passphrase set")
         if not isinstance(self.passphrase, bytes):
             self.passphrase = self.passphrase.encode("utf-8")
+
+        # VM running private volumes without snapshoting them
+        # (revision_to_keep = -1) must be powered off to be backup.
+        # Check the live VM: in the offline copy below no VM is running.
+        for qid, vm_info in self._files_to_backup.items():
+            if qid != 0 and vm_info.vm.is_running():
+                for volume in vm_info.vm.volumes.values():
+                    if volume.snapshots_disabled:
+                        raise qubes.exc.QubesVMNotHaltedError(vm_info.vm)
+
         qubes_xml = self.app.store
         self.tmpdir = tempfile.mkdtemp()
         shutil.copy(qubes_xml, os.path.join(self.tmpdir, "qubes.xml"))
@@ -849,15 +859,6 @@ class Backup:
                     and feature != "preload-dispvm-max"
                 ):
                     del backup_app.domains[qid].features[feature]
-
-            # VM running private volumes without snapshoting them
-            # (revision_to_keep = -1) must be powered off to be backup
-            if backup_app.domains[qid].is_running():
-                for volume in backup_app.domains[qid].volumes.values():
-                    if volume.snapshots_disabled:
-                        raise qubes.exc.QubesVMNotHaltedError(
-                            backup_app.domains[qid]
-                        )
         backup_app.save()
         del backup_app
 
