@@ -146,6 +146,24 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.exc.QubesException):
             self.vm.suspend()
 
+    def test_312_shutdown(self):
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.vm.shutdown()
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.vm.shutdown(force=True, wait=True)
+
+    def test_313_pause(self):
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.vm.pause()
+
+    def test_314_unpause(self):
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.vm.unpause()
+
+    def test_315_resume(self):
+        with self.assertRaises(qubes.exc.QubesVMError):
+            self.vm.resume()
+
     @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
         # if there is a user in 'qubes' group, it should be used by default
