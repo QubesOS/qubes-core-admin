@@ -3375,9 +3375,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "xen/console/guest-test-inst-work-dm.log-20261101.gz",
             "xen/qmp-proxy-test-inst-work-dm.log",
             "xen/qmp-proxy-test-inst-work-dm.log.10",
-            "libxl/test-inst-work.log",
-            "libxl/test-inst-work.log.1",
-            "libxl/test-inst-work.log.2.gz",
+            "libvirt/libxl/test-inst-work.log",
+            "libvirt/libxl/test-inst-work.log.1",
+            "libvirt/libxl/test-inst-work.log.2.gz",
         ]
         kept = [
             # other qubes with similar names
@@ -3388,32 +3388,24 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             "xen/console/guest-test-inst-work-web.log",
             "xen/console/guest-test-inst-work-web-dm.log",
             "xen/qmp-proxy-test-inst-work-web-dm.log",
-            "libxl/test-inst-work-web.log",
-            "libxl/test-inst-work.log.log",
+            "libvirt/libxl/test-inst-work-web.log",
+            "libvirt/libxl/test-inst-work.log.log",
             # global logs
             "qubes/qubes-vm-update.log",
             "qubes/policy-admin.log",
             "xen/console/hypervisor.log",
-            "libxl/libxl-driver.log",
+            "libvirt/libxl/libxl-driver.log",
             # not a log of this qube, even if in a subdirectory
             "qubes/sub/guid.test-inst-work.log",
         ]
         with tempfile.TemporaryDirectory() as tmpdir:
-            log_files = {
-                os.path.join(tmpdir, "qubes"): (
-                    "guid.{}.log",
-                    "qrexec.{}.log",
-                    "qubesdb.{}.log",
-                    "pacat.{}.log",
-                    "mgmt-{}.log",
-                    "update-{}.log",
-                ),
-                os.path.join(tmpdir, "xen/console"): ("guest-{}.log",),
-                os.path.join(tmpdir, "xen"): ("qmp-proxy-{}.log",),
-                os.path.join(tmpdir, "libxl"): ("{}.log",),
-                # missing directory is ignored
-                os.path.join(tmpdir, "missing"): ("{}.log",),
-            }
+            log_files = {}
+            for log_dir, patterns in qubes.config.qube_log_files.items():
+                self.assertTrue(log_dir.startswith("/var/log/"), log_dir)
+                log_dir = os.path.relpath(log_dir, "/var/log")
+                log_files[os.path.join(tmpdir, log_dir)] = patterns
+            # missing directory is ignored
+            log_files[os.path.join(tmpdir, "missing")] = ("{}.log",)
             for path in removed + kept:
                 path = os.path.join(tmpdir, path)
                 os.makedirs(os.path.dirname(path), exist_ok=True)
