@@ -2299,14 +2299,14 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop1" />
-                <target dev="xvde" />
+                <target dev="xvdf" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
             </disk>
             <disk type="block" device="disk">
                 <driver name="phy" />
                 <source dev="/dev/loop2" />
-                <target dev="xvdf" />
+                <target dev="xvdg" />
                 <backenddomain name="dom0" />
                 <script path="/etc/xen/scripts/qubes-block" />
             </disk>

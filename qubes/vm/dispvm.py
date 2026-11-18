@@ -465,12 +465,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
     async def _update_ephemeral_storage(self) -> None:
         """
-        Apply the ``ephemeral-storage`` feature of the disposable template
-        before starting: the disposable may have been created before the
-        feature was set, and a template change resets root and private.
-        Refuse to start if the template doesn't support it.
+        Apply the ``ephemeral-storage`` feature of the disposable, or else of
+        its disposable template, before starting: the disposable may have been
+        created before the feature was set, and a template change resets root
+        and private. Refuse to start if the template doesn't support it.
         """
-        wanted = self.template.features.get("ephemeral-storage", False)
+        wanted = self.features.check_with_template("ephemeral-storage", False)
         if not wanted and not self.has_ephemeral_storage:
             return
         if not self.features.check_with_template(
@@ -831,6 +831,29 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         and system reboots.
         """
         self._preload_cleanup()
+
+    @qubes.events.handler("domain-feature-pre-set:ephemeral-storage")
+    def on_feature_pre_set_ephemeral_storage(
+        self, event, feature, value, oldvalue=None
+    ):
+        """
+        Before accepting the ``ephemeral-storage`` feature, check that the
+        template supports it.
+
+        :param str event: Event which was fired.
+        :param str feature: Feature name.
+        :param str value: New value of the feature.
+        :param str oldvalue: Old value of the feature.
+        """
+        # pylint: disable=unused-argument
+        if not value:
+            return
+        if not self.features.check_with_template(
+            "supported-feature.ephemeral-storage", False
+        ):
+            raise qubes.exc.QubesValueError(
+                "Template does not support the ephemeral-storage feature"
+            )
 
     @qubes.events.handler("property-pre-reset:template")
     def on_property_pre_reset_template(

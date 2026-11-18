@@ -125,8 +125,8 @@
                 {% set counter = namespace(i=0) %}
                 {% set counter.i = counter.i + 1 %}
             #}
-            {# private-changes (ephemeral-storage) always gets xvde #}
-            {% set counter = {'i': 1 if 'private-changes' in vm.volumes else 0} %}
+            {# xvde is reserved for private-changes (ephemeral-storage) #}
+            {% set counter = {'i': 1} %}
             {# TODO Allow more volumes out of the box #}
             {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
                 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']

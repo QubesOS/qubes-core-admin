@@ -810,6 +810,42 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
 
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
+    def test_030_ephemeral_storage_on_dispvm(
+        self, _mock_makedirs, _mock_symlink
+    ):
+        """Feature set on the disposable itself applies on start"""
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        dispvm = self._create_dispvm()
+        with self.assertRaises(qubes.exc.QubesValueError):
+            dispvm.features["ephemeral-storage"] = True
+        self.assertNotIn("ephemeral-storage", dispvm.features)
+        self.template.features["supported-feature.ephemeral-storage"] = True
+        dispvm.features["ephemeral-storage"] = True
+        self.assertNotIn("ephemeral-storage", self.appvm.features)
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        self.assertTrue(dispvm.has_ephemeral_storage)
+        self.assertNotIn("private-changes", self.appvm.volumes)
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
+    def test_031_ephemeral_storage_dispvm_overrides(
+        self, _mock_makedirs, _mock_symlink
+    ):
+        """Disposable's own empty feature overrides its template's"""
+        self.appvm.template_for_dispvms = True
+        self.loop.run_until_complete(self.template.create_on_disk())
+        self.loop.run_until_complete(self.appvm.create_on_disk())
+        self.template.features["supported-feature.ephemeral-storage"] = True
+        dispvm = self._create_dispvm()
+        dispvm.features["ephemeral-storage"] = ""
+        self.appvm.features["ephemeral-storage"] = True
+        self.loop.run_until_complete(dispvm._update_ephemeral_storage())
+        self.assertFalse(dispvm.has_ephemeral_storage)
+
+    @mock.patch("os.symlink")
+    @mock.patch("os.makedirs")
     def test_024_is_preload_outdated(self, _mock_makedirs, _mock_symlink):
         self.app.pools["alternative"] = qubes.tests.vm.appvm.TestPool(
             name="alternative"

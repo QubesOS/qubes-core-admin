@@ -104,21 +104,21 @@ class StorageTestMixin(object):
 
         # volatile image not clean
         await self.vm1.run_for_stdio(
-            "cmp -n 16K /dev/xvde /dev/zero", user="root"
+            "cmp -n 16K /dev/xvdf /dev/zero", user="root"
         )
         # volatile image not volatile; check two markers: at the very beginning,
         # and at a later offset
-        await self.vm1.run_for_stdio("echo test123 > /dev/xvde", user="root")
+        await self.vm1.run_for_stdio("echo test123 > /dev/xvdf", user="root")
         await self.vm1.run_for_stdio(
-            "echo test123 | dd of=/dev/xvde seek=1M bs=1", user="root"
+            "echo test123 | dd of=/dev/xvdf seek=1M bs=1", user="root"
         )
         await self.vm1.shutdown(wait=True)
         await self.vm1.start()
         await self.vm1.run_for_stdio(
-            "cmp -n 16K /dev/xvde /dev/zero", user="root"
+            "cmp -n 16K /dev/xvdf /dev/zero", user="root"
         )
         await self.vm1.run_for_stdio(
-            "! dd if=/dev/xvde bs=1 skip=1M count=7 | grep test123", user="root"
+            "! dd if=/dev/xvdf bs=1 skip=1M count=7 | grep test123", user="root"
         )
 
     def test_001_non_volatile(self):
@@ -141,17 +141,17 @@ class StorageTestMixin(object):
         await self.wait_for_session(self.vm1)
         # non-volatile image not clean
         await self.vm1.run_for_stdio(
-            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(size),
             user="root",
         )
 
-        await self.vm1.run_for_stdio("echo test123 > /dev/xvde", user="root")
+        await self.vm1.run_for_stdio("echo test123 > /dev/xvdf", user="root")
         await self.vm1.shutdown(wait=True)
         await self.vm1.start()
         # non-volatile image volatile
         with self.assertRaises(subprocess.CalledProcessError):
             await self.vm1.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -176,17 +176,17 @@ class StorageTestMixin(object):
         await self.vm1.start()
         # non-volatile image not clean
         await self.vm1.run_for_stdio(
-            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(size),
             user="root",
         )
         # Write to read-only volume unexpectedly succeeded
         with self.assertRaises(subprocess.CalledProcessError):
             await self.vm1.run_for_stdio(
-                "echo test123 > /dev/xvde", user="root"
+                "echo test123 > /dev/xvdf", user="root"
             )
         # read-only volume modified
         await self.vm1.run_for_stdio(
-            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(size),
             user="root",
         )
 
@@ -227,7 +227,7 @@ class StorageTestMixin(object):
 
         try:
             await self.vm1.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -237,7 +237,7 @@ class StorageTestMixin(object):
 
         try:
             await self.vm2.run_for_stdio(
-                "head -c {} /dev/zero | diff -q /dev/xvde -".format(size),
+                "head -c {} /dev/zero | diff -q /dev/xvdf -".format(size),
                 user="root",
             )
         except subprocess.CalledProcessError:
@@ -245,13 +245,13 @@ class StorageTestMixin(object):
 
         try:
             await self.vm1.run_for_stdio(
-                "echo test123 > /dev/xvde && sync", user="root"
+                "echo test123 > /dev/xvdf && sync", user="root"
             )
         except subprocess.CalledProcessError:
             self.fail("Write to read-write volume failed")
         try:
             await self.vm2.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -264,7 +264,7 @@ class StorageTestMixin(object):
 
         try:
             await self.vm2.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -282,7 +282,7 @@ class StorageTestMixin(object):
             msg="origin changes not visible in snapshot",
         ):
             await self.vm2.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -295,7 +295,7 @@ class StorageTestMixin(object):
         await self.start_vm(self.vm1)
         try:
             await self.vm1.run_for_stdio(
-                "echo test456 > /dev/xvde && sync", user="root"
+                "echo test456 > /dev/xvdf && sync", user="root"
             )
         except subprocess.CalledProcessError:
             self.fail("Write to read-write volume failed2")
@@ -307,7 +307,7 @@ class StorageTestMixin(object):
         try:
             await self.vm2.run_for_stdio(
                 "echo test456 | cat - /dev/zero |"
-                " head -c {} | diff -q /dev/xvde - 2>&1".format(size),
+                " head -c {} | diff -q /dev/xvdf - 2>&1".format(size),
                 user="root",
             )
         except subprocess.CalledProcessError:
@@ -346,20 +346,20 @@ class StorageTestMixin(object):
 
         # snapshot image not clean
         await self.vm2.run_for_stdio(
-            "head -c {} /dev/zero | diff -q /dev/xvde -".format(size),
+            "head -c {} /dev/zero | diff -q /dev/xvdf -".format(size),
             user="root",
         )
 
         # Write to read-write snapshot volume failed
         await self.vm2.run_for_stdio(
-            "echo test123 > /dev/xvde && sync", user="root"
+            "echo test123 > /dev/xvdf && sync", user="root"
         )
         await self.vm2.shutdown(wait=True)
         await self.vm2.start()
 
         # changes on snapshot survived VM restart
         await self.vm2.run_for_stdio(
-            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(size),
             user="root",
         )
 
@@ -439,17 +439,17 @@ class StorageTestMixin(object):
         await self.wait_for_session(self.vm1)
         # non-volatile image not clean
         await self.vm1.run_for_stdio(
-            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(size),
+            "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(size),
             user="root",
         )
 
-        await self.vm1.run_for_stdio("echo test123 > /dev/xvde", user="root")
+        await self.vm1.run_for_stdio("echo test123 > /dev/xvdf", user="root")
         await self.vm1.shutdown(wait=True)
         await self.vm1.start()
         # non-volatile image volatile
         with self.assertRaises(subprocess.CalledProcessError):
             await self.vm1.run_for_stdio(
-                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1".format(
+                "head -c {} /dev/zero 2>&1 | diff -q /dev/xvdf - 2>&1".format(
                     size
                 ),
                 user="root",
@@ -492,7 +492,7 @@ class StorageTestMixin(object):
 
         await self.vm2.start()
         stdout, stderr = await self.vm2.run_for_stdio(
-            "head -c 7 /dev/xvde", user="root"
+            "head -c 7 /dev/xvdf", user="root"
         )
         self.assertEqual(stdout, b"test123")
 
