@@ -764,7 +764,7 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
         self.assertEqual(
             await run(dispvm, "qubesdb-read /qubes-ephemeral-storage"), "1"
         )
-        self.assertEqual(await run(dispvm, "blockdev --getro /dev/xvdb"), "1")
+        self.assertEqual(await run(dispvm, "cat /sys/block/xvdb/ro"), "1")
         self.assertEqual(
             await run(
                 dispvm,
@@ -775,8 +775,8 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
             "refused",
         )
         self.assertEqual(
-            await run(dispvm, "blockdev --getsize64 /dev/xvde"),
-            str(changes.size),
+            int(await run(dispvm, "cat /sys/block/xvde/size")) * 512,
+            changes.size,
         )
         deps = await run(dispvm, "dmsetup deps -o devname snapshot-private")
         self.assertIn("(xvdb)", deps)
