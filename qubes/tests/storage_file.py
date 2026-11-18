@@ -599,6 +599,50 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.loop.run_until_complete(volume.remove())
         volume.commit.assert_not_called()
 
+    def _import_volume_setup(self):
+        vm = qubes.tests.storage.TestVM(self)
+        pool = self.app.get_pool(self.POOL_NAME)
+        volumes = []
+        for name in ("private", "root"):
+            config = {
+                "name": name,
+                "pool": self.POOL_NAME,
+                "save_on_stop": True,
+                "rw": True,
+                "size": 1024 * 1024,
+            }
+            volume = pool.init_volume(vm, config)
+            volume.create()
+            with open(volume.path, "r+b") as vol_file:
+                vol_file.write(name.encode())
+            volumes.append(volume)
+        return volumes
+
+    def assertVolumeData(self, volume, data):
+        with open(volume.path, "rb") as vol_file:
+            self.assertEqual(vol_file.read().strip(b"\0"), data)
+        self.assertFalse(os.path.exists(volume.path_import))
+
+    def test_027_import_volume(self):
+        src, dst = self._import_volume_setup()
+        self.loop.run_until_complete(dst.import_volume(src))
+        self.assertVolumeData(dst, b"private")
+        self.assertVolumeData(src, b"private")
+
+    def test_028_import_volume_export_fail(self):
+        src, dst = self._import_volume_setup()
+        # make the source dirty, so it can't be exported
+        with open(src.path_cow, "wb") as cow_file:
+            cow_file.write(b"dirty")
+        with self.assertRaises(qubes.exc.StoragePoolException):
+            self.loop.run_until_complete(dst.import_volume(src))
+        self.assertVolumeData(dst, b"root")
+
+    def test_029_import_volume_same(self):
+        volume, _ = self._import_volume_setup()
+        self.loop.run_until_complete(volume.import_volume(volume))
+        self.assertVolumeData(volume, b"private")
+
     def _get_loop_size(self, path):
         try:
             loop_name = (
