@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional, Union, Iterator, Tuple
 
 import qubes.config
 import qubes.events
+import qubes.exc
 import qubes.vm.dispvm
 import qubes.vm.qubesvm
 

@@ -74,6 +74,9 @@ from qubes.log import Formatter
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    # a real import would run lvs
+    import qubes.storage.lvm
+
     from . import never_awaited
 
 XMLPATH = "/var/lib/qubes/qubes-test.xml"

@@ -34,6 +34,9 @@ import unittest.mock
 
 import asyncio
 
+import qubes.config
+import qubes.exc
+import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage
 import qubes.storage

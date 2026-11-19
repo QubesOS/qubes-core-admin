@@ -35,8 +35,11 @@ import copy
 import pathlib
 
 import qubes
+import qubes.config
+import qubes.device_protocol
 import qubes.devices
 import qubes.exc
+import qubes.ext.admin
 import qubes.firewall
 import qubes.api.admin
 import qubes.api.internal

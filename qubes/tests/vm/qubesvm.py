@@ -36,9 +36,12 @@ import unittest.mock
 import shutil
 
 import qubes
+import qubes.device_protocol
+import qubes.events
 import qubes.exc
 import qubes.config
 import qubes.devices
+import qubes.ext
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.appvm

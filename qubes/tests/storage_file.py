@@ -27,6 +27,8 @@ import unittest.mock
 
 import subprocess
 
+import qubes.config
+import qubes.exc
 import qubes.storage
 import qubes.utils
 import qubes.tests.storage

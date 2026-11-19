@@ -40,20 +40,7 @@ import qubes.events
 import qubes.exc
 
 if TYPE_CHECKING:
-    from . import (
-        api,
-        config,
-        device_protocol,
-        events,
-        exc,
-        ext,
-        features,
-        qmemman,
-        storage,
-        tools,
-        utils,
-        vm,
-    )
+    from . import storage
 
 __author__ = "Invisible Things Lab"
 __license__ = "GPLv2 or later"

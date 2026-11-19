@@ -23,6 +23,7 @@
 import copy
 
 import qubes.events
+import qubes.exc
 import qubes.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
 import qubes.vm.templatevm

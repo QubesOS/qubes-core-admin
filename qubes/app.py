@@ -59,6 +59,9 @@ else:
 
 # pylint: disable=wrong-import-position
 import qubes
+import qubes.config
+import qubes.events
+import qubes.exc
 import qubes.ext
 import qubes.utils
 import qubes.storage

@@ -25,6 +25,8 @@ import lxml.etree
 
 import qubes
 import qubes.events
+import qubes.ext.pci
+import qubes.features
 import qubes.vm
 
 import qubes.tests

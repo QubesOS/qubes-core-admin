@@ -30,6 +30,7 @@ from distutils import spawn
 
 import numpy as np
 
+import qubes.device_protocol
 import qubes.exc
 import qubes.vm
 import qubes.devices

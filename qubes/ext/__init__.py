@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 import qubes.events
 
 if TYPE_CHECKING:
-    from . import admin, pci, utils
+    from . import pci
 
 
 class Extension:

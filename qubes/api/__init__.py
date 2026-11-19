@@ -30,15 +30,12 @@ import socket
 import string
 import struct
 import traceback
-from typing import TYPE_CHECKING, Collection, Union, Any, Literal, Generator
+from typing import Collection, Union, Any, Literal, Generator
 import uuid
 
 import qubes.exc
 import qubes.vm.qubesvm
 from qubes.exc import ProtocolError, PermissionDenied
-
-if TYPE_CHECKING:
-    from . import admin
 
 
 def method(

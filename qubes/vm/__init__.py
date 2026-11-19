@@ -32,11 +32,14 @@ from typing import TYPE_CHECKING, List
 import lxml.etree
 
 import qubes
+import qubes.config
 import qubes.devices
 import qubes.device_protocol
 import qubes.events
+import qubes.exc
 import qubes.features
 import qubes.log
+import qubes.storage
 from qubes.utils import is_pci_path, sbdf_to_path
 
 if TYPE_CHECKING:

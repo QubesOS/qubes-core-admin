@@ -20,6 +20,7 @@
 
 from unittest import mock
 
+import qubes.exc
 import qubes.ext.admin
 import qubes.tests
 import qubes.vm.adminvm

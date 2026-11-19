@@ -39,6 +39,7 @@ import yaml
 import qubes.api
 import qubes.backup
 import qubes.config
+import qubes.device_protocol
 import qubes.devices
 import qubes.exc
 import qubes.ext

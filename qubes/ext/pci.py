@@ -33,6 +33,7 @@ import lxml.etree
 
 import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext
 import qubes.vm.adminvm
 from qubes.device_protocol import AssignmentMode, Port, UnknownDevice

@@ -40,8 +40,11 @@ import time
 
 from .utils import size_to_human
 import qubes
+import qubes.config
+import qubes.exc
 import qubes.storage
 import qubes.storage.file
+import qubes.utils
 import qubes.vm.templatevm
 
 QUEUE_ERROR = "ERROR"

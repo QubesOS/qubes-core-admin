@@ -32,6 +32,7 @@ import asyncio
 import sys
 
 import qubes.config
+import qubes.exc
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.dispvm

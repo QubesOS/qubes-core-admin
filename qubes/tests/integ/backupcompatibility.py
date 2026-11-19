@@ -28,6 +28,7 @@ import unittest
 import sys
 import re
 
+import qubes.exc
 import qubes.tests
 import qubes.tests.integ.backup
 import qubes.vm.appvm

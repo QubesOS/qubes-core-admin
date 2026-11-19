@@ -25,6 +25,8 @@ import asyncio
 from unittest import mock
 
 import qubes
+import qubes.config
+import qubes.exc
 import qubes.vm.appvm
 import qubes.vm.dispvm
 import qubes.vm.qubesvm
