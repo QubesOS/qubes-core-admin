@@ -494,6 +494,51 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 )
             self.assertFalse(mock_domains.get_new_unused_dispid.called)
 
+    def _remove_dispvm_from_disk(self):
+        self.appvm.template_for_dispvms = True
+        dispvm = self.app.add_new_vm(
+            qubes.vm.dispvm.DispVM,
+            name="test-dispvm",
+            template=self.appvm,
+            dispid=42,
+        )
+        self.addCleanup(dispvm.close)
+        dispvm.storage = mock.Mock()
+        dispvm.storage.remove = mock.AsyncMock()
+        # pylint: disable=protected-access
+        dispvm._domain_stopped_event_handled = True
+        with mock.patch.object(
+            dispvm, "is_halted", return_value=True
+        ), mock.patch.object(
+            dispvm, "fire_event_async", mock.AsyncMock()
+        ), mock.patch(
+            "shutil.rmtree"
+        ), mock.patch.object(
+            dispvm, "remove_logs"
+        ) as mock_remove_logs:
+            self.loop.run_until_complete(dispvm.remove_from_disk())
+        return mock_remove_logs
+
+    def test_012_no_logs_cleanup_from_dispvm_template(self):
+        """no-logs-cleanup on the disposable template keeps the logs."""
+        self.appvm.features["no-logs-cleanup"] = True
+        self._remove_dispvm_from_disk().assert_not_called()
+
+    def test_013_no_logs_cleanup_from_template(self):
+        """no-logs-cleanup on the TemplateVM also keeps the logs."""
+        self.template.features["no-logs-cleanup"] = True
+        self._remove_dispvm_from_disk().assert_not_called()
+
+    def test_014_no_logs_cleanup_overridden(self):
+        """no-logs-cleanup false on the disposable template removes the logs."""
+        self.template.features["no-logs-cleanup"] = True
+        self.appvm.features["no-logs-cleanup"] = False
+        self._remove_dispvm_from_disk().assert_called_once_with()
+
+    def test_015_logs_cleanup_default(self):
+        """Without no-logs-cleanup, the disposable's logs are removed."""
+        self._remove_dispvm_from_disk().assert_called_once_with()
+
     @mock.patch("os.symlink")
     @mock.patch("os.makedirs")
     def test_020_copy_storage_pool(self, _mock_makedirs, _mock_symlink):
