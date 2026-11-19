@@ -207,16 +207,14 @@ class TestConfig:
         pretty_name = "{} runs".format(pretty_from.capitalize())
         if pretty_strategy:
             pretty_name += " {}".format(pretty_strategy)
-        if pretty_what:
-            app_suffix = ""
-            if self.concurrent:
-                app_suffix = "s"
-            pretty_name += " {} app{} ".format(pretty_what, app_suffix)
+        app_suffix = ""
+        if self.concurrent:
+            app_suffix = "s"
+        pretty_name += " {} app{} ".format(pretty_what, app_suffix)
         pretty_name += "{}".format(pretty_to)
         if pretty_delay:
             pretty_name += "{}".format(pretty_delay)
-        if pretty_type:
-            pretty_name += " ({})".format(pretty_type)
+        pretty_name += " ({})".format(pretty_type)
         self.pretty_name = pretty_name
 
 
@@ -711,8 +709,10 @@ class TestRun:
         runtime = {}
         runtime["dom"] = round(domain_time - start_time, ROUND_PRECISION)
         if test.target_dispvm:
+            assert target_time is not None
             runtime["disp"] = round(target_time - domain_time, ROUND_PRECISION)
             if not test.preload_max:
+                assert startup_time is not None
                 runtime["start"] = round(
                     startup_time - target_time, ROUND_PRECISION
                 )

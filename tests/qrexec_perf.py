@@ -36,15 +36,13 @@ if TYPE_CHECKING:
 @dataclasses.dataclass
 class TestConfig:
     name: str
-    #: socket or exec
-    socket: bool
     #: latency or throughput test
     throughput: bool
     #: user (via fork-server) or root
     root: bool
     #: for throughput test: simplex/duplex
     duplex: bool
-    #: service file content or socat command
+    #: service file content (exec) or socat command (socket)
     service: Union[bytes, list[str]]
 
 
@@ -63,13 +61,12 @@ throughput_service_socat_duplex = [
 ]
 
 all_tests = [
-    TestConfig("exec", False, False, False, False, latency_service_exec),
-    TestConfig("exec-root", False, False, True, False, latency_service_exec),
-    TestConfig("socket", True, False, False, False, latency_service_socat),
-    TestConfig("socket-root", True, False, True, False, latency_service_socat),
+    TestConfig("exec", False, False, False, latency_service_exec),
+    TestConfig("exec-root", False, True, False, latency_service_exec),
+    TestConfig("socket", False, False, False, latency_service_socat),
+    TestConfig("socket-root", False, True, False, latency_service_socat),
     TestConfig(
         "exec-data-simplex",
-        False,
         True,
         False,
         False,
@@ -77,7 +74,6 @@ all_tests = [
     ),
     TestConfig(
         "exec-data-duplex",
-        False,
         True,
         False,
         True,
@@ -85,7 +81,6 @@ all_tests = [
     ),
     TestConfig(
         "exec-data-duplex-root",
-        False,
         True,
         True,
         True,
@@ -93,7 +88,6 @@ all_tests = [
     ),
     TestConfig(
         "socket-data-duplex",
-        True,
         True,
         False,
         True,
@@ -189,7 +183,7 @@ class TestRun:
             policy_action = "allow"
 
         service_proc = None
-        if not test.socket:
+        if isinstance(test.service, bytes):
             self.vm2.run_with_args(
                 "rm", "-f", "/etc/qubes-rpc/test.Echo", user="root"
             )

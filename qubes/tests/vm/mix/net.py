@@ -288,7 +288,7 @@ class TC_00_NetVMMixin(
             mock_detach.reset_mock()
             mock_attach.reset_mock()
             with self.subTest("resetting netvm to default"):
-                original_netvm = vm.netvm.name if vm.netvm else ""
+                original_netvm = ""
                 del vm.netvm
                 mock_detach.assert_not_called()
                 mock_attach.assert_not_called()

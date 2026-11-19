@@ -1696,11 +1696,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
         Asynchronously wait for libvirt method to complete.
         """
-        if self._lifecycle_waiter[event] is None:
-            self._lifecycle_waiter[event] = (
-                asyncio.get_running_loop().create_future()
-            )
         waiter = self._lifecycle_waiter[event]
+        if waiter is None:
+            waiter = asyncio.get_running_loop().create_future()
+            self._lifecycle_waiter[event] = waiter
         yield
         if wait:
             await asyncio.wait_for(waiter, timeout=timeout)
@@ -1711,11 +1710,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
         """
         Set power state waiter's result.
         """
-        if self._lifecycle_waiter[event] is not None:
+        waiter = self._lifecycle_waiter[event]
+        if waiter is not None:
             if exc:
-                self._lifecycle_waiter[event].set_exception(exc)
+                waiter.set_exception(exc)
             else:
-                self._lifecycle_waiter[event].set_result(None)
+                waiter.set_result(None)
             self._lifecycle_waiter[event] = None
 
     def on_libvirt_domain_lifecycle(self, event: int, detail: int) -> None:
