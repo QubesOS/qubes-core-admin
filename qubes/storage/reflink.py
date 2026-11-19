@@ -347,7 +347,11 @@ class ReflinkVolume(qubes.storage.Volume):
         try:
             _resize_file(self._path_dirty, size)
         except FileNotFoundError:
-            if self.save_on_stop and not self.snap_on_start:
+            if (
+                self.save_on_stop
+                and not self.snap_on_start
+                and size != self.size
+            ):
                 with self._update_precache():
                     _copy_file(
                         self._path_clean, self._path_clean, dst_size=size
