@@ -21,6 +21,7 @@
 
 import os
 import shutil
+import asyncio
 from unittest import mock
 
 import qubes
@@ -587,3 +588,31 @@ class TC_00_DVMTemplateMixin(
         self.appvm.features["supported-rpc.qubes.WaitForSession"] = True
         self.appvm.features["preload-dispvm-max"] = 1
         self.assertEqual(qubes.vm.dispvm.get_preload_max(self.appvm), 1)
+
+    def test_060_refresh_outdated_preload_skip_check(self):
+        preload = mock.Mock(is_preload=True, cleanup=mock.AsyncMock())
+        preload.name = "preload"
+        other = mock.Mock(is_preload=False, cleanup=mock.AsyncMock())
+        other.name = "other"
+        domains = mock.MagicMock()
+        domains.__getitem__.side_effect = lambda qube: qube
+        with (
+            mock.patch.object(self.app, "domains", domains),
+            mock.patch.object(
+                type(self.appvm),
+                "dispvms",
+                new_callable=mock.PropertyMock,
+                return_value=iter([preload, other]),
+            ),
+            mock.patch.object(
+                self.appvm, "remove_preload_from_list"
+            ) as mock_remove,
+            mock.patch.object(
+                self.appvm, "fire_event_async", new_callable=mock.AsyncMock
+            ),
+        ):
+            self.appvm.refresh_outdated_preload(skip_check=True)
+            self.loop.run_until_complete(asyncio.sleep(0.01))
+        self.assertEqual(mock_remove.call_args.args[0], ["preload"])
+        preload.cleanup.assert_awaited_once()
+        other.cleanup.assert_not_called()

@@ -116,7 +116,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
         self.assertDeviceIs(
             self.dev, attached=False, assigned=False, required=False
         )
-        self.assignment.required = False
+        self.assignment = self.assignment.clone(mode="manual")
         with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             self.loop.run_until_complete(dev_col.attach(self.assignment))
 
@@ -170,7 +170,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
     def test_031_attach_detach_online_temp(self):
         dev_col = self.vm.devices["pci"]
         self.loop.run_until_complete(self.vm.start())
-        self.assignment.assigned = False
+        self.assignment = self.assignment.clone(mode="manual")
         self.assertDeviceIs(
             self.dev, attached=False, assigned=False, required=False
         )

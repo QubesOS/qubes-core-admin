@@ -701,3 +701,10 @@ class TC_41_Utils_EntryPoint(qubes.tests.QubesTestCase):
         ):
             with self.assertRaises(KeyError):
                 qubes.utils.get_entry_point_one("qubes.vm", "Missing")
+
+
+class TC_42_Utils_Timezone(qubes.tests.QubesTestCase):
+    def test_000_no_localtime(self):
+        with unittest.mock.patch("os.path.islink", return_value=False):
+            with unittest.mock.patch("os.stat", side_effect=FileNotFoundError):
+                self.assertIsNone(qubes.utils.get_timezone())

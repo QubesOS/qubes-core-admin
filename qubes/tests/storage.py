@@ -220,3 +220,27 @@ class TC_00_Pool(QubesTestCase):
             "ephemeral_volatile": False,
         }
         self.assertEqual(params, expected_params)
+
+
+class TC_10_Storage(QubesTestCase):
+    def get_storage(self, used_frontends):
+        targets = "".join(
+            f"<disk><target dev='{dev}'/></disk>" for dev in used_frontends
+        )
+        vm = unittest.mock.Mock(volume_config={})
+        vm.libvirt_domain.XMLDesc.return_value = (
+            f"<domain><devices>{targets}</devices></domain>"
+        )
+        return qubes.storage.Storage(vm)
+
+    def test_000_unused_frontend_prefer_xvdi(self):
+        self.assertEqual(self.get_storage([]).unused_frontend(), "xvdi")
+
+    def test_001_unused_frontend_skip_used(self):
+        storage = self.get_storage(["xvda", "xvdi", "xvdj"])
+        self.assertEqual(storage.unused_frontend(), "xvdk")
+
+    def test_002_unused_frontend_none_left(self):
+        storage = self.get_storage(qubes.storage.Storage.AVAILABLE_FRONTENDS)
+        with self.assertRaises(IndexError):
+            storage.unused_frontend()
