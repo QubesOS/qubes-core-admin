@@ -1603,3 +1603,82 @@ class TC_02_StorageHelpers(ThinPoolBase):
             self.app.pools.values(), self.thin_dir.name
         )
         self.assertEqual(pool, self.pool)
+
+
+class TC_03_FakeLvm(qubes.tests.QubesTestCase):
+    """Tests with LVM calls faked, without a real LVM pool"""
+
+    def setUp(self):
+        super().setUp()
+        self.lvs = {"vg/pool"}
+        patches = [
+            unittest.mock.patch(
+                "qubes.storage.lvm.qubes_lvm_coro", self._fake_lvm
+            ),
+            unittest.mock.patch(
+                "qubes.storage.lvm.reset_cache_coro", self._fake_reset_cache
+            ),
+            unittest.mock.patch(
+                "qubes.storage.lvm.os.path.exists",
+                lambda path: path[len("/dev/") :] in self.lvs,
+            ),
+            unittest.mock.patch("qubes.storage.lvm.size_cache", {}),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.loop.run_until_complete(self._fake_reset_cache())
+
+    async def _fake_lvm(self, cmd, log=None):
+        # pylint: disable=unused-argument
+        if cmd[0] == "create":
+            # cmd[1] is the pool ("vg/pool"), the new LV goes in its VG
+            self.lvs.add(cmd[1].split("/")[0] + "/" + cmd[2])
+        elif cmd[0] in ("rename", "clone"):
+            if cmd[2] in self.lvs:
+                raise qubes.exc.StoragePoolException(
+                    'Logical Volume "{}" already exists'.format(cmd[2])
+                )
+            if cmd[0] == "rename":
+                self.lvs.remove(cmd[1])
+            self.lvs.add(cmd[2])
+        elif cmd[0] == "remove":
+            self.lvs.discard(cmd[1])
+        else:
+            assert False, cmd
+        return True
+
+    async def _fake_reset_cache(self):
+        qubes.storage.lvm.size_cache = {
+            vid: {"size": 1024, "origin": ""} for vid in self.lvs
+        }
+
+    def test_000_two_commits_same_second(self):
+        pool = ThinPool(name="test", volume_group="vg", thin_pool="pool")
+        volume = pool.init_volume(
+            None,
+            {
+                "name": "private",
+                "vid": "vg/vm-test-private",
+                "save_on_stop": True,
+                "rw": True,
+                "revisions_to_keep": 2,
+                "size": 1024,
+            },
+        )
+        self.loop.run_until_complete(volume.create())
+        with unittest.mock.patch("time.time", return_value=1521065906):
+            for _ in range(2):
+                path = self.loop.run_until_complete(volume.import_data(1024))
+                self.assertEqual(path, "/dev/vg/vm-test-private-import")
+                self.loop.run_until_complete(volume.import_data_end(True))
+        self.assertEqual(
+            self.lvs,
+            {
+                "vg/pool",
+                "vg/vm-test-private",
+                "vg/vm-test-private-1521065906-back",
+                "vg/vm-test-private-1521065907-back",
+            },
+        )
+        self.assertEqual(volume.path, "/dev/mapper/vg-vm--test--private")

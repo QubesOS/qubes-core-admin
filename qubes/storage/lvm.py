@@ -491,10 +491,15 @@ class ThinVolume(qubes.storage.Volume):
             return False
 
         if self._vid_current == self.vid:
+            # a previous commit in the same second may already have used
+            # this name
+            timestamp = int(time.time())
+            while "{}-{}-back".format(self.vid, timestamp) in size_cache:
+                timestamp += 1
             cmd = [
                 "rename",
                 self.vid,
-                "{}-{}-back".format(self.vid, int(time.time())),
+                "{}-{}-back".format(self.vid, timestamp),
             ]
             await qubes_lvm_coro(cmd, self.log)
             await reset_cache_coro()
