@@ -65,12 +65,6 @@ HMAC_MAX_SIZE = 4096
 BLKSIZE = 512
 
 
-class BackupCanceledError(qubes.exc.QubesException):
-    def __init__(self, msg, tmpdir=None):
-        super().__init__(msg)
-        self.tmpdir = tmpdir
-
-
 class BackupHeader:
     """Structure describing backup-header file included as the first file in
     backup archive

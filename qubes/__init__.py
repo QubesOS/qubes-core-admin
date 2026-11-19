@@ -26,10 +26,7 @@ Qubes OS
 :copyright: © 2010-2015 Invisible Things Lab
 """
 
-import builtins
 import collections.abc
-import os
-import os.path
 import string
 
 import lxml.etree
@@ -39,7 +36,6 @@ import qubes.exc
 
 __author__ = "Invisible Things Lab"
 __license__ = "GPLv2 or later"
-__version__ = "R3"
 
 
 class Label:
@@ -108,32 +104,6 @@ class Label:
 
     def __hash__(self):
         return hash(self.name)
-
-    @builtins.property
-    def icon_path(self):
-        """Icon path
-
-        .. deprecated:: 2.0
-           use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon`
-        """
-        return (
-            os.path.join(qubes.config.system_path["qubes_icon_dir"], self.icon)
-            + ".png"
-        )
-
-    @builtins.property
-    def icon_path_dispvm(self):
-        """Icon path
-
-        .. deprecated:: 2.0
-           use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon_dispvm`
-        """
-        return (
-            os.path.join(
-                qubes.config.system_path["qubes_icon_dir"], self.icon_dispvm
-            )
-            + ".png"
-        )
 
 
 class property:  # pylint: disable=redefined-builtin,invalid-name

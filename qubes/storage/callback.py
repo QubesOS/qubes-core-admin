@@ -32,14 +32,6 @@ from qubes.utils import coro_maybe
 import qubes.storage
 
 
-class UnhandledSignalException(qubes.exc.StoragePoolException):
-    def __init__(self, pool, signal):
-        super().__init__(
-            "The pool %s failed to handle the signal %s, likely because it was run from synchronous code."
-            % (pool.name, signal)
-        )
-
-
 class CallbackPool(qubes.storage.Pool):
     """Proxy storage pool driver adding callback functionality to other pool drivers.
 

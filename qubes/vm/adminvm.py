@@ -269,10 +269,6 @@ class AdminVM(LocalVM):
             self.log.warning("Failed to get CPU time for dom0: %s", e)
             return 0
 
-    def verify_files(self):
-        """Always :py:obj:`True`"""
-        return True
-
     def start(self, start_guid=True, notify_function=None, mem_required=None):
         """Always raises an exception.
 
