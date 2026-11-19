@@ -33,6 +33,8 @@ import qubes.events
 class Extension:
     """Base class for all extensions"""
 
+    _instance: "Extension"
+
     # pylint: disable=too-few-public-methods
 
     def __new__(cls):

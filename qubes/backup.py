@@ -267,6 +267,11 @@ class Backup:
     """
 
     # pylint: disable=too-many-instance-attributes
+    passphrase: str | bytes | None
+    target_dir: str | None
+    target_vm: "qubes.vm.BaseVM | None"
+    tmpdir: str | None
+
     class FileToBackup:
         # pylint: disable=too-few-public-methods
         def __init__(

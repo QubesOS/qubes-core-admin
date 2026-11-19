@@ -19,7 +19,8 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-from typing import Optional, Union, Iterator, Tuple
+import logging
+from typing import TYPE_CHECKING, Optional, Union, Iterator, Tuple
 
 import qubes.config
 import qubes.events
@@ -27,11 +28,19 @@ import qubes.vm.dispvm
 import qubes.vm.qubesvm
 import qubes.exc
 
+if TYPE_CHECKING:
+    import qubes.features
+
 
 class DVMTemplateMixin(qubes.events.Emitter):
     """
     VM class capable of being disposable template.
     """
+
+    app: "qubes.Qubes"
+    features: "qubes.features.Features"
+    log: logging.Logger
+    name: str
 
     # pylint doesn't see event handlers being registered via decorator
     # pylint: disable=unused-private-member

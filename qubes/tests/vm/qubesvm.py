@@ -52,6 +52,7 @@ import qubes.vm.templatevm
 
 import qubes.tests
 import qubes.tests.vm
+from typing import Any
 
 # prefer location in git checkout
 tests_sysfs_path = os.path.dirname(__file__) + "/../../../tests-data/sysfs/sys"
@@ -61,6 +62,10 @@ if not os.path.exists(tests_sysfs_path):
 
 
 class TestApp(object):
+    default_kernel: Any
+    management_dispvm: Any
+    vmm: Any
+
     labels = {
         1: qubes.Label(1, "0xcc0000", "red"),
         2: qubes.Label(2, "0x00cc00", "green"),
@@ -138,6 +143,11 @@ class TestQubesDB(object):
 
 
 class TestVM(object):
+    is_memory_balancing_possible: Any
+    memory: Any
+    template: Any
+    virt_mode: Any
+
     # pylint: disable=too-few-public-methods
     app = TestApp()
 

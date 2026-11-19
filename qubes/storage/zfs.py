@@ -30,7 +30,7 @@ from typing import (
     List,
     Union,
     Any,
-    AsyncIterator,
+    AsyncGenerator,
     Tuple,
     Coroutine,
     Literal,
@@ -2115,7 +2115,7 @@ class ZFSVolume(qubes.storage.Volume):
     async def _clone_volume_2phase(
         self,
         src: VolumeSnapshot,
-    ) -> AsyncIterator[None]:
+    ) -> AsyncGenerator[None, None]:
         """
         Wipe the matching temporary dataset and clone it from src.
         Yield nothing, but work as a context.
@@ -2150,7 +2150,7 @@ class ZFSVolume(qubes.storage.Volume):
     async def _copy_into_volume_2phase(
         self,
         size: Optional[int] = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         """
         Wipe the matching temporary dataset and create it anew, empty,
         in preparation for a copy.  Yield a writable path to the caller,

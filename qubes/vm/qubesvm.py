@@ -784,6 +784,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             Handler for this event may be asynchronous.
     """  # pylint: disable=too-many-instance-attributes
 
+    _domain_stopped_future: "asyncio.Future | None"
+
     #
     # per-class properties
     #

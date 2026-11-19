@@ -31,6 +31,7 @@ import qubes.vm
 
 import qubes.tests
 from qubes.device_protocol import Port
+from typing import Any
 
 
 class TestVMM(object):
@@ -47,6 +48,8 @@ class TestApp(object):
 
 
 class TestVM(qubes.vm.LocalVM):
+    nxproperty: Any
+
     qid = qubes.property("qid", type=int)
     name = qubes.property("name")
     testprop = qubes.property("testprop")
