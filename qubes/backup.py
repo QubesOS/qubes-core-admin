@@ -455,7 +455,8 @@ class Backup:
             home_dir = pwd.getpwnam(local_user).pw_dir
 
             # Checking if target is not user home directory in dom0
-            if self.target_vm == self.app.domains[0] and (
+            # (target_vm None means a local path in dom0)
+            if self.target_vm in (None, self.app.domains[0]) and (
                 self.target_dir in ["", "~"]
                 or Path(self.target_dir).is_relative_to(home_dir)
             ):
