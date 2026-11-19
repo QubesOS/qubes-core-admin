@@ -194,7 +194,7 @@ class QubesNoTemplateError(QubesVMError):
 
 
 class QubesPoolInUseError(QubesException):
-    """VM is in use, cannot remove."""
+    """Pool is in use, cannot remove."""
 
     def __init__(self, pool_name, msg=None):
         super().__init__(

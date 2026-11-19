@@ -175,7 +175,7 @@ class AdminVM(LocalVM):
     def xid(self) -> int:
         """Always ``0``.
 
-        .. seealso:
+        .. seealso::
            :py:attr:`qubes.vm.qubesvm.QubesVM.xid`
 
         :return: 0
@@ -193,7 +193,7 @@ class AdminVM(LocalVM):
     def libvirt_domain(self):
         """Libvirt object for dom0.
 
-        .. seealso:
+        .. seealso::
            :py:attr:`qubes.vm.qubesvm.QubesVM.libvirt_domain`
         """
         if self._libvirt_domain is not None:
@@ -207,7 +207,7 @@ class AdminVM(LocalVM):
     def is_running():
         """Always :py:obj:`True`.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.is_running`
         """
         return True
@@ -216,7 +216,7 @@ class AdminVM(LocalVM):
     def is_halted():
         """Always :py:obj:`False`.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.is_halted`
         """
         return False
@@ -225,7 +225,7 @@ class AdminVM(LocalVM):
     def get_power_state():
         """Always ``'Running'``.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_power_state`
         """
         return "Running"
@@ -252,7 +252,7 @@ class AdminVM(LocalVM):
     def get_mem_static_max(self):
         """Get maximum memory available to Dom0.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_mem_static_max`
         """
         return self.maxmem * 1024
@@ -260,7 +260,7 @@ class AdminVM(LocalVM):
     def get_cputime(self):
         """Get total CPU time burned by Dom0 since start.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_cputime`
         """
         try:
@@ -270,17 +270,13 @@ class AdminVM(LocalVM):
             return 0
 
     def verify_files(self):
-        """Always :py:obj:`True`
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.verify_files`
-        """
+        """Always :py:obj:`True`"""
         return True
 
     def start(self, start_guid=True, notify_function=None, mem_required=None):
         """Always raises an exception.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.start`
         """  # pylint: disable=unused-argument,arguments-differ
         raise qubes.exc.QubesVMNotHaltedError(
@@ -290,7 +286,7 @@ class AdminVM(LocalVM):
     def suspend(self):
         """Does nothing.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.suspend`
         """
         raise qubes.exc.QubesVMError(self, "Cannot suspend Dom0 fake domain!")
@@ -298,7 +294,7 @@ class AdminVM(LocalVM):
     def shutdown(self, **_kwargs):
         """Does nothing.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.shutdown`
         """
         raise qubes.exc.QubesVMError(self, "Cannot shutdown Dom0 fake domain!")
@@ -330,7 +326,7 @@ class AdminVM(LocalVM):
     def kill(self):
         """Does nothing.
 
-        .. seealso:
+        .. seealso::
            :py:meth:`qubes.vm.qubesvm.QubesVM.kill`
         """
         raise qubes.exc.QubesVMError(self, "Cannot kill Dom0 fake domain!")
