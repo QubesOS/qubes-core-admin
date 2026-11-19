@@ -92,6 +92,7 @@ def device_list_change(
             for device in assignment.devices:
                 if (
                     assignment.matches(device)
+                    and device.backend_domain == vm
                     and device.port_id in added
                     and device.port_id not in attached
                 ):
