@@ -22,6 +22,8 @@ import functools
 import os.path
 from unittest import mock
 
+import qubes.api.admin
+import qubes.device_protocol
 from qubes.vm.adminvm import AdminVM
 from qubes.vm.appvm import AppVM
 

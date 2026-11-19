@@ -28,14 +28,19 @@ Qubes OS
 
 import builtins
 import collections.abc
+import logging
 import os
 import os.path
 import string
+from typing import TYPE_CHECKING
 
 import lxml.etree
 import qubes.config
 import qubes.events
 import qubes.exc
+
+if TYPE_CHECKING:
+    from . import storage
 
 __author__ = "Invisible Things Lab"
 __license__ = "GPLv2 or later"
@@ -599,6 +604,8 @@ class PropertyHolder(qubes.events.Emitter):
 
     Members:
     """
+
+    log: logging.Logger
 
     def __init__(self, xml, **kwargs):
         self.xml = xml

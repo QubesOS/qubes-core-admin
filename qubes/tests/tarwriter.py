@@ -31,15 +31,14 @@ import qubes.tests
 class TC_00_TarWriter(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_TarWriter, self).setUp()
-        self.input_path = tempfile.mktemp()
-        self.output_path = tempfile.mktemp()
+        self.work_dir = tempfile.mkdtemp()
+        self.input_path = os.path.join(self.work_dir, "input")
+        self.output_path = os.path.join(self.work_dir, "output")
         self.extract_dir = tempfile.mkdtemp()
 
     def tearDown(self):
-        if os.path.exists(self.input_path):
-            os.unlink(self.input_path)
-        if os.path.exists(self.output_path):
-            os.unlink(self.output_path)
+        if os.path.exists(self.work_dir):
+            shutil.rmtree(self.work_dir)
         if os.path.exists(self.extract_dir):
             shutil.rmtree(self.extract_dir)
         return super(TC_00_TarWriter, self).tearDown()

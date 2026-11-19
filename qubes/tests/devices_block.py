@@ -24,6 +24,8 @@ from unittest.mock import Mock, AsyncMock
 
 import jinja2
 
+import qubes.exc
+import qubes.ext.utils
 import qubes.tests
 import qubes.ext.block
 from qubes.device_protocol import (
@@ -33,6 +35,10 @@ from qubes.device_protocol import (
     DeviceAssignment,
     VirtualDevice,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import unittest.mock
 
 
 def async_test(f):

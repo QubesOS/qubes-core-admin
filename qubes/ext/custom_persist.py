@@ -18,6 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 import os
+import qubes.exc
 import qubes.ext
 import qubes.config
 

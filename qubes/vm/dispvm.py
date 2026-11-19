@@ -28,6 +28,10 @@ import subprocess
 from typing import Optional
 
 import qubes.config
+import qubes.events
+import qubes.exc
+import qubes.qmemman.client
+import qubes.utils
 import qubes.vm.appvm
 import qubes.vm.qubesvm
 
@@ -794,7 +798,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     @classmethod
     async def from_appvm(
         cls, appvm, preload=False, **kwargs
-    ) -> Optional["qubes.vm.dispvm.DispVM"]:
+    ) -> Optional["DispVM"]:
         """
         Use a preloaded disposable if available, else fallback to creating a
         new disposable instance from given app qube.
@@ -849,9 +853,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         return True
 
     @classmethod
-    async def gen_disposable(
-        cls, appvm, preload=False, **kwargs
-    ) -> "qubes.vm.dispvm.DispVM":
+    async def gen_disposable(cls, appvm, preload=False, **kwargs) -> "DispVM":
         """
         Create a new disposable instance from a given app qube. If preload is
         truthy, the qube is started.

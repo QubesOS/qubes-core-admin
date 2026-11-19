@@ -21,12 +21,16 @@ import contextlib
 import subprocess
 import sys
 import unittest
-from distutils import spawn
+import shutil
 
 import qubes
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
-class TC_06_AppVMMixin(object):
+class TC_06_AppVMMixin(qubes.tests.SystemTestMixinBase):
     template = None
 
     def setUp(self):
@@ -136,9 +140,7 @@ class TC_06_AppVMMixin(object):
                 f"{e.stderr}"
             )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_121_start_standalone_with_cdrom_vm(self):
         cdrom_vmname = self.make_vm_name("cdrom")
         self.cdrom_vm = self.app.add_new_vm(
@@ -195,7 +197,7 @@ class TC_06_AppVMMixin(object):
         self.assertFalse(self.vm.is_running())
 
 
-class TC_10_RemoteVMMixin:
+class TC_10_RemoteVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super().setUp()
         relay_name = self.make_vm_name("relay")

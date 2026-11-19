@@ -26,7 +26,9 @@ import xen.lowlevel  # pylint: disable=import-error
 from pathlib import Path
 from typing import Optional
 
+import qubes.config
 import qubes.qmemman
+import qubes.qmemman.algo
 from qubes.qmemman.domainstate import DomainState
 
 BALLOON_DELAY = 0.1
@@ -54,8 +56,8 @@ class SystemState:
         self.log.debug("SystemState()")
 
         self.dom_dict: dict[str, DomainState] = {}
-        self.xc: xen.lowlevel.xc.xc = None
-        self.xs: xen.lowlevel.xs.xs = None
+        self.xc: xen.lowlevel.xc.xc
+        self.xs: xen.lowlevel.xs.xs
         self.all_phys_mem: int = 0
 
     def init(self) -> None:

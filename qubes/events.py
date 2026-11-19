@@ -28,6 +28,7 @@ import asyncio
 import collections
 import fnmatch
 import functools
+import inspect
 
 from typing import Callable
 
@@ -70,6 +71,8 @@ def ishandler(obj):
 
 class EmitterMeta(type):
     """Metaclass for :py:class:`Emitter`"""
+
+    property_list: Callable
 
     def __init__(cls, name, bases, dict_):
         super(EmitterMeta, cls).__init__(name, bases, dict_)
@@ -196,7 +199,7 @@ class Emitter(metaclass=EmitterMeta):
             reverse=True,
         )
         for func in sorted_handlers:
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 async_funcs.append(func)
             else:
                 sync_funcs.append(func)

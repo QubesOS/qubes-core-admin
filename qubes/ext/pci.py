@@ -33,13 +33,15 @@ import lxml.etree
 
 import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext
+import qubes.vm.adminvm
 from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 #: cache of PCI device classes
-pci_classes = None
+pci_classes: dict | None = None
 
 
 #: emit warning on unsupported device only once
@@ -149,6 +151,10 @@ def _device_desc(hostdev_xml):
 
 class PCIDevice(qubes.device_protocol.DeviceInfo):
     # pylint: disable=too-few-public-methods
+    bus: str
+    device: str
+    function: str
+
     regex = re.compile(
         r"\A((?P<segment>[0-9a-f]{4})[_:])?(?P<bus>[0-9a-f]{2})[_:]"
         r"(?P<device>[0-9a-f]{2})\.(?P<function>[0-9a-f])\Z"

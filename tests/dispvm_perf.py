@@ -62,6 +62,10 @@ from datetime import datetime, timezone
 
 from deepmerge import Merger
 import qubesadmin
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubesadmin.vm
 
 # nose will duplicate this logger.
 logger = logging.getLogger(__name__)
@@ -94,7 +98,7 @@ class TestConfig:
     :param bool target_dispvm: target or not a disposable qube
     :param bool admin_api: use the Admin API directly
     :param str extra_id: base test that extra ID varies from
-    :param int preload_delay: time to start generating fresh preload after use
+    :param float preload_delay: time to start generating fresh preload after use
     :param str pretty_name: human-readable name
 
     Notes
@@ -147,7 +151,7 @@ class TestConfig:
     target_dispvm: bool = True
     admin_api: bool = False
     extra_id: str = ""
-    preload_delay: int = None
+    preload_delay: float | None = None
     pretty_name: str = dataclasses.field(init=False)
 
     def __post_init__(self):
@@ -203,16 +207,14 @@ class TestConfig:
         pretty_name = "{} runs".format(pretty_from.capitalize())
         if pretty_strategy:
             pretty_name += " {}".format(pretty_strategy)
-        if pretty_what:
-            app_suffix = ""
-            if self.concurrent:
-                app_suffix = "s"
-            pretty_name += " {} app{} ".format(pretty_what, app_suffix)
+        app_suffix = ""
+        if self.concurrent:
+            app_suffix = "s"
+        pretty_name += " {} app{} ".format(pretty_what, app_suffix)
         pretty_name += "{}".format(pretty_to)
         if pretty_delay:
             pretty_name += "{}".format(pretty_delay)
-        if pretty_type:
-            pretty_name += " ({})".format(pretty_type)
+        pretty_name += " ({})".format(pretty_type)
         self.pretty_name = pretty_name
 
 
@@ -707,8 +709,10 @@ class TestRun:
         runtime = {}
         runtime["dom"] = round(domain_time - start_time, ROUND_PRECISION)
         if test.target_dispvm:
+            assert target_time is not None
             runtime["disp"] = round(target_time - domain_time, ROUND_PRECISION)
             if not test.preload_max:
+                assert startup_time is not None
                 runtime["start"] = round(
                     startup_time - target_time, ROUND_PRECISION
                 )

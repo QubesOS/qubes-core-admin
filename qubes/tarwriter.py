@@ -37,10 +37,12 @@ class TarSparseInfo(tarfile.TarInfo):
             self.size = functools.reduce(
                 lambda x, y: x + y[1], sparsemap, 0
             ) + len(self.sparsemap_buf)
-            self.pax_headers["GNU.sparse.major"] = "1"
-            self.pax_headers["GNU.sparse.minor"] = "0"
-            self.pax_headers["GNU.sparse.name"] = name
-            self.pax_headers["GNU.sparse.realsize"] = str(self.realsize)
+            self.pax_headers = {
+                "GNU.sparse.major": "1",
+                "GNU.sparse.minor": "0",
+                "GNU.sparse.name": name,
+                "GNU.sparse.realsize": str(self.realsize),
+            }
             self.name = "{}/GNUSparseFile.{}/{}".format(
                 os.path.dirname(name), os.getpid(), os.path.basename(name)
             )

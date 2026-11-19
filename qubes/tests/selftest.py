@@ -20,6 +20,10 @@
 import unittest
 
 import qubes.tests
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests.never_awaited
 
 
 class TC_00_SelfTest(qubes.tests.QubesTestCase):

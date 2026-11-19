@@ -25,6 +25,7 @@ import collections.abc
 import copy
 import functools
 import grp
+import io
 import itertools
 import logging
 import os
@@ -58,6 +59,9 @@ else:
 
 # pylint: disable=wrong-import-position
 import qubes
+import qubes.config
+import qubes.events
+import qubes.exc
 import qubes.ext
 import qubes.utils
 import qubes.storage
@@ -71,6 +75,10 @@ import qubes.vm.templatevm
 
 
 class VirDomainWrapper:
+    _connection: "VirConnectWrapper"
+
+    _vm: libvirt.virDomain
+
     # pylint: disable=too-few-public-methods
 
     def __init__(self, connection, vm):
@@ -244,7 +252,7 @@ class VMMConnection:
         return self._is_xen
 
     @property
-    def xs(self):
+    def xs(self) -> "xen.lowlevel.xs.xs | None":
         """Connection to Xen Store
 
         This property is available only when running on Xen.
@@ -256,7 +264,7 @@ class VMMConnection:
         return self._xs
 
     @property
-    def xc(self):
+    def xc(self) -> "xen.lowlevel.xc.xc | None":
         """Connection to Xen
 
         This property is available only when running on Xen.
@@ -284,6 +292,10 @@ class QubesHost:
     :param qubes.Qubes app: Qubes application context (must have \
         :py:attr:`Qubes.vmm` attribute defined)
     """
+
+    _total_mem: int
+    _no_cpus: int
+    _physinfo: dict | None
 
     def __init__(self, app):
         self.app = app
@@ -1165,6 +1177,11 @@ class Qubes(qubes.PropertyHolder):
 
     Methods and attributes:
     """
+
+    __locked_fh: io.BufferedRandom | None
+
+    api_admin_pending_clone: dict
+    api_admin_running_backups: dict
 
     default_guivm = qubes.VMProperty(
         "default_guivm",

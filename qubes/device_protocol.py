@@ -412,7 +412,7 @@ class VirtualDevice:
         device_id: Optional[str] = None,
     ):
         assert not isinstance(port, AnyPort) or device_id is not None
-        self.port: Optional[Port] = port  # type: ignore
+        self.port: Optional[Port] = port  # type: ignore[assignment]
         self._device_id = device_id
 
     def clone(self, **kwargs) -> "VirtualDevice":

@@ -22,7 +22,7 @@ import qubes.tests
 import qubes.tests.storage as ts
 import qubes.vm.appvm
 
-from typing import Tuple, Dict, Any, List, Coroutine, Optional
+from typing import Awaitable, Tuple, Dict, Any, List, Optional
 from unittest.mock import patch
 
 DUMP_POOL_AFTER_EACH_TEST = os.getenv("ZFS_DUMP_POOL_AFTER_EACH_TEST", "")
@@ -71,13 +71,13 @@ class TestApp(qubes.Qubes):
     def __init__(
         self, *args: Any, **kwargs: Any  # pylint: disable=unused-argument
     ) -> None:
-        super().__init__(  # type: ignore
+        super().__init__(
             "/tmp/qubes-zfs-test.xml",
             load=False,
             offline_mode=True,
             **kwargs,
         )
-        self.load_initial_values()  # type: ignore
+        self.load_initial_values()
 
 
 def setup_test_zfs_pool(pool_name: str) -> Tuple[str, str]:
@@ -143,8 +143,8 @@ def dump_zfs_filesystems(text: str = "", dataset: str = "") -> None:
 
 
 class AsyncLoopHolderMixin(qubes.tests.QubesTestCase):
-    def rc(self, future: Coroutine[Any, Any, Any]) -> Any:
-        return self.loop.run_until_complete(future)  # type: ignore
+    def rc(self, future: Awaitable[Any]) -> Any:
+        return self.loop.run_until_complete(future)
 
 
 class ZFSBase(AsyncLoopHolderMixin):
@@ -175,7 +175,7 @@ class ZFSBase(AsyncLoopHolderMixin):
         return volume_path
 
     def setUp(self) -> None:
-        super().setUp()  # type: ignore
+        super().setUp()
         pool_conf = {
             "driver": "zfs",
             "container": self.container,
@@ -183,17 +183,17 @@ class ZFSBase(AsyncLoopHolderMixin):
         }
         self.app = TestApp()
         self.pool: zfs.ZFSPool = self.rc(
-            self.app.add_pool(**pool_conf),  # type: ignore
+            self.app.add_pool(**pool_conf),
         )
         self.app.default_pool = self.app.get_pool(
             pool_conf["name"],
-        )  # type: ignore
+        )
 
     def tearDown(self) -> None:
         self.app.default_pool = "varlibqubes"
-        self.rc(self.app.remove_pool(self.pool.name))  # type: ignore
+        self.rc(self.app.remove_pool(self.pool.name))
         del self.pool
-        self.app.close()  # type: ignore
+        self.app.close()
         del self.app
         super().tearDown()
         # Dump if dumped.
@@ -319,7 +319,7 @@ class TC_10_ZFSPool(ZFSBase):
 
     def get_vol(self, factory: Any, **kwargs: Any) -> zfs.ZFSVolume:
         volume = self.pool.init_volume(
-            ts.TestVM(self),  # type: ignore
+            ts.TestVM(self),  # type: ignore[arg-type]
             factory(self.pool.name, **kwargs),
         )
         assert isinstance(self.vols_created_during_test, list)

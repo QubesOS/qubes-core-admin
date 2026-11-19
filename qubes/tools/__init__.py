@@ -24,7 +24,9 @@ import argparse
 import importlib
 import logging
 
+import qubes.exc
 import qubes.log
+import qubes.utils
 
 
 class QubesArgumentParser(argparse.ArgumentParser):

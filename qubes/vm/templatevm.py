@@ -23,6 +23,7 @@
 
 import qubes
 import qubes.config
+import qubes.events
 import qubes.vm.qubesvm
 import qubes.vm.mix.net
 from qubes.config import defaults

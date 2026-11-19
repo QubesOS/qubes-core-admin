@@ -31,6 +31,8 @@ import asyncio
 import lxml.etree
 
 import qubes
+import qubes.events
+import qubes.exc
 import qubes.utils
 import qubes.vm.qubesvm
 

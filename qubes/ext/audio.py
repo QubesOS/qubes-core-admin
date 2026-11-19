@@ -20,6 +20,7 @@
 import asyncio
 import subprocess
 import qubes.config
+import qubes.exc
 import qubes.ext
 
 

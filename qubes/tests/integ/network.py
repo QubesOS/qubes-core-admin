@@ -27,6 +27,7 @@ import sys
 import time
 import unittest
 
+
 import qubes.tests
 import qubes.firewall
 import qubes.vm.qubesvm
@@ -35,7 +36,7 @@ import qubes.vm.appvm
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
 @qubes.tests.skipIfTemplate("whonix")
-class VmNetworkingMixin:
+class VmNetworkingMixin(qubes.tests.SystemTestMixinBase):
     test_ip = "192.168.123.45"
     test_name = "test.example.com"
 
@@ -165,7 +166,7 @@ class VmNetworkingMixin:
         del self.netvms
         super().tearDown()
 
-    def configure_netvm(self, netvms: list = None):
+    def configure_netvm(self, netvms: list | None = None):
         """
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
 

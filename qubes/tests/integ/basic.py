@@ -21,7 +21,6 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-from distutils import spawn
 
 import asyncio
 import json
@@ -41,6 +40,7 @@ import qubes.firewall
 import qubes.tests
 import qubes.storage
 import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
@@ -183,9 +183,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(asyncio.sleep(0.1))
         self.assertTrue(flag)
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_120_start_standalone_with_cdrom_dom0(self):
         vmname = self.make_vm_name("appvm")
         self.vm = self.app.add_new_vm("StandaloneVM", label="red", name=vmname)
@@ -1079,36 +1077,26 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             "Clipboard image not wiped after paste",
         )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_003_clipboard_image(self):
         self.loop.run_until_complete(self._test_clipboard_image(64, 32))
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_004_clipboard_image_incr(self):
         # large enough to be transferred with the X11 INCR protocol
         self.loop.run_until_complete(self._test_clipboard_image(512, 512))
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_000_clipboard(self):
         test_string = "test123"
         self.loop.run_until_complete(self._test_clipboard(test_string))
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_001_clipboard_64k(self):
         test_string = "test123ab\n" * 6400
         self.loop.run_until_complete(self._test_clipboard(test_string))
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_002_clipboard_200k_truncated(self):
         test_string = "test123ab\n" * 20000
         self.loop.run_until_complete(
@@ -1117,9 +1105,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             )
         )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_002_clipboard_200k(self):
         test_string = "test123ab\n" * 20000
         self.loop.run_until_complete(
@@ -1128,9 +1114,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
             )
         )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_002_clipboard_300k(self):
         test_string = "test123ab\n" * 30000
         self.loop.run_until_complete(
@@ -1142,7 +1126,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         )
 
 
-class TC_05_StandaloneVMMixin(object):
+class TC_05_StandaloneVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_05_StandaloneVMMixin, self).setUp()
         self.init_default_template(self.template)

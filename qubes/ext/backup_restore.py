@@ -24,6 +24,7 @@ Backup restore related functionality. Specifically:
 """
 
 import qubes.api
+import qubes.exc
 import qubes.ext
 import qubes.vm.adminvm
 

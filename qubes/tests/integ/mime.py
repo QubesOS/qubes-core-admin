@@ -21,7 +21,7 @@
 #
 #
 import os
-from distutils import spawn
+import shutil
 import re
 import subprocess
 import time
@@ -38,12 +38,12 @@ import qubes
 
 
 @unittest.skipUnless(
-    spawn.find_executable("xprop")
-    and spawn.find_executable("xdotool")
-    and spawn.find_executable("wmctrl"),
+    shutil.which("xprop")
+    and shutil.which("xdotool")
+    and shutil.which("wmctrl"),
     "xprop or xdotool or wmctrl not installed",
 )
-class TC_50_MimeHandlers:
+class TC_50_MimeHandlers(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_50_MimeHandlers, self).setUp()
         if self.template.startswith("whonix-g") or "minimal" in self.template:

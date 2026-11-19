@@ -26,9 +26,11 @@ import time
 import unittest
 from shutil import which
 
+
 import qubes.firewall
 import qubes.tests
 import qubes.vm
+import qubes.vm.appvm
 from qubes.tests.integ.network import VmNetworkingMixin
 
 
@@ -74,7 +76,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
                 )
         super().tearDown()
 
-    def configure_netvm(self, netvms: list = None):
+    def configure_netvm(self, netvms: list | None = None):
         """
         :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
 

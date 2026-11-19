@@ -26,14 +26,20 @@ import sys
 import tempfile
 import time
 import unittest
-from distutils import spawn
+import shutil
 
 import numpy as np
 
+import qubes.device_protocol
 import qubes.exc
 import qubes.vm
 import qubes.devices
+import qubes.vm.appvm
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import qubes.tests
 
 
 @qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")
@@ -585,7 +591,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
 class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_220_audio_play_pulseaudio(self):
@@ -593,7 +599,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_playback()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_221_audio_rec_muted_pulseaudio(self):
@@ -601,7 +607,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_record_muted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_222_audio_rec_unmuted_pulseaudio(self):
@@ -609,7 +615,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_record_unmuted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_223_audio_play_hvm(self):
@@ -628,7 +634,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_playback()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_224_audio_rec_muted_hvm(self):
@@ -650,7 +656,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_record_muted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_225_audio_rec_unmuted_hvm(self):
@@ -684,7 +690,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
         self.common_audio_record_unmuted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_252_audio_playback_audiovm_switch_hvm(self):
@@ -707,7 +713,7 @@ class TC_20_AudioVM_Pulse(TC_00_AudioMixin):
 
 class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_226_audio_playback_pipewire(self):
@@ -715,7 +721,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.common_audio_playback()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_227_audio_rec_muted_pipewire(self):
@@ -723,7 +729,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.common_audio_record_muted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_228_audio_rec_unmuted_pipewire(self):
@@ -731,7 +737,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.common_audio_record_unmuted()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_250_audio_playback_audiovm_pipewire(self):
@@ -745,7 +751,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.assert_pacat_running(self.audiovm, self.testvm1, False)
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_251_audio_playback_audiovm_pipewire_late_start(self):
@@ -759,7 +765,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.common_audio_playback()
 
     @unittest.skipUnless(
-        spawn.find_executable("parecord"),
+        shutil.which("parecord"),
         "pulseaudio-utils not installed in dom0",
     )
     def test_260_audio_mic_enabled_switch_audiovm(self):
