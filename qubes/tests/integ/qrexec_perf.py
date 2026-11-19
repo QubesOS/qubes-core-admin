@@ -27,7 +27,7 @@ import qubes.tests
 
 
 class TC_00_QrexecPerfMixin(qubes.tests.SystemTestMixinBase):
-    def setUp(self: qubes.tests.SystemTestCase):
+    def setUp(self):
         super().setUp()
         self.vm1 = self.app.add_new_vm(
             "AppVM",

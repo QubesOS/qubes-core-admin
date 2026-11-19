@@ -252,7 +252,7 @@ class VMMConnection:
         return self._is_xen
 
     @property
-    def xs(self):
+    def xs(self) -> "xen.lowlevel.xs.xs | None":
         """Connection to Xen Store
 
         This property is available only when running on Xen.
@@ -264,7 +264,7 @@ class VMMConnection:
         return self._xs
 
     @property
-    def xc(self):
+    def xc(self) -> "xen.lowlevel.xc.xc | None":
         """Connection to Xen
 
         This property is available only when running on Xen.

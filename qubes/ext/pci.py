@@ -41,7 +41,7 @@ from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
 
 #: cache of PCI device classes
-pci_classes = None
+pci_classes: dict | None = None
 
 
 #: emit warning on unsupported device only once

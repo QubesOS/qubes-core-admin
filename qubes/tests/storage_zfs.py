@@ -22,7 +22,7 @@ import qubes.tests
 import qubes.tests.storage as ts
 import qubes.vm.appvm
 
-from typing import Tuple, Dict, Any, List, Coroutine, Optional
+from typing import Awaitable, Tuple, Dict, Any, List, Optional
 from unittest.mock import patch
 
 DUMP_POOL_AFTER_EACH_TEST = os.getenv("ZFS_DUMP_POOL_AFTER_EACH_TEST", "")
@@ -143,8 +143,8 @@ def dump_zfs_filesystems(text: str = "", dataset: str = "") -> None:
 
 
 class AsyncLoopHolderMixin(qubes.tests.QubesTestCase):
-    def rc(self, future: Coroutine[Any, Any, Any]) -> Any:
-        return self.loop.run_until_complete(future)  # type: ignore
+    def rc(self, future: Awaitable[Any]) -> Any:
+        return self.loop.run_until_complete(future)
 
 
 class ZFSBase(AsyncLoopHolderMixin):

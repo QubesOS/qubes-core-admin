@@ -27,6 +27,7 @@ import sys
 import time
 import unittest
 
+
 import qubes.tests
 import qubes.firewall
 import qubes.vm.qubesvm
@@ -165,7 +166,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestMixinBase):
         del self.netvms
         super().tearDown()
 
-    def configure_netvm(self, netvms: list = None):
+    def configure_netvm(self, netvms: list | None = None):
         """
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
 

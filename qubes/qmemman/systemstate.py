@@ -56,8 +56,8 @@ class SystemState:
         self.log.debug("SystemState()")
 
         self.dom_dict: dict[str, DomainState] = {}
-        self.xc: xen.lowlevel.xc.xc = None
-        self.xs: xen.lowlevel.xs.xs = None
+        self.xc: xen.lowlevel.xc.xc
+        self.xs: xen.lowlevel.xs.xs
         self.all_phys_mem: int = 0
 
     def init(self) -> None:

@@ -43,7 +43,7 @@ VM_VM = env_with_reason("VM_VM", False)
 
 
 class TC_00_DispVMPerfMixin(qubes.tests.SystemTestMixinBase):
-    def setUp(self: qubes.tests.SystemTestCase):
+    def setUp(self):
         super().setUp()
         if "whonix-g" in self.template:
             self.skipTest(
@@ -105,7 +105,7 @@ class TC_00_DispVMPerfMixin(qubes.tests.SystemTestMixinBase):
             start_tasks.append(self.vm2.start())
         self.loop.run_until_complete(asyncio.gather(*start_tasks))
 
-    def tearDown(self: qubes.tests.SystemTestCase):
+    def tearDown(self):
         super().tearDown()
         if self.test_dir and os.getenv("QUBES_TEST_PERF_GRAPH_DELETE"):
             shutil.rmtree(self.test_dir)
