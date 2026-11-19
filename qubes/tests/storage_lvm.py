@@ -1510,6 +1510,162 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
             vm1.volumes["root"].size
 
 
+class TC_04_FailedImport(qubes.tests.QubesTestCase):
+    """Failed imports, with LVM calls faked, without a real LVM pool"""
+
+    VID = "vg/vm-test-private"
+    IMPORT = VID + "-import"
+
+    def setUp(self):
+        super().setUp()
+        self.lvs = {"vg/pool", self.VID}
+        self.fail_rename_of = None
+        self.fail_remove = False
+        patches = [
+            unittest.mock.patch(
+                "qubes.storage.lvm.qubes_lvm_coro", self._fake_lvm
+            ),
+            unittest.mock.patch(
+                "qubes.storage.lvm.reset_cache_coro", self._fake_reset_cache
+            ),
+            unittest.mock.patch(
+                "qubes.storage.lvm.os.path.exists",
+                lambda path: path[len("/dev/") :] in self.lvs,
+            ),
+            unittest.mock.patch("qubes.storage.lvm.size_cache", {}),
+            unittest.mock.patch(
+                "qubes.storage.lvm.asyncio.create_subprocess_exec",
+                self._fake_dd,
+            ),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.dd_returncode = 0
+        self.loop.run_until_complete(self._fake_reset_cache())
+        pool = ThinPool(name="test", volume_group="vg", thin_pool="pool")
+        self.volume = pool.init_volume(
+            None,
+            {
+                "name": "private",
+                "vid": self.VID,
+                "save_on_stop": True,
+                "rw": True,
+                "revisions_to_keep": 2,
+                "size": 1024,
+            },
+        )
+        self.volume.log = unittest.mock.Mock()
+        self.source = unittest.mock.Mock(size=1024)
+        self.source.export.return_value = "/dev/null"
+
+    async def _fake_lvm(self, cmd, log=None):
+        # pylint: disable=unused-argument
+        if cmd[0] == "create":
+            self.lvs.add(cmd[1].split("/")[0] + "/" + cmd[2])
+        elif cmd[0] == "rename":
+            if cmd[1] == self.fail_rename_of:
+                raise qubes.exc.StoragePoolException("rename failed")
+            self.lvs.remove(cmd[1])
+            self.lvs.add(cmd[2])
+        elif cmd[0] == "remove":
+            if self.fail_remove:
+                raise qubes.exc.StoragePoolException("remove failed")
+            self.lvs.discard(cmd[1])
+        else:
+            assert False, cmd
+        return True
+
+    async def _fake_reset_cache(self):
+        qubes.storage.lvm.size_cache = {
+            vid: {"size": 1024, "origin": ""} for vid in self.lvs
+        }
+
+    async def _fake_dd(self, *args, **kwargs):
+        # pylint: disable=unused-argument
+        return unittest.mock.Mock(
+            wait=unittest.mock.AsyncMock(), returncode=self.dd_returncode
+        )
+
+    def _import_data_end(self, error):
+        self.loop.run_until_complete(self.volume.import_data(1024))
+        with self.assertRaisesRegex(qubes.exc.StoragePoolException, error):
+            self.loop.run_until_complete(self.volume.import_data_end(True))
+
+    def _import_volume(self, error):
+        with self.assertRaisesRegex(qubes.exc.StoragePoolException, error):
+            self.loop.run_until_complete(self.volume.import_volume(self.source))
+
+    def assertImportGone(self):  # pylint: disable=invalid-name
+        self.assertNotIn(self.IMPORT, self.lvs)
+        self.assertNotIn(self.IMPORT, qubes.storage.lvm.size_cache)
+        self.volume.abort_if_import_in_progress()
+
+    def test_000_import_data_end_rename_current_fails(self):
+        self.fail_rename_of = self.VID
+        self._import_data_end("rename failed")
+        self.assertImportGone()
+        self.assertEqual(self.lvs, {"vg/pool", self.VID})
+
+    def test_001_import_data_end_rename_import_fails(self):
+        self.fail_rename_of = self.IMPORT
+        self._import_data_end("rename failed")
+        self.assertImportGone()
+        # the previous data is still there, as a revision
+        self.assertEqual(len(self.volume.revisions), 1)
+        self.assertEqual(
+            self.volume._vid_current,  # pylint: disable=protected-access
+            self.VID + "-" + list(self.volume.revisions)[0],
+        )
+
+    def test_002_import_data_end_works_after_failure(self):
+        self.fail_rename_of = self.VID
+        self._import_data_end("rename failed")
+        self.fail_rename_of = None
+        self.loop.run_until_complete(self.volume.import_data(1024))
+        self.loop.run_until_complete(self.volume.import_data_end(True))
+        self.assertImportGone()
+        self.assertIn(self.VID, self.lvs)
+
+    def test_003_import_data_end_remove_fails_too(self):
+        self.fail_rename_of = self.VID
+        self.fail_remove = True
+        self._import_data_end("rename failed")
+        self.assertIn(self.IMPORT, self.lvs)
+        self.volume.log.warning.assert_called_once()
+
+    def test_004_import_data_end_fails_after_commit(self):
+        with unittest.mock.patch.object(
+            self.volume,
+            "_remove_revisions",
+            side_effect=qubes.exc.StoragePoolException("late failure"),
+        ):
+            self._import_data_end("late failure")
+        self.assertImportGone()
+        self.assertIn(self.VID, self.lvs)
+
+    def test_010_import_volume_commit_fails(self):
+        self.fail_rename_of = self.VID
+        self._import_volume("rename failed")
+        self.assertImportGone()
+        self.assertEqual(self.lvs, {"vg/pool", self.VID})
+        self.source.export_end.assert_called_once_with("/dev/null")
+
+    def test_011_import_volume_dd_fails(self):
+        self.dd_returncode = 1
+        self._import_volume("dd exit code: 1")
+        self.assertImportGone()
+        self.assertEqual(self.lvs, {"vg/pool", self.VID})
+
+    def test_012_import_volume_export_fails(self):
+        self.source.export.side_effect = qubes.exc.StoragePoolException(
+            "export failed"
+        )
+        self._import_volume("export failed")
+        self.assertImportGone()
+        self.assertEqual(self.lvs, {"vg/pool", self.VID})
+
+
 @skipUnlessLvmPoolExists
 class TC_02_StorageHelpers(ThinPoolBase):
     def setUp(self, **kwargs):
