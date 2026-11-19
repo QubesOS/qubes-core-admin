@@ -400,53 +400,6 @@ class Rule(qubes.PropertyHolder):
         return " ".join(values)
 
     @classmethod
-    def from_xml_v1(cls, node, action):
-        netmask = node.get("netmask")
-        if netmask is None:
-            netmask = 32
-        else:
-            netmask = int(netmask)
-        address = node.get("address")
-        if address:
-            dsthost = DstHost(address, netmask)
-        else:
-            dsthost = None
-
-        proto = node.get("proto")
-
-        port = node.get("port")
-        toport = node.get("toport")
-        if port and toport:
-            dstports = port + "-" + toport
-        elif port:
-            dstports = port
-        else:
-            dstports = None
-
-        # backward compatibility: protocol defaults to TCP if port is specified
-        if dstports and not proto:
-            proto = "tcp"
-
-        if proto == "any":
-            proto = None
-
-        expire = node.get("expire")
-
-        kwargs = {
-            "action": action,
-        }
-        if dsthost:
-            kwargs["dsthost"] = dsthost
-        if dstports:
-            kwargs["dstports"] = dstports
-        if proto:
-            kwargs["proto"] = proto
-        if expire:
-            kwargs["expire"] = expire
-
-        return cls(**kwargs)
-
-    @classmethod
     def from_api_string(cls, untrusted_rule):
         """Parse a single line of firewall rule"""
         # comment is allowed to have spaces
@@ -537,9 +490,7 @@ class Firewall:
             root = tree.getroot()
 
             version = root.get("version", "1")
-            if version == "1":
-                self.load_v1(root)
-            elif version == "2":
+            if version == "2":
                 self.load_v2(root)
             else:
                 raise qubes.exc.QubesVMError(
@@ -548,40 +499,6 @@ class Firewall:
                 )
         else:
             self.load_defaults()
-
-    def load_v1(self, xml_root):
-        """Load old (Qubes < 4.0) firewall XML format"""
-        policy_v1 = xml_root.get("policy")
-        assert policy_v1 in ("allow", "deny")
-        default_policy_is_accept = policy_v1 == "allow"
-
-        def _translate_action(key):
-            if xml_root.get(key, policy_v1) == "allow":
-                return Action.accept
-            return Action.drop
-
-        self.rules.append(
-            Rule(
-                None,
-                action=_translate_action("dns"),
-                specialtarget=SpecialTarget("dns"),
-            )
-        )
-
-        self.rules.append(
-            Rule(None, action=_translate_action("icmp"), proto=Proto.icmp)
-        )
-
-        if default_policy_is_accept:
-            rule_action = Action.drop
-        else:
-            rule_action = Action.accept
-
-        for element in xml_root:
-            rule = Rule.from_xml_v1(element, rule_action)
-            self.rules.append(rule)
-        if default_policy_is_accept:
-            self.rules.append(Rule(None, action="accept"))
 
     def load_v2(self, xml_root):
         """Load new (Qubes >= 4.0) firewall XML format"""
