@@ -261,29 +261,6 @@ class TC_90_AppVM(
             vm.template = qubes.property.DEFAULT
         del self.app.default_template
 
-    def test_500_property_migrate_template_for_dispvms(self):
-        xml_template = """
-        <domain class="AppVM" id="domain-1">
-            <properties>
-                <property name="qid">1</property>
-                <property name="name">testvm</property>
-                <property name="label" ref="label-1" />
-                <property name="dispvm_allowed">{value}</property>
-            </properties>
-        </domain>
-        """
-        xml = lxml.etree.XML(xml_template.format(value="True"))
-        vm = qubes.vm.appvm.AppVM(self.app, xml)
-        self.assertEqual(vm.template_for_dispvms, True)
-        with self.assertRaises(AttributeError):
-            vm.dispvm_allowed  # pylint: disable=no-member,pointless-statement
-
-        xml = lxml.etree.XML(xml_template.format(value="False"))
-        vm = qubes.vm.appvm.AppVM(self.app, xml)
-        self.assertEqual(vm.template_for_dispvms, False)
-        with self.assertRaises(AttributeError):
-            vm.dispvm_allowed  # pylint: disable=no-member,pointless-statement
-
     def test_600_load_volume_config(self):
         xml_template = """
         <domain class="AppVM" id="domain-1">

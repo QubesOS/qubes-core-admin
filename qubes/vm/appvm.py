@@ -139,17 +139,6 @@ class AppVM(
     }
 
     def __init__(self, app, xml, **kwargs):
-        # migrate renamed properties
-        if xml is not None:
-            node_dispvm_allowed = xml.find(
-                "./properties/property[@name='dispvm_allowed']"
-            )
-            if node_dispvm_allowed is not None:
-                kwargs["template_for_dispvms"] = qubes.property.bool(
-                    None, None, node_dispvm_allowed.text
-                )
-                node_dispvm_allowed.getparent().remove(node_dispvm_allowed)
-
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get("template", None)
 

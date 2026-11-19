@@ -65,7 +65,6 @@ class TC_00_NetVMMixin(
         for domain in (vm, self.netvm1, self.netvm2, self.nonetvm):
             self.app.domains._dict[domain.qid] = domain
         self.app.default_netvm = self.netvm1
-        self.app.default_fw_netvm = self.netvm1
         self.addCleanup(self.cleanup_netvms)
 
     def cleanup_netvms(self):
@@ -80,7 +79,6 @@ class TC_00_NetVMMixin(
         del self.netvm2
         del self.nonetvm
         del self.app.default_netvm
-        del self.app.default_fw_netvm
 
     @qubes.tests.skipUnlessDom0
     def test_140_netvm(self):
