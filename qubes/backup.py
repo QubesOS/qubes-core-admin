@@ -677,6 +677,13 @@ class Backup:
             scrypt.stdin.close()
             await scrypt.wait()
             self.log.debug("scrypt return code: {}".format(scrypt.returncode))
+            if scrypt.returncode:
+                raise qubes.exc.QubesException(
+                    "Failed to encrypt backup file {}: {}".format(
+                        os.path.relpath(chunkfile, self.tmpdir),
+                        (await scrypt.stderr.read()).decode(errors="replace"),
+                    )
+                )
 
             # Send the chunk to the backup target
             await output_queue.put(os.path.relpath(chunkfile, self.tmpdir))
