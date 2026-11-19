@@ -35,12 +35,10 @@ reports=yes
 ignored-classes=
   VMProperty,
   libvirt,libvirtError,
-  dbus,SystemBus,
   PCIDevice
 
 ignore-mixin-members=yes
 generated-members=
-  iter_entry_points,
   Element,ElementTree,QName,SubElement,fromstring,parse,tostring,
 
 [BASIC]

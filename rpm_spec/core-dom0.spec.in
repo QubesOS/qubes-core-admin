@@ -43,7 +43,6 @@ AutoReq:	no
 
 BuildArch: noarch
 
-BuildRequires:  GraphicsMagick
 BuildRequires:	systemd-units
 BuildRequires:  systemd
 BuildRequires:  python3-devel
@@ -54,7 +53,6 @@ BuildRequires:  make
 BuildRequires:	python3-sphinx
 BuildRequires:	python3-lxml
 BuildRequires:	libvirt-python3
-BuildRequires:	python3-dbus
 BuildRequires:	python3-PyYAML
 BuildRequires:  python3-xen
 
