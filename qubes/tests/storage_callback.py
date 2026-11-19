@@ -25,11 +25,14 @@ They are mostly based upon the lvm storage driver tests.
 
 import os
 import json
+import shutil
 import subprocess
+import unittest.mock
 
 import qubes.exc
 import qubes.tests
 import qubes.tests.storage
+import qubes.tests.storage_file
 import qubes.tests.storage_lvm
 from qubes.tests.storage_lvm import skipUnlessLvmPoolExists
 from qubes.storage.callback import CallbackPool, CallbackVolume
@@ -429,3 +432,84 @@ class TC_93_CallbackPool(qubes.tests.QubesTestCase):
         """A missing config file must cause errors."""
         with self.assertRaises(FileNotFoundError):
             cb = CallbackPool(name="some-name", conf_id="nonexisting-id")
+
+
+class TC_94_CallbackPoolReflink(qubes.tests.QubesTestCase):
+    """Callback pool over a file-reflink backend, so no LVM is needed."""
+
+    conf_id = "utest-callback-reflink"
+    pool_name = "test-callback-reflink"
+    base_dir = "/tmp/qubes-test-dir"
+
+    def setUp(self):
+        super().setUp()
+        conf = {
+            self.conf_id: {
+                "bdriver": "file-reflink",
+                "bdriver_args": {
+                    "dir_path": self.base_dir + "/cbpool",
+                    "setup_check": False,
+                },
+            }
+        }
+        patches = [
+            unittest.mock.patch(
+                "qubes.storage.callback.open",
+                unittest.mock.mock_open(read_data=json.dumps(conf)),
+                create=True,
+            ),
+            unittest.mock.patch.dict(
+                qubes.config.system_path, {"qubes_base_dir": self.base_dir}
+            ),
+            unittest.mock.patch("qubes.config.qubes_base_dir", self.base_dir),
+            unittest.mock.patch.dict(
+                qubes.config.defaults["pool_configs"]["varlibqubes"],
+                {"dir_path": self.base_dir},
+            ),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        self.app = qubes.tests.storage_file.TestApp()
+        self.loop.run_until_complete(
+            self.app.add_pool(
+                name=self.pool_name, driver="callback", conf_id=self.conf_id
+            )
+        )
+        self.pool = self.app.pools[self.pool_name]
+
+    def tearDown(self):
+        self.app.cleanup()
+        self.app.close()
+        del self.app
+        del self.pool
+        shutil.rmtree(self.base_dir, ignore_errors=True)
+        super().tearDown()
+
+    def test_000_volumes_collection(self):
+        tmpl = self.app.add_new_vm(
+            "TemplateVM", name="test-inst-tmpl", label="red"
+        )
+        self.loop.run_until_complete(tmpl.create_on_disk(pool=self.pool_name))
+        vid = tmpl.volumes["root"].vid
+        self.assertIn(vid, self.pool.volumes)
+        self.assertIn(vid, self.pool.volumes.keys())
+        self.assertIsInstance(self.pool.volumes[vid], CallbackVolume)
+        self.assertEqual(self.pool.volumes[vid].vid, vid)
+
+    def test_001_load_appvm_on_template_in_pool(self):
+        tmpl = self.app.add_new_vm(
+            "TemplateVM", name="test-inst-tmpl", label="red"
+        )
+        self.loop.run_until_complete(tmpl.create_on_disk(pool=self.pool_name))
+        appvm = self.app.add_new_vm(
+            "AppVM", name="test-inst-app", label="red", template=tmpl
+        )
+        self.loop.run_until_complete(appvm.create_on_disk())
+        self.app.save()
+
+        app2 = qubes.Qubes(self.app.store, offline_mode=True)
+        self.addCleanup(app2.close)
+        root = app2.domains["test-inst-app"].volumes["root"]
+        self.assertIsInstance(root.source, CallbackVolume)
+        self.assertEqual(root.source.vid, tmpl.volumes["root"].vid)
