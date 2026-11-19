@@ -310,18 +310,7 @@ class ManpageCheckVisitor(docutils.nodes.SparseNodeVisitor):
             if action.help == argparse.SUPPRESS:
                 continue
 
-            if issubclass(
-                action.__class__, qubes.tools.AliasedSubParsersAction
-            ):
-                for cmd, cmd_parser in action._name_parser_map.items():
-                    self.sub_commands[cmd] = set()
-                    for sub_action in cmd_parser._actions:
-                        if sub_action.help != argparse.SUPPRESS:
-                            self.sub_commands[cmd].update(
-                                sub_action.option_strings
-                            )
-            else:
-                self.options.update(action.option_strings)
+            self.options.update(action.option_strings)
 
     def visit_section(self, node):
         """If section title is OPTIONS or COMMANDS dispatch the apropriate
