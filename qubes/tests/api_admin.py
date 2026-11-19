@@ -25,6 +25,7 @@ import operator
 import os
 import re
 import shutil
+import socket
 import tempfile
 import unittest.mock
 import uuid
@@ -1788,6 +1789,88 @@ netvm default=True type=vm \n"""
                         unittest.mock.call(vm2, "test-event2", arg1="abc"),
                     ],
                 )
+
+    def _run_stream_call(self, method, policy, after_connect):
+        """Make a real call over a real unix socket, half-closing it like
+        real clients do, then run *after_connect(client, handler_task)*.
+        """
+
+        async def run(sockpath):
+            loop = asyncio.get_running_loop()
+            protocol = qubes.api.QubesDaemonProtocol(
+                qubes.api.admin.QubesAdminAPI, app=self.app
+            )
+            server = await loop.create_unix_server(lambda: protocol, sockpath)
+            with socket.socket(socket.AF_UNIX) as client:
+                client.setblocking(False)
+                await loop.sock_connect(client, sockpath)
+                await loop.sock_sendall(
+                    client, method + b"+ test-vm1 name dom0\0"
+                )
+                client.shutdown(socket.SHUT_WR)
+                data = await asyncio.wait_for(loop.sock_recv(client, 4096), 1)
+                self.assertIn(b"connection-established", data)
+                # pylint: disable=protected-access
+                task = protocol.mgmt._running_handler
+                try:
+                    await after_connect(client, task)
+                finally:
+                    protocol.mgmt.cancel()
+                    server.close()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pathlib.Path(tmpdir)
+            (tmpdir / "admin.policy").write_text(policy)
+            with unittest.mock.patch(
+                "qubes.ext.admin.AdminExtension._instance.policy_cache.paths",
+                [tmpdir],
+            ):
+                self.loop.run_until_complete(run(str(tmpdir / "sock")))
+
+    async def _close_and_check_handler_ends(self, client, task):
+        client.close()
+        await asyncio.wait([task], timeout=1)
+        self.vm.fire_event("test-event", arg1="abc")
+        self.assertTrue(task.done(), "handler outlived its client")
+
+    def test_274_events_client_close_all_denied(self):
+        async def after_connect(client, task):
+            self.vm.fire_event("test-event", arg1="abc")
+            await self._close_and_check_handler_ends(client, task)
+
+        self._run_stream_call(
+            b"admin.Events",
+            "admin.Events * @anyvm @anyvm deny\n",
+            after_connect,
+        )
+
+    def test_275_events_client_close_filter_raises(self):
+        self._run_stream_call(
+            b"admin.Events", "typo\n", self._close_and_check_handler_ends
+        )
+
+    def test_276_stats_client_close_no_output(self):
+        self.app.host.get_vm_stats = unittest.mock.Mock(return_value=(0, {}))
+        self._run_stream_call(
+            b"admin.vm.Stats", "", self._close_and_check_handler_ends
+        )
+
+    def test_277_events_half_closed_client_gets_events(self):
+        async def after_connect(client, task):
+            await asyncio.sleep(0.2)
+            self.assertFalse(task.done())
+            self.vm.fire_event("test-event", arg1="abc")
+            data = await asyncio.wait_for(
+                asyncio.get_running_loop().sock_recv(client, 4096), 1
+            )
+            self.assertIn(b"test-event", data)
+            await self._close_and_check_handler_ends(client, task)
+
+        self._run_stream_call(
+            b"admin.Events",
+            "admin.Events * @anyvm @anyvm allow\n",
+            after_connect,
+        )
 
     def test_280_feature_list(self):
         self.vm.features["test-feature"] = "some-value"
