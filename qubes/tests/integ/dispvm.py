@@ -778,9 +778,12 @@ class TC_20_DispVMMixin(DispVMHelpersMixin):
             int(await run(dispvm, "cat /sys/block/xvde/size")) * 512,
             changes.size,
         )
-        deps = await run(dispvm, "dmsetup deps -o devname snapshot-private")
-        self.assertIn("(xvdb)", deps)
-        self.assertIn("(xvde)", deps)
+        slaves = await run(
+            dispvm,
+            "ls /sys/block/$(basename $(readlink -f "
+            "/dev/mapper/snapshot-private))/slaves",
+        )
+        self.assertEqual(slaves.split(), ["xvdb", "xvde"])
         self.assertEqual(
             await run(dispvm, "findmnt -n -o SOURCE /rw"),
             "/dev/mapper/snapshot-private",
