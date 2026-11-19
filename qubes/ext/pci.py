@@ -92,12 +92,13 @@ def load_pci_classes():
 
 
 def pcidev_class(dev_xmldesc):
+    global pci_classes  # pylint: disable=global-statement
     class_id = pcidev_interface(dev_xmldesc)
-    if not qubes.ext.pci.pci_classes:
-        qubes.ext.pci.pci_classes = load_pci_classes()
+    if not pci_classes:
+        pci_classes = load_pci_classes()
     try:
         # ignore prog-if
-        return qubes.ext.pci.pci_classes[class_id[0:4]]
+        return pci_classes[class_id[0:4]]
     except KeyError:
         return "unknown"
 
