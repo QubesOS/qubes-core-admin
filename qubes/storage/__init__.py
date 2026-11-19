@@ -36,6 +36,7 @@ from typing import Dict, Tuple, Union
 import lxml.etree
 import importlib.metadata
 import qubes
+import qubes.config
 import qubes.exc
 import qubes.utils
 from qubes.exc import StoragePoolException

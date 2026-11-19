@@ -28,7 +28,9 @@ import tempfile
 import unittest
 
 import qubes
+import qubes.exc
 import qubes.tests
+import qubes.vm.appvm
 
 VM_PREFIX = "test-"
 

@@ -25,6 +25,7 @@ import asyncio
 import lxml.etree
 import unittest
 
+import qubes.exc
 import qubes.firewall
 import qubes.tests
 

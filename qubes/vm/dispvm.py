@@ -28,6 +28,10 @@ import subprocess
 from typing import Optional
 
 import qubes.config
+import qubes.events
+import qubes.exc
+import qubes.qmemman.client
+import qubes.utils
 import qubes.vm.appvm
 import qubes.vm.qubesvm
 

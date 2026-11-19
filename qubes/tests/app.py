@@ -26,11 +26,14 @@ from unittest import mock
 import lxml.etree
 
 import qubes
+import qubes.config
 import qubes.events
 
+import qubes.exc
 import qubes.tests
 import qubes.tests.init
 import qubes.tests.storage_reflink
+import qubes.vm.appvm
 
 import logging
 import time

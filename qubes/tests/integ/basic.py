@@ -41,6 +41,7 @@ import qubes.firewall
 import qubes.tests
 import qubes.storage
 import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm

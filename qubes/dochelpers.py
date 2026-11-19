@@ -35,6 +35,7 @@ import docutils.parsers.rst
 import docutils.parsers.rst.roles
 import docutils.statemachine
 import sphinx
+import sphinx.addnodes
 import sphinx.errors
 import sphinx.locale
 import sphinx.util.docfields

@@ -26,6 +26,7 @@ from datetime import datetime
 
 import qubes.api
 import qubes.api.admin
+import qubes.exc
 import qubes.vm.dispvm
 import qubes.vm.qubesvm
 

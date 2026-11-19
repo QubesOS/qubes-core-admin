@@ -32,11 +32,14 @@ import lxml.etree
 
 import qubes
 import qubes.devices
+import qubes.config
 import qubes.device_protocol
 import qubes.events
 import qubes.features
+import qubes.exc
 import qubes.log
 from qubes.utils import is_pci_path, sbdf_to_path
+import qubes.storage
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -123,6 +126,8 @@ def _setter_qid(self, prop, value):
 def validate_disposable_template(obj, prop, value) -> None:
     """Helper function to validate change of disposable template settings,
     such as default_dispvm and management_dispvm."""
+    import qubes.vm.qubesvm  # pylint: disable=redefined-outer-name
+
     if not value:
         return
     assert isinstance(value, qubes.vm.qubesvm.QubesVM)

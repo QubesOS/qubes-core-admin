@@ -63,9 +63,10 @@ import qubes.devices
 import qubes.events
 import qubes.exc
 import qubes.ext.pci
-import qubes.tests.never_awaited
+from qubes.tests import never_awaited
 import qubes.vm.appvm
 import qubes.vm.dispvm
+import qubes.vm.qubesvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
@@ -1066,6 +1067,9 @@ class SystemTestCase(QubesTestCase):
         """Returns the pool matching the specified ``volume_group`` &
         ``thin_pool``, or None.
         """
+        # imported here, as importing it runs lvs
+        import qubes.storage.lvm
+
         pools = [
             p
             for p in self.app.pools

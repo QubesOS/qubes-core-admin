@@ -20,6 +20,7 @@
 
 from unittest import mock
 
+import qubes.exc
 import qubes.ext.audio
 import qubes.tests
 

@@ -22,6 +22,7 @@
 import jinja2
 import unittest.mock
 
+import qubes.exc
 import qubes.tests
 
 

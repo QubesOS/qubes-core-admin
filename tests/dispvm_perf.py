@@ -62,6 +62,7 @@ from datetime import datetime, timezone
 
 from deepmerge import Merger
 import qubesadmin
+import qubesadmin.vm
 
 # nose will duplicate this logger.
 logger = logging.getLogger(__name__)

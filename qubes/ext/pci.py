@@ -33,7 +33,9 @@ import lxml.etree
 
 import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext
+import qubes.vm.adminvm
 from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path

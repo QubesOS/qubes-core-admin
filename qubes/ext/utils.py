@@ -22,10 +22,10 @@ import asyncio
 import sys
 from typing import Type, Dict
 
+import qubes.device_protocol
 import qubes.ext
 from qrexec.server import call_socket_service
-from qubes import device_protocol
-from qubes.device_protocol import VirtualDevice, Port
+from qubes.device_protocol import AssignmentMode, VirtualDevice, Port
 
 SOCKET_PATH = "/var/run/qubes"
 
@@ -163,7 +163,7 @@ async def resolve_conflicts_and_attach(ext, to_attach):
                     assignment = frontends[front]
                     # already asked
                     if assignment.mode.value == "ask-to-attach":
-                        assignment.mode = device_protocol.AssignmentMode.AUTO
+                        assignment.mode = AssignmentMode.AUTO
                     break
             else:
                 return

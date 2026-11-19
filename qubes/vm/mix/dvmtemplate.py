@@ -24,6 +24,8 @@ from typing import Optional, Union, Iterator, Tuple
 import qubes.config
 import qubes.events
 import qubes.vm.dispvm
+import qubes.vm.qubesvm
+import qubes.exc
 
 
 class DVMTemplateMixin(qubes.events.Emitter):

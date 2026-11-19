@@ -27,7 +27,9 @@ import os
 import json
 import subprocess
 
+import qubes.config
 import qubes.exc
+import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage
 import qubes.tests.storage_lvm

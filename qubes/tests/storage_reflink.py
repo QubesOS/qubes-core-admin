@@ -29,6 +29,7 @@ import sys
 import unittest.mock
 from contextlib import nullcontext
 
+import qubes.config
 import qubes.tests
 import qubes.tests.storage
 from qubes.storage import reflink

@@ -13,6 +13,7 @@ import qubes.api.admin
 import qubes.api.internal
 import qubes.api.misc
 import qubes.log
+import qubes.tools
 import qubes.utils
 import qubes.vm.qubesvm
 

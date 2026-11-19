@@ -24,6 +24,8 @@ from unittest import mock
 from unittest.mock import patch
 
 import qubes
+import qubes.config
+import qubes.exc
 import qubes.vm.qubesvm
 
 import qubes.tests

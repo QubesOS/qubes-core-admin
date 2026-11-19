@@ -34,9 +34,14 @@ import unittest.mock
 
 import asyncio
 
+import qubes.config
+import qubes.exc
+import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage
 import qubes.storage
+import qubes.vm.appvm
+import qubes.vm.templatevm
 from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm_coro
 
 if "DEFAULT_LVM_POOL" in os.environ.keys():

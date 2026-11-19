@@ -24,6 +24,7 @@ import os
 import sys
 
 import qubes
+import qubes.device_protocol
 import qubes.devices
 import qubes.tests
 import subprocess

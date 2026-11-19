@@ -34,6 +34,7 @@ from typing import Union, Any, Literal, Generator
 import uuid
 
 import qubes.exc
+import qubes.vm.qubesvm
 from qubes.exc import ProtocolError, PermissionDenied
 
 

@@ -40,6 +40,8 @@ import lxml.etree
 
 import qubes
 import qubes.config
+import qubes.device_protocol
+import qubes.events
 import qubes.exc
 import qubes.qmemman.algo
 import qubes.qmemman.domainstate

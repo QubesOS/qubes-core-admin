@@ -22,6 +22,7 @@ from unittest import mock
 
 import lxml.etree
 
+import qubes.exc
 import qubes.storage
 import qubes.tests
 import qubes.tests.vm.qubesvm

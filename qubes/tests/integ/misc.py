@@ -24,6 +24,7 @@ import unittest
 from distutils import spawn
 
 import qubes
+import qubes.tests
 
 
 class TC_06_AppVMMixin(qubes.tests.SystemTestMixinBase):

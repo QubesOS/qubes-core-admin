@@ -22,6 +22,7 @@ import sys
 #
 
 import qubes.devices
+import qubes.events
 import qubes.exc
 from qubes.device_protocol import (
     Port,

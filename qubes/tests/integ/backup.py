@@ -41,6 +41,7 @@ import qubes.tests.storage_lvm
 import qubes.utils
 import qubes.vm
 import qubes.vm.appvm
+import qubes.vm.standalonevm
 import qubes.vm.templatevm
 import qubes.vm.qubesvm
 
