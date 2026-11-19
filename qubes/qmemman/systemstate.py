@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Optional
 
 import qubes.qmemman
+import qubes.qmemman.algo
 from qubes.qmemman.domainstate import DomainState
 
 BALLOON_DELAY = 0.1

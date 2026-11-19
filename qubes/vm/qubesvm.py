@@ -41,8 +41,6 @@ import lxml.etree
 import qubes
 import qubes.config
 import qubes.exc
-import qubes.qmemman.algo
-import qubes.qmemman.domainstate
 import qubes.storage
 import qubes.utils
 import qubes.vm
@@ -3131,15 +3129,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     # helper methods
     #
 
-    def relative_path(self, path):
-        """Return path relative to py:attr:`dir_path`.
-
-        :param str path: Path in question.
-        :returns: Relative path.
-        """
-
-        return os.path.relpath(path, self.dir_path)
-
     def create_xs_entries(self):
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
@@ -3294,26 +3283,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
     #
     # workshop -- those are to be reworked later
     #
-
-    def get_pref_mem(self):
-        # TODO: qmemman is still xen specific
-        untrusted_meminfo_key = self.app.vmm.xs.read(
-            "", "/local/domain/{}/memory/meminfo".format(self.xid)
-        )
-
-        if untrusted_meminfo_key is None or untrusted_meminfo_key == "":
-            return 0
-
-        domain = qubes.qmemman.domainstate.DomainState(self.xid)
-        qubes.qmemman.algo.refresh_meminfo_for_domain(
-            domain, untrusted_meminfo_key
-        )
-        if domain.mem_used is None:
-            # apparently invalid xenstore content
-            return 0
-        domain.mem_max = self.get_mem_static_max() * 1024
-
-        return qubes.qmemman.algo.pref_mem(domain) / 1024
 
     async def delay(self, delay: float | int, coros: list[Awaitable]) -> None:
         """

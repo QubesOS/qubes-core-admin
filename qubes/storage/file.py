@@ -152,18 +152,6 @@ class FilePool(qubes.storage.Pool):
         self._volumes += [volume]
         return volume
 
-    @staticmethod
-    def check_block_dev_exists(path):
-        """
-        Check if a block device exists
-        """
-        try:
-            stat_result = os.stat(path)
-        except FileNotFoundError:
-            return False
-        assert stat.S_ISBLK(stat_result.st_mode), "not a block device?"
-        return True
-
     @property
     def revisions_to_keep(self):
         return self._revisions_to_keep

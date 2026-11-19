@@ -862,15 +862,6 @@ class ThinVolume(qubes.storage.Volume):
             return 0
 
 
-def pool_exists(pool_id):
-    """Return true if pool exists"""
-    try:
-        vol_info = size_cache[pool_id]
-        return vol_info["attr"][0] == "t"
-    except KeyError:
-        return False
-
-
 def _get_lvm_cmdline(cmd):
     """Build command line for :program:`lvm` call.
     The purpose of this function is to keep all the detailed lvm options in
