@@ -72,6 +72,8 @@ class ReflinkMixin:
 
         with open(src, "wb") as src_fh:
             src_fh.write(src_content)
+        # otherwise src and dst may get the same mtime from one clock tick
+        os.utime(src, ns=(10**18, 10**18))
 
         ficlone_succeeded = reflink._copy_file(src, dst, **kwargs_for_func)
         if dst_size == 0:
