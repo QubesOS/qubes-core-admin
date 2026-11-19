@@ -40,11 +40,16 @@ def main(args=None):
     """
 
     args = parser.parse_args(args)
-    asyncio.run(
-        qubes.Qubes.create_empty_store(
-            args.app, offline_mode=args.offline_mode
-        ).setup_pools()
+    # Python 3.14+ requires an explicit event loop
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    app = qubes.Qubes.create_empty_store(
+        args.app, offline_mode=args.offline_mode
     )
+    loop.run_until_complete(app.setup_pools())
     return 0
 
 
