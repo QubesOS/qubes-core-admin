@@ -1312,11 +1312,17 @@ def main() -> None:
     parser.add_argument(
         "file",
         metavar="FILE",
-        type=argparse.FileType("r"),
         default="-",
         help="input file or '-' (or leave blank) for stdin",
     )
     args = parser.parse_args()
+
+    input_file = sys.stdin
+    if args.file != "-":
+        try:
+            input_file = open(args.file)
+        except OSError as e:
+            parser.error(f"argument FILE: can't open '{args.file}': {e}")
 
     if args.show_image and not args.output_dir:
         parser.error("--show-image requires --output-dir")
@@ -1341,7 +1347,8 @@ def main() -> None:
                 raise ValueError(msg)
 
     logging.info("Loading data")
-    data = json.load(args.file)
+    with input_file:
+        data = json.load(input_file)
     logging.info("Loaded data")
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)

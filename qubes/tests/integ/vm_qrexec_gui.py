@@ -25,7 +25,7 @@ import subprocess
 import sys
 import unittest
 
-from distutils import spawn
+import shutil
 
 import qubes.config
 import qubes.devices
@@ -75,9 +75,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
         self.assertEqual(self.testvm1.get_power_state(), "Halted")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_010_run_xterm(self):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
@@ -113,9 +111,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             except ProcessLookupError:  # already dead
                 pass
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_011_run_gnome_terminal(self):
         if "minimal" in self.template:
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
@@ -176,9 +172,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
             except ProcessLookupError:  # already dead
                 pass
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_012_qubes_desktop_run(self):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
@@ -426,9 +420,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         )
         self.assertEqual(retcode, 0, "file differs")
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_130_qrexec_filemove_disk_full(self):
         self.loop.run_until_complete(
             asyncio.gather(self.testvm1.start(), self.testvm2.start())
@@ -674,9 +666,7 @@ class TC_20_NonAudio(TC_00_AppVMMixin):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 5.7 * 1024**2)
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_300_bug_1028_gui_memory_pinning(self):
         """
         If VM window composition buffers are relocated in memory, GUI will
@@ -875,9 +865,7 @@ int main(int argc, char **argv) {
                 f"Dom0 window doesn't match VM window content, saved to {file_basename}*"
             )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_400_long_window_title(self):
         self.loop.run_until_complete(self._test_400_long_window_title(False))
 

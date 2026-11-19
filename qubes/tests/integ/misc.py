@@ -21,7 +21,7 @@ import contextlib
 import subprocess
 import sys
 import unittest
-from distutils import spawn
+import shutil
 
 import qubes
 from typing import TYPE_CHECKING
@@ -140,9 +140,7 @@ class TC_06_AppVMMixin(qubes.tests.SystemTestMixinBase):
                 f"{e.stderr}"
             )
 
-    @unittest.skipUnless(
-        spawn.find_executable("xdotool"), "xdotool not installed"
-    )
+    @unittest.skipUnless(shutil.which("xdotool"), "xdotool not installed")
     def test_121_start_standalone_with_cdrom_vm(self):
         cdrom_vmname = self.make_vm_name("cdrom")
         self.cdrom_vm = self.app.add_new_vm(

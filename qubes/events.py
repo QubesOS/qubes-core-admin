@@ -28,6 +28,7 @@ import asyncio
 import collections
 import fnmatch
 import functools
+import inspect
 
 from typing import Callable
 
@@ -198,7 +199,7 @@ class Emitter(metaclass=EmitterMeta):
             reverse=True,
         )
         for func in sorted_handlers:
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 async_funcs.append(func)
             else:
                 sync_funcs.append(func)

@@ -46,7 +46,6 @@ import time
 import traceback
 import unittest
 import unittest.mock
-from distutils import spawn
 
 import gc
 import lxml.etree
@@ -1523,9 +1522,9 @@ class SystemTestCase(QubesTestCase):
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
         if not os.path.exists("/usr/lib/grub/i386-pc"):
             self.skipTest("grub2 not installed")
-        if not spawn.find_executable("grub2-install"):
+        if not shutil.which("grub2-install"):
             self.skipTest("grub2-tools not installed")
-        if not spawn.find_executable("dracut"):
+        if not shutil.which("dracut"):
             self.skipTest("dracut not installed")
         # create a single partition
         p = subprocess.Popen(
