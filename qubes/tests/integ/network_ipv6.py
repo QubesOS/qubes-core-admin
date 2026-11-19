@@ -29,6 +29,7 @@ from shutil import which
 import qubes.firewall
 import qubes.tests
 import qubes.vm
+import qubes.vm.appvm
 from qubes.tests.integ.network import VmNetworkingMixin
 
 

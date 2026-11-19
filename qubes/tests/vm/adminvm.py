@@ -30,6 +30,7 @@ import qubes.vm
 import qubes.vm.adminvm
 
 import qubes.tests
+import qubes.vm.qubesvm
 
 
 class TC_00_AdminVM(qubes.tests.QubesTestCase):

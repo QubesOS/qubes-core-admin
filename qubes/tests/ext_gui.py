@@ -22,6 +22,7 @@ from unittest import mock
 
 import qubes.ext.gui
 import qubes.tests
+import qubes.vm.adminvm
 
 
 class TC_70_Gui(qubes.tests.QubesTestCase):

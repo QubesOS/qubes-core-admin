@@ -42,6 +42,8 @@ import qubes.api.admin
 import qubes.api.internal
 import qubes.tests
 import qubes.storage
+import qubes.vm.qubesvm
+import qubes.vm.standalonevm
 
 
 from qubes.device_protocol import (

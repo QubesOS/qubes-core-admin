@@ -28,6 +28,7 @@ import unittest
 import qubes.devices
 import qubes.ext.pci
 import qubes.tests
+import qubes.vm.appvm
 from qubes.device_protocol import DeviceAssignment
 
 

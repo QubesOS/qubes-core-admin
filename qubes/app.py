@@ -25,13 +25,13 @@ import collections.abc
 import copy
 import functools
 import grp
+import io
 import itertools
 import logging
 import os
 import random
 import sys
 import time
-from typing import Any
 import traceback
 import uuid
 from contextlib import suppress
@@ -72,9 +72,9 @@ import qubes.vm.templatevm
 
 
 class VirDomainWrapper:
-    _connection: Any
+    _connection: "VirConnectWrapper"
 
-    _vm: Any
+    _vm: libvirt.virDomain
 
     # pylint: disable=too-few-public-methods
 
@@ -290,9 +290,9 @@ class QubesHost:
         :py:attr:`Qubes.vmm` attribute defined)
     """
 
-    _total_mem: Any
-    _no_cpus: Any
-    _physinfo: Any
+    _total_mem: int
+    _no_cpus: int
+    _physinfo: dict | None
 
     def __init__(self, app):
         self.app = app
@@ -1175,7 +1175,7 @@ class Qubes(qubes.PropertyHolder):
     Methods and attributes:
     """
 
-    __locked_fh: Any
+    __locked_fh: io.BufferedRandom | None
 
     api_admin_pending_clone: dict
     api_admin_running_backups: dict

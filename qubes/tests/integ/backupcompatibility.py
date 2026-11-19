@@ -30,6 +30,9 @@ import re
 
 import qubes.tests
 import qubes.tests.integ.backup
+import qubes.vm.appvm
+import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 QUBESXML_R2 = """
 <QubesVmCollection updatevm="3" default_kernel="3.7.6-2" default_netvm="3" default_fw_netvm="2" default_template="1" clockvm="2">

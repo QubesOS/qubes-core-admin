@@ -33,6 +33,7 @@ import numpy as np
 import qubes.exc
 import qubes.vm
 import qubes.devices
+import qubes.vm.appvm
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
 from typing import TYPE_CHECKING
 

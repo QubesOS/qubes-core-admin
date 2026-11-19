@@ -25,6 +25,8 @@ import asyncio
 from unittest import mock
 
 import qubes
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 
 import qubes.tests
@@ -33,6 +35,7 @@ import qubes.tests.vm.appvm
 import qubes.tests.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
 import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 
 class TestApp(qubes.tests.vm.TestApp):

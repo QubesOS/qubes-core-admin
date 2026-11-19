@@ -37,7 +37,6 @@ import subprocess
 import tempfile
 import termios
 import time
-from typing import Any
 
 from .utils import size_to_human
 import qubes
@@ -265,10 +264,10 @@ class Backup:
     """
 
     # pylint: disable=too-many-instance-attributes
-    passphrase: Any
-    target_dir: Any
-    target_vm: Any
-    tmpdir: Any
+    passphrase: str | bytes | None
+    target_dir: str | None
+    target_vm: "qubes.vm.BaseVM | None"
+    tmpdir: str | None
 
     class FileToBackup:
         # pylint: disable=too-few-public-methods

@@ -27,7 +27,7 @@ particular customer.
 
 import collections
 import importlib.metadata
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import qubes.events
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 class Extension:
     """Base class for all extensions"""
 
-    _instance: Any
+    _instance: "Extension"
 
     # pylint: disable=too-few-public-methods
 

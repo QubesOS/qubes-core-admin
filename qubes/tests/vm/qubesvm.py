@@ -40,7 +40,12 @@ import qubes.exc
 import qubes.config
 import qubes.devices
 import qubes.vm
+import qubes.vm.adminvm
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
+import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 import qubes.tests
 import qubes.tests.vm

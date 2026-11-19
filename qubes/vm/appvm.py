@@ -25,6 +25,7 @@ import copy
 import qubes.events
 import qubes.vm.qubesvm
 import qubes.vm.mix.dvmtemplate
+import qubes.vm.templatevm
 from qubes.config import defaults
 
 

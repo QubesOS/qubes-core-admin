@@ -35,6 +35,8 @@ from qubes.config import defaults
 # :pylint: disable=invalid-name
 
 import qubes.storage.file
+import qubes.vm.appvm
+import qubes.vm.templatevm
 import os.path
 
 _dir = os.path.dirname(__file__)

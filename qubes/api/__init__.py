@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Collection, Union, Any, Literal, Generator
 import uuid
 
 import qubes.exc
+import qubes.vm.qubesvm
 from qubes.exc import ProtocolError, PermissionDenied
 
 if TYPE_CHECKING:
@@ -382,7 +383,7 @@ class AbstractQubesAPI:
 
 
 class QubesDaemonProtocol(asyncio.Protocol):
-    transport: Any
+    transport: asyncio.Transport
 
     buffer_size = 65536
     header = struct.Struct("Bx")

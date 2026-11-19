@@ -29,6 +29,7 @@ import unittest
 
 import qubes
 import qubes.tests
+import qubes.vm.appvm
 
 VM_PREFIX = "test-"
 

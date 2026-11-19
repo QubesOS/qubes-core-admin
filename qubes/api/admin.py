@@ -47,6 +47,7 @@ import qubes.storage
 import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 from qubes.device_protocol import (
     VirtualDevice,

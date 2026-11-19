@@ -33,6 +33,9 @@ import sys
 
 import qubes.config
 import qubes.tests
+import qubes.vm.appvm
+import qubes.vm.dispvm
+import qubes.vm.standalonevm
 from qubes.log import Formatter
 from qubes.tests.integ.basic import defer_tpl
 

@@ -24,6 +24,7 @@ from unittest import mock
 import asyncio
 
 import qubes.events
+import qubes.vm.adminvm
 import qubes.vm.dispvm
 import qubes.vm.appvm
 import qubes.vm.templatevm

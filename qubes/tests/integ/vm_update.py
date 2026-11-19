@@ -28,6 +28,8 @@ import sys
 import tempfile
 
 import qubes.vm
+import qubes.vm.appvm
+import qubes.vm.standalonevm
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

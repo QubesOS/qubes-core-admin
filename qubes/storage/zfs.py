@@ -19,6 +19,7 @@ import qubes.exc
 import qubes.storage
 import qubes.storage.file
 import qubes.utils
+import qubes.vm.qubesvm
 
 
 from typing import (

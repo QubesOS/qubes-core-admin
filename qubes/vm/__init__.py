@@ -23,10 +23,11 @@
 """Qubes Virtual Machines"""
 
 import asyncio
+import logging
 import re
 import string
 import uuid
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, List
 
 import lxml.etree
 
@@ -39,15 +40,9 @@ import qubes.log
 from qubes.utils import is_pci_path, sbdf_to_path
 
 if TYPE_CHECKING:
-    from . import (
-        adminvm,
-        appvm,
-        dispvm,
-        qubesvm,
-        remotevm,
-        standalonevm,
-        templatevm,
-    )
+    import qubesdb
+
+    import qubes.vm.qubesvm
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -258,13 +253,12 @@ class BaseVM(qubes.PropertyHolder):
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     """
 
-    app: Any
-    features: Any
-    name: Any
+    app: "qubes.Qubes"
+    features: qubes.features.Features
 
-    log: Any
-    storage: Any
-    _qdb_connection_watch: Any
+    log: logging.Logger
+    storage: "qubes.storage.Storage"
+    _qdb_connection_watch: "qubesdb.QubesDB | None"
 
     # pylint: disable=no-member
 

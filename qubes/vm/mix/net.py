@@ -24,9 +24,10 @@
 
 import asyncio
 import ipaddress
+import logging
 import os
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import libvirt  # pylint: disable=import-error
 import lxml.etree
@@ -35,6 +36,11 @@ import qubes.config
 import qubes.events
 import qubes.firewall
 import qubes.exc
+
+if TYPE_CHECKING:
+    import qubesdb
+
+    import qubes.features
 
 
 def _setter_mac(self, prop, value):
@@ -123,26 +129,33 @@ def vmid_to_ipv4(prefix, vmid):
 class NetVMMixin(qubes.events.Emitter):
     """Mixin containing network functionality"""
 
-    app: Any
-    create_qdb_entries: Any
-    features: Any
-    is_fully_usable: Any
-    is_paused: Any
-    is_running: Any
-    log: Any
-    name: Any
-    run_service_for_stdio: Any
+    app: "qubes.Qubes"
+    features: "qubes.features.Features"
+    log: logging.Logger
 
     if TYPE_CHECKING:
+        # pylint: disable=unused-argument,redefined-builtin
+
+        def create_qdb_entries(self) -> None: ...
+
+        def is_fully_usable(self) -> bool: ...
+
+        def is_paused(self) -> bool: ...
+
+        def is_running(self) -> bool: ...
+
+        async def run_service_for_stdio(
+            self, *args, input=None, **kwargs
+        ) -> tuple[bytes, bytes]: ...
 
         @property
-        def dir_path(self) -> Any: ...
+        def dir_path(self) -> str: ...
 
         @property
-        def libvirt_domain(self) -> Any: ...
+        def libvirt_domain(self) -> libvirt.virDomain | None: ...
 
         @property
-        def untrusted_qdb(self) -> Any: ...
+        def untrusted_qdb(self) -> qubesdb.QubesDB | None: ...
 
     mac = qubes.property(
         "mac",

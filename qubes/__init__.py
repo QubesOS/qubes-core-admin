@@ -28,10 +28,11 @@ Qubes OS
 
 import builtins
 import collections.abc
+import logging
 import os
 import os.path
 import string
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import lxml.etree
 import qubes.config
@@ -617,7 +618,7 @@ class PropertyHolder(qubes.events.Emitter):
     Members:
     """
 
-    log: Any
+    log: logging.Logger
 
     def __init__(self, xml, **kwargs):
         self.xml = xml
