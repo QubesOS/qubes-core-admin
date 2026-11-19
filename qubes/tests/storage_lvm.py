@@ -25,6 +25,7 @@ Any pool variables prefixed with 'LVM_' or 'lvm_' represent a LVM
 represent a :py:class:`qubes.storage.lvm.ThinPool`.
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -1603,3 +1604,67 @@ class TC_02_StorageHelpers(ThinPoolBase):
             self.app.pools.values(), self.thin_dir.name
         )
         self.assertEqual(pool, self.pool)
+
+
+class TC_03_LvmCacheParse(qubes.tests.QubesTestCase):
+    """Parsing of ``lvs`` output, without a real LVM pool"""
+
+    def _lvs_json(self, rows):
+        return json.dumps({"report": [{"lv": rows}]}).encode()
+
+    def test_000_active_pool(self):
+        cache = qubes.storage.lvm._parse_lvm_cache(
+            self._lvs_json(
+                [
+                    {
+                        "vg_name": "vg",
+                        "pool_lv": "",
+                        "lv_name": "pool",
+                        "lv_size": "1048576B",
+                        "data_percent": "50.00",
+                        "lv_attr": "twi-aotz--",
+                        "origin": "",
+                        "lv_metadata_size": "4194304B",
+                        "metadata_percent": "25.00",
+                    }
+                ]
+            )
+        )
+        self.assertEqual(cache["vg/pool"]["usage"], 524288)
+        self.assertEqual(cache["vg/pool"]["metadata_size"], 4194304)
+        self.assertEqual(cache["vg/pool"]["metadata_usage"], 1048576)
+
+    def test_001_inactive_pool(self):
+        # lvs reports no data/metadata usage for an inactive thin pool
+        cache = qubes.storage.lvm._parse_lvm_cache(
+            self._lvs_json(
+                [
+                    {
+                        "vg_name": "vg",
+                        "pool_lv": "",
+                        "lv_name": "pool",
+                        "lv_size": "1048576B",
+                        "data_percent": "",
+                        "lv_attr": "twi---tz--",
+                        "origin": "",
+                        "lv_metadata_size": "4194304B",
+                        "metadata_percent": "",
+                    }
+                ]
+            )
+        )
+        self.assertEqual(cache["vg/pool"]["metadata_size"], 4194304)
+        self.assertIsNone(cache["vg/pool"]["metadata_usage"])
+        pool = ThinPool(name="test", volume_group="vg", thin_pool="pool")
+        with unittest.mock.patch(
+            "qubes.storage.lvm.size_cache", cache
+        ), unittest.mock.patch("qubes.storage.lvm.refresh_cache"):
+            details = pool.usage_details
+        self.assertEqual(
+            details,
+            {
+                "data_size": 1048576,
+                "data_usage": 0,
+                "metadata_size": 4194304,
+            },
+        )

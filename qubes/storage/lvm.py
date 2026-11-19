@@ -226,8 +226,11 @@ class ThinPool(qubes.storage.Pool):
         except KeyError:
             metadata_size = 0
             metadata_usage = 0
-        result["metadata_size"] = metadata_size
-        result["metadata_usage"] = metadata_usage
+        # LVM does not report metadata usage for an inactive pool
+        if metadata_size is not None:
+            result["metadata_size"] = metadata_size
+        if metadata_usage is not None:
+            result["metadata_usage"] = metadata_usage
 
         return result
 
@@ -270,8 +273,12 @@ def _parse_lvm_cache(lvm_output):
             usage = int(size / 100 * float(usage_percent))
         else:
             usage = 0
-        if metadata_size and metadata_percent:
+        # metadata_percent is empty for inactive thin pools
+        if metadata_size:
             metadata_size = int(metadata_size[:-1])
+        else:
+            metadata_size = None
+        if metadata_size is not None and metadata_percent:
             metadata_usage = int(metadata_size / 100 * float(metadata_percent))
         else:
             metadata_usage = None
