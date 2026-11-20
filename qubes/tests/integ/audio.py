@@ -47,7 +47,7 @@ class TC_00_AudioMixin(TC_00_AppVMMixin):
                 if vm is None:
                     continue
                 if not vm.is_running():
-                    return
+                    continue
                 for cmd in (
                     "cat /home/user/.xsession-errors",
                     "journalctl --user -b",
@@ -398,9 +398,9 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             attempts_left -= 1
             self.loop.run_until_complete(asyncio.sleep(1))
 
-        self.assertGreater(
-            attempts_left,
-            0,
+        self.assertEqual(
+            current_source,
+            source_index,
             f"Failed to move-source-output (output: {output_index}, source: {source_index})",
         )
 
