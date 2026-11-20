@@ -503,6 +503,33 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if audio_in[:32] in recorded_audio:
             self.fail("VM recorded something, even though mic disabled")
 
+    def wait_for_recording_end(self, vm, timeout=10):
+        """Wait until the end of the played sound is in audio_rec.snd"""
+        # an emulated sound card on a busy host can lag seconds behind
+        script = f"""
+import array, os, sys, time
+seen = False
+last_size, same = -1, 0
+for _ in range({timeout * 2}):
+    size = os.path.getsize("audio_rec.snd")
+    data = array.array("f")
+    with open("audio_rec.snd", "rb") as f:
+        data.frombytes(f.read(size - size % 4))
+    seen = seen or any(abs(x) > 1e-3 for x in data)
+    same = same + 1 if size == last_size else 0
+    if seen and (max(map(abs, data[-22050:])) < 1e-3 or same >= 6):
+        sys.exit(0)
+    last_size = size
+    time.sleep(0.5)
+sys.exit(1)
+"""
+        try:
+            self.loop.run_until_complete(
+                vm.run_for_stdio("python3 -", input=script.encode())
+            )
+        except subprocess.CalledProcessError:
+            self.log.warning("recording in %s did not catch up", vm.name)
+
     def common_audio_record_unmuted(self, attach_mic=True, detach_mic=True):
         if attach_mic:
             try:
@@ -558,6 +585,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
         # wait for possible parecord buffering
         self.loop.run_until_complete(asyncio.sleep(2))
+        self.wait_for_recording_end(self.testvm1)
         if record.returncode is not None:
             self.fail(
                 "Recording process ended prematurely: exit code {}, stderr: {}".format(
