@@ -77,7 +77,9 @@ class TC_00_DVMTemplateMixin(
         self.base_dir_patch2.start()
         self.base_dir_patch3.start()
         self.skip_kernel_validation_patch.start()
-        self.app = qubes.Qubes("/tmp/qubes-test.xml", load=False)
+        self.app = qubes.Qubes(
+            "/tmp/qubes-test.xml", load=False, offline_mode=True
+        )
         self.app.vmm = mock.Mock(spec=qubes.app.VMMConnection)
         self.app.load_initial_values()
         self.loop.run_until_complete(self.app.setup_pools())
@@ -92,7 +94,6 @@ class TC_00_DVMTemplateMixin(
         self.app.default_pool = "varlibqubes"
 
         self.app.save = mock.Mock()
-        self.app.vmm.offline_mode = True
         self.adminvm = self.app.domains[0]
         self.template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name="test-template", label="red"

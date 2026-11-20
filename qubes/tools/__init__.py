@@ -79,6 +79,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
         if self._want_app and not self._want_app_no_instance:
             self.set_qubes_verbosity(namespace)
+            qubes.Qubes.init_loop()
             namespace.app = qubes.Qubes(
                 namespace.app, offline_mode=namespace.offline_mode
             )

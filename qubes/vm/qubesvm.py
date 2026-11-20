@@ -1137,7 +1137,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
 
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                self.uuid.bytes
+                self.uuid
             )
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
