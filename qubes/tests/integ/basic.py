@@ -910,7 +910,30 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         subprocess.check_call(["xdotool", "key", "ctrl+a", "ctrl+c"])
         # wait a bit to let the zenity actually copy
         await asyncio.sleep(5)
-        subprocess.check_call(["xdotool", "key", "ctrl+shift+c", "Escape"])
+        metadata_path = "/var/run/qubes/qubes-clipboard.bin.metadata"
+        try:
+            old_mtime = os.stat(metadata_path).st_mtime_ns
+        except FileNotFoundError:
+            old_mtime = None
+        subprocess.check_call(["xdotool", "key", "ctrl+shift+c"])
+        # zenity must stay open until the qube has sent its clipboard
+        for _ in range(10):
+            try:
+                if os.stat(metadata_path).st_mtime_ns != old_mtime:
+                    with open(metadata_path, "r") as meta:
+                        metadata = json.load(meta)
+                    if (
+                        metadata["copy_action"]
+                        and metadata["vmname"] == testvm1.name
+                    ):
+                        break
+            except (OSError, ValueError):
+                # not written yet, or caught while being written
+                pass
+            await asyncio.sleep(0.1)
+        else:
+            self.fail("Clipboard copy operation failed - no copy recorded")
+        subprocess.check_call(["xdotool", "key", "Escape"])
 
         try:
             await asyncio.wait_for(p.communicate(), 5)
