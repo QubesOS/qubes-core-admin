@@ -22,6 +22,7 @@
 #
 
 import asyncio
+import qubesdb
 import qubes.config
 import qubes.ext
 import qubes.exc
@@ -244,3 +245,26 @@ class GUI(qubes.ext.Extension):
                 "There are running VMs using this VM as GuiVM: "
                 "{}".format(", ".join(vm.name for vm in attached_vms)),
             )
+        # tell a GUI domain that dom0 asked for this shutdown, so that it does
+        # not forward it as a request to power off the whole machine
+        if vm.features.get("service.guivm", None):
+            self.set_shutdown_mark(vm, True)
+
+    @qubes.ext.handler("domain-shutdown-failed")
+    def on_domain_shutdown_failed(self, vm, event, **kwargs):
+        # pylint: disable=unused-argument
+        if vm.features.get("service.guivm", None):
+            self.set_shutdown_mark(vm, False)
+
+    @staticmethod
+    def set_shutdown_mark(vm, requested):
+        qdb = vm.untrusted_qdb
+        if qdb is None:
+            return
+        try:
+            if requested:
+                qdb.write("/qubes-shutdown-requested", "1")
+            else:
+                qdb.rm("/qubes-shutdown-requested")
+        except qubesdb.Error:
+            pass
