@@ -38,6 +38,7 @@ from contextlib import suppress
 
 import jinja2
 import libvirt
+import libvirtaio
 import lxml.etree
 
 try:
@@ -123,8 +124,15 @@ class VirDomainWrapper:
 class VirConnectWrapper:
     # pylint: disable=too-few-public-methods
     close_reason = _get_libvirt_close_dict()
+    event_impl = None
 
     def __init__(self, uri, reconnect_cb=None, disconnect_cb=None):
+        if not self.event_impl:
+            current_impl = libvirtaio.getCurrentImpl()
+            if current_impl:
+                self.event_impl = current_impl
+            else:
+                self.event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
         self.log = logging.getLogger("vmm.libvirt_conn")
         self._reconnect_cb = reconnect_cb
         self._disconnect_cb = disconnect_cb
