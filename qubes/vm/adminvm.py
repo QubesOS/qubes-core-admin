@@ -32,6 +32,8 @@ import uuid
 import datetime
 
 import qubes
+import qubes.config
+import qubes.events
 import qubes.exc
 import qubes.vm
 from qubes.vm.qubesvm import _setter_denied_list, _setter_kbd_layout

@@ -32,7 +32,11 @@ import asyncio
 import sys
 
 import qubes.config
+import qubes.exc
 import qubes.tests
+import qubes.vm.appvm
+import qubes.vm.dispvm
+import qubes.vm.standalonevm
 from qubes.log import Formatter
 from qubes.tests.integ.basic import defer_tpl
 
@@ -186,7 +190,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(self.startup_counter, 1)
 
 
-class DispVMHelpersMixin:
+class DispVMHelpersMixin(qubes.tests.SystemTestMixinBase):
     def setup_dispvm_nodes(self, skip_start: bool = False):
         """Initialize disp_base and related attributes. Called by child setUp"""
         for handler in self.log.root.handlers:

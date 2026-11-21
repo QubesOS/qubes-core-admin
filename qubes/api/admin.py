@@ -39,6 +39,7 @@ import yaml
 import qubes.api
 import qubes.backup
 import qubes.config
+import qubes.device_protocol
 import qubes.devices
 import qubes.exc
 import qubes.ext
@@ -47,6 +48,7 @@ import qubes.storage
 import qubes.utils
 import qubes.vm
 import qubes.vm.adminvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 from qubes.device_protocol import (
     VirtualDevice,

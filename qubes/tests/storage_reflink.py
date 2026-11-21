@@ -29,6 +29,7 @@ import sys
 import unittest.mock
 from contextlib import nullcontext
 
+import qubes.config
 import qubes.tests
 import qubes.tests.storage
 from qubes.storage import reflink
@@ -44,7 +45,7 @@ class TestApp(qubes.Qubes):
         self.load_initial_values()
 
 
-class ReflinkMixin:
+class ReflinkMixin(qubes.tests.QubesTestMixinBase):
     @classmethod
     def setUpClass(cls, *, fs_type, ficlone_supported):
         super().setUpClass()

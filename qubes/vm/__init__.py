@@ -23,20 +23,27 @@
 """Qubes Virtual Machines"""
 
 import asyncio
+import logging
 import re
 import string
 import uuid
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import lxml.etree
 
 import qubes
 import qubes.devices
+import qubes.config
 import qubes.device_protocol
 import qubes.events
 import qubes.features
+import qubes.exc
 import qubes.log
 from qubes.utils import is_pci_path, sbdf_to_path
+import qubes.storage
+
+if TYPE_CHECKING:
+    import qubesdb
 
 VM_ENTRY_POINT = "qubes.vm"
 
@@ -123,6 +130,8 @@ def _setter_qid(self, prop, value):
 def validate_disposable_template(obj, prop, value) -> None:
     """Helper function to validate change of disposable template settings,
     such as default_dispvm and management_dispvm."""
+    import qubes.vm.qubesvm  # pylint: disable=redefined-outer-name
+
     if not value:
         return
     assert isinstance(value, qubes.vm.qubesvm.QubesVM)
@@ -246,6 +255,13 @@ class BaseVM(qubes.PropertyHolder):
     provides basic framework. It contains no management logic. For that, see
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     """
+
+    app: "qubes.Qubes"
+    features: qubes.features.Features
+
+    log: logging.Logger
+    storage: "qubes.storage.Storage"
+    _qdb_connection_watch: "qubesdb.QubesDB | None"
 
     # pylint: disable=no-member
 

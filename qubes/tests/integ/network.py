@@ -35,7 +35,7 @@ import qubes.vm.appvm
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
 @qubes.tests.skipIfTemplate("whonix")
-class VmNetworkingMixin:
+class VmNetworkingMixin(qubes.tests.SystemTestMixinBase):
     test_ip = "192.168.123.45"
     test_name = "test.example.com"
 

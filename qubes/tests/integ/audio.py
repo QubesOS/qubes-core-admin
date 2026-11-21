@@ -30,10 +30,13 @@ from distutils import spawn
 
 import numpy as np
 
+import qubes.device_protocol
 import qubes.exc
 import qubes.vm
 import qubes.devices
+import qubes.vm.appvm
 from qubes.tests.integ.vm_qrexec_gui import TC_00_AppVMMixin, in_qemu
+import qubes.tests
 
 
 @qubes.tests.skipIfTemplate("whonix-g", "guix-minimal")

@@ -20,8 +20,10 @@
 
 from unittest import mock
 
+import qubes.exc
 import qubes.ext.admin
 import qubes.tests
+import qubes.vm.adminvm
 
 
 class TC_50_Admin(qubes.tests.QubesTestCase):

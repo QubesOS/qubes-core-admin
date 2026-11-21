@@ -35,6 +35,7 @@ import docutils.parsers.rst
 import docutils.parsers.rst.roles
 import docutils.statemachine
 import sphinx
+import sphinx.addnodes
 import sphinx.errors
 import sphinx.locale
 import sphinx.util.docfields
@@ -48,7 +49,7 @@ OPTIONS_TITLE = "OPTIONS"
 try:
     log = logging.getLogger(__name__)
 except AttributeError:
-    log = None  # type: ignore
+    log = None
 
 
 class versioncheck(docutils.nodes.warning):

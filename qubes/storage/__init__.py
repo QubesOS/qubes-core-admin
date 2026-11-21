@@ -36,6 +36,7 @@ from typing import Dict, Tuple, Union
 import lxml.etree
 import importlib.metadata
 import qubes
+import qubes.config
 import qubes.exc
 import qubes.utils
 from qubes.exc import StoragePoolException
@@ -478,7 +479,7 @@ class Volume:
         assert device.devtype == "disk"
         assert device.rw, "Encrypting read-only volumes makes no sense"
         path = self.encrypted_volume_path(qube_name, device.name)
-        return qubes.storage.BlockDevice(
+        return BlockDevice(
             path=path,
             name=device.name,
             rw=device.rw,
@@ -1141,7 +1142,7 @@ def pool_drivers():
 def driver_parameters(name):
     """Get __init__ parameters from a driver with out `self` & `name`."""
     init_function = qubes.utils.get_entry_point_one(
-        qubes.storage.STORAGE_ENTRY_POINT, name
+        STORAGE_ENTRY_POINT, name
     ).__init__
     signature = inspect.signature(init_function)
     params = signature.parameters

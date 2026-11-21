@@ -28,10 +28,13 @@ import sys
 import tempfile
 
 import qubes.vm
+import qubes.vm.appvm
+import qubes.vm.standalonevm
+import qubes.tests
 
 
 # noinspection PyAttributeOutsideInit,PyPep8Naming
-class VmUpdatesMixin(object):
+class VmUpdatesMixin(qubes.tests.SystemTestMixinBase):
     """
     Tests for VM updates
     """

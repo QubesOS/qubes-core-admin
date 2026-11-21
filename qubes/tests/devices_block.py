@@ -19,11 +19,14 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 import asyncio
 import unittest
+import unittest.mock
 from unittest import mock
 from unittest.mock import Mock, AsyncMock
 
 import jinja2
 
+import qubes.exc
+import qubes.ext.utils
 import qubes.tests
 import qubes.ext.block
 from qubes.device_protocol import (

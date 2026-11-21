@@ -41,6 +41,7 @@ import qubes.tests.storage_lvm
 import qubes.utils
 import qubes.vm
 import qubes.vm.appvm
+import qubes.vm.standalonevm
 import qubes.vm.templatevm
 import qubes.vm.qubesvm
 
@@ -54,7 +55,7 @@ except ImportError:
 
 
 # noinspection PyAttributeOutsideInit
-class BackupTestsMixin(object):
+class BackupTestsMixin(qubes.tests.SystemTestMixinBase):
     class BackupErrorHandler(logging.Handler):
         def __init__(self, errors_queue, level=logging.NOTSET):
             super(BackupTestsMixin.BackupErrorHandler, self).__init__(level)

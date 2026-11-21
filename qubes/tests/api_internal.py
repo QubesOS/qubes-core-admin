@@ -21,6 +21,7 @@ import asyncio
 import qubes.api.internal
 import qubes.tests
 import qubes.vm.adminvm
+import qubes.vm.qubesvm
 from unittest import mock
 import json
 import uuid
