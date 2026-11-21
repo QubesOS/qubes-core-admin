@@ -154,6 +154,22 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if start:
             self.loop.run_until_complete(self.audiovm.start())
 
+    def wait_for_whonix_time_sync(self, vm):
+        # qmemman shrinks the qube as sdwdate's first sync ends; audio stalls
+        if "whonix" not in self.template:
+            return
+        try:
+            self.loop.run_until_complete(
+                vm.run_for_stdio(
+                    "timeout 60 sh -c 'until "
+                    "[ -e /run/sdwdate/first_success ]; do sleep 1; done'"
+                )
+            )
+        except subprocess.CalledProcessError:
+            self.log.warning("sdwdate did not sync in %s", vm.name)
+            return
+        self.loop.run_until_complete(asyncio.sleep(5))
+
     def check_pacat_running(self, audiovm, xid):
         pidfile = f"/run/qubes/pacat.{xid}"
         if audiovm.qid == 0:
@@ -754,6 +770,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
         self.loop.run_until_complete(self.wait_for_session(self.audiovm))
+        self.wait_for_whonix_time_sync(self.audiovm)
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -768,6 +785,7 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
         self.loop.run_until_complete(self.wait_for_session(self.audiovm))
+        self.wait_for_whonix_time_sync(self.audiovm)
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
