@@ -1,9 +1,3 @@
-RPMS_DIR=rpm/
-
-VERSION := $(file <version)
-
-DIST_DOM0 ?= fc32
-
 OS ?= Linux
 PYTHON ?= python3
 
@@ -138,34 +132,11 @@ STATEDIR ?= /var/run/qubes
 LOGDIR ?= /var/log/qubes
 FILESDIR ?= /usr/share/qubes
 DOCDIR ?= /usr/share/doc/qubes
-else ifeq ($(OS),Windows_NT)
-DATADIR ?= c:/qubes
-STATEDIR ?= c:/qubes/state
-LOGDIR ?= c:/qubes/log
-FILESDIR ?= c:/program files/Invisible Things Lab/Qubes
-DOCDIR ?= c:/qubes/doc
 endif
 
 help:
-	@echo "make rpms                  -- generate binary rpm packages"
-	@echo "make rpms-dom0             -- generate binary rpm packages for Dom0"
-	@echo "make update-repo-current   -- copy newly generated rpms to qubes yum repo"
-	@echo "make update-repo-current-testing  -- same, but to -current-testing repo"
-	@echo "make update-repo-unstable  -- same, but to -testing repo"
-	@echo "make update-repo-installer -- copy dom0 rpms to installer repo"
-	@echo "make clean                 -- cleanup"
-
-rpms: rpms-dom0
-
-rpms-vm:
-	@true
-
-rpms-dom0:
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-doc.spec
-	rpm --addsign \
-		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
-		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
+	@echo "make all                   -- build"
+	@echo "make install               -- install (use DESTDIR=...)"
 
 all:
 	$(PYTHON) setup.py build
@@ -247,21 +218,3 @@ endif
 	mkdir -p $(DESTDIR)$(DATADIR)/backup
 	mkdir -p $(DESTDIR)$(STATEDIR)
 	mkdir -p $(DESTDIR)$(LOGDIR)
-
-msi:
-	rm -rf destinstdir
-	mkdir -p destinstdir
-	$(MAKE) install \
-		DESTDIR=$(PWD)/destinstdir \
-		PYTHON_SITEPATH=/site-packages \
-		FILESDIR=/pfiles \
-		BINDIR=/bin \
-		DATADIR=/qubes \
-		STATEDIR=/qubes/state \
-		LOGDIR=/qubes/log
-	# icons placeholder
-	mkdir -p destinstdir/icons
-	for i in blue gray green yellow orange black purple red; do touch destinstdir/icons/$$i.png; done
-	candle -arch x64 -dversion=$(VERSION) installer.wxs
-	light -b destinstdir -o core-admin.msm installer.wixobj
-	rm -rf destinstdir
