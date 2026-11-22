@@ -40,6 +40,8 @@ import lxml.etree
 
 import qubes
 import qubes.config
+import qubes.device_protocol
+import qubes.events
 import qubes.exc
 import qubes.qmemman.algo
 import qubes.qmemman.domainstate
@@ -782,6 +784,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             Handler for this event may be asynchronous.
     """  # pylint: disable=too-many-instance-attributes
 
+    _domain_stopped_future: "asyncio.Future | None"
+
     #
     # per-class properties
     #
@@ -846,7 +850,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
             "memory",
             lambda self: qubes.config.defaults[
                 (
-                    "hvm_memory"  # type: ignore
+                    "hvm_memory"
                     if self.virt_mode == "hvm"
                     else "memory"
                 )

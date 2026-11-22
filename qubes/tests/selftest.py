@@ -20,6 +20,7 @@
 import unittest
 
 import qubes.tests
+import qubes.tests.never_awaited
 
 
 class TC_00_SelfTest(qubes.tests.QubesTestCase):

@@ -36,13 +36,18 @@ import copy
 import pathlib
 
 import qubes
+import qubes.config
+import qubes.device_protocol
 import qubes.devices
 import qubes.exc
+import qubes.ext.admin
 import qubes.firewall
 import qubes.api.admin
 import qubes.api.internal
 import qubes.tests
 import qubes.storage
+import qubes.vm.qubesvm
+import qubes.vm.standalonevm
 
 
 from qubes.device_protocol import (
@@ -51,6 +56,7 @@ from qubes.device_protocol import (
     Port,
     DeviceAssignment,
 )
+from typing import Any
 
 # properties defined in API
 volume_properties = [
@@ -73,6 +79,8 @@ _uuid_regex = re.compile(
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
+    app: Any
+
     def setUp(self):
         super().setUp()
         self.test_base_dir = "/tmp/qubes-test-dir"

@@ -24,6 +24,7 @@ import shutil
 import subprocess
 from contextlib import suppress
 
+import qubes.exc
 import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
@@ -34,7 +35,7 @@ import qubes.vm.appvm
 import qubes.vm.standalonevm
 
 
-class StorageTestMixin(object):
+class StorageTestMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(StorageTestMixin, self).setUp()
         self.init_default_template()

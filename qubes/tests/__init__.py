@@ -63,13 +63,15 @@ import qubes.devices
 import qubes.events
 import qubes.exc
 import qubes.ext.pci
-import qubes.tests.never_awaited
+from qubes.tests import never_awaited
 import qubes.vm.appvm
 import qubes.vm.dispvm
+import qubes.vm.qubesvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
 from qubes.log import Formatter
+from typing import Any, TYPE_CHECKING
 
 XMLPATH = "/var/lib/qubes/qubes-test.xml"
 CLASS_XMLPATH = "/var/lib/qubes/qubes-class-test.xml"
@@ -455,6 +457,8 @@ class _clear_ex_info(contextlib.ContextDecorator):
 
 class QubesTestCase(unittest.TestCase):
     """Base class for Qubes unit tests."""
+
+    loop: Any
 
     _callSetUp = never_awaited.detect()(unittest.TestCase._callSetUp)
     _callTestMethod = never_awaited.detect()(unittest.TestCase._callTestMethod)
@@ -865,6 +869,13 @@ class SystemTestCase(QubesTestCase):
     :py:meth:`TestCase.tearDownClass` implementation itself.
     """
 
+    dvm: Any
+    results: Any
+    template: Any
+    test_dir: Any
+    vm1: Any
+    vm2: Any
+
     def __init__(self, methodName="runTest"):
         if os.environ.get("QUBES_TEST_WAIT_ON_FAIL", None) == "1":
             setattr(
@@ -1065,6 +1076,9 @@ class SystemTestCase(QubesTestCase):
         """Returns the pool matching the specified ``volume_group`` &
         ``thin_pool``, or None.
         """
+        # imported here, as importing it runs lvs
+        import qubes.storage.lvm
+
         pools = [
             p
             for p in self.app.pools
@@ -1740,6 +1754,15 @@ class SystemTestCase(QubesTestCase):
         """Start a VM and wait for it to be fully up"""
         await vm.start()
         await self.wait_for_session(vm)
+
+
+# Mixins must stay plain classes at runtime, or unittest would collect them.
+if TYPE_CHECKING:
+    QubesTestMixinBase = QubesTestCase
+    SystemTestMixinBase = SystemTestCase
+else:
+    QubesTestMixinBase = object
+    SystemTestMixinBase = object
 
 
 _templates = None

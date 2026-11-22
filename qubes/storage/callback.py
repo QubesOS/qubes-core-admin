@@ -30,6 +30,7 @@ import qubes.exc
 from qubes.utils import coro_maybe
 
 import qubes.storage
+import qubes.utils
 
 
 class UnhandledSignalException(qubes.exc.StoragePoolException):

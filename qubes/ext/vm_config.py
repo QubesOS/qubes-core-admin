@@ -20,6 +20,7 @@
 
 """Extension exposing vm-config features to QubesDB"""
 
+import qubes.exc
 import qubes.ext
 import qubes.config
 

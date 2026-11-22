@@ -20,6 +20,7 @@
 
 from unittest import mock
 
+import qubes.exc
 import qubes.ext.custom_persist
 import qubes.tests
 

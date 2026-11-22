@@ -30,7 +30,7 @@ import warnings
 import qubes.tests
 
 
-class SaltTestMixin(object):
+class SaltTestMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super().setUp()
         self.salt_testdir = "/srv/salt/test_salt"

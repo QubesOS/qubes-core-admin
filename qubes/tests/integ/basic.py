@@ -41,6 +41,7 @@ import qubes.firewall
 import qubes.tests
 import qubes.storage
 import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
@@ -1142,7 +1143,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         )
 
 
-class TC_05_StandaloneVMMixin(object):
+class TC_05_StandaloneVMMixin(qubes.tests.SystemTestMixinBase):
     def setUp(self):
         super(TC_05_StandaloneVMMixin, self).setUp()
         self.init_default_template(self.template)

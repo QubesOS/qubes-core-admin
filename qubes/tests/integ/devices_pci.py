@@ -25,9 +25,12 @@ import subprocess
 import time
 import unittest
 
+import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext.pci
 import qubes.tests
+import qubes.vm.appvm
 from qubes.device_protocol import DeviceAssignment
 
 

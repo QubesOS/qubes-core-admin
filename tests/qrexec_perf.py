@@ -27,6 +27,7 @@ import dataclasses
 from typing import Union
 
 import qubesadmin
+import qubesadmin.utils
 
 
 @dataclasses.dataclass

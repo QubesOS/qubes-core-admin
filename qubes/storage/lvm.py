@@ -194,9 +194,7 @@ class ThinPool(qubes.storage.Pool):
     @property
     def size(self):
         try:
-            return qubes.storage.lvm.size_cache[
-                self.volume_group + "/" + self.thin_pool
-            ]["size"]
+            return size_cache[self.volume_group + "/" + self.thin_pool]["size"]
         except KeyError:
             return 0
 
@@ -204,9 +202,7 @@ class ThinPool(qubes.storage.Pool):
     def usage(self):
         refresh_cache()
         try:
-            return qubes.storage.lvm.size_cache[
-                self.volume_group + "/" + self.thin_pool
-            ]["usage"]
+            return size_cache[self.volume_group + "/" + self.thin_pool]["usage"]
         except KeyError:
             return 0
 
@@ -217,10 +213,10 @@ class ThinPool(qubes.storage.Pool):
         result["data_usage"] = self.usage
 
         try:
-            metadata_size = qubes.storage.lvm.size_cache[
+            metadata_size = size_cache[
                 self.volume_group + "/" + self.thin_pool
             ]["metadata_size"]
-            metadata_usage = qubes.storage.lvm.size_cache[
+            metadata_usage = size_cache[
                 self.volume_group + "/" + self.thin_pool
             ]["metadata_usage"]
         except KeyError:
@@ -335,7 +331,7 @@ async def init_cache_coro(log=logging.getLogger("qubes.storage.lvm")):
     return _parse_lvm_cache(out)
 
 
-size_cache_time = 0
+size_cache_time: float = 0
 size_cache = init_cache()
 
 
@@ -410,8 +406,8 @@ class ThinVolume(qubes.storage.Volume):
             if (self.snap_on_start or self.save_on_stop) and os.path.exists(
                 "/dev/" + self._vid_snap
             ):
-                return qubes.storage.lvm.size_cache[self._vid_snap]["size"]
-            return qubes.storage.lvm.size_cache[self._vid_current]["size"]
+                return size_cache[self._vid_snap]["size"]
+            return size_cache[self._vid_current]["size"]
         except KeyError:
             return self._size
 
@@ -862,7 +858,7 @@ class ThinVolume(qubes.storage.Volume):
         # the parent
         refresh_cache()
         try:
-            return qubes.storage.lvm.size_cache[self._vid_current]["usage"]
+            return size_cache[self._vid_current]["usage"]
         except KeyError:
             return 0
 
@@ -985,13 +981,15 @@ async def qubes_lvm_coro(cmd, log=logging.getLogger("qubes.storage.lvm")):
 
 
 def reset_cache():
-    qubes.storage.lvm.size_cache = init_cache()
-    qubes.storage.lvm.size_cache_time = time.monotonic()
+    global size_cache, size_cache_time  # pylint: disable=global-statement
+    size_cache = init_cache()
+    size_cache_time = time.monotonic()
 
 
 async def reset_cache_coro():
-    qubes.storage.lvm.size_cache = await init_cache_coro()
-    qubes.storage.lvm.size_cache_time = time.monotonic()
+    global size_cache, size_cache_time  # pylint: disable=global-statement
+    size_cache = await init_cache_coro()
+    size_cache_time = time.monotonic()
 
 
 def refresh_cache():

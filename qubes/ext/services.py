@@ -23,6 +23,7 @@
 import base64
 import hashlib
 import os
+import qubes.exc
 import qubes.ext
 import qubes.config
 

@@ -27,6 +27,7 @@ import asyncio
 
 import qubes.storage
 import qubes.tests.storage
+import qubes.vm.templatevm
 from qubes.config import defaults
 
 # :pylint: disable=invalid-name

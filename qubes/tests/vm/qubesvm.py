@@ -36,14 +36,23 @@ import unittest.mock
 import shutil
 
 import qubes
+import qubes.device_protocol
+import qubes.events
 import qubes.exc
 import qubes.config
 import qubes.devices
+import qubes.ext
 import qubes.vm
+import qubes.vm.adminvm
+import qubes.vm.appvm
+import qubes.vm.dispvm
 import qubes.vm.qubesvm
+import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 import qubes.tests
 import qubes.tests.vm
+from typing import Any
 
 # prefer location in git checkout
 tests_sysfs_path = os.path.dirname(__file__) + "/../../../tests-data/sysfs/sys"
@@ -53,6 +62,10 @@ if not os.path.exists(tests_sysfs_path):
 
 
 class TestApp(object):
+    default_kernel: Any
+    management_dispvm: Any
+    vmm: Any
+
     labels = {
         1: qubes.Label(1, "0xcc0000", "red"),
         2: qubes.Label(2, "0x00cc00", "green"),
@@ -130,6 +143,11 @@ class TestQubesDB(object):
 
 
 class TestVM(object):
+    is_memory_balancing_possible: Any
+    memory: Any
+    template: Any
+    virt_mode: Any
+
     # pylint: disable=too-few-public-methods
     app = TestApp()
 
@@ -304,7 +322,7 @@ class TC_10_default(qubes.tests.QubesTestCase):
         self.assertEqual(qubes.vm.qubesvm._default_maxmem(self.vm), 1000)
 
 
-class QubesVMTestsMixin(object):
+class QubesVMTestsMixin(qubes.tests.QubesTestMixinBase):
     property_no_default = object()
 
     def setUp(self):

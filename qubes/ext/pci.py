@@ -33,7 +33,9 @@ import lxml.etree
 
 import qubes.device_protocol
 import qubes.devices
+import qubes.exc
 import qubes.ext
+import qubes.vm.adminvm
 from qubes.device_protocol import AssignmentMode, Port, UnknownDevice
 from qubes.exc import DeviceNotFound
 from qubes.utils import sbdf_to_path, path_to_sbdf, is_pci_path
@@ -92,12 +94,13 @@ def load_pci_classes():
 
 
 def pcidev_class(dev_xmldesc):
+    global pci_classes  # pylint: disable=global-statement
     class_id = pcidev_interface(dev_xmldesc)
-    if not qubes.ext.pci.pci_classes:
-        qubes.ext.pci.pci_classes = load_pci_classes()
+    if not pci_classes:
+        pci_classes = load_pci_classes()
     try:
         # ignore prog-if
-        return qubes.ext.pci.pci_classes[class_id[0:4]]
+        return pci_classes[class_id[0:4]]
     except KeyError:
         return "unknown"
 
@@ -149,6 +152,10 @@ def _device_desc(hostdev_xml):
 
 class PCIDevice(qubes.device_protocol.DeviceInfo):
     # pylint: disable=too-few-public-methods
+    bus: str
+    device: str
+    function: str
+
     regex = re.compile(
         r"\A((?P<segment>[0-9a-f]{4})[_:])?(?P<bus>[0-9a-f]{2})[_:]"
         r"(?P<device>[0-9a-f]{2})\.(?P<function>[0-9a-f])\Z"

@@ -40,8 +40,11 @@ import time
 
 from .utils import size_to_human
 import qubes
+import qubes.config
+import qubes.exc
 import qubes.storage
 import qubes.storage.file
+import qubes.utils
 import qubes.vm.templatevm
 
 QUEUE_ERROR = "ERROR"
@@ -264,6 +267,11 @@ class Backup:
     """
 
     # pylint: disable=too-many-instance-attributes
+    passphrase: str | bytes | None
+    target_dir: str | None
+    target_vm: "qubes.vm.BaseVM | None"
+    tmpdir: str | None
+
     class FileToBackup:
         # pylint: disable=too-few-public-methods
         def __init__(

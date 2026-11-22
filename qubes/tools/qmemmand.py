@@ -35,6 +35,7 @@ import xen.lowlevel.xs  # pylint: disable=import-error
 import qubes.qmemman
 import qubes.qmemman.algo
 import qubes.qmemman.systemstate
+import qubes.tools
 import qubes.utils
 
 from qubes.log import Formatter

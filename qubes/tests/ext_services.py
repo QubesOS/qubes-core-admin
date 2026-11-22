@@ -22,6 +22,8 @@ import os
 
 from unittest import mock
 
+import qubes.config
+import qubes.exc
 import qubes.ext.r3compatibility
 import qubes.ext.services
 import qubes.features

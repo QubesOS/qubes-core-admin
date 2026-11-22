@@ -29,7 +29,9 @@ import shutil
 import subprocess
 import unittest.mock
 
+import qubes.config
 import qubes.exc
+import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage
 import qubes.tests.storage_file
@@ -95,7 +97,7 @@ CB_DATA = {
 }
 
 
-class CallbackBase:
+class CallbackBase(qubes.tests.QubesTestMixinBase):
     """Mixin base class for callback tests. Has no base class."""
 
     conf_id = None

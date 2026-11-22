@@ -18,6 +18,8 @@
 #
 import shutil
 import unittest.mock
+import qubes.config
+import qubes.exc
 import qubes.log
 import qubes.storage
 from qubes.exc import QubesException

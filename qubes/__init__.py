@@ -28,6 +28,7 @@ Qubes OS
 
 import builtins
 import collections.abc
+import logging
 import os
 import os.path
 import string
@@ -599,6 +600,8 @@ class PropertyHolder(qubes.events.Emitter):
 
     Members:
     """
+
+    log: logging.Logger
 
     def __init__(self, xml, **kwargs):
         self.xml = xml

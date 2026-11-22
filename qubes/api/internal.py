@@ -27,6 +27,8 @@ import subprocess
 
 import qubes.api
 import qubes.api.admin
+import qubes.config
+import qubes.exc
 import qubes.vm.adminvm
 import qubes.vm.dispvm
 
