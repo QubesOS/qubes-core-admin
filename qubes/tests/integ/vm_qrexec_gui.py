@@ -964,8 +964,9 @@ int main(int argc, char **argv) {
                     "printf '%s\\n' "
                     + "'#!/bin/bash' "
                     + "'echo QUBES_ENV_TEST=first' "
-                    + "| sudo tee "
-                    + "/usr/lib/systemd/user-environment-generators/90-test"
+                    + "| tee "
+                    + "/usr/lib/systemd/user-environment-generators/90-test",
+                    user="root",
                 )
             )
         except subprocess.CalledProcessError:
@@ -978,7 +979,8 @@ int main(int argc, char **argv) {
                     + "'#!/bin/bash' "
                     + "'QUBES_ENV_TEST=\"${QUBES_ENV_TEST}:second\"' "
                     + "'export QUBES_ENV_TEST' "
-                    + "| sudo tee /etc/profile.d/ztest.sh"
+                    + "| tee /etc/profile.d/ztest.sh",
+                    user="root",
                 )
             )
         except subprocess.CalledProcessError:
@@ -987,9 +989,10 @@ int main(int argc, char **argv) {
         try:
             self.loop.run_until_complete(
                 self.env_sync_vm.run_for_stdio(
-                    "sudo chmod +x "
+                    "chmod +x "
                     + "/usr/lib/systemd/user-environment-generators/90-test "
-                    + "/etc/profile.d/ztest.sh"
+                    + "/etc/profile.d/ztest.sh",
+                    user="root",
                 )
             )
         except subprocess.CalledProcessError:
