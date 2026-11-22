@@ -8,9 +8,9 @@ xenstore-write /local/domain/0/memory/static-max $((DOM0_MAXMEM * 1024))
 
 credit="$(xl info xen_scheduler)"
 xl sched-"$credit" -d 0 -w 2000
-cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-"$(date +%F-%T)".xml
-
 /usr/lib/qubes/cleanup-dispvms
+
+cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-"$(date +%F-%T)".xml
 
 if [ -e /sys/module/grant_table/parameters/free_per_iteration ]; then
     echo 1000 > /sys/module/grant_table/parameters/free_per_iteration
