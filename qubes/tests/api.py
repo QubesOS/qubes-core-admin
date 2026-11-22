@@ -36,6 +36,7 @@ class TestMgmt:
         self.arg = arg
         self.send_event = send_event
         self.task = None
+        self.cancellable = method in (b"mgmt.event", b"mgmt.quiet_event")
         try:
             self.function = {
                 "mgmt.success": self.success,
@@ -43,6 +44,8 @@ class TestMgmt:
                 "mgmt.qubesexception": self.qubesexception,
                 "mgmt.exception": self.exception,
                 "mgmt.event": self.event,
+                "mgmt.quiet_event": self.quiet_event,
+                "mgmt.slow": self.slow,
             }[self.method.decode()]
         except KeyError:
             raise qubes.exc.ProtocolError("Invalid method")
@@ -54,7 +57,8 @@ class TestMgmt:
         return self.task
 
     def cancel(self):
-        self.task.cancel()
+        if self.cancellable:
+            self.task.cancel()
 
     async def success(self, untrusted_payload):
         return "src: {!r}, dest: {!r}, arg: {!r}, payload: {!r}".format(
@@ -92,6 +96,17 @@ class TestMgmt:
             await future
         except asyncio.CancelledError:
             pass
+
+    async def quiet_event(self, untrusted_payload):
+        self.send_event("subject", "event", payload=untrusted_payload.decode())
+        try:
+            await asyncio.get_event_loop().create_future()
+        except asyncio.CancelledError:
+            pass
+
+    async def slow(self, untrusted_payload):
+        await asyncio.sleep(0.2)
+        return "slow: {!r}".format(untrusted_payload)
 
 
 class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
@@ -201,6 +216,58 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
             response,
             b"0\0src: b'src', dest: b'dom0', arg: b'arg', payload: b'payload'",
         )
+
+    def _start_quiet_event(self):
+        self.writer.write(b"mgmt.quiet_event+arg dom0 name dom0\0payload")
+        self.writer.write_eof()
+        with self.assertNotRaises(asyncio.TimeoutError):
+            self.loop.run_until_complete(
+                asyncio.wait_for(self.reader.readuntil(b"\0\0"), 1)
+            )
+
+    def test_007_event_client_closed_no_write(self):
+        self._start_quiet_event()
+        self.writer.transport.abort()
+        task = self.protocol.mgmt.task
+        self.loop.run_until_complete(asyncio.wait([task], timeout=1))
+        self.assertTrue(task.done())
+        self.assertIsNone(self.protocol.transport)
+
+    def test_008_event_half_closed_client_stays(self):
+        self._start_quiet_event()
+        self.loop.run_until_complete(asyncio.sleep(0.2))
+        self.assertFalse(self.protocol.mgmt.task.done())
+        self.protocol.send_event("subject", "event2")
+        with self.assertNotRaises(asyncio.TimeoutError):
+            response = self.loop.run_until_complete(
+                asyncio.wait_for(self.reader.readuntil(b"\0\0"), 1)
+            )
+        self.assertEqual(response, b"1\0subject\0event2\0\0")
+        self.writer.transport.abort()
+        self.loop.run_until_complete(
+            asyncio.wait([self.protocol.mgmt.task], timeout=1)
+        )
+        self.assertTrue(self.protocol.mgmt.task.done())
+
+    def test_009_call_half_closed_client_gets_late_reply(self):
+        self.writer.write(b"mgmt.slow+arg dom0 name dom0\0payload")
+        self.writer.write_eof()
+        with self.assertNotRaises(asyncio.TimeoutError):
+            response = self.loop.run_until_complete(
+                asyncio.wait_for(self.reader.read(), 1)
+            )
+        self.assertEqual(response, b"0\0slow: b'payload'")
+
+    def test_010_call_not_interrupted_by_client_close(self):
+        self.writer.write(b"mgmt.slow+arg dom0 name dom0\0payload")
+        self.writer.write_eof()
+        self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.writer.transport.abort()
+        with self.assertNotRaises(asyncio.TimeoutError):
+            result = self.loop.run_until_complete(
+                asyncio.wait_for(self.protocol.mgmt.task, 1)
+            )
+        self.assertEqual(result, "slow: b'payload'")
 
 
 class TC_10_QubesAPIValidation(qubes.tests.QubesTestCase):
