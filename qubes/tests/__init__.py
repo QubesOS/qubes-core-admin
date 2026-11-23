@@ -554,7 +554,7 @@ class QubesTestCase(unittest.TestCase):
             )
         ]
 
-        if leaked:
+        if leaked and not os.environ.get("QUBES_TEST_SKIP_OBJGRAPH", None):
             try:
                 import objgraph
 
