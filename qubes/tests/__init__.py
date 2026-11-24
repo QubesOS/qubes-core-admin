@@ -568,8 +568,8 @@ class QubesTestCase(unittest.TestCase):
                 pass
 
         # do not keep leaked object references in locals()
-        leaked = bool(leaked)
-        assert not leaked
+        if leaked:
+            raise AssertionError("Leaked: %s" % leaked)
 
     def cleanup_loop(self):
         """Check if the loop is empty"""
