@@ -41,7 +41,6 @@ import time
 from .utils import size_to_human
 import qubes
 import qubes.storage
-import qubes.storage.file
 import qubes.vm.templatevm
 
 QUEUE_ERROR = "ERROR"
@@ -292,7 +291,7 @@ class Backup:
                 )
 
             if size is None:
-                size = qubes.storage.file.get_disk_usage(file_path_or_func)
+                size = qubes.utils.get_disk_usage(file_path_or_func)
 
             if subdir is None:
                 abs_file_path = os.path.abspath(file_path_or_func)
