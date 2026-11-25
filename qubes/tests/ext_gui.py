@@ -180,3 +180,82 @@ class TC_71_GUIVM(qubes.tests.QubesTestCase):
         self._load(work)
         self.assertIsNone(work.guivm)
         work.log.error.assert_called_once_with(mock.ANY, "work", gui_x)
+
+
+class TC_72_GUIVM_QubesDB(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.gui.GUI()
+        self.guivm = mock.MagicMock()
+        self.guivm.name = "sys-gui"
+        self.guivm.xid = 42
+        self.guivm.is_running.return_value = True
+        self.vm = mock.MagicMock()
+        self.vm.name = "work"
+        self.vm.is_running.return_value = True
+        self.vm.features.get.return_value = True
+        self.vm.keyboard_layout = "us++"
+
+    def _set(self, guivm, event="property-set:guivm"):
+        self.ext.on_property_set(self.vm, event, name="guivm", newvalue=guivm)
+
+    def test_000_set_running_guivm(self):
+        """Setting a running guivm writes its xid to a running qube"""
+        self._set(self.guivm)
+        qdb = self.vm.untrusted_qdb
+        qdb.write.assert_has_calls(
+            [
+                mock.call("/qubes-gui-enabled", "True"),
+                mock.call("/keyboard-layout", "us++"),
+                mock.call("/qubes-gui-domain-xid", "42"),
+            ]
+        )
+        qdb.rm.assert_not_called()
+
+    def test_010_set_halted_guivm(self):
+        """Setting a halted guivm removes the xid entry"""
+        self.guivm.is_running.return_value = False
+        self._set(self.guivm)
+        qdb = self.vm.untrusted_qdb
+        self.assertNotIn(
+            mock.call("/qubes-gui-domain-xid", mock.ANY),
+            qdb.write.mock_calls,
+        )
+        qdb.rm.assert_called_once_with("/qubes-gui-domain-xid")
+
+    def test_020_set_none(self):
+        """Clearing guivm disables GUI and removes the xid entry"""
+        self._set(None)
+        qdb = self.vm.untrusted_qdb
+        qdb.write.assert_called_once_with("/qubes-gui-enabled", "False")
+        qdb.rm.assert_called_once_with("/qubes-gui-domain-xid")
+
+    def test_030_halted_qube(self):
+        """Changing guivm of a halted qube does not touch QubesDB"""
+        self.vm.is_running.return_value = False
+        self._set(self.guivm)
+        self.vm.untrusted_qdb.write.assert_not_called()
+
+    def test_040_qdb_not_ready(self):
+        """Changing guivm before QubesDB is up does not fail"""
+        self.vm.untrusted_qdb = None
+        self._set(self.guivm)
+
+    def test_050_domain_load(self):
+        """Loading a qube only sets the tag, not QubesDB"""
+        self.ext.on_domain_init_load(self.vm, "domain-load")
+        self.vm.untrusted_qdb.write.assert_not_called()
+        self.vm.untrusted_qdb.rm.assert_not_called()
+
+    def test_100_guivm_shutdown(self):
+        """GuiVM shutdown removes the xid from running attached qubes"""
+        halted = mock.MagicMock()
+        halted.is_running.return_value = False
+        with mock.patch.object(
+            self.ext, "attached_vms", return_value=[self.vm, halted]
+        ):
+            self.ext.on_domain_shutdown(self.guivm, "domain-shutdown")
+        self.vm.untrusted_qdb.rm.assert_called_once_with(
+            "/qubes-gui-domain-xid"
+        )
+        halted.untrusted_qdb.rm.assert_not_called()
