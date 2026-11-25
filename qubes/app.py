@@ -284,6 +284,7 @@ class QubesHost:
         self._physinfo = None
         self._cpu_arch = None
         self._cpu_family = None
+        self._cpu_model = None
 
     def _fetch(self):
         if self._no_cpus is not None:
@@ -344,7 +345,7 @@ class QubesHost:
     @property
     def cpu_family_model(self):
         """Get CPU family and model"""
-        if self._cpu_family is None or self._cpu_arch is None:
+        if self._cpu_family is None or self._cpu_model is None:
             family = None
             model = None
             with open("/proc/cpuinfo", encoding="ascii") as cpuinfo:
@@ -359,8 +360,8 @@ class QubesHost:
                     elif field.strip() == "cpu family":
                         family = int(value.strip())
             self._cpu_family = family
-            self._cpu_arch = model
-        return self._cpu_family, self._cpu_arch
+            self._cpu_model = model
+        return self._cpu_family, self._cpu_model
 
     def get_free_xen_memory(self):
         """Get free memory from Xen's physinfo.
