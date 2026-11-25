@@ -3012,6 +3012,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 mock_vmm.libvirt_conn_uri = uri
                 with self.assertRaises(qubes.exc.QubesVMShutdownTimeoutError):
                     self.loop.run_until_complete(vm.shutdown())
+            with self.subTest("wait-on-existing-shutdown"):
+                existing_waiter = self.loop.create_future()
+                mock_vmm.is_xen = True
+                test_timeout = 3000
+                vm._lifecycle_waiter["STOPPED"] = existing_waiter
+                mock_halted.return_value = True
+                task = self.loop.create_task(
+                    vm.shutdown(wait=True, timeout=test_timeout)
+                )
+                self.assertFalse(task.done())
+                # Waiting 3 seconds to end the lock and ensuring synchronization
+                self.loop.call_later(
+                    3,
+                    lambda: (
+                        existing_waiter.set_result(None)
+                        if not existing_waiter.done()
+                        else None
+                    ),
+                )
+                self.loop.run_until_complete(task)
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")
     def test_700_run_service(self, mock_subprocess):
@@ -3543,6 +3563,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm._lifecycle_waiter["LIFE"] = None
             async with asyncio.timeout(1):
                 async with vm.change_libvirt_state(event="LIFE"):
+                    print("Normal")
                     vm.end_lifecycle_waiter(event="LIFE")
 
         with self.subTest("Event comes after some time"):
@@ -3556,7 +3577,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             vm._lifecycle_waiter["LIFE"] = None
             async with asyncio.timeout(4):
                 with self.assertRaises(asyncio.TimeoutError):
-                    async with vm.change_libvirt_state(event="LIFE", timeout=1):
+                    async with vm.change_libvirt_state(
+                        event="LIFE", timeout=1, wait=True
+                    ):
                         await asyncio.sleep(2)
 
         with self.subTest(
