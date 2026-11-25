@@ -1799,6 +1799,7 @@ class Qubes(qubes.PropertyHolder):
             volumes = [
                 (vm, volume)
                 for vm in self.domains
+                if isinstance(vm, qubes.vm.LocalVM)
                 for volume in vm.volumes.values()
                 if volume.pool is pool
             ]
