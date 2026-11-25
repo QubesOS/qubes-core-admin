@@ -4231,6 +4231,27 @@ running and private volume snapshots are disabled. Backup will fail!\n"
                                 )
                                 mock_check_call.assert_called_once()
 
+    @unittest.mock.patch("qubes.utils.get_disk_usage")
+    @unittest.mock.patch("pwd.getpwnam")
+    @unittest.mock.patch("grp.getgrnam")
+    def test_614_backup_dom0_home_size(
+        self, mock_getgrnam, mock_getpwnam, mock_get_disk_usage
+    ):
+        """Dom0HomeSize returns the disk usage of the dom0 user home"""
+        mock_getgrnam.return_value.gr_mem = ["user"]
+        mock_getpwnam.return_value.pw_dir = "/home/user"
+        mock_get_disk_usage.return_value = 12345
+        value = self.call_mgmt_func(b"admin.backup.Dom0HomeSize", b"dom0")
+        self.assertEqual(value, "12345")
+        mock_getgrnam.assert_called_once_with("qubes")
+        mock_getpwnam.assert_called_once_with("user")
+        mock_get_disk_usage.assert_called_once_with("/home/user")
+
+    def test_615_backup_dom0_home_size_not_dom0(self):
+        """Dom0HomeSize refuses a destination other than dom0"""
+        with self.assertRaises(qubes.exc.ProtocolError):
+            self.call_mgmt_func(b"admin.backup.Dom0HomeSize", b"test-vm1")
+
     @unittest.mock.patch("qubes.backup.Backup")
     def test_620_backup_execute(self, mock_backup):
         backup_profile = (

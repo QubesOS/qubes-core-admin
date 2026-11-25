@@ -191,6 +191,7 @@ fi
 SERVICES="
 admin.Events
 admin.backup.Cancel
+admin.backup.Dom0HomeSize
 admin.backup.Execute
 admin.backup.Info
 admin.deviceclass.List
