@@ -195,7 +195,8 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         rec = np.fromstring(sample, dtype=np.float32)
         # determine sample size using silence threshold
         threshold = 10**-3
-        rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
+        sound = (rec > threshold) | (rec < -threshold)
+        rec_size = np.count_nonzero(sound)
         if not rec_size:
             self.fail("only silence detected, no useful audio data")
         margin = 0.95
@@ -215,6 +216,21 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             self.fail(
                 f"too short audio, expected 10s, got {rec_size / 44100}, saved to {fname}"
             )
+        # silence between the first and last mostly-loud 10ms blocks,
+        # so clicks at the file start or end don't count
+        block = 441
+        blocks = sound[: len(sound) // block * block].reshape(-1, block)
+        loud = np.nonzero(blocks.mean(axis=1) > 0.5)[0]
+        if len(loud):
+            silence = np.count_nonzero(~blocks[loud[0] : loud[-1] + 1])
+            if silence > (1 - margin) * 441000:
+                fname = f"/tmp/audio-sample-{self.id()}.raw"
+                with open(fname, "wb") as f:
+                    f.write(sample)
+                self.fail(
+                    f"audio has gaps, {silence / 44100}s of silence inside"
+                    f" the sound, saved to {fname}"
+                )
         # find zero crossings
         crossings = np.nonzero((rec[1:] > threshold) & (rec[:-1] < -threshold))[
             0
