@@ -1058,25 +1058,21 @@ class TC_10_Generic(qubes.tests.SystemTestCase):
         self.vm = self.app.domains[self.vm.qid]
 
     def test_000_anyvm_deny_dom0(self):
-        """$anyvm in policy should not match dom0"""
-        policy = open("/etc/qubes-rpc/policy/test.AnyvmDeny", "w")
-        policy.write("%s $anyvm allow" % (self.vm.name,))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.AnyvmDeny")
-
+        """@anyvm in policy should not match dom0"""
         flagfile = "/tmp/test-anyvmdeny-flag"
         if os.path.exists(flagfile):
             os.remove(flagfile)
 
         self.create_local_file(
             "/etc/qubes-rpc/test.AnyvmDeny",
-            "touch {}\necho service output\n".format(flagfile),
+            "#!/bin/sh\ntouch {}\necho service output\n".format(flagfile),
         )
+        os.chmod("/etc/qubes-rpc/test.AnyvmDeny", 0o755)
 
         self.loop.run_until_complete(self.vm.start())
-        with self.qrexec_policy("test.AnyvmDeny", self.vm, "$anyvm"):
+        with self.qrexec_policy("test.AnyvmDeny", self.vm, "@anyvm"):
             with self.assertRaises(
-                subprocess.CalledProcessError, msg="$anyvm matched dom0"
+                subprocess.CalledProcessError, msg="@anyvm matched dom0"
             ) as e:
                 self.loop.run_until_complete(
                     self.vm.run_for_stdio(
