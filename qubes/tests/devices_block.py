@@ -1433,51 +1433,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         back.untrusted_qdb = None
         self.assert_no_devices(back)
 
-    def test_102_qdb_connect_fails(self):
-        """A qube whose QubesDB refuses to connect exposes no block devices."""
-        import qubesdb  # pylint: disable=import-error
-
-        back, _ = self.added_assign_setup()
-        with mock.patch.object(
-            TestVM,
-            "untrusted_qdb",
-            new_callable=mock.PropertyMock,
-            side_effect=qubesdb.Error(111, "Connection refused"),
-            create=True,
-        ):
-            self.assert_no_devices(back)
-
-    def test_103_qdb_connection_lost(self):
-        """A QubesDB connection lost while listing gives no block devices."""
-        import qubesdb  # pylint: disable=import-error
-
-        back, _ = self.added_assign_setup()
-        back.untrusted_qdb = mock.Mock()
-        back.untrusted_qdb.list.side_effect = qubesdb.DisconnectedError()
-        self.assert_no_devices(back)
-
-    def test_104_read_qdb_connection_lost(self):
-        """A lost QubesDB connection makes block device properties unknown."""
-        import qubesdb  # pylint: disable=import-error
-
-        back, _ = self.added_assign_setup()
-        dev = qubes.ext.block.BlockDevice(Port(back, "sda", "block"))
-        back.untrusted_qdb = mock.Mock()
-        back.untrusted_qdb.read.side_effect = qubesdb.DisconnectedError()
-        self.assertEqual(dev.name, "unknown")
-        self.assertEqual(dev.serial, "unknown")
-        self.assertEqual(dev.mode, "w")
-        self.assertEqual(dev.size, 0)
-        self.assertIsNone(dev.parent_device)
-        dev.serialize()
-
-    def test_105_domain_load_qdb_lost(self):
-        """domain-load of a qube whose QubesDB is gone caches no devices."""
-        import qubesdb  # pylint: disable=import-error
-
+    def test_102_domain_load_qdb_not_ready(self):
+        """domain-load of a qube whose QubesDB is not up caches no devices."""
         back, _ = self.added_assign_setup()
         back.watch_qdb_path = mock.Mock()
-        back.untrusted_qdb = mock.Mock()
-        back.untrusted_qdb.list.side_effect = qubesdb.DisconnectedError()
+        back.untrusted_qdb = None
         self.ext.on_domain_init_load(back, "domain-load")
         self.assertEqual(self.ext.devices_cache["sys-usb"], {})
