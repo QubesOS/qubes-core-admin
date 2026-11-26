@@ -127,7 +127,7 @@
             #}
             {% set counter = {'i': 0} %}
             {# TODO Allow more volumes out of the box #}
-            {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+            {% set dd = ['f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
                 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
             %}
             {% for device in vm.block_devices %}
@@ -142,6 +142,8 @@
                         <target dev="xvdc" />
                     {% elif device.name == 'kernel' %}
                         <target dev="xvdd" />
+                    {% elif device.name == 'private-changes' %}
+                        <target dev="xvde" />
                     {% else %}
                         <target dev="xvd{{dd[counter.i]}}" />
                         {% if counter.update({'i': counter.i + 1}) %}{% endif %}
@@ -159,7 +161,7 @@
             {% endfor %}
 
             {# start external devices from xvdi #}
-            {% set counter = {'i': 4} %}
+            {% set counter = {'i': 3} %}
             {% for assignment in vm.devices.block.get_assigned_devices(True) %}
                 {% for device in assignment.devices %}
                     {% set options = assignment.options %}
