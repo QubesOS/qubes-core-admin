@@ -557,12 +557,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     def test_172_maxmem_running_nohotplug(self):
         vm = self.get_vm()
-        with unittest.mock.patch.object(
-            type(vm),
-            "use_memory_hotplug",
-            new_callable=unittest.mock.PropertyMock,
-            return_value=False,
-        ), unittest.mock.patch.object(vm, "is_halted", return_value=False):
+        with (
+            unittest.mock.patch.object(
+                type(vm),
+                "use_memory_hotplug",
+                new_callable=unittest.mock.PropertyMock,
+                return_value=False,
+            ),
+            unittest.mock.patch.object(vm, "is_halted", return_value=False),
+        ):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError) as cm:
                 vm.maxmem = 1000
             self.assertIs(cm.exception.vm, vm)
@@ -3328,13 +3331,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm.storage = unittest.mock.Mock()
         vm.storage.remove = unittest.mock.AsyncMock()
         vm._domain_stopped_event_handled = True
-        with tempfile.TemporaryDirectory() as tmpdir, unittest.mock.patch(
-            "qubes.config.qubes_base_dir", tmpdir
-        ), unittest.mock.patch.object(
-            vm, "is_halted", return_value=True
-        ), unittest.mock.patch.object(
-            vm, "remove_logs"
-        ) as mock_remove_logs:
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            unittest.mock.patch("qubes.config.qubes_base_dir", tmpdir),
+            unittest.mock.patch.object(vm, "is_halted", return_value=True),
+            unittest.mock.patch.object(vm, "remove_logs") as mock_remove_logs,
+        ):
             self.loop.run_until_complete(vm.remove_from_disk())
         vm.storage.remove.assert_called_once_with()
         return mock_remove_logs
@@ -3416,9 +3418,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             os.mkdir(os.path.join(tmpdir, "qubes/qubesdb.test-inst-work.log.1"))
             kept.append("qubes/qubesdb.test-inst-work.log.1")
 
-            with unittest.mock.patch(
-                "qubes.config.qube_log_files", log_files
-            ), unittest.mock.patch.object(vm, "log") as mock_log:
+            with (
+                unittest.mock.patch("qubes.config.qube_log_files", log_files),
+                unittest.mock.patch.object(vm, "log") as mock_log,
+            ):
                 vm.remove_logs()
             mock_log.warning.assert_not_called()
 
@@ -3436,12 +3439,14 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "guid.test-inst-test.log")
             open(path, "w", encoding="ascii").close()
-            with unittest.mock.patch(
-                "qubes.config.qube_log_files", {tmpdir: ("guid.{}.log",)}
-            ), unittest.mock.patch.object(
-                vm, "log"
-            ) as mock_log, unittest.mock.patch(
-                "os.unlink", side_effect=PermissionError("denied")
+            with (
+                unittest.mock.patch(
+                    "qubes.config.qube_log_files", {tmpdir: ("guid.{}.log",)}
+                ),
+                unittest.mock.patch.object(vm, "log") as mock_log,
+                unittest.mock.patch(
+                    "os.unlink", side_effect=PermissionError("denied")
+                ),
             ):
                 vm.remove_logs()
             mock_log.warning.assert_called_once_with(
