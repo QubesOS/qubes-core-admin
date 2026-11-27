@@ -177,7 +177,7 @@ class TemplateVM(QubesVM):
         (which use default inherited from the template).
 
         This handler is supposed to be set for properties using
-        `_default_with_template()` function for the default value.
+        `default_with_template()` function for the default value.
         """
         if newvalue == oldvalue:
             return
