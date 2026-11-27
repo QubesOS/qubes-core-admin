@@ -1736,6 +1736,27 @@ class SystemTestCase(QubesTestCase):
             )
             raise
 
+    async def wait_for_whonix_time_sync(self, vm, timeout=60):
+        """On Whonix, wait for sdwdate's first sync in a running VM, plus 5s.
+
+        When that sync ends, qmemman takes memory back from the VM, which
+        can stall it for a moment. Only logs a warning on timeout.
+        """
+        template = getattr(vm, "template", None)
+        while getattr(template, "template", None) is not None:
+            template = template.template
+        if template is None or "whonix" not in template.name:
+            return
+        try:
+            await vm.run_for_stdio(
+                f"timeout {timeout} sh -c 'until "
+                "[ -e /run/sdwdate/first_success ]; do sleep 1; done'"
+            )
+        except subprocess.CalledProcessError:
+            self.log.warning("sdwdate did not sync in %s", vm.name)
+            return
+        await asyncio.sleep(5)
+
     async def start_vm(self, vm):
         """Start a VM and wait for it to be fully up"""
         await vm.start()

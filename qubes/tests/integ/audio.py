@@ -798,6 +798,10 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
         self.loop.run_until_complete(self.wait_for_session(self.audiovm))
+        # qmemman shrinks the qube as sdwdate's first sync ends; audio stalls
+        self.loop.run_until_complete(
+            self.wait_for_whonix_time_sync(self.audiovm)
+        )
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
         self.assert_pacat_running(self.app.domains[0], self.testvm1, False)
         self.common_audio_playback()
@@ -812,6 +816,10 @@ class TC_20_AudioVM_PipeWire(TC_00_AudioMixin):
         self.prepare_audio_test("pipewire")
         self.loop.run_until_complete(self.audiovm.start())
         self.loop.run_until_complete(self.wait_for_session(self.audiovm))
+        # qmemman shrinks the qube as sdwdate's first sync ends; audio stalls
+        self.loop.run_until_complete(
+            self.wait_for_whonix_time_sync(self.audiovm)
+        )
 
         # check mic is enabled in first audiovm
         self.assert_pacat_running(self.audiovm, self.testvm1, True)
