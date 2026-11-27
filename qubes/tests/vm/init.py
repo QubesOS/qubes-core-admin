@@ -21,6 +21,8 @@ import sys
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+import unittest.mock
+
 import lxml.etree
 
 import qubes
@@ -189,6 +191,38 @@ class TC_10_LocalVM(qubes.tests.QubesTestCase):
         vm.events_enabled = True
         vm.fire_event("domain-load")
         self.assertEqual(vm.tags, {"testtag"})
+
+    def test_004_qdb_watch_handler_error(self):
+        """A DisconnectedError raised by an event handler keeps the watch."""
+        import qubesdb  # pylint: disable=import-error
+
+        vm = TestVM(None, None, qid=1, name="testvm")
+        watch = unittest.mock.Mock()
+        watch.read_watch.return_value = "/test"
+        vm._qdb_connection_watch = watch
+        vm._qdb_watch_paths = {"/test"}
+        vm.fire_event = unittest.mock.Mock(
+            side_effect=qubesdb.DisconnectedError()
+        )
+        loop = unittest.mock.Mock()
+        with self.assertRaises(qubesdb.DisconnectedError):
+            vm._qdb_watch_reader(loop)
+        self.assertIs(vm._qdb_connection_watch, watch)
+        loop.remove_reader.assert_not_called()
+
+    def test_005_qdb_watch_disconnected(self):
+        """A lost QubesDB watch connection closes and drops the watch."""
+        import qubesdb  # pylint: disable=import-error
+
+        vm = TestVM(None, None, qid=1, name="testvm")
+        watch = unittest.mock.Mock()
+        watch.read_watch.side_effect = qubesdb.DisconnectedError()
+        vm._qdb_connection_watch = watch
+        loop = unittest.mock.Mock()
+        vm._qdb_watch_reader(loop)
+        self.assertIsNone(vm._qdb_connection_watch)
+        watch.close.assert_called_once_with()
+        loop.remove_reader.assert_called_once_with(watch.watch_fd())
 
 
 class TC_20_Tags(qubes.tests.QubesTestCase):

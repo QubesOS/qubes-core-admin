@@ -1413,3 +1413,30 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         )
         self.ext.detach_and_notify.assert_called_once_with(front, exp_dev.port)
         self.assertEqual(self.ext.devices_cache, {"sys-usb": {}})
+
+    def assert_no_devices(self, vm):
+        self.assertEqual(list(self.ext.on_device_list_block(vm, None)), [])
+        self.assertIsNone(self.ext.device_get(vm, "sda"))
+
+    def test_100_qdb_available(self):
+        """A qube with a working QubesDB lists its block devices."""
+        back, _ = self.added_assign_setup()
+        self.assertEqual(
+            [d.port_id for d in self.ext.on_device_list_block(back, None)],
+            ["sda"],
+        )
+        self.assertIsNotNone(self.ext.device_get(back, "sda"))
+
+    def test_101_qdb_not_ready(self):
+        """A qube whose QubesDB is not ready yet exposes no block devices."""
+        back, _ = self.added_assign_setup()
+        back.untrusted_qdb = None
+        self.assert_no_devices(back)
+
+    def test_102_domain_load_qdb_not_ready(self):
+        """domain-load of a qube whose QubesDB is not up caches no devices."""
+        back, _ = self.added_assign_setup()
+        back.watch_qdb_path = mock.Mock()
+        back.untrusted_qdb = None
+        self.ext.on_domain_init_load(back, "domain-load")
+        self.assertEqual(self.ext.devices_cache["sys-usb"], {})

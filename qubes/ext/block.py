@@ -395,6 +395,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
         :returns BlockDevice
         """
 
+        if vm.untrusted_qdb is None:
+            return None
         untrusted_qubes_device_attrs = vm.untrusted_qdb.list(
             "/qubes-block-devices/{}/".format(port_id)
         )
@@ -408,7 +410,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_device_list_block(self, vm, event):
         # pylint: disable=unused-argument
 
-        if not vm.is_running():
+        if not vm.is_running() or vm.untrusted_qdb is None:
             return
         untrusted_qubes_devices = vm.untrusted_qdb.list("/qubes-block-devices/")
         untrusted_idents = set(
