@@ -195,7 +195,8 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         rec = np.fromstring(sample, dtype=np.float32)
         # determine sample size using silence threshold
         threshold = 10**-3
-        rec_size = np.count_nonzero((rec > threshold) | (rec < -threshold))
+        sound = (rec > threshold) | (rec < -threshold)
+        rec_size = np.count_nonzero(sound)
         if not rec_size:
             self.fail("only silence detected, no useful audio data")
         margin = 0.95
@@ -215,6 +216,21 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
             self.fail(
                 f"too short audio, expected 10s, got {rec_size / 44100}, saved to {fname}"
             )
+        # silence between the first and last mostly-loud 10ms blocks,
+        # so clicks at the file start or end don't count
+        block = 441
+        blocks = sound[: len(sound) // block * block].reshape(-1, block)
+        loud = np.nonzero(blocks.mean(axis=1) > 0.5)[0]
+        if len(loud):
+            silence = np.count_nonzero(~blocks[loud[0] : loud[-1] + 1])
+            if silence > (1 - margin) * 441000:
+                fname = f"/tmp/audio-sample-{self.id()}.raw"
+                with open(fname, "wb") as f:
+                    f.write(sample)
+                self.fail(
+                    f"audio has gaps, {silence / 44100}s of silence inside"
+                    f" the sound, saved to {fname}"
+                )
         # find zero crossings
         crossings = np.nonzero((rec[1:] > threshold) & (rec[:-1] < -threshold))[
             0
@@ -503,6 +519,33 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
         if audio_in[:32] in recorded_audio:
             self.fail("VM recorded something, even though mic disabled")
 
+    def wait_for_recording_end(self, vm, timeout=10):
+        """Wait until the end of the played sound is in audio_rec.snd"""
+        # an emulated sound card on a busy host can lag seconds behind
+        script = f"""
+import array, os, sys, time
+seen = False
+last_size, same = -1, 0
+for _ in range({timeout * 2}):
+    size = os.path.getsize("audio_rec.snd")
+    data = array.array("f")
+    with open("audio_rec.snd", "rb") as f:
+        data.frombytes(f.read(size - size % 4))
+    seen = seen or any(abs(x) > 1e-3 for x in data)
+    same = same + 1 if size == last_size else 0
+    if seen and (max(map(abs, data[-22050:])) < 1e-3 or same >= 6):
+        sys.exit(0)
+    last_size = size
+    time.sleep(0.5)
+sys.exit(1)
+"""
+        try:
+            self.loop.run_until_complete(
+                vm.run_for_stdio("python3 -", input=script.encode())
+            )
+        except subprocess.CalledProcessError:
+            self.log.warning("recording in %s did not catch up", vm.name)
+
     def common_audio_record_unmuted(self, attach_mic=True, detach_mic=True):
         if attach_mic:
             try:
@@ -558,6 +601,7 @@ admin.vm.feature.CheckWithTemplate  +audio-model   {vm}     @tag:audiovm-{vm}  a
 
         # wait for possible parecord buffering
         self.loop.run_until_complete(asyncio.sleep(2))
+        self.wait_for_recording_end(self.testvm1)
         if record.returncode is not None:
             self.fail(
                 "Recording process ended prematurely: exit code {}, stderr: {}".format(
