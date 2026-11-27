@@ -180,3 +180,83 @@ class TC_71_GUIVM(qubes.tests.QubesTestCase):
         self._load(work)
         self.assertIsNone(work.guivm)
         work.log.error.assert_called_once_with(mock.ANY, "work", gui_x)
+
+
+class TC_72_DPIScale(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.gui.GUI()
+        self.features = {}
+        self.domains = {}
+        specs = {
+            "features.get.side_effect": self.features.get,
+            "app.domains.__getitem__.side_effect": self.domains.__getitem__,
+            "app.domains.__iter__.side_effect": self.domains.values().__iter__,
+        }
+        vmspecs = {
+            **specs,
+            **{
+                "name": "test-vm",
+                "is_running.return_value": True,
+            },
+        }
+        dom0specs = {
+            **specs,
+            **{
+                "name": "dom0",
+                "klass": "AdminVM",
+                "guivm": None,
+                "is_running.return_value": True,
+            },
+        }
+        self.vm = mock.MagicMock()
+        self.vm.configure_mock(**vmspecs)
+        self.dom0 = mock.MagicMock()
+        self.dom0.configure_mock(**dom0specs)
+        self.domains["dom0"] = self.dom0
+        self.domains["test-vm"] = self.vm
+
+    def test_000_feature_set(self):
+        self.features["dpi.scale"] = "2"
+        self.ext.on_domain_feature_set_dpi_scale(
+            self.dom0, "domain-feature-set:dpi.scale", "dpi.scale", "2"
+        )
+        self.assertEqual(
+            self.vm.untrusted_qdb.mock_calls,
+            [("write", ("/dpi/scale", "2"), {})],
+        )
+
+    def test_001_feature_set_halted(self):
+        self.vm.is_running.return_value = False
+        self.features["dpi.scale"] = "2"
+        self.ext.on_domain_feature_set_dpi_scale(
+            self.dom0, "domain-feature-set:dpi.scale", "dpi.scale", "2"
+        )
+        self.assertEqual(self.vm.untrusted_qdb.mock_calls, [])
+
+    def test_002_feature_set_not_dom0(self):
+        self.features["dpi.scale"] = "2"
+        self.ext.on_domain_feature_set_dpi_scale(
+            self.vm, "domain-feature-set:dpi.scale", "dpi.scale", "2"
+        )
+        self.assertEqual(self.vm.untrusted_qdb.mock_calls, [])
+
+    def test_010_feature_delete(self):
+        self.ext.on_domain_feature_delete(
+            self.dom0, "domain-feature-delete:dpi.scale", "dpi.scale"
+        )
+        self.assertEqual(
+            self.vm.untrusted_qdb.mock_calls,
+            [("write", ("/dpi/scale", "1"), {})],
+        )
+
+    def test_020_domain_load(self):
+        self.features["dpi.scale"] = "2"
+        with mock.patch(
+            "qubes.ext.gui.open", mock.mock_open(), create=True
+        ) as mock_file:
+            self.ext.on_domain_init_load(self.dom0, "domain-load")
+        mock_file.assert_called_once_with(
+            "/var/run/qubes_dpi_scale", "w", encoding="ascii"
+        )
+        mock_file.return_value.write.assert_called_once_with("2")
