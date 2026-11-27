@@ -1052,9 +1052,9 @@ class ZFSAccessor:
                         self._cache.set(vol, "readonly", rdnly)
                         drty = row["org.qubes:dirty"] == "on"
                         self._cache.set(vol, "org.qubes:dirty", drty)
+                    self._initialized = True
                 except qubes.exc.StoragePoolException:
                     pass
-                self._initialized = True
 
             cached = self._cache.get(volume, "exists")
             if cached is not None:
@@ -1063,9 +1063,18 @@ class ZFSAccessor:
                 await self._get_prop_async(volume, "name", log=log)
                 self._ack_exists_nl(volume)
                 return True
-            except qubes.exc.StoragePoolException:
+            except DatasetDoesNotExist:
+                try:
+                    await self._get_prop_async(
+                        Volume.make(self.root), "name", log=log
+                    )
+                except qubes.exc.StoragePoolException:
+                    # Pool not imported: the volume may show up later.
+                    return False
                 self._cache.invalidate_recursively(volume)
                 self._cache.set(volume, "exists", False)
+                return False
+            except qubes.exc.StoragePoolException:
                 return False
 
     def volume_exists(
@@ -1107,9 +1116,9 @@ class ZFSAccessor:
                         self._cache.set(vol, "readonly", rdnly)
                         drty = row["org.qubes:dirty"] == "on"
                         self._cache.set(vol, "org.qubes:dirty", drty)
+                    self._initialized = True
                 except qubes.exc.StoragePoolException:
                     pass
-                self._initialized = True
 
             cached = self._cache.get(volume, "exists")
             if cached is not None:
@@ -1118,9 +1127,16 @@ class ZFSAccessor:
                 self._get_prop(volume, "name", log=log)
                 self._ack_exists_nl(volume)
                 return True
-            except qubes.exc.StoragePoolException:
+            except DatasetDoesNotExist:
+                try:
+                    self._get_prop(Volume.make(self.root), "name", log=log)
+                except qubes.exc.StoragePoolException:
+                    # Pool not imported: the volume may show up later.
+                    return False
                 self._cache.invalidate_recursively(volume)
                 self._cache.set(volume, "exists", False)
+                return False
+            except qubes.exc.StoragePoolException:
                 return False
 
     async def remove_volume_async(
