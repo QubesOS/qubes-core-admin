@@ -258,6 +258,61 @@ class TC_01_ZFSPool_solidstate(AsyncLoopHolderMixin):
 
             self.rc(asyncio.gather(waiter(), creator()))
 
+    def _fake_zfs(self, datasets: Dict[str, bool]) -> Any:
+        """Fake `zfs list`: `datasets` maps name to "listed" (False when
+        its pool is exported)."""
+
+        def fake(*cmd: str, log: logging.Logger) -> str:
+            # pylint: disable=unused-argument
+            assert cmd[0] == "list"
+            name = cmd[-1]
+            if not datasets.get(name, False):
+                raise zfs.DatasetDoesNotExist(
+                    f"cannot open '{name}': dataset does not exist"
+                )
+            ncols = len(cmd[cmd.index("-o") + 1].split(","))
+            return "\t".join([name] + ["-"] * (ncols - 1)) + "\n"
+
+        async def fake_async(*cmd: str, log: logging.Logger) -> str:
+            return fake(*cmd, log=log)
+
+        return fake, fake_async
+
+    def test_volume_exists_after_pool_import(self):
+        """volume_exists finds a volume once its pool is imported."""
+        log = logging.getLogger(__name__)
+        vol = zfs.Volume.make("tank/qubes/vm/private")
+        for use_async in (False, True):
+            datasets = {"tank/qubes": False, vol: False}
+            fake, fake_async = self._fake_zfs(datasets)
+            accessor = zfs.ZFSAccessor("tank/qubes")
+
+            def exists() -> bool:
+                if use_async:
+                    return self.rc(accessor.volume_exists_async(vol, log))
+                return accessor.volume_exists(vol, log)
+
+            with patch("qubes.storage.zfs.zfs", fake), patch(
+                "qubes.storage.zfs.zfs_async", fake_async
+            ):
+                self.assertFalse(exists())
+                datasets["tank/qubes"] = datasets[vol] = True
+                self.assertTrue(exists())
+
+    def test_volume_exists_caches_missing_volume(self):
+        """volume_exists caches a missing volume when its pool is there."""
+        log = logging.getLogger(__name__)
+        vol = zfs.Volume.make("tank/qubes/vm/private-tmp")
+        datasets = {"tank/qubes": True}
+        fake, fake_async = self._fake_zfs(datasets)
+        accessor = zfs.ZFSAccessor("tank/qubes")
+        with patch("qubes.storage.zfs.zfs", fake), patch(
+            "qubes.storage.zfs.zfs_async", fake_async
+        ):
+            self.assertFalse(self.rc(accessor.volume_exists_async(vol, log)))
+            datasets[vol] = True
+            self.assertFalse(accessor.volume_exists(vol, log))
+
     def test_dataset_in_root(self):
         self.assertTrue(zfs.dataset_in_root("a/b", "a"))
         self.assertTrue(zfs.dataset_in_root("a", "a"))
