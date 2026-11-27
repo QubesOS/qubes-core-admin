@@ -21,6 +21,7 @@
 #
 
 import os
+import tempfile
 from unittest import mock
 
 import lxml.etree
@@ -654,6 +655,12 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         )
         self.app.default_kernel = "dummy"
         self.addCleanup(self.cleanup_qubes)
+        patcher = mock.patch(
+            "qubes.config.qmemman_avail_mem_file",
+            "/nonexistent/qmemman-avail-mem",
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.app.load_initial_values()
         self.template = self.app.add_new_vm(
             "TemplateVM", name="test-template", label="green"
@@ -944,6 +951,45 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
                 ("xs.read", ("", "/local/domain/1/memory/meminfo")),
             ],
         )
+
+    def test_003_get_vm_stats_memory_available(self):
+        """memory_available is read from qmemman's file, only for dom0"""
+        names = {
+            0: "Domain-0",
+            1: self.app.domains[1].name,
+            2: self.app.domains[2].name,
+        }
+        self.app.get_name_from_domid = lambda domid: names[domid]
+        self.app.vmm = mock.Mock()
+        self.app.vmm.configure_mock(
+            **{
+                "xc.domain_getinfo.return_value": self.sample_xc_domain_getinfo,
+                "is_xen.return_value": True,
+                "xs.read.return_value": None,
+            }
+        )
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        avail_file = os.path.join(tmpdir.name, "qmemman-avail-mem")
+        with mock.patch("qubes.config.qmemman_avail_mem_file", avail_file):
+            _, info = self.app.host.get_vm_stats()
+            self.assertNotIn("memory_available", info[0])
+
+            for content, expected in [
+                ("2097152000", 2048000),
+                ("-1048576", 0),
+            ]:
+                with open(avail_file, "w", encoding="ascii") as file:
+                    file.write(content)
+                _, info = self.app.host.get_vm_stats()
+                self.assertEqual(info[0]["memory_available"], expected)
+                self.assertNotIn("memory_available", info[1])
+                self.assertNotIn("memory_available", info[2])
+
+            with open(avail_file, "w", encoding="ascii") as file:
+                file.write("garbage")
+            _, info = self.app.host.get_vm_stats()
+            self.assertNotIn("memory_available", info[0])
 
     def test_100_clockvm(self):
         appvm = self.app.add_new_vm(

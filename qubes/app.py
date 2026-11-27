@@ -426,6 +426,16 @@ class QubesHost:
             - Usage: This value should be compared with
               ``memory_with_swap_used`` to determine how much the qube is
               swaping over what it is using of real memory.
+         - ``memory_available``:
+            - Type: ``int``, unit: ``KiB``.
+            - Description: Free memory of the whole system: what qmemman
+              could still give to new or growing qubes, 0 when memory is
+              short. As it is not about one qube, only dom0's entry has
+              it. Missing until qmemman first computes it after boot.
+              Updated after each qmemman balance, so it can lag a few
+              seconds.
+            - Usage: Roughly, a qube can start if the memory it needs to
+              boot is below this value.
          - ``online_vcpus``
            - Type: ``int``.
            - Description: Amount of VCPUs assigned.
@@ -596,6 +606,15 @@ class QubesHost:
             del untrusted_value
             return value
 
+        def query_available_memory() -> int | None:
+            try:
+                with open(
+                    qubes.config.qmemman_avail_mem_file, encoding="ascii"
+                ) as file:
+                    return max(0, int(file.read())) // 1024
+            except (OSError, ValueError):
+                return None
+
         info = sorted(info, key=lambda domain: domain["domid"])
         info = {v["domid"]: v for v in info}
         for domid in info.keys():
@@ -666,6 +685,11 @@ class QubesHost:
                     swapinfo = query_xs_memory(domid, "swapinfo")
                     if swapinfo is not None:
                         current[domid]["swap_used"] = swapinfo
+
+            if domid == 0:
+                available = query_available_memory()
+                if available is not None:
+                    current[domid]["memory_available"] = available
 
             current[domid]["online_vcpus"] = info[domid]["online_vcpus"]
             if stubdom_xid > 0:

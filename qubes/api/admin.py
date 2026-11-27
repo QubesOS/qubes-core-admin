@@ -2605,6 +2605,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
             optional = {
                 "swap_used": int,
+                "memory_available": int,
                 "cpu_time_internal": lambda x: int(value / 1000000),
                 "cpu_usage_internal": lambda x: round(float(x), 1),
                 "online_vcpus_internal": int,
