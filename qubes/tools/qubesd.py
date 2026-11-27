@@ -4,8 +4,6 @@ import asyncio
 import os
 import signal
 
-import libvirtaio
-
 import qubes
 import qubes.app
 import qubes.api
@@ -53,17 +51,9 @@ parser.add_argument(
 
 
 def main(args=None):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    libvirtaio.virEventRegisterAsyncIOImpl(loop=loop)
-    try:
-        args = parser.parse_args(args)
-    except:
-        loop.close()
-        raise
+    args = parser.parse_args(args)
 
-    args.app.register_event_handlers()
-
+    loop = asyncio.get_running_loop()
     # Stop storage for domains not currently running
     loop.run_until_complete(args.app.stop_storage())
 

@@ -94,7 +94,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.base_dir_patch2.start()
         self.base_dir_patch3.start()
         self.skip_kernel_validation_patch.start()
-        app = qubes.Qubes("/tmp/qubes-test.xml", load=False)
+        app = qubes.Qubes("/tmp/qubes-test.xml", load=False, offline_mode=True)
         app.vmm = unittest.mock.Mock(spec=qubes.app.VMMConnection)
         app.load_initial_values()
         self.loop.run_until_complete(app.setup_pools())

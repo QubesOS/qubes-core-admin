@@ -104,10 +104,15 @@ try:
 except libvirt.libvirtError:
     pass
 
+qubes.Qubes.init_loop()
+libvirt_event_impl = None
 if in_dom0:
     import libvirtaio
 
-libvirt_event_impl = None
+    libvirt_event_impl = libvirtaio.getCurrentImpl()
+
+# qubes.app.VirConnectWrapper setKeepAlive requires the loop to be created
+# before calling qubes.Qubes().
 
 try:
     in_git = (
@@ -512,17 +517,7 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.addCleanup(self.cleanup_gc)
 
-        try:
-            self.loop = asyncio.get_event_loop()
-        except RuntimeError:
-            self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-        global libvirt_event_impl
-
-        if in_dom0 and not libvirt_event_impl:
-            libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
-
+        self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
 
         self.kernel_validator_original = qubes.app.validate_kernel
@@ -559,7 +554,7 @@ class QubesTestCase(unittest.TestCase):
             )
         ]
 
-        if leaked:
+        if leaked and not os.environ.get("QUBES_TEST_SKIP_OBJGRAPH", None):
             try:
                 import objgraph
 
@@ -573,8 +568,8 @@ class QubesTestCase(unittest.TestCase):
                 pass
 
         # do not keep leaked object references in locals()
-        leaked = bool(leaked)
-        assert not leaked
+        if leaked:
+            raise AssertionError("Leaked: %s" % leaked)
 
     def cleanup_loop(self):
         """Check if the loop is empty"""
@@ -585,12 +580,11 @@ class QubesTestCase(unittest.TestCase):
         # KEYWORDS for searching:
         #   win32, SelectorEventLoop, ProactorEventLoop, uvloop, gevent
 
-        global libvirt_event_impl
-
         # really destroy all objects that could have used loop and/or libvirt
         gc.collect()
 
         # Check for unfinished libvirt business.
+        global libvirt_event_impl
         if libvirt_event_impl is not None:
             try:
                 self.loop.run_until_complete(
@@ -902,10 +896,11 @@ class SystemTestCase(QubesTestCase):
         # need some information from the real qubes.xml - at least installed
         # templates; should not be used for testing, only to initialize self.app
         self.host_app = qubes.Qubes(
-            os.path.join(
+            store=os.path.join(
                 qubes.config.qubes_base_dir,
                 qubes.config.system_path["qubes_store_filename"],
-            )
+            ),
+            offline_mode=True,
         )
         if os.path.exists(CLASS_XMLPATH):
             shutil.copy(CLASS_XMLPATH, XMLPATH)
@@ -913,7 +908,6 @@ class SystemTestCase(QubesTestCase):
             shutil.copy(self.host_app.store, XMLPATH)
         self.app = qubes.Qubes(XMLPATH)
         os.environ["QUBES_XML_PATH"] = XMLPATH
-        self.app.register_event_handlers()
 
         self.qubesd = self.loop.run_until_complete(
             qubes.api.create_servers(
@@ -1285,7 +1279,7 @@ class SystemTestCase(QubesTestCase):
                 try:
                     host_app = self.host_app
                 except AttributeError:
-                    host_app = qubes.Qubes()
+                    host_app = qubes.Qubes(offline_mode=True)
                 self.remove_vms(
                     [
                         vm

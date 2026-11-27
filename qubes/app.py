@@ -34,10 +34,14 @@ import sys
 import time
 import traceback
 import uuid
+import weakref
 from contextlib import suppress
 
 import jinja2
 import libvirt
+
+with suppress(ImportError):
+    import libvirtaio
 import lxml.etree
 
 try:
@@ -60,27 +64,32 @@ import qubes.vm.templatevm
 # pylint: enable=wrong-import-position
 
 
+def _get_libvirt_close_dict() -> dict[int, str]:
+    libvirt_close_dict = {}
+    libvirt_names = dir(libvirt)
+    prefix = "VIR_CONNECT_CLOSE_REASON_"
+    for name in libvirt_names:
+        if not name.startswith(prefix):
+            continue
+        reason_id = int(getattr(libvirt, name))
+        reason_text = str(name[len(prefix) :].replace("_", " "))
+        libvirt_close_dict[reason_id] = reason_text
+    return libvirt_close_dict
+
+
 class VirDomainWrapper:
     # pylint: disable=too-few-public-methods
 
     def __init__(self, connection, vm):
         self._connection = connection
         self._vm = vm
+        self._uuid = self._vm.UUIDString()
+        self.log = logging.getLogger(f"vmm.libvirt_conn.dom.{self._vm.name()}")
+        self._connection._domains.add(self)
 
-    def _reconnect_if_dead(self):
-        try:
-            is_dead = not self._vm.connect().isAlive()
-        except libvirt.libvirtError as ex:
-            if ex.get_error_code() == libvirt.VIR_ERR_INVALID_CONN:
-                # connection to libvirt was re-established in the meantime
-                is_dead = True
-            else:
-                raise
-        if is_dead:
-            # pylint: disable=protected-access
-            self._connection._reconnect_if_dead()
-            self._vm = self._connection._conn.lookupByUUID(self._vm.UUID())
-        return is_dead
+    def reconnect(self) -> None:
+        # pylint: disable=protected-access
+        self._vm = self._connection._conn.lookupByUUIDString(self._uuid)
 
     def close(self):
         self._vm = None
@@ -93,12 +102,9 @@ class VirDomainWrapper:
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return getattr(self._vm, attrname)(*args, **kwargs)
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
-                    return getattr(self._vm, attrname)(*args, **kwargs)
-                raise
+            # pylint: disable=protected-access
+            self._connection._reconnect()
+            return getattr(self._vm, attrname)(*args, **kwargs)
 
         del wrapper.__wrapped__
         del attr
@@ -107,21 +113,81 @@ class VirDomainWrapper:
 
 class VirConnectWrapper:
     # pylint: disable=too-few-public-methods
+    close_reason = _get_libvirt_close_dict()
 
-    def __init__(self, uri, reconnect_cb=None):
-        self._conn = libvirt.open(uri)
+    def __init__(self, uri, reconnect_cb=None, disconnect_cb=None):
+        self.log = logging.getLogger("vmm.libvirt_conn")
+        self._uri = uri
         self._reconnect_cb = reconnect_cb
+        self._disconnect_cb = disconnect_cb
+        self._domains = weakref.WeakSet()
+        self._conn = None
+        self.is_alive = False
+        self._setup()
 
-    def _reconnect_if_dead(self):
-        is_dead = not self._conn.isAlive()
-        if is_dead:
-            uri = self._conn.getURI()
-            old_conn = self._conn
-            self._conn = libvirt.open(uri)
-            if callable(self._reconnect_cb):
-                self._reconnect_cb(old_conn)
-            old_conn.close()
-        return is_dead
+    def _setup(self) -> None:
+        self._conn = libvirt.open(self._uri)
+        self.is_alive = True
+        self._conn.setKeepAlive(interval=1, count=3)
+        self._conn.registerCloseCallback(self._mark_dead, "watcher")
+        self.log.info("Libvirt connection established")
+
+    def close(self):
+        self.log.info("Libvirt connection will close as requested")
+        if self.is_alive:
+            self._conn.unregisterCloseCallback()
+        if callable(self._disconnect_cb):
+            self._disconnect_cb(self._conn)
+        self._conn.close()
+        self._conn = None
+        self.is_alive = False
+
+    def _mark_dead(self, conn, reason, _opaque) -> None:
+        # pylint: disable=unused-argument
+        self.log.info(
+            "Libvirt connection closed due to %s",
+            self.close_reason[reason],
+        )
+        self.is_alive = False
+        if callable(self._disconnect_cb):
+            self._disconnect_cb(conn)
+        asyncio.ensure_future(self._await_reconnection())
+
+    async def _await_reconnection(self):
+        while not self.is_alive:
+            try:
+                self._reconnect()
+            except libvirt.libvirtError as exc:
+                code = exc.get_error_code()
+                if code != libvirt.VIR_ERR_SYSTEM_ERROR:
+                    self.log.exception(
+                        "Reconnecting to libvirt failed (%d)", code
+                    )
+            else:
+                break
+            await asyncio.sleep(0.25)
+
+    def _reconnect(self) -> bool:
+        if self.is_alive:
+            return False
+        self.log.info("Reconnecting to libvirt")
+        self._setup()
+        for domain in list(self._domains):
+            try:
+                domain.reconnect()
+            except libvirt.libvirtError as exc:
+                code = exc.get_error_code()
+                if code == libvirt.VIR_ERR_NO_DOMAIN:
+                    domain.log.info("Discarding absent domain")
+                    self._domains.discard(domain)
+                    continue
+                domain.log.exception(
+                    "Reconnecting domain to libvirt failed (%d)", code
+                )
+                raise
+        if callable(self._reconnect_cb):
+            self._reconnect_cb(self._conn)
+        return True
 
     def _wrap_domain(self, ret):
         if isinstance(ret, libvirt.virDomain):
@@ -137,14 +203,11 @@ class VirConnectWrapper:
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return self._wrap_domain(attr(*args, **kwargs))
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
-                    return self._wrap_domain(
-                        getattr(self._conn, attrname)(*args, **kwargs)
-                    )
-                raise
+            if self._reconnect():
+                return self._wrap_domain(
+                    getattr(self._conn, attrname)(*args, **kwargs)
+                )
+            return self._wrap_domain(attr(*args, **kwargs))
 
         return wrapper
 
@@ -152,7 +215,12 @@ class VirConnectWrapper:
 class VMMConnection:
     """Connection to Virtual Machine Manager (libvirt)"""
 
-    def __init__(self, offline_mode=None, libvirt_reconnect_cb=None):
+    def __init__(
+        self,
+        offline_mode=None,
+        libvirt_reconnect_cb=None,
+        libvirt_disconnect_cb=None,
+    ):
         """
 
         :param offline_mode: enable/disable offline mode; default is to
@@ -167,6 +235,7 @@ class VMMConnection:
             )
         self._offline_mode = offline_mode
         self._libvirt_reconnect_cb = libvirt_reconnect_cb
+        self._libvirt_disconnect_cb = libvirt_disconnect_cb
 
         self._libvirt_conn = None
         self._xs = None
@@ -199,6 +268,7 @@ class VMMConnection:
         self._libvirt_conn = VirConnectWrapper(
             qubes.config.defaults["libvirt_uri"],
             reconnect_cb=self._libvirt_reconnect_cb,
+            disconnect_cb=self._libvirt_disconnect_cb,
         )
         self._libvirt_conn_type = self._libvirt_conn.getType()
         self._libvirt_conn_uri = self._libvirt_conn.getURI()
@@ -1323,6 +1393,20 @@ class Qubes(qubes.PropertyHolder):
         doc="Quantity of CPUs",
     )
 
+    @staticmethod
+    def init_loop() -> None:
+        """
+        Helper to create loop and register asynchronous implementations to
+        libvirt. You may call it as such:
+
+        >>> import qubes
+        >>> qubes.Qubes.init_loop()
+        >>> app = qubes.Qubes()
+        """
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop=loop)
+        libvirtaio.virEventRegisterAsyncIOImpl(loop=loop)
+
     def __init__(
         self, store=None, load=True, offline_mode=None, lock=False, **kwargs
     ):
@@ -1343,15 +1427,6 @@ class Qubes(qubes.PropertyHolder):
 
         #: collection of all pools
         self.pools = {}
-
-        #: Connection to VMM
-        self.vmm = VMMConnection(
-            offline_mode=offline_mode,
-            libvirt_reconnect_cb=self.register_event_handlers,
-        )
-
-        #: Information about host system
-        self.host = QubesHost(self)
 
         if store is not None:
             self._store = store
@@ -1382,9 +1457,26 @@ class Qubes(qubes.PropertyHolder):
             autoescape=True,
         )
 
+        #: Connection to VMM
+        reconnect_cb = None
+        disconnect_cb = None
+        if not offline_mode:
+            reconnect_cb = self.register_event_handlers
+            disconnect_cb = self.deregister_event_handlers
+        self.vmm = VMMConnection(
+            offline_mode=offline_mode,
+            libvirt_reconnect_cb=reconnect_cb,
+            libvirt_disconnect_cb=disconnect_cb,
+        )
+
+        #: Information about host system
+        self.host = QubesHost(self)
+
         if load:
             self.load(lock=lock)
 
+        if callable(reconnect_cb):
+            reconnect_cb()
         self.events_enabled = True
 
     @property
@@ -1574,12 +1666,6 @@ class Qubes(qubes.PropertyHolder):
         self.fire_event("qubes-close")
 
         super().close()
-
-        if self._domain_event_callback_id is not None:
-            self.vmm.libvirt_conn.domainEventDeregisterAny(
-                self._domain_event_callback_id
-            )
-            self._domain_event_callback_id = None
 
         # Only our Lord, The God Almighty, knows what references
         # are kept in extensions.
@@ -1888,30 +1974,42 @@ class Qubes(qubes.PropertyHolder):
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
         """
-        if old_connection:
-            try:
+        self.log.info("Registering events to new libvirt connection")
+        conn = old_connection or self.vmm.libvirt_conn
+        self._domain_event_callback_id = conn.domainEventRegisterAny(
+            None,  # any domain
+            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+            self._domain_event_callback,
+            None,
+        )
+        # On libvirt reconnection, ensure power events aren't missed.
+        for vm in self.domains.values():
+            if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                vm.libvirt_reconnect()
+
+    def deregister_event_handlers(self, old_connection):
+        """
+        Deregister libvirt event handlers and cached properties when connection
+        is closed.
+        """
+        self.log.info(
+            "Deregistering events and cached properties from old libvirt "
+            "connection"
+        )
+        if self._domain_event_callback_id is not None:
+            with suppress(libvirt.libvirtError):
                 old_connection.domainEventDeregisterAny(
                     self._domain_event_callback_id
                 )
-            except libvirt.libvirtError:
-                # the connection is probably in a bad state; but call the above
-                # anyway to cleanup the client structures
-                pass
-        self._domain_event_callback_id = (
-            self.vmm.libvirt_conn.domainEventRegisterAny(
-                None,  # any domain
-                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                self._domain_event_callback,
-                None,
-            )
-        )
-        if old_connection:
-            # If this is libvirt restart, check if ensure no shutdown events
-            # were missed. on_libvirt_domain_stopped() can deal with duplicated
-            # events.
+            self._domain_event_callback_id = None
+        # On libvirt disconnection, discard cached power state to force queries
+        # to the power state to go through VirDomainWrapper, and at least
+        # attempt to reconnect. But if domains attribute is missing, we are
+        # closing the app, so it is safe to ignore it.
+        if hasattr(self, "domains"):
             for vm in self.domains.values():
-                if not vm.is_running():
-                    vm.on_libvirt_domain_stopped()
+                if isinstance(vm, qubes.vm.qubesvm.QubesVM):
+                    vm.libvirt_disconnect()
 
     def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         """Generic libvirt event handler (virConnectDomainEventCallback),
