@@ -205,6 +205,24 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
                 asyncio.wait_for(self.protocol.mgmt.task, 1)
             )
 
+    def test_005_event_non_ascii(self):
+        """Event values with non-ASCII characters are sent as UTF-8."""
+        payload = "„quoted”".encode()
+        self.writer.write(b"mgmt.event+arg dom0 name dom0\0" + payload)
+        self.writer.write_eof()
+        with self.assertNotRaises(asyncio.TimeoutError):
+            response = self.loop.run_until_complete(
+                asyncio.wait_for(self.reader.readuntil(b"\0\0"), 1)
+            )
+        self.assertEqual(
+            response, b"1\0subject\0event\0payload\0" + payload + b"\0\0"
+        )
+        self.sock_client.shutdown(socket.SHUT_RD)
+        with self.assertNotRaises(asyncio.TimeoutError):
+            self.loop.run_until_complete(
+                asyncio.wait_for(self.protocol.mgmt.task, 1)
+            )
+
     def test_006_target_adminvm(self):
         self.writer.write(b"mgmt.success+arg src keyword adminvm\0payload")
         self.writer.write_eof()

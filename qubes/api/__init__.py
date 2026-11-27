@@ -570,7 +570,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         data += b"\0"
         data += event.encode("ascii") + b"\0"
         data += "".join(f"{k}\0{v}\0" for k, v in kwargs.items()).encode(
-            "ascii"
+            "utf-8"
         )
         data += b"\0"
         self.write(header=header, data=data)
