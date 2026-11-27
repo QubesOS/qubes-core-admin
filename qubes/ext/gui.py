@@ -47,6 +47,24 @@ class GUI(qubes.ext.Extension):
         )
 
     @staticmethod
+    def set_qubesdb_guivm(vm, guivm):
+        """Point a running qube's gui-agent at its new GuiVM"""
+        if not vm.is_running():
+            return
+        # QubesDB is not up yet, domain-qdb-create will set the entries
+        qdb = vm.untrusted_qdb
+        if qdb is None:
+            return
+        gui = bool(guivm and vm.features.get("gui", True))
+        qdb.write("/qubes-gui-enabled", str(gui))
+        if guivm and guivm != vm:
+            qdb.write("/keyboard-layout", vm.keyboard_layout)
+        if guivm and guivm != vm and guivm.is_running():
+            qdb.write("/qubes-gui-domain-xid", str(guivm.xid))
+        else:
+            qdb.rm("/qubes-gui-domain-xid")
+
+    @staticmethod
     def displays_itself(vm, guivm, default_guivm):
         seen = set()
         while guivm is not None:
@@ -123,11 +141,12 @@ class GUI(qubes.ext.Extension):
                     found = True
                     continue
                 subject.tags.remove(tag)
-        if found:
-            return
-        if newvalue:
+        if newvalue and not found:
             guivm = "guivm-" + newvalue.name
             subject.tags.add(guivm)
+        # the qube is not running during domain-init and domain-load
+        if event not in ("domain-init", "domain-load"):
+            self.set_qubesdb_guivm(subject, newvalue)
 
     @qubes.ext.handler("property-set:default_guivm", system=True)
     def on_property_set_default_guivm(
@@ -232,6 +251,16 @@ class GUI(qubes.ext.Extension):
             await asyncio.create_subprocess_exec(
                 "/usr/bin/qubes-input-trigger", "--all", "--dom0"
             )
+
+    @qubes.ext.handler("domain-shutdown")
+    def on_domain_shutdown(self, vm, event, **kwargs):
+        # Make gui-agents stop sharing windows with the stopped GuiVM
+        for attached_vm in self.attached_vms(vm):
+            if not attached_vm.is_running():
+                continue
+            qdb = attached_vm.untrusted_qdb
+            if qdb is not None:
+                qdb.rm("/qubes-gui-domain-xid")
 
     @qubes.ext.handler("domain-pre-shutdown")
     def on_domain_pre_shutdown(self, vm, event, **kwargs):
