@@ -76,8 +76,8 @@ Requires:       pciutils
 Requires:       util-linux-core
 # udev rules for encrypted volatile volumes and zfs
 Requires:       qubes-core-dom0-linux >= 4.2.6
-# qrexec-daemon --uuid support
-Requires:       qubes-core-qrexec-dom0 >= 4.3.0
+# @dispvm:@all in the default policy
+Requires:       qubes-core-qrexec-dom0 >= 4.4.3
 Requires:       qubes-db-dom0
 %if "x%{?backend_vmm}" == "xxen"
 Requires:       xen-runtime
