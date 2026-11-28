@@ -73,6 +73,7 @@ class XSWatcher:
         self.log.debug("XS_Watcher()")
 
         self.handle = xen.lowlevel.xs.xs()
+        self.xc = xen.lowlevel.xc.xc()
         self.handle.watch(
             "@introduceDomain", WatchType(XSWatcher.domain_list_changed, False)
         )
@@ -129,7 +130,13 @@ class XSWatcher:
                     get_domain_meminfo_key(domid), self.watch_token_dict[domid]
                 )
                 self.watch_token_dict.pop(domid)
-                system_state.del_domain(domid)
+                # TODO: ben: this might need to be retrieved earlier, what is
+                # acquiring the lock takes too long and domain is not the
+                # getinfo anymore?
+                info = self.xc.domain_getinfo(int(domid), 1)[0]
+                shutdown_reason = info["shutdown_reason"]
+                reboot = shutdown_reason == 1
+                system_state.del_domain(domid, reboot=reboot)
 
             if not refresh_only:
                 try:
@@ -230,6 +237,25 @@ class QMemmanReqHandler(socketserver.BaseRequestHandler):
                     }
                     if system_state.do_balloon_dom(dom_memset):
                         resp = "OK"
+                elif data_args[0].isalpha():
+                    resp = "FAIL"
+                    if data_args[0] == "save":
+                        if system_state.save_mem(
+                            domid=data_args[1],
+                            mem_size=int(data_args[2]),
+                        ):
+                            resp = "OK"
+                    elif data_args[0] == "claim":
+                        if system_state.claim_mem(
+                            old_domid=data_args[1], mem_size=int(data_args[2])
+                        ):
+                            resp = "OK"
+                    elif data_args[0] == "release":
+                        if system_state.release_mem(domid=data_args[1]):
+                            resp = "OK"
+                    elif data_args[0] == "reboot":
+                        if system_state.set_reboot(domid=data_args[1]):
+                            resp = "OK"
                 resp = str(resp + "\n").encode("ascii")
 
                 self.log.debug("resp={!r}".format(resp))
