@@ -1585,7 +1585,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.LocalVM):
                     self.libvirt_domain.createWithFlags(
                         libvirt.VIR_DOMAIN_START_PAUSED,
                     )
-                self.create_xs_entries()
+                    # before the wait, or vm-stats can see the qube without them
+                    self.create_xs_entries()
 
                 # the above allocates xid, lets announce that
                 self.log.info(
