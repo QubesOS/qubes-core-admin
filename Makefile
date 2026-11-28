@@ -7,6 +7,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.Events \
 	admin.backup.Execute \
 	admin.backup.Info \
+	admin.backup.Dom0HomeSize \
 	admin.backup.Cancel \
 	admin.label.Create \
 	admin.label.Get \

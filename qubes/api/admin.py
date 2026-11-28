@@ -23,8 +23,10 @@ Qubes OS Management API
 
 import asyncio
 import functools
+import grp
 import os
 import pathlib
+import pwd
 import re
 import string
 import subprocess
@@ -2567,6 +2569,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         backup = await self._load_backup_profile(self.arg, skip_passphrase=True)
         summary = backup.get_backup_summary(filtered_domains=domains)
         return summary
+
+    @qubes.api.method(
+        "admin.backup.Dom0HomeSize",
+        wants_arg=False,
+        wants_payload=False,
+        dest_adminvm=True,
+        scope="global",
+        read=True,
+    )
+    async def backup_dom0_home_size(self):
+        """Disk usage of the dom0 user home, as counted in a backup"""
+        self.fire_event_for_permission()
+        local_user = grp.getgrnam("qubes").gr_mem[0]
+        home_dir = pwd.getpwnam(local_user).pw_dir
+        size = await asyncio.get_running_loop().run_in_executor(
+            None, qubes.utils.get_disk_usage, home_dir
+        )
+        return str(size)
 
     def _send_stats_single(self, info_time, info, only_vm, filters):
         """A single iteration of sending VM stats

@@ -645,45 +645,8 @@ def create_sparse_file(path, size, permissions=None):
         fh.truncate(size)
 
 
-def get_disk_usage_one(st):
-    """Extract disk usage of one inode from its stat_result struct.
-
-    If known, get real disk usage, as written to device by filesystem, not
-    logical file size. Those values may be different for sparse files.
-
-    :param os.stat_result st: stat result
-    :returns: disk usage
-    """
-    try:
-        return st.st_blocks * BLKSIZE
-    except AttributeError:
-        return st.st_size
-
-
-def get_disk_usage(path):
-    """Get real disk usage of given path (file or directory).
-
-    When *path* points to directory, then it is evaluated recursively.
-
-    This function tries estimate real disk usage. See documentation of
-    :py:func:`get_disk_usage_one`.
-
-    :param str path: path to evaluate
-    :returns: disk usage
-    """
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return 0
-
-    ret = get_disk_usage_one(st)
-
-    # if path is not a directory, this is skipped
-    for dirpath, dirnames, filenames in os.walk(path):
-        for name in dirnames + filenames:
-            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
-
-    return ret
+get_disk_usage_one = qubes.utils.get_disk_usage_one
+get_disk_usage = qubes.utils.get_disk_usage
 
 
 def create_dir_if_not_exists(path):
