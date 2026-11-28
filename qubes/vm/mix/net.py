@@ -24,7 +24,6 @@
 
 import asyncio
 import ipaddress
-import os
 import re
 
 import libvirt  # pylint: disable=import-error
@@ -779,7 +778,3 @@ class NetVMMixin(qubes.events.Emitter):
         if self._firewall is None:
             self._firewall = qubes.firewall.Firewall(self)
         return self._firewall
-
-    def has_firewall(self):
-        """Return `True` if there are some vm specific firewall rules set"""
-        return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))

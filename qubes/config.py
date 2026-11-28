@@ -61,9 +61,6 @@ system_path = {
     "qubes_templates_dir": "vm-templates",
     "qubes_store_filename": "qubes.xml",
     "qubes_kernels_base_dir": "vm-kernels",
-    # qubes_icon_dir is obsolete
-    # use QIcon.fromTheme() where applicable
-    "qubes_icon_dir": "/usr/share/icons/hicolor/128x128/devices",
     "dom0_services_dir": "/var/run/qubes-service",
 }
 

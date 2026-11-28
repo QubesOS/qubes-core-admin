@@ -129,27 +129,6 @@ def parse_size(size):
     raise qubes.exc.QubesException("Invalid size: {0}.".format(size))
 
 
-def mbytes_to_kmg(size):
-    if size > 1024:
-        return "%d GiB" % (size / 1024)
-
-    return "%d MiB" % size
-
-
-def kbytes_to_kmg(size):
-    if size > 1024:
-        return mbytes_to_kmg(size / 1024)
-
-    return "%d KiB" % size
-
-
-def bytes_to_kmg(size):
-    if size > 1024:
-        return kbytes_to_kmg(size / 1024)
-
-    return "%d B" % size
-
-
 def size_to_human(size):
     """Humane readable size, with 1/10 precision"""
     if size < 1024:
