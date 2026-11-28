@@ -41,7 +41,7 @@ default NetVM for all AppVMs. All of those *configurable* parameters are called
 Definition
 ^^^^^^^^^^
 Properties are defined on global :py:class:`qubes.Qubes` application object and
-on every domain. Those classes inherit from :py:class:`PropertyHolder` class,
+on every domain. Those classes inherit from :py:class:`qubes.PropertyHolder` class,
 which is responsible for operation of properties.
 
 Each Qubes property is actually a *data descriptor* (a Python term), which means
@@ -148,7 +148,7 @@ statement::
 
 Alternatively, some properties may return some other value instead, if that's
 the reasonable thing to do. For example, when
-:py:attr:`qubes.vm.qubesvm.QubesVM.netvm` is unset, we check global setting
+:py:attr:`qubes.vm.mix.net.NetVMMixin.netvm` is unset, we check global setting
 :py:attr:`qubes.Qubes.default_netvm` instead. Returning :py:obj:`None` as
 default would be wrong, as it is marker that means „no NetVM, machine
 disconnected”.
