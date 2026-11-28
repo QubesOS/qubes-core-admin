@@ -1429,7 +1429,7 @@ class Qubes(qubes.PropertyHolder):
 
         :throws EnvironmentError: failure on parsing store
         :throws xml.parsers.expat.ExpatError: failure on parsing store
-        :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
+        :raises: ``lxml.etree.XMLSyntaxError`` on syntax error in qubes.xml
         """
 
         fh = self._acquire_lock()
@@ -1696,7 +1696,7 @@ class Qubes(qubes.PropertyHolder):
     def xml_labels(self):
         """Serialise labels
 
-        :rtype: lxml.etree._Element
+        :rtype: ``lxml.etree._Element``
         """
 
         labels = lxml.etree.Element("labels")
@@ -1933,7 +1933,7 @@ class Qubes(qubes.PropertyHolder):
         Forbid deleting qube if it is a dependency of another qube.
 
         :param str event: Event which was fired.
-        :param qubes.vm.QubesVM name: Qube name.
+        :param qubes.vm.qubesvm.QubesVM vm: Qube name.
         """
         # pylint: disable=unused-argument
         dependencies = []

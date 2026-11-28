@@ -65,18 +65,19 @@ class Label:
         self.name = name
 
         #: freedesktop icon name, suitable for use in
-        #: :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
+        #: ``PyQt4.QtGui.QIcon.fromTheme``
         self.icon = "appvm-" + name
 
         #: freedesktop icon name, suitable for use in
-        #: :py:meth:`PyQt4.QtGui.QIcon.fromTheme` on DispVMs
+        #: ``PyQt4.QtGui.QIcon.fromTheme`` on DispVMs
         self.icon_dispvm = "dispvm-" + name
 
     @classmethod
     def fromxml(cls, xml):
         """Create label definition from XML node
 
-        :param lxml.etree._Element xml: XML node reference
+        :param xml: XML node reference.
+        :type xml: ``lxml.etree._Element``
         :rtype: :py:class:`qubes.Label`
         """
 
@@ -114,7 +115,7 @@ class Label:
         """Icon path
 
         .. deprecated:: 2.0
-           use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon`
+           use ``PyQt4.QtGui.QIcon.fromTheme`` and :py:attr:`icon`
         """
         return (
             os.path.join(qubes.config.system_path["qubes_icon_dir"], self.icon)
@@ -126,7 +127,7 @@ class Label:
         """Icon path
 
         .. deprecated:: 2.0
-           use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon_dispvm`
+           use ``PyQt4.QtGui.QIcon.fromTheme`` and :py:attr:`icon_dispvm`
         """
         return (
             os.path.join(
@@ -633,7 +634,7 @@ class PropertyHolder(qubes.events.Emitter):
         """List all properties attached to this VM's class
 
         :param load_stage: Filter by load stage
-        :type load_stage: :py:func:`int` or :py:obj:`None`
+        :type load_stage: :py:class:`int` or :py:obj:`None`
         """
 
         # use cls.__dict__ since we must not look at parent classes
@@ -664,7 +665,7 @@ class PropertyHolder(qubes.events.Emitter):
         """List all properties attached to this VM's class
 
         :param load_stage: Filter by load stage
-        :type load_stage: :py:func:`int` or :py:obj:`None`
+        :type load_stage: :py:class:`int` or :py:obj:`None`
         """
 
         # use cls.__dict__ since we must not look at parent classes
@@ -794,9 +795,9 @@ class PropertyHolder(qubes.events.Emitter):
         """Clone properties from other object.
 
         :param PropertyHolder src: source object
-        :param iterable proplist: list of properties \
+        :param collections.abc.Iterable proplist: list of properties
             (:py:obj:`None` or omit for all properties except those with \
-            :py:attr:`property.clone` set to :py:obj:`False`)
+            ``property.clone`` set to :py:obj:`False`)
         """
 
         if proplist is None:
