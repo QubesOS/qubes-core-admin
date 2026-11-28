@@ -872,7 +872,10 @@ class Backup:
         backup_app.save()
         del backup_app
 
+        header_files = await self._prepare_backup_header()
+
         vmproc = None
+        created_target = None
         if self.target_vm is not None:
             # Prepare the backup target (Qubes service call)
             # If APPVM, STDOUT is a PIPE
@@ -908,7 +911,11 @@ class Backup:
                     )
 
             # If not APPVM, STDOUT is a local file
-            backup_stdout = open(backup_target, "wb")
+            try:
+                backup_stdout = open(backup_target, "xb")
+                created_target = backup_target
+            except FileExistsError:
+                backup_stdout = open(backup_target, "wb")
 
         # Tar with tape length does not deals well with stdout
         # (close stdout between two tapes)
@@ -916,8 +923,6 @@ class Backup:
         self.log.debug("Working in {}".format(self.tmpdir))
 
         self.log.debug("Will backup: {}".format(files_to_backup))
-
-        header_files = await self._prepare_backup_header()
 
         # Setup worker to send encrypted data chunks to the backup_target
         to_send = asyncio.Queue(10)
@@ -968,6 +973,11 @@ class Backup:
                 raise
 
             await send_task
+
+        except:
+            if created_target:
+                os.unlink(created_target)
+            raise
 
         finally:
             if isinstance(backup_stdout, int):
